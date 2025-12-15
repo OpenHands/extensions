@@ -15,6 +15,10 @@ the GitHub API.
 You can use `curl` with the `GITHUB_TOKEN` to interact with GitHub's API.
 ALWAYS use the GitHub API for operations instead of a web browser.
 ALWAYS use the `create_pr` tool to open a pull request
+If the user asks you to check GitHub Actions status, first try to use `gh` to work with workflows, and only fallback to basic API calls if that fails.
+Examples:
+- `gh run watch` (https://cli.github.com/manual/gh_run_watch) to monitor workflow runs
+- `gh pr checks 200 --watch --interval 10` to check until completed.
 </IMPORTANT>
 
 If you encounter authentication issues when pushing to GitHub (such as password prompts or permission errors), the old token may have expired. In such case, update the remote URL to include the current token: `git remote set-url origin https://${GITHUB_TOKEN}@github.com/username/repo.git`
