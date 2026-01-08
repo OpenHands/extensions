@@ -54,7 +54,7 @@ your-repository/
     ├── skills/        # V1: Preferred location for repository-specific skills
     │   └── repo.md    # Repository-specific instructions
     │   └── ...        # Private skills that are only available inside this
-    └── skills/   # V0: Current location (also supported in V1 for backward compatibility)
+    └── microagents/   # V0: Current location (also supported in V1 for backward compatibility)
         └── repo.md    # Repository-specific instructions
         └── ...        # Private micro-agents that are only available inside this repo
 ```
