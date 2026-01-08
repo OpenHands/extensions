@@ -95,7 +95,7 @@ You can see an example of a knowledge-based agent in [OpenHands's github skill](
 Repository agents provide repository-specific knowledge and guidelines. They are:
 
 - Loaded from `.openhands/microagents/repo.md` (V0) or `.openhands/skills/` directory (V1)
-- V1 also supports `.openhands/skills/` for backward compatibility
+- V1 also supports `.openhands/microagents/` for backward compatibility
 - Specific to individual repositories
 - Automatically activated for their repository
 - Perfect for team practices and project conventions
