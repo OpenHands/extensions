@@ -70,7 +70,7 @@ When OpenHands works with a repository, it:
 
 ## Types of Skills/Skills
 
-Most skills/skills use markdown files with YAML frontmatter. For repository agents (repo.md), the frontmatter is optional - if not provided, the file will be loaded with default settings as a repository agent.
+Most skills use markdown files with YAML frontmatter. For repository agents (repo.md), the frontmatter is optional - if not provided, the file will be loaded with default settings as a repository agent.
 
 ### 1. Knowledge Agents
 
