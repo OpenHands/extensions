@@ -1,10 +1,6 @@
 ---
 name: npm
 description: Handle npm package installation in non-interactive environments by piping confirmations. Use when installing Node.js packages that require user confirmation prompts.
-metadata:
-  agent: CodeActAgent
-  type: knowledge
-  version: 1.0.0
 triggers:
 - npm
 ---

@@ -1,10 +1,6 @@
 ---
 name: github
 description: Interact with GitHub repositories, pull requests, issues, and workflows using the GITHUB_TOKEN environment variable and GitHub CLI. Use when working with code hosted on GitHub or managing GitHub resources.
-metadata:
-  agent: CodeActAgent
-  type: knowledge
-  version: 1.0.0
 triggers:
 - github
 - git

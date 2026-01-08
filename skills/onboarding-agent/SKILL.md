@@ -1,10 +1,6 @@
 ---
 name: onboarding-agent
 description: Interactive onboarding workflow that interviews users to understand their coding goals and generates PR-ready implementation plans. Use when starting a new development task to ensure clear requirements and structured execution.
-metadata:
-  agent: CodeActAgent
-  type: knowledge
-  version: 1.0.0
 triggers:
 - /onboard
 ---

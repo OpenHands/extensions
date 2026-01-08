@@ -1,10 +1,6 @@
 ---
 name: pdflatex
 description: Install and use pdflatex to compile LaTeX documents into PDFs on Linux. Use when generating academic papers, research publications, or any documents written in LaTeX.
-metadata:
-  agent: CodeActAgent
-  type: knowledge
-  version: 1.0.0
 triggers:
 - pdflatex
 ---

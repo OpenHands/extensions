@@ -1,10 +1,6 @@
 ---
 name: jupyter
 description: Read, modify, execute, and convert Jupyter notebooks programmatically. Use when working with .ipynb files for data science workflows, including editing cells, clearing outputs, or converting to other formats.
-metadata:
-  agent: CodeActAgent
-  type: knowledge
-  version: 1.0.0
 triggers:
 - ipynb
 - jupyter

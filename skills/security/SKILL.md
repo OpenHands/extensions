@@ -1,10 +1,6 @@
 ---
 name: security
 description: Security best practices for secure coding, authentication, authorization, and data protection. Use when developing features that handle sensitive data, user authentication, or require security review.
-metadata:
-  agent: CodeActAgent
-  type: knowledge
-  version: 1.0.0
 triggers:
 - security
 - vulnerability

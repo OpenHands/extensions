@@ -1,10 +1,6 @@
 ---
 name: azure-devops
 description: Interact with Azure DevOps repositories, pull requests, and APIs using the AZURE_DEVOPS_TOKEN environment variable. Use when working with code hosted on Azure DevOps or managing Azure DevOps resources.
-metadata:
-  agent: CodeActAgent
-  type: knowledge
-  version: 1.0.0
 triggers:
 - azure_devops
 - azure

@@ -4,10 +4,6 @@ description: Guided workflow for building custom AI agents using the OpenHands S
 inputs:
 - description: Initial SDK requirements
   name: INITIAL_PROMPT
-metadata:
-  agent: CodeActAgent
-  author: openhands
-  version: 1.0.0
 triggers:
 - /agent-builder
 ---

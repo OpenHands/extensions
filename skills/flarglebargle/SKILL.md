@@ -1,10 +1,6 @@
 ---
 name: flarglebargle
 description: A test skill that responds to the magic word "flarglebargle" with a compliment. Use for testing skill activation and trigger functionality.
-metadata:
-  agent: CodeActAgent
-  type: knowledge
-  version: 1.0.0
 triggers:
 - flarglebargle
 ---

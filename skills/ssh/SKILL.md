@@ -1,10 +1,6 @@
 ---
 name: ssh
 description: Establish and manage SSH connections to remote machines, including key generation, configuration, and file transfers. Use when connecting to remote servers, executing remote commands, or transferring files via SCP.
-metadata:
-  agent: CodeActAgent
-  type: knowledge
-  version: 1.0.0
 triggers:
 - ssh
 - remote server

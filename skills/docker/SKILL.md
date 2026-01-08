@@ -1,10 +1,6 @@
 ---
 name: docker
 description: Run Docker commands within a container environment, including starting the Docker daemon and managing containers. Use when building, running, or managing Docker containers and images.
-metadata:
-  agent: CodeActAgent
-  type: knowledge
-  version: 1.0.0
 triggers:
 - docker
 - container
