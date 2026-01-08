@@ -31,7 +31,7 @@ OpenHands/skills/
 │   ├── git.md         # Git operations
 │   ├── testing.md     # Testing practices
 │   └── docker.md      # Docker guidelines
-└── # These skills/skills are always loaded
+└── # These skills are always loaded
     ├── pr_review.md   # PR review process
     ├── bug_fix.md     # Bug fixing workflow
     └── feature.md     # Feature implementation
