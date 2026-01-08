@@ -16,12 +16,12 @@ triggers:
 
 Please browse the current repository under /workspace/{{ REPO_FOLDER_NAME }}, look at the documentation and relevant code, and understand the purpose of this repository.
 
-Specifically, I want you to create a `.openhands/skills/repo.md`  file. This file should contain succinct information that summarizes (1) the purpose of this repository, (2) the general setup of this repo, and (3) a brief description of the structure of this repo.
+Specifically, I want you to create an `AGENTS.md`  file. This file should contain succinct information that summarizes (1) the purpose of this repository, (2) the general setup of this repo, and (3) a brief description of the structure of this repo.
 
 Here's an example:
 ```markdown
 ---
-name: repo
+name: AGENTS
 type: repo
 agent: CodeActAgent
 ---
@@ -66,4 +66,4 @@ Frontend:
 ```
 
 Now, please write a similar markdown for the current repository.
-Read all the GitHub workflows under .github/ of the repository (if this folder exists) to understand the CI checks (e.g., linter, pre-commit), and include those in the repo.md file.
+Read all the GitHub workflows under .github/ of the repository (if this folder exists) to understand the CI checks (e.g., linter, pre-commit), and include those in the AGENTS.md file.
