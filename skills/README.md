@@ -157,4 +157,4 @@ You can see an example of a repo agent in [the agent for the OpenHands repo itse
 
 ## License
 
-All skills/skills are subject to the same license as OpenHands. See the root LICENSE file for details.
+All skills are subject to the same license as OpenHands. See the root LICENSE file for details.
