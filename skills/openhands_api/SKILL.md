@@ -66,9 +66,9 @@ The following example shows a simple automation pattern:
 
 ```bash
 export OPENHANDS_API_KEY="..."
-python skills/openhands-api/scripts/openhands_api.py \
+python skills/openhands_api/scripts/openhands_api.py \
   new-conversation \
-  --prompt-file skills/openhands-api/references/example_prompt.md \
+  --prompt-file skills/openhands_api/references/example_prompt.md \
   --repo owner/repo \
   --branch main \
   --poll
@@ -82,5 +82,5 @@ python skills/openhands-api/scripts/openhands_api.py \
 - If you need the full event history in one call, use `GET /api/conversations/{conversation_id}/trajectory`.
 
 See also:
-- `skills/openhands-api/references/README.md` (API docs pointers)
-- `skills/openhands-api/scripts/openhands_api.py` and `skills/openhands-api/scripts/openhands_api.ts`
+- `skills/openhands_api/references/README.md` (API docs pointers)
+- `skills/openhands_api/scripts/openhands_api.py` and `skills/openhands_api/scripts/openhands_api.ts`

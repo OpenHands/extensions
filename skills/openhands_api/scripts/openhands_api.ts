@@ -49,6 +49,12 @@ export type GetEventsResponse = {
   [k: string]: unknown;
 };
 
+export type ListConversationsResponse = {
+  results: unknown[];
+  next_page_id?: string | null;
+  [k: string]: unknown;
+};
+
 export class OpenHandsAPI {
   private readonly apiKey: string;
   private readonly baseUrl: string;
@@ -119,6 +125,65 @@ export class OpenHandsAPI {
   async getTrajectory(conversationId: string): Promise<Record<string, unknown>> {
     return await this.request<Record<string, unknown>>(
       `/api/conversations/${encodeURIComponent(conversationId)}/trajectory`,
+      { method: "GET" },
+    );
+  }
+
+  async listConversations(opts?: {
+    limit?: number;
+    pageId?: string;
+    selectedRepository?: string;
+    includeSubConversations?: boolean;
+  }): Promise<ListConversationsResponse> {
+    const params = new URLSearchParams({
+      limit: String(Math.max(1, opts?.limit ?? 20)),
+    });
+    if (opts?.pageId) params.set("page_id", opts.pageId);
+    if (opts?.selectedRepository) params.set("selected_repository", opts.selectedRepository);
+    if (opts?.includeSubConversations !== undefined) {
+      params.set("include_sub_conversations", String(Boolean(opts.includeSubConversations)));
+    }
+
+    return await this.request<ListConversationsResponse>(`/api/conversations?${params.toString()}`, {
+      method: "GET",
+    });
+  }
+
+  async updateConversationTitle(conversationId: string, title: string): Promise<Record<string, unknown>> {
+    return await this.request<Record<string, unknown>>(
+      `/api/conversations/${encodeURIComponent(conversationId)}`,
+      { method: "PATCH", body: JSON.stringify({ title }) },
+    );
+  }
+
+  async deleteConversation(conversationId: string): Promise<Record<string, unknown>> {
+    return await this.request<Record<string, unknown>>(
+      `/api/conversations/${encodeURIComponent(conversationId)}`,
+      { method: "DELETE" },
+    );
+  }
+
+  async addMessage(conversationId: string, message: string): Promise<Record<string, unknown>> {
+    return await this.request<Record<string, unknown>>(
+      `/api/conversations/${encodeURIComponent(conversationId)}/message`,
+      { method: "POST", body: JSON.stringify({ message }) },
+    );
+  }
+
+  async listWorkspaceFiles(conversationId: string, path?: string): Promise<unknown> {
+    const params = new URLSearchParams();
+    if (path !== undefined) params.set("path", path);
+    const qs = params.toString();
+    return await this.request<unknown>(
+      `/api/conversations/${encodeURIComponent(conversationId)}/list-files${qs ? `?${qs}` : ""}`,
+      { method: "GET" },
+    );
+  }
+
+  async getFileContent(conversationId: string, filePath: string): Promise<Record<string, unknown>> {
+    const params = new URLSearchParams({ file: filePath });
+    return await this.request<Record<string, unknown>>(
+      `/api/conversations/${encodeURIComponent(conversationId)}/select-file?${params.toString()}`,
       { method: "GET" },
     );
   }

@@ -170,6 +170,87 @@ class OpenHandsAPI:
         r.raise_for_status()
         return r.json()
 
+    def list_conversations(
+        self,
+        *,
+        limit: int = 20,
+        page_id: str | None = None,
+        selected_repository: str | None = None,
+        include_sub_conversations: bool | None = None,
+    ) -> dict[str, Any]:
+        """GET /api/conversations
+
+        Returns a paginated result set: { results: [...], next_page_id: ... }.
+        """
+        params: dict[str, Any] = {'limit': max(1, int(limit))}
+        if page_id:
+            params['page_id'] = page_id
+        if selected_repository:
+            params['selected_repository'] = selected_repository
+        if include_sub_conversations is not None:
+            params['include_sub_conversations'] = str(bool(include_sub_conversations)).lower()
+
+        r = self._session.get(f'{self.base_url}/api/conversations', params=params)
+        r.raise_for_status()
+        return r.json()
+
+    def update_conversation_title(self, conversation_id: str, title: str) -> dict[str, Any]:
+        """PATCH /api/conversations/{conversation_id}
+
+        Useful to set a deterministic title for automation-created conversations.
+        """
+        r = self._session.patch(
+            f'{self.base_url}/api/conversations/{conversation_id}', json={'title': title}
+        )
+        r.raise_for_status()
+        return r.json()
+
+    def delete_conversation(self, conversation_id: str) -> dict[str, Any]:
+        """DELETE /api/conversations/{conversation_id}"""
+        r = self._session.delete(f'{self.base_url}/api/conversations/{conversation_id}')
+        r.raise_for_status()
+        return r.json()
+
+    def add_message(self, conversation_id: str, message: str) -> dict[str, Any]:
+        """POST /api/conversations/{conversation_id}/message
+
+        Sends a user message into an existing conversation.
+        """
+        r = self._session.post(
+            f'{self.base_url}/api/conversations/{conversation_id}/message',
+            json={'message': message},
+        )
+        r.raise_for_status()
+        return r.json()
+
+    def list_workspace_files(
+        self, conversation_id: str, path: str | None = None
+    ) -> list[str] | dict[str, Any]:
+        """GET /api/conversations/{conversation_id}/list-files
+
+        Returns a list of files in the sandbox workspace.
+        """
+        params: dict[str, Any] = {}
+        if path is not None:
+            params['path'] = path
+        r = self._session.get(
+            f'{self.base_url}/api/conversations/{conversation_id}/list-files', params=params
+        )
+        r.raise_for_status()
+        return r.json()
+
+    def get_file_content(self, conversation_id: str, file_path: str) -> dict[str, Any]:
+        """GET /api/conversations/{conversation_id}/select-file?file=...
+
+        Returns { code: "..." } for text files.
+        """
+        r = self._session.get(
+            f'{self.base_url}/api/conversations/{conversation_id}/select-file',
+            params={'file': file_path},
+        )
+        r.raise_for_status()
+        return r.json()
+
     # -----------------------------
     # Convenience helpers
     # -----------------------------

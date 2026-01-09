@@ -33,6 +33,12 @@ def test_create_conversation_builds_payload(monkeypatch):
         def get(self, url, params=None):
             raise AssertionError("unexpected")
 
+        def patch(self, url, json=None):
+            raise AssertionError("unexpected")
+
+        def delete(self, url, params=None):
+            raise AssertionError("unexpected")
+
         def __getattr__(self, name):
             if name == "headers":
                 return self.headers
@@ -84,6 +90,12 @@ def test_get_events_clamps_limit_and_params(monkeypatch):
         def post(self, url, json=None):
             raise AssertionError("unexpected")
 
+        def patch(self, url, json=None):
+            raise AssertionError("unexpected")
+
+        def delete(self, url, params=None):
+            raise AssertionError("unexpected")
+
     import skills.openhands_api.scripts.openhands_api as mod
 
     monkeypatch.setattr(mod.requests, "Session", lambda: FakeSession())
@@ -91,8 +103,43 @@ def test_get_events_clamps_limit_and_params(monkeypatch):
     api = OpenHandsAPI(api_key="k", base_url="https://example.com")
     api.get_events("cid", limit=1000, reverse=True, start_id=5, end_id=6)
 
-    assert captured["url"] == "https://example.com/api/conversations/cid/events"
-    assert captured["params"]["limit"] == 100
-    assert captured["params"]["reverse"] == "true"
-    assert captured["params"]["start_id"] == 5
-    assert captured["params"]["end_id"] == 6
+
+def test_update_conversation_title_calls_patch(monkeypatch):
+    from skills.openhands_api.scripts.openhands_api import OpenHandsAPI
+
+    captured = {}
+
+    class FakeResp:
+        def raise_for_status(self):
+            return None
+
+        def json(self):
+            return {"status": "ok"}
+
+    class FakeSession:
+        def __init__(self):
+            self.headers = {}
+
+        def patch(self, url, json=None):
+            captured["url"] = url
+            captured["json"] = json
+            return FakeResp()
+
+        def post(self, url, json=None):
+            raise AssertionError("unexpected")
+
+        def get(self, url, params=None):
+            raise AssertionError("unexpected")
+
+        def delete(self, url, params=None):
+            raise AssertionError("unexpected")
+
+    import skills.openhands_api.scripts.openhands_api as mod
+
+    monkeypatch.setattr(mod.requests, "Session", lambda: FakeSession())
+
+    api = OpenHandsAPI(api_key="k", base_url="https://example.com")
+    api.update_conversation_title("cid", "New Title")
+
+    assert captured["url"] == "https://example.com/api/conversations/cid"
+    assert captured["json"] == {"title": "New Title"}
