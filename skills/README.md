@@ -4,24 +4,24 @@ Skills are specialized prompts that enhance OpenHands with domain-specific knowl
 
 ## Terminology Note
 
-**Version 0 (V0)**: The term "microagents" continues to be used for V0 conversations. V0 is the current stable version of OpenHands.
+**Version 0 (V0)**: The term "skills" continues to be used for V0 conversations. V0 is the current stable version of OpenHands.
 
 **Version 1 (V1)**: The term "skills" is used for V1 conversations. V1 UI and app server have not yet been released, but the codebase has been updated to use "skills" terminology in preparation for the V1 release.
 
-This directory (`OpenHands/skills/`) contains shareable skills that will be used in V1 conversations. For V0 conversations, the system continues to use microagents from the same underlying files.
+This directory (`OpenHands/skills/`) contains shareable skills that will be used in V1 conversations. For V0 conversations, the system continues to use skills from the same underlying files.
 
-## Sources of Skills/Microagents
+## Sources of Skills
 
-OpenHands loads skills (V1) or microagents (V0) from two sources:
+OpenHands loads skills (V1) or skills (V0) from two sources:
 
-### 1. Shareable Skills/Microagents (Public)
+### 1. Shareable Skills (Public)
 
-This directory (`OpenHands/skills/`) contains shareable skills (V1) or microagents (V0) that are:
+This directory (`OpenHands/skills/`) contains shareable skills (V1) or skills (V0) that are:
 
 - Available to all OpenHands users
 - Maintained in the OpenHands repository
 - Perfect for reusable knowledge and common workflows
-- Used as "skills" in V1 conversations and "microagents" in V0 conversations
+- Used as "skills" in V1 conversations and "skills" in V0 conversations
 
 Directory structure:
 
@@ -31,7 +31,7 @@ OpenHands/skills/
 │   ├── git.md         # Git operations
 │   ├── testing.md     # Testing practices
 │   └── docker.md      # Docker guidelines
-└── # These skills/microagents are always loaded
+└── # These skills are always loaded
     ├── pr_review.md   # PR review process
     ├── bug_fix.md     # Bug fixing workflow
     └── feature.md     # Feature implementation
@@ -68,9 +68,9 @@ When OpenHands works with a repository, it:
 
 **Note**: V1 also supports loading from `.openhands/microagents/` for backward compatibility.
 
-## Types of Skills/Microagents
+## Types of Skills
 
-Most skills/microagents use markdown files with YAML frontmatter. For repository agents (repo.md), the frontmatter is optional - if not provided, the file will be loaded with default settings as a repository agent.
+Most skills use markdown files with YAML frontmatter. For repository agents (repo.md), the frontmatter is optional - if not provided, the file will be loaded with default settings as a repository agent.
 
 ### 1. Knowledge Agents
 
@@ -107,7 +107,7 @@ Key features:
 - **Always active**: Automatically loaded for the repository
 - **Locally maintained**: Updated with the project
 
-You can see an example of a repo agent in [the agent for the OpenHands repo itself](https://github.com/OpenHands/OpenHands/blob/main/.openhands/microagents/repo.md).
+You can see an example of a repo agent in [the agent for the OpenHands repo itself](https://github.com/OpenHands/OpenHands/blob/main/.openhands/skills/repo.md).
 
 ## Contributing
 
@@ -157,4 +157,4 @@ You can see an example of a repo agent in [the agent for the OpenHands repo itse
 
 ## License
 
-All skills/microagents are subject to the same license as OpenHands. See the root LICENSE file for details.
+All skills are subject to the same license as OpenHands. See the root LICENSE file for details.
