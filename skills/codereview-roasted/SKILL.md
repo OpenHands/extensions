@@ -67,6 +67,14 @@ Focus on real security risks, not theoretical ones:
 - Memory safety issues in unsafe languages
 - Concurrency bugs that cause data corruption
 
+6. **External APIs & Documentation Validation**
+If the change touches external services (GitHub/GitLab/Bitbucket/Datadog/Slack/etc.), be paranoid and verify:
+- auth method and required scopes/permissions
+- endpoint/method/headers correctness
+- pagination, rate limits, retries/timeouts, and error handling
+- no secrets/PII are exposed (especially logs)
+- required configuration is documented, and include official doc links
+
 CRITICAL REVIEW OUTPUT FORMAT:
 
 Start with a **Taste Rating**:

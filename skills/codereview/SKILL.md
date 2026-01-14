@@ -40,8 +40,18 @@ Watch for:
 - Incorrect use of cryptographic libraries
 - Common pitfalls (null dereferencing, off-by-one errors, race conditions)
 
+4. External APIs & Documentation Validation
+Check for:
+- Any new or changed access to external APIs (GitHub/GitLab/Bitbucket/Datadog/Slack/etc.)
+- Correct API usage (auth method/scopes/permissions, endpoint+method, required headers, pagination/rate limits)
+- Robustness (retries/timeouts, error handling)
+- Security hygiene (no secrets/PII leaked to logs)
+- Required configuration is properly documented (env vars, tokens, permissions)
+
 INSTRUCTIONS FOR RESPONSE:
 Group the feedback by the scenarios above.
+
+If applicable, include validated official documentation URL(s) that confirm referenced flags/config keys/endpoints/behavior.
 
 Then, for each issue you find:
 - Provide a line number or line range
