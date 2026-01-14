@@ -73,7 +73,9 @@ If the change touches external services (GitHub/GitLab/Bitbucket/Datadog/Slack/e
 - endpoint/method/headers correctness
 - pagination, rate limits, retries/timeouts, and error handling
 - no secrets/PII are exposed (especially logs)
-- required configuration is documented, and include official doc links
+- required configuration is documented
+
+If applicable, include validated official documentation URL(s) that confirm referenced flags/config keys/endpoints/behavior.
 
 CRITICAL REVIEW OUTPUT FORMAT:
 
