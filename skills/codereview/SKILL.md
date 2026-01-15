@@ -40,6 +40,14 @@ Watch for:
 - Incorrect use of cryptographic libraries
 - Common pitfalls (null dereferencing, off-by-one errors, race conditions)
 
+4. Testing and Behavior Verification
+If the repository has a test infrastructure (unit/integration/e2e tests) and the PR introduces new components, modules, routes, CLI commands, user-facing behaviors, or bug fixes, ensure there are corresponding tests.
+
+When reviewing tests, prioritize tests that validate real behavior over tests that primarily assert on mocks:
+- Avoid tests that only mock the unit under test and assert it was called.
+- Prefer exercising real code paths (e.g., parsing, validation, business logic), using in-memory or lightweight fakes only where necessary (e.g., ephemeral DB, temp filesystem).
+- Ensure tests fail for the right reasons (i.e., would catch a regression), and are not tautologies.
+
 INSTRUCTIONS FOR RESPONSE:
 Group the feedback by the scenarios above.
 
@@ -52,5 +60,7 @@ Use the following structure in your output:
 [src/utils.py, Line 42] :hammer_and_wrench: Unused import: The 'os' module is imported but never used. Remove it to clean up the code.
 [src/database.py, Lines 78–85] :mag: Readability: This nested if-else block is hard to follow. Consider refactoring into smaller functions or using early returns.
 [src/auth.py, Line 102] :closed_lock_with_key: Security Risk: User input is directly concatenated into an SQL query. This could allow SQL injection. Use parameterized queries instead.
+[tests/test_auth.py, Lines 12–45] :test_tube: Testing: This PR adds new behavior but the tests only assert mocked calls. Add a test that exercises the real code path and asserts on outputs/state so it would catch regressions.
+
 
 REMEMBER, DO NOT MODIFY THE CODE. ONLY PROVIDE FEEDBACK IN YOUR RESPONSE.

@@ -67,6 +67,14 @@ Focus on real security risks, not theoretical ones:
 - Memory safety issues in unsafe languages
 - Concurrency bugs that cause data corruption
 
+6. **Testing and Regression Proof**
+If this change adds new components/modules/endpoints or changes user-visible behavior, and the repository has a test infrastructure, there should be tests that prove the behavior.
+
+Do not accept "tests" that are just a pile of mocks asserting that functions were called:
+- Prefer tests that exercise real code paths and assert on outputs/state.
+- Use fakes/in-memory dependencies only when needed to keep tests fast and deterministic.
+- The test should fail if the behavior regresses.
+
 CRITICAL REVIEW OUTPUT FORMAT:
 
 Start with a **Taste Rating**:
@@ -88,6 +96,10 @@ Then provide **Linus-Style Analysis**:
 
 **[STYLE NOTES]** (Minor - only mention if genuinely important)
 - [src/models.py, Line D] **Naming**: Unclear intent, affects maintainability
+
+**[TESTING GAPS]** (If behavior changed, this is not optional)
+- [tests/test_feature.py, Line E] **Mocks Aren't Tests**: You're only asserting mocked calls. Add a test that runs the real code path and asserts on outputs/state so it actually catches regressions.
+
 
 **VERDICT:**
 ✅ **Worth merging**: Core logic is sound, minor improvements suggested
