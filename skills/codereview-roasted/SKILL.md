@@ -71,8 +71,9 @@ Focus on real security risks, not theoretical ones:
 If this change adds new components/modules/endpoints or changes user-visible behavior, and the repository has a test infrastructure, there should be tests that prove the behavior.
 
 Do not accept "tests" that are just a pile of mocks asserting that functions were called:
-- Prefer tests that exercise real code paths and assert on outputs/state.
-- Use fakes/in-memory dependencies only when needed to keep tests fast and deterministic.
+- Prefer tests that exercise real code paths (e.g., parsing, validation, business logic) and assert on outputs/state.
+- Use in-memory or lightweight fakes only where necessary (e.g., ephemeral DB, temp filesystem) to keep tests fast and deterministic.
+- Flag tests that only mock the unit under test and assert it was called, unless they cover a real coverage gap that cannot be achieved otherwise.
 - The test should fail if the behavior regresses.
 
 CRITICAL REVIEW OUTPUT FORMAT:

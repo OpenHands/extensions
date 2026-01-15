@@ -44,8 +44,8 @@ Watch for:
 If the repository has a test infrastructure (unit/integration/e2e tests) and the PR introduces new components, modules, routes, CLI commands, user-facing behaviors, or bug fixes, ensure there are corresponding tests.
 
 When reviewing tests, prioritize tests that validate real behavior over tests that primarily assert on mocks:
-- Avoid tests that only mock the unit under test and assert it was called.
 - Prefer exercising real code paths (e.g., parsing, validation, business logic), using in-memory or lightweight fakes only where necessary (e.g., ephemeral DB, temp filesystem).
+- Flag tests that only mock the unit under test and assert it was called, unless they cover a real coverage gap that cannot be achieved otherwise.
 - Ensure tests fail for the right reasons (i.e., would catch a regression), and are not tautologies.
 
 INSTRUCTIONS FOR RESPONSE:
