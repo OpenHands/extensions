@@ -1,0 +1,182 @@
+{
+  "name": "openhands-skills",
+  "owner": {
+    "name": "OpenHands",
+    "email": "contact@all-hands.dev"
+  },
+  "metadata": {
+    "description": "Public registry of Skills for OpenHands - reusable guidelines that customize agent behavior",
+    "version": "1.0.0",
+    "pluginRoot": "./skills"
+  },
+  "plugins": [
+    {
+      "name": "agent-memory",
+      "source": "./agent-memory",
+      "description": "Persist and retrieve repository-specific knowledge using AGENTS.md files. Use when you want to save important information about a codebase (build commands, code style, workflows) for future sessions.",
+      "category": "productivity",
+      "keywords": ["memory", "knowledge", "persistence", "agents"]
+    },
+    {
+      "name": "agent-sdk-builder",
+      "source": "./agent-sdk-builder",
+      "description": "Guided workflow for building custom AI agents using the OpenHands Software Agent SDK. Use when you want to create a new agent through an interactive interview process that gathers requirements and generates implementation plans.",
+      "category": "development",
+      "keywords": ["agent", "sdk", "builder", "openhands"]
+    },
+    {
+      "name": "azure-devops",
+      "source": "./azure-devops",
+      "description": "Interact with Azure DevOps repositories, pull requests, and APIs using the AZURE_DEVOPS_TOKEN environment variable. Use when working with code hosted on Azure DevOps or managing Azure DevOps resources.",
+      "category": "integration",
+      "keywords": ["azure", "devops", "git", "pull-request"]
+    },
+    {
+      "name": "bitbucket",
+      "source": "./bitbucket",
+      "description": "Interact with Bitbucket repositories and pull requests using the BITBUCKET_TOKEN environment variable. Use when working with code hosted on Bitbucket or managing Bitbucket resources via API.",
+      "category": "integration",
+      "keywords": ["bitbucket", "git", "pull-request"]
+    },
+    {
+      "name": "codereview",
+      "source": "./codereview",
+      "description": "Structured code review covering style, readability, and security concerns with actionable feedback. Use when reviewing pull requests or merge requests to identify issues and suggest improvements.",
+      "category": "code-quality",
+      "keywords": ["code-review", "quality", "security", "style"]
+    },
+    {
+      "name": "codereview-roasted",
+      "source": "./codereview-roasted",
+      "description": "Brutally honest code review in the style of Linus Torvalds, focusing on data structures, simplicity, and pragmatism. Use when you want critical, no-nonsense feedback that prioritizes engineering fundamentals over style preferences.",
+      "category": "code-quality",
+      "keywords": ["code-review", "quality", "linus-torvalds"]
+    },
+    {
+      "name": "datadog",
+      "source": "./datadog",
+      "description": "Query and analyze Datadog logs, metrics, APM traces, and monitors using the Datadog API. Use when debugging production issues, monitoring application performance, or investigating alerts.",
+      "category": "monitoring",
+      "keywords": ["datadog", "monitoring", "logs", "metrics", "apm"]
+    },
+    {
+      "name": "docker",
+      "source": "./docker",
+      "description": "Run Docker commands within a container environment, including starting the Docker daemon and managing containers. Use when building, running, or managing Docker containers and images.",
+      "category": "infrastructure",
+      "keywords": ["docker", "container", "images"]
+    },
+    {
+      "name": "flarglebargle",
+      "source": "./flarglebargle",
+      "description": "A test skill that responds to the magic word 'flarglebargle' with a compliment. Use for testing skill activation and trigger functionality.",
+      "category": "testing",
+      "keywords": ["test", "demo"]
+    },
+    {
+      "name": "frontend-design",
+      "source": "./frontend-design",
+      "description": "Create distinctive, production-grade frontend interfaces with high design quality. Use this skill when the user asks to build web components, pages, artifacts, posters, or applications. Generates creative, polished code and UI design that avoids generic AI aesthetics.",
+      "category": "design",
+      "keywords": ["frontend", "design", "ui", "web", "react", "html", "css"]
+    },
+    {
+      "name": "github",
+      "source": "./github",
+      "description": "Interact with GitHub repositories, pull requests, issues, and workflows using the GITHUB_TOKEN environment variable and GitHub CLI. Use when working with code hosted on GitHub or managing GitHub resources.",
+      "category": "integration",
+      "keywords": ["github", "git", "pull-request", "issues", "workflows"]
+    },
+    {
+      "name": "gitlab",
+      "source": "./gitlab",
+      "description": "Interact with GitLab repositories, merge requests, and APIs using the GITLAB_TOKEN environment variable. Use when working with code hosted on GitLab or managing GitLab resources.",
+      "category": "integration",
+      "keywords": ["gitlab", "git", "merge-request"]
+    },
+    {
+      "name": "jupyter",
+      "source": "./jupyter",
+      "description": "Read, modify, execute, and convert Jupyter notebooks programmatically. Use when working with .ipynb files for data science workflows, including editing cells, clearing outputs, or converting to other formats.",
+      "category": "data-science",
+      "keywords": ["jupyter", "notebook", "ipynb", "data-science"]
+    },
+    {
+      "name": "kubernetes",
+      "source": "./kubernetes",
+      "description": "Set up and manage local Kubernetes clusters using KIND (Kubernetes IN Docker). Use when testing Kubernetes applications locally or developing cloud-native workloads.",
+      "category": "infrastructure",
+      "keywords": ["kubernetes", "k8s", "kind", "cloud-native"]
+    },
+    {
+      "name": "notion",
+      "source": "./notion",
+      "description": "Create, search, and update Notion pages/databases using the Notion API. Use for documenting work, generating runbooks, and automating knowledge base updates.",
+      "category": "productivity",
+      "keywords": ["notion", "documentation", "knowledge-base"]
+    },
+    {
+      "name": "npm",
+      "source": "./npm",
+      "description": "Handle npm package installation in non-interactive environments by piping confirmations. Use when installing Node.js packages that require user confirmation prompts.",
+      "category": "development",
+      "keywords": ["npm", "nodejs", "packages"]
+    },
+    {
+      "name": "onboarding-agent",
+      "source": "./onboarding-agent",
+      "description": "Interactive onboarding workflow that interviews users to understand their coding goals and generates PR-ready implementation plans. Use when starting a new development task to ensure clear requirements and structured execution.",
+      "category": "productivity",
+      "keywords": ["onboarding", "planning", "requirements"]
+    },
+    {
+      "name": "pdflatex",
+      "source": "./pdflatex",
+      "description": "Install and use pdflatex to compile LaTeX documents into PDFs on Linux. Use when generating academic papers, research publications, or any documents written in LaTeX.",
+      "category": "documentation",
+      "keywords": ["latex", "pdf", "academic", "documents"]
+    },
+    {
+      "name": "releasenotes",
+      "source": "./releasenotes",
+      "description": "Generate formatted changelogs from git history since the last release tag. Use when preparing release notes that categorize changes into breaking changes, features, fixes, and other sections.",
+      "category": "development",
+      "keywords": ["release", "changelog", "git"]
+    },
+    {
+      "name": "security",
+      "source": "./security",
+      "description": "Security best practices for secure coding, authentication, authorization, and data protection. Use when developing features that handle sensitive data, user authentication, or require security review.",
+      "category": "security",
+      "keywords": ["security", "authentication", "authorization", "encryption"]
+    },
+    {
+      "name": "skill-creator",
+      "source": "./skill-creator",
+      "description": "Guide for creating effective skills. This skill should be used when users want to create a new skill (or update an existing skill) that extends Claude's capabilities with specialized knowledge, workflows, or tool integrations.",
+      "category": "development",
+      "keywords": ["skill", "plugin", "create"]
+    },
+    {
+      "name": "ssh",
+      "source": "./ssh",
+      "description": "Establish and manage SSH connections to remote machines, including key generation, configuration, and file transfers. Use when connecting to remote servers, executing remote commands, or transferring files via SCP.",
+      "category": "infrastructure",
+      "keywords": ["ssh", "remote", "scp", "server"]
+    },
+    {
+      "name": "swift-linux",
+      "source": "./swift-linux",
+      "description": "Install and configure Swift programming language on Debian Linux for server-side development. Use when building Swift applications on Linux or setting up a Swift development environment.",
+      "category": "development",
+      "keywords": ["swift", "linux", "server-side"]
+    },
+    {
+      "name": "theme-factory",
+      "source": "./theme-factory",
+      "description": "Toolkit for styling artifacts with a theme. These artifacts can be slides, docs, reportings, HTML landing pages, etc. There are 10 pre-set themes with colors/fonts that you can apply to any artifact that has been creating, or can generate a new theme on-the-fly.",
+      "category": "design",
+      "keywords": ["theme", "styling", "design", "slides", "documents"]
+    }
+  ]
+}
