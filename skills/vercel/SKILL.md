@@ -1,9 +1,8 @@
 ---
 name: vercel
-description: Deploy and manage applications on Vercel, including serverless functions, preview deployments, and deployment protection. Use when working with Vercel-hosted projects or configuring Vercel deployments.
+description: Deploy and manage applications on Vercel, including preview deployments and deployment protection. Use when working with Vercel-hosted projects or configuring Vercel deployments.
 triggers:
 - vercel
-- serverless
 - preview deployment
 ---
 
@@ -66,65 +65,6 @@ If you cannot access a Vercel preview deployment due to authentication requireme
 Do NOT repeatedly attempt to access protected URLs without the bypass secret.
 </IMPORTANT>
 
-## Serverless Functions (API Routes)
-
-Vercel supports serverless functions in the `/api` directory. These are useful for:
-- Proxying API requests to avoid CORS issues
-- Server-side processing
-- Handling webhooks
-
-### Creating a Serverless Function
-
-Create a file in the `api/` directory at the project root:
-
-```typescript
-// api/hello.ts
-import type { VercelRequest, VercelResponse } from '@vercel/node';
-
-export default function handler(req: VercelRequest, res: VercelResponse) {
-  res.status(200).json({ message: 'Hello from Vercel!' });
-}
-```
-
-### Catch-All Routes
-
-For proxying multiple endpoints, use catch-all routes:
-
-```typescript
-// api/proxy/[...path].ts
-import type { VercelRequest, VercelResponse } from '@vercel/node';
-
-export default async function handler(req: VercelRequest, res: VercelResponse) {
-  const { path } = req.query;
-  const apiPath = Array.isArray(path) ? path.join('/') : path || '';
-  
-  // Forward the request to the target API
-  const response = await fetch(`https://api.example.com/${apiPath}`, {
-    method: req.method,
-    headers: { 'Content-Type': 'application/json' },
-    body: req.method !== 'GET' ? JSON.stringify(req.body) : undefined,
-  });
-  
-  const data = await response.json();
-  res.status(response.status).json(data);
-}
-```
-
-### CORS Headers
-
-When creating API proxies, include CORS headers:
-
-```typescript
-res.setHeader('Access-Control-Allow-Origin', '*');
-res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-
-// Handle preflight requests
-if (req.method === 'OPTIONS') {
-  return res.status(200).end();
-}
-```
-
 ## Environment Variables
 
 Set environment variables in Vercel Dashboard under **Settings** → **Environment Variables**, or use the Vercel CLI:
@@ -133,7 +73,7 @@ Set environment variables in Vercel Dashboard under **Settings** → **Environme
 vercel env add MY_SECRET
 ```
 
-Access in serverless functions:
+Access in your application:
 ```typescript
 const secret = process.env.MY_SECRET;
 ```
