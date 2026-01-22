@@ -45,6 +45,26 @@ gh api \
 | `side` | `RIGHT` for new/added lines, `LEFT` for deleted lines |
 | `body` | Comment text with priority label |
 
+### Multi-Line Comments
+
+For comments spanning multiple lines, add `start_line` to specify the range:
+
+```bash
+  -f comments[][path]='path/to/file.py' \
+  -F comments[][start_line]=10 \
+  -F comments[][line]=12 \
+  -f comments[][side]='RIGHT' \
+  -f comments[][body]='🟡 Suggestion: Refactor this block:
+
+```suggestion
+line_one = "new"
+line_two = "code"
+line_three = "here"
+```'
+```
+
+**Important**: The suggestion must have the same number of lines as the range (e.g., lines 10-12 = 3 lines).
+
 ## Priority Labels
 
 Start each comment with a priority label:
@@ -79,24 +99,6 @@ improved_code_here()
 Use suggestions for: renaming, typos, small refactors (1-5 lines), type hints, docstrings.
 
 Avoid for: large refactors, architectural changes, ambiguous improvements.
-
-## Multi-Line Comments
-
-For comments spanning multiple lines, add `start_line`:
-
-```bash
--F comments[][start_line]=10 \
--F comments[][line]=12 \
--f comments[][body]='🟡 Suggestion: Refactor this block:
-
-```suggestion
-line_one = "new"
-line_two = "code"
-line_three = "here"
-```'
-```
-
-**Important**: The suggestion must have the same number of lines as the range (e.g., lines 10-12 = 3 lines).
 
 ## Finding Line Numbers
 
