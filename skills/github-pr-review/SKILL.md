@@ -123,8 +123,6 @@ When your comment or suggestion spans multiple lines, you MUST specify a line ra
 - **start_side**: Side of the first line (optional, defaults to same as `side`)
 - **side**: Side of the last line
 
-### Option 1: Using `start_line` and `line` parameters
-
 ```bash
 gh api \
   -X POST \
@@ -143,14 +141,6 @@ first_line = "improved"
 second_line = "code"
 third_line = "here"
 ```'
-```
-
-### Option 2: Using `--line` with a range (simpler)
-
-You can also comment on a range of lines using `--line 10-20` syntax:
-
-```bash
-gh pr comment {pr_number} --body "Your comment here" --line 10-20 --path path/to/file.py
 ```
 
 **IMPORTANT**: The number of lines in your suggestion block MUST match the number of lines in the selected range (line - start_line + 1). If you select lines 10-12 (3 lines), your suggestion must also contain exactly 3 lines.
