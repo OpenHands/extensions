@@ -2,11 +2,7 @@
 name: github-pr-review
 description: How to post PR review comments using GitHub API, including inline comments, line numbers, multi-line suggestions, and the gh CLI. Use when reviewing pull requests and need to post structured feedback.
 triggers:
-- pr review
-- pull request review
-- review pr
-- inline comment
-- review comment
+- /github-pr-review
 ---
 
 # GitHub PR Review Mechanics
