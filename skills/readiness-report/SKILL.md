@@ -15,11 +15,11 @@ Agent Readiness measures how prepared a codebase is for AI-assisted development.
 
 ## Quick Start
 
-Run `/readiness-report` to evaluate the current repository. The analysis:
-1. Scans repository structure, CI configs, and tooling
-2. Evaluates 81 criteria across 9 technical pillars
-3. Determines maturity level (L1-L5) based on 80% threshold per level
-4. Provides prioritized recommendations
+The user will run `/readiness-report` to evaluate the current repository. The agent will then:
+1. Clone the repo, scan repository structure, CI configs, and tooling
+2. Evaluate 81 criteria across 9 technical pillars
+3. Determine maturity level (L1-L5) based on 80% threshold per level
+4. Provide prioritized recommendations
 
 ## Workflow
 
