@@ -17,7 +17,7 @@ Examples:
     python fetch_skill.py "https://github.com/OpenHands/skills/skills/npm" /workspace
     
     # Shorthand format
-    python fetch_skill.py "OpenHands/skills/skills/vercel" /workspace
+    python fetch_skill.py "OpenHands/skills/skills/codereview" /workspace
 
 The script will:
 1. Parse the GitHub URL to extract owner, repo, branch, and skill path

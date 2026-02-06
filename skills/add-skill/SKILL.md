@@ -1,6 +1,6 @@
 ---
 name: add-skill
-description: Add an external skill from a GitHub repository to the current workspace. Use when users want to import, install, or add a skill from a GitHub URL (e.g., `/add-skill https://github.com/owner/repo/skill-name` or "add the vercel skill from github.com/rbren/agent-skills"). Handles fetching the skill files and placing them in .openhands/skills/.
+description: Add an external skill from a GitHub repository to the current workspace. Use when users want to import, install, or add a skill from a GitHub URL (e.g., `/add-skill https://github.com/OpenHands/skills/tree/main/skills/codereview` or "add the codereview skill from https://github.com/OpenHands/skills/"). Handles fetching the skill files and placing them in .openhands/skills/.
 ---
 
 # Add Skill
@@ -28,17 +28,17 @@ When a user requests to add a skill from a GitHub URL:
 
 ## Example
 
-User: `/add-skill https://github.com/rbren/agent-skills/vercel-skill`
+User: `/add-skill https://github.com/OpenHands/skills/tree/main/skills/codereview`
 
 ```bash
 # Run the fetch script
-python3 scripts/fetch_skill.py "https://github.com/rbren/agent-skills/vercel-skill" "/path/to/workspace"
+python3 scripts/fetch_skill.py "https://github.com/OpenHands/skills/tree/main/skills/codereview" "/path/to/workspace"
 
 # Verify installation
-ls /path/to/workspace/.openhands/skills/vercel-skill/SKILL.md
+ls /path/to/workspace/.openhands/skills/codereview/SKILL.md
 ```
 
-Response: "✅ Added `vercel-skill` to your workspace. The skill is now available."
+Response: "✅ Added `codereview` to your workspace. The skill is now available."
 
 ## Notes
 
