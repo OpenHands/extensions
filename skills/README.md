@@ -39,12 +39,12 @@ OpenHands/skills/
 
 ### 2. Repository Instructions (Private)
 
-Each repository can have its own instructions in `.openhands/microagents/` (V0) or `.openhands/skills/` (V1). These instructions are:
+Each repository can have its own instructions in `.openhands/microagents/` (V0) or `.agents/skills/` (V1). These instructions are:
 
 - Private to that repository
 - Automatically loaded when working with that repository
 - Perfect for repository-specific guidelines and team practices
-- V1 supports both `.openhands/skills/` (preferred) and `.openhands/microagents/` (backward compatibility)
+- V1 supports `.agents/skills/`
 
 Example repository structure:
 
@@ -63,7 +63,7 @@ your-repository/
 
 When OpenHands works with a repository, it:
 
-1. Loads repository-specific instructions from `.openhands/microagents/repo.md` (V0) or `.openhands/skills/` (V1) if present
+1. Loads repository-specific instructions from `.openhands/microagents/repo.md` (V0) or `.agents/skills/` (V1) if present
 2. Loads relevant knowledge agents based on keywords in conversations
 
 **Note**: V1 also supports loading from `.openhands/microagents/` for backward compatibility.
@@ -94,8 +94,7 @@ You can see an example of a knowledge-based agent in [OpenHands's github skill](
 
 Repository agents provide repository-specific knowledge and guidelines. They are:
 
-- Loaded from `.openhands/microagents/repo.md` (V0) or `.openhands/skills/` directory (V1)
-- V1 also supports `.openhands/microagents/` for backward compatibility
+- Loaded from `.openhands/microagents/repo.md` (V0) or `.agents/skills/` directory (V1)
 - Specific to individual repositories
 - Automatically activated for their repository
 - Perfect for team practices and project conventions
@@ -107,7 +106,7 @@ Key features:
 - **Always active**: Automatically loaded for the repository
 - **Locally maintained**: Updated with the project
 
-You can see an example of a repo agent in [the agent for the OpenHands repo itself](https://github.com/OpenHands/OpenHands/blob/main/.openhands/skills/repo.md).
+You can see an example of a repo agent in [the agent for the OpenHands repo itself](https://github.com/OpenHands/OpenHands/blob/main/.agents/skills/repo.md).
 
 ## Contributing
 
@@ -151,7 +150,7 @@ You can see an example of a repo agent in [the agent for the OpenHands repo itse
 
 1. Create your agent file in the appropriate directory:
    - `skills/` for expertise (public, shareable)
-   - Note: Repository-specific agents should remain in their respective repositories' `.openhands/skills/` (V1) or `.openhands/microagents/` (V0) directory
+   - Note: Repository-specific agents should remain in their respective repositories' `.agents/skills/` (V1) or `.openhands/microagents/` (V0) directory
 2. Test thoroughly
 3. Submit a pull request to OpenHands
 
