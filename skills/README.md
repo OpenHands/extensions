@@ -39,34 +39,34 @@ OpenHands/skills/
 
 ### 2. Repository Instructions (Private)
 
-Each repository can have its own instructions in `.openhands/microagents/` (V0) or `.agents/skills/` (V1). These instructions are:
+Each repository can have its own instructions. On V1, use `.agents/skills/`. For backward compatibility, `.openhands/skills/` and `.openhands/microagents/` are still supported. These instructions are:
 
 - Private to that repository
 - Automatically loaded when working with that repository
 - Perfect for repository-specific guidelines and team practices
-- V1 supports `.agents/skills/` (as well as `.openhands/skills` and `.openhands/microagents` for backward compatibility)
 
 Example repository structure:
 
 ```
 your-repository/
-└── .openhands/
-    ├── skills/        # V1: Preferred location for repository-specific skills
-    │   └── repo.md    # Repository-specific instructions
-    │   └── ...        # Private skills that are only available inside this
-    └── microagents/   # V0: Current location (also supported in V1 for backward compatibility)
-        └── repo.md    # Repository-specific instructions
-        └── ...        # Private micro-agents that are only available inside this repo
+├── .agents/
+│   └── skills/        # V1: Preferred location for repository-specific skills
+│       └── repo.md    # Repository-specific instructions
+│       └── ...        # Private skills that are only available inside this repo
+└── .openhands/         # Legacy locations (still supported)
+    ├── skills/         # Legacy V1 path
+    │   └── repo.md
+    └── microagents/    # Legacy V0 path
+        └── repo.md
 ```
 
 ## Loading Order
 
 When OpenHands works with a repository, it:
 
-1. Loads repository-specific instructions from `.openhands/microagents/repo.md` (V0) or `.agents/skills/` (V1) if present
-2. Loads relevant knowledge agents based on keywords in conversations
-
-**Note**: V1 also supports loading from `.openhands/microagents/` for backward compatibility.
+1. Loads repository-specific instructions from `.agents/skills/` (V1) if present
+2. Also checks `.openhands/skills/` and `.openhands/microagents/` for backward compatibility
+3. Loads relevant knowledge agents based on keywords in conversations
 
 ## Types of Skills
 
