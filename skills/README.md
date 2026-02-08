@@ -44,7 +44,7 @@ Each repository can have its own instructions in `.openhands/microagents/` (V0) 
 - Private to that repository
 - Automatically loaded when working with that repository
 - Perfect for repository-specific guidelines and team practices
-- V1 supports `.agents/skills/`
+- V1 supports `.agents/skills/` (as well as `.openhands/skills` and `.openhands/microagents` for backward compatibility)
 
 Example repository structure:
 
