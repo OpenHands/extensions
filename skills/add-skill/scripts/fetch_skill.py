@@ -3,7 +3,7 @@
 Fetch a skill from a GitHub repository and install it locally.
 
 This script downloads OpenHands skills from GitHub repositories and installs them
-into the workspace's .openhands/skills/ directory. It uses git sparse checkout to
+into the workspace's .agents/skills/ directory. It uses git sparse checkout to
 efficiently download only the skill directory without cloning the entire repository.
 
 Usage:
@@ -23,7 +23,7 @@ The script will:
 1. Parse the GitHub URL to extract owner, repo, branch, and skill path
 2. Use git sparse checkout to download only the specified skill directory
 3. Validate the skill has a SKILL.md file
-4. Copy the skill to <workspace>/.openhands/skills/<skill-name>/
+4. Copy the skill to <workspace>/.agents/skills/<skill-name>/
 """
 
 import argparse
@@ -95,7 +95,7 @@ def fetch_skill(github_url: str, workspace_path: str, force: bool = False) -> st
     2. Creates a temporary directory for the git operation
     3. Uses git sparse checkout to download only the skill directory (efficient!)
     4. Validates the downloaded content is a valid skill (has SKILL.md)
-    5. Copies the skill to the workspace's .openhands/skills/ directory
+    5. Copies the skill to the workspace's .agents/skills/ directory
     
     Args:
         github_url: URL to the skill on GitHub (various formats supported)
@@ -117,7 +117,7 @@ def fetch_skill(github_url: str, workspace_path: str, force: bool = False) -> st
     skill_name = skill_path.rstrip('/').split('/')[-1]
     
     # Determine the destination directory
-    # Skills are installed to: <workspace>/.openhands/skills/<skill-name>/
+    # Skills are installed to: <workspace>/.agents/skills/<skill-name>/
     dest_dir = Path(workspace_path) / '.openhands' / 'skills' / skill_name
     
     # Check if skill already exists - prevent accidental overwrites
@@ -129,7 +129,7 @@ def fetch_skill(github_url: str, workspace_path: str, force: bool = False) -> st
         print(f"Removing existing skill at {dest_dir}")
         shutil.rmtree(dest_dir)
     
-    # Ensure the parent directory exists (.openhands/skills/)
+    # Ensure the parent directory exists (.agents/skills/)
     dest_dir.parent.mkdir(parents=True, exist_ok=True)
     
     # Use a temporary directory for the git clone operation
@@ -233,7 +233,7 @@ Examples:
     )
     parser.add_argument(
         'workspace',
-        help='Path to the workspace root where the skill will be installed (to .openhands/skills/)'
+        help='Path to the workspace root where the skill will be installed (to .agents/skills/)'
     )
     parser.add_argument(
         '--force', '-f',
