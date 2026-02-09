@@ -1,11 +1,5 @@
 # Skill Creator
 
-Guide for creating effective skills. This skill should be used when users want to create a new skill (or update an existing skill) that extends OpenHands's capabilities with specialized knowledge, workflows, or tool integrations.
-
-## Details
-
-# Skill Creator
-
 This skill provides guidance for creating effective skills.
 
 ## About Skills
