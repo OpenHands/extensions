@@ -1,7 +1,6 @@
 ---
 name: skill-creator
-description: Guide for creating effective skills. This skill should be used when users want to create a new skill (or update an existing skill) that extends OpenHands's capabilities with specialized knowledge, workflows, or tool integrations.
-license: Complete terms in LICENSE.txt
+description: This skill should be used when the user wants to "create a skill", "write a new skill", "improve skill description", "organize skill content", or needs guidance on skill structure, progressive disclosure, or skill development best practices.
 ---
 
 # Skill Creator
@@ -22,28 +21,6 @@ equipped with procedural knowledge that no model can fully possess.
 3. Domain expertise - Company-specific knowledge, schemas, business logic
 4. Bundled resources - Scripts, references, and assets for complex and repetitive tasks
 
-## Core Principles
-
-### Concise is Key
-
-The context window is a public good. Skills share the context window with everything else OpenHands needs: system prompt, conversation history, other Skills' metadata, and the actual user request.
-
-**Default assumption: OpenHands is already very smart.** Only add context OpenHands doesn't already have. Challenge each piece of information: "Does OpenHands really need this explanation?" and "Does this paragraph justify its token cost?"
-
-Prefer concise examples over verbose explanations.
-
-### Set Appropriate Degrees of Freedom
-
-Match the level of specificity to the task's fragility and variability:
-
-**High freedom (text-based instructions)**: Use when multiple approaches are valid, decisions depend on context, or heuristics guide the approach.
-
-**Medium freedom (pseudocode or scripts with parameters)**: Use when a preferred pattern exists, some variation is acceptable, or configuration affects behavior.
-
-**Low freedom (specific scripts, few parameters)**: Use when operations are fragile and error-prone, consistency is critical, or a specific sequence must be followed.
-
-Think of OpenHands as exploring a path: a narrow bridge with cliffs needs specific guardrails (low freedom), while an open field allows many routes (high freedom).
-
 ### Anatomy of a Skill
 
 Every skill consists of a required SKILL.md file and optional bundled resources:
@@ -63,10 +40,7 @@ skill-name/
 
 #### SKILL.md (required)
 
-Every SKILL.md consists of:
-
-- **Frontmatter** (YAML): Contains `name` and `description` fields. These are the only fields that OpenHands reads to determine when the skill gets used, thus it is very important to be clear and comprehensive in describing what the skill is, and when it should be used.
-- **Body** (Markdown): Instructions and guidance for using the skill. Only loaded AFTER the skill triggers (if at all).
+**Metadata Quality:** The `name` and `description` in YAML frontmatter determine when OpenHands will use the skill. Be specific about what the skill does and when to use it. Use the third-person (e.g. "This skill should be used when..." instead of "Use this skill when...").
 
 #### Bundled Resources (optional)
 
@@ -99,118 +73,19 @@ Files not intended to be loaded into context, but rather used within the output 
 - **Use cases**: Templates, images, icons, boilerplate code, fonts, sample documents that get copied or modified
 - **Benefits**: Separates output resources from documentation, enables OpenHands to use files without loading them into context
 
-#### What to Not Include in a Skill
-
-A skill should only contain essential files that directly support its functionality. Do NOT create extraneous documentation or auxiliary files, including:
-
-- README.md
-- INSTALLATION_GUIDE.md
-- QUICK_REFERENCE.md
-- CHANGELOG.md
-- etc.
-
-The skill should only contain the information needed for an AI agent to do the job at hand. It should not contain auxilary context about the process that went into creating it, setup and testing procedures, user-facing documentation, etc. Creating additional documentation files just adds clutter and confusion.
-
 ### Progressive Disclosure Design Principle
 
 Skills use a three-level loading system to manage context efficiently:
 
 1. **Metadata (name + description)** - Always in context (~100 words)
 2. **SKILL.md body** - When skill triggers (<5k words)
-3. **Bundled resources** - As needed by OpenHands (Unlimited because scripts can be executed without reading into context window)
+3. **Bundled resources** - As needed by OpenHands (Unlimited*)
 
-#### Progressive Disclosure Patterns
-
-Keep SKILL.md body to the essentials and under 500 lines to minimize context bloat. Split content into separate files when approaching this limit. When splitting out content into other files, it is very important to reference them from SKILL.md and describe clearly when to read them, to ensure the reader of the skill knows they exist and when to use them.
-
-**Key principle:** When a skill supports multiple variations, frameworks, or options, keep only the core workflow and selection guidance in SKILL.md. Move variant-specific details (patterns, examples, configuration) into separate reference files.
-
-**Pattern 1: High-level guide with references**
-
-```markdown
-# PDF Processing
-
-## Quick start
-
-Extract text with pdfplumber:
-[code example]
-
-## Advanced features
-
-- **Form filling**: See [FORMS.md](FORMS.md) for complete guide
-- **API reference**: See [REFERENCE.md](REFERENCE.md) for all methods
-- **Examples**: See [EXAMPLES.md](EXAMPLES.md) for common patterns
-```
-
-OpenHands loads FORMS.md, REFERENCE.md, or EXAMPLES.md only when needed.
-
-**Pattern 2: Domain-specific organization**
-
-For Skills with multiple domains, organize content by domain to avoid loading irrelevant context:
-
-```
-bigquery-skill/
-├── SKILL.md (overview and navigation)
-└── reference/
-    ├── finance.md (revenue, billing metrics)
-    ├── sales.md (opportunities, pipeline)
-    ├── product.md (API usage, features)
-    └── marketing.md (campaigns, attribution)
-```
-
-When a user asks about sales metrics, OpenHands only reads sales.md.
-
-Similarly, for skills supporting multiple frameworks or variants, organize by variant:
-
-```
-cloud-deploy/
-├── SKILL.md (workflow + provider selection)
-└── references/
-    ├── aws.md (AWS deployment patterns)
-    ├── gcp.md (GCP deployment patterns)
-    └── azure.md (Azure deployment patterns)
-```
-
-When the user chooses AWS, OpenHands only reads aws.md.
-
-**Pattern 3: Conditional details**
-
-Show basic content, link to advanced content:
-
-```markdown
-# DOCX Processing
-
-## Creating documents
-
-Use docx-js for new documents. See [DOCX-JS.md](DOCX-JS.md).
-
-## Editing documents
-
-For simple edits, modify the XML directly.
-
-**For tracked changes**: See [REDLINING.md](REDLINING.md)
-**For OOXML details**: See [OOXML.md](OOXML.md)
-```
-
-OpenHands reads REDLINING.md or OOXML.md only when the user needs those features.
-
-**Important guidelines:**
-
-- **Avoid deeply nested references** - Keep references one level deep from SKILL.md. All reference files should link directly from SKILL.md.
-- **Structure longer reference files** - For files longer than 100 lines, include a table of contents at the top so OpenHands can see the full scope when previewing.
+*Unlimited because scripts can be executed without reading into context window.
 
 ## Skill Creation Process
 
-Skill creation involves these steps:
-
-1. Understand the skill with concrete examples
-2. Plan reusable skill contents (scripts, references, assets)
-3. Initialize the skill (run init_skill.py)
-4. Edit the skill (implement resources and write SKILL.md)
-5. Package the skill (run package_skill.py)
-6. Iterate based on real usage
-
-Follow these steps in order, skipping only if there is a clear reason why they are not applicable.
+To create a skill, follow the "Skill Creation Process" in order, skipping steps only if there is a clear reason why they are not applicable.
 
 ### Step 1: Understanding the Skill with Concrete Examples
 
@@ -253,104 +128,413 @@ Example: When building a `big-query` skill to handle queries like "How many user
 
 To establish the skill's contents, analyze each concrete example to create a list of the reusable resources to include: scripts, references, and assets.
 
-### Step 3: Initializing the Skill
+### Step 3: Create Skill Structure
 
-At this point, it is time to actually create the skill.
+Create the skill directory structure:
 
-Skip this step only if the skill being developed already exists, and iteration or packaging is needed. In this case, continue to the next step.
+```bash
+mkdir -p skill-name/{references,scripts,assets}
+touch skill-name/SKILL.md
+```
 
-When creating a new skill from scratch, always run the `init_skill.py` script. The script conveniently generates a new template skill directory that automatically includes everything a skill requires, making the skill creation process much more efficient and reliable.
-
-Usage:
+Alternatively, use the `init_skill.py` script to generate a template:
 
 ```bash
 scripts/init_skill.py <skill-name> --path <output-directory>
 ```
 
-The script:
-
-- Creates the skill directory at the specified path
-- Generates a SKILL.md template with proper frontmatter and TODO placeholders
-- Creates example resource directories: `scripts/`, `references/`, and `assets/`
-- Adds example files in each directory that can be customized or deleted
-
-After initialization, customize or remove the generated SKILL.md and example files as needed.
+The script creates a skill directory with SKILL.md template and example resource directories.
 
 ### Step 4: Edit the Skill
 
-When editing the (newly-generated or existing) skill, remember that the skill is being created for another instance of OpenHands to use. Include information that would be beneficial and non-obvious to OpenHands. Consider what procedural knowledge, domain-specific details, or reusable assets would help another OpenHands instance execute these tasks more effectively.
-
-#### Learn Proven Design Patterns
-
-Consult these helpful guides based on your skill's needs:
-
-- **Multi-step processes**: See references/workflows.md for sequential workflows and conditional logic
-- **Specific output formats or quality standards**: See references/output-patterns.md for template and example patterns
-
-These files contain established best practices for effective skill design.
+When editing the (newly-created or existing) skill, remember that the skill is being created for another instance of OpenHands to use. Focus on including information that would be beneficial and non-obvious to OpenHands. Consider what procedural knowledge, domain-specific details, or reusable assets would help another OpenHands instance execute these tasks more effectively.
 
 #### Start with Reusable Skill Contents
 
 To begin implementation, start with the reusable resources identified above: `scripts/`, `references/`, and `assets/` files. Note that this step may require user input. For example, when implementing a `brand-guidelines` skill, the user may need to provide brand assets or templates to store in `assets/`, or documentation to store in `references/`.
 
-Added scripts must be tested by actually running them to ensure there are no bugs and that the output matches what is expected. If there are many similar scripts, only a representative sample needs to be tested to ensure confidence that they all work while balancing time to completion.
-
-Any example files and directories not needed for the skill should be deleted. The initialization script creates example files in `scripts/`, `references/`, and `assets/` to demonstrate structure, but most skills won't need all of them.
+Also, delete any example files and directories not needed for the skill. Create only the directories you actually need (references/, scripts/, assets/).
 
 #### Update SKILL.md
 
-**Writing Guidelines:** Always use imperative/infinitive form.
+**Writing Style:** Write the entire skill using **imperative/infinitive form** (verb-first instructions), not second person. Use objective, instructional language (e.g., "To accomplish X, do Y" rather than "You should do X" or "If you need to do X"). This maintains consistency and clarity for AI consumption.
 
-##### Frontmatter
+**Description (Frontmatter):** Use third-person format with specific trigger phrases:
 
-Write the YAML frontmatter with `name` and `description`:
-
-- `name`: The skill name
-- `description`: This is the primary triggering mechanism for your skill, and helps OpenHands understand when to use the skill.
-  - Include both what the Skill does and specific triggers/contexts for when to use it.
-  - Include all "when to use" information here - Not in the body. The body is only loaded after triggering, so "When to Use This Skill" sections in the body are not helpful to OpenHands.
-  - Example description for a `docx` skill: "Comprehensive document creation, editing, and analysis with support for tracked changes, comments, formatting preservation, and text extraction. Use when OpenHands needs to work with professional documents (.docx files) for: (1) Creating new documents, (2) Modifying or editing content, (3) Working with tracked changes, (4) Adding comments, or any other document tasks"
-
-Do not include any other fields in YAML frontmatter.
-
-##### Body
-
-Write instructions for using the skill and its bundled resources.
-
-### Step 5: Packaging a Skill
-
-Once development of the skill is complete, it must be packaged into a distributable .skill file that gets shared with the user. The packaging process automatically validates the skill first to ensure it meets all requirements:
-
-```bash
-scripts/package_skill.py <path/to/skill-folder>
+```yaml
+---
+name: skill-name
+description: This skill should be used when the user asks to "specific phrase 1", "specific phrase 2", "specific phrase 3". Include exact phrases users would say that should trigger this skill. Be concrete and specific.
+---
 ```
 
-Optional output directory specification:
-
-```bash
-scripts/package_skill.py <path/to/skill-folder> ./dist
+**Good description examples:**
+```yaml
+description: This skill should be used when the user asks to "create a hook", "add a PreToolUse hook", "validate tool use", "implement prompt-based hooks", or mentions hook events (PreToolUse, PostToolUse, Stop).
 ```
 
-The packaging script will:
+**Bad description examples:**
+```yaml
+description: Use this skill when working with hooks.  # Wrong person, vague
+description: Load when user needs hook help.  # Not third person
+description: Provides hook guidance.  # No trigger phrases
+```
 
-1. **Validate** the skill automatically, checking:
+To complete SKILL.md body, answer the following questions:
 
-   - YAML frontmatter format and required fields
-   - Skill naming conventions and directory structure
-   - Description completeness and quality
-   - File organization and resource references
+1. What is the purpose of the skill, in a few sentences?
+2. When should the skill be used? (Include this in frontmatter description with specific triggers)
+3. In practice, how should OpenHands use the skill? All reusable skill contents developed above should be referenced so that OpenHands knows how to use them.
 
-2. **Package** the skill if validation passes, creating a .skill file named after the skill (e.g., `my-skill.skill`) that includes all files and maintains the proper directory structure for distribution. The .skill file is a zip file with a .skill extension.
+**Keep SKILL.md lean:** Target 1,500-2,000 words for the body. Move detailed content to references/:
+- Detailed patterns → `references/patterns.md`
+- Advanced techniques → `references/advanced.md`
+- Migration guides → `references/migration.md`
+- API references → `references/api-reference.md`
 
-If validation fails, the script will report the errors and exit without creating a package. Fix any validation errors and run the packaging command again.
+**Reference resources in SKILL.md:**
+```markdown
+## Additional Resources
+
+### Reference Files
+
+For detailed patterns and techniques, consult:
+- **`references/patterns.md`** - Common patterns
+- **`references/advanced.md`** - Advanced use cases
+
+### Example Files
+
+Working examples in `examples/`:
+- **`example-script.sh`** - Working example
+```
+
+### Step 5: Validate and Test
+
+1. **Check structure**: Skill directory contains SKILL.md
+2. **Validate SKILL.md**: Has frontmatter with name and description
+3. **Check trigger phrases**: Description includes specific user queries
+4. **Verify writing style**: Body uses imperative/infinitive form, not second person
+5. **Test progressive disclosure**: SKILL.md is lean (~1,500-2,000 words), detailed content in references/
+6. **Check references**: All referenced files exist
+7. **Validate scripts**: Scripts are executable and work correctly
+
+Use the validation script to check basic requirements:
+```bash
+scripts/quick_validate.py <path/to/skill-folder>
+```
 
 ### Step 6: Iterate
 
 After testing the skill, users may request improvements. Often this happens right after using the skill, with fresh context of how the skill performed.
 
 **Iteration workflow:**
-
 1. Use the skill on real tasks
 2. Notice struggles or inefficiencies
 3. Identify how SKILL.md or bundled resources should be updated
 4. Implement changes and test again
+
+**Common improvements:**
+- Strengthen trigger phrases in description
+- Move long sections from SKILL.md to references/
+- Add missing examples or scripts
+- Clarify ambiguous instructions
+- Add edge case handling
+
+## Progressive Disclosure in Practice
+
+### What Goes in SKILL.md
+
+**Include (always loaded when skill triggers):**
+- Core concepts and overview
+- Essential procedures and workflows
+- Quick reference tables
+- Pointers to references/examples/scripts
+- Most common use cases
+
+**Keep under 3,000 words, ideally 1,500-2,000 words**
+
+### What Goes in references/
+
+**Move to references/ (loaded as needed):**
+- Detailed patterns and advanced techniques
+- Comprehensive API documentation
+- Migration guides
+- Edge cases and troubleshooting
+- Extensive examples and walkthroughs
+
+**Each reference file can be large (2,000-5,000+ words)**
+
+### What Goes in scripts/
+
+**Utility scripts:**
+- Validation tools
+- Testing helpers
+- Parsing utilities
+- Automation scripts
+
+**Should be executable and documented**
+
+## Writing Style Requirements
+
+### Imperative/Infinitive Form
+
+Write using verb-first instructions, not second person:
+
+**Correct (imperative):**
+```
+To create a hook, define the event type.
+Configure the MCP server with authentication.
+Validate settings before use.
+```
+
+**Incorrect (second person):**
+```
+You should create a hook by defining the event type.
+You need to configure the MCP server.
+You must validate settings before use.
+```
+
+### Third-Person in Description
+
+The frontmatter description must use third person:
+
+**Correct:**
+```yaml
+description: This skill should be used when the user asks to "create X", "configure Y"...
+```
+
+**Incorrect:**
+```yaml
+description: Use this skill when you want to create X...
+description: Load this skill when user asks...
+```
+
+### Objective, Instructional Language
+
+Focus on what to do, not who should do it:
+
+**Correct:**
+```
+Parse the frontmatter using sed.
+Extract fields with grep.
+Validate values before use.
+```
+
+**Incorrect:**
+```
+You can parse the frontmatter...
+OpenHands should extract fields...
+The user might validate values...
+```
+
+## Validation Checklist
+
+Before finalizing a skill:
+
+**Structure:**
+- [ ] SKILL.md file exists with valid YAML frontmatter
+- [ ] Frontmatter has `name` and `description` fields
+- [ ] Markdown body is present and substantial
+- [ ] Referenced files actually exist
+
+**Description Quality:**
+- [ ] Uses third person ("This skill should be used when...")
+- [ ] Includes specific trigger phrases users would say
+- [ ] Lists concrete scenarios ("create X", "configure Y")
+- [ ] Not vague or generic
+
+**Content Quality:**
+- [ ] SKILL.md body uses imperative/infinitive form
+- [ ] Body is focused and lean (1,500-2,000 words ideal, <5k max)
+- [ ] Detailed content moved to references/
+- [ ] Examples are complete and working
+- [ ] Scripts are executable and documented
+
+**Progressive Disclosure:**
+- [ ] Core concepts in SKILL.md
+- [ ] Detailed docs in references/
+- [ ] Utilities in scripts/
+- [ ] SKILL.md references these resources
+
+**Testing:**
+- [ ] Skill triggers on expected user queries
+- [ ] Content is helpful for intended tasks
+- [ ] No duplicated information across files
+- [ ] References load when needed
+
+## Common Mistakes to Avoid
+
+### Mistake 1: Weak Trigger Description
+
+❌ **Bad:**
+```yaml
+description: Provides guidance for working with hooks.
+```
+
+**Why bad:** Vague, no specific trigger phrases, not third person
+
+✅ **Good:**
+```yaml
+description: This skill should be used when the user asks to "create a hook", "add a PreToolUse hook", "validate tool use", or mentions hook events. Provides comprehensive hooks API guidance.
+```
+
+**Why good:** Third person, specific phrases, concrete scenarios
+
+### Mistake 2: Too Much in SKILL.md
+
+❌ **Bad:**
+```
+skill-name/
+└── SKILL.md  (8,000 words - everything in one file)
+```
+
+**Why bad:** Bloats context when skill loads, detailed content always loaded
+
+✅ **Good:**
+```
+skill-name/
+├── SKILL.md  (1,800 words - core essentials)
+└── references/
+    ├── patterns.md (2,500 words)
+    └── advanced.md (3,700 words)
+```
+
+**Why good:** Progressive disclosure, detailed content loaded only when needed
+
+### Mistake 3: Second Person Writing
+
+❌ **Bad:**
+```markdown
+You should start by reading the configuration file.
+You need to validate the input.
+You can use the grep tool to search.
+```
+
+**Why bad:** Second person, not imperative form
+
+✅ **Good:**
+```markdown
+Start by reading the configuration file.
+Validate the input before processing.
+Use the grep tool to search for patterns.
+```
+
+**Why good:** Imperative form, direct instructions
+
+### Mistake 4: Missing Resource References
+
+❌ **Bad:**
+```markdown
+# SKILL.md
+
+[Core content]
+
+[No mention of references/ or examples/]
+```
+
+**Why bad:** OpenHands doesn't know references exist
+
+✅ **Good:**
+```markdown
+# SKILL.md
+
+[Core content]
+
+## Additional Resources
+
+### Reference Files
+- **`references/patterns.md`** - Detailed patterns
+- **`references/advanced.md`** - Advanced techniques
+
+### Scripts
+- **`scripts/validate.sh`** - Validation utility
+```
+
+**Why good:** OpenHands knows where to find additional information
+
+## Quick Reference
+
+### Minimal Skill
+
+```
+skill-name/
+└── SKILL.md
+```
+
+Good for: Simple knowledge, no complex resources needed
+
+### Standard Skill (Recommended)
+
+```
+skill-name/
+├── SKILL.md
+├── references/
+│   └── detailed-guide.md
+└── scripts/
+    └── helper.py
+```
+
+Good for: Most skills with detailed documentation
+
+### Complete Skill
+
+```
+skill-name/
+├── SKILL.md
+├── references/
+│   ├── patterns.md
+│   └── advanced.md
+├── scripts/
+│   └── validate.sh
+└── assets/
+    └── template.txt
+```
+
+Good for: Complex domains with validation utilities
+
+## Best Practices Summary
+
+✅ **DO:**
+- Use third-person in description ("This skill should be used when...")
+- Include specific trigger phrases ("create X", "configure Y")
+- Keep SKILL.md lean (1,500-2,000 words)
+- Use progressive disclosure (move details to references/)
+- Write in imperative/infinitive form
+- Reference supporting files clearly
+- Provide working examples
+- Create utility scripts for common operations
+
+❌ **DON'T:**
+- Use second person anywhere
+- Have vague trigger conditions
+- Put everything in SKILL.md (>3,000 words without references/)
+- Write in second person ("You should...")
+- Leave resources unreferenced
+- Include broken or incomplete examples
+- Skip validation
+
+## Additional Resources
+
+### Reference Files
+
+For detailed patterns and techniques, consult:
+- **`references/workflows.md`** - Sequential workflows and conditional logic patterns
+- **`references/output-patterns.md`** - Template and example patterns for specific output formats
+
+## Implementation Workflow
+
+To create a skill:
+
+1. **Understand use cases**: Identify concrete examples of skill usage
+2. **Plan resources**: Determine what scripts/references/assets needed
+3. **Create structure**: `mkdir -p skill-name/{references,scripts,assets}`
+4. **Write SKILL.md**:
+   - Frontmatter with third-person description and trigger phrases
+   - Lean body (1,500-2,000 words) in imperative form
+   - Reference supporting files
+5. **Add resources**: Create references/, scripts/, assets/ as needed
+6. **Validate**: Check description, writing style, organization
+7. **Test**: Verify skill loads on expected triggers
+8. **Iterate**: Improve based on usage
+
+Focus on strong trigger descriptions, progressive disclosure, and imperative writing style for effective skills that load when needed and provide targeted guidance.
