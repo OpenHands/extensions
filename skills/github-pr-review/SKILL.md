@@ -1,13 +1,50 @@
 ---
 name: github-pr-review
-description: Post PR review comments using the GitHub API with inline comments, suggestions, and priority labels.
+description: Post focused PR review comments using the GitHub API. Prioritizes important issues over nits.
 triggers:
 - /github-pr-review
 ---
 
 # GitHub PR Review
 
-Post structured code review feedback using the GitHub API with inline comments on specific lines.
+Post focused code review feedback using the GitHub API. **Prioritize quality over quantity** - only comment on issues that matter.
+
+## Core Principle
+
+**Less is more.** A review with 2 important comments is better than one with 10 nits. Don't add noise.
+
+## When to APPROVE vs COMMENT
+
+**APPROVE** when:
+- Code is correct and follows good practices
+- Only minor style preferences differ (leave to linters)
+- Changes are low-risk (config, docs, simple additions)
+
+**COMMENT** when:
+- There are real issues worth discussing
+- Security, correctness, or maintainability concerns exist
+
+**Don't comment just to comment.** If code is good, approve it.
+
+---
+
+## Priority Labels
+
+Only use these three levels. **Skip nits entirely.**
+
+| Label | When to Use |
+|-------|-------------|
+| 🔴 **Critical** | Must fix: security vulnerabilities, bugs, data loss risks |
+| 🟠 **Important** | Should fix: logic errors, missing error handling, breaking changes |
+| 🟡 **Suggestion** | Worth considering: significant simplifications, better approaches |
+
+**What NOT to comment on:**
+- Style/formatting (leave to linters)
+- Minor naming preferences
+- "Nice to have" improvements
+- Praise for good code (just approve)
+
+---
 
 ## Key Rule: One API Call
 
@@ -23,15 +60,15 @@ gh api \
   repos/{owner}/{repo}/pulls/{pr_number}/reviews \
   -f commit_id='{commit_sha}' \
   -f event='COMMENT' \
-  -f body='Brief 1-3 sentence summary.' \
+  -f body='Brief 1-2 sentence summary.' \
   -f comments[][path]='path/to/file.py' \
   -F comments[][line]=42 \
   -f comments[][side]='RIGHT' \
-  -f comments[][body]='🟠 Important: Your comment here.' \
+  -f comments[][body]='🔴 Critical: SQL injection risk - use parameterized queries.' \
   -f comments[][path]='another/file.js' \
   -F comments[][line]=15 \
   -f comments[][side]='RIGHT' \
-  -f comments[][body]='🟡 Suggestion: Another comment.'
+  -f comments[][body]='🟠 Important: Missing error handling for network failures.'
 ```
 
 ### Parameters
@@ -54,41 +91,20 @@ For comments spanning multiple lines, add `start_line` to specify the range:
   -F comments[][start_line]=10 \
   -F comments[][line]=12 \
   -f comments[][side]='RIGHT' \
-  -f comments[][body]='🟡 Suggestion: Refactor this block:
+  -f comments[][body]='🟠 Important: Missing null check:
 
 ```suggestion
-line_one = "new"
-line_two = "code"
-line_three = "here"
+if user is None:
+    raise ValueError("User required")
+return process(user)
 ```'
 ```
 
 **Important**: The suggestion must have the same number of lines as the range (e.g., lines 10-12 = 3 lines).
 
-## Priority Labels
-
-Start each comment with a priority label:
-
-| Label | When to Use |
-|-------|-------------|
-| 🔴 **Critical** | Must fix: security vulnerabilities, bugs, data loss risks |
-| 🟠 **Important** | Should fix: logic errors, performance issues, missing error handling |
-| 🟡 **Suggestion** | Nice to have: better naming, code organization |
-| 🟢 **Nit** | Optional: formatting, minor style preferences |
-
-**Example:**
-```
-🟠 Important: This function doesn't handle None, which could cause an AttributeError.
-
-```suggestion
-if user is None:
-    raise ValueError("User cannot be None")
-```
-```
-
 ## GitHub Suggestions
 
-For small code changes, use the suggestion syntax for one-click apply:
+For concrete code fixes, use the suggestion syntax for one-click apply:
 
 ~~~
 ```suggestion
@@ -96,9 +112,9 @@ improved_code_here()
 ```
 ~~~
 
-Use suggestions for: renaming, typos, small refactors (1-5 lines), type hints, docstrings.
+Use suggestions for: bug fixes, missing error handling, small refactors.
 
-Avoid for: large refactors, architectural changes, ambiguous improvements.
+**Don't use suggestions for:** style preferences, optional improvements, large refactors.
 
 ## Finding Line Numbers
 
@@ -124,17 +140,18 @@ curl -X POST \
     "event": "COMMENT",
     "body": "Review summary.",
     "comments": [
-      {"path": "file.py", "line": 42, "side": "RIGHT", "body": "Comment"},
-      {"path": "file.py", "start_line": 10, "line": 12, "side": "RIGHT", "body": "Multi-line"}
+      {"path": "file.py", "line": 42, "side": "RIGHT", "body": "🔴 Critical: Issue"},
+      {"path": "file.py", "start_line": 10, "line": 12, "side": "RIGHT", "body": "🟠 Important: Issue"}
     ]
   }'
 ```
 
+---
+
 ## Summary
 
-1. Analyze the code and identify issues
-2. Post **ONE** review with all inline comments bundled
-3. Use priority labels (🔴🟠🟡🟢) on every comment
-4. Use suggestion syntax for concrete code changes
-5. Keep the review body brief (details go in inline comments)
-6. If no issues: post a short approval message
+1. **Filter first**: Only comment on 🔴 Critical and 🟠 Important issues. Skip nits.
+2. **One API call**: Bundle all comments into a single review
+3. **Use labels**: 🔴🟠🟡 on every comment (no 🟢 nits)
+4. **Approve readily**: If no real issues, just approve
+5. **Keep it brief**: Details in inline comments, summary stays short
