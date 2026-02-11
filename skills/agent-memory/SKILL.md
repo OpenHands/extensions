@@ -19,12 +19,12 @@ triggers:
 * IMPORTANT: ONLY LOG the information that would be helpful for different future tasks, for example, how to configure the settings, how to setup the repository. Do NOT add issue-specific information (e.g., what specific error you have ran into and how you fix it).
 
 * When adding new information:
-  - ALWAYS ask for user confirmation first by listing the exact items (numbered 1, 2, 3, etc.) you plan to save to repo.md
+  - ALWAYS ask for user confirmation first by listing the exact items (numbered 1, 2, 3, etc.) you plan to save to AGENTS.md
   - Only save the items the user approves (they may ask you to save a subset)
-  - Ensure it integrates nicely with existing knowledge in repo.md
+  - Ensure it integrates nicely with existing knowledge in AGENTS.md
   - Reorganize the content if needed to maintain clarity and organization
   - Group related information together under appropriate sections or headings
   - If you've only explored a portion of the codebase, clearly note this limitation in the repository structure documentation
-  - If you don't know the essential commands for working with the repository, such as lint or typecheck, ask the user and suggest adding them to repo.md for future reference (with permission)
+  - If you don't know the essential commands for working with the repository, such as lint or typecheck, ask the user and suggest adding them to AGENTS.md for future reference (with permission)
 
 When you receive this message, please review and summarize your recent actions and observations, then present a list of valuable information that should be saved in AGENTS.md to the user.
