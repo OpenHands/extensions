@@ -67,14 +67,14 @@ line_three = "here"
 
 ## Priority Labels
 
-Start each comment with a priority label:
+Start each comment with a priority label. **Minimize nits** - leave minor style issues to linters.
 
 | Label | When to Use |
 |-------|-------------|
 | 🔴 **Critical** | Must fix: security vulnerabilities, bugs, data loss risks |
 | 🟠 **Important** | Should fix: logic errors, performance issues, missing error handling |
-| 🟡 **Suggestion** | Nice to have: better naming, code organization |
-| 🟢 **Nit** | Optional: formatting, minor style preferences |
+| 🟡 **Suggestion** | Worth considering: significant improvements to clarity or maintainability |
+| 🟢 **Nit** | Optional: minor style preferences (use sparingly) |
 
 **Example:**
 ```
@@ -132,9 +132,9 @@ curl -X POST \
 
 ## Summary
 
-1. Analyze the code and identify issues
+1. Analyze the code and identify important issues (minimize nits)
 2. Post **ONE** review with all inline comments bundled
 3. Use priority labels (🔴🟠🟡🟢) on every comment
 4. Use suggestion syntax for concrete code changes
 5. Keep the review body brief (details go in inline comments)
-6. If no issues: post a short approval message
+6. If no issues: post a short message
