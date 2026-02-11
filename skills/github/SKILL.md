@@ -50,7 +50,7 @@ git checkout -b create-widget && git add . && git commit -m "Create widget" && g
 
 ## Resolving Review Threads via GraphQL
 
-The CI check `Review Thread Gate/unresolved-review-threads` will fail if there are unresolved review threads. To resolve threads programmatically:
+To resolve existing review threads programmatically:
 
 1. Get the thread IDs (replace `<OWNER>`, `<REPO>`, `<PR_NUMBER>`):
 ```bash
