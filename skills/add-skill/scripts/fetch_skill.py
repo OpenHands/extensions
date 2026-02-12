@@ -118,7 +118,7 @@ def fetch_skill(github_url: str, workspace_path: str, force: bool = False) -> st
     
     # Determine the destination directory
     # Skills are installed to: <workspace>/.agents/skills/<skill-name>/
-    dest_dir = Path(workspace_path) / '.openhands' / 'skills' / skill_name
+    dest_dir = Path(workspace_path) / '.agents' / 'skills' / skill_name
     
     # Check if skill already exists - prevent accidental overwrites
     if dest_dir.exists():

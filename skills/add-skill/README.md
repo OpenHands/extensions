@@ -17,7 +17,7 @@ It fetches only the requested skill directory (via git sparse checkout) and inst
 - Installs the skill into:
 
 ```text
-<workspace>/.openhands/skills/<skill-name>/
+<workspace>/.agents/skills/<skill-name>/
 ```
 
 ## Included files
@@ -64,4 +64,4 @@ python3 scripts/fetch_skill.py \
 
 - If `GITHUB_TOKEN` is set, it will be used for authentication (needed for private repos).
 - If the destination already exists, the script will fail unless `--force` is provided.
-- The script currently installs under `.openhands/skills/` (not `.agents/skills/`).
+- The script installs under `.agents/skills/`.
