@@ -1,0 +1,54 @@
+name: Check README.md in Skills
+
+on:
+  pull_request:
+    branches: ["*"]
+  push:
+    branches: ["main", "master"]
+
+jobs:
+  check-readme:
+    name: Verify README.md exists in all skill directories
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Check for README.md in each skill directory
+        run: |
+          echo "Checking for README.md in all skill directories..."
+          
+          # Find all immediate subdirectories of ./skills/
+          missing_readmes=()
+          
+          for dir in ./skills/*/; do
+            # Skip if not a directory
+            [ -d "$dir" ] || continue
+            
+            # Get the directory name
+            dirname=$(basename "$dir")
+            
+            # Skip hidden directories
+            [[ "$dirname" == .* ]] && continue
+            
+            # Check if README.md exists
+            if [ ! -f "${dir}README.md" ]; then
+              missing_readmes+=("$dirname")
+            fi
+          done
+          
+          # Report results
+          if [ ${#missing_readmes[@]} -gt 0 ]; then
+            echo ""
+            echo "❌ ERROR: The following skill directories are missing README.md:"
+            echo ""
+            for skill in "${missing_readmes[@]}"; do
+              echo "  - ./skills/$skill/"
+            done
+            echo ""
+            echo "Please add a README.md file to each of the above directories."
+            exit 1
+          else
+            echo ""
+            echo "✅ All skill directories contain a README.md file."
+          fi
