@@ -48,7 +48,11 @@ See: https://docs.openhands.dev/sdk/guides/skill
 
 ## AgentSkills / Skill authoring rules (follow these)
 
-OpenHands supports an extended version of the **AgentSkills** standard (https://agentskills.io/specification).
+OpenHands uses an **extended AgentSkills standard**:
+
+- **Compatible with the AgentSkills specification** (https://agentskills.io/specification)
+- **Extended with optional `triggers:` frontmatter** for keyword-based activation
+
 When editing or adding skills in this repo, follow these rules:
 
 1. **One skill per directory**
