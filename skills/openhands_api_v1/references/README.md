@@ -1,6 +1,6 @@
 # OpenHands Cloud API V1 references
 
-This skill intentionally ships a **minimal** client plus a short list of the most useful endpoints.
+This skill ships a minimal client plus a short list of the most useful endpoints.
 
 The V1 app server routes are served from the OpenHands Cloud app host:
 
