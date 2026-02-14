@@ -12,10 +12,6 @@ This skill is activated by the following keywords:
 - `discord webhook`
 - `discord.js`
 - `discord.py`
-- `slash command`
-- `application command`
-- `guild id`
-- `channel id`
 
 ## Details
 
