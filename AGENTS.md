@@ -9,7 +9,7 @@ It contains **shareable skills** that can be loaded by OpenHands (CLI/GUI/Cloud)
   - `skills/<skill-name>/SKILL.md` — the skill definition (AgentSkills-style progressive disclosure)
   - `skills/<skill-name>/README.md` — optional extra docs/examples for humans
 
-There is no application code here; the primary artifacts are Markdown skill definitions.
+There is no application code here; the primary artifacts are Markdown skill definitions, though they can contain `scripts/`, `hooks/` sub-directories as part of the Agentskill.
 
 ## How client code uses this repo
 
