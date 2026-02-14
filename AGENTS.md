@@ -18,11 +18,30 @@ There is no application code here; the primary artifacts are Markdown skill defi
 OpenHands can load skills from a project directory (repo-level) and from user-level locations.
 This repository is the **global/public** registry referenced by the docs.
 
+### Skill loading models to know (always-on vs triggered)
+
+OpenHands supports multiple ways to load instructions:
+
+1. **Always-on context**
+   - Loaded at conversation start (repo-wide rules).
+   - Prefer a root `AGENTS.md` (and optionally `CLAUDE.md` / `GEMINI.md`) in a repository.
+
+2. **Trigger-based (keyword) skills**
+   - Loaded only when matching keywords appear in user messages.
+   - Often used for narrow domain expertise (e.g., Docker, Kubernetes).
+
+3. **Progressive disclosure (AgentSkills standard)**
+   - The agent is shown a catalog (name/description/location) and decides when to open/read full content.
+   - Implemented as one directory per skill with a `SKILL.md` entry point.
+
+This registry primarily provides (3), but OpenHands commonly pairs it with (1) and (2) in client repos.
+
 ### Software Agent SDK
 
 SDK consumers typically load skills either:
 
 - as **always-loaded context** (e.g., `AGENTS.md`), and/or
+- as **trigger-loaded keyword skills**, and/or
 - as **progressive-disclosure AgentSkills** by discovering `SKILL.md` files under a directory.
 
 See: https://docs.openhands.dev/sdk/guides/skill
