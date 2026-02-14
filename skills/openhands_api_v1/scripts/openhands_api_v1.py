@@ -224,12 +224,41 @@ class OpenHandsV1API:
         conversation_id: str,
         limit: int = 50,
         sort_order: str | None = None,
+        timestamp_gte: str | None = None,
+        timestamp_lt: str | None = None,
+        kind: str | None = None,
+        source: str | None = None,
+        body: str | None = None,
     ) -> dict[str, Any]:
+        """Search events via the sandbox agent-server.
+
+        Notes:
+        - `sort_order` must be one of: "TIMESTAMP", "TIMESTAMP_DESC".
+        - timestamp filters are passed as ISO-8601 strings (e.g. "2026-02-14T21:54:00Z").
+          The server accepts both timezone-aware and naive datetimes.
+        """
+
         url = f"{agent_server_url.rstrip('/')}/api/conversations/{conversation_id}/events/search"
         params: dict[str, Any] = {"limit": max(1, int(limit))}
         if sort_order is not None:
             params["sort_order"] = sort_order
-        r = httpx.get(url, headers=self.agent_headers(session_api_key), params=params, timeout=30)
+        if timestamp_gte is not None:
+            params["timestamp__gte"] = timestamp_gte
+        if timestamp_lt is not None:
+            params["timestamp__lt"] = timestamp_lt
+        if kind is not None:
+            params["kind"] = kind
+        if source is not None:
+            params["source"] = source
+        if body is not None:
+            params["body"] = body
+
+        r = httpx.get(
+            url,
+            headers=self.agent_headers(session_api_key),
+            params=params,
+            timeout=30,
+        )
         r.raise_for_status()
         return r.json()
 
@@ -239,9 +268,36 @@ class OpenHandsV1API:
         agent_server_url: str,
         session_api_key: str,
         conversation_id: str,
+        timestamp_gte: str | None = None,
+        timestamp_lt: str | None = None,
+        kind: str | None = None,
+        source: str | None = None,
+        body: str | None = None,
     ) -> int:
+        """Count events via the sandbox agent-server.
+
+        Timestamp filters are passed as ISO-8601 strings (e.g. "2026-02-14T21:54:00Z").
+        """
+
         url = f"{agent_server_url.rstrip('/')}/api/conversations/{conversation_id}/events/count"
-        r = httpx.get(url, headers=self.agent_headers(session_api_key), timeout=30)
+        params: dict[str, Any] = {}
+        if timestamp_gte is not None:
+            params["timestamp__gte"] = timestamp_gte
+        if timestamp_lt is not None:
+            params["timestamp__lt"] = timestamp_lt
+        if kind is not None:
+            params["kind"] = kind
+        if source is not None:
+            params["source"] = source
+        if body is not None:
+            params["body"] = body
+
+        r = httpx.get(
+            url,
+            headers=self.agent_headers(session_api_key),
+            params=params,
+            timeout=30,
+        )
         r.raise_for_status()
         return int(r.json())
 
