@@ -3,6 +3,9 @@ name: deno
 description: If the project uses deno, use this skill. Use this skill to initialize and work with Deno projects, add/remove dependencies (JSR and npm), run tasks and scripts with appropriate permissions, and use built-in tooling (fmt/lint/test).
 triggers:
 - deno
+- deno.json
+- deno.jsonc
+- deno.lock
 ---
 
 # Deno
@@ -82,6 +85,7 @@ deno test --allow-net --allow-read
 deno x jsr:@std/http/file-server -p 8080
 
 # Install globally (requires choosing permissions at install time)
+# Prefer the smallest set of permissions; avoid blanket flags unless necessary.
 deno install -g -N -R jsr:@std/http/file-server -- -p 8080
 ```
 

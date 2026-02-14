@@ -18,11 +18,13 @@ Use `uv` as the default tool for Python dependency + environment management when
 
 ## Installation (if needed)
 
+Prefer a packaged install method when available. If you use the official installer, review it first (avoid blindly piping into a shell) and follow the latest instructions in the official docs.
+
 ```bash
-# macOS/Linux
+# macOS/Linux (official installer)
 curl -LsSf https://astral.sh/uv/install.sh | sh
 
-# Windows (PowerShell)
+# Windows (PowerShell, official installer)
 powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
 ```
 
@@ -39,8 +41,11 @@ uv init my-project
 ### Create / use a virtual environment
 
 ```bash
-uv venv              # creates .venv
-uv venv --python 3.13 # or the correct python version for the project
+uv venv  # creates .venv
+
+# If you need a specific version, match the project's declared requirement
+# (e.g., pyproject.toml / CI config), not an arbitrary latest version.
+uv venv --python 3.11
 
 # optional activation (not required for uv commands)
 source .venv/bin/activate  # macOS/Linux
