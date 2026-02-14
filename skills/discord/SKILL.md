@@ -81,12 +81,12 @@ These scripts are self-contained and only use the Python standard library.
 
 - Post to a webhook:
   ```bash
-  python3 scripts/post_webhook.py --content "Build finished" --wait
+  python3 -m skills.discord.scripts.post_webhook --content "Build finished" --wait
   ```
 
 - Post to a channel using a bot token:
   ```bash
-  python3 scripts/send_message.py --channel-id "$CHANNEL_ID" --content "Hello"
+  python3 -m skills.discord.scripts.send_message --channel-id "$CHANNEL_ID" --content "Hello"
   ```
 
 ## Rate limits
