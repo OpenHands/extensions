@@ -4,7 +4,6 @@ import json
 import random
 import time
 import urllib.error
-import urllib.parse
 import urllib.request
 from dataclasses import dataclass
 from typing import Mapping
@@ -33,33 +32,6 @@ def _read_http_body(error: urllib.error.HTTPError) -> str:
         return raw.decode("utf-8", errors="replace")
     except Exception:
         return ""
-
-
-
-def _sanitize_url_for_logs(url: str) -> str:
-    """Redact secrets from Discord URLs before logging.
-
-    Incoming webhook URLs include a token in the path. Treat them like secrets.
-    """
-
-    try:
-        parts = urllib.parse.urlsplit(url)
-        path_parts = parts.path.split("/")
-
-        # Redact webhook token if we recognize /webhooks/{id}/{token}.
-        # Examples:
-        # - https://discord.com/api/webhooks/<id>/<token>
-        # - https://discord.com/api/v10/webhooks/<id>/<token>
-        if "webhooks" in path_parts:
-            i = path_parts.index("webhooks")
-            if len(path_parts) > i + 2:
-                # path_parts[i+1] is webhook id, i+2 is token
-                path_parts[i + 2] = "<redacted>"
-
-        safe_path = "/".join(path_parts)
-        return urllib.parse.urlunsplit((parts.scheme, parts.netloc, safe_path, parts.query, parts.fragment))
-    except Exception:
-        return "<unavailable>"
 
 
 def _parse_rate_limit_info(*, error: urllib.error.HTTPError, body: str) -> DiscordRateLimitInfo | None:
@@ -113,21 +85,29 @@ def _parse_rate_limit_info(*, error: urllib.error.HTTPError, body: str) -> Disco
 
 def post_json(
     *,
-    request: urllib.request.Request,
+    url: str,
+    headers: Mapping[str, str],
     payload: Mapping[str, object],
     timeout_s: float = 30,
     max_retries: int = 3,
     max_retry_after_s: float = 60.0,
     jitter_s: float = 0.25,
+    redact_url_in_errors: bool = False,
 ) -> dict[str, object] | None:
     data = json.dumps(payload).encode("utf-8")
-    request.data = data
+
+    req = urllib.request.Request(
+        url,
+        data=data,
+        method="POST",
+        headers=dict(headers),
+    )
 
     attempt = 0
     while True:
         attempt += 1
         try:
-            with urllib.request.urlopen(request, timeout=timeout_s) as resp:
+            with urllib.request.urlopen(req, timeout=timeout_s) as resp:
                 body = resp.read().decode("utf-8", errors="replace")
                 if not body:
                     return None
@@ -144,10 +124,8 @@ def post_json(
                 continue
 
             context_bits = []
-            try:
-                context_bits.append(f"url={_sanitize_url_for_logs(request.full_url)}")
-            except Exception:
-                context_bits.append("url=<unavailable>")
+            if not redact_url_in_errors:
+                context_bits.append(f"url={url}")
 
             if rl is not None:
                 context_bits.append(f"rate_limit_global={rl.is_global}")

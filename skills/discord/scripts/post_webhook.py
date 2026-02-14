@@ -9,7 +9,7 @@ import sys
 import urllib.parse
 import urllib.request
 
-from _http import DiscordHTTPError, post_json
+from ._http import DiscordHTTPError, post_json
 
 
 def _with_wait_param(url: str, *, wait: bool) -> str:
@@ -28,16 +28,18 @@ def _with_wait_param(url: str, *, wait: bool) -> str:
 def _request_json(url: str, payload: dict[str, object], *, wait: bool, max_retries: int) -> dict[str, object] | None:
     request_url = _with_wait_param(url, wait=wait)
 
-    req = urllib.request.Request(
-        request_url,
-        method="POST",
-        headers={
-            "Content-Type": "application/json",
-            "User-Agent": "OpenHands-DiscordSkill/1.0 (+https://github.com/OpenHands/skills)",
-        },
-    )
+    headers = {
+        "Content-Type": "application/json",
+        "User-Agent": "OpenHands-DiscordSkill/1.0 (+https://github.com/OpenHands/skills)",
+    }
 
-    return post_json(request=req, payload=payload, max_retries=max_retries)
+    return post_json(
+        url=request_url,
+        headers=headers,
+        payload=payload,
+        max_retries=max_retries,
+        redact_url_in_errors=True,
+    )
 
 
 def main() -> int:
@@ -87,16 +89,12 @@ def main() -> int:
         "allowed_mentions": {"parse": []},
     }
 
-    try:
-        result = _request_json(
-            args.webhook_url,
-            payload,
-            wait=args.wait,
-            max_retries=max(0, args.max_retries),
-        )
-    except DiscordHTTPError as e:
-        print(str(e), file=sys.stderr)
-        return 1
+    result = _request_json(
+        args.webhook_url,
+        payload,
+        wait=args.wait,
+        max_retries=max(0, args.max_retries),
+    )
 
     if result is not None:
         print(json.dumps(result, indent=2, sort_keys=True))

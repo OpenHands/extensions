@@ -8,7 +8,7 @@ import os
 import sys
 import urllib.request
 
-from _http import DiscordHTTPError, post_json
+from ._http import DiscordHTTPError, post_json
 
 
 API_BASE = "https://discord.com/api/v10"
@@ -23,18 +23,14 @@ def _post_message(
 ) -> dict[str, object] | None:
     url = f"{API_BASE}/channels/{channel_id}/messages"
 
-    req = urllib.request.Request(
-        url,
-        method="POST",
-        headers={
-            "Authorization": f"Bot {token}",
-            "Content-Type": "application/json",
-            "User-Agent": "OpenHands-DiscordSkill/1.0 (+https://github.com/OpenHands/skills)",
-        },
-    )
+    headers = {
+        "Authorization": f"Bot {token}",
+        "Content-Type": "application/json",
+        "User-Agent": "OpenHands-DiscordSkill/1.0 (+https://github.com/OpenHands/skills)",
+    }
 
     try:
-        return post_json(request=req, payload=payload, max_retries=max_retries)
+        return post_json(url=url, headers=headers, payload=payload, max_retries=max_retries)
     except DiscordHTTPError as e:
         raise DiscordHTTPError(f"Discord API call failed. channel_id={channel_id}. {e}") from e
 
@@ -85,20 +81,16 @@ def main() -> int:
         print("No content provided (use --content or stdin).", file=sys.stderr)
         return 2
 
-    payload: dict = {"content": content}
+    payload: dict[str, object] = {"content": content}
     if not args.allow_mentions:
         payload["allowed_mentions"] = {"parse": []}
 
-    try:
-        result = _post_message(
-            token=args.token,
-            channel_id=args.channel_id,
-            payload=payload,
-            max_retries=max(0, args.max_retries),
-        )
-    except DiscordHTTPError as e:
-        print(str(e), file=sys.stderr)
-        return 1
+    result = _post_message(
+        token=args.token,
+        channel_id=args.channel_id,
+        payload=payload,
+        max_retries=max(0, args.max_retries),
+    )
 
     if result is not None:
         print(json.dumps(result, indent=2, sort_keys=True))
