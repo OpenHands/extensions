@@ -77,13 +77,13 @@ These scripts are self-contained and only use the Python standard library.
 
 - Post to a channel using a bot token:
   ```bash
-  python3 scripts/send_message.py --channel-id "$CHANNEL_ID" --content "Hello" --wait
+  python3 scripts/send_message.py --channel-id "$CHANNEL_ID" --content "Hello"
   ```
 
 ## Rate limits
 
-- Don’t hard-code limits. Parse Discord’s rate limit headers.
-- On HTTP **429**, read `Retry-After` / `retry_after`, sleep, then retry.
+- Don’t hard-code limits. Use Discord’s `Retry-After` / `retry_after` and rate-limit headers when present.
+- On HTTP **429**, wait for the provided delay (clamp to a sane maximum, add small jitter), then retry.
 
 Docs: https://discord.com/developers/docs/topics/rate-limits
 

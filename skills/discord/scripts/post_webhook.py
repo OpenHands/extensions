@@ -6,22 +6,35 @@ import argparse
 import json
 import os
 import sys
-import time
-import urllib.error
+import pathlib
+import urllib.parse
 import urllib.request
 
+_SCRIPTS_DIR = pathlib.Path(__file__).resolve().parent
+if str(_SCRIPTS_DIR) not in sys.path:
+    sys.path.insert(0, str(_SCRIPTS_DIR))
 
-def _request_json(url: str, payload: dict, *, wait: bool, max_retries: int) -> dict | None:
-    request_url = url
-    if wait and "?" not in request_url:
-        request_url += "?wait=true"
-    elif wait and "wait=" not in request_url:
-        request_url += "&wait=true"
+from _http import DiscordHTTPError, post_json
 
-    data = json.dumps(payload).encode("utf-8")
+
+def _with_wait_param(url: str, *, wait: bool) -> str:
+    if not wait:
+        return url
+
+    parts = urllib.parse.urlsplit(url)
+    query = dict(urllib.parse.parse_qsl(parts.query, keep_blank_values=True))
+    query["wait"] = "true"
+
+    return urllib.parse.urlunsplit(
+        (parts.scheme, parts.netloc, parts.path, urllib.parse.urlencode(query), parts.fragment)
+    )
+
+
+def _request_json(url: str, payload: dict[str, object], *, wait: bool, max_retries: int) -> dict[str, object] | None:
+    request_url = _with_wait_param(url, wait=wait)
+
     req = urllib.request.Request(
         request_url,
-        data=data,
         method="POST",
         headers={
             "Content-Type": "application/json",
@@ -29,46 +42,7 @@ def _request_json(url: str, payload: dict, *, wait: bool, max_retries: int) -> d
         },
     )
 
-    attempt = 0
-    while True:
-        attempt += 1
-        try:
-            with urllib.request.urlopen(req, timeout=30) as resp:
-                body = resp.read().decode("utf-8")
-                if not body:
-                    return None
-                return json.loads(body)
-        except urllib.error.HTTPError as e:
-            body = e.read().decode("utf-8") if e.fp else ""
-
-            if e.code == 429 and attempt <= max_retries:
-                retry_after = None
-                try:
-                    parsed = json.loads(body) if body else {}
-                    retry_after = parsed.get("retry_after")
-                except Exception:
-                    retry_after = None
-
-                if retry_after is None:
-                    retry_after_hdr = e.headers.get("Retry-After")
-                    if retry_after_hdr is not None:
-                        try:
-                            retry_after = float(retry_after_hdr)
-                        except ValueError:
-                            retry_after = None
-
-                if retry_after is None:
-                    retry_after = 1.0
-
-                time.sleep(float(retry_after))
-                continue
-
-            msg = f"Webhook POST failed (HTTP {e.code})."
-            if body:
-                msg += f" Response: {body[:500]}"
-            raise RuntimeError(msg) from e
-        except urllib.error.URLError as e:
-            raise RuntimeError(f"Webhook POST failed ({e}).") from e
+    return post_json(request=req, payload=payload, max_retries=max_retries)
 
 
 def main() -> int:
