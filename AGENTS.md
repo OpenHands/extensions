@@ -3,8 +3,6 @@
 This repository (`OpenHands/skills`) is the **public skills registry** for OpenHands.
 It contains **shareable skills** that can be loaded by OpenHands (CLI/GUI/Cloud) and by client code using the **Software Agent SDK**.
 
-Use this file as the always-on context for agents working *inside this repo* (editing, adding, or reviewing skills).
-
 ## What this repo contains
 
 - `skills/` — a catalog of skills, **one directory per skill**.
