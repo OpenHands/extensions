@@ -40,7 +40,7 @@ uv init my-project
 
 ```bash
 uv venv              # creates .venv
-uv venv --python 3.11
+uv venv --python 3.13 # or the correct python version for the project
 
 # optional activation (not required for uv commands)
 source .venv/bin/activate  # macOS/Linux
