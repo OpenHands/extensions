@@ -4,10 +4,6 @@ description: If the project uses uv, use this skill. Use this skill to create/ma
 triggers:
 - uv
 - uv.lock
-- .python-version
-- pyproject.toml
-- astral uv
-- python package manager
 ---
 
 # uv (Python)
