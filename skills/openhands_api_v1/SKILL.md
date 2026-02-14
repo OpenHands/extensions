@@ -75,9 +75,18 @@ These run against `agent_server_url` (not the app server):
 
 ### Counting events (recommended approach)
 
-- Prefer `.../events/count` (app-server first, agent-server second).
-- Do **not** rely on the last event `id` to infer the total number of events.
-  In the agent-server API, event IDs are UUIDs (not monotonically increasing integers).
+If you need to know how many events a conversation has, you can:
+
+1. **App server count (fastest when working)**
+   - `GET /api/v1/conversation/{conversation_id}/events/count`
+2. **Agent server count (reliable fallback)**
+   - `GET {agent_server_url}/api/conversations/{conversation_id}/events/count`
+3. **Trajectory zip fallback (heavier, but still one call + gives full payloads)**
+   - `GET /api/v1/app-conversations/{conversation_id}/download`
+   - Unzip and count `event_*.json` files
+
+Do **not** rely on the last event `id` to infer the total number of events.
+In the agent-server API, event IDs are UUIDs (not monotonically increasing integers).
 
 ## Quick start (Python)
 

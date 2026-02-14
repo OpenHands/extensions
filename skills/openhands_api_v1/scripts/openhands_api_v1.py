@@ -206,7 +206,47 @@ class OpenHandsV1API:
         r.raise_for_status()
         out = Path(output_file)
         out.write_bytes(r.content)
-        return {"file": str(out), "size": len(r.content), "content_type": r.headers.get("content-type")}
+        return {
+            "file": str(out),
+            "size": len(r.content),
+            "content_type": r.headers.get("content-type"),
+        }
+
+    def count_events_via_trajectory_zip(
+        self,
+        conversation_id: str,
+        *,
+        zip_file: str | Path,
+        extract_dir: str | Path,
+    ) -> dict[str, Any]:
+        """Fallback event counting: download trajectory zip, extract, count event files.
+
+        This is heavier than calling a count endpoint, but it is still a single API call and
+        also gives you the full exported event payloads.
+
+        Returns a small summary dict including `event_count`.
+        """
+
+        import zipfile
+
+        zip_path = Path(zip_file)
+        extract_path = Path(extract_dir)
+
+        download_meta = self.app_conversation_download_zip(conversation_id, output_file=zip_path)
+        extract_path.mkdir(parents=True, exist_ok=True)
+
+        with zipfile.ZipFile(zip_path, "r") as zf:
+            zf.extractall(extract_path)
+
+        event_count = len(list(extract_path.glob("event_*.json")))
+        has_meta = (extract_path / "meta.json").exists()
+
+        return {
+            "event_count": event_count,
+            "has_meta": has_meta,
+            "zip": download_meta,
+            "extract_dir": str(extract_path),
+        }
 
     # -----------------------------
     # Agent server endpoints (X-Session-API-Key)
