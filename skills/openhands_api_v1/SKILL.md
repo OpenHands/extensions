@@ -70,6 +70,7 @@ These run against `agent_server_url` (not the app server):
 - `GET  {agent_server_url}/api/file/download/<absolute_path>`
 - `POST {agent_server_url}/api/file/upload/<absolute_path>` (multipart)
 - `GET  {agent_server_url}/api/conversations/{conversation_id}/events/search`
+- `GET  {agent_server_url}/api/conversations/{conversation_id}/events/count`
 
 ## Quick start (Python)
 

@@ -223,11 +223,27 @@ class OpenHandsV1API:
         session_api_key: str,
         conversation_id: str,
         limit: int = 50,
+        sort_order: str | None = None,
     ) -> dict[str, Any]:
         url = f"{agent_server_url.rstrip('/')}/api/conversations/{conversation_id}/events/search"
-        r = httpx.get(url, headers=self.agent_headers(session_api_key), params={"limit": max(1, int(limit))})
+        params: dict[str, Any] = {"limit": max(1, int(limit))}
+        if sort_order is not None:
+            params["sort_order"] = sort_order
+        r = httpx.get(url, headers=self.agent_headers(session_api_key), params=params, timeout=30)
         r.raise_for_status()
         return r.json()
+
+    def agent_events_count(
+        self,
+        *,
+        agent_server_url: str,
+        session_api_key: str,
+        conversation_id: str,
+    ) -> int:
+        url = f"{agent_server_url.rstrip('/')}/api/conversations/{conversation_id}/events/count"
+        r = httpx.get(url, headers=self.agent_headers(session_api_key), timeout=30)
+        r.raise_for_status()
+        return int(r.json())
 
     def agent_execute_bash(
         self,
