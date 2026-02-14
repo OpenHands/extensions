@@ -2,12 +2,7 @@
 name: deno
 description: If the project uses deno, use this skill. Use this skill to initialize and work with Deno projects, add/remove dependencies (JSR and npm), run tasks and scripts with appropriate permissions, and use built-in tooling (fmt/lint/test).
 triggers:
-- deno.json
-- deno.jsonc
-- deno.lock
-- deno task
-- jsr:
-- npm:
+- deno
 ---
 
 # Deno
