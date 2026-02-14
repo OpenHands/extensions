@@ -1,0 +1,106 @@
+---
+name: openhands-api-v1
+description: Use the OpenHands Cloud REST API (V1) on the app server (/api/v1) and the sandbox agent server (/api/...) for common automation operations. Includes a minimal Python client under scripts/.
+triggers:
+- openhands api v1
+- openhands-api-v1
+- cloud api v1
+- app-conversations api
+- sandbox api
+- agent server api
+---
+
+This skill documents the **OpenHands Cloud API V1** and provides a small, easy-to-copy Python client.
+
+It is intentionally minimal and focused on common operations:
+
+- Defaults to OpenHands Cloud (`https://app.all-hands.dev`).
+- Targets the **V1 app server REST API** under `/api/v1/...`.
+- Includes a few **agent server** endpoints (inside a sandbox) that use `X-Session-API-Key`.
+
+## Auth
+
+### App server (Cloud)
+
+Use Bearer auth:
+
+- Header: `Authorization: Bearer <OPENHANDS_API_KEY>`
+- Env var: `OPENHANDS_API_KEY`
+
+### Agent server (inside a sandbox)
+
+Use session auth:
+
+- Header: `X-Session-API-Key: <session_api_key>`
+
+You typically obtain `agent_server_url` and `session_api_key` from the sandbox / conversation metadata returned by the app server.
+
+## Common V1 app server endpoints
+
+The following are the main endpoints implemented in the minimal client:
+
+- `GET /api/v1/users/me` — validate auth and inspect current account
+- `GET /api/v1/app-conversations/search?limit=...` — list recent conversations
+- `GET /api/v1/app-conversations?ids=...` — fetch conversation records by id (batch)
+- `GET /api/v1/app-conversations/count` — count conversations
+- `POST /api/v1/app-conversations` — start a new conversation (creates a sandbox; can incur cost)
+- `GET /api/v1/app-conversations/start-tasks?ids=...` — check async start-task status
+- `GET /api/v1/conversation/{conversation_id}/events/search?limit=...` — read conversation events
+- `GET /api/v1/conversation/{conversation_id}/events/count` — count events
+- `GET /api/v1/sandboxes/search?limit=...` — list sandboxes
+- `POST /api/v1/sandboxes/{sandbox_id}/pause` / `.../resume` — manage sandbox lifecycle
+- `GET /api/v1/app-conversations/{conversation_id}/download` — download trajectory zip
+
+## Common agent server endpoints
+
+These run against `agent_server_url` (not the app server):
+
+- `POST {agent_server_url}/api/bash/execute_bash_command`
+- `GET  {agent_server_url}/api/file/download/<absolute_path>`
+- `POST {agent_server_url}/api/file/upload/<absolute_path>` (multipart)
+- `GET  {agent_server_url}/api/conversations/{conversation_id}/events/search`
+
+## Quick start (Python)
+
+```python
+from skills.openhands_api_v1.scripts.openhands_api_v1 import OpenHandsV1API
+
+api = OpenHandsV1API()  # uses OPENHANDS_API_KEY
+
+me = api.users_me()
+print(me)
+
+recent = api.app_conversations_search(limit=5)
+print(recent)
+
+api.close()
+```
+
+## CLI examples
+
+Search conversations:
+
+```bash
+export OPENHANDS_API_KEY="..."
+python skills/openhands_api_v1/scripts/openhands_api_v1.py search-conversations --limit 5
+```
+
+Start a conversation from a prompt file:
+
+```bash
+python skills/openhands_api_v1/scripts/openhands_api_v1.py start-conversation \
+  --prompt-file skills/openhands_api/references/example_prompt.md \
+  --repo owner/repo \
+  --branch main
+```
+
+## Notes for AI agents extending this client
+
+- Prefer `.../search` endpoints with a small `limit`.
+- Avoid loops that could generate many API calls.
+- Start conversations only when asked: it may create sandboxes and cost money.
+- For sandbox file operations and command execution, use the agent server endpoints with `X-Session-API-Key`.
+
+See also:
+- `skills/openhands_api_v1/scripts/openhands_api_v1.py`
+- The original inspiration client: `enyst/llm-playground` → `openhands-api-client-v1/scripts/cloud_api_v1.py`
