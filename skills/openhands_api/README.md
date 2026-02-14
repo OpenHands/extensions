@@ -35,7 +35,8 @@ const conv = await api.createConversation({ initialUserMsg: "Hello from API" });
 console.log(conv);
 ```
 
-## Need V1 instead?
+## API versions
 
-If you are targeting the **OpenHands Cloud V1 API** (`/api/v1/...`) and the sandbox **agent server** APIs, use:
-- [`../openhands_api_v1/`](../openhands_api_v1/)
+This skill targets the **legacy V0** OpenHands REST API (`/api/...`).
+
+If you need the newer Cloud **V1** API (`/api/v1/...`), use the dedicated V1 skill/clients (not included in this PR).
