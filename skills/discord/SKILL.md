@@ -8,10 +8,6 @@ triggers:
   - discord webhook
   - discord.js
   - discord.py
-  - slash command
-  - application command
-  - guild id
-  - channel id
 ---
 
 # Discord
