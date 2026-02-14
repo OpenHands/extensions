@@ -72,6 +72,13 @@ These run against `agent_server_url` (not the app server):
 - `GET  {agent_server_url}/api/conversations/{conversation_id}/events/search`
 - `GET  {agent_server_url}/api/conversations/{conversation_id}/events/count`
 
+
+### Counting events (recommended approach)
+
+- Prefer `.../events/count` (app-server first, agent-server second).
+- Do **not** rely on the last event `id` to infer the total number of events.
+  In the agent-server API, event IDs are UUIDs (not monotonically increasing integers).
+
 ## Quick start (Python)
 
 ```python
