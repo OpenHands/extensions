@@ -33,7 +33,19 @@ Use session auth:
 
 - Header: `X-Session-API-Key: <session_api_key>`
 
-You typically obtain `agent_server_url` and `session_api_key` from the sandbox / conversation metadata returned by the app server.
+How to obtain `agent_server_url` and `session_api_key`:
+
+1. Start or fetch an app conversation via the app server (Bearer auth), e.g.:
+   - `POST /api/v1/app-conversations`
+   - or `GET /api/v1/app-conversations?ids=<conversation_id>`
+2. In the returned JSON, look for sandbox/runtime connection fields (names vary slightly by deployment/version). Common patterns:
+   - a sandbox object containing `agent_server_url` (or similar)
+   - a session key such as `session_api_key` (or similar)
+3. Use those values to call the agent server directly:
+   - Base: `{agent_server_url}/api/...`
+   - Header: `X-Session-API-Key: <session_api_key>`
+
+If those fields are not present on the conversation record, list/search sandboxes (`GET /api/v1/sandboxes/search`) and use the sandbox referenced by the conversation to locate the agent server URL + session key.
 
 ## Common V1 app server endpoints
 
