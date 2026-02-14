@@ -26,3 +26,10 @@ This skill focuses on practical Discord automation patterns:
 - Handle **rate limits** (HTTP 429) by waiting `retry_after` before retrying.
 
 See also: `references/REFERENCE.md`.
+
+## Footguns / gotchas
+
+- Webhook URLs contain a secret token; don’t log or share them.
+- Set `allowed_mentions` strictly (e.g. `{ "parse": [] }`) to avoid accidental pings.
+- Handle HTTP 429 using `retry_after` / `Retry-After` and avoid infinite retries.
+

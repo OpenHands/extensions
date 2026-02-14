@@ -10,6 +10,13 @@
 - Application Commands (slash commands): https://discord.com/developers/docs/interactions/application-commands
 - Rate limits: https://discord.com/developers/docs/topics/rate-limits
 
+## Footguns / gotchas
+
+- Incoming webhook URLs contain a secret token; treat the entire URL like a password.
+- If you include request URLs in error logs, sanitize `/webhooks/{id}/{token}` (the token is secret).
+- Use `allowed_mentions` to prevent accidental mass pings.
+- Respect rate limits. Don’t spin in tight retry loops on 429.
+
 ## Common workflows
 
 ### 1) Simple notifications (incoming webhook)

@@ -6,13 +6,8 @@ import argparse
 import json
 import os
 import sys
-import pathlib
 import urllib.parse
 import urllib.request
-
-_SCRIPTS_DIR = pathlib.Path(__file__).resolve().parent
-if str(_SCRIPTS_DIR) not in sys.path:
-    sys.path.insert(0, str(_SCRIPTS_DIR))
 
 from _http import DiscordHTTPError, post_json
 
@@ -92,12 +87,16 @@ def main() -> int:
         "allowed_mentions": {"parse": []},
     }
 
-    result = _request_json(
-        args.webhook_url,
-        payload,
-        wait=args.wait,
-        max_retries=max(0, args.max_retries),
-    )
+    try:
+        result = _request_json(
+            args.webhook_url,
+            payload,
+            wait=args.wait,
+            max_retries=max(0, args.max_retries),
+        )
+    except DiscordHTTPError as e:
+        print(str(e), file=sys.stderr)
+        return 1
 
     if result is not None:
         print(json.dumps(result, indent=2, sort_keys=True))

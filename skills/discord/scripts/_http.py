@@ -4,6 +4,7 @@ import json
 import random
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 from dataclasses import dataclass
 from typing import Mapping
@@ -32,6 +33,33 @@ def _read_http_body(error: urllib.error.HTTPError) -> str:
         return raw.decode("utf-8", errors="replace")
     except Exception:
         return ""
+
+
+
+def _sanitize_url_for_logs(url: str) -> str:
+    """Redact secrets from Discord URLs before logging.
+
+    Incoming webhook URLs include a token in the path. Treat them like secrets.
+    """
+
+    try:
+        parts = urllib.parse.urlsplit(url)
+        path_parts = parts.path.split("/")
+
+        # Redact webhook token if we recognize /webhooks/{id}/{token}.
+        # Examples:
+        # - https://discord.com/api/webhooks/<id>/<token>
+        # - https://discord.com/api/v10/webhooks/<id>/<token>
+        if "webhooks" in path_parts:
+            i = path_parts.index("webhooks")
+            if len(path_parts) > i + 2:
+                # path_parts[i+1] is webhook id, i+2 is token
+                path_parts[i + 2] = "<redacted>"
+
+        safe_path = "/".join(path_parts)
+        return urllib.parse.urlunsplit((parts.scheme, parts.netloc, safe_path, parts.query, parts.fragment))
+    except Exception:
+        return "<unavailable>"
 
 
 def _parse_rate_limit_info(*, error: urllib.error.HTTPError, body: str) -> DiscordRateLimitInfo | None:
@@ -117,9 +145,9 @@ def post_json(
 
             context_bits = []
             try:
-                context_bits.append(f"url={request.full_url}")
+                context_bits.append(f"url={_sanitize_url_for_logs(request.full_url)}")
             except Exception:
-                pass
+                context_bits.append("url=<unavailable>")
 
             if rl is not None:
                 context_bits.append(f"rate_limit_global={rl.is_global}")

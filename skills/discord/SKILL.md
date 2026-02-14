@@ -8,6 +8,10 @@ triggers:
   - discord webhook
   - discord.js
   - discord.py
+  - slash command
+  - application command
+  - guild id
+  - channel id
 ---
 
 # Discord
@@ -37,6 +41,15 @@ Use this skill when implementing or automating Discord integrations.
   - `DISCORD_BOT_TOKEN` for bot REST API calls
 - Treat webhook URLs as secrets (they include a token).
 - Do **not** automate normal user accounts (“self-bots”). Use official bot/OAuth flows.
+
+## Footguns / safety notes (read this)
+
+- **Webhook URLs are secrets** (the token is embedded in the URL). Don’t paste them into issues, logs, CI output, or chat.
+- **Mentions are dangerous by default**: always set `allowed_mentions` to something strict (these examples use `{"parse": []}`) to avoid accidentally pinging `@everyone` / roles.
+- **Watch for accidental secret logging**:
+  - If you build your own scripts, avoid including full webhook URLs in exception messages.
+  - The bundled scripts sanitize webhook URLs in error output, but you should still avoid printing the URL yourself.
+- **Rate limits**: handle HTTP 429 with `retry_after`/`Retry-After`, and don’t retry forever.
 
 ## Quick recipes
 
