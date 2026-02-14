@@ -2,12 +2,11 @@
 name: openhands-api-v1
 description: Use the OpenHands Cloud REST API (V1) on the app server (/api/v1) and the sandbox agent server (/api/...) for common automation operations. Includes a minimal Python client under scripts/.
 triggers:
-- openhands api v1
 - openhands-api-v1
-- cloud api v1
-- app-conversations api
-- sandbox api
-- agent server api
+- oh-cloud-api
+- oh-api
+- agent-server
+- agent-server-api
 ---
 
 This skill documents the **OpenHands Cloud API V1** and provides a small, easy-to-copy Python client.
