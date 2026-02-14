@@ -45,7 +45,7 @@ uv venv  # creates .venv
 
 # If you need a specific version, match the project's declared requirement
 # (e.g., pyproject.toml / CI config), not an arbitrary latest version.
-uv venv --python 3.11
+uv venv --python 3.x
 
 # optional activation (not required for uv commands)
 source .venv/bin/activate  # macOS/Linux
