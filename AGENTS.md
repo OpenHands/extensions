@@ -13,7 +13,7 @@ There is no application code here; the primary artifacts are Markdown skill defi
 
 ## How client code uses this repo
 
-### Apps based on OpenHands SDK
+### OpenHands Applications
 
 OpenHands can load skills from a project directory (repo-level) and from user-level locations.
 This repository is the **global/public** registry referenced by the docs.
