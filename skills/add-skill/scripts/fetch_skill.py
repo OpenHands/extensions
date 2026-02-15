@@ -11,13 +11,13 @@ Usage:
 
 Examples:
     # Full GitHub URL with branch
-    python fetch_skill.py "https://github.com/OpenHands/skills/tree/main/skills/docker" /workspace
+    python fetch_skill.py "https://github.com/OpenHands/extensions/tree/main/skills/docker" /workspace
     
     # Simplified URL (assumes 'main' branch)
-    python fetch_skill.py "https://github.com/OpenHands/skills/skills/npm" /workspace
+    python fetch_skill.py "https://github.com/OpenHands/extensions/skills/npm" /workspace
     
     # Shorthand format
-    python fetch_skill.py "OpenHands/skills/skills/codereview" /workspace
+    python fetch_skill.py "OpenHands/extensions/skills/codereview" /workspace
 
 The script will:
 1. Parse the GitHub URL to extract owner, repo, branch, and skill path
@@ -68,14 +68,14 @@ def parse_github_url(url: str) -> tuple[str, str, str, str]:
     
     # Step 3: Try to match full URL pattern with explicit branch
     # Pattern: owner/repo/tree/branch/path/to/skill
-    # Example: "OpenHands/skills/tree/main/skills/docker"
+    # Example: "OpenHands/extensions/tree/main/skills/docker"
     tree_match = re.match(r'^([^/]+)/([^/]+)/tree/([^/]+)/(.+)$', url)
     if tree_match:
         return tree_match.group(1), tree_match.group(2), tree_match.group(3), tree_match.group(4)
     
     # Step 4: Fall back to simple pattern (assumes 'main' branch)
     # Pattern: owner/repo/path/to/skill
-    # Example: "OpenHands/skills/skills/docker"
+    # Example: "OpenHands/extensions/skills/docker"
     parts = url.split('/')
     if len(parts) >= 3:
         owner = parts[0]
@@ -222,8 +222,8 @@ def main():
         description='Fetch a skill from a GitHub repository and install it locally.',
         epilog='''
 Examples:
-  %(prog)s "https://github.com/OpenHands/skills/tree/main/skills/docker" /workspace
-  %(prog)s "OpenHands/skills/skills/npm" /workspace
+  %(prog)s "https://github.com/OpenHands/extensions/tree/main/skills/docker" /workspace
+  %(prog)s "OpenHands/extensions/skills/npm" /workspace
   %(prog)s "owner/repo/my-skill" /workspace --force
         '''
     )

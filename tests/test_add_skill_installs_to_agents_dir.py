@@ -36,7 +36,7 @@ def test_fetch_skill_installs_into_agents_skills_dir(tmp_path: Path, monkeypatch
     workspace = tmp_path / 'workspace'
     workspace.mkdir()
 
-    installed_path = Path(fetch_skill('OpenHands/skills/' + skill_path, str(workspace), force=True))
+    installed_path = Path(fetch_skill('OpenHands/extensions/' + skill_path, str(workspace), force=True))
 
     assert installed_path == workspace / '.agents' / 'skills' / 'example-skill'
     assert (installed_path / 'SKILL.md').exists()
