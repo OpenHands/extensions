@@ -1,7 +1,7 @@
-# OpenHands Skills Registry — Agent Notes
+# OpenHands Extensions — Agent Notes
 
-This repository (`OpenHands/skills`) is the **public skills registry** for OpenHands.
-It contains **shareable skills** that can be loaded by OpenHands (CLI/GUI/Cloud) and by client code using the **Software Agent SDK**.
+This repository (`OpenHands/extensions`) is the **public extensions registry** for OpenHands.
+It contains **shareable skills and plugins** that can be loaded by OpenHands (CLI/GUI/Cloud) and by client code using the **Software Agent SDK**.
 
 ## What this repo contains
 
@@ -9,7 +9,12 @@ It contains **shareable skills** that can be loaded by OpenHands (CLI/GUI/Cloud)
   - `skills/<skill-name>/SKILL.md` — the skill definition (AgentSkills-style progressive disclosure)
   - `skills/<skill-name>/README.md` — optional extra docs/examples for humans
 
-There is no application code here; the primary artifacts are Markdown skill definitions, though they can contain `scripts/`, `hooks/` sub-directories as part of the Agentskill.
+- `plugins/` — a catalog of plugins with executable code components.
+  - `plugins/<plugin-name>/SKILL.md` — the plugin definition
+  - `plugins/<plugin-name>/hooks/` — lifecycle hooks (optional)
+  - `plugins/<plugin-name>/scripts/` — utility scripts (optional)
+
+There is no application code here; the primary artifacts are Markdown skill definitions and plugin configurations, which can contain `scripts/`, `hooks/` sub-directories.
 
 ## How client code uses this repo
 
