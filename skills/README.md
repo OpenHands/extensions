@@ -8,7 +8,7 @@ Skills are specialized prompts that enhance OpenHands with domain-specific knowl
 
 **Version 1 (V1)**: The term "skills" is used for V1 conversations. V1 UI and app server have not yet been released, but the codebase has been updated to use "skills" terminology in preparation for the V1 release.
 
-This directory (`OpenHands/skills/`) contains shareable skills that will be used in V1 conversations. For V0 conversations, the system continues to use skills from the same underlying files.
+This directory (`OpenHands/extensions/`) contains shareable skills that will be used in V1 conversations. For V0 conversations, the system continues to use skills from the same underlying files.
 
 ## Sources of Skills
 
@@ -16,7 +16,7 @@ OpenHands loads skills (V1) or skills (V0) from two sources:
 
 ### 1. Shareable Skills (Public)
 
-This directory (`OpenHands/skills/`) contains shareable skills (V1) or skills (V0) that are:
+This directory (`OpenHands/extensions/`) contains shareable skills (V1) or skills (V0) that are:
 
 - Available to all OpenHands users
 - Maintained in the OpenHands repository
@@ -26,7 +26,7 @@ This directory (`OpenHands/skills/`) contains shareable skills (V1) or skills (V
 Directory structure:
 
 ```
-OpenHands/skills/
+OpenHands/extensions/
 ├── # Keyword-triggered expertise
 │   ├── git.md         # Git operations
 │   ├── testing.md     # Testing practices

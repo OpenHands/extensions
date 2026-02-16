@@ -4,8 +4,8 @@ Add (import) an OpenHands skill from a GitHub repository into the current worksp
 
 This skill is useful when a user says things like:
 
-- “Add the `codereview` skill from https://github.com/OpenHands/skills/”
-- “/add-skill https://github.com/OpenHands/skills/tree/main/skills/codereview”
+- “Add the `codereview` skill from https://github.com/OpenHands/extensions/”
+- “/add-skill https://github.com/OpenHands/extensions/tree/main/skills/codereview”
 
 It fetches only the requested skill directory (via git sparse checkout) and installs it into the workspace so OpenHands can use it.
 
@@ -38,17 +38,17 @@ python3 scripts/fetch_skill.py "<github-skill-url>" "<workspace-path>" [--force]
 ```bash
 # Full URL with explicit branch
 python3 scripts/fetch_skill.py \
-  "https://github.com/OpenHands/skills/tree/main/skills/docker" \
+  "https://github.com/OpenHands/extensions/tree/main/skills/docker" \
   "/workspace"
 
 # Shorthand form (defaults to main)
 python3 scripts/fetch_skill.py \
-  "OpenHands/skills/skills/codereview" \
+  "OpenHands/extensions/skills/codereview" \
   "/workspace"
 
 # Overwrite if the skill already exists
 python3 scripts/fetch_skill.py \
-  "OpenHands/skills/tree/main/skills/codereview" \
+  "OpenHands/extensions/tree/main/skills/codereview" \
   "/workspace" \
   --force
 ```

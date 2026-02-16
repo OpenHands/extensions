@@ -1,6 +1,6 @@
 ---
 name: add-skill
-description: Add an external skill from a GitHub repository to the current workspace. Use when users want to import, install, or add a skill from a GitHub URL (e.g., `/add-skill https://github.com/OpenHands/skills/tree/main/skills/codereview` or "add the codereview skill from https://github.com/OpenHands/skills/"). Handles fetching the skill files and placing them in .agents/skills/.
+description: Add an external skill from a GitHub repository to the current workspace. Use when users want to import, install, or add a skill from a GitHub URL (e.g., `/add-skill https://github.com/OpenHands/extensions/tree/main/skills/codereview` or "add the codereview skill from https://github.com/OpenHands/extensions/"). Handles fetching the skill files and placing them in .agents/skills/.
 ---
 
 # Add Skill
@@ -28,11 +28,11 @@ When a user requests to add a skill from a GitHub URL:
 
 ## Example
 
-User: `/add-skill https://github.com/OpenHands/skills/tree/main/skills/codereview`
+User: `/add-skill https://github.com/OpenHands/extensions/tree/main/skills/codereview`
 
 ```bash
 # Run the fetch script
-python3 scripts/fetch_skill.py "https://github.com/OpenHands/skills/tree/main/skills/codereview" "/path/to/workspace"
+python3 scripts/fetch_skill.py "https://github.com/OpenHands/extensions/tree/main/skills/codereview" "/path/to/workspace"
 
 # Verify installation
 ls /path/to/workspace/.agents/skills/codereview/SKILL.md
