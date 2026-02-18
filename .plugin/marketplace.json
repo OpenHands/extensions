@@ -190,6 +190,19 @@
             ]
         },
         {
+            "name": "init",
+            "source": "./init",
+            "description": "Scaffold an AGENTS.md contributor guide for a repository or subdirectory.",
+            "category": "documentation",
+            "keywords": [
+                "agents",
+                "agents-md",
+                "documentation",
+                "guidelines",
+                "init"
+            ]
+        },
+        {
             "name": "jupyter",
             "source": "./jupyter",
             "description": "Read, modify, execute, and convert Jupyter notebooks programmatically. Use when working with .ipynb files for data science workflows, including editing cells, clearing outputs, or converting to other formats.",
