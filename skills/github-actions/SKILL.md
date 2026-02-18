@@ -10,14 +10,18 @@ triggers:
 
 # GitHub Actions Guide
 
-## Creating and Testing Actions
+## Critical Rules
 
-<IMPORTANT>
-When creating a GitHub Action from scratch or working with complex workflows:
-1. **Initial deployment**: At least one version MUST be merged into the main branch before the action can be used
-2. **After first merge**: You can test changes from other branches before merging by referencing the branch name in the workflow
-3. **Debug step**: Add a debug step that prints non-secret parameters at the beginning of your action to facilitate troubleshooting
-</IMPORTANT>
+**Custom Action Deployment:**
+- New custom actions MUST be merged to the main branch before they can be used
+- After the initial merge, changes can be tested from feature branches
+
+**Debug Steps:**
+Add debug steps that print non-secret parameters when:
+- Creating a new action, OR
+- Troubleshooting a particularly tricky issue
+
+(Not required for every workflow - use when needed)
 
 ## Workflow File Structure
 
@@ -42,9 +46,7 @@ jobs:
 
 ## Testing Custom Actions
 
-### Initial Setup (First Deployment)
-
-For a new custom action, you MUST merge it to main first:
+### Workflow for New Actions
 
 ```bash
 # 1. Create your action in .github/actions/my-action/action.yml
@@ -53,13 +55,13 @@ git add .github/actions/my-action/action.yml
 git commit -m "Add custom action"
 git push origin feature-branch
 
-# 3. Create and merge PR to main
-# 4. Now the action can be used in workflows
+# 3. Create and merge PR to main (required for first deployment)
+# 4. Now the action can be used; future changes can be tested from branches
 ```
 
-### Testing Changes Before Merging
+### Testing from Feature Branches
 
-Once your action exists in main, test changes from feature branches:
+After initial merge, test changes before merging:
 
 ```yaml
 # In .github/workflows/test.yml
@@ -75,9 +77,9 @@ jobs:
       - uses: owner/repo/.github/actions/my-action@feature-branch
 ```
 
-### Add Debug Step for Troubleshooting
+### Debug Step Example
 
-Always add a debug step when creating new actions or debugging complex issues:
+When needed (see Critical Rules above), add debug output:
 
 ```yaml
 jobs:
@@ -163,13 +165,7 @@ jobs:
 
 ## Common Pitfalls and Non-Obvious Gotchas
 
-### 1. Action Must Exist in Default Branch First
-
-**Problem**: Referencing an action that doesn't exist in the default branch fails.
-
-**Solution**: Merge action to main before using it in workflows from other branches.
-
-### 2. Workflow Triggers and Permissions
+### 1. Workflow Triggers and Permissions
 
 **Problem**: Workflows triggered by `pull_request` from forks have limited permissions.
 
@@ -189,7 +185,7 @@ jobs:
       - uses: actions/checkout@v4
 ```
 
-### 3. GITHUB_TOKEN Permissions
+### 2. GITHUB_TOKEN Permissions
 
 **Problem**: Default `GITHUB_TOKEN` may lack permissions for certain operations.
 
@@ -203,7 +199,7 @@ permissions:
   packages: write      # Publish packages
 ```
 
-### 4. Matrix Build Context Access
+### 3. Matrix Build Context Access
 
 **Problem**: Matrix variables aren't accessible in job-level `if` conditions.
 
@@ -222,7 +218,7 @@ jobs:
         run: echo "Linux only"
 ```
 
-### 5. Secrets in Pull Requests from Forks
+### 4. Secrets in Pull Requests from Forks
 
 **Problem**: Secrets aren't available in workflows triggered by fork PRs (security feature).
 
@@ -235,13 +231,13 @@ on:
     # Only use for safe operations, never run untrusted code
 ```
 
-### 6. Workflow File Changes Don't Trigger Themselves
+### 5. Workflow File Changes Don't Trigger Themselves
 
 **Problem**: Pushing workflow file changes doesn't trigger the workflow on that push.
 
 **Solution**: The workflow runs on the next trigger event, not when the workflow file is added/modified.
 
-### 7. Path Filters Are OR'd, Not AND'd
+### 6. Path Filters Are OR'd, Not AND'd
 
 **Problem**: Multiple paths in path filters match ANY, not ALL.
 
@@ -254,7 +250,7 @@ on:
       - 'tests/**'
 ```
 
-### 8. Action Versions and References
+### 7. Action Versions and References
 
 **Problem**: Using `@main` for action versions can break if the action changes.
 
@@ -271,7 +267,7 @@ on:
 - uses: actions/checkout@main  # Can break without warning
 ```
 
-### 9. Environment Variables vs Inputs
+### 8. Environment Variables vs Inputs
 
 **Problem**: Confusion between workflow-level env vars and action inputs.
 
@@ -295,7 +291,7 @@ jobs:
         run: echo "$STEP_VAR"
 ```
 
-### 10. Artifact Upload/Download Between Jobs
+### 9. Artifact Upload/Download Between Jobs
 
 **Problem**: Files don't persist between jobs without explicit artifact handling.
 
@@ -437,7 +433,7 @@ gh pr checks <pr-number>
 
 1. **Pin action versions**: Use specific versions (`@v4`) or SHA hashes, not `@main`
 2. **Minimal permissions**: Explicitly set `permissions` to minimum required
-3. **Debug steps**: Add parameter printing for new/complex actions
+3. **Debug steps**: See Critical Rules section for when to add debug output
 4. **Fail fast**: Use `fail-fast: false` in matrix builds only when needed
 5. **Secrets handling**: Never print secrets; they're masked but can be exposed via encoding
 6. **Caching**: Use `actions/cache` for dependencies to speed up workflows

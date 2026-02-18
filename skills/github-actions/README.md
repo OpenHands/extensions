@@ -29,7 +29,7 @@ Use this skill when:
 **Critical**: When creating a custom action from scratch:
 1. The action **must** be merged to the main branch before it can be used
 2. After the initial merge, you can test changes from feature branches
-3. Always add debug steps for new or complex actions
+3. Add debug steps for new actions or when troubleshooting tricky issues
 
 ### Types of Actions
 
@@ -189,9 +189,9 @@ jobs:
 
 ### 5. Not Printing Debug Information
 
-**Problem**: Workflows fail without enough context to debug.
+**Problem**: Complex or new workflows fail without enough context to debug.
 
-**Solution**: Add a debug step that prints non-secret parameters at the start of your action.
+**Solution**: When creating new actions or troubleshooting tricky issues, add a debug step that prints non-secret parameters.
 
 ## Advanced Patterns
 
