@@ -18,14 +18,13 @@ Automated pull request review using OpenHands agents. This plugin provides GitHu
 ```
 plugins/pr-review/
 ├── README.md              # This file
+├── action.yml             # Composite GitHub Action
 ├── skills/                # Symbolic links to review skills
 │   ├── codereview-roasted -> ../../../skills/codereview-roasted
 │   └── github-pr-review -> ../../../skills/github-pr-review
 ├── workflows/             # Example GitHub workflow files
 │   ├── pr-review-by-openhands.yml
 │   └── pr-review-evaluation.yml
-├── action/                # Symlink to the composite action
-│   └── action.yml -> ../../../.github/actions/pr-review/action.yml
 └── scripts/               # Python scripts for review execution
     ├── agent_script.py    # Main PR review agent script
     ├── prompt.py          # Prompt template for reviews
@@ -64,7 +63,7 @@ Edit the workflow file to customize:
 
 ```yaml
 - name: Run PR Review
-  uses: OpenHands/extensions/.github/actions/pr-review@main
+  uses: OpenHands/extensions/plugins/pr-review@main
   with:
     # LLM model(s) - comma-separated for A/B testing
     llm-model: anthropic/claude-sonnet-4-5-20250929
@@ -235,7 +234,7 @@ uses: OpenHands/software-agent-sdk/.github/actions/pr-review@main
 
 **After:**
 ```yaml
-uses: OpenHands/extensions/.github/actions/pr-review@main
+uses: OpenHands/extensions/plugins/pr-review@main
 ```
 
 Also update any `sdk-repo` and `sdk-version` inputs to `extensions-repo` and `extensions-version`.

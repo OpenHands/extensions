@@ -40,7 +40,7 @@ jobs:
         runs-on: ubuntu-24.04
         steps:
             - name: Run PR Review
-              uses: OpenHands/extensions/.github/actions/pr-review@main
+              uses: OpenHands/extensions/plugins/pr-review@main
               with:
                   # LLM model(s) to use. Can be comma-separated for A/B testing
                   # - one model will be randomly selected per review
