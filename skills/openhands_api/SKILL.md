@@ -2,11 +2,9 @@
 name: openhands-api
 description: Use the OpenHands REST API (V0) to create and manage agent conversations programmatically. Includes minimal Python and TypeScript clients under scripts/.
 triggers:
-- openhands api
-- openhands-api
-- openhands cloud api
-- cloud api
-- conversations api
+- openhands-api-v0
+- openhands-cloud-v0
+- oh-cloud-v0
 ---
 
 This skill provides a minimal, easy-to-copy OpenHands API client for starting and monitoring conversations.
