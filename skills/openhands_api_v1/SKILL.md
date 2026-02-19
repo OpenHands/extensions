@@ -117,7 +117,7 @@ Start a conversation from a prompt file:
 
 ```bash
 python skills/openhands_api_v1/scripts/openhands_api_v1.py start-conversation \
-  --prompt-file skills/openhands_api/references/example_prompt.md \
+  --prompt-file skills/openhands_api_v1/references/example_prompt.md \
   --repo owner/repo \
   --branch main
 ```

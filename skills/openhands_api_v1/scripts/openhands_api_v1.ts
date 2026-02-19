@@ -37,23 +37,40 @@ export class OpenHandsV1API {
     return `${this.baseUrl}/api/v1`;
   }
 
-  private async request<T>(url: string, init?: RequestInit): Promise<T> {
+  private async baseRequest<T>(
+    url: string,
+    init: RequestInit | undefined,
+    headers: Record<string, string>,
+    parseAs: "json" | "blob" = "json",
+  ): Promise<T> {
     const res = await fetch(url, {
       ...init,
       headers: {
-        Authorization: `Bearer ${this.apiKey}`,
-        "Content-Type": "application/json",
+        ...headers,
         ...(init?.headers ?? {}),
       },
     });
 
     if (!res.ok) {
       const text = await res.text().catch(() => "");
-      throw new Error(`OpenHands V1 API error ${res.status} ${res.statusText}: ${text}`);
+      throw new Error(`OpenHands API error ${res.status} ${res.statusText}: ${text}`);
     }
 
-    // Some endpoints return primitive JSON (e.g. count endpoints may return number)
+    if (parseAs === "blob") return (await res.blob()) as unknown as T;
     return (await res.json()) as T;
+  }
+
+  private async request<T>(
+    url: string,
+    init?: RequestInit,
+    parseAs: "json" | "blob" = "json",
+  ): Promise<T> {
+    return await this.baseRequest(
+      url,
+      init,
+      { Authorization: `Bearer ${this.apiKey}`, "Content-Type": "application/json" },
+      parseAs,
+    );
   }
 
   // -----------------------------
@@ -90,17 +107,7 @@ export class OpenHandsV1API {
 
   async appConversationDownloadZip(conversationId: string): Promise<Blob> {
     const url = `${this.apiV1Url}/app-conversations/${encodeURIComponent(conversationId)}/download`;
-    const res = await fetch(url, {
-      method: "GET",
-      headers: {
-        Authorization: `Bearer ${this.apiKey}`,
-      },
-    });
-    if (!res.ok) {
-      const text = await res.text().catch(() => "");
-      throw new Error(`OpenHands V1 download error ${res.status} ${res.statusText}: ${text}`);
-    }
-    return await res.blob();
+    return await this.request<Blob>(url, { method: "GET" }, "blob");
   }
 
   async appConversationStart(req: {
@@ -140,24 +147,20 @@ export class OpenHandsV1API {
   // Agent server endpoints
   // -----------------------------
 
-  private async agentRequest<T>(agentServerUrl: string, sessionApiKey: string, path: string, init?: RequestInit): Promise<T> {
+  private async agentRequest<T>(
+    agentServerUrl: string,
+    sessionApiKey: string,
+    path: string,
+    init?: RequestInit,
+  ): Promise<T> {
     const base = agentServerUrl.replace(/\/$/, "");
     const url = `${base}${path}`;
-    const res = await fetch(url, {
-      ...init,
-      headers: {
-        "X-Session-API-Key": sessionApiKey,
-        "Content-Type": "application/json",
-        ...(init?.headers ?? {}),
-      },
-    });
-
-    if (!res.ok) {
-      const text = await res.text().catch(() => "");
-      throw new Error(`OpenHands agent-server error ${res.status} ${res.statusText}: ${text}`);
-    }
-
-    return (await res.json()) as T;
+    return await this.baseRequest(
+      url,
+      init,
+      { "X-Session-API-Key": sessionApiKey, "Content-Type": "application/json" },
+      "json",
+    );
   }
 
   async agentEventsCount(agentServerUrl: string, sessionApiKey: string, conversationId: string, opts?: {

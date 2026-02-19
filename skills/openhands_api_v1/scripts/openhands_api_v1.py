@@ -29,7 +29,6 @@ from __future__ import annotations
 import argparse
 import json
 import os
-import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -420,26 +419,6 @@ class OpenHandsV1API:
             title=title,
             run=run,
         )
-
-    def poll_start_task_until_ready(
-        self,
-        task_id: str,
-        *,
-        timeout_s: int = 10 * 60,
-        poll_interval_s: int = 2,
-    ) -> dict[str, Any]:
-        start = time.time()
-        last: dict[str, Any] | None = None
-        while time.time() - start < timeout_s:
-            last = self.app_conversation_start_task_get(task_id)
-            if not last:
-                time.sleep(poll_interval_s)
-                continue
-            status = str(last.get("status") or "").upper()
-            if status in {"READY", "ERROR", "FAILED", "CANCELLED"}:
-                return last
-            time.sleep(poll_interval_s)
-        raise TimeoutError(f"Start task {task_id} did not reach terminal state in {timeout_s}s (last={last})")
 
 
 def _cmd_search_conversations(args: argparse.Namespace) -> int:
