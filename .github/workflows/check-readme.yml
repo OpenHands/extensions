@@ -1,4 +1,4 @@
-name: Check README.md in Skills
+name: Validation Checks
 
 on:
   pull_request:
@@ -7,12 +7,15 @@ on:
     branches: ["main", "master"]
 
 jobs:
-  check-readme:
-    name: Verify README.md exists in all skill directories
+  validate:
+    name: Run validation checks
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Check workflow files are in sync
+        run: python tests/test_workflow_sync.py
 
       - name: Check for README.md in each skill directory
         run: |
