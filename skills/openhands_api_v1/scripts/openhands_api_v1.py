@@ -29,6 +29,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -419,6 +420,64 @@ class OpenHandsV1API:
             title=title,
             run=run,
         )
+
+    def poll_start_task_until_ready(
+        self,
+        task_id: str,
+        *,
+        timeout_s: int = 10 * 60,
+        poll_interval_s: float = 2.0,
+        backoff_factor: float = 1.5,
+        max_interval_s: float = 10.0,
+        max_polls: int | None = None,
+    ) -> dict[str, Any]:
+        """Poll a start-task until it reaches a terminal state.
+
+        This is the async companion to `POST /api/v1/app-conversations`.
+
+        It is intentionally *polite*:
+        - sleeps between requests
+        - uses exponential backoff (capped by `max_interval_s`)
+        - supports `max_polls` to cap the total number of API calls
+
+        Terminal statuses are treated as: READY, ERROR, FAILED, CANCELLED, DONE, COMPLETED.
+
+        Raises:
+            TimeoutError: if the task doesn't reach a terminal state in time.
+        """
+
+        deadline = time.monotonic() + float(timeout_s)
+        interval = max(0.25, float(poll_interval_s))
+        factor = max(1.0, float(backoff_factor))
+        max_interval = max(interval, float(max_interval_s))
+
+        polls = 0
+        last: dict[str, Any] | None = None
+
+        while True:
+            if max_polls is not None and polls >= int(max_polls):
+                raise TimeoutError(
+                    f"Start task {task_id} did not reach terminal state (max_polls={max_polls}, last={last})"
+                )
+
+            now = time.monotonic()
+            if now > deadline:
+                raise TimeoutError(
+                    f"Start task {task_id} did not reach terminal state in {timeout_s}s (last={last})"
+                )
+
+            last = self.app_conversation_start_task_get(task_id)
+            polls += 1
+
+            status = str((last or {}).get("status") or "").upper()
+            if status in {"READY", "ERROR", "FAILED", "CANCELLED", "DONE", "COMPLETED"}:
+                return last or {}
+
+            remaining = deadline - time.monotonic()
+            sleep_s = min(interval, max(0.0, remaining))
+            if sleep_s > 0:
+                time.sleep(sleep_s)
+            interval = min(max_interval, interval * factor)
 
 
 def _cmd_search_conversations(args: argparse.Namespace) -> int:
