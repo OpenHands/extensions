@@ -21,17 +21,17 @@ Use the GitHub CLI (`gh`). The `GITHUB_TOKEN` is automatically available.
 gh api \
   -X POST \
   repos/{owner}/{repo}/pulls/{pr_number}/reviews \
-  -f commit_id='{commit_sha}' \
-  -f event='COMMENT' \
-  -f body='Brief 1-3 sentence summary.' \
-  -f comments[][path]='path/to/file.py' \
+  -F commit_id='{commit_sha}' \
+  -F event='COMMENT' \
+  -F body='Brief 1-3 sentence summary.' \
+  -F comments[][path]='path/to/file.py' \
   -F comments[][line]=42 \
-  -f comments[][side]='RIGHT' \
-  -f comments[][body]='🟠 Important: Your comment here.' \
-  -f comments[][path]='another/file.js' \
+  -F comments[][side]='RIGHT' \
+  -F comments[][body]='🟠 Important: Your comment here.' \
+  -F comments[][path]='another/file.js' \
   -F comments[][line]=15 \
-  -f comments[][side]='RIGHT' \
-  -f comments[][body]='🟡 Suggestion: Another comment.'
+  -F comments[][side]='RIGHT' \
+  -F comments[][body]='🟡 Suggestion: Another comment.'
 ```
 
 ### Parameters
@@ -50,11 +50,11 @@ gh api \
 For comments spanning multiple lines, add `start_line` to specify the range:
 
 ```bash
-  -f comments[][path]='path/to/file.py' \
+  -F comments[][path]='path/to/file.py' \
   -F comments[][start_line]=10 \
   -F comments[][line]=12 \
-  -f comments[][side]='RIGHT' \
-  -f comments[][body]='🟡 Suggestion: Refactor this block:
+  -F comments[][side]='RIGHT' \
+  -F comments[][body]='🟡 Suggestion: Refactor this block:
 
 ```suggestion
 line_one = "new"
