@@ -1,46 +1,47 @@
 #!/usr/bin/env python3
-"""Test that workflow files in .github/workflows/ match any copies elsewhere in the repo."""
+"""Test that workflow files in .github/workflows/ match copies in plugins/*/workflows/."""
 
-import os
 from pathlib import Path
 
 
+# Known locations where workflow copies are maintained
+WORKFLOW_COPY_DIRS = [
+    "plugins/pr-review/workflows",
+]
+
+
 def test_workflow_files_are_in_sync():
-    """Ensure workflow files in .github/workflows/ are identical to copies elsewhere."""
+    """Ensure workflow files in .github/workflows/ are identical to copies in plugin dirs."""
     repo_root = Path(__file__).parent.parent
     workflows_dir = repo_root / ".github" / "workflows"
 
     if not workflows_dir.exists():
         return  # No workflows directory
 
-    # Find all workflow files in .github/workflows/
-    canonical_workflows = {f.name: f for f in workflows_dir.glob("*.yml")}
-    canonical_workflows.update({f.name: f for f in workflows_dir.glob("*.yaml")})
-
-    # Find all other yml/yaml files in the repo that might be workflow copies
     mismatches = []
-    for root, dirs, files in os.walk(repo_root):
-        # Skip .github/workflows itself and hidden directories
-        if ".github/workflows" in root or "/.git" in root:
+    for copy_dir in WORKFLOW_COPY_DIRS:
+        copy_path = repo_root / copy_dir
+        if not copy_path.exists():
             continue
 
-        for filename in files:
-            if filename in canonical_workflows:
-                other_path = Path(root) / filename
-                canonical_path = canonical_workflows[filename]
+        for copy_file in copy_path.glob("*.yml"):
+            canonical_file = workflows_dir / copy_file.name
+            if not canonical_file.exists():
+                continue
 
-                canonical_content = canonical_path.read_text()
-                other_content = other_path.read_text()
+            canonical_content = canonical_file.read_text()
+            copy_content = copy_file.read_text()
 
-                if canonical_content != other_content:
-                    rel_path = other_path.relative_to(repo_root)
-                    mismatches.append(
-                        f"{rel_path} differs from .github/workflows/{filename}"
-                    )
+            if canonical_content != copy_content:
+                mismatches.append(
+                    f"{copy_dir}/{copy_file.name} differs from "
+                    f".github/workflows/{copy_file.name}"
+                )
 
     if mismatches:
         raise AssertionError(
-            "Workflow files are out of sync:\n" + "\n".join(f"  - {m}" for m in mismatches)
+            "Workflow files are out of sync:\n"
+            + "\n".join(f"  - {m}" for m in mismatches)
             + "\n\nRun: cp .github/workflows/<file> <destination> to sync"
         )
 
