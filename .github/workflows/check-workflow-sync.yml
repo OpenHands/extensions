@@ -1,0 +1,18 @@
+name: Check Workflow Sync
+
+on:
+  pull_request:
+    branches: ["*"]
+  push:
+    branches: ["main", "master"]
+
+jobs:
+  check-workflow-sync:
+    name: Verify workflow files are in sync
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Check workflow files are in sync
+        run: python tests/test_workflow_sync.py
