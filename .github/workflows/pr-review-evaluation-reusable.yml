@@ -1,0 +1,120 @@
+---
+name: PR Review Evaluation (Reusable)
+
+# Reusable workflow for evaluating PR review effectiveness.
+# This workflow is called by other repositories to assess how well
+# review comments were addressed when a PR is closed.
+#
+# Usage in other repos:
+#   jobs:
+#     evaluate:
+#       uses: OpenHands/extensions/.github/workflows/pr-review-evaluation-reusable.yml@main
+#       secrets: inherit
+
+on:
+    workflow_call:
+        inputs:
+            pr_number:
+                description: 'PR number to evaluate'
+                required: true
+                type: number
+            repo_name:
+                description: 'Repository name (owner/repo format)'
+                required: true
+                type: string
+            pr_merged:
+                description: 'Whether the PR was merged'
+                required: true
+                type: boolean
+        secrets:
+            LMNR_SKILLS_API_KEY:
+                description: 'Laminar API key for observability'
+                required: false
+            GITHUB_TOKEN:
+                description: 'GitHub token for API access'
+                required: true
+
+jobs:
+    evaluate:
+        runs-on: ubuntu-24.04
+        env:
+            PR_NUMBER: ${{ inputs.pr_number }}
+            REPO_NAME: ${{ inputs.repo_name }}
+            PR_MERGED: ${{ inputs.pr_merged }}
+
+        steps:
+            # Note: actions/download-artifact@v5 only works within the same workflow run.
+            # We use dawidd6/action-download-artifact to download from a different workflow.
+            - name: Download review trace artifact
+              id: download-trace
+              uses: dawidd6/action-download-artifact@v6
+              continue-on-error: true
+              with:
+                  workflow: pr-review-by-openhands.yml
+                  name: pr-review-trace-${{ inputs.pr_number }}
+                  path: trace-info
+                  search_artifacts: true
+                  if_no_artifact_found: warn
+                  repo: ${{ inputs.repo_name }}
+                  github_token: ${{ secrets.GITHUB_TOKEN }}
+
+            # Check if the trace file actually exists (the artifact download may
+            # succeed but with no matching artifact, only issuing a warning)
+            - name: Check if trace file exists
+              id: check-trace
+              run: |
+                  if [ -f "trace-info/laminar_trace_info.json" ]; then
+                    echo "trace_exists=true" >> $GITHUB_OUTPUT
+                    echo "Found trace file for PR #$PR_NUMBER"
+                  else
+                    echo "trace_exists=false" >> $GITHUB_OUTPUT
+                    echo "No trace file found for PR #$PR_NUMBER"
+                    echo "This PR may not have been reviewed by the agent, skipping evaluation"
+                  fi
+
+            - name: Checkout extensions repository
+              if: steps.check-trace.outputs.trace_exists == 'true'
+              uses: actions/checkout@v5
+              with:
+                  repository: OpenHands/extensions
+                  path: extensions
+
+            - name: Set up Python
+              if: steps.check-trace.outputs.trace_exists == 'true'
+              uses: actions/setup-python@v6
+              with:
+                  python-version: '3.13'
+
+            - name: Install uv
+              if: steps.check-trace.outputs.trace_exists == 'true'
+              uses: astral-sh/setup-uv@v7
+              with:
+                  enable-cache: true
+
+            - name: Install dependencies
+              if: steps.check-trace.outputs.trace_exists == 'true'
+              run: |
+                  # Install lmnr SDK for Laminar integration
+                  uv pip install --system lmnr
+
+            - name: Run evaluation
+              if: steps.check-trace.outputs.trace_exists == 'true'
+              env:
+                  LMNR_PROJECT_API_KEY: ${{ secrets.LMNR_SKILLS_API_KEY }}
+                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+              run: |
+                  # Copy trace info to working directory
+                  cp trace-info/laminar_trace_info.json .
+
+                  # Run the evaluation script from the extensions plugin
+                  uv run python extensions/plugins/pr-review/scripts/evaluate_review.py
+
+            - name: Upload evaluation logs
+              uses: actions/upload-artifact@v5
+              if: always() && steps.check-trace.outputs.trace_exists == 'true'
+              with:
+                  name: pr-review-evaluation-${{ inputs.pr_number }}
+                  path: |
+                      *.log
+                      *.json
+                  retention-days: 30

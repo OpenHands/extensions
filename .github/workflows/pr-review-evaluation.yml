@@ -1,0 +1,18 @@
+---
+name: PR Review Evaluation
+
+# This workflow evaluates how well PR review comments were addressed.
+# It calls the reusable workflow from OpenHands/extensions.
+
+on:
+    pull_request_target:
+        types: [closed]
+
+jobs:
+    evaluate:
+        uses: OpenHands/extensions/.github/workflows/pr-review-evaluation-reusable.yml@main
+        with:
+            pr_number: ${{ github.event.pull_request.number }}
+            repo_name: ${{ github.repository }}
+            pr_merged: ${{ github.event.pull_request.merged }}
+        secrets: inherit
