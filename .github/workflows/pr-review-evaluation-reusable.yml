@@ -5,11 +5,18 @@ name: PR Review Evaluation (Reusable)
 # This workflow is called by other repositories to assess how well
 # review comments were addressed when a PR is closed.
 #
+# Security note: This workflow is safe with pull_request_target because:
+# 1. Only triggers on PR close (not on code changes)
+# 2. Does not checkout PR code - only downloads artifacts from trusted workflow runs
+# 3. Runs evaluation scripts from the extensions repo, not from the PR
+#
 # Usage in other repos:
 #   jobs:
 #     evaluate:
 #       uses: OpenHands/extensions/.github/workflows/pr-review-evaluation-reusable.yml@main
-#       secrets: inherit
+#       secrets:
+#         LMNR_SKILLS_API_KEY: ${{ secrets.LMNR_SKILLS_API_KEY }}
+#         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
 on:
     workflow_call:
@@ -83,19 +90,12 @@ jobs:
               if: steps.check-trace.outputs.trace_exists == 'true'
               uses: actions/setup-python@v6
               with:
-                  python-version: '3.13'
-
-            - name: Install uv
-              if: steps.check-trace.outputs.trace_exists == 'true'
-              uses: astral-sh/setup-uv@v7
-              with:
-                  enable-cache: true
+                  python-version: '3.12'
 
             - name: Install dependencies
               if: steps.check-trace.outputs.trace_exists == 'true'
               run: |
-                  # Install lmnr SDK for Laminar integration
-                  uv pip install --system lmnr
+                  pip install lmnr
 
             - name: Run evaluation
               if: steps.check-trace.outputs.trace_exists == 'true'
@@ -107,7 +107,7 @@ jobs:
                   cp trace-info/laminar_trace_info.json .
 
                   # Run the evaluation script from the extensions plugin
-                  uv run python extensions/plugins/pr-review/scripts/evaluate_review.py
+                  python extensions/plugins/pr-review/scripts/evaluate_review.py
 
             - name: Upload evaluation logs
               uses: actions/upload-artifact@v5
