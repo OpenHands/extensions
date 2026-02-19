@@ -20,6 +20,6 @@ jobs:
           python-version: "3.12"
 
       - name: Run tests
-        run: uv run --with pytest --with requests pytest tests/
+        run: uv run --group test pytest tests/
         env:
           PYTHONPATH: ${{ github.workspace }}
