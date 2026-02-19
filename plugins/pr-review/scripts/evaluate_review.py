@@ -243,95 +243,146 @@ def truncate_text(text: str, max_chars: int = 50000) -> str:
     return text[:max_chars] + f"\n\n... [truncated, {len(text)} total chars]"
 
 
-def main():
-    """Run the PR review evaluation."""
-    logger.info("Starting PR review evaluation...")
+def load_trace_info() -> dict:
+    """Load trace info from artifact file.
 
-    # Get required environment variables
-    pr_number = _get_required_env("PR_NUMBER")
-    repo_name = _get_required_env("REPO_NAME")
-    pr_merged = os.getenv("PR_MERGED", "false").lower() == "true"
-
-    logger.info(f"Evaluating PR #{pr_number} in {repo_name}")
-    logger.info(f"PR was merged: {pr_merged}")
-
-    # Read original trace info from artifact
+    Returns:
+        Dictionary with trace_id, span_context, and other metadata.
+        Empty dict if file not found.
+    """
     trace_info_path = Path("laminar_trace_info.json")
-    original_trace_id = None
-    original_span_context = None
-    original_trace_data = {}
 
-    if trace_info_path.exists():
-        with open(trace_info_path) as f:
-            original_trace_data = json.load(f)
-        original_trace_id = original_trace_data.get("trace_id")
-        original_span_context = original_trace_data.get("span_context")
-        logger.info(f"Original trace ID: {original_trace_id}")
-        if original_span_context:
-            logger.info(
-                "Found span context - will add evaluation to original trace"
-            )
-        else:
-            logger.info("No span context - evaluation will create standalone trace")
-    else:
+    if not trace_info_path.exists():
         logger.warning(
             "No trace info file found - evaluation will create standalone trace"
         )
+        return {}
 
-    # Fetch PR data from GitHub
+    with open(trace_info_path) as f:
+        data = json.load(f)
+
+    logger.info(f"Original trace ID: {data.get('trace_id')}")
+    if data.get("span_context"):
+        logger.info("Found span context - will add evaluation to original trace")
+    else:
+        logger.info("No span context - evaluation will create standalone trace")
+
+    return data
+
+
+def fetch_pr_data(repo: str, pr_number: str) -> dict:
+    """Fetch all PR data from GitHub.
+
+    Args:
+        repo: Repository in format owner/repo
+        pr_number: PR number
+
+    Returns:
+        Dictionary with review_comments, issue_comments, reviews,
+        final_diff, pr_info, agent_comments, and human_responses
+    """
     logger.info("Fetching PR data from GitHub...")
-    review_comments = fetch_pr_review_comments(repo_name, pr_number)
-    issue_comments = fetch_pr_issue_comments(repo_name, pr_number)
-    reviews = fetch_pr_reviews(repo_name, pr_number)
-    final_diff = fetch_pr_diff(repo_name, pr_number)
-    pr_info = fetch_pr_info(repo_name, pr_number)
+
+    review_comments = fetch_pr_review_comments(repo, pr_number)
+    issue_comments = fetch_pr_issue_comments(repo, pr_number)
+    reviews = fetch_pr_reviews(repo, pr_number)
+    final_diff = fetch_pr_diff(repo, pr_number)
+    pr_info = fetch_pr_info(repo, pr_number)
 
     logger.info(f"Found {len(review_comments)} review comments")
     logger.info(f"Found {len(issue_comments)} issue comments")
     logger.info(f"Found {len(reviews)} reviews")
 
-    # Extract agent comments and human responses
     agent_comments = extract_agent_comments(review_comments, issue_comments, reviews)
     human_responses = extract_human_responses(review_comments, issue_comments)
 
     logger.info(f"Agent made {len(agent_comments)} comments")
     logger.info(f"Humans made {len(human_responses)} responses")
 
-    # Initialize Laminar for tracing
+    return {
+        "review_comments": review_comments,
+        "issue_comments": issue_comments,
+        "reviews": reviews,
+        "final_diff": final_diff,
+        "pr_info": pr_info,
+        "agent_comments": agent_comments,
+        "human_responses": human_responses,
+    }
+
+
+def calculate_engagement_score(
+    agent_comments: list[dict],
+    human_responses: list[dict],
+    pr_merged: bool,
+) -> float:
+    """Calculate engagement score based on interaction metrics.
+
+    Components:
+    - Response ratio: humans responded to agent comments (0-0.5)
+    - Completion bonus: PR was merged (0.3)
+    Max score: 0.8
+
+    Args:
+        agent_comments: List of agent comments
+        human_responses: List of human responses
+        pr_merged: Whether the PR was merged
+
+    Returns:
+        Engagement score between 0.0 and 0.8
+    """
+    score = 0.0
+    if agent_comments:
+        engagement_ratio = min(len(human_responses) / len(agent_comments), 1.0)
+        score = engagement_ratio * 0.5
+    if pr_merged:
+        score += 0.3
+    return score
+
+
+def create_evaluation_span(
+    pr_number: str,
+    repo_name: str,
+    pr_merged: bool,
+    pr_data: dict,
+    trace_info: dict,
+) -> str | None:
+    """Create Laminar evaluation span and return trace ID.
+
+    Args:
+        pr_number: PR number
+        repo_name: Repository name
+        pr_merged: Whether PR was merged
+        pr_data: Dictionary from fetch_pr_data()
+        trace_info: Dictionary from load_trace_info()
+
+    Returns:
+        Evaluation trace ID, or None if not available
+    """
     Laminar.initialize()
 
-    # Create evaluation context
     evaluation_context = {
         "pr_number": pr_number,
         "repo_name": repo_name,
         "pr_merged": pr_merged,
-        "pr_title": pr_info.get("title", ""),
-        "pr_state": pr_info.get("state", ""),
-        "original_trace_id": original_trace_id,
-        "agent_comments": agent_comments,
-        "human_responses": human_responses,
-        "final_diff": truncate_text(final_diff),
-        "total_review_comments": len(review_comments),
-        "total_issue_comments": len(issue_comments),
+        "pr_title": pr_data["pr_info"].get("title", ""),
+        "pr_state": pr_data["pr_info"].get("state", ""),
+        "original_trace_id": trace_info.get("trace_id"),
+        "agent_comments": pr_data["agent_comments"],
+        "human_responses": pr_data["human_responses"],
+        "final_diff": truncate_text(pr_data["final_diff"]),
+        "total_review_comments": len(pr_data["review_comments"]),
+        "total_issue_comments": len(pr_data["issue_comments"]),
     }
 
-    # Create an evaluation span that can be processed by a Laminar signal
-    # The signal will analyze the agent comments vs final diff to determine
-    # which suggestions were addressed.
-    #
-    # IMPORTANT: If we have the original span context, we use parent_span_context
-    # to add this span as a child of the original trace. This allows Laminar
-    # signals to operate on the complete trace (review + evaluation) together.
     with Laminar.start_as_current_span(
         name="pr_review_evaluation",
         input=evaluation_context,
         tags=["pr-review-evaluation"],
-        parent_span_context=original_span_context,
+        parent_span_context=trace_info.get("span_context"),
     ):
-        # Set trace metadata for filtering and linking
         Laminar.set_trace_metadata(
             {
-                "original_trace_id": original_trace_id or "none",
+                "original_trace_id": trace_info.get("trace_id") or "none",
                 "evaluation_type": "pr_review_effectiveness",
                 "pr_number": pr_number,
                 "repo_name": repo_name,
@@ -339,17 +390,15 @@ def main():
             }
         )
 
-        # Log summary for visibility
         summary = {
             "pr": f"{repo_name}#{pr_number}",
             "merged": pr_merged,
-            "agent_comments_count": len(agent_comments),
-            "human_responses_count": len(human_responses),
-            "diff_length": len(final_diff),
+            "agent_comments_count": len(pr_data["agent_comments"]),
+            "human_responses_count": len(pr_data["human_responses"]),
+            "diff_length": len(pr_data["final_diff"]),
         }
         logger.info(f"Evaluation summary: {json.dumps(summary)}")
 
-        # Set output with key metrics
         Laminar.set_span_output(
             {
                 "summary": summary,
@@ -357,62 +406,62 @@ def main():
             }
         )
 
-        # Capture trace ID while inside the span context
-        # (get_trace_id() returns None outside a span context)
         eval_trace_id = Laminar.get_trace_id()
 
-    # Flush to ensure span is sent
     Laminar.flush()
+    return str(eval_trace_id) if eval_trace_id else None
 
-    # If we have the original trace ID, we can also score it directly
-    # This provides immediate feedback without waiting for signal processing
+
+def main():
+    """Run the PR review evaluation."""
+    logger.info("Starting PR review evaluation...")
+
+    pr_number = _get_required_env("PR_NUMBER")
+    repo_name = _get_required_env("REPO_NAME")
+    pr_merged = os.getenv("PR_MERGED", "false").lower() == "true"
+
+    logger.info(f"Evaluating PR #{pr_number} in {repo_name}")
+    logger.info(f"PR was merged: {pr_merged}")
+
+    trace_info = load_trace_info()
+    pr_data = fetch_pr_data(repo_name, pr_number)
+    eval_trace_id = create_evaluation_span(
+        pr_number, repo_name, pr_merged, pr_data, trace_info
+    )
+
+    original_trace_id = trace_info.get("trace_id")
+    agent_comments = pr_data["agent_comments"]
+    human_responses = pr_data["human_responses"]
+
+    # Score engagement on the original trace for immediate feedback
     if original_trace_id:
         try:
             client = LaminarClient()
-
-            # PLACEHOLDER SCORE: This is a simple engagement metric, NOT a measure
-            # of review effectiveness. The actual effectiveness score will come from
-            # the Laminar signal which analyzes whether suggestions were implemented.
-            #
-            # This score only indicates:
-            # - Whether humans responded to agent comments (engagement)
-            # - Whether the PR was merged (completion)
-            #
-            # It does NOT measure:
-            # - Whether agent suggestions were actually helpful
-            # - Whether suggestions were implemented in the final code
-            # - Quality of the review feedback
-            preliminary_score = 0.0
-            if agent_comments:
-                engagement_ratio = min(len(human_responses) / len(agent_comments), 1.0)
-                preliminary_score = engagement_ratio * 0.5  # Scale to 0-0.5
-            if pr_merged:
-                preliminary_score += 0.3
+            engagement_score = calculate_engagement_score(
+                agent_comments, human_responses, pr_merged
+            )
 
             client.evaluators.score(
                 name="review_engagement",
                 trace_id=original_trace_id,
-                score=preliminary_score,
+                score=engagement_score,
                 metadata={
                     "agent_comments": len(agent_comments),
                     "human_responses": len(human_responses),
                     "pr_merged": pr_merged,
-                    "note": "Placeholder - signal provides effectiveness analysis",
-                    "score_type": "engagement_only",
+                    "score_type": "engagement",
                 },
             )
             logger.info(
-                f"Added preliminary score {preliminary_score:.2f} "
+                f"Added engagement score {engagement_score:.2f} "
                 f"to original trace {original_trace_id}"
             )
 
-            # Tag the original trace to indicate evaluation was done
             client.tags.tag(original_trace_id, ["evaluated", f"pr-{pr_number}"])
             logger.info(f"Tagged original trace {original_trace_id}")
 
         except Exception as e:
             logger.warning(f"Failed to score original trace: {e}")
-            # Don't fail the workflow if scoring fails
 
     # Print evaluation summary
     print("\n=== PR Review Evaluation ===")

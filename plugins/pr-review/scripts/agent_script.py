@@ -75,6 +75,65 @@ MAX_REVIEW_CONTEXT = 30000
 # Maximum time (seconds) for GraphQL pagination to prevent hanging on slow APIs
 MAX_PAGINATION_TIME = 120
 
+# GraphQL queries as module-level constants for reusability and testability
+REVIEWS_QUERY = """
+query(
+    $owner: String!
+    $repo: String!
+    $pr_number: Int!
+    $count: Int!
+    $cursor: String
+) {
+    repository(owner: $owner, name: $repo) {
+        pullRequest(number: $pr_number) {
+            reviews(last: $count, before: $cursor) {
+                pageInfo {
+                    hasPreviousPage
+                    startCursor
+                }
+                nodes {
+                    id
+                    author { login }
+                    body
+                    state
+                    submittedAt
+                }
+            }
+        }
+    }
+}
+"""
+
+THREADS_QUERY = """
+query($owner: String!, $repo: String!, $pr_number: Int!, $cursor: String) {
+    repository(owner: $owner, name: $repo) {
+        pullRequest(number: $pr_number) {
+            reviewThreads(last: 100, before: $cursor) {
+                pageInfo {
+                    hasPreviousPage
+                    startCursor
+                }
+                nodes {
+                    id
+                    isResolved
+                    isOutdated
+                    path
+                    line
+                    comments(first: 50) {
+                        nodes {
+                            id
+                            author { login }
+                            body
+                            createdAt
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+"""
+
 
 def _get_required_env(name: str) -> str:
     value = os.getenv(name)
@@ -133,6 +192,99 @@ def _call_github_api(
         raise RuntimeError(f"GitHub API returned invalid JSON: {e}") from e
 
 
+def _paginate_graphql(
+    query: str,
+    variables: dict[str, Any],
+    path_to_nodes: list[str],
+    max_items: int | None = None,
+    item_name: str = "items",
+) -> list[dict[str, Any]]:
+    """Generic GraphQL pagination with timeout.
+
+    Handles cursor-based pagination for GitHub GraphQL queries using `last`/`before`.
+
+    Args:
+        query: GraphQL query string with $cursor variable
+        variables: Base variables for the query (will be updated with cursor)
+        path_to_nodes: Path to the nodes in the response, e.g.
+                       ["pullRequest", "reviews"] to access
+                       data.repository.pullRequest.reviews
+        max_items: Maximum number of items to fetch (None for unlimited)
+        item_name: Name for logging purposes
+
+    Returns:
+        List of all nodes fetched, in reverse order (oldest first)
+    """
+    all_items: list[dict[str, Any]] = []
+    cursor = None
+    start_time = time.time()
+    page_count = 0
+    has_more_pages = False
+
+    while max_items is None or len(all_items) < max_items:
+        elapsed = time.time() - start_time
+        if elapsed > MAX_PAGINATION_TIME:
+            logger.warning(
+                f"{item_name} pagination timeout after {elapsed:.1f}s, "
+                f"fetched {len(all_items)} {item_name} across {page_count} pages"
+            )
+            break
+
+        # Update cursor for pagination
+        vars_with_cursor = {**variables, "cursor": cursor}
+
+        # Adjust count if max_items is set
+        if max_items is not None and "count" in vars_with_cursor:
+            remaining = max_items - len(all_items)
+            vars_with_cursor["count"] = min(remaining, vars_with_cursor["count"])
+
+        result = _call_github_api(
+            "https://api.github.com/graphql",
+            method="POST",
+            data={"query": query, "variables": vars_with_cursor},
+        )
+
+        if "errors" in result:
+            logger.warning(f"GraphQL errors fetching {item_name}: {result['errors']}")
+            break
+
+        # Navigate to the data using path
+        data = result.get("data", {}).get("repository", {})
+        for key in path_to_nodes:
+            data = data.get(key, {}) if data else {}
+
+        if not data:
+            break
+
+        nodes = data.get("nodes", [])
+        page_count += 1
+
+        if not nodes:
+            break
+
+        all_items.extend(nodes)
+
+        logger.debug(
+            f"Fetched page {page_count} with {len(nodes)} {item_name} "
+            f"(total: {len(all_items)})"
+        )
+
+        page_info = data.get("pageInfo", {})
+        has_more_pages = page_info.get("hasPreviousPage", False)
+        if not has_more_pages:
+            break
+        cursor = page_info.get("startCursor")
+
+    if has_more_pages and max_items is None:
+        logger.warning(
+            f"{item_name} limited to {len(all_items)} items. "
+            "Some items may be omitted for PRs with extensive history."
+        )
+
+    # Items are fetched newest-first with `last`, reverse for chronological order
+    return list(reversed(all_items))
+
+
 def get_pr_reviews(pr_number: str, max_reviews: int = 100) -> list[dict[str, Any]]:
     """Fetch the latest reviews for a PR using GraphQL.
 
@@ -153,110 +305,36 @@ def get_pr_reviews(pr_number: str, max_reviews: int = 100) -> list[dict[str, Any
     repo = _get_required_env("REPO_NAME")
     owner, repo_name = repo.split("/")
 
-    # Use GraphQL to fetch the latest reviews directly
-    # `last: N` fetches the N most recent items
-    query = """
-    query(
-        $owner: String!
-        $repo: String!
-        $pr_number: Int!
-        $count: Int!
-        $cursor: String
-    ) {
-        repository(owner: $owner, name: $repo) {
-            pullRequest(number: $pr_number) {
-                reviews(last: $count, before: $cursor) {
-                    pageInfo {
-                        hasPreviousPage
-                        startCursor
-                    }
-                    nodes {
-                        id
-                        author { login }
-                        body
-                        state
-                        submittedAt
-                    }
-                }
-            }
-        }
+    variables = {
+        "owner": owner,
+        "repo": repo_name,
+        "pr_number": int(pr_number),
+        "count": 100,  # GraphQL max per request
     }
-    """
 
-    all_reviews: list[dict[str, Any]] = []
-    cursor = None
-    start_time = time.time()
-    page_count = 0
+    nodes = _paginate_graphql(
+        query=REVIEWS_QUERY,
+        variables=variables,
+        path_to_nodes=["pullRequest", "reviews"],
+        max_items=max_reviews,
+        item_name="reviews",
+    )
 
-    while len(all_reviews) < max_reviews:
-        # Check for pagination timeout
-        elapsed = time.time() - start_time
-        if elapsed > MAX_PAGINATION_TIME:
-            logger.warning(
-                f"Reviews pagination timeout after {elapsed:.1f}s, "
-                f"fetched {len(all_reviews)} reviews across {page_count} pages"
-            )
-            break
-
-        # Fetch up to remaining needed reviews
-        remaining = max_reviews - len(all_reviews)
-        fetch_count = min(remaining, 100)  # GraphQL max is 100 per request
-
-        variables = {
-            "owner": owner,
-            "repo": repo_name,
-            "pr_number": int(pr_number),
-            "count": fetch_count,
-            "cursor": cursor,
-        }
-
-        result = _call_github_api(
-            "https://api.github.com/graphql",
-            method="POST",
-            data={"query": query, "variables": variables},
+    # Convert GraphQL format to REST-like format for compatibility
+    reviews = []
+    for node in nodes:
+        author = node.get("author") or {}
+        reviews.append(
+            {
+                "id": node.get("id"),
+                "user": {"login": author.get("login", "unknown")},
+                "body": node.get("body", ""),
+                "state": node.get("state", "UNKNOWN"),
+                "submitted_at": node.get("submittedAt"),
+            }
         )
 
-        if "errors" in result:
-            logger.warning(f"GraphQL errors fetching reviews: {result['errors']}")
-            break
-
-        pr_data = result.get("data", {}).get("repository", {}).get("pullRequest")
-        if not pr_data:
-            break
-
-        reviews_data = pr_data.get("reviews", {})
-        nodes = reviews_data.get("nodes", [])
-        page_count += 1
-
-        if not nodes:
-            break
-
-        # Convert GraphQL format to REST-like format for compatibility
-        for node in nodes:
-            author = node.get("author") or {}
-            all_reviews.append(
-                {
-                    "id": node.get("id"),
-                    "user": {"login": author.get("login", "unknown")},
-                    "body": node.get("body", ""),
-                    "state": node.get("state", "UNKNOWN"),
-                    "submitted_at": node.get("submittedAt"),
-                }
-            )
-
-        logger.debug(
-            f"Fetched page {page_count} with {len(nodes)} reviews "
-            f"(total: {len(all_reviews)})"
-        )
-
-        page_info = reviews_data.get("pageInfo", {})
-        if not page_info.get("hasPreviousPage"):
-            break
-        cursor = page_info.get("startCursor")
-
-    # Reviews are fetched newest-first with `last`, reverse to get chronological order
-    # (oldest first) for consistent display
-    return list(reversed(all_reviews))
+    return reviews
 
 
 def get_review_threads_graphql(pr_number: str) -> list[dict[str, Any]]:
@@ -282,100 +360,18 @@ def get_review_threads_graphql(pr_number: str) -> list[dict[str, Any]]:
     repo = _get_required_env("REPO_NAME")
     owner, repo_name = repo.split("/")
 
-    # Use `last` to fetch the most recent threads first
-    # `before: $cursor` paginates backwards through older threads
-    query = """
-    query($owner: String!, $repo: String!, $pr_number: Int!, $cursor: String) {
-        repository(owner: $owner, name: $repo) {
-            pullRequest(number: $pr_number) {
-                reviewThreads(last: 100, before: $cursor) {
-                    pageInfo {
-                        hasPreviousPage
-                        startCursor
-                    }
-                    nodes {
-                        id
-                        isResolved
-                        isOutdated
-                        path
-                        line
-                        comments(first: 50) {
-                            nodes {
-                                id
-                                author { login }
-                                body
-                                createdAt
-                            }
-                        }
-                    }
-                }
-            }
-        }
+    variables = {
+        "owner": owner,
+        "repo": repo_name,
+        "pr_number": int(pr_number),
     }
-    """
 
-    threads: list[dict[str, Any]] = []
-    cursor = None
-    start_time = time.time()
-    page_count = 0
-    has_more_pages = False
-
-    while True:
-        # Check for overall pagination timeout
-        elapsed = time.time() - start_time
-        if elapsed > MAX_PAGINATION_TIME:
-            logger.warning(
-                f"GraphQL pagination timeout after {elapsed:.1f}s, "
-                f"fetched {len(threads)} threads across {page_count} pages"
-            )
-            break
-
-        variables = {
-            "owner": owner,
-            "repo": repo_name,
-            "pr_number": int(pr_number),
-            "cursor": cursor,
-        }
-
-        result = _call_github_api(
-            "https://api.github.com/graphql",
-            method="POST",
-            data={"query": query, "variables": variables},
-        )
-
-        if "errors" in result:
-            logger.warning(f"GraphQL errors: {result['errors']}")
-            break
-
-        pr_data = result.get("data", {}).get("repository", {}).get("pullRequest")
-        if not pr_data:
-            break
-
-        review_threads = pr_data.get("reviewThreads", {})
-        nodes = review_threads.get("nodes", [])
-        threads.extend(nodes)
-        page_count += 1
-
-        logger.debug(
-            f"Fetched page {page_count} with {len(nodes)} threads "
-            f"(total: {len(threads)})"
-        )
-
-        page_info = review_threads.get("pageInfo", {})
-        has_more_pages = page_info.get("hasPreviousPage", False)
-        if not has_more_pages:
-            break
-        cursor = page_info.get("startCursor")
-
-    # Warn only if there are actually more pages we didn't fetch
-    if has_more_pages:
-        logger.warning(
-            f"Review threads limited to {len(threads)} threads. "
-            "Some threads may be omitted for PRs with extensive review history."
-        )
-
-    # Threads are fetched newest-first with `last`, reverse to get chronological order
-    return list(reversed(threads))
+    return _paginate_graphql(
+        query=THREADS_QUERY,
+        variables=variables,
+        path_to_nodes=["pullRequest", "reviewThreads"],
+        item_name="review threads",
+    )
 
 
 def format_review_context(
@@ -648,11 +644,15 @@ def get_head_commit_sha(repo_dir: Path | None = None) -> str:
     return run_git_command(["git", "rev-parse", "HEAD"], repo_dir).strip()
 
 
-def main():
-    """Run the PR review agent."""
-    logger.info("Starting PR review process...")
+def validate_environment() -> dict[str, str]:
+    """Validate required environment variables and return config.
 
-    # Validate required environment variables
+    Returns:
+        Dictionary with validated environment variables
+
+    Raises:
+        SystemExit if required variables are missing
+    """
     required_vars = [
         "LLM_API_KEY",
         "GITHUB_TOKEN",
@@ -667,48 +667,224 @@ def main():
         logger.error(f"Missing required environment variables: {missing_vars}")
         sys.exit(1)
 
-    github_token = os.getenv("GITHUB_TOKEN")
-
-    # Get PR information
-    pr_info = {
-        "number": os.getenv("PR_NUMBER"),
-        "title": os.getenv("PR_TITLE"),
-        "body": os.getenv("PR_BODY", ""),
-        "repo_name": os.getenv("REPO_NAME"),
-        "base_branch": os.getenv("PR_BASE_BRANCH"),
-        "head_branch": os.getenv("PR_HEAD_BRANCH"),
-    }
-
-    # Get review style - default to standard
     review_style = os.getenv("REVIEW_STYLE", "standard").lower()
     if review_style not in ("standard", "roasted"):
         logger.warning(f"Unknown REVIEW_STYLE '{review_style}', using 'standard'")
         review_style = "standard"
 
+    return {
+        "api_key": os.getenv("LLM_API_KEY"),
+        "github_token": os.getenv("GITHUB_TOKEN"),
+        "model": os.getenv("LLM_MODEL", "anthropic/claude-sonnet-4-5-20250929"),
+        "base_url": os.getenv("LLM_BASE_URL"),
+        "review_style": review_style,
+        "pr_info": {
+            "number": os.getenv("PR_NUMBER"),
+            "title": os.getenv("PR_TITLE"),
+            "body": os.getenv("PR_BODY", ""),
+            "repo_name": os.getenv("REPO_NAME"),
+            "base_branch": os.getenv("PR_BASE_BRANCH"),
+            "head_branch": os.getenv("PR_HEAD_BRANCH"),
+        },
+    }
+
+
+def fetch_pr_context(pr_number: str) -> tuple[str, str, str]:
+    """Fetch PR diff, commit SHA, and review context.
+
+    Args:
+        pr_number: The PR number
+
+    Returns:
+        Tuple of (diff, commit_id, review_context)
+    """
+    pr_diff = get_truncated_pr_diff()
+    logger.info(f"Got PR diff with {len(pr_diff)} characters")
+
+    commit_id = get_head_commit_sha()
+    logger.info(f"HEAD commit SHA: {commit_id}")
+
+    review_context = get_pr_review_context(pr_number)
+    if review_context:
+        logger.info(f"Got review context with {len(review_context)} characters")
+    else:
+        logger.info("No previous review context found")
+
+    return pr_diff, commit_id, review_context
+
+
+def create_agent(config: dict[str, Any]) -> Agent:
+    """Create and configure the review agent.
+
+    Args:
+        config: Configuration dictionary from validate_environment()
+
+    Returns:
+        Configured Agent instance
+    """
+    llm_config = {
+        "model": config["model"],
+        "api_key": config["api_key"],
+        "usage_id": "pr_review_agent",
+        "drop_params": True,
+    }
+    if config["base_url"]:
+        llm_config["base_url"] = config["base_url"]
+
+    llm = LLM(**llm_config)
+
+    cwd = os.getcwd()
+    project_skills = load_project_skills(cwd)
+    logger.info(
+        f"Loaded {len(project_skills)} project skills: "
+        f"{[s.name for s in project_skills]}"
+    )
+
+    agent_context = AgentContext(
+        load_public_skills=True,
+        skills=project_skills,
+    )
+
+    return Agent(
+        llm=llm,
+        tools=get_default_tools(enable_browser=False),
+        agent_context=agent_context,
+        system_prompt_kwargs={"cli_mode": True},
+        condenser=get_default_condenser(
+            llm=llm.model_copy(update={"usage_id": "condenser"})
+        ),
+    )
+
+
+def run_review(
+    agent: Agent,
+    prompt: str,
+    secrets: dict[str, str],
+) -> Conversation:
+    """Execute the PR review.
+
+    Args:
+        agent: Configured Agent instance
+        prompt: Review prompt
+        secrets: Secrets to mask in output
+
+    Returns:
+        Completed Conversation
+    """
+    cwd = os.getcwd()
+    conversation = Conversation(
+        agent=agent,
+        workspace=cwd,
+        secrets=secrets,
+    )
+
+    logger.info("Starting PR review analysis...")
+    logger.info("Agent will post inline review comments directly via GitHub API")
+
+    conversation.send_message(prompt)
+    conversation.run()
+
+    review_content = get_agent_final_response(conversation.state.events)
+    if review_content:
+        logger.info(f"Agent final response: {len(review_content)} characters")
+
+    return conversation
+
+
+def log_cost_summary(conversation: Conversation) -> None:
+    """Print cost information for CI output."""
+    metrics = conversation.conversation_stats.get_combined_metrics()
+    print("\n=== PR Review Cost Summary ===")
+    print(f"Total Cost: ${metrics.accumulated_cost:.6f}")
+    if metrics.accumulated_token_usage:
+        token_usage = metrics.accumulated_token_usage
+        print(f"Prompt Tokens: {token_usage.prompt_tokens}")
+        print(f"Completion Tokens: {token_usage.completion_tokens}")
+        if token_usage.cache_read_tokens > 0:
+            print(f"Cache Read Tokens: {token_usage.cache_read_tokens}")
+        if token_usage.cache_write_tokens > 0:
+            print(f"Cache Write Tokens: {token_usage.cache_write_tokens}")
+
+
+def save_trace_context(
+    pr_info: dict[str, Any],
+    commit_id: str,
+    review_style: str,
+    model: str,
+) -> None:
+    """Capture and store Laminar trace context for evaluation.
+
+    Saves trace info to file for GitHub artifact upload, enabling
+    the evaluation workflow to continue the trace.
+    """
+    trace_id = Laminar.get_trace_id()
+    laminar_span_context = Laminar.get_laminar_span_context()
+    span_context = (
+        laminar_span_context.model_dump(mode="json") if laminar_span_context else None
+    )
+
+    if not trace_id or not laminar_span_context:
+        logger.warning(
+            "No Laminar trace ID found - observability may not be enabled"
+        )
+        return
+
+    with Laminar.start_as_current_span(
+        name="pr-review-metadata",
+        parent_span_context=laminar_span_context,
+    ) as _:
+        pr_url = f"https://github.com/{pr_info['repo_name']}/pull/{pr_info['number']}"
+        Laminar.set_trace_metadata(
+            {
+                "pr_number": pr_info["number"],
+                "repo_name": pr_info["repo_name"],
+                "pr_url": pr_url,
+                "workflow_phase": "review",
+                "review_style": review_style,
+                "model": model,
+            }
+        )
+
+    trace_data = {
+        "trace_id": str(trace_id),
+        "span_context": span_context,
+        "pr_number": pr_info["number"],
+        "repo_name": pr_info["repo_name"],
+        "commit_id": commit_id,
+        "review_style": review_style,
+        "model": model,
+    }
+    with open("laminar_trace_info.json", "w") as f:
+        json.dump(trace_data, f, indent=2)
+
+    logger.info(f"Laminar trace ID: {trace_id}")
+    logger.info(f"Model used: {model}")
+    if span_context:
+        logger.info("Laminar span context captured for trace continuation")
+    print("\n=== Laminar Trace ===")
+    print(f"Trace ID: {trace_id}")
+
+    Laminar.flush()
+
+
+def main():
+    """Run the PR review agent."""
+    logger.info("Starting PR review process...")
+
+    config = validate_environment()
+    pr_info = config["pr_info"]
+    review_style = config["review_style"]
+
     logger.info(f"Reviewing PR #{pr_info['number']}: {pr_info['title']}")
     logger.info(f"Review style: {review_style}")
 
     try:
-        pr_diff = get_truncated_pr_diff()
-        logger.info(f"Got PR diff with {len(pr_diff)} characters")
+        pr_diff, commit_id, review_context = fetch_pr_context(pr_info["number"])
 
-        # Get the HEAD commit SHA for inline comments
-        commit_id = get_head_commit_sha()
-        logger.info(f"HEAD commit SHA: {commit_id}")
-
-        # Fetch previous review context (comments, threads, resolution status)
-        pr_number = pr_info.get("number", "")
-        review_context = get_pr_review_context(pr_number)
-        if review_context:
-            logger.info(f"Got review context with {len(review_context)} characters")
-        else:
-            logger.info("No previous review context found")
-
-        # Create the review prompt using the template
-        # Include the skill trigger keyword to activate the appropriate skill
         skill_trigger = (
             "/codereview" if review_style == "standard" else "/codereview-roasted"
         )
+        logger.info(f"Using skill trigger: {skill_trigger}")
 
         prompt = format_prompt(
             skill_trigger=skill_trigger,
@@ -717,170 +893,24 @@ def main():
             repo_name=pr_info.get("repo_name", "N/A"),
             base_branch=pr_info.get("base_branch", "main"),
             head_branch=pr_info.get("head_branch", "N/A"),
-            pr_number=pr_number,
+            pr_number=pr_info["number"],
             commit_id=commit_id,
             diff=pr_diff,
             review_context=review_context,
         )
 
-        # Configure LLM
-        api_key = os.getenv("LLM_API_KEY")
-        model = os.getenv("LLM_MODEL", "anthropic/claude-sonnet-4-5-20250929")
-        base_url = os.getenv("LLM_BASE_URL")
+        agent = create_agent(config)
 
-        llm_config = {
-            "model": model,
-            "api_key": api_key,
-            "usage_id": "pr_review_agent",
-            "drop_params": True,
-        }
-        if base_url:
-            llm_config["base_url"] = base_url
-
-        llm = LLM(**llm_config)
-
-        # Get the current working directory as workspace
-        cwd = os.getcwd()
-
-        # Load project-specific skills from the repository being reviewed
-        # This includes AGENTS.md, .cursorrules, and skills from .agents/skills/
-        project_skills = load_project_skills(cwd)
-        logger.info(
-            f"Loaded {len(project_skills)} project skills: "
-            f"{[s.name for s in project_skills]}"
-        )
-
-        # Create AgentContext with public skills enabled and project skills
-        # Public skills from https://github.com/OpenHands/extensions include:
-        # - /codereview: Standard code review skill
-        # - /codereview-roasted: Linus Torvalds style brutally honest review
-        # Project skills include repo-specific guidance (AGENTS.md, etc.)
-        agent_context = AgentContext(
-            load_public_skills=True,
-            skills=project_skills,
-        )
-
-        # Create agent with default tools and agent context
-        # Note: agent_context must be passed at initialization since Agent is frozen
-        agent = Agent(
-            llm=llm,
-            tools=get_default_tools(enable_browser=False),  # CLI mode - no browser
-            agent_context=agent_context,
-            system_prompt_kwargs={"cli_mode": True},
-            condenser=get_default_condenser(
-                llm=llm.model_copy(update={"usage_id": "condenser"})
-            ),
-        )
-
-        # Create conversation with secrets for masking
-        # These secrets will be masked in agent output to prevent accidental exposure
         secrets = {}
-        if api_key:
-            secrets["LLM_API_KEY"] = api_key
-        if github_token:
-            secrets["GITHUB_TOKEN"] = github_token
+        if config["api_key"]:
+            secrets["LLM_API_KEY"] = config["api_key"]
+        if config["github_token"]:
+            secrets["GITHUB_TOKEN"] = config["github_token"]
 
-        conversation = Conversation(
-            agent=agent,
-            workspace=cwd,
-            secrets=secrets,
-        )
+        conversation = run_review(agent, prompt, secrets)
 
-        logger.info("Starting PR review analysis...")
-        logger.info("Agent received the PR diff in the initial message")
-        logger.info(f"Using skill trigger: {skill_trigger}")
-        logger.info("Agent will post inline review comments directly via GitHub API")
-
-        # Send the prompt and run the agent
-        # The agent will analyze the code and post inline review comments
-        # directly to the PR using the GitHub API
-        conversation.send_message(prompt)
-        conversation.run()
-
-        # The agent should have posted review comments via GitHub API
-        # Log the final response for debugging purposes
-        review_content = get_agent_final_response(conversation.state.events)
-        if review_content:
-            logger.info(f"Agent final response: {len(review_content)} characters")
-
-        # Print cost information for CI output
-        metrics = conversation.conversation_stats.get_combined_metrics()
-        print("\n=== PR Review Cost Summary ===")
-        print(f"Total Cost: ${metrics.accumulated_cost:.6f}")
-        if metrics.accumulated_token_usage:
-            token_usage = metrics.accumulated_token_usage
-            print(f"Prompt Tokens: {token_usage.prompt_tokens}")
-            print(f"Completion Tokens: {token_usage.completion_tokens}")
-            if token_usage.cache_read_tokens > 0:
-                print(f"Cache Read Tokens: {token_usage.cache_read_tokens}")
-            if token_usage.cache_write_tokens > 0:
-                print(f"Cache Write Tokens: {token_usage.cache_write_tokens}")
-
-        # Capture and store trace context for delayed evaluation
-        # When the PR is merged/closed, we can use this context to add the
-        # evaluation span to the same trace, enabling signals to analyze both
-        # the original review and evaluation together.
-        # Note: Laminar methods gracefully handle the uninitialized case by
-        # returning None or early-returning, so no try/except needed.
-        trace_id = Laminar.get_trace_id()
-
-        # Use model_dump(mode='json') to ensure UUIDs are serialized as strings
-        # for JSON compatibility. get_laminar_span_context_dict() returns UUID
-        # objects which are not JSON serializable.
-        laminar_span_context = Laminar.get_laminar_span_context()
-        span_context = (
-            laminar_span_context.model_dump(mode="json") if laminar_span_context else None
-        )
-
-        if trace_id and laminar_span_context:
-            # Set trace metadata within an active span context
-            # Using start_as_current_span with parent_span_context to continue the trace
-            with Laminar.start_as_current_span(
-                name="pr-review-metadata",
-                parent_span_context=laminar_span_context,
-            ) as _:
-                # Set trace metadata within this active span context
-                # Include model for A/B testing analysis
-                pr_url = f"https://github.com/{pr_info['repo_name']}/pull/{pr_info['number']}"
-                Laminar.set_trace_metadata(
-                    {
-                        "pr_number": pr_info["number"],
-                        "repo_name": pr_info["repo_name"],
-                        "pr_url": pr_url,
-                        "workflow_phase": "review",
-                        "review_style": review_style,
-                        "model": model,
-                    }
-                )
-
-            # Store trace context in file for GitHub artifact upload
-            # This allows the evaluation workflow to add its span to this trace
-            # The span_context includes trace_id, span_id, and span_path needed
-            # to continue the trace across separate workflow runs.
-            trace_data = {
-                "trace_id": str(trace_id),
-                "span_context": span_context,
-                "pr_number": pr_info["number"],
-                "repo_name": pr_info["repo_name"],
-                "commit_id": commit_id,
-                "review_style": review_style,
-                "model": model,
-            }
-            with open("laminar_trace_info.json", "w") as f:
-                json.dump(trace_data, f, indent=2)
-            logger.info(f"Laminar trace ID: {trace_id}")
-            logger.info(f"Model used: {model}")
-            if span_context:
-                logger.info("Laminar span context captured for trace continuation")
-            print("\n=== Laminar Trace ===")
-            print(f"Trace ID: {trace_id}")
-
-            # Ensure trace is flushed to Laminar before workflow ends
-            Laminar.flush()
-        else:
-            logger.warning(
-                "No Laminar trace ID found - observability may not be enabled"
-            )
+        log_cost_summary(conversation)
+        save_trace_context(pr_info, commit_id, review_style, config["model"])
 
         logger.info("PR review completed successfully")
 

@@ -101,7 +101,8 @@ runs:
 
               # Select one model randomly from the comma-separated list
               MODELS_LIST="${{ inputs.llm-model }}"
-              SELECTED_MODEL=$(echo "$MODELS_LIST" | tr ',' '\n' | shuf -n 1 | xargs)
+              IFS=',' read -ra MODELS <<< "$MODELS_LIST"
+              SELECTED_MODEL="${MODELS[$RANDOM % ${#MODELS[@]}]}"
               echo "selected_model=$SELECTED_MODEL" >> $GITHUB_OUTPUT
 
               echo "PR Number: ${{ github.event.pull_request.number }}"
