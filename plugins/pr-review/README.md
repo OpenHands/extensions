@@ -2,6 +2,20 @@
 
 Automated pull request review using OpenHands agents. This plugin provides GitHub workflows that automatically review PRs with detailed, inline code review comments.
 
+## Quick Start
+
+Copy both workflow files to your repository:
+
+```bash
+mkdir -p .github/workflows
+curl -o .github/workflows/pr-review-by-openhands.yml \
+  https://raw.githubusercontent.com/OpenHands/extensions/main/plugins/pr-review/workflows/pr-review-by-openhands.yml
+curl -o .github/workflows/pr-review-evaluation.yml \
+  https://raw.githubusercontent.com/OpenHands/extensions/main/plugins/pr-review/workflows/pr-review-evaluation.yml
+```
+
+Then configure the required secrets (see [Installation](#installation) below).
+
 ## Features
 
 - **Automated PR Reviews**: Triggered when PRs are opened, marked ready, or when a reviewer is requested
@@ -53,7 +67,7 @@ Add the following secrets in your repository settings (**Settings → Secrets an
 |--------|----------|-------------|
 | `LLM_API_KEY` | Yes | API key for your LLM provider |
 | `GITHUB_TOKEN` | Auto | Provided automatically by GitHub Actions |
-| `LMNR_PROJECT_API_KEY` | No | Laminar API key for observability |
+| `LMNR_SKILLS_API_KEY` | No | Laminar API key for observability (org-level secret for OpenHands repos) |
 
 **Note**: For repositories that need to post review comments from a bot account, use `ALLHANDS_BOT_GITHUB_PAT` instead of `GITHUB_TOKEN`.
 
