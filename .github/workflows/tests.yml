@@ -13,15 +13,13 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
         with:
+          enable-cache: true
           python-version: "3.12"
 
-      - name: Install dependencies
-        run: pip install pytest requests
-
       - name: Run tests
-        run: pytest tests/
+        run: uv run --with pytest --with requests pytest tests/
         env:
           PYTHONPATH: ${{ github.workspace }}
