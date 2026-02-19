@@ -376,6 +376,19 @@
                 "preview",
                 "hosting"
             ]
+        },
+        {
+            "name": "plugin-test",
+            "source": "../plugins/plugin-test",
+            "description": "Test plugin loading via OpenHands Cloud API - launch conversations with plugins and verify responses match expected patterns.",
+            "category": "testing",
+            "keywords": [
+                "test",
+                "plugin",
+                "verification",
+                "api",
+                "conversation"
+            ]
         }
     ]
 }
