@@ -4,12 +4,6 @@
 from pathlib import Path
 
 
-# Known locations where workflow copies are maintained
-WORKFLOW_COPY_DIRS = [
-    "plugins/pr-review/workflows",
-]
-
-
 def test_workflow_files_are_in_sync():
     """Ensure workflow files in .github/workflows/ are identical to copies in plugin dirs."""
     repo_root = Path(__file__).parent.parent
@@ -19,9 +13,9 @@ def test_workflow_files_are_in_sync():
         return  # No workflows directory
 
     mismatches = []
-    for copy_dir in WORKFLOW_COPY_DIRS:
-        copy_path = repo_root / copy_dir
-        if not copy_path.exists():
+    # Check all plugins/*/workflows/ directories
+    for copy_path in repo_root.glob("plugins/*/workflows"):
+        if not copy_path.is_dir():
             continue
 
         for copy_file in copy_path.glob("*.yml"):
@@ -33,8 +27,9 @@ def test_workflow_files_are_in_sync():
             copy_content = copy_file.read_text()
 
             if canonical_content != copy_content:
+                rel_path = copy_path.relative_to(repo_root)
                 mismatches.append(
-                    f"{copy_dir}/{copy_file.name} differs from "
+                    f"{rel_path}/{copy_file.name} differs from "
                     f".github/workflows/{copy_file.name}"
                 )
 
