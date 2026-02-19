@@ -17,14 +17,12 @@ You can use `curl` with the `GITLAB_TOKEN` to interact with GitLab's API.
 ALWAYS use the GitLab API or `glab` CLI for operations instead of a web browser.
 ALWAYS use the `create_mr` tool to open a merge request.
 
-If the user asks you to check pipeline status, view issues, or manage merge requests, use `glab` CLI commands:
+If the user asks you to check pipeline status, view issues, or manage merge requests, use `glab` CLI:
 Examples:
-- `glab mr view <mr-number>` to view a merge request
 - `glab mr view <mr-number> --comments` to view MR with comments
 - `glab issue view <issue-number> --comments` to view an issue with comments
 - `glab ci status` to check pipeline status
-- `glab ci view` to view the current pipeline
-- `glab pipeline list` to list recent pipelines
+- `glab ci retry` to retry a failed pipeline
 </IMPORTANT>
 
 If you encounter authentication issues when pushing to GitLab (such as password prompts or permission errors), the old token may have expired. In such case, update the remote URL to include the current token: `git remote set-url origin https://oauth2:${GITLAB_TOKEN}@gitlab.com/username/repo.git`
@@ -54,77 +52,7 @@ git checkout -b create-widget && git add . && git commit -m "Create widget" && g
 - After addressing (or deciding not to address) inline review comments, mark the corresponding discussion threads as resolved.
 - Before resolving a thread, leave a reply comment that either explains the reason for dismissing the feedback or references the specific commit (e.g., commit SHA) that addressed the issue.
 - Prefer resolving threads only once fixes are pushed or a clear decision is documented.
-
-## Common GitLab CLI (glab) Commands
-
-### Merge Requests
-```bash
-# List merge requests
-glab mr list
-
-# View a specific MR with comments
-glab mr view <mr-number> --comments
-
-# Create a merge request
-glab mr create --source-branch <branch> --target-branch main --title "Title" --description "Description"
-
-# Check out an MR locally
-glab mr checkout <mr-number>
-
-# Approve a merge request
-glab mr approve <mr-number>
-
-# Merge a merge request
-glab mr merge <mr-number>
-```
-
-### Issues
-```bash
-# List issues
-glab issue list
-
-# View an issue with comments
-glab issue view <issue-number> --comments
-
-# Create an issue
-glab issue create --title "Title" --description "Description"
-
-# Close an issue
-glab issue close <issue-number>
-
-# Add a comment to an issue
-glab issue note <issue-number> --message "Comment text"
-```
-
-### Pipelines and CI
-```bash
-# View current pipeline status
-glab ci status
-
-# View pipeline details
-glab ci view
-
-# List recent pipelines
-glab pipeline list
-
-# Retry a failed pipeline
-glab ci retry
-
-# View a specific job's log
-glab ci trace <job-id>
-```
-
-### API Access
-```bash
-# Make direct API calls using glab
-glab api projects/:id/merge_requests
-
-# Get project details
-glab api projects/:id
-
-# List project variables
-glab api projects/:id/variables
-```
+- Use the GitLab API to reply to and resolve discussion threads (see below).
 
 ## Resolving Discussion Threads via API
 
@@ -149,7 +77,7 @@ curl --request PUT --header "PRIVATE-TOKEN: $GITLAB_TOKEN" \
   --data "resolved=true"
 ```
 
-4. Retry a failed pipeline:
+4. Get failed pipeline and retry it:
 ```bash
 # List recent pipelines to find the ID
 glab pipeline list
