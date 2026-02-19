@@ -243,14 +243,17 @@ def truncate_text(text: str, max_chars: int = 50000) -> str:
     return text[:max_chars] + f"\n\n... [truncated, {len(text)} total chars]"
 
 
-def load_trace_info() -> dict:
+def load_trace_info(trace_file_path: str | None = None) -> dict:
     """Load trace info from artifact file.
+
+    Args:
+        trace_file_path: Path to trace info JSON file. If None, uses default path.
 
     Returns:
         Dictionary with trace_id, span_context, and other metadata.
         Empty dict if file not found.
     """
-    trace_info_path = Path("laminar_trace_info.json")
+    trace_info_path = Path(trace_file_path) if trace_file_path else Path("laminar_trace_info.json")
 
     if not trace_info_path.exists():
         logger.warning(
@@ -412,8 +415,12 @@ def create_evaluation_span(
     return str(eval_trace_id) if eval_trace_id else None
 
 
-def main():
-    """Run the PR review evaluation."""
+def main(trace_file_path: str | None = None):
+    """Run the PR review evaluation.
+
+    Args:
+        trace_file_path: Optional path to trace info JSON file.
+    """
     logger.info("Starting PR review evaluation...")
 
     pr_number = _get_required_env("PR_NUMBER")
@@ -423,7 +430,7 @@ def main():
     logger.info(f"Evaluating PR #{pr_number} in {repo_name}")
     logger.info(f"PR was merged: {pr_merged}")
 
-    trace_info = load_trace_info()
+    trace_info = load_trace_info(trace_file_path)
     pr_data = fetch_pr_data(repo_name, pr_number)
     eval_trace_id = create_evaluation_span(
         pr_number, repo_name, pr_merged, pr_data, trace_info
@@ -478,8 +485,17 @@ def main():
 
 
 if __name__ == "__main__":
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Evaluate PR review effectiveness")
+    parser.add_argument(
+        "--trace-file",
+        help="Path to trace info JSON file (default: laminar_trace_info.json)",
+    )
+    args = parser.parse_args()
+
     try:
-        main()
+        main(trace_file_path=args.trace_file)
     except Exception as e:
         logger.error(f"Evaluation failed: {e}")
         sys.exit(1)

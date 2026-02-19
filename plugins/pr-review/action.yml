@@ -77,11 +77,6 @@ runs:
               sudo apt-get update
               sudo apt-get install -y gh
 
-        - name: Install OpenHands dependencies
-          shell: bash
-          run: |
-              uv pip install --system openhands-sdk openhands-tools lmnr
-
         - name: Check required configuration and select model
           id: select-model
           shell: bash
@@ -132,7 +127,8 @@ runs:
               REPO_NAME: ${{ github.repository }}
           run: |
               cd pr-repo
-              uv run python ../extensions/plugins/pr-review/scripts/agent_script.py
+              uv run --with openhands-sdk --with openhands-tools --with lmnr \
+                python ../extensions/plugins/pr-review/scripts/agent_script.py
 
         - name: Upload logs as artifact
           uses: actions/upload-artifact@v4
