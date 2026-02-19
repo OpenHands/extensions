@@ -20,7 +20,7 @@ Test plugin loading via the OpenHands Cloud API. Launch conversations with any p
 ### Basic Usage
 
 ```bash
-export OPENHANDS_API_KEY="sk-oh-your-api-key"
+export OH_API_KEY="sk-oh-your-api-key"
 
 # Test the city-weather plugin
 ./scripts/test_plugin.sh \
@@ -64,7 +64,8 @@ Options:
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `OPENHANDS_API_KEY` | (required) | Your OpenHands API key |
+| `OH_API_KEY` | (required) | Your OpenHands API key |
+| `OPENHANDS_API_KEY` | - | Alternative name for API key (fallback) |
 | `OPENHANDS_URL` | `https://app.all-hands.dev` | OpenHands Cloud URL |
 | `MARKETPLACE_REPO` | `github:OpenHands/extensions` | Plugin marketplace repository |
 | `MARKETPLACE_REF` | `main` | Git ref (branch/tag) for marketplace |
@@ -76,7 +77,7 @@ Options:
 ### Test city-weather plugin
 
 ```bash
-export OPENHANDS_API_KEY="sk-oh-..."
+export OH_API_KEY="sk-oh-..."
 
 ./scripts/test_plugin.sh \
   --plugin "plugins/city-weather" \
@@ -142,7 +143,7 @@ The script returns exit codes suitable for CI pipelines:
 ```yaml
 - name: Test city-weather plugin
   env:
-    OPENHANDS_API_KEY: ${{ secrets.OPENHANDS_API_KEY }}
+    OH_API_KEY: ${{ secrets.OH_API_KEY }}
   run: |
     ./plugins/plugin-test/scripts/test_plugin.sh \
       --plugin "plugins/city-weather" \

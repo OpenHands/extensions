@@ -33,7 +33,9 @@ chmod +x /tmp/test_plugin.sh
 Before running, ensure these are set:
 
 ```bash
-export OPENHANDS_API_KEY="sk-oh-your-api-key"
+export OH_API_KEY="sk-oh-your-api-key"
+# Alternative: OPENHANDS_API_KEY is also accepted as a fallback
+
 # Optional: override defaults
 export OPENHANDS_URL="https://app.all-hands.dev"
 export MARKETPLACE_REPO="github:OpenHands/extensions"

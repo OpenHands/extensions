@@ -25,7 +25,8 @@
 #
 # Environment Variables:
 #   OPENHANDS_URL     - OpenHands Cloud URL (default: https://app.all-hands.dev)
-#   OPENHANDS_API_KEY - Your OpenHands API key (required)
+#   OH_API_KEY        - Your OpenHands API key (required)
+#   OPENHANDS_API_KEY - Alternative name for API key (fallback if OH_API_KEY not set)
 #   MARKETPLACE_REPO  - Plugin marketplace repo (default: github:OpenHands/extensions)
 #   MARKETPLACE_REF   - Git ref for marketplace (default: main)
 #
@@ -37,7 +38,8 @@ set -e
 # ============================================================================
 
 OPENHANDS_URL="${OPENHANDS_URL:-https://app.all-hands.dev}"
-OPENHANDS_API_KEY="${OPENHANDS_API_KEY:-}"
+# Support both OH_API_KEY (preferred) and OPENHANDS_API_KEY (fallback)
+OH_API_KEY="${OH_API_KEY:-${OPENHANDS_API_KEY:-}}"
 MARKETPLACE_REPO="${MARKETPLACE_REPO:-github:OpenHands/extensions}"
 MARKETPLACE_REF="${MARKETPLACE_REF:-main}"
 
@@ -87,13 +89,14 @@ Options:
 
 Environment Variables:
   OPENHANDS_URL       OpenHands Cloud URL (default: https://app.all-hands.dev)
-  OPENHANDS_API_KEY   Your OpenHands API key (required)
+  OH_API_KEY          Your OpenHands API key (required)
+  OPENHANDS_API_KEY   Alternative name for API key (fallback if OH_API_KEY not set)
   MARKETPLACE_REPO    Plugin marketplace repo (default: github:OpenHands/extensions)
   MARKETPLACE_REF     Git ref for marketplace (default: main)
 
 Examples:
   # Test city-weather plugin
-  export OPENHANDS_API_KEY="sk-oh-..."
+  export OH_API_KEY="sk-oh-..."
   $(basename "$0") \\
     --plugin "plugins/city-weather" \\
     --message "/city-weather:now Tokyo" \\
@@ -151,9 +154,10 @@ check_dependencies() {
 }
 
 validate_config() {
-    if [ -z "$OPENHANDS_API_KEY" ]; then
-        log_error "OPENHANDS_API_KEY environment variable is required"
-        echo "  export OPENHANDS_API_KEY='sk-oh-your-key-here'"
+    if [ -z "$OH_API_KEY" ]; then
+        log_error "OH_API_KEY environment variable is required"
+        echo "  export OH_API_KEY='sk-oh-your-key-here'"
+        echo "  (OPENHANDS_API_KEY is also accepted)"
         exit 1
     fi
     
@@ -201,7 +205,7 @@ EOF
     log_verbose "Request payload: $payload"
     
     RESPONSE=$(curl -s -X POST "${OPENHANDS_URL}/api/v1/app-conversations" \
-      -H "Authorization: Bearer ${OPENHANDS_API_KEY}" \
+      -H "Authorization: Bearer ${OH_API_KEY}" \
       -H "Content-Type: application/json" \
       -d "$payload")
     
@@ -227,7 +231,7 @@ wait_for_conversation() {
     while [ $elapsed -lt $MAX_WAIT ]; do
         # Poll the start-tasks endpoint
         TASK_RESPONSE=$(curl -s -X GET "${OPENHANDS_URL}/api/v1/app-conversations/start-tasks/search" \
-          -H "Authorization: Bearer ${OPENHANDS_API_KEY}")
+          -H "Authorization: Bearer ${OH_API_KEY}")
         
         # Find our task by ID
         TASK_INFO=$(echo "$TASK_RESPONSE" | jq -r --arg id "$TASK_ID" '.items[] | select(.id == $id)')
@@ -265,7 +269,7 @@ get_agent_response() {
     
     # Get conversation details including runtime URL and session key
     CONV_RESPONSE=$(curl -s -X GET "${OPENHANDS_URL}/api/v1/app-conversations/search" \
-      -H "Authorization: Bearer ${OPENHANDS_API_KEY}")
+      -H "Authorization: Bearer ${OH_API_KEY}")
     
     CONV_INFO=$(echo "$CONV_RESPONSE" | jq -r --arg id "$CONVERSATION_ID" '.items[] | select(.id == $id)')
     CONVERSATION_URL=$(echo "$CONV_INFO" | jq -r '.conversation_url // empty')
