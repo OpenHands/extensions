@@ -1,0 +1,13 @@
+{
+  "name": "city-weather",
+  "version": "1.0.0",
+  "description": "Get current weather, time, and precipitation forecast for any city",
+  "author": {
+    "name": "JP Shackelford",
+    "email": "jpshackelford@users.noreply.github.com"
+  },
+  "homepage": "https://github.com/jpshackelford/openhands-sample-plugins",
+  "repository": "https://github.com/jpshackelford/openhands-sample-plugins",
+  "license": "MIT",
+  "keywords": ["weather", "time", "forecast", "temperature", "precipitation"]
+}
