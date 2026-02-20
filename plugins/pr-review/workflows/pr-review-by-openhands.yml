@@ -68,12 +68,9 @@ jobs:
                       core.setOutput("permission", permission);
                       core.setOutput("allowed", allowed.has(permission) ? "true" : "false");
 
-            - name: Skip untrusted trigger
-              if: (github.event.action == 'labeled' || github.event.action == 'review_requested') && steps.trigger-permission.outputs.allowed != 'true'
-              run: |
-                  echo "Skipping PR review: actor '${{ github.actor }}' has permission '${{ steps.trigger-permission.outputs.permission }}'"
-
             - name: Run PR Review
+              # Automatic trusted PRs (opened/ready_for_review by collaborators)
+              # OR manual triggers (label/review_requested) when the triggering user has write+ permission.
               if: github.event.action == 'opened' || github.event.action == 'ready_for_review' || steps.trigger-permission.outputs.allowed == 'true'
               uses: OpenHands/extensions/plugins/pr-review@main
               with:
