@@ -21,7 +21,6 @@ export type OpenHandsV1Options = {
   baseUrl?: string;
 };
 
-export type JSONValue = null | boolean | number | string | JSONValue[] | { [k: string]: JSONValue };
 
 export class OpenHandsV1API {
   private readonly apiKey: string;

@@ -30,6 +30,7 @@ import argparse
 import json
 import os
 import time
+import zipfile
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -238,10 +239,14 @@ class OpenHandsV1API:
         This is heavier than calling a count endpoint, but it is still a single API call and
         also gives you the full exported event payloads.
 
+        Cleanup (optional): this helper writes a zip file and extracts JSON events. If you
+        want to clean up afterwards, you can remove them, e.g.:
+
+        - `zip_path.unlink(missing_ok=True)`
+        - `shutil.rmtree(extract_path, ignore_errors=True)`
+
         Returns a small summary dict including `event_count`.
         """
-
-        import zipfile
 
         zip_path = Path(zip_file)
         extract_path = Path(extract_dir)
