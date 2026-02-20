@@ -118,7 +118,7 @@ PR reviews are automatically triggered when:
 1. A new non-draft PR is opened by a collaborator (author association: `COLLABORATOR`, `MEMBER`, or `OWNER`)
 2. A draft PR is marked as ready for review by a collaborator
 3. The `review-this` label is added by a user with **write (or higher)** permission
-4. `openhands-agent` or `all-hands-bot` is requested as a reviewer by a user with **write (or higher)** permission
+4. `openhands-agent` is requested as a reviewer by a user with **write** permission
 
 ### Requesting a Review
 
