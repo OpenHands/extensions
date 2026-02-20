@@ -21,24 +21,56 @@ permissions:
 
 jobs:
     pr-review:
-        # Run when one of the following conditions is met:
-        #   1. A new non-draft PR is opened by a non-first-time contributor, OR
-        #   2. A draft PR is converted to ready for review by a non-first-time contributor, OR
-        #   3. 'review-this' label is added, OR
-        #   4. openhands-agent or all-hands-bot is requested as a reviewer
-        # Note: FIRST_TIME_CONTRIBUTOR and NONE PRs require manual trigger via label/reviewer request.
+        # Automatic reviews only run for collaborators (author association: COLLABORATOR/MEMBER/OWNER).
+        # Manual triggers (label/reviewer request) still work for any PR, but only when initiated
+        # by a user with write (or higher) permission on the repository.
         if: |
-            (github.event.action == 'opened' && github.event.pull_request.draft == false && github.event.pull_request.author_association != 'FIRST_TIME_CONTRIBUTOR' && github.event.pull_request.author_association != 'NONE') ||
-            (github.event.action == 'ready_for_review' && github.event.pull_request.author_association != 'FIRST_TIME_CONTRIBUTOR' && github.event.pull_request.author_association != 'NONE') ||
-            github.event.label.name == 'review-this' ||
-            github.event.requested_reviewer.login == 'openhands-agent' ||
-            github.event.requested_reviewer.login == 'all-hands-bot'
+            (github.event.action == 'opened' &&
+              github.event.pull_request.draft == false &&
+              contains(fromJSON('["COLLABORATOR","MEMBER","OWNER"]'), github.event.pull_request.author_association)) ||
+            (github.event.action == 'ready_for_review' &&
+              contains(fromJSON('["COLLABORATOR","MEMBER","OWNER"]'), github.event.pull_request.author_association)) ||
+            (github.event.action == 'labeled' && github.event.label.name == 'review-this') ||
+            (github.event.action == 'review_requested' &&
+              (github.event.requested_reviewer.login == 'openhands-agent' || github.event.requested_reviewer.login == 'all-hands-bot'))
         concurrency:
             group: pr-review-${{ github.event.pull_request.number }}
             cancel-in-progress: true
         runs-on: ubuntu-24.04
         steps:
+            - name: Check trigger actor permission (write or higher)
+              id: trigger-permission
+              if: github.event.action == 'labeled' || github.event.action == 'review_requested'
+              uses: actions/github-script@v7
+              with:
+                  github-token: ${{ github.token }}
+                  script: |
+                      const allowed = new Set(["admin", "maintain", "write"]);
+                      const username = context.actor;
+                      let permission = "none";
+
+                      try {
+                        const { data } = await github.rest.repos.getCollaboratorPermissionLevel({
+                          owner: context.repo.owner,
+                          repo: context.repo.repo,
+                          username,
+                        });
+                        permission = data.permission;
+                      } catch (e) {
+                        // Non-collaborators return 404
+                        if (e.status !== 404) throw e;
+                      }
+
+                      core.setOutput("permission", permission);
+                      core.setOutput("allowed", allowed.has(permission) ? "true" : "false");
+
+            - name: Skip untrusted trigger
+              if: (github.event.action == 'labeled' || github.event.action == 'review_requested') && steps.trigger-permission.outputs.allowed != 'true'
+              run: |
+                  echo "Skipping PR review: actor '${{ github.actor }}' has permission '${{ steps.trigger-permission.outputs.permission }}'"
+
             - name: Run PR Review
+              if: github.event.action == 'opened' || github.event.action == 'ready_for_review' || steps.trigger-permission.outputs.allowed == 'true'
               uses: OpenHands/extensions/plugins/pr-review@main
               with:
                   llm-model: litellm_proxy/claude-sonnet-4-5-20250929
