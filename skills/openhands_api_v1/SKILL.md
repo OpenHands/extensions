@@ -56,11 +56,26 @@ The following are the main endpoints implemented in the minimal client:
 - `GET /api/v1/app-conversations/count` — count conversations
 - `POST /api/v1/app-conversations` — start a new conversation (creates a sandbox; can incur cost)
 - `GET /api/v1/app-conversations/start-tasks?ids=...` — check async start-task status
-- `GET /api/v1/conversation/{conversation_id}/events/search?limit=...` — read conversation events
-- `GET /api/v1/conversation/{conversation_id}/events/count` — count events
+- `GET /api/v1/conversation/{app_conversation_id}/events/search?limit=...` — read conversation events
+- `GET /api/v1/conversation/{app_conversation_id}/events/count` — count events
 - `GET /api/v1/sandboxes/search?limit=...` — list sandboxes
 - `POST /api/v1/sandboxes/{sandbox_id}/pause` / `.../resume` — manage sandbox lifecycle
-- `GET /api/v1/app-conversations/{conversation_id}/download` — download trajectory zip
+- `GET /api/v1/app-conversations/{app_conversation_id}/download` — download trajectory zip
+
+### Start-task vs `app_conversation_id` (common pitfall)
+
+In many deployments, `POST /api/v1/app-conversations` is **asynchronous** and returns a **start-task** object:
+
+- `id` is the **start_task_id**
+- `app_conversation_id` is the id you should use for conversation operations like:
+  - `GET /api/v1/app-conversations/{app_conversation_id}/download`
+  - `GET /api/v1/conversation/{app_conversation_id}/events/...`
+
+If `app_conversation_id` is not present in the initial response, fetch it via:
+
+- `GET /api/v1/app-conversations/start-tasks?ids=<start_task_id>`
+
+If you pass a **start_task_id** to `/download`, you will get `404 Not Found`.
 
 ## Common agent server endpoints
 
@@ -78,11 +93,11 @@ These run against `agent_server_url` (not the app server):
 If you need to know how many events a conversation has, you can:
 
 1. **App server count (fastest when working)**
-   - `GET /api/v1/conversation/{conversation_id}/events/count`
+   - `GET /api/v1/conversation/{app_conversation_id}/events/count`
 2. **Agent server count (reliable fallback)**
-   - `GET {agent_server_url}/api/conversations/{conversation_id}/events/count`
+   - `GET {agent_server_url}/api/conversations/{app_conversation_id}/events/count`
 3. **Trajectory zip fallback (heavier, but still one call + gives full payloads)**
-   - `GET /api/v1/app-conversations/{conversation_id}/download`
+   - `GET /api/v1/app-conversations/{app_conversation_id}/download`
    - Unzip and count `event_*.json` files
 
 Do **not** rely on the last event `id` to infer the total number of events.

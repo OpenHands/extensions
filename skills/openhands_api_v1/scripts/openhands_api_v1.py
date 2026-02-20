@@ -154,6 +154,15 @@ class OpenHandsV1API:
 
         WARNING: This typically creates a sandbox and may incur costs.
 
+        In many deployments this endpoint is **asynchronous** and returns a **start-task** dict.
+        Common fields:
+        - `id`: the *start_task_id*
+        - `app_conversation_id`: the id to use for `/download` and `/conversation/.../events/...`
+
+        If `app_conversation_id` is missing from the initial response, fetch it via:
+        - `GET /api/v1/app-conversations/start-tasks?ids=<start_task_id>`
+          (see `app_conversation_start_task_get()` / `poll_start_task_until_ready()`).
+
         The payload structure here mirrors what the V1 app server expects:
         - initial_message.content is a list of content parts
         """
@@ -199,9 +208,14 @@ class OpenHandsV1API:
         r.raise_for_status()
         return r.json()
 
-    def app_conversation_download_zip(self, conversation_id: str, *, output_file: str | Path) -> dict[str, Any]:
-        """Download a conversation trajectory zip to disk."""
-        url = f"{self.api_v1_url}/app-conversations/{conversation_id}/download"
+    def app_conversation_download_zip(
+        self, app_conversation_id: str, *, output_file: str | Path
+    ) -> dict[str, Any]:
+        """Download a conversation trajectory zip to disk.
+
+        Note: this endpoint expects the **app_conversation_id** (not the start-task id).
+        """
+        url = f"{self.api_v1_url}/app-conversations/{app_conversation_id}/download"
         r = self._client.get(url, timeout=60)
         r.raise_for_status()
         out = Path(output_file)
@@ -214,7 +228,7 @@ class OpenHandsV1API:
 
     def count_events_via_trajectory_zip(
         self,
-        conversation_id: str,
+        app_conversation_id: str,
         *,
         zip_file: str | Path,
         extract_dir: str | Path,
@@ -232,7 +246,7 @@ class OpenHandsV1API:
         zip_path = Path(zip_file)
         extract_path = Path(extract_dir)
 
-        download_meta = self.app_conversation_download_zip(conversation_id, output_file=zip_path)
+        download_meta = self.app_conversation_download_zip(app_conversation_id, output_file=zip_path)
         extract_path.mkdir(parents=True, exist_ok=True)
 
         with zipfile.ZipFile(zip_path, "r") as zf:

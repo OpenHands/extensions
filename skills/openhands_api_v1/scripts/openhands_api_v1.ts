@@ -97,16 +97,16 @@ export class OpenHandsV1API {
     });
   }
 
-  async conversationEventsCount(conversationId: string): Promise<number> {
+  async conversationEventsCount(appConversationId: string): Promise<number> {
     const res = await this.request<number>(
-      `${this.apiV1Url}/conversation/${encodeURIComponent(conversationId)}/events/count`,
+      `${this.apiV1Url}/conversation/${encodeURIComponent(appConversationId)}/events/count`,
       { method: "GET" },
     );
     return Number(res);
   }
 
-  async appConversationDownloadZip(conversationId: string): Promise<Blob> {
-    const url = `${this.apiV1Url}/app-conversations/${encodeURIComponent(conversationId)}/download`;
+  async appConversationDownloadZip(appConversationId: string): Promise<Blob> {
+    const url = `${this.apiV1Url}/app-conversations/${encodeURIComponent(appConversationId)}/download`;
     return await this.request<Blob>(url, { method: "GET" }, "blob");
   }
 
@@ -117,6 +117,12 @@ export class OpenHandsV1API {
     title?: string;
     run?: boolean;
   }): Promise<Record<string, unknown>> {
+    // NOTE: In many deployments this returns a *start-task* object.
+    // `id` is usually the start_task_id; use `app_conversation_id` (if present)
+    // for `/download` and `/conversation/.../events/...` endpoints.
+    // If `app_conversation_id` is missing, fetch it via:
+    // GET /api/v1/app-conversations/start-tasks?ids=<start_task_id>
+
     const payload: Record<string, unknown> = {
       initial_message: {
         role: "user",
