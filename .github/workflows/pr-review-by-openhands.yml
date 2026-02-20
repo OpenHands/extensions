@@ -22,8 +22,12 @@ permissions:
 jobs:
     pr-review:
         # Automatic reviews only run for collaborators (author association: COLLABORATOR/MEMBER/OWNER).
-        # Manual triggers (label/reviewer request) still work for any PR, but only when initiated
-        # by a user with write (or higher) permission on the repository.
+        #
+        # Manual triggers (label/reviewer request) still work for any PR, but are permission-gated:
+        # we only proceed if the *triggering user* has write (or higher) permission.
+        #
+        # "Triggering user" here means `github.actor` / `context.actor`: the account that caused
+        # this workflow run (e.g. the user who added the label or requested the reviewer).
         if: |
             (github.event.action == 'opened' &&
               github.event.pull_request.draft == false &&
@@ -38,7 +42,7 @@ jobs:
             cancel-in-progress: true
         runs-on: ubuntu-24.04
         steps:
-            - name: Check trigger actor permission (write or higher)
+            - name: Verify triggering user permission (write or higher)
               id: trigger-permission
               if: github.event.action == 'labeled' || github.event.action == 'review_requested'
               uses: actions/github-script@v7

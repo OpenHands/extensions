@@ -122,7 +122,9 @@ PR reviews are automatically triggered when:
 
 ### Requesting a Review
 
-Only users with **write (or higher)** permission can trigger a review (to prevent untrusted PR authors from triggering the agent via prompt injection).
+Only users with **write (or higher)** permission can trigger a review.
+
+In this workflow, the **triggering user** is `github.actor`: the account that performed the action that started the run (e.g. the person who added the `review-this` label or requested the reviewer) — not necessarily the PR author.
 
 **Option 1: Request as Reviewer**
 1. Open the PR
