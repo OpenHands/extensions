@@ -129,7 +129,7 @@ In this workflow, the **triggering user** is `github.actor`: the account that pe
 **Option 1: Request as Reviewer**
 1. Open the PR
 2. Click **Reviewers** in the sidebar
-3. Select `openhands-agent` (or `all-hands-bot`) as a reviewer
+3. Select `openhands-agent` as a reviewer
 
 **Option 2: Add Label**
 1. Open the PR
