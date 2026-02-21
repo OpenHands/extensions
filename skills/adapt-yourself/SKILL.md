@@ -48,7 +48,7 @@ Then follow the decision tree below.
 Use when the user wants repeatable expertise/workflows, e.g.:
 - “When I say ‘release notes’, use this structure”
 - “Here’s how we do migrations in our company”
-- “We always run `make lint` before committing”
+- “Read the Daytona docs and learn how to use it”
 
 **Where to put it (in priority order):**
 
