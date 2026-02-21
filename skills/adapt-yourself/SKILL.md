@@ -132,19 +132,19 @@ Details: [Installation modes (`uv tool` vs `uv run`)](references/INSTALLATION_MO
 
 ## 4) What requires a restart to take effect?
 
-- **Skills / AGENTS.md**: typically loaded at conversation start → restart the app/CLI (or start a new conversation) to guarantee reload.
-- **Hooks (.openhands/hooks.json)**: loaded when the agent/conversation initializes → restart to guarantee reload.
-- **Plugins**: loaded when the conversation initializes → restart to guarantee reload.
-- **Editable Python code (uv tool `--editable` or local `uv run`)**: changes apply the next time the Python process starts.
+- **Skills / AGENTS.md**: loaded at conversation start → usually **start a new conversation** to pick them up. Ask the user to fully restart OpenHands only if needed.
+- **Hooks (.openhands/hooks.json)**: loaded when the agent/conversation initializes → ask the user to restart (or create a fresh session) to guarantee reload.
+- **Plugins**: loaded when the conversation initializes → ask the user to restart (or create a fresh session) to guarantee reload.
+- **Editable Python code (uv tool `--editable` or local `uv run`)**: changes apply the next time the Python process starts → ask the user to restart the CLI/app.
 
 ## 5) Verification checklist
 
-After making a “self-modification” change:
+After making a “self-modification” change, guide the **user** through verification:
 
-1. Restart OpenHands.
-2. In the CLI, run `/skills` to confirm the expected skills/hooks/MCPs are loaded.
-3. Trigger the workflow with a tiny, deterministic test prompt.
-4. If it’s a code change, run the smallest relevant test suite (or add one).
+1. Ask the user to start a **fresh conversation** (and restart OpenHands only if needed).
+2. If they’re using the **OpenHands CLI TUI**, ask them to type `/skills` to confirm the expected skills/hooks/MCPs are loaded.
+3. Ask the user to send a tiny, deterministic **test prompt** that should trigger the new behavior.
+4. If it’s a code change, run the smallest relevant test suite (or ask the user to run it) and confirm the behavior matches.
 
 ## References
 
