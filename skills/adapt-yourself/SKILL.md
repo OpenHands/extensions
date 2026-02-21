@@ -122,7 +122,6 @@ If you’re not sure, start by reproducing the issue and locating the code path.
 
 ## 3) uv development workflows (including `uv tool install openhands`)
 
-Keep this section **high-level**; the goal is to pick the right workflow, not memorize `uv`.
 
 - If they run OpenHands from a **local clone**: use `uv sync` + `uv run openhands`.
 - If they installed OpenHands via **`uv tool install openhands`**:
