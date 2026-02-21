@@ -6,6 +6,7 @@ triggers:
 - change your behavior
 - customize openhands
 - self-modify
+- adapt yourself
 - self modification
 - hack openhands
 - .agents/skills
