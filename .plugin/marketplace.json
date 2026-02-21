@@ -227,9 +227,9 @@
             ]
         },
         {
-            "name": "modify-openhands",
-            "source": "./modify-openhands",
-            "description": "Decide how to modify OpenHands behavior persistently: skills, AGENTS.md, hooks, plugins, MCP servers, or code changes in OpenHands-CLI and software-agent-sdk.",
+            "name": "adapt-yourself",
+            "source": "./adapt-yourself",
+            "description": "Decide how to make OpenHands adapt/improve itself persistently: skills, AGENTS.md, hooks, plugins, MCP servers, or code changes in OpenHands-CLI and software-agent-sdk.",
             "category": "development",
             "keywords": [
                 "openhands",

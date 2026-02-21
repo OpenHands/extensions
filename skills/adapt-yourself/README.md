@@ -1,4 +1,4 @@
-# modify-openhands
+# adapt-yourself
 
 This skill is a playbook for “self-modification” requests:
 

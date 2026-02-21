@@ -1,6 +1,6 @@
 ---
-name: modify-openhands
-description: Decide how to make OpenHands “modify itself” (persistent behavior changes) by choosing between repo/user skills, always-on instructions, hooks, plugins, MCP servers, or code changes in OpenHands-CLI and software-agent-sdk. Includes uv + uv tool workflows and restart/reload behavior.
+name: adapt-yourself
+description: Decide how to make OpenHands adapt/improve itself persistently (after restart) by choosing between repo/user skills, always-on instructions, hooks, plugins, MCP servers, or code changes in OpenHands-CLI and software-agent-sdk. Includes uv + uv tool workflows and restart/reload behavior.
 triggers:
 - modify yourself
 - change your behavior
