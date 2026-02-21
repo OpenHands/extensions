@@ -122,7 +122,6 @@ If you’re not sure, start by reproducing the issue and locating the code path.
 
 ## 3) uv development workflows (including `uv tool install openhands`)
 
-
 - If they run OpenHands from a **local clone**: use `uv sync` + `uv run openhands`.
 - If they installed OpenHands via **`uv tool install openhands`**:
   - safest: `uv tool run --from /path/to/OpenHands-CLI openhands`
