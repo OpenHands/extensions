@@ -23,7 +23,7 @@ This skill is about **persistent** changes that should still apply after the use
 
 ## 0) First: clarify what kind of change the user wants
 
-Ask these questions (one at a time):
+Clarify the **scope** and **type** of the change (skip questions the user already answered):
 
 1. **Persistence scope**: Should this change apply…
    - only in *this* conversation?
@@ -91,7 +91,10 @@ Use when the user wants a **new tool** (capability) that should be available to 
 - language servers
 - DB query endpoints
 
-MCP servers are configured via `.mcp.json` (often at repo root, depending on the host product).
+MCP server configuration is **product-specific**:
+
+- **OpenHands-CLI** persists MCP servers in `~/.openhands/mcp.json` (or `$OPENHANDS_PERSISTENCE_DIR/mcp.json`).
+- **Software Agent SDK skills/plugins** use a **per-skill/per-plugin** `.mcp.json` file located inside the skill/plugin directory.
 
 See: [MCP template](references/TEMPLATES.md#mcp-template).
 
@@ -118,63 +121,15 @@ If you’re not sure, start by reproducing the issue and locating the code path.
 
 ## 3) uv development workflows (including `uv tool install openhands`)
 
-### 3.1 Recommended: run from a local clone (developer workflow)
+Keep this section **high-level**; the goal is to pick the right workflow, not memorize `uv`.
 
-**CLI**
+- If they run OpenHands from a **local clone**: use `uv sync` + `uv run openhands`.
+- If they installed OpenHands via **`uv tool install openhands`**:
+  - safest: `uv tool run --from /path/to/OpenHands-CLI openhands`
+  - persistent: `uv tool install --force --editable /path/to/OpenHands-CLI`
+- If they need to modify the **SDK** while running the CLI, remember: the CLI often **pins exact SDK/tool versions**. Prefer aligning versions; use overrides only for local development.
 
-```bash
-git clone https://github.com/OpenHands/OpenHands-CLI.git
-cd OpenHands-CLI
-uv sync --group dev
-uv run openhands
-```
-
-**SDK**
-
-```bash
-git clone https://github.com/OpenHands/software-agent-sdk.git
-cd software-agent-sdk
-uv sync --group dev
-uv run pytest
-```
-
-### 3.2 If the user installed OpenHands via `uv tool install openhands`
-
-You have two good options:
-
-#### Option A: test-run a local checkout without replacing the installed tool
-
-```bash
-uv tool run --from /path/to/OpenHands-CLI openhands
-```
-
-This is the safest way to validate a change.
-
-#### Option B: replace the installed tool with an editable checkout
-
-```bash
-uv tool install --force --editable /path/to/OpenHands-CLI
-```
-
-Now, the next time they run `openhands`, it will use the editable code.
-
-See: [uv tool notes](references/INSTALLATION_MODES.md#uv-tool-mode).
-
-### 3.3 Developing the SDK *while* running the CLI
-
-Important constraint: **the CLI pins exact SDK/tool versions** (e.g., `openhands-sdk==1.11.4`).
-
-To use a local SDK checkout:
-
-1. **Match versions**: check what the CLI requires in `OpenHands-CLI/pyproject.toml`.
-2. **Check out the matching tag/commit** of `software-agent-sdk` (or temporarily loosen pins for development).
-3. Install the SDK packages in editable mode in the same environment that runs the CLI.
-
-Common approaches:
-- **Run CLI from source** and set `tool.uv.sources` to local paths.
-- In `uv tool` mode, use an `--overrides` file to force a local path dependency.
-
-See: [SDK + CLI versioning](references/INSTALLATION_MODES.md#sdk-vs-cli-version-pins).
+Details: [Installation modes (`uv tool` vs `uv run`)](references/INSTALLATION_MODES.md).
 
 ## 4) What requires a restart to take effect?
 

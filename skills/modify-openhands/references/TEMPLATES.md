@@ -85,20 +85,22 @@ Then create the script `<repo>/.openhands/hooks/block-dangerous.sh`:
 # stdin: HookEvent JSON
 payload="$(cat)"
 
-# Very small example: block rm -rf
-if echo "$payload" | grep -q "rm -rf"; then
-  # A hook can output a decision JSON; exact schema depends on the SDK.
-  # Prefer copying the schema from current SDK docs/tests.
-  echo '{"decision":"block","reason":"Blocked destructive command"}'
+# Example: block `rm -rf ...` for Terminal tool calls.
+# Requires: jq
+cmd="$(echo "$payload" | jq -r '.tool_input.command // ""')"
+
+if echo "$cmd" | grep -Eq '(^|[[:space:]])rm[[:space:]]+-rf([[:space:]]|$)'; then
+  # HookExecutor parses JSON on stdout; "decision" must be "allow" or "deny".
+  jq -n --arg reason "Blocked destructive command" '{"decision":"deny","reason":$reason}'
   exit 0
 fi
 
-echo '{"decision":"allow"}'
+jq -n '{"decision":"allow"}'
 ```
 
 Notes:
-- This is intentionally simplified.
-- For production hooks, use a real JSON parser (`jq`) and follow the SDK schema.
+- Prefer parsing the structured fields (like `.tool_input.command`) rather than grepping raw JSON.
+- The exact `tool_input` shape is tool-specific; inspect the SDK `HookEvent` schema and your tool inputs.
 
 ## Plugin template
 
