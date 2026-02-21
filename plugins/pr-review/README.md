@@ -115,14 +115,18 @@ Create a `review-this` label for manual review triggers:
 
 PR reviews are automatically triggered when:
 
-1. A new non-draft PR is opened (by non-first-time contributors)
-2. A draft PR is marked as ready for review
-3. The `review-this` label is added
-4. `openhands-agent` or `all-hands-bot` is requested as a reviewer
+1. A new non-draft PR is opened by a collaborator (author association: `COLLABORATOR`, `MEMBER`, or `OWNER`)
+2. A draft PR is marked as ready for review by a collaborator
+3. The `review-this` label is added by a user with **write (or higher)** permission
+4. `openhands-agent` is requested as a reviewer by a user with **write** permission
 
 ### Requesting a Review
 
-**Option 1: Request as Reviewer (Recommended)**
+Only users with **write (or higher)** permission can trigger a review.
+
+In this workflow, the **triggering user** is `github.actor`: the account that performed the action that started the run (e.g. the person who added the `review-this` label or requested the reviewer) — not necessarily the PR author.
+
+**Option 1: Request as Reviewer**
 1. Open the PR
 2. Click **Reviewers** in the sidebar
 3. Select `openhands-agent` as a reviewer
@@ -251,7 +255,7 @@ Also update any `sdk-repo` and `sdk-version` inputs to `extensions-repo` and `ex
 ### Review Not Triggered
 
 1. Check that the workflow file is in `.github/workflows/`
-2. Verify the PR author association (first-time contributors need manual trigger)
+2. Verify the PR author association (automatic runs only for collaborators; otherwise a maintainer must trigger via label/reviewer request)
 3. Ensure secrets are configured correctly
 
 ### Review Comments Not Appearing
@@ -269,7 +273,7 @@ If you see rate limit errors:
 ## Security
 
 - Uses `pull_request_target` to safely access secrets for fork PRs
-- Only triggers for trusted contributors or when maintainers add labels/reviewers
+- Automatic reviews only run for collaborators; manual triggers require **write (or higher)** permission
 - PR code is checked out explicitly; secrets are not exposed to PR code
 - Credentials are not persisted during checkout
 
