@@ -61,7 +61,7 @@ Skill types:
 
 Hooks are configured via JSON and executed on events (e.g. `pre_tool_use`).
 
-Typical locations (depending on product / SDK config):
+Typical locations (depending on project / SDK config):
 
 - `<repo>/.openhands/hooks.json`
 - `~/.openhands/hooks.json`
@@ -98,4 +98,4 @@ Plugins can be:
 
 MCP servers provide tool endpoints to the agent.
 
-They are configured via `.mcp.json` (location depends on host product). Plugins can also provide MCP config.
+They are configured via `.mcp.json` (location depends on host project). Plugins can also provide MCP config.

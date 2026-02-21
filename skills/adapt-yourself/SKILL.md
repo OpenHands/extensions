@@ -86,13 +86,13 @@ See: [Hook templates](references/TEMPLATES.md#hookshooksjson-template) and [Hook
 Recommend MCP **only when there is a concrete MCP server to add**:
 
 - The user explicitly asks to “add an MCP server”, **or**
-- The user asks for a capability and you can point to an existing MCP server for it (e.g., from that product’s docs / an official MCP server repo).
+- The user asks for a capability and you can point to an existing MCP server for it (e.g., from that project’s docs / an official MCP server repo).
 
 If there isn’t an MCP server available for what they want, don’t force MCP:
 - start with a **skill** (instructions/workflow), or
 - if they truly need a new tool, the real work item is to **build or install an MCP server** (or implement a native tool/code change).
 
-MCP server configuration is **product-specific**:
+MCP server configuration is **project-specific**:
 
 - **OpenHands-CLI** persists MCP servers in `~/.openhands/mcp.json` (or `$OPENHANDS_PERSISTENCE_DIR/mcp.json`).
 - **Software Agent SDK skills/plugins** use a **per-skill/per-plugin** `.mcp.json` file located inside the skill/plugin directory.
