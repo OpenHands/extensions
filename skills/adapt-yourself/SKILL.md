@@ -11,7 +11,6 @@ triggers:
 - .agents/skills
 - hooks.json
 - plugin.json
-- uv tool install
 ---
 
 # Modify OpenHands (self-modification playbook)
