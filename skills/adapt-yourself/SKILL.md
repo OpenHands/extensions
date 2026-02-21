@@ -53,8 +53,7 @@ Use when the user wants repeatable expertise/workflows, e.g.:
 **Where to put it (in priority order):**
 
 1. **Project-local (recommended):** `<repo>/.agents/skills/<skill-name>/SKILL.md`
-2. Legacy OpenHands path: `<repo>/.openhands/skills/<skill-name>/SKILL.md`
-3. **User-global:** `~/.agents/skills/<skill-name>/SKILL.md`
+2. **User-global:** `~/.agents/skills/<skill-name>/SKILL.md`
 
 Notes:
 - **Project skills override user + public skills** (same `name`). This is the simplest way to “patch” a public skill locally.

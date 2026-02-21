@@ -45,11 +45,9 @@ Common locations:
 
 - Project-local:
   - `<repo>/.agents/skills/`
-  - `<repo>/.openhands/skills/` (legacy)
 
 - User-global:
   - `~/.agents/skills/`
-  - `~/.openhands/skills/` (legacy)
 
 - Public registry:
   - `https://github.com/OpenHands/extensions` (cached locally under `~/.openhands/skills-cache/`)
