@@ -29,7 +29,7 @@ This repo is a **uv workspace** that produces multiple packages:
   - plugin loader
 
 - `openhands-tools` (module: `openhands.tools`)
-  - built-in tools used by many OpenHands products
+  - built-in tools used by many OpenHands projects
 
 - `openhands-workspace` (module: `openhands.workspace`)
   - workspace mounting, file sync abstractions
