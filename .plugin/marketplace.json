@@ -227,6 +227,21 @@
             ]
         },
         {
+            "name": "modify-openhands",
+            "source": "./modify-openhands",
+            "description": "Decide how to modify OpenHands behavior persistently: skills, AGENTS.md, hooks, plugins, MCP servers, or code changes in OpenHands-CLI and software-agent-sdk.",
+            "category": "development",
+            "keywords": [
+                "openhands",
+                "customization",
+                "skills",
+                "hooks",
+                "plugins",
+                "mcp",
+                "uv"
+            ]
+        },
+        {
             "name": "notion",
             "source": "./notion",
             "description": "Create, search, and update Notion pages/databases using the Notion API. Use for documenting work, generating runbooks, and automating knowledge base updates.",
