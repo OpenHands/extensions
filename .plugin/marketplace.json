@@ -236,9 +236,7 @@
                 "customization",
                 "skills",
                 "hooks",
-                "plugins",
-                "mcp",
-                "uv"
+                "plugins"
             ]
         },
         {
