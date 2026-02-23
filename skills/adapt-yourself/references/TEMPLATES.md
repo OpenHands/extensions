@@ -4,7 +4,7 @@ Use these as starting points when implementing a “self-modification” without
 
 ## AgentSkills (`SKILL.md`) template
 
-Create a directory:
+If you decide an Agentskill is appropriate for user's request to remember or adapt to their needs, you can create it. First, create a directory:
 
 ```
 <repo>/.agents/skills/<skill-name>/
