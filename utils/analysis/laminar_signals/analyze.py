@@ -6,9 +6,9 @@ Downloads signal events from Laminar and uses an LLM to analyze patterns.
 Supports customizable prompts via Jinja templates for different use cases.
 
 Usage:
-    python analyze_laminar_signals.py --signal "pr review suggestion and analysis"
-    python analyze_laminar_signals.py --signal "my-signal" --prompt-file custom_prompt.j2
-    python analyze_laminar_signals.py --signal "my-signal" --days 30
+    python analyze.py --signal "pr review suggestion and analysis"
+    python analyze.py --signal "my-signal" --prompt-file custom_prompt.j2
+    python analyze.py --signal "my-signal" --days 30
 
 Environment Variables:
     LMNR_PROJECT_API_KEY: Laminar project API key (required)
@@ -33,94 +33,13 @@ DEFAULT_LLM_BASE_URL = "https://llm-proxy.app.all-hands.dev"
 DEFAULT_LLM_MODEL = "gemini-3-pro-preview"
 DEFAULT_DAYS_LOOKBACK = 90
 
+# Directory containing this script
+SCRIPT_DIR = Path(__file__).parent
+TEMPLATES_DIR = SCRIPT_DIR / "templates"
 
-# Default prompt template for PR review signal analysis
-# Can be overridden by providing a custom template file
-DEFAULT_PROMPT_TEMPLATE = """
-You are an expert at analyzing AI agent behavior patterns. Your task is to analyze a collection of signal data to identify trends and patterns.
-
-## Context
-
-The data below contains {{ num_signals }} signal events named "{{ signal_name }}".
-Each signal has a timestamp and a payload with structured data.
-
-## Signal Data
-
-{% for signal in signals %}
-### Signal {{ loop.index }} ({{ signal.timestamp }})
-
-**Payload:**
-```json
-{{ signal.payload_json }}
-```
-
----
-{% endfor %}
-
-## Your Task
-
-Based on this data, provide a comprehensive analysis that addresses:
-
-1. **Key Patterns**: What consistent patterns emerge from the data?
-
-2. **Anomalies**: Are there any outliers or unusual events worth noting?
-
-3. **Trends Over Time**: Do you notice any changes in behavior over time?
-
-4. **Actionable Recommendations**: Based on the analysis, what improvements or actions would you recommend?
-
-Please be specific and cite examples from the data where relevant.
-"""
-
-# Specialized prompt template for PR review signal analysis
-PR_REVIEW_PROMPT_TEMPLATE = """
-You are an expert at analyzing AI agent behavior patterns. Your task is to analyze a collection of PR review signal data to identify trends in what makes agent code reviews consistently good or consistently bad.
-
-## Context
-
-The data below contains {{ num_signals }} signal events from an AI PR review agent. Each signal has:
-- **analysis**: A detailed explanation of what happened during the review
-- **ai_suggestions**: Number of suggestions the AI made
-- **ai_suggestions_reflected**: Number of AI suggestions that were implemented
-- **human_suggestions**: Number of suggestions humans made  
-- **human_suggestions_reflected**: Number of human suggestions that were implemented
-- **total_suggestions_reflected**: Total suggestions implemented
-
-## Signal Data
-
-{% for signal in signals %}
-### Signal {{ loop.index }} ({{ signal.timestamp }})
-
-**Metrics:**
-- AI suggestions: {{ signal.ai_suggestions }}
-- AI suggestions reflected: {{ signal.ai_suggestions_reflected }}
-- Human suggestions: {{ signal.human_suggestions }}
-- Human suggestions reflected: {{ signal.human_suggestions_reflected }}
-
-**Analysis:**
-{{ signal.analysis }}
-
----
-{% endfor %}
-
-## Your Task
-
-Based on this data, provide a comprehensive analysis that addresses:
-
-1. **Consistently Good Behaviors**: What patterns emerge when the AI reviewer is effective? What types of suggestions get accepted? What review approaches lead to positive outcomes?
-
-2. **Consistently Bad Behaviors**: What patterns emerge when the AI reviewer fails or is ineffective? What types of suggestions get rejected? What mistakes does the AI repeatedly make?
-
-3. **Actionable Recommendations**: Based on the trends, what specific improvements should be made to the AI reviewer's behavior, prompts, or approach?
-
-4. **Quantitative Summary**: Summarize the acceptance rates and any notable statistical patterns.
-
-Please be specific and cite examples from the data where relevant.
-"""
-
-# Registry of built-in prompt templates for specific signal types
+# Mapping of signal names to their template files
 BUILTIN_TEMPLATES = {
-    "pr review suggestion and analysis": PR_REVIEW_PROMPT_TEMPLATE,
+    "pr review suggestion and analysis": "pr_review.j2",
 }
 
 
@@ -130,6 +49,18 @@ def get_env_var(name: str) -> str:
     if not value:
         raise ValueError(f"{name} environment variable is required")
     return value
+
+
+def get_llm_config() -> tuple[str, str, str]:
+    """Get LLM configuration from environment variables.
+    
+    Returns:
+        Tuple of (api_key, model, base_url)
+    """
+    api_key = get_env_var("LLM_API_KEY")
+    model = os.getenv("LLM_MODEL", DEFAULT_LLM_MODEL)
+    base_url = os.getenv("LLM_BASE_URL", DEFAULT_LLM_BASE_URL)
+    return api_key, model, base_url
 
 
 def query_laminar_signals(api_key: str, signal_name: str, days: int) -> list[dict]:
@@ -219,7 +150,13 @@ def load_prompt_template(
     signal_name: str,
     prompt_file: str | None = None,
 ) -> str:
-    """Load the appropriate prompt template."""
+    """Load the appropriate prompt template.
+    
+    Priority:
+    1. Custom prompt file if provided
+    2. Built-in template for the signal type
+    3. Default template
+    """
     # If a custom prompt file is provided, use it
     if prompt_file:
         prompt_path = Path(prompt_file)
@@ -230,10 +167,19 @@ def load_prompt_template(
     
     # Check for built-in template for this signal type
     if signal_name in BUILTIN_TEMPLATES:
-        return BUILTIN_TEMPLATES[signal_name]
+        template_file = TEMPLATES_DIR / BUILTIN_TEMPLATES[signal_name]
+        if template_file.exists():
+            return template_file.read_text()
     
-    # Fall back to default generic template
-    return DEFAULT_PROMPT_TEMPLATE
+    # Fall back to default template
+    default_template = TEMPLATES_DIR / "default.j2"
+    if default_template.exists():
+        return default_template.read_text()
+    
+    # Fallback if templates directory doesn't exist
+    raise FileNotFoundError(
+        f"No template found. Expected templates in: {TEMPLATES_DIR}"
+    )
 
 
 def build_analysis_prompt(
@@ -248,18 +194,6 @@ def build_analysis_prompt(
         num_signals=len(signals),
         signal_name=signal_name,
     )
-
-
-def get_llm_config() -> tuple[str, str, str]:
-    """Get LLM configuration from environment variables.
-    
-    Returns:
-        Tuple of (api_key, model, base_url)
-    """
-    api_key = get_env_var("LLM_API_KEY")
-    model = os.getenv("LLM_MODEL", DEFAULT_LLM_MODEL)
-    base_url = os.getenv("LLM_BASE_URL", DEFAULT_LLM_BASE_URL)
-    return api_key, model, base_url
 
 
 def query_llm(api_key: str, prompt: str, model: str, base_url: str) -> str:
@@ -305,16 +239,16 @@ def main():
         epilog="""
 Examples:
     # Analyze PR review signals with built-in template
-    python analyze_laminar_signals.py --signal "pr review suggestion and analysis"
+    python analyze.py --signal "pr review suggestion and analysis"
     
     # List available signals
-    python analyze_laminar_signals.py --list-signals
+    python analyze.py --list-signals
     
     # Use a custom prompt template
-    python analyze_laminar_signals.py --signal "my-signal" --prompt-file my_prompt.j2
+    python analyze.py --signal "my-signal" --prompt-file my_prompt.j2
     
     # Analyze last 30 days
-    python analyze_laminar_signals.py --signal "my-signal" --days 30
+    python analyze.py --signal "my-signal" --days 30
 
 Environment Variables:
     LMNR_PROJECT_API_KEY  Laminar project API key (required)
@@ -390,7 +324,12 @@ Environment Variables:
     
     # Load prompt template
     template_str = load_prompt_template(args.signal, args.prompt_file)
-    template_source = "built-in" if args.signal in BUILTIN_TEMPLATES and not args.prompt_file else "custom" if args.prompt_file else "default"
+    if args.prompt_file:
+        template_source = f"custom ({args.prompt_file})"
+    elif args.signal in BUILTIN_TEMPLATES:
+        template_source = f"built-in ({BUILTIN_TEMPLATES[args.signal]})"
+    else:
+        template_source = "default (default.j2)"
     print(f"Using {template_source} prompt template")
     
     # Build prompt and query LLM

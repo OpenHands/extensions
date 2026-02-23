@@ -1,0 +1,33 @@
+You are an expert at analyzing AI agent behavior patterns. Your task is to analyze a collection of signal data to identify trends and patterns.
+
+## Context
+
+The data below contains {{ num_signals }} signal events named "{{ signal_name }}".
+Each signal has a timestamp and a payload with structured data.
+
+## Signal Data
+
+{% for signal in signals %}
+### Signal {{ loop.index }} ({{ signal.timestamp }})
+
+**Payload:**
+```json
+{{ signal.payload_json }}
+```
+
+---
+{% endfor %}
+
+## Your Task
+
+Based on this data, provide a comprehensive analysis that addresses:
+
+1. **Key Patterns**: What consistent patterns emerge from the data?
+
+2. **Anomalies**: Are there any outliers or unusual events worth noting?
+
+3. **Trends Over Time**: Do you notice any changes in behavior over time?
+
+4. **Actionable Recommendations**: Based on the analysis, what improvements or actions would you recommend?
+
+Please be specific and cite examples from the data where relevant.

@@ -1,0 +1,42 @@
+You are an expert at analyzing AI agent behavior patterns. Your task is to analyze a collection of PR review signal data to identify trends in what makes agent code reviews consistently good or consistently bad.
+
+## Context
+
+The data below contains {{ num_signals }} signal events from an AI PR review agent. Each signal has:
+- **analysis**: A detailed explanation of what happened during the review
+- **ai_suggestions**: Number of suggestions the AI made
+- **ai_suggestions_reflected**: Number of AI suggestions that were implemented
+- **human_suggestions**: Number of suggestions humans made  
+- **human_suggestions_reflected**: Number of human suggestions that were implemented
+- **total_suggestions_reflected**: Total suggestions implemented
+
+## Signal Data
+
+{% for signal in signals %}
+### Signal {{ loop.index }} ({{ signal.timestamp }})
+
+**Metrics:**
+- AI suggestions: {{ signal.ai_suggestions }}
+- AI suggestions reflected: {{ signal.ai_suggestions_reflected }}
+- Human suggestions: {{ signal.human_suggestions }}
+- Human suggestions reflected: {{ signal.human_suggestions_reflected }}
+
+**Analysis:**
+{{ signal.analysis }}
+
+---
+{% endfor %}
+
+## Your Task
+
+Based on this data, provide a comprehensive analysis that addresses:
+
+1. **Consistently Good Behaviors**: What patterns emerge when the AI reviewer is effective? What types of suggestions get accepted? What review approaches lead to positive outcomes?
+
+2. **Consistently Bad Behaviors**: What patterns emerge when the AI reviewer fails or is ineffective? What types of suggestions get rejected? What mistakes does the AI repeatedly make?
+
+3. **Actionable Recommendations**: Based on the trends, what specific improvements should be made to the AI reviewer's behavior, prompts, or approach?
+
+4. **Quantitative Summary**: Summarize the acceptance rates and any notable statistical patterns.
+
+Please be specific and cite examples from the data where relevant.
