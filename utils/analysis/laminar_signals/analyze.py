@@ -485,10 +485,23 @@ def query_llm(api_key: str, prompt: str, model: str, base_url: str) -> dict:
             
             # Fallback: try to parse content as JSON if no tool call
             if message.get("content"):
+                content = message["content"]
+                # Try to extract JSON from markdown code blocks
+                if "```json" in content:
+                    start = content.find("```json") + 7
+                    end = content.find("```", start)
+                    if end > start:
+                        content = content[start:end].strip()
+                elif "```" in content:
+                    start = content.find("```") + 3
+                    end = content.find("```", start)
+                    if end > start:
+                        content = content[start:end].strip()
                 try:
-                    return json.loads(message["content"])
+                    return json.loads(content)
                 except json.JSONDecodeError:
-                    pass
+                    print(f"Warning: Could not parse LLM response as JSON", file=sys.stderr)
+                    print(f"Response content: {message['content'][:500]}...", file=sys.stderr)
             
             raise ValueError("No function call response received from LLM")
             
