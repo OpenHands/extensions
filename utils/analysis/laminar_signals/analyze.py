@@ -131,7 +131,7 @@ ANALYSIS_FUNCTION = {
             },
             "recommendations": {
                 "type": "array",
-                "description": "Specific, actionable recommendations to fix the identified issues",
+                "description": "Specific, actionable recommendations with CONCRETE implementation details (e.g., exact prompt changes, code snippets)",
                 "items": {
                     "type": "object",
                     "properties": {
@@ -141,7 +141,20 @@ ANALYSIS_FUNCTION = {
                         },
                         "description": {
                             "type": "string",
-                            "description": "Detailed description of how to implement this fix"
+                            "description": "Detailed description with SPECIFIC implementation. Include exact prompt text changes, code modifications, or configuration updates. Use 'Change X to Y' format where possible."
+                        },
+                        "prompt_changes": {
+                            "type": "array",
+                            "description": "Specific prompt/instruction changes. Each item should have 'before' (current text) and 'after' (proposed text)",
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "section": {"type": "string", "description": "Which section of the prompt to modify"},
+                                    "before": {"type": "string", "description": "Current text (or 'N/A' if adding new)"},
+                                    "after": {"type": "string", "description": "Proposed new text"}
+                                },
+                                "required": ["section", "after"]
+                            }
                         },
                         "addresses": {
                             "type": "array",
@@ -388,13 +401,33 @@ def build_analysis_prompt(
 ## Current Agent Skill/Prompt Configuration
 
 The following is the current skill/prompt configuration that the agent uses. 
-Your recommendations should reference specific parts of this configuration and suggest concrete changes to the verbiage, instructions, or structure.
+Your recommendations MUST be grounded in this configuration with SPECIFIC, ACTIONABLE changes.
 
 {skill_content}
 
 ---
 
-IMPORTANT: Ground your recommendations in the skill content above. Reference specific sections, phrases, or instructions that should be modified. Suggest exact wording changes where possible.
+## CRITICAL REQUIREMENTS FOR RECOMMENDATIONS
+
+Your recommendations MUST include SPECIFIC, ACTIONABLE prompt changes:
+
+1. **Quote the exact text** from the skill/prompt that needs to change
+2. **Provide the replacement text** - not vague suggestions, but actual wording
+3. **Specify the section** where the change should be made
+4. **Use the prompt_changes field** to provide before/after diffs
+
+❌ BAD (vague): "Update the prompt to be more strict about blocking PRs"
+✅ GOOD (specific): 
+   - Section: VERDICT
+   - Before: "❌ Needs rework: Fundamental design issues must be addressed first"
+   - After: "❌ Needs rework: BLOCK the PR if any of these are found: 1. Security vulnerabilities 2. Race conditions 3. Missing tests for new behavior. Do NOT approve with suggestions for these categories."
+
+❌ BAD: "Add instructions about deduplication"
+✅ GOOD:
+   - Section: CRITICAL REVIEW OUTPUT FORMAT (new subsection)
+   - After: "**NOISE CONTROL**: If the same issue appears in multiple locations, post ONE comment on the first occurrence that summarizes the pattern (e.g., 'This None-check issue appears on lines X, Y, Z') rather than commenting on each line."
+
+Be as specific as possible. The goal is for someone to copy-paste your suggested changes directly into the skill file.
 """
     
     return prompt
@@ -508,6 +541,28 @@ def format_analysis_as_markdown(analysis: dict, signal_name: str) -> str:
         lines.append("")
         lines.append(rec["description"])
         lines.append("")
+        
+        # Display specific prompt changes if provided
+        if rec.get("prompt_changes"):
+            lines.append("**Suggested Prompt Changes:**")
+            lines.append("")
+            for change in rec["prompt_changes"]:
+                section = change.get("section", "Unknown section")
+                before = change.get("before", "N/A")
+                after = change.get("after", "")
+                lines.append(f"📍 **Section:** {section}")
+                lines.append("")
+                if before and before != "N/A":
+                    lines.append("```diff")
+                    lines.append(f"- {before}")
+                    lines.append(f"+ {after}")
+                    lines.append("```")
+                else:
+                    lines.append("```")
+                    lines.append(f"+ {after}")
+                    lines.append("```")
+                lines.append("")
+        
         if rec.get("addresses"):
             lines.append(f"*Fixes: {', '.join(rec['addresses'])}*")
             lines.append("")

@@ -41,7 +41,14 @@ Analyze this data to answer:
    
    For each issue, assign a severity (critical/high/medium/low) and include trace URLs.
 
-2. **RECOMMENDATIONS**: For each issue identified, provide specific, actionable fixes. What changes to prompts, behavior, or logic would address these problems?
+2. **RECOMMENDATIONS WITH SPECIFIC PROMPT CHANGES**: For each issue identified, provide:
+   - A clear description of the fix
+   - **SPECIFIC prompt/instruction changes** using the prompt_changes field:
+     - Which section to modify
+     - The exact text to change (before)
+     - The exact replacement text (after)
+   
+   Your recommendations should be copy-pasteable into the skill files.
 
 3. **METRICS**: Calculate relevant statistics like rejection rate, false positive rate, etc.
 
@@ -50,5 +57,5 @@ Analyze this data to answer:
 IMPORTANT: 
 - Focus 80% of your analysis on problems and how to fix them
 - Include trace URLs (the full URLs shown above) for each issue so users can investigate
-- Be specific about what's wrong and how to fix it
+- Be SPECIFIC about fixes - provide exact wording changes, not vague suggestions
 - Prioritize issues by severity and frequency
