@@ -42,6 +42,10 @@ python analyze.py --list-signals
 # Analyze PR review signals (outputs markdown by default)
 python analyze.py --signal "pr review suggestion and analysis"
 
+# Analyze with skill context for grounded recommendations
+python analyze.py --signal "pr review suggestion and analysis" \
+    --skill-dir ../../../plugins/pr-review
+
 # Output as JSON (structured data with trace URLs)
 python analyze.py --signal "pr review suggestion and analysis" --format json
 
@@ -58,13 +62,35 @@ python analyze.py --signal "my-signal" --days 30 --output results.md
 
 2. **Generates Prompt**: Uses a Jinja2 template focused on identifying issues and improvements.
 
-3. **LLM Analysis**: Uses **function calling** to get structured output with:
+3. **Loads Skill Context** (optional): If `--skill-dir` is provided, loads the skill/plugin content so recommendations can reference specific prompt verbiage.
+
+4. **LLM Analysis**: Uses **function calling** to get structured output with:
    - `issues`: Problems and failures with severity, frequency, and clickable trace URLs
-   - `recommendations`: Specific fixes with priority levels
+   - `recommendations`: Specific fixes with priority levels (grounded in skill content when provided)
    - `metrics`: Quantitative statistics (issue rate, etc.)
    - `strengths`: Brief note on what's working (secondary focus)
 
-4. **Output**: Markdown report (default) or JSON for programmatic use.
+5. **Output**: Markdown report (default) or JSON for programmatic use.
+
+## Grounding Recommendations in Skills
+
+Use `--skill-dir` to provide the current skill/plugin configuration. This allows the LLM to:
+- Reference specific sections of the prompt that need changes
+- Suggest exact wording modifications
+- Ground recommendations in the actual instructions the agent follows
+
+```bash
+# Use a skill directory
+python analyze.py --signal "..." --skill-dir path/to/skills/codereview-roasted
+
+# Use a plugin directory (loads nested skills and prompt.py)
+python analyze.py --signal "..." --skill-dir path/to/plugins/pr-review
+```
+
+The script automatically loads:
+- `SKILL.md` from the directory
+- `scripts/prompt.py` if present (for plugins)
+- Any nested skills in `skills/` subdirectory
 
 ## Output Structure
 

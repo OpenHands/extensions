@@ -44,6 +44,51 @@ BUILTIN_TEMPLATES = {
     "pr review suggestion and analysis": "pr_review.j2",
 }
 
+
+def load_skill_content(skill_dir: str) -> str:
+    """Load skill/plugin content from a directory.
+    
+    Looks for SKILL.md files in the directory and any subdirectories.
+    For plugins, also looks in skills/ subdirectory and scripts/prompt.py.
+    
+    Args:
+        skill_dir: Path to skill or plugin directory
+        
+    Returns:
+        Combined content of all skill files found
+    """
+    skill_path = Path(skill_dir)
+    if not skill_path.exists():
+        raise FileNotFoundError(f"Skill directory not found: {skill_dir}")
+    
+    content_parts = []
+    
+    # Load main SKILL.md if present
+    main_skill = skill_path / "SKILL.md"
+    if main_skill.exists():
+        content_parts.append(f"## Skill: {skill_path.name}\n\n{main_skill.read_text()}")
+    
+    # For plugins, check for prompt.py
+    prompt_py = skill_path / "scripts" / "prompt.py"
+    if prompt_py.exists():
+        content_parts.append(f"## Prompt Template ({prompt_py.name})\n\n```python\n{prompt_py.read_text()}\n```")
+    
+    # Check for nested skills (common in plugins)
+    skills_subdir = skill_path / "skills"
+    if skills_subdir.exists():
+        for nested_skill_dir in skills_subdir.iterdir():
+            if nested_skill_dir.is_dir():
+                nested_skill_md = nested_skill_dir / "SKILL.md"
+                if nested_skill_md.exists():
+                    content_parts.append(
+                        f"## Nested Skill: {nested_skill_dir.name}\n\n{nested_skill_md.read_text()}"
+                    )
+    
+    if not content_parts:
+        raise FileNotFoundError(f"No SKILL.md or prompt.py found in: {skill_dir}")
+    
+    return "\n\n---\n\n".join(content_parts)
+
 # JSON Schema for the analysis function call output
 ANALYSIS_FUNCTION = {
     "name": "report_analysis",
@@ -324,14 +369,35 @@ def build_analysis_prompt(
     signals: list[dict],
     signal_name: str,
     template_str: str,
+    skill_content: str | None = None,
 ) -> str:
     """Build the analysis prompt using Jinja template."""
     template = Template(template_str)
-    return template.render(
+    prompt = template.render(
         signals=signals,
         num_signals=len(signals),
         signal_name=signal_name,
     )
+    
+    # Append skill content if provided
+    if skill_content:
+        prompt += f"""
+
+---
+
+## Current Agent Skill/Prompt Configuration
+
+The following is the current skill/prompt configuration that the agent uses. 
+Your recommendations should reference specific parts of this configuration and suggest concrete changes to the verbiage, instructions, or structure.
+
+{skill_content}
+
+---
+
+IMPORTANT: Ground your recommendations in the skill content above. Reference specific sections, phrases, or instructions that should be modified. Suggest exact wording changes where possible.
+"""
+    
+    return prompt
 
 
 def query_llm(api_key: str, prompt: str, model: str, base_url: str) -> dict:
@@ -483,6 +549,10 @@ Examples:
     # Analyze PR review signals with built-in template
     python analyze.py --signal "pr review suggestion and analysis"
     
+    # Analyze with skill context for grounded recommendations
+    python analyze.py --signal "pr review suggestion and analysis" \\
+        --skill-dir ../../../plugins/pr-review
+    
     # List available signals
     python analyze.py --list-signals
     
@@ -511,6 +581,10 @@ Environment Variables:
     parser.add_argument(
         "--prompt-file",
         help="Path to custom Jinja2 prompt template file",
+    )
+    parser.add_argument(
+        "--skill-dir",
+        help="Path to skill or plugin directory to ground recommendations in current prompts",
     )
     parser.add_argument(
         "--days",
@@ -580,9 +654,19 @@ Environment Variables:
         template_source = "default (default.j2)"
     print(f"Using {template_source} prompt template", file=sys.stderr)
     
+    # Load skill content if provided
+    skill_content = None
+    if args.skill_dir:
+        print(f"Loading skill content from: {args.skill_dir}", file=sys.stderr)
+        try:
+            skill_content = load_skill_content(args.skill_dir)
+            print(f"Loaded {len(skill_content)} characters of skill content", file=sys.stderr)
+        except FileNotFoundError as e:
+            print(f"Warning: {e}", file=sys.stderr)
+    
     # Build prompt and query LLM
     print("Building analysis prompt...", file=sys.stderr)
-    prompt = build_analysis_prompt(signals, args.signal, template_str)
+    prompt = build_analysis_prompt(signals, args.signal, template_str, skill_content)
     print(f"Prompt length: {len(prompt)} characters", file=sys.stderr)
     print(file=sys.stderr)
     
