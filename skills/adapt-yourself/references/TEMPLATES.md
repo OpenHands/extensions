@@ -62,7 +62,7 @@ Create `<repo>/AGENTS.md`:
 
 ## Hooks (`.openhands/hooks.json`) template
 
-Create `<repo>/.openhands/hooks.json`:
+If you decide a Hook is appropriate for addressing the user's request to adapt for next time, you can create a hook. Create or use `<repo>/.openhands/hooks.json`:
 
 ```json
 {
