@@ -4,11 +4,12 @@ Laminar Signal Analysis Script
 
 Downloads signal events from Laminar and uses an LLM to analyze patterns.
 Supports customizable prompts via Jinja templates for different use cases.
+Uses function calling to get structured output with trace IDs.
 
 Usage:
     python analyze.py --signal "pr review suggestion and analysis"
     python analyze.py --signal "my-signal" --prompt-file custom_prompt.j2
-    python analyze.py --signal "my-signal" --days 30
+    python analyze.py --signal "my-signal" --days 30 --format json
 
 Environment Variables:
     LMNR_PROJECT_API_KEY: Laminar project API key (required)
@@ -29,6 +30,7 @@ from jinja2 import Template
 
 
 LAMINAR_API_URL = "https://api.lmnr.ai/v1/sql/query"
+LAMINAR_APP_URL = "https://www.lmnr.ai"
 DEFAULT_LLM_BASE_URL = "https://llm-proxy.app.all-hands.dev"
 DEFAULT_LLM_MODEL = "gemini-3-pro-preview"
 DEFAULT_DAYS_LOOKBACK = 90
@@ -40,6 +42,128 @@ TEMPLATES_DIR = SCRIPT_DIR / "templates"
 # Mapping of signal names to their template files
 BUILTIN_TEMPLATES = {
     "pr review suggestion and analysis": "pr_review.j2",
+}
+
+# JSON Schema for the analysis function call output
+ANALYSIS_FUNCTION = {
+    "name": "report_analysis",
+    "description": "Report the analysis of signal events, focusing on issues and areas for improvement",
+    "parameters": {
+        "type": "object",
+        "properties": {
+            "issues": {
+                "type": "array",
+                "description": "List of issues, problems, and areas needing improvement (THIS IS THE PRIMARY FOCUS)",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "title": {
+                            "type": "string",
+                            "description": "Short title for this issue"
+                        },
+                        "description": {
+                            "type": "string",
+                            "description": "Detailed description of the issue, why it's problematic, and its impact"
+                        },
+                        "severity": {
+                            "type": "string",
+                            "enum": ["critical", "high", "medium", "low"],
+                            "description": "How severe/impactful this issue is"
+                        },
+                        "frequency": {
+                            "type": "string",
+                            "description": "How often this issue occurs (e.g., '15% of traces', 'frequent', 'occasional')"
+                        },
+                        "trace_urls": {
+                            "type": "array",
+                            "description": "Up to 5 representative trace URLs demonstrating this issue",
+                            "items": {"type": "string"},
+                            "maxItems": 5
+                        }
+                    },
+                    "required": ["title", "description", "severity", "trace_urls"]
+                }
+            },
+            "recommendations": {
+                "type": "array",
+                "description": "Specific, actionable recommendations to fix the identified issues",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "title": {
+                            "type": "string",
+                            "description": "Short title for this recommendation"
+                        },
+                        "description": {
+                            "type": "string",
+                            "description": "Detailed description of how to implement this fix"
+                        },
+                        "addresses": {
+                            "type": "array",
+                            "description": "Which issues this recommendation fixes",
+                            "items": {"type": "string"}
+                        },
+                        "priority": {
+                            "type": "string",
+                            "enum": ["high", "medium", "low"],
+                            "description": "Priority for implementing this recommendation"
+                        }
+                    },
+                    "required": ["title", "description", "addresses", "priority"]
+                }
+            },
+            "strengths": {
+                "type": "array",
+                "description": "Brief list of things working well (keep this short, focus is on improvements)",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "title": {
+                            "type": "string",
+                            "description": "Short title"
+                        },
+                        "description": {
+                            "type": "string",
+                            "description": "Brief description of what's working well"
+                        }
+                    },
+                    "required": ["title", "description"]
+                }
+            },
+            "metrics": {
+                "type": "object",
+                "description": "Quantitative metrics from the analysis",
+                "properties": {
+                    "total_signals": {
+                        "type": "integer",
+                        "description": "Total number of signals analyzed"
+                    },
+                    "issue_rate": {
+                        "type": "string",
+                        "description": "Percentage of signals showing issues"
+                    },
+                    "key_statistics": {
+                        "type": "array",
+                        "description": "Other relevant statistics",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "name": {"type": "string"},
+                                "value": {"type": "string"}
+                            },
+                            "required": ["name", "value"]
+                        }
+                    }
+                },
+                "required": ["total_signals"]
+            },
+            "summary": {
+                "type": "string",
+                "description": "Executive summary focusing on the most critical improvements needed"
+            }
+        },
+        "required": ["issues", "recommendations", "metrics", "summary"]
+    }
 }
 
 
@@ -66,7 +190,7 @@ def get_llm_config() -> tuple[str, str, str]:
 def query_laminar_signals(api_key: str, signal_name: str, days: int) -> list[dict]:
     """Query Laminar SQL API to fetch signal events."""
     query = f"""
-    SELECT id, name, payload, timestamp 
+    SELECT id, trace_id, name, payload, timestamp 
     FROM signal_events 
     WHERE name = '{signal_name}' 
     AND timestamp > now() - INTERVAL {days} DAY 
@@ -122,7 +246,7 @@ def list_available_signals(api_key: str, days: int) -> list[dict]:
         return []
 
 
-def parse_signal(signal: dict) -> dict:
+def parse_signal(signal: dict, project_id: str | None = None) -> dict:
     """Parse signal and extract payload as both dict and formatted JSON."""
     payload_str = signal.get("payload", "{}")
     try:
@@ -130,9 +254,23 @@ def parse_signal(signal: dict) -> dict:
     except json.JSONDecodeError:
         payload = {}
     
+    signal_id = signal.get("id")
+    trace_id = signal.get("trace_id")
+    
+    # Construct the Laminar trace URL
+    if project_id and trace_id:
+        trace_url = f"{LAMINAR_APP_URL}/project/{project_id}/traces/{trace_id}"
+    elif trace_id:
+        # Fallback without project_id - user will need to be logged in
+        trace_url = f"{LAMINAR_APP_URL}/traces/{trace_id}"
+    else:
+        trace_url = None
+    
     # Return signal data with both parsed payload fields and formatted JSON
     result = {
-        "id": signal.get("id"),
+        "id": signal_id,
+        "trace_id": trace_id,
+        "trace_url": trace_url,
         "timestamp": signal.get("timestamp"),
         "payload": payload,
         "payload_json": json.dumps(payload, indent=2),
@@ -196,8 +334,12 @@ def build_analysis_prompt(
     )
 
 
-def query_llm(api_key: str, prompt: str, model: str, base_url: str) -> str:
-    """Query the LLM with the analysis prompt."""
+def query_llm(api_key: str, prompt: str, model: str, base_url: str) -> dict:
+    """Query the LLM with the analysis prompt using function calling.
+    
+    Returns:
+        Parsed JSON object from the function call response.
+    """
     url = f"{base_url.rstrip('/')}/v1/chat/completions"
     
     request_data = json.dumps({
@@ -208,6 +350,16 @@ def query_llm(api_key: str, prompt: str, model: str, base_url: str) -> str:
                 "content": prompt,
             }
         ],
+        "tools": [
+            {
+                "type": "function",
+                "function": ANALYSIS_FUNCTION,
+            }
+        ],
+        "tool_choice": {
+            "type": "function",
+            "function": {"name": "report_analysis"}
+        },
         "max_tokens": 8192,
         "temperature": 0.7,
     }).encode("utf-8")
@@ -224,11 +376,101 @@ def query_llm(api_key: str, prompt: str, model: str, base_url: str) -> str:
     try:
         with urllib.request.urlopen(request, timeout=300) as response:
             result = json.loads(response.read().decode("utf-8"))
-            return result["choices"][0]["message"]["content"]
+            
+            # Extract the function call arguments
+            message = result["choices"][0]["message"]
+            if "tool_calls" in message and message["tool_calls"]:
+                tool_call = message["tool_calls"][0]
+                if tool_call["type"] == "function":
+                    return json.loads(tool_call["function"]["arguments"])
+            
+            # Fallback: try to parse content as JSON if no tool call
+            if message.get("content"):
+                try:
+                    return json.loads(message["content"])
+                except json.JSONDecodeError:
+                    pass
+            
+            raise ValueError("No function call response received from LLM")
+            
     except urllib.error.HTTPError as e:
         print(f"Error querying LLM: HTTP {e.code}", file=sys.stderr)
         print(f"Response: {e.read().decode('utf-8')}", file=sys.stderr)
         sys.exit(1)
+
+
+def format_analysis_as_markdown(analysis: dict, signal_name: str) -> str:
+    """Convert the structured analysis output to markdown format."""
+    lines = [
+        "# Agent Improvement Report",
+        "",
+        f"**Signal:** `{signal_name}`",
+        "",
+    ]
+    
+    # Executive Summary
+    if analysis.get("summary"):
+        lines.append("## Executive Summary")
+        lines.append("")
+        lines.append(analysis["summary"])
+        lines.append("")
+    
+    # Issues (Primary Focus)
+    lines.append("## Issues Requiring Attention")
+    lines.append("")
+    for i, issue in enumerate(analysis.get("issues", []), 1):
+        severity = issue.get("severity", "medium").upper()
+        lines.append(f"### {i}. [{severity}] {issue['title']}")
+        lines.append("")
+        lines.append(issue["description"])
+        lines.append("")
+        if issue.get("frequency"):
+            lines.append(f"**Frequency:** {issue['frequency']}")
+            lines.append("")
+        if issue.get("trace_urls"):
+            lines.append("**Example traces:**")
+            for url in issue["trace_urls"]:
+                lines.append(f"- {url}")
+            lines.append("")
+    
+    # Recommendations
+    lines.append("## Recommended Fixes")
+    lines.append("")
+    for i, rec in enumerate(analysis.get("recommendations", []), 1):
+        priority = rec.get("priority", "medium").upper()
+        lines.append(f"### {i}. [{priority} PRIORITY] {rec['title']}")
+        lines.append("")
+        lines.append(rec["description"])
+        lines.append("")
+        if rec.get("addresses"):
+            lines.append(f"*Fixes: {', '.join(rec['addresses'])}*")
+            lines.append("")
+    
+    # Metrics
+    metrics = analysis.get("metrics", {})
+    lines.append("## Metrics")
+    lines.append("")
+    lines.append(f"**Total signals analyzed:** {metrics.get('total_signals', 'N/A')}")
+    if metrics.get("issue_rate"):
+        lines.append(f"**Issue rate:** {metrics['issue_rate']}")
+    lines.append("")
+    
+    if metrics.get("key_statistics"):
+        lines.append("| Metric | Value |")
+        lines.append("|--------|-------|")
+        for stat in metrics["key_statistics"]:
+            lines.append(f"| {stat['name']} | {stat['value']} |")
+        lines.append("")
+    
+    # Strengths (Brief)
+    if analysis.get("strengths"):
+        lines.append("## What's Working Well")
+        lines.append("")
+        for strength in analysis["strengths"]:
+            lines.append(f"- **{strength['title']}**: {strength['description']}")
+        lines.append("")
+    
+    return "\n".join(lines)
 
 
 def main():
@@ -247,8 +489,8 @@ Examples:
     # Use a custom prompt template
     python analyze.py --signal "my-signal" --prompt-file my_prompt.j2
     
-    # Analyze last 30 days
-    python analyze.py --signal "my-signal" --days 30
+    # Analyze last 30 days with JSON output
+    python analyze.py --signal "my-signal" --days 30 --format json
 
 Environment Variables:
     LMNR_PROJECT_API_KEY  Laminar project API key (required)
@@ -277,6 +519,12 @@ Environment Variables:
         help=f"Number of days to look back (default: {DEFAULT_DAYS_LOOKBACK})",
     )
     parser.add_argument(
+        "--format",
+        choices=["md", "json"],
+        default="md",
+        help="Output format: 'md' for markdown (default), 'json' for raw JSON",
+    )
+    parser.add_argument(
         "--output",
         help="Output file path (default: stdout)",
     )
@@ -303,20 +551,20 @@ Environment Variables:
     if not args.signal:
         parser.error("--signal is required (or use --list-signals)")
     
-    print("=" * 60)
-    print("Laminar Signal Analysis")
-    print("=" * 60)
-    print()
+    print("=" * 60, file=sys.stderr)
+    print("Laminar Signal Analysis", file=sys.stderr)
+    print("=" * 60, file=sys.stderr)
+    print(file=sys.stderr)
     
     # Fetch signals from Laminar
-    print(f"Signal: {args.signal}")
-    print(f"Fetching signals from Laminar (last {args.days} days)...")
+    print(f"Signal: {args.signal}", file=sys.stderr)
+    print(f"Fetching signals from Laminar (last {args.days} days)...", file=sys.stderr)
     raw_signals = query_laminar_signals(laminar_key, args.signal, args.days)
-    print(f"Found {len(raw_signals)} signal events")
-    print()
+    print(f"Found {len(raw_signals)} signal events", file=sys.stderr)
+    print(file=sys.stderr)
     
     if not raw_signals:
-        print("No signals found. Exiting.")
+        print("No signals found. Exiting.", file=sys.stderr)
         return
     
     # Parse signals
@@ -330,33 +578,30 @@ Environment Variables:
         template_source = f"built-in ({BUILTIN_TEMPLATES[args.signal]})"
     else:
         template_source = "default (default.j2)"
-    print(f"Using {template_source} prompt template")
+    print(f"Using {template_source} prompt template", file=sys.stderr)
     
     # Build prompt and query LLM
-    print("Building analysis prompt...")
+    print("Building analysis prompt...", file=sys.stderr)
     prompt = build_analysis_prompt(signals, args.signal, template_str)
-    print(f"Prompt length: {len(prompt)} characters")
-    print()
+    print(f"Prompt length: {len(prompt)} characters", file=sys.stderr)
+    print(file=sys.stderr)
     
-    print(f"Querying LLM ({llm_model}) for analysis...")
-    print("This may take a minute...")
-    print()
+    print(f"Querying LLM ({llm_model}) for analysis...", file=sys.stderr)
+    print("This may take a minute...", file=sys.stderr)
+    print(file=sys.stderr)
     
     analysis = query_llm(llm_key, prompt, llm_model, llm_base_url)
     
-    # Output results
-    output_text = f"""{'=' * 60}
-LLM ANALYSIS RESULTS
-{'=' * 60}
-
-{analysis}
-
-{'=' * 60}
-"""
+    # Format output based on requested format
+    if args.format == "json":
+        output_text = json.dumps(analysis, indent=2)
+    else:
+        output_text = format_analysis_as_markdown(analysis, args.signal)
     
+    # Write output
     if args.output:
         Path(args.output).write_text(output_text)
-        print(f"Analysis written to: {args.output}")
+        print(f"Analysis written to: {args.output}", file=sys.stderr)
     else:
         print(output_text)
 

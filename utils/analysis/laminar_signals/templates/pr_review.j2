@@ -1,25 +1,24 @@
-You are an expert at analyzing AI agent behavior patterns. Your task is to analyze a collection of PR review signal data to identify trends in what makes agent code reviews consistently good or consistently bad.
+You are an expert at improving AI agent behavior. Your PRIMARY task is to identify issues and areas for improvement in an AI PR review agent based on signal data.
 
 ## Context
 
 The data below contains {{ num_signals }} signal events from an AI PR review agent. Each signal has:
+- **trace_url**: Link to view the full trace in Laminar (include these in your analysis so users can click through)
 - **analysis**: A detailed explanation of what happened during the review
 - **ai_suggestions**: Number of suggestions the AI made
 - **ai_suggestions_reflected**: Number of AI suggestions that were implemented
 - **human_suggestions**: Number of suggestions humans made  
 - **human_suggestions_reflected**: Number of human suggestions that were implemented
-- **total_suggestions_reflected**: Total suggestions implemented
 
 ## Signal Data
 
 {% for signal in signals %}
-### Signal {{ loop.index }} ({{ signal.timestamp }})
+### Trace URL: {{ signal.trace_url }}
+**Timestamp:** {{ signal.timestamp }}
 
 **Metrics:**
-- AI suggestions: {{ signal.ai_suggestions }}
-- AI suggestions reflected: {{ signal.ai_suggestions_reflected }}
-- Human suggestions: {{ signal.human_suggestions }}
-- Human suggestions reflected: {{ signal.human_suggestions_reflected }}
+- AI suggestions: {{ signal.ai_suggestions }} | Reflected: {{ signal.ai_suggestions_reflected }}
+- Human suggestions: {{ signal.human_suggestions }} | Reflected: {{ signal.human_suggestions_reflected }}
 
 **Analysis:**
 {{ signal.analysis }}
@@ -29,14 +28,27 @@ The data below contains {{ num_signals }} signal events from an AI PR review age
 
 ## Your Task
 
-Based on this data, provide a comprehensive analysis that addresses:
+Your PRIMARY goal is to identify how to IMPROVE the AI agent. Focus on finding problems, failures, and areas needing work.
 
-1. **Consistently Good Behaviors**: What patterns emerge when the AI reviewer is effective? What types of suggestions get accepted? What review approaches lead to positive outcomes?
+Analyze this data to answer:
 
-2. **Consistently Bad Behaviors**: What patterns emerge when the AI reviewer fails or is ineffective? What types of suggestions get rejected? What mistakes does the AI repeatedly make?
+1. **ISSUES (PRIMARY FOCUS)**: What problems, failures, and mistakes does the agent make? Look for:
+   - Suggestions that are consistently rejected by humans
+   - Cases where the agent missed important issues
+   - Patterns of ineffective or counterproductive behavior
+   - Times when the agent was wrong or unhelpful
+   - Recurring mistakes or failure modes
+   
+   For each issue, assign a severity (critical/high/medium/low) and include trace URLs.
 
-3. **Actionable Recommendations**: Based on the trends, what specific improvements should be made to the AI reviewer's behavior, prompts, or approach?
+2. **RECOMMENDATIONS**: For each issue identified, provide specific, actionable fixes. What changes to prompts, behavior, or logic would address these problems?
 
-4. **Quantitative Summary**: Summarize the acceptance rates and any notable statistical patterns.
+3. **METRICS**: Calculate relevant statistics like rejection rate, false positive rate, etc.
 
-Please be specific and cite examples from the data where relevant.
+4. **STRENGTHS (BRIEF)**: Briefly note what's working well, but keep this short - the focus is on improvements.
+
+IMPORTANT: 
+- Focus 80% of your analysis on problems and how to fix them
+- Include trace URLs (the full URLs shown above) for each issue so users can investigate
+- Be specific about what's wrong and how to fix it
+- Prioritize issues by severity and frequency

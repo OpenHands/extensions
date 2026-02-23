@@ -1,6 +1,8 @@
 # Laminar Signal Analysis
 
-Analyze Laminar signal events using LLMs with customizable Jinja2 prompt templates.
+Analyze Laminar signal events using LLMs to identify issues and areas for improvement. Uses function calling to get structured output with clickable trace URLs.
+
+**Primary Focus**: Identifying problems and generating actionable recommendations to improve AI agent behavior.
 
 ## Directory Structure
 
@@ -37,8 +39,11 @@ pip install jinja2
 # List available signals
 python analyze.py --list-signals
 
-# Analyze PR review signals (uses built-in template)
+# Analyze PR review signals (outputs markdown by default)
 python analyze.py --signal "pr review suggestion and analysis"
+
+# Output as JSON (structured data with trace URLs)
+python analyze.py --signal "pr review suggestion and analysis" --format json
 
 # Analyze with custom prompt template
 python analyze.py --signal "my-signal" --prompt-file my_prompt.j2
@@ -49,101 +54,128 @@ python analyze.py --signal "my-signal" --days 30 --output results.md
 
 ## How It Works
 
-1. **Fetches Signals**: Queries the Laminar SQL API (`/v1/sql/query`) to retrieve signal events from the `signal_events` table.
+1. **Fetches Signals**: Queries the Laminar SQL API to retrieve signal events with trace IDs.
 
-2. **Parses Data**: Extracts payload fields from each signal for template access.
+2. **Generates Prompt**: Uses a Jinja2 template focused on identifying issues and improvements.
 
-3. **Generates Prompt**: Uses a Jinja2 template to construct an analysis prompt. Templates are loaded from:
-   - Custom file if `--prompt-file` is specified
-   - Built-in template from `templates/` if one exists for the signal type
-   - `templates/default.j2` as fallback
+3. **LLM Analysis**: Uses **function calling** to get structured output with:
+   - `issues`: Problems and failures with severity, frequency, and clickable trace URLs
+   - `recommendations`: Specific fixes with priority levels
+   - `metrics`: Quantitative statistics (issue rate, etc.)
+   - `strengths`: Brief note on what's working (secondary focus)
 
-4. **LLM Analysis**: Sends the prompt to the configured LLM for analysis.
+4. **Output**: Markdown report (default) or JSON for programmatic use.
 
-## Built-in Templates
+## Output Structure
 
-| Template | Signal Name | Focus |
-|----------|-------------|-------|
-| `pr_review.j2` | `pr review suggestion and analysis` | AI PR reviewer effectiveness, suggestion acceptance rates, good/bad behavior patterns |
-| `default.j2` | (any) | Generic analysis of patterns, anomalies, trends, and recommendations |
+### Issues (Primary Focus)
+
+Each issue includes:
+- **Title**: Short description
+- **Description**: Detailed explanation of the problem
+- **Severity**: critical / high / medium / low
+- **Frequency**: How often this occurs
+- **Trace URLs**: Clickable links to example traces in Laminar
+
+### Recommendations
+
+Each recommendation includes:
+- **Title**: Short description
+- **Description**: How to implement the fix
+- **Addresses**: Which issues this fixes
+- **Priority**: high / medium / low
+
+### Example JSON Output
+
+```json
+{
+  "issues": [
+    {
+      "title": "Premature Approval of Functional Defects",
+      "description": "The AI approves code with known issues...",
+      "severity": "critical",
+      "frequency": "10-15% of traces",
+      "trace_urls": [
+        "https://www.lmnr.ai/traces/a0dbd0c7-116d-776b-9c4b-c7f5f4d0a97e",
+        "https://www.lmnr.ai/traces/5de277ff-38f2-e173-4b03-c7332301ea58"
+      ]
+    }
+  ],
+  "recommendations": [
+    {
+      "title": "Enforce Logic Verification Over Style",
+      "description": "Modify the prompt to separate style from logic analysis...",
+      "addresses": ["Premature Approval of Functional Defects"],
+      "priority": "high"
+    }
+  ],
+  "metrics": {
+    "total_signals": 50,
+    "issue_rate": "30%",
+    "key_statistics": [...]
+  },
+  "strengths": [
+    {"title": "Security Analysis", "description": "..."}
+  ],
+  "summary": "Executive summary of critical improvements needed..."
+}
+```
+
+### Example Markdown Output
+
+```markdown
+# Agent Improvement Report
+
+**Signal:** `pr review suggestion and analysis`
+
+## Executive Summary
+
+The AI agent demonstrates strong security awareness but suffers from...
+
+## Issues Requiring Attention
+
+### 1. [CRITICAL] Premature Approval of Functional Defects
+
+The AI approves code with known issues...
+
+**Frequency:** 10-15% of traces
+
+**Example traces:**
+- https://www.lmnr.ai/traces/a0dbd0c7-116d-776b-9c4b-c7f5f4d0a97e
+- https://www.lmnr.ai/traces/5de277ff-38f2-e173-4b03-c7332301ea58
+
+## Recommended Fixes
+
+### 1. [HIGH PRIORITY] Enforce Logic Verification Over Style
+
+Modify the prompt to separate style from logic analysis...
+
+*Fixes: Premature Approval of Functional Defects*
+```
 
 ## Custom Prompt Templates
 
-Create a Jinja2 template file (`.j2`) with access to these variables:
+Create a Jinja2 template (`.j2`) with access to:
 
 | Variable | Type | Description |
 |----------|------|-------------|
 | `signals` | `list[dict]` | List of parsed signal objects |
 | `num_signals` | `int` | Number of signals |
-| `signal_name` | `str` | Name of the signal being analyzed |
+| `signal_name` | `str` | Name of the signal |
 
 Each signal object contains:
-- `id`: Signal ID
+- `trace_url`: Full URL to view the trace in Laminar
+- `trace_id`: Trace UUID
 - `timestamp`: When the signal was created
 - `payload`: Parsed payload as dict
-- `payload_json`: Formatted JSON string of payload
-- All payload fields are also available at the top level for convenience
-
-### Example Custom Template
-
-```jinja2
-Analyze these {{ num_signals }} events for "{{ signal_name }}":
-
-{% for signal in signals %}
-## Event {{ loop.index }}
-Timestamp: {{ signal.timestamp }}
-Score: {{ signal.score }}  {# if payload has 'score' field #}
-{% endfor %}
-
-What patterns do you see?
-```
-
-## PR Review Signal Data Structure
-
-The `pr_review.j2` template expects signals with these payload fields:
-
-| Field | Description |
-|-------|-------------|
-| `analysis` | Detailed explanation of what happened during the review |
-| `ai_suggestions` | Number of suggestions the AI made |
-| `ai_suggestions_reflected` | Number of AI suggestions implemented |
-| `human_suggestions` | Number of suggestions humans made |
-| `human_suggestions_reflected` | Number of human suggestions implemented |
-| `total_suggestions_reflected` | Total suggestions implemented |
-
-## Example Output
-
-```
-============================================================
-Laminar Signal Analysis
-============================================================
-
-Signal: pr review suggestion and analysis
-Fetching signals from Laminar (last 90 days)...
-Found 113 signal events
-
-Using built-in (pr_review.j2) prompt template
-Building analysis prompt...
-Prompt length: 135197 characters
-
-Querying LLM (gemini-3-pro-preview) for analysis...
-This may take a minute...
-
-============================================================
-LLM ANALYSIS RESULTS
-============================================================
-
-[Detailed analysis of patterns and recommendations...]
-
-============================================================
-```
+- `payload_json`: Formatted JSON string
+- All payload fields flattened to top level
 
 ## Laminar SQL API Reference
 
 The script uses Laminar's SQL API at `/v1/sql/query`. Key tables:
 
-- `signal_events`: Contains signal events with payload data
-- `spans`: Contains trace span data
-- `traces`: Contains trace-level aggregates
+- `signal_events`: Signal events with trace_id and payload
+- `traces`: Trace-level aggregates
 
-See [Laminar SQL Editor documentation](https://docs.laminar.sh/platform/sql-editor) for more details.
+See [Laminar SQL Editor documentation](https://docs.laminar.sh/platform/sql-editor) for details.
