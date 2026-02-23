@@ -30,7 +30,7 @@ from jinja2 import Template
 
 
 LAMINAR_API_URL = "https://api.lmnr.ai/v1/sql/query"
-LAMINAR_APP_URL = "https://www.lmnr.ai"
+LAMINAR_APP_URL = "https://laminar.sh"
 DEFAULT_LLM_BASE_URL = "https://llm-proxy.app.all-hands.dev"
 DEFAULT_LLM_MODEL = "gemini-3-pro-preview"
 DEFAULT_DAYS_LOOKBACK = 90
@@ -225,10 +225,15 @@ ANALYSIS_FUNCTION = {
 }
 
 
-def get_env_var(name: str) -> str:
-    """Get a required environment variable or raise an error."""
+def get_env_var(name: str, required: bool = True) -> str | None:
+    """Get an environment variable.
+    
+    Args:
+        name: Environment variable name
+        required: If True, raise error if not set. If False, return None.
+    """
     value = os.getenv(name)
-    if not value:
+    if not value and required:
         raise ValueError(f"{name} environment variable is required")
     return value
 
@@ -324,11 +329,9 @@ def parse_signal(signal: dict, project_id: str | None = None) -> dict:
     trace_id = signal.get("trace_id")
     
     # Construct the Laminar trace URL
+    # Format: https://laminar.sh/project/{project_id}/traces?traceId={trace_id}
     if project_id and trace_id:
-        trace_url = f"{LAMINAR_APP_URL}/project/{project_id}/traces/{trace_id}"
-    elif trace_id:
-        # Fallback without project_id - user will need to be logged in
-        trace_url = f"{LAMINAR_APP_URL}/traces/{trace_id}"
+        trace_url = f"{LAMINAR_APP_URL}/project/{project_id}/traces?traceId={trace_id}"
     else:
         trace_url = None
     
@@ -682,6 +685,7 @@ Environment Variables:
     
     # Get API keys and config
     laminar_key = get_env_var("LMNR_PROJECT_API_KEY")
+    laminar_project_id = get_env_var("LMNR_PROJECT_ID", required=False)
     llm_key, llm_model, llm_base_url = get_llm_config()
     
     # Handle --list-signals
@@ -718,7 +722,13 @@ Environment Variables:
         return
     
     # Parse signals
-    signals = [parse_signal(s) for s in raw_signals]
+    signals = [parse_signal(s, laminar_project_id) for s in raw_signals]
+    
+    # Warn if no project ID (trace URLs won't be generated)
+    if not laminar_project_id:
+        print("Warning: LMNR_PROJECT_ID not set, trace URLs will not be generated", file=sys.stderr)
+        print("Set LMNR_PROJECT_ID to enable clickable trace links", file=sys.stderr)
+        print(file=sys.stderr)
     
     # Load prompt template
     template_str = load_prompt_template(args.signal, args.prompt_file)

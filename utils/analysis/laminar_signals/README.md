@@ -29,9 +29,13 @@ pip install jinja2
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
 | `LMNR_PROJECT_API_KEY` | Yes | - | Laminar project API key |
+| `LMNR_PROJECT_ID` | No | - | Laminar project ID (for generating clickable trace URLs) |
 | `LLM_API_KEY` | Yes | - | API key for the LLM |
 | `LLM_MODEL` | No | `gemini-3-pro-preview` | Model to use |
 | `LLM_BASE_URL` | No | `https://llm-proxy.app.all-hands.dev` | Base URL for LLM API |
+
+**Note:** To enable clickable trace URLs in the output, set `LMNR_PROJECT_ID` to your Laminar project ID. 
+You can find this in your Laminar dashboard URL: `https://laminar.sh/project/{PROJECT_ID}/...`
 
 ## Usage
 
