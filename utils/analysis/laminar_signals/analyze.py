@@ -246,11 +246,16 @@ def get_llm_config() -> tuple[str, str, str]:
 
 
 def query_laminar_signals(api_key: str, signal_name: str, days: int) -> list[dict]:
-    """Query Laminar SQL API to fetch signal events."""
+    """Query Laminar SQL API to fetch signal events.
+    
+    Note: days is validated as int by argparse, so no SQL injection risk there.
+    """
+    # Escape single quotes to prevent SQL injection
+    escaped_signal = signal_name.replace("'", "''")
     query = f"""
     SELECT id, trace_id, name, payload, timestamp 
     FROM signal_events 
-    WHERE name = '{signal_name}' 
+    WHERE name = '{escaped_signal}' 
     AND timestamp > now() - INTERVAL {days} DAY 
     ORDER BY timestamp DESC
     """
@@ -276,7 +281,10 @@ def query_laminar_signals(api_key: str, signal_name: str, days: int) -> list[dic
 
 
 def list_available_signals(api_key: str, days: int) -> list[dict]:
-    """List all available signal names and their counts."""
+    """List all available signal names and their counts.
+    
+    Note: days is validated as int by argparse, so no SQL injection risk.
+    """
     query = f"""
     SELECT name, COUNT(*) as count 
     FROM signal_events 
