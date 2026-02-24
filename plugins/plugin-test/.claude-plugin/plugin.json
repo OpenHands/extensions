@@ -1,0 +1,13 @@
+{
+  "name": "plugin-test",
+  "version": "1.0.0",
+  "description": "Test plugin loading via OpenHands Cloud API - launch conversations with plugins and verify responses",
+  "author": {
+    "name": "OpenHands",
+    "email": "contact@all-hands.dev"
+  },
+  "homepage": "https://github.com/OpenHands/extensions",
+  "repository": "https://github.com/OpenHands/extensions",
+  "license": "MIT",
+  "keywords": ["test", "plugin", "verification", "conversation", "api"]
+}
