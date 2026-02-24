@@ -18,32 +18,53 @@ This skill is published in the OpenHands extensions registry and can be used by 
 
 ## Installation
 
-### For Claude Code Users
+### OpenHands (CLI / Local GUI)
 
-Copy the entire `frontend-slides/` directory (including `references/`) to your skills directory:
+This skill uses the AgentSkills directory format. The **directory name must be `frontend-slides/`** and it must contain `SKILL.md` (plus the `references/` folder).
+
+- **Repository-level (recommended):** `.agents/skills/frontend-slides/`
+- **User-level:** `~/.agents/skills/frontend-slides/`
 
 ```bash
-# From the directory containing frontend-slides/
-mkdir -p ~/.claude/skills
-cp -R frontend-slides ~/.claude/skills/
+# Repository-level
+mkdir -p .agents/skills
+cp -R frontend-slides .agents/skills/frontend-slides
+
+# User-level
+mkdir -p ~/.agents/skills
+cp -R frontend-slides ~/.agents/skills/frontend-slides
 ```
 
-Then use it by typing `/frontend-slides` in Claude Code.
+### OpenHands Software Agent SDK
 
-### Manual Download
+- To auto-load skills from the public registry (https://github.com/OpenHands/extensions):
 
-1. Download `SKILL.md` and the `references/` directory (at minimum `references/STYLE_PRESETS.md`).
-2. Place them in `~/.claude/skills/frontend-slides/` preserving the `references/` folder.
-3. Restart Claude Code
+```python
+from openhands.sdk import AgentContext
+
+agent_context = AgentContext(load_public_skills=True)
+```
+
+- To load this skill from a local directory (for example, `.agents/skills/`):
+
+```python
+from openhands.sdk import AgentContext
+from openhands.sdk.context.skills import load_skills_from_dir
+
+_, _, agent_skills = load_skills_from_dir(".agents/skills")
+agent_context = AgentContext(skills=list(agent_skills.values()))
+```
+
+References: https://docs.openhands.dev/overview/skills and https://docs.openhands.dev/sdk/guides/skill
 
 ## Usage
 
 ### Create a New Presentation
 
 ```
-/frontend-slides
+Create a pitch deck for my AI startup.
 
-> "I want to create a pitch deck for my AI startup"
+Use the frontend-slides skill.
 ```
 
 The skill will:
@@ -56,9 +77,9 @@ The skill will:
 ### Convert a PowerPoint
 
 ```
-/frontend-slides
+Convert my presentation.pptx to a web slideshow (HTML). Preserve text, images, and speaker notes.
 
-> "Convert my presentation.pptx to a web slideshow"
+Use the frontend-slides skill.
 ```
 
 The skill will:
@@ -138,17 +159,17 @@ This skill was born from the belief that:
 
 | File | Purpose |
 |------|---------|
-| `SKILL.md` | Main skill instructions for Claude Code |
-| `STYLE_PRESETS.md` | Reference file with 10 curated visual styles |
+| `SKILL.md` | Skill definition (AgentSkills format) |
+| `references/STYLE_PRESETS.md` | Reference file with curated visual styles |
 
 ## Requirements
 
-- [Claude Code](https://claude.ai/claude-code) CLI
+- OpenHands (CLI/GUI/Cloud) or the OpenHands Software Agent SDK (AgentSkills-compatible runtime)
 - For PPT conversion: Python with `python-pptx` library
 
 ## Credits
 
-Created by [@zarazhangrui](https://github.com/zarazhangrui) with Claude Code.
+Originally created by [@zarazhangrui](https://github.com/zarazhangrui).
 
 Inspired by the "Vibe Coding" philosophy — building beautiful things without being a traditional software engineer.
 
