@@ -37,8 +37,17 @@ DEFAULT_REVIEW_BOT_LOGIN_KEYWORDS = [
 ]
 
 
+def normalize_review_bot_match_key(value: str, *, strip_bot_suffix: bool = False) -> str:
+    """Normalize review-bot logins/keywords so hyphen/underscore variants match."""
+
+    lower = (value or "").strip().lower()
+    if strip_bot_suffix and lower.endswith("[bot]"):
+        lower = lower[: -len("[bot]")]
+    return lower.replace("-", "_")
+
+
 def normalize_review_bot_keyword(value: str) -> str:
-    return value.strip().lower().replace("-", "_")
+    return normalize_review_bot_match_key(value)
 
 
 _REVIEW_BOT_KEYWORDS_ENV = os.getenv("BABYSIT_PR_REVIEW_BOT_KEYWORDS", "")
@@ -256,9 +265,6 @@ def load_state(path):
         "last_seen_head_sha": None,
         "retries_by_sha": {},
         "seen_items": [],
-        "seen_issue_comment_ids": [],
-        "seen_review_comment_ids": [],
-        "seen_review_ids": [],
         "last_snapshot_at": None,
     }, True
 
@@ -468,10 +474,7 @@ def extract_login(user_obj):
 
 
 def normalize_review_bot_login(value: str) -> str:
-    lower = (value or "").strip().lower()
-    if lower.endswith("[bot]"):
-        lower = lower[: -len("[bot]")]
-    return normalize_review_bot_keyword(lower)
+    return normalize_review_bot_match_key(value, strip_bot_suffix=True)
 
 
 def is_bot_login(login):
@@ -555,15 +558,9 @@ def fetch_new_review_items(pr, state, fresh_state, authenticated_login=None):
     )
 
     state["seen_items"] = sorted(seen_items)
-    state["seen_issue_comment_ids"] = sorted(
-        {k.split(":", 1)[1] for k in seen_items if k.startswith("issue_comment:")}
-    )
-    state["seen_review_comment_ids"] = sorted(
-        {k.split(":", 1)[1] for k in seen_items if k.startswith("review_comment:")}
-    )
-    state["seen_review_ids"] = sorted(
-        {k.split(":", 1)[1] for k in seen_items if k.startswith("review:")}
-    )
+    state.pop("seen_issue_comment_ids", None)
+    state.pop("seen_review_comment_ids", None)
+    state.pop("seen_review_ids", None)
     return new_items
 
 
