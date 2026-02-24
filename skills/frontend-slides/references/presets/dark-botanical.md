@@ -28,5 +28,3 @@
 - **No illustrations—only abstract CSS shapes**
 
 ---
-
-## Light Themes
