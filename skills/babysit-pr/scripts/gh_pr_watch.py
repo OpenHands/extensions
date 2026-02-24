@@ -475,8 +475,8 @@ def extract_login(user_obj):
     return ""
 
 
-def normalize_review_bot_login(value: str) -> str:
-    return normalize_review_bot_match_key(value, strip_bot_suffix=True)
+# Alias - both normalize the same way (hyphen/underscore + optional [bot] suffix).
+normalize_review_bot_login = normalize_review_bot_keyword
 
 
 def is_bot_login(login):
