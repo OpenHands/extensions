@@ -148,23 +148,34 @@ Commit message defaults:
 - `chore: address PR review feedback (#<n>)`
 
 ## Monitoring Loop Pattern
+Use this loop in a live OpenHands session:
 
-Core loop:
+1. Run `--once`.
+2. Read `actions`.
+3. First check whether the PR is now merged or otherwise closed; if so, report that terminal state and stop polling immediately.
+4. Check CI summary, new review items, and mergeability/conflict status.
+5. Diagnose CI failures and classify branch-related vs flaky/unrelated.
+6. Process actionable review comments before flaky reruns when both are present; if a review fix requires a commit, push it and skip rerunning failed checks on the old SHA.
+7. Retry failed checks only when `retry_failed_checks` is present and you are not about to replace the current SHA with a review/CI fix commit.
+8. If you pushed a commit or triggered a rerun, report the action briefly and continue polling (do not stop).
+9. After a review-fix push, proactively restart continuous monitoring (`--watch`) in the same turn unless a strict stop condition has already been reached.
+10. If everything is passing, mergeable, not blocked on required review approval, and there are no unaddressed review items, report success and stop.
+11. If blocked on a user-help-required issue (infra outage, exhausted flaky retries, unclear reviewer request, permissions), report the blocker and stop.
+12. Otherwise sleep according to the polling cadence below and repeat.
 
-1. Snapshot PR state (`--once`, or consume a `--watch` event).
-2. If terminal (merged/closed/ready): stop.
-3. If review items exist: address them, commit/push, and resume monitoring on the new SHA.
-4. If CI failures exist: diagnose; fix and push when branch-related, or rerun when likely flaky and within retry budget.
-5. Sleep per the polling cadence and repeat until a strict stop condition is met.
-
-Prefer `--watch` for ongoing babysitting; use `--once` for one-shot diagnostics.
+When the user explicitly asks to monitor/watch/babysit a PR, prefer `--watch` so polling continues autonomously in one command. Use repeated `--once` snapshots only for debugging, local testing, or when the user explicitly asks for a one-shot check.
+Do not stop to ask the user whether to continue polling; continue autonomously until a strict stop condition is met or the user explicitly interrupts.
+Do not hand control back to the user after a review-fix push just because a new SHA was created; restarting the watcher and re-entering the poll loop is part of the same babysitting task.
+If a `--watch` process is still running and no strict stop condition has been reached, the babysitting task is still in progress; keep streaming/consuming watcher output instead of ending the turn.
 
 ## Polling Cadence
 Use adaptive polling and continue monitoring even after CI turns green:
 
-- Poll every 1 minute while CI is not all-green.
-- After CI turns green, back off exponentially when nothing changes (1m→2m→4m→…→60m max). Reset to 1 minute on any change.
-- If any poll shows the PR is merged or closed: stop immediately and report the terminal state.
+- While CI is not green (pending/running/queued or failing): poll every 1 minute.
+- After CI turns green: start at every 1 minute, then back off exponentially when there is no change (for example 1m, 2m, 4m, 8m, 16m, 32m), capping at every 1 hour.
+- Reset the green-state polling interval back to 1 minute whenever anything changes (new commit/SHA, check status changes, new review comments, mergeability changes, review decision changes).
+- If CI stops being green again (new commit, rerun, or regression): return to 1-minute polling.
+- If any poll shows the PR is merged or otherwise closed: stop polling immediately and report the terminal state.
 
 ## Stop Conditions (Strict)
 Stop only when one of the following is true:
