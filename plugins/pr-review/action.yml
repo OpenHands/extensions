@@ -60,6 +60,7 @@ runs:
               fetch-depth: 0
               persist-credentials: false
               path: pr-repo
+              submodules: recursive
 
         - name: Set up Python
           uses: actions/setup-python@v5
