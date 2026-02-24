@@ -20,7 +20,7 @@ Create **zero-dependency**, animation-rich HTML presentations that run entirely 
 
 1. **New presentation** (from scratch)
    - Use the structured workflow in [references/WORKFLOW.md](references/WORKFLOW.md).
-   - Use curated styles in [references/STYLE_PRESETS.md](references/STYLE_PRESETS.md).
+   - Use the style index in [references/STYLE_PRESETS.md](references/STYLE_PRESETS.md) and load the chosen preset from `references/presets/`.
 
 2. **PPT/PPTX conversion**
    - Extract content + images with the workflow in [references/PPT_CONVERSION.md](references/PPT_CONVERSION.md).
