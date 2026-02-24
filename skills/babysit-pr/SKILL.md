@@ -103,6 +103,34 @@ When you agree with a comment and it is actionable:
 If you disagree or the comment is non-actionable/already addressed, record it as handled by continuing the watcher loop (the script de-duplicates surfaced items via state after surfacing them).
 If a code review comment/thread is already marked as resolved in GitHub, treat it as non-actionable and safely ignore it unless new unresolved follow-up feedback appears.
 
+## Optional: Request (Re-)Review
+
+If the PR is green/mergeable but blocked on approval (for example `reviewDecision` is `REVIEW_REQUIRED` or `CHANGES_REQUESTED`) and you believe you’ve addressed all surfaced feedback, you can request another look.
+
+Rules:
+
+- Only do this when the user explicitly asks you to request review / ping reviewers, or after confirming with the user (avoid spamming humans).
+- Prefer requesting review only once per new head SHA.
+- If permissions fail or it’s unclear who should review, stop and ask the user.
+
+Suggested flow:
+
+1. Leave a brief PR comment summarizing what changed and why re-review is needed.
+   ```bash
+   gh pr comment <pr> --body "Addressed the requested changes in <sha>. Could you take another look? @reviewer"
+   ```
+2. (Optional) Re-request reviewers via the GitHub API.
+   ```bash
+   gh api -X POST repos/<owner>/<repo>/pulls/<pr_number>/requested_reviewers \
+     -f reviewers[]=reviewer1 \
+     -f reviewers[]=reviewer2
+   # For team reviewers:
+   #   -f team_reviewers[]=my-team
+   ```
+
+If the API returns an error indicating reviewers are already requested, treat it as non-fatal and continue monitoring.
+
+
 ## Git Safety Rules
 
 - Work only on the PR head branch.
