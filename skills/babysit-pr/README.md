@@ -7,6 +7,7 @@ Babysit a GitHub pull request by monitoring CI checks/workflow runs, review comm
 This skill is activated by:
 
 - `/babysit-pr`
+- `/babysit`
 - keywords like “babysit PR”, “watch PR”, “monitor CI”, or “check GitHub Actions”
 
 ## Details
