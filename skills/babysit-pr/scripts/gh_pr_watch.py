@@ -511,6 +511,24 @@ def is_trusted_human_review_author(item, authenticated_login):
     return association in TRUSTED_AUTHOR_ASSOCIATIONS
 
 
+def migrate_seen_items(state):
+    seen_items = {str(x) for x in state.get("seen_items") or []}
+
+    # Backwards-compatible migration from the older per-kind tracking lists.
+    for item_id in state.get("seen_issue_comment_ids") or []:
+        seen_items.add(f"issue_comment:{str(item_id)}")
+    for item_id in state.get("seen_review_comment_ids") or []:
+        seen_items.add(f"review_comment:{str(item_id)}")
+    for item_id in state.get("seen_review_ids") or []:
+        seen_items.add(f"review:{str(item_id)}")
+
+    state["seen_items"] = sorted(seen_items)
+    state.pop("seen_issue_comment_ids", None)
+    state.pop("seen_review_comment_ids", None)
+    state.pop("seen_review_ids", None)
+    return seen_items
+
+
 def fetch_new_review_items(pr, state, authenticated_login=None):
     repo = pr["repo"]
     pr_number = pr["number"]
@@ -525,15 +543,7 @@ def fetch_new_review_items(pr, state, authenticated_login=None):
     review_items = normalize_reviews(review_payload)
     all_items = issue_items + review_comment_items + review_items
 
-    seen_items = {str(x) for x in state.get("seen_items") or []}
-
-    # Backwards-compatible migration from the older per-kind tracking lists.
-    for item_id in state.get("seen_issue_comment_ids") or []:
-        seen_items.add(f"issue_comment:{item_id}")
-    for item_id in state.get("seen_review_comment_ids") or []:
-        seen_items.add(f"review_comment:{item_id}")
-    for item_id in state.get("seen_review_ids") or []:
-        seen_items.add(f"review:{item_id}")
+    seen_items = migrate_seen_items(state)
 
     # On a brand-new state file, surface existing review activity instead of
     # silently treating it as seen. This avoids missing already-pending review
@@ -571,9 +581,6 @@ def fetch_new_review_items(pr, state, authenticated_login=None):
     )
 
     state["seen_items"] = sorted(seen_items)
-    state.pop("seen_issue_comment_ids", None)
-    state.pop("seen_review_comment_ids", None)
-    state.pop("seen_review_ids", None)
     return new_items
 
 

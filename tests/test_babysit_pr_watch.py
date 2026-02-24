@@ -135,3 +135,24 @@ def test_normalize_review_bot_keyword_strips_bot_suffix():
     m = load_watch_module()
     assert m.normalize_review_bot_keyword("my-bot[bot]") == "my_bot"
 
+
+
+def test_migrate_seen_items_coerces_legacy_ids_to_strings_and_drops_legacy_fields():
+    m = load_watch_module()
+    state = {
+        "seen_items": [],
+        "seen_issue_comment_ids": [123, "456"],
+        "seen_review_comment_ids": ["789"],
+        "seen_review_ids": [999],
+    }
+    seen = m.migrate_seen_items(state)
+
+    assert "issue_comment:123" in seen
+    assert "issue_comment:456" in seen
+    assert "review_comment:789" in seen
+    assert "review:999" in seen
+
+    assert "seen_issue_comment_ids" not in state
+    assert "seen_review_comment_ids" not in state
+    assert "seen_review_ids" not in state
+
