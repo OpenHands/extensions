@@ -4,7 +4,6 @@ description: Decide how to make OpenHands adapt/improve itself persistently (aft
 triggers:
 - modify yourself
 - change your behavior
-- customize openhands
 - self-modify
 - adapt yourself
 - self modification
@@ -93,7 +92,7 @@ If there isn’t an MCP server available for what they want, don’t force MCP:
 - start with a **skill** (instructions/workflow), or
 - if they truly need a new tool, the real work item is to **build or install an MCP server** (or implement a native tool/code change).
 
-MCP server configuration is **project-specific**:
+MCP server configuration location **depends on the runtime**:
 
 - **OpenHands-CLI** persists MCP servers in `~/.openhands/mcp.json` (or `$OPENHANDS_PERSISTENCE_DIR/mcp.json`).
 - **Software Agent SDK skills/plugins** use a **per-skill/per-plugin** `.mcp.json` file located inside the skill/plugin directory.
