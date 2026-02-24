@@ -47,7 +47,9 @@ def normalize_review_bot_match_key(value: str, *, strip_bot_suffix: bool = False
 
 
 def normalize_review_bot_keyword(value: str) -> str:
-    return normalize_review_bot_match_key(value)
+    # Strip an optional `[bot]` suffix so users can pass either `foo-bot` or
+    # `foo-bot[bot]` via BABYSIT_PR_REVIEW_BOT_KEYWORDS.
+    return normalize_review_bot_match_key(value, strip_bot_suffix=True)
 
 
 _REVIEW_BOT_KEYWORDS_ENV = os.getenv("BABYSIT_PR_REVIEW_BOT_KEYWORDS", "")

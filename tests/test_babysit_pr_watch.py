@@ -129,3 +129,9 @@ def test_is_actionable_review_bot_login_accepts_all_hands_bot():
     assert m.is_actionable_review_bot_login("all-hands-bot") is True
     assert m.is_actionable_review_bot_login("openhands-ai[bot]") is True
     assert m.is_actionable_review_bot_login("dependabot[bot]") is False
+
+
+def test_normalize_review_bot_keyword_strips_bot_suffix():
+    m = load_watch_module()
+    assert m.normalize_review_bot_keyword("my-bot[bot]") == "my_bot"
+
