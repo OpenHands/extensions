@@ -15,5 +15,5 @@ This skill is activated by:
 - Requires the GitHub CLI (`gh`) to be available and authenticated.
 - Uses `scripts/gh_pr_watch.py` to emit one-shot snapshots (`--once`) or a continuous JSONL stream (`--watch`).
 - The watcher can surface review comments from approved review bots by matching keywords in the bot login.
-  - Defaults include: `openhands`, `openhands-agent`, `all_hands_bot`, `smolpaws`, `claude`.
+  - Defaults include: `openhands`, `openhands-agent`, `all-hands-bot`, `smolpaws`, `claude`, `codex`.
   - Optional: set `BABYSIT_PR_REVIEW_BOT_KEYWORDS` (comma-separated) to allow additional bot keywords.

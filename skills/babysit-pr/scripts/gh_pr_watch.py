@@ -36,11 +36,20 @@ DEFAULT_REVIEW_BOT_LOGIN_KEYWORDS = [
     "codex",
 ]
 
+
+def normalize_review_bot_keyword(value: str) -> str:
+    return value.strip().lower().replace("-", "_")
+
+
 _REVIEW_BOT_KEYWORDS_ENV = os.getenv("BABYSIT_PR_REVIEW_BOT_KEYWORDS", "")
 EXTRA_REVIEW_BOT_LOGIN_KEYWORDS = {
-    kw.strip().lower() for kw in _REVIEW_BOT_KEYWORDS_ENV.split(",") if kw.strip()
+    normalize_review_bot_keyword(kw)
+    for kw in _REVIEW_BOT_KEYWORDS_ENV.split(",")
+    if kw.strip()
 }
-REVIEW_BOT_LOGIN_KEYWORDS = set(DEFAULT_REVIEW_BOT_LOGIN_KEYWORDS) | EXTRA_REVIEW_BOT_LOGIN_KEYWORDS
+REVIEW_BOT_LOGIN_KEYWORDS = {
+    normalize_review_bot_keyword(kw) for kw in DEFAULT_REVIEW_BOT_LOGIN_KEYWORDS
+} | EXTRA_REVIEW_BOT_LOGIN_KEYWORDS
 TRUSTED_AUTHOR_ASSOCIATIONS = {
     "OWNER",
     "MEMBER",
@@ -222,6 +231,8 @@ def extract_repo_from_pr_view(data):
     if owner and name:
         return f"{owner}/{name}"
     return None
+
+
 def extract_repo_from_pr_url(pr_url):
     parsed = urlparse(pr_url)
     parts = [p for p in parsed.path.split("/") if p]
@@ -244,6 +255,7 @@ def load_state(path):
         "started_at": None,
         "last_seen_head_sha": None,
         "retries_by_sha": {},
+        "seen_items": [],
         "seen_issue_comment_ids": [],
         "seen_review_comment_ids": [],
         "seen_review_ids": [],
@@ -455,15 +467,22 @@ def extract_login(user_obj):
     return ""
 
 
+def normalize_review_bot_login(value: str) -> str:
+    lower = (value or "").strip().lower()
+    if lower.endswith("[bot]"):
+        lower = lower[: -len("[bot]")]
+    return normalize_review_bot_keyword(lower)
+
+
 def is_bot_login(login):
     return bool(login) and login.endswith("[bot]")
 
 
 def is_actionable_review_bot_login(login):
-    if not is_bot_login(login):
+    normalized = normalize_review_bot_login(login)
+    if not normalized:
         return False
-    lower_login = login.lower()
-    return any(keyword in lower_login for keyword in REVIEW_BOT_LOGIN_KEYWORDS)
+    return any(keyword in normalized for keyword in REVIEW_BOT_LOGIN_KEYWORDS)
 
 
 def is_trusted_human_review_author(item, authenticated_login):
@@ -490,9 +509,15 @@ def fetch_new_review_items(pr, state, fresh_state, authenticated_login=None):
     review_items = normalize_reviews(review_payload)
     all_items = issue_items + review_comment_items + review_items
 
-    seen_issue = {str(x) for x in state.get("seen_issue_comment_ids") or []}
-    seen_review_comment = {str(x) for x in state.get("seen_review_comment_ids") or []}
-    seen_review = {str(x) for x in state.get("seen_review_ids") or []}
+    seen_items = {str(x) for x in state.get("seen_items") or []}
+
+    # Backwards-compatible migration from the older per-kind tracking lists.
+    for item_id in state.get("seen_issue_comment_ids") or []:
+        seen_items.add(f"issue_comment:{item_id}")
+    for item_id in state.get("seen_review_comment_ids") or []:
+        seen_items.add(f"review_comment:{item_id}")
+    for item_id in state.get("seen_review_ids") or []:
+        seen_items.add(f"review:{item_id}")
 
     # On a brand-new state file, surface existing review activity instead of
     # silently treating it as seen. This avoids missing already-pending review
@@ -506,32 +531,39 @@ def fetch_new_review_items(pr, state, fresh_state, authenticated_login=None):
         author = item.get("author") or ""
         if not author:
             continue
-        if is_bot_login(author):
-            if not is_actionable_review_bot_login(author):
-                continue
+        if is_actionable_review_bot_login(author):
+            pass
+        elif is_bot_login(author):
+            continue
         elif not is_trusted_human_review_author(item, authenticated_login):
             continue
 
         kind = item["kind"]
-        if kind == "issue_comment" and item_id in seen_issue:
-            continue
-        if kind == "review_comment" and item_id in seen_review_comment:
-            continue
-        if kind == "review" and item_id in seen_review:
+        key = f"{kind}:{item_id}"
+        if key in seen_items:
             continue
 
         new_items.append(item)
-        if kind == "issue_comment":
-            seen_issue.add(item_id)
-        elif kind == "review_comment":
-            seen_review_comment.add(item_id)
-        elif kind == "review":
-            seen_review.add(item_id)
+        seen_items.add(key)
 
-    new_items.sort(key=lambda item: (item.get("created_at") or "", item.get("kind") or "", item.get("id") or ""))
-    state["seen_issue_comment_ids"] = sorted(seen_issue)
-    state["seen_review_comment_ids"] = sorted(seen_review_comment)
-    state["seen_review_ids"] = sorted(seen_review)
+    new_items.sort(
+        key=lambda item: (
+            item.get("created_at") or "",
+            item.get("kind") or "",
+            item.get("id") or "",
+        )
+    )
+
+    state["seen_items"] = sorted(seen_items)
+    state["seen_issue_comment_ids"] = sorted(
+        {k.split(":", 1)[1] for k in seen_items if k.startswith("issue_comment:")}
+    )
+    state["seen_review_comment_ids"] = sorted(
+        {k.split(":", 1)[1] for k in seen_items if k.startswith("review_comment:")}
+    )
+    state["seen_review_ids"] = sorted(
+        {k.split(":", 1)[1] for k in seen_items if k.startswith("review:")}
+    )
     return new_items
 
 
