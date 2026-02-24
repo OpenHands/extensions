@@ -373,11 +373,19 @@ def failed_runs_from_workflow_runs(runs, head_sha):
     return failed_runs
 
 
+_AUTHENTICATED_LOGIN_CACHE = None
+
+
 def get_authenticated_login():
+    global _AUTHENTICATED_LOGIN_CACHE
+    if _AUTHENTICATED_LOGIN_CACHE:
+        return _AUTHENTICATED_LOGIN_CACHE
+
     data = gh_json(["api", "user"])
     if not isinstance(data, dict) or not data.get("login"):
         raise GhCommandError("Unable to determine authenticated GitHub login from `gh api user`")
-    return str(data["login"])
+    _AUTHENTICATED_LOGIN_CACHE = str(data["login"])
+    return _AUTHENTICATED_LOGIN_CACHE
 
 
 def comment_endpoints(repo, pr_number):
@@ -503,7 +511,7 @@ def is_trusted_human_review_author(item, authenticated_login):
     return association in TRUSTED_AUTHOR_ASSOCIATIONS
 
 
-def fetch_new_review_items(pr, state, fresh_state, authenticated_login=None):
+def fetch_new_review_items(pr, state, authenticated_login=None):
     repo = pr["repo"]
     pr_number = pr["number"]
     endpoints = comment_endpoints(repo, pr_number)
@@ -646,7 +654,7 @@ def recommend_actions(pr, checks_summary, failed_runs, new_review_items, retries
 def collect_snapshot(args):
     pr = resolve_pr(args.pr, repo_override=args.repo)
     state_path = Path(args.state_file) if args.state_file else default_state_file_for(pr)
-    state, fresh_state = load_state(state_path)
+    state, _ = load_state(state_path)
 
     if not state.get("started_at"):
         state["started_at"] = int(time.time())
@@ -661,7 +669,6 @@ def collect_snapshot(args):
     new_review_items = fetch_new_review_items(
         pr,
         state,
-        fresh_state=fresh_state,
         authenticated_login=authenticated_login,
     )
 
