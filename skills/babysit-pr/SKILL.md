@@ -119,6 +119,7 @@ Suggested flow:
    ```bash
    gh pr comment <pr> --body "Addressed the requested changes in <sha>. Could you take another look?"
    ```
+   Do NOT tag humans.
 2. Re-request reviewers via the GitHub API.
    ```bash
    gh api -X POST repos/<owner>/<repo>/pulls/<pr_number>/requested_reviewers \
