@@ -376,6 +376,33 @@
                 "preview",
                 "hosting"
             ]
+        },
+        {
+            "name": "city-weather",
+            "source": "../plugins/city-weather",
+            "description": "Get current weather, time, and precipitation forecast for any city using the free Open-Meteo API. Provides slash command /city-weather:now <city>.",
+            "category": "utilities",
+            "keywords": [
+                "weather",
+                "time",
+                "forecast",
+                "temperature",
+                "precipitation",
+                "sample"
+            ]
+        },
+        {
+            "name": "magic-test",
+            "source": "../plugins/magic-test",
+            "description": "A simple test plugin for verifying plugin loading. Triggers on magic words (alakazam, abracadabra) and returns a specific phrase to confirm plugins are working.",
+            "category": "testing",
+            "keywords": [
+                "test",
+                "magic",
+                "plugin",
+                "verification",
+                "sample"
+            ]
         }
     ]
 }
