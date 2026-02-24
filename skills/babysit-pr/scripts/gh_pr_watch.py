@@ -30,7 +30,7 @@ PENDING_CHECK_STATES = {
 DEFAULT_REVIEW_BOT_LOGIN_KEYWORDS = [
     "openhands",
     "openhands-agent",
-    "all_hands_bot",
+    "all-hands-bot",
     "smolpaws",
     "claude",
     "codex",
