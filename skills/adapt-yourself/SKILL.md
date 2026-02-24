@@ -18,7 +18,7 @@ triggers:
 When a user says things like “modify yourself to do X” or “remember this next time”, **don’t jump to editing Python code**.
 OpenHands has multiple extensibility layers; choose the *smallest*, *safest*, and *most persistent* mechanism that matches the user’s intent.
 
-This skill is about **persistent** changes that should still apply after the user restarts the CLI / app.
+This skill is about **persistent** changes that should still apply after the user reloads or restarts the CLI / app. If the user wants behavior only for the current conversation, you don't need the mechanisms in this skill—just follow their instructions directly in this session.
 
 ## 0) First: clarify what kind of change the user wants
 
