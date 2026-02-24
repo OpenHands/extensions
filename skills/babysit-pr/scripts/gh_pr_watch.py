@@ -27,11 +27,20 @@ PENDING_CHECK_STATES = {
     "WAITING",
     "REQUESTED",
 }
+DEFAULT_REVIEW_BOT_LOGIN_KEYWORDS = [
+    "openhands",
+    "openhands-agent",
+    "all_hands_bot",
+    "smolpaws",
+    "claude",
+    "codex",
+]
+
 _REVIEW_BOT_KEYWORDS_ENV = os.getenv("BABYSIT_PR_REVIEW_BOT_KEYWORDS", "")
 EXTRA_REVIEW_BOT_LOGIN_KEYWORDS = {
     kw.strip().lower() for kw in _REVIEW_BOT_KEYWORDS_ENV.split(",") if kw.strip()
 }
-REVIEW_BOT_LOGIN_KEYWORDS = {"codex", "openhands"} | EXTRA_REVIEW_BOT_LOGIN_KEYWORDS
+REVIEW_BOT_LOGIN_KEYWORDS = set(DEFAULT_REVIEW_BOT_LOGIN_KEYWORDS) | EXTRA_REVIEW_BOT_LOGIN_KEYWORDS
 TRUSTED_AUTHOR_ASSOCIATIONS = {
     "OWNER",
     "MEMBER",
