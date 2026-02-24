@@ -25,7 +25,6 @@ This skill is about **persistent** changes that should still apply after the use
 Clarify the **scope** and **type** of the change (skip questions the user already answered):
 
 1. **Persistence scope**: Should this change apply…
-   - only in *this* conversation?
    - for this *repository/workspace*?
    - for *all repos on this machine* (user-global)?
    - for *everyone* (contribution upstream / extensions registry)?
