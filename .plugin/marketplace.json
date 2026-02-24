@@ -167,6 +167,19 @@
             ]
         },
         {
+            "name": "github-actions",
+            "source": "./github-actions",
+            "description": "Create, debug, and test GitHub Actions workflows and custom actions. Use when building CI/CD pipelines, automating workflows, or troubleshooting GitHub Actions.",
+            "category": "integration",
+            "keywords": [
+                "github-actions",
+                "workflows",
+                "ci-cd",
+                "automation",
+                "actions"
+            ]
+        },
+        {
             "name": "github-pr-review",
             "source": "./github-pr-review",
             "description": "Post structured PR reviews to GitHub with inline comments/suggestions in a single API call.",
