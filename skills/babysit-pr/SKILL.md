@@ -117,7 +117,7 @@ Suggested flow:
 
 1. Leave a brief PR comment summarizing what changed and why re-review is needed.
    ```bash
-   gh pr comment <pr> --body "Addressed the requested changes in <sha>. Could you take another look? @reviewer"
+   gh pr comment <pr> --body "Addressed the requested changes in <sha>. Could you take another look?"
    ```
 2. Re-request reviewers via the GitHub API.
    ```bash
