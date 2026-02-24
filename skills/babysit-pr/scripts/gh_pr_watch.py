@@ -149,6 +149,9 @@ def gh_text(args, repo=None):
     except FileNotFoundError as err:
         raise GhCommandError("`gh` command not found") from err
     except subprocess.CalledProcessError as err:
+        combined = f"{err.stdout or ''}\n{err.stderr or ''}".lower()
+        if "rate limit" in combined:
+            raise GhCommandError("GitHub API rate limit exceeded. Wait before retrying.") from err
         raise GhCommandError(_format_gh_error(cmd, err)) from err
     return proc.stdout
 
@@ -789,8 +792,30 @@ def snapshot_change_key(snapshot):
 def run_watch(args):
     poll_seconds = args.poll_seconds
     last_change_key = None
+    consecutive_errors = 0
+    max_consecutive_errors = 3
+
     while True:
-        snapshot, state_path = collect_snapshot(args)
+        try:
+            snapshot, state_path = collect_snapshot(args)
+            consecutive_errors = 0
+        except (GhCommandError, RuntimeError, ValueError) as err:
+            consecutive_errors += 1
+            retry_seconds = min(args.poll_seconds * (2 ** (consecutive_errors - 1)), 5 * 60)
+            print_event(
+                "error",
+                {
+                    "message": str(err),
+                    "consecutive_errors": consecutive_errors,
+                    "max_consecutive_errors": max_consecutive_errors,
+                    "next_retry_seconds": retry_seconds,
+                },
+            )
+            if consecutive_errors >= max_consecutive_errors:
+                return 1
+            time.sleep(retry_seconds)
+            continue
+
         print_event(
             "snapshot",
             {
