@@ -1,11 +1,11 @@
 {
-    "name": "openhands-skills",
+    "name": "default",
     "owner": {
         "name": "OpenHands",
         "email": "contact@all-hands.dev"
     },
     "metadata": {
-        "description": "Public registry of Skills for OpenHands - reusable guidelines that customize agent behavior",
+        "description": "Official OpenHands skills marketplace - reusable guidelines that customize agent behavior",
         "version": "1.0.0",
         "pluginRoot": "./skills"
     },
@@ -70,8 +70,8 @@
             ]
         },
         {
-            "name": "codereview",
-            "source": "./codereview",
+            "name": "code-review",
+            "source": "./code-review",
             "description": "Structured code review covering style, readability, and security concerns with actionable feedback. Use when reviewing pull requests or merge requests to identify issues and suggest improvements.",
             "category": "code-quality",
             "keywords": [
@@ -115,6 +115,18 @@
                 "typescript",
                 "javascript",
                 "runtime"
+            ]
+        },
+        {
+            "name": "discord",
+            "source": "./discord",
+            "description": "Build and automate Discord integrations (bots, webhooks, slash commands, and REST API workflows). Use when the user mentions Discord, a Discord server/guild, channels, webhooks, bot tokens, slash commands/application commands, discord.js, or discord.py.",
+            "category": "integration",
+            "keywords": [
+                "discord",
+                "bot",
+                "webhook",
+                "automation"
             ]
         },
         {
@@ -257,6 +269,18 @@
                 "onboarding",
                 "planning",
                 "requirements"
+            ]
+        },
+        {
+            "name": "openhands-api",
+            "source": "./openhands-api",
+            "description": "Use the OpenHands REST API (V0) to create and manage agent conversations programmatically. Includes minimal Python and TypeScript clients under scripts/.",
+            "category": "development",
+            "keywords": [
+                "openhands",
+                "api",
+                "conversations",
+                "automation"
             ]
         },
         {
