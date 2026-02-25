@@ -83,7 +83,8 @@ export class OpenHandsV1API {
   }
 
   async appConversationsSearch(limit = 20): Promise<Record<string, unknown>> {
-    const params = new URLSearchParams({ limit: String(Math.max(1, limit)) });
+    const safeLimit = Number.isFinite(limit) ? Math.trunc(limit) : 1;
+    const params = new URLSearchParams({ limit: String(Math.max(1, safeLimit)) });
     return await this.request(`${this.apiV1Url}/app-conversations/search?${params.toString()}`, {
       method: "GET",
     });
@@ -218,7 +219,9 @@ export class OpenHandsV1API {
     const params = this.buildAgentEventFilterParams(opts);
 
     // Cap limit to keep responses small and consistent across clients.
-    const limit = Math.max(1, Math.min(AGENT_EVENTS_SEARCH_MAX_LIMIT, opts?.limit ?? 50));
+    const rawLimit = opts?.limit ?? 50;
+    const safeLimit = Number.isFinite(rawLimit) ? Math.trunc(rawLimit) : 1;
+    const limit = Math.max(1, Math.min(AGENT_EVENTS_SEARCH_MAX_LIMIT, safeLimit));
     params.set("limit", String(limit));
 
     if (opts?.sortOrder) params.set("sort_order", opts.sortOrder);
