@@ -70,8 +70,8 @@
             ]
         },
         {
-            "name": "codereview",
-            "source": "./codereview",
+            "name": "code-review",
+            "source": "./code-review",
             "description": "Structured code review covering style, readability, and security concerns with actionable feedback. Use when reviewing pull requests or merge requests to identify issues and suggest improvements.",
             "category": "code-quality",
             "keywords": [
@@ -273,7 +273,7 @@
         },
         {
             "name": "openhands-api",
-            "source": "./openhands_api",
+            "source": "./openhands-api",
             "description": "Use the OpenHands REST API (V0) to create and manage agent conversations programmatically. Includes minimal Python and TypeScript clients under scripts/.",
             "category": "development",
             "keywords": [

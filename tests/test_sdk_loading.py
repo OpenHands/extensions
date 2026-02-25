@@ -97,8 +97,7 @@ class TestSkillsLoadWithSDK:
         for skill_dir in skill_dirs:
             skill_path = skill_dir / "SKILL.md"
             try:
-                # Use strict=False to allow name mismatches (e.g., openhands_api -> openhands-api)
-                skill = Skill.load(skill_path, skill_base_dir=skill_dir, strict=False)
+                skill = Skill.load(skill_path, skill_base_dir=skill_dir)
                 assert skill.name, f"Skill {skill_dir.name} has no name"
                 assert skill.content, f"Skill {skill_dir.name} has no content"
             except Exception as e:
@@ -116,7 +115,7 @@ class TestSkillsLoadWithSDK:
         for skill_dir in skill_dirs:
             skill_path = skill_dir / "SKILL.md"
             try:
-                skill = Skill.load(skill_path, skill_base_dir=skill_dir, strict=False)
+                skill = Skill.load(skill_path, skill_base_dir=skill_dir)
                 if not skill.description:
                     missing_metadata.append(f"{skill_dir.name}: missing description")
             except Exception:
