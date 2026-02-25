@@ -106,7 +106,9 @@ In the agent-server API, event IDs are UUIDs (not monotonically increasing integ
 ## Quick start (Python)
 
 ```python
-from skills.openhands_api_v1.scripts.openhands_api_v1 import OpenHandsV1API
+# Copy `skills/openhands-api-v1/scripts/openhands_api_v1.py` into your project (e.g. as `openhands_api_v1.py`),
+# then import it normally:
+from openhands_api_v1 import OpenHandsV1API
 
 api = OpenHandsV1API()  # uses OPENHANDS_API_KEY
 
@@ -125,14 +127,14 @@ Search conversations:
 
 ```bash
 export OPENHANDS_API_KEY="..."
-python skills/openhands_api_v1/scripts/openhands_api_v1.py search-conversations --limit 5
+python skills/openhands-api-v1/scripts/openhands_api_v1.py search-conversations --limit 5
 ```
 
 Start a conversation from a prompt file:
 
 ```bash
-python skills/openhands_api_v1/scripts/openhands_api_v1.py start-conversation \
-  --prompt-file skills/openhands_api_v1/references/example_prompt.md \
+python skills/openhands-api-v1/scripts/openhands_api_v1.py start-conversation \
+  --prompt-file skills/openhands-api-v1/references/example_prompt.md \
   --repo owner/repo \
   --branch main
 ```
@@ -145,5 +147,5 @@ python skills/openhands_api_v1/scripts/openhands_api_v1.py start-conversation \
 - For sandbox file operations and command execution, use the agent server endpoints with `X-Session-API-Key`.
 
 See also:
-- `skills/openhands_api_v1/scripts/openhands_api_v1.py`
+- `skills/openhands-api-v1/scripts/openhands_api_v1.py`
 - The original inspiration client: `enyst/llm-playground` → `openhands-api-client-v1/scripts/cloud_api_v1.py`

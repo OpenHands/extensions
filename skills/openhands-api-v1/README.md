@@ -11,7 +11,7 @@ Minimal skill + reference client for the **OpenHands Cloud API V1**.
 
 ```bash
 export OPENHANDS_API_KEY="..."
-python skills/openhands_api_v1/scripts/openhands_api_v1.py search-conversations --limit 5
+python skills/openhands-api-v1/scripts/openhands_api_v1.py search-conversations --limit 5
 ```
 
 ## Start-task vs app conversation id
