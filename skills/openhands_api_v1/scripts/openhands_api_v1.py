@@ -290,11 +290,11 @@ class OpenHandsV1API:
     @staticmethod
     def _agent_event_filter_params(
         *,
-        timestamp_gte: str | None,
-        timestamp_lt: str | None,
-        kind: str | None,
-        source: str | None,
-        body: str | None,
+        timestamp_gte: str | None = None,
+        timestamp_lt: str | None = None,
+        kind: str | None = None,
+        source: str | None = None,
+        body: str | None = None,
     ) -> dict[str, Any]:
         params: dict[str, Any] = {}
         if timestamp_gte is not None:
@@ -495,8 +495,7 @@ class OpenHandsV1API:
         - uses exponential backoff (capped by `max_interval_s`)
         - supports `max_polls` to cap the total number of API calls
 
-        Terminal statuses are treated as: READY, ERROR, FAILED, CANCELLED, DONE, COMPLETED
-        (see START_TASK_TERMINAL_STATUSES).
+        Terminal statuses are defined in START_TASK_TERMINAL_STATUSES.
 
         Raises:
             TimeoutError: if the task doesn't reach a terminal state in time.

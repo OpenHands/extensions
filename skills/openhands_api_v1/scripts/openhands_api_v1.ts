@@ -21,7 +21,6 @@ export type OpenHandsV1Options = {
   baseUrl?: string;
 };
 
-
 const AGENT_EVENTS_SEARCH_MAX_LIMIT = 100;
 
 
@@ -172,7 +171,7 @@ export class OpenHandsV1API {
     );
   }
 
-  private agentEventFilterParams(opts?: {
+  private buildAgentEventFilterParams(opts?: {
     timestampGte?: string;
     timestampLt?: string;
     kind?: string;
@@ -188,7 +187,6 @@ export class OpenHandsV1API {
     return params;
   }
 
-
   async agentEventsCount(agentServerUrl: string, sessionApiKey: string, conversationId: string, opts?: {
     timestampGte?: string;
     timestampLt?: string;
@@ -196,10 +194,9 @@ export class OpenHandsV1API {
     source?: string;
     body?: string;
   }): Promise<number> {
-    const params = this.agentEventFilterParams(opts);
-
-    const qs = params.toString();
+    const qs = this.buildAgentEventFilterParams(opts).toString();
     const suffix = qs ? `?${qs}` : "";
+
     const n = await this.agentRequest<number>(
       agentServerUrl,
       sessionApiKey,
@@ -218,11 +215,11 @@ export class OpenHandsV1API {
     source?: string;
     body?: string;
   }): Promise<Record<string, unknown>> {
-    const params = this.agentEventFilterParams(opts);
+    const params = this.buildAgentEventFilterParams(opts);
 
     // Cap limit to keep responses small and consistent across clients.
-    const cappedLimit = Math.max(1, Math.min(AGENT_EVENTS_SEARCH_MAX_LIMIT, opts?.limit ?? 50));
-    params.set("limit", String(cappedLimit));
+    const limit = Math.max(1, Math.min(AGENT_EVENTS_SEARCH_MAX_LIMIT, opts?.limit ?? 50));
+    params.set("limit", String(limit));
 
     if (opts?.sortOrder) params.set("sort_order", opts.sortOrder);
 
