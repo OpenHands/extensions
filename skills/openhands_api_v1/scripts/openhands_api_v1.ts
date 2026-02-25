@@ -125,6 +125,7 @@ export class OpenHandsV1API {
     const payload: Record<string, unknown> = {
       initial_message: {
         role: "user",
+        // V1 expects `content` as an array of parts, even for a single text message.
         content: [{ type: "text", text: req.initialMessage }],
         run: req.run ?? true,
       },

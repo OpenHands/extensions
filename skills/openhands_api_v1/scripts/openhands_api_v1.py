@@ -41,6 +41,12 @@ import httpx
 DEFAULT_BASE_URL = "https://app.all-hands.dev"
 
 
+# Start-task statuses observed in the wild. These may evolve, so keep this centralized.
+START_TASK_TERMINAL_STATUSES = frozenset(
+    {"READY", "ERROR", "FAILED", "CANCELLED", "DONE", "COMPLETED"}
+)
+
+
 @dataclass(frozen=True)
 class OpenHandsV1Config:
     api_key: str
@@ -171,6 +177,7 @@ class OpenHandsV1API:
         payload: dict[str, Any] = {
             "initial_message": {
                 "role": "user",
+                # V1 expects `content` as a list of parts, even for a single text message.
                 "content": [{"type": "text", "text": initial_message}],
                 "run": bool(run),
             }
@@ -275,6 +282,29 @@ class OpenHandsV1API:
     def agent_headers(session_api_key: str) -> dict[str, str]:
         return {"X-Session-API-Key": session_api_key, "Content-Type": "application/json"}
 
+
+    @staticmethod
+    def _agent_event_filter_params(
+        *,
+        timestamp_gte: str | None,
+        timestamp_lt: str | None,
+        kind: str | None,
+        source: str | None,
+        body: str | None,
+    ) -> dict[str, Any]:
+        params: dict[str, Any] = {}
+        if timestamp_gte is not None:
+            params["timestamp__gte"] = timestamp_gte
+        if timestamp_lt is not None:
+            params["timestamp__lt"] = timestamp_lt
+        if kind is not None:
+            params["kind"] = kind
+        if source is not None:
+            params["source"] = source
+        if body is not None:
+            params["body"] = body
+        return params
+
     def agent_events_search(
         self,
         *,
@@ -301,16 +331,15 @@ class OpenHandsV1API:
         params: dict[str, Any] = {"limit": max(1, int(limit))}
         if sort_order is not None:
             params["sort_order"] = sort_order
-        if timestamp_gte is not None:
-            params["timestamp__gte"] = timestamp_gte
-        if timestamp_lt is not None:
-            params["timestamp__lt"] = timestamp_lt
-        if kind is not None:
-            params["kind"] = kind
-        if source is not None:
-            params["source"] = source
-        if body is not None:
-            params["body"] = body
+        params.update(
+            self._agent_event_filter_params(
+                timestamp_gte=timestamp_gte,
+                timestamp_lt=timestamp_lt,
+                kind=kind,
+                source=source,
+                body=body,
+            )
+        )
 
         r = httpx.get(
             url,
@@ -339,17 +368,13 @@ class OpenHandsV1API:
         """
 
         url = f"{agent_server_url.rstrip('/')}/api/conversations/{conversation_id}/events/count"
-        params: dict[str, Any] = {}
-        if timestamp_gte is not None:
-            params["timestamp__gte"] = timestamp_gte
-        if timestamp_lt is not None:
-            params["timestamp__lt"] = timestamp_lt
-        if kind is not None:
-            params["kind"] = kind
-        if source is not None:
-            params["source"] = source
-        if body is not None:
-            params["body"] = body
+        params = self._agent_event_filter_params(
+            timestamp_gte=timestamp_gte,
+            timestamp_lt=timestamp_lt,
+            kind=kind,
+            source=source,
+            body=body,
+        )
 
         r = httpx.get(
             url,
@@ -440,6 +465,11 @@ class OpenHandsV1API:
             run=run,
         )
 
+
+    @staticmethod
+    def _start_task_status(task: dict[str, Any] | None) -> str:
+        return str((task or {}).get("status") or "").upper()
+
     def poll_start_task_until_ready(
         self,
         task_id: str,
@@ -459,7 +489,8 @@ class OpenHandsV1API:
         - uses exponential backoff (capped by `max_interval_s`)
         - supports `max_polls` to cap the total number of API calls
 
-        Terminal statuses are treated as: READY, ERROR, FAILED, CANCELLED, DONE, COMPLETED.
+        Terminal statuses are treated as: READY, ERROR, FAILED, CANCELLED, DONE, COMPLETED
+        (see START_TASK_TERMINAL_STATUSES).
 
         Raises:
             TimeoutError: if the task doesn't reach a terminal state in time.
@@ -479,8 +510,8 @@ class OpenHandsV1API:
                     f"Start task {task_id} did not reach terminal state (max_polls={max_polls}, last={last})"
                 )
 
-            now = time.monotonic()
-            if now > deadline:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
                 raise TimeoutError(
                     f"Start task {task_id} did not reach terminal state in {timeout_s}s (last={last})"
                 )
@@ -488,12 +519,11 @@ class OpenHandsV1API:
             last = self.app_conversation_start_task_get(task_id)
             polls += 1
 
-            status = str((last or {}).get("status") or "").upper()
-            if status in {"READY", "ERROR", "FAILED", "CANCELLED", "DONE", "COMPLETED"}:
+            status = self._start_task_status(last)
+            if status in START_TASK_TERMINAL_STATUSES:
                 return last or {}
 
-            remaining = deadline - time.monotonic()
-            sleep_s = min(interval, max(0.0, remaining))
+            sleep_s = min(interval, remaining)
             if sleep_s > 0:
                 time.sleep(sleep_s)
             interval = min(max_interval, interval * factor)
