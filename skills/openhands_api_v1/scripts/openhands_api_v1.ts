@@ -22,6 +22,9 @@ export type OpenHandsV1Options = {
 };
 
 
+const AGENT_EVENTS_SEARCH_MAX_LIMIT = 100;
+
+
 export class OpenHandsV1API {
   private readonly apiKey: string;
   private readonly baseUrl: string;
@@ -169,6 +172,23 @@ export class OpenHandsV1API {
     );
   }
 
+  private agentEventFilterParams(opts?: {
+    timestampGte?: string;
+    timestampLt?: string;
+    kind?: string;
+    source?: string;
+    body?: string;
+  }): URLSearchParams {
+    const params = new URLSearchParams();
+    if (opts?.timestampGte) params.set("timestamp__gte", opts.timestampGte);
+    if (opts?.timestampLt) params.set("timestamp__lt", opts.timestampLt);
+    if (opts?.kind) params.set("kind", opts.kind);
+    if (opts?.source) params.set("source", opts.source);
+    if (opts?.body) params.set("body", opts.body);
+    return params;
+  }
+
+
   async agentEventsCount(agentServerUrl: string, sessionApiKey: string, conversationId: string, opts?: {
     timestampGte?: string;
     timestampLt?: string;
@@ -176,12 +196,7 @@ export class OpenHandsV1API {
     source?: string;
     body?: string;
   }): Promise<number> {
-    const params = new URLSearchParams();
-    if (opts?.timestampGte) params.set("timestamp__gte", opts.timestampGte);
-    if (opts?.timestampLt) params.set("timestamp__lt", opts.timestampLt);
-    if (opts?.kind) params.set("kind", opts.kind);
-    if (opts?.source) params.set("source", opts.source);
-    if (opts?.body) params.set("body", opts.body);
+    const params = this.agentEventFilterParams(opts);
 
     const qs = params.toString();
     const suffix = qs ? `?${qs}` : "";
@@ -203,14 +218,13 @@ export class OpenHandsV1API {
     source?: string;
     body?: string;
   }): Promise<Record<string, unknown>> {
-    const params = new URLSearchParams();
-    params.set("limit", String(Math.max(1, Math.min(100, opts?.limit ?? 50))));
+    const params = this.agentEventFilterParams(opts);
+
+    // Cap limit to keep responses small and consistent across clients.
+    const cappedLimit = Math.max(1, Math.min(AGENT_EVENTS_SEARCH_MAX_LIMIT, opts?.limit ?? 50));
+    params.set("limit", String(cappedLimit));
+
     if (opts?.sortOrder) params.set("sort_order", opts.sortOrder);
-    if (opts?.timestampGte) params.set("timestamp__gte", opts.timestampGte);
-    if (opts?.timestampLt) params.set("timestamp__lt", opts.timestampLt);
-    if (opts?.kind) params.set("kind", opts.kind);
-    if (opts?.source) params.set("source", opts.source);
-    if (opts?.body) params.set("body", opts.body);
 
     return await this.agentRequest<Record<string, unknown>>(
       agentServerUrl,

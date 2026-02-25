@@ -47,6 +47,10 @@ START_TASK_TERMINAL_STATUSES = frozenset(
 )
 
 
+# Safety cap for paging calls. Keeps responses small and consistent across clients.
+AGENT_EVENTS_SEARCH_MAX_LIMIT = 100
+
+
 @dataclass(frozen=True)
 class OpenHandsV1Config:
     api_key: str
@@ -322,13 +326,15 @@ class OpenHandsV1API:
         """Search events via the sandbox agent-server.
 
         Notes:
+        - `limit` is capped at AGENT_EVENTS_SEARCH_MAX_LIMIT to avoid huge responses.
         - `sort_order` must be one of: "TIMESTAMP", "TIMESTAMP_DESC".
         - timestamp filters are passed as ISO-8601 strings (e.g. "2026-02-14T21:54:00Z").
           The server accepts both timezone-aware and naive datetimes.
         """
 
         url = f"{agent_server_url.rstrip('/')}/api/conversations/{conversation_id}/events/search"
-        params: dict[str, Any] = {"limit": max(1, int(limit))}
+        capped_limit = min(AGENT_EVENTS_SEARCH_MAX_LIMIT, max(1, int(limit)))
+        params: dict[str, Any] = {"limit": capped_limit}
         if sort_order is not None:
             params["sort_order"] = sort_order
         params.update(
