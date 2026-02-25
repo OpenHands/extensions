@@ -299,7 +299,6 @@
                 "automation"
             ]
         },
-
         {
             "name": "pdflatex",
             "source": "./pdflatex",
