@@ -54,7 +54,7 @@ The following are the main endpoints implemented in the minimal client:
 - `GET /api/v1/app-conversations/search?limit=...` — list recent conversations
 - `GET /api/v1/app-conversations?ids=...` — fetch conversation records by id (batch)
 - `GET /api/v1/app-conversations/count` — count conversations
-- `POST /api/v1/app-conversations` — start a new conversation (creates a sandbox; can incur cost)
+- `POST /api/v1/app-conversations` — start a new conversation (creates a sandbox)
 - `GET /api/v1/app-conversations/start-tasks?ids=...` — check async start-task status
 - `GET /api/v1/conversation/{app_conversation_id}/events/search?limit=...` — read conversation events
 - `GET /api/v1/conversation/{app_conversation_id}/events/count` — count events
