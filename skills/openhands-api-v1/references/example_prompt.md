@@ -1,4 +1,4 @@
-# Example prompt file (OpenHands Cloud V1)
+# Example prompt file (OpenHands V1)
 
 Replace the text below with the task you want OpenHands to perform.
 
