@@ -272,16 +272,6 @@
             ]
         },
         {
-            "name": "openhands-api",
-            "source": "./openhands-api",
-            "description": "Use the OpenHands REST API (V0) to create and manage agent conversations programmatically. Includes minimal Python and TypeScript clients under scripts/.",
-            "category": "development",
-            "keywords": [
-                "openhands",
-                "api",
-                "conversations",
-                "automation"
-        {
             "name": "openhands-api-v1",
             "source": "./openhands-api-v1",
             "description": "Use the OpenHands Cloud REST API (V1) to create and manage app conversations and to access sandbox agent-server endpoints. Includes minimal Python and TypeScript clients under scripts/.",
