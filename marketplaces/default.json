@@ -281,7 +281,6 @@
                 "api",
                 "conversations",
                 "automation"
-            ]
         {
             "name": "openhands-api-v1",
             "source": "./openhands-api-v1",
