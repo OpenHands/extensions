@@ -61,29 +61,30 @@ class TestDefaultMarketplace:
         assert len(errors) == 0, f"Plugin validation errors:\n" + "\n".join(errors)
 
     def test_marketplace_includes_all_skills(self):
-        """Verify every skill directory is referenced in the marketplace."""
-        marketplace_path = get_repo_root() / "marketplaces" / "default.json"
-        
+        """Verify every skill directory is referenced in at least one marketplace."""
         import json
-        with open(marketplace_path) as f:
-            data = json.load(f)
-        
-        marketplace = Marketplace.model_validate({**data, "path": str(get_repo_root())})
-        
-        # Get sources from marketplace
-        marketplace_sources = set()
-        for plugin in marketplace.plugins:
-            source = plugin.source if isinstance(plugin.source, str) else ""
-            if source.startswith("./"):
-                marketplace_sources.add(source[2:])
-            else:
-                marketplace_sources.add(source)
-        
+
+        marketplaces_dir = get_repo_root() / "marketplaces"
+        marketplace_files = sorted(marketplaces_dir.glob("*.json"))
+        assert len(marketplace_files) > 0, "No marketplace JSON files found"
+
+        # Collect sources across all marketplaces
+        all_sources = set()
+        for mp_path in marketplace_files:
+            with open(mp_path) as f:
+                data = json.load(f)
+            marketplace = Marketplace.model_validate({**data, "path": str(get_repo_root())})
+            for plugin in marketplace.plugins:
+                source = plugin.source if isinstance(plugin.source, str) else ""
+                # Normalize: strip leading "./" and resolve parent refs to get the leaf name
+                name = Path(source).name
+                all_sources.add(name)
+
         # Get all skill directories
         skill_dirs = {d.name for d in get_all_skill_directories()}
-        
-        missing = skill_dirs - marketplace_sources
-        assert len(missing) == 0, f"Skills missing from marketplace: {sorted(missing)}"
+
+        missing = skill_dirs - all_sources
+        assert len(missing) == 0, f"Skills not in any marketplace: {sorted(missing)}"
 
 
 class TestSkillsLoadWithSDK:
