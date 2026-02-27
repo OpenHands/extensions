@@ -3,10 +3,13 @@ name: openhands-api-v1
 description: Minimal reference skill for the OpenHands Cloud REST API (V1) (app server /api/v1 + sandbox agent-server). Use when you need to automate common OpenHands Cloud actions; don't use for general sandbox/dev tasks unrelated to the OpenHands API.
 triggers:
 - openhands-api-v1
-- oh-cloud-api
-- oh-api
+- openhands api v1
+- openhands cloud api v1
+- openhands cloud api
+- conversation events
 - agent-server
-- agent-server-api
+- X-Session-API-Key
+- session_api_key
 ---
 
 This skill documents the **OpenHands Cloud API V1** and provides a small, easy-to-copy Python client.
@@ -43,6 +46,20 @@ How to obtain `agent_server_url` and `session_api_key`:
 3. Use those values to call the agent server directly:
    - Base: `{agent_server_url}/api/...`
    - Header: `X-Session-API-Key: <session_api_key>`
+
+Example (common field names; adjust to your deployment):
+
+```python
+# using the minimal Python client (`OpenHandsV1API`)
+conv = api.app_conversation_get(app_conversation_id)
+
+session_api_key = conv.get("session_api_key")
+conversation_url = conv.get("conversation_url", "")
+
+# `conversation_url` often looks like: https://<runtime-host>/api/conversations/<id>
+agent_server_url = conversation_url.rsplit("/api/conversations", 1)[0]
+```
+
 
 If those fields are not present on the conversation record, list/search sandboxes (`GET /api/v1/sandboxes/search`) and use the sandbox referenced by the conversation to locate the agent server URL + session key.
 
@@ -87,7 +104,6 @@ These run against `agent_server_url` (not the app server):
 - `GET  {agent_server_url}/api/conversations/{conversation_id}/events/search`
 - `GET  {agent_server_url}/api/conversations/{conversation_id}/events/count`
 
-
 ### Counting events (recommended approach)
 
 If you need to know how many events a conversation has, you can:
@@ -102,6 +118,165 @@ If you need to know how many events a conversation has, you can:
 
 Do **not** rely on the last event `id` to infer the total number of events.
 In the agent-server API, event IDs are UUIDs (not monotonically increasing integers).
+
+## Troubleshooting / common issues
+
+### 1) Direct ID lookup returns HTML instead of JSON
+
+**Symptom:** Calling `GET /api/v1/app-conversations/{id}` returns HTML (the frontend app) instead of JSON.
+
+**Cause:** In OpenHands Cloud, this URL pattern is handled by the frontend router, not the API.
+
+**Solution:** Use the batch endpoint with the `ids` query parameter:
+
+```bash
+# ❌ Wrong (returns HTML)
+curl "${BASE_URL:-https://app.all-hands.dev}/api/v1/app-conversations/${APP_CONVERSATION_ID}" \
+  -H "Authorization: Bearer ${OPENHANDS_API_KEY}" \
+  -H "Accept: application/json"
+
+# ✅ Correct (returns JSON)
+curl "${BASE_URL:-https://app.all-hands.dev}/api/v1/app-conversations?ids=${APP_CONVERSATION_ID}" \
+  -H "Authorization: Bearer ${OPENHANDS_API_KEY}" \
+  -H "Accept: application/json"
+```
+
+### 2) "Service Temporarily Unavailable" when calling sandbox/agent-server endpoints
+
+This usually means the sandbox runtime is not currently reachable.
+
+- Check the conversation record (`GET /api/v1/app-conversations?ids=...`) for a `runtime_status`-like field.
+- If the sandbox is paused, call `POST /api/v1/sandboxes/{sandbox_id}/resume`.
+- If the start-task isn't `READY` yet, poll `GET /api/v1/app-conversations/start-tasks?ids=...` for a bit.
+
+### 3) 404s when downloading trajectory or reading events
+
+Common causes:
+
+- Using a **start_task_id** where an **app_conversation_id** is required (see above).
+- Using the wrong event path (V1 is `/api/v1/conversation/{id}/events/...`).
+- The conversation was deleted or you don't have access.
+
+### 4) Timing expectations (typical, varies by load)
+
+| Operation | Typical duration |
+|---|---:|
+| `POST /api/v1/app-conversations` returns | < 1s |
+| start-task becomes `READY` | 5–15s |
+| sandbox responds to agent-server calls | usually immediately after `READY` |
+
+**Polling guidance:** poll every 3–5 seconds with a reasonable timeout (2–3 minutes). The minimal client implements polite exponential backoff.
+
+## Event structure (for debugging)
+
+Events returned by:
+
+- app server: `GET /api/v1/conversation/{id}/events/search`
+- agent server: `GET {agent_server_url}/api/conversations/{id}/events/search`
+
+…share the same high-level shape.
+
+Each event typically includes:
+
+- `id` (UUID)
+- `timestamp`
+- `kind`
+- `source`
+
+Common `kind` values:
+
+| kind | source (typical) | key fields (common) | purpose |
+|---|---|---|---|
+| `ActionEvent` | `agent` | `tool_name`, `tool_call_id`, `action` | tool call requested by the agent |
+| `ObservationEvent` | `environment` | `tool_name`, `tool_call_id`, `action_id`, `observation` | tool result produced by the sandbox/environment |
+| `MessageEvent` | `user` / `assistant` | `message` (or similar) | user/assistant chat messages |
+| `ConversationStateUpdateEvent` | `environment` | `key`, `value` | state transitions/metadata |
+
+Linking tool calls:
+
+- `ActionEvent.tool_call_id` == `ObservationEvent.tool_call_id`
+- `ObservationEvent.action_id` == `ActionEvent.id`
+
+Example (simplified):
+
+```json
+{
+  "id": "<action-event-uuid>",
+  "kind": "ActionEvent",
+  "source": "agent",
+  "tool_name": "terminal",
+  "tool_call_id": "toolu_...",
+  "action": {"command": "ls"}
+}
+```
+
+```json
+{
+  "id": "<observation-event-uuid>",
+  "kind": "ObservationEvent",
+  "source": "environment",
+  "tool_name": "terminal",
+  "tool_call_id": "toolu_...",
+  "action_id": "<action-event-uuid>",
+  "observation": {"exit_code": 0, "stdout": "..."}
+}
+```
+
+## Debugging one-liners (events)
+
+These assume you're querying the **app server** endpoint. For agent-server queries, swap the URL base + use `X-Session-API-Key`.
+
+### Print a quick timeline
+
+```bash
+curl -s "${BASE_URL:-https://app.all-hands.dev}/api/v1/conversation/${APP_CONVERSATION_ID}/events/search?limit=100" \
+  -H "Authorization: Bearer ${OPENHANDS_API_KEY}" \
+  -H "Accept: application/json" | \
+python3 - <<'PY'
+import json, sys
+items = (json.load(sys.stdin) or {}).get("items", [])
+for i, e in enumerate(items):
+    print(f"{i:04d}  {e.get('timestamp','')}  {e.get('source','')}  {e.get('kind','')}")
+PY
+```
+
+### Find error-like events
+
+```bash
+curl -s "${BASE_URL:-https://app.all-hands.dev}/api/v1/conversation/${APP_CONVERSATION_ID}/events/search?limit=200" \
+  -H "Authorization: Bearer ${OPENHANDS_API_KEY}" \
+  -H "Accept: application/json" | \
+python3 - <<'PY'
+import json, sys
+items = (json.load(sys.stdin) or {}).get("items", [])
+for i, e in enumerate(items):
+    if e.get("kind") == "ErrorEvent" or ("code" in e and "detail" in e):
+        print(i, e.get("kind"), e.get("code"), str(e.get("detail", ""))[:400])
+PY
+```
+
+### Check tool-call matching (unmatched actions / duplicate observations)
+
+```bash
+curl -s "${BASE_URL:-https://app.all-hands.dev}/api/v1/conversation/${APP_CONVERSATION_ID}/events/search?limit=200" \
+  -H "Authorization: Bearer ${OPENHANDS_API_KEY}" \
+  -H "Accept: application/json" | \
+python3 - <<'PY'
+import json, sys
+from collections import Counter
+items = (json.load(sys.stdin) or {}).get("items", [])
+action_ids = {e.get("id") for e in items if e.get("kind") == "ActionEvent"}
+obs_action_ids = [e.get("action_id") for e in items if e.get("kind") == "ObservationEvent" and e.get("action_id")]
+observed = set(obs_action_ids)
+print("actions:", len(action_ids))
+print("observations:", len(observed))
+unmatched = action_ids - observed
+print("unmatched actions:", list(unmatched)[:20] if unmatched else "none")
+dups = [aid for aid, c in Counter(obs_action_ids).items() if c > 1]
+print("duplicate observation action_ids:", list(dups)[:20] if dups else "none")
+PY
+```
+
 
 ## Quick start (Python)
 
