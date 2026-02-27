@@ -34,6 +34,19 @@
         "mainframe",
         "modernization"
       ]
+    },
+    {
+      "name": "migration-scoring",
+      "source": "../plugins/migration-scoring",
+      "description": "Evaluate code migration quality with coverage, correctness, and style scoring. Generates executive reports with actionable recommendations.",
+      "category": "code-quality",
+      "keywords": [
+        "migration",
+        "scoring",
+        "quality",
+        "evaluation",
+        "reporting"
+      ]
     }
   ]
 }
