@@ -21,6 +21,19 @@
         "documentation",
         "api-docs"
       ]
+    },
+    {
+      "name": "cobol-modernization",
+      "source": "../plugins/cobol-modernization",
+      "description": "End-to-end COBOL to Java migration workflow. Handles build setup, mainframe dependency removal, and code migration with test validation.",
+      "category": "development",
+      "keywords": [
+        "cobol",
+        "java",
+        "migration",
+        "mainframe",
+        "modernization"
+      ]
     }
   ]
 }

@@ -1,0 +1,45 @@
+# CICS Transformation Examples
+
+## UI/Terminal Operations
+
+### Before (CICS)
+```cobol
+EXEC CICS SEND MAP('CUSTMAP') MAPSET('CUSTSET') END-EXEC
+```
+
+### After (Standard COBOL)
+```cobol
+DISPLAY "Customer Screen Output"
+DISPLAY WS-CUSTOMER-NAME
+DISPLAY WS-CUSTOMER-ADDRESS
+```
+
+---
+
+## Error Handling
+
+### Before (CICS with RESP/RESP2)
+```cobol
+EXEC CICS READ FILE('CUSTFILE')
+    INTO(WS-CUSTOMER-REC)
+    RIDFLD(WS-CUST-KEY)
+    RESP(WS-RESP)
+    RESP2(WS-RESP2)
+END-EXEC
+IF WS-RESP = DFHRESP(NOTFND)
+    PERFORM CUSTOMER-NOT-FOUND
+END-IF
+```
+
+### After (Standard COBOL with FILE STATUS)
+```cobol
+READ CUSTFILE INTO WS-CUSTOMER-REC
+    KEY IS WS-CUST-KEY
+IF FILE-STATUS NOT = '00'
+    IF FILE-STATUS = '23'
+        PERFORM CUSTOMER-NOT-FOUND
+    ELSE
+        PERFORM FILE-ERROR-HANDLER
+    END-IF
+END-IF
+```
