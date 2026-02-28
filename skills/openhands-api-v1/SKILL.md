@@ -119,53 +119,9 @@ If you need to know how many events a conversation has, you can:
 Do **not** rely on the last event `id` to infer the total number of events.
 In the agent-server API, event IDs are UUIDs (not monotonically increasing integers).
 
-## Troubleshooting / common issues
+## Troubleshooting
 
-### 1) Direct ID lookup returns HTML instead of JSON
-
-**Symptom:** Calling `GET /api/v1/app-conversations/{id}` returns HTML (the frontend app) instead of JSON.
-
-**Cause:** In OpenHands Cloud, this URL pattern is handled by the frontend router, not the API.
-
-**Solution:** Use the batch endpoint with the `ids` query parameter:
-
-```bash
-# ❌ Wrong (returns HTML)
-curl "${BASE_URL:-https://app.all-hands.dev}/api/v1/app-conversations/${APP_CONVERSATION_ID}" \
-  -H "Authorization: Bearer ${OPENHANDS_API_KEY}" \
-  -H "Accept: application/json"
-
-# ✅ Correct (returns JSON)
-curl "${BASE_URL:-https://app.all-hands.dev}/api/v1/app-conversations?ids=${APP_CONVERSATION_ID}" \
-  -H "Authorization: Bearer ${OPENHANDS_API_KEY}" \
-  -H "Accept: application/json"
-```
-
-### 2) "Service Temporarily Unavailable" when calling sandbox/agent-server endpoints
-
-This usually means the sandbox runtime is not currently reachable.
-
-- Check the conversation record (`GET /api/v1/app-conversations?ids=...`) for a `runtime_status`-like field.
-- If the sandbox is paused, call `POST /api/v1/sandboxes/{sandbox_id}/resume`.
-- If the start-task isn't `READY` yet, poll `GET /api/v1/app-conversations/start-tasks?ids=...` for a bit.
-
-### 3) 404s when downloading trajectory or reading events
-
-Common causes:
-
-- Using a **start_task_id** where an **app_conversation_id** is required (see above).
-- Using the wrong event path (V1 is `/api/v1/conversation/{id}/events/...`).
-- The conversation was deleted or you don't have access.
-
-### 4) Timing expectations (typical, varies by load)
-
-| Operation | Typical duration |
-|---|---:|
-| `POST /api/v1/app-conversations` returns | < 1s |
-| start-task becomes `READY` | 5–15s |
-| sandbox responds to agent-server calls | usually immediately after `READY` |
-
-**Polling guidance:** poll every 3–5 seconds with a reasonable timeout (2–3 minutes). The minimal client implements polite exponential backoff.
+For common issues and solutions, see [TROUBLESHOOTING.md](references/TROUBLESHOOTING.md).
 
 ## Event structure (for debugging)
 
@@ -324,3 +280,4 @@ python skills/openhands-api-v1/scripts/openhands_api_v1.py start-conversation \
 See also:
 - `skills/openhands-api-v1/scripts/openhands_api_v1.py`
 - The original inspiration client: `enyst/llm-playground` → `openhands-api-client-v1/scripts/cloud_api_v1.py`
+- Troubleshooting content and real-world usage feedback → `https://github.com/jpshackelford/.openhands/`
