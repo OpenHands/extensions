@@ -1,8 +1,3 @@
----
-name: openhands-api-v1-troubleshooting
-description: Common issues and solutions when using the OpenHands Cloud API V1.
----
-
 # Troubleshooting / Common Issues
 
 This file documents common issues encountered when working with the OpenHands Cloud API V1.
