@@ -3,13 +3,9 @@ name: openhands-api-v1
 description: Minimal reference skill for the OpenHands Cloud REST API (V1) (app server /api/v1 + sandbox agent-server). Use when you need to automate common OpenHands Cloud actions; don't use for general sandbox/dev tasks unrelated to the OpenHands API.
 triggers:
 - openhands-api-v1
-- openhands api v1
-- openhands cloud api v1
-- openhands cloud api
-- conversation events
-- agent-server
-- X-Session-API-Key
-- session_api_key
+- openhands-cloud-api-v1
+- oh-api-v1
+- oh-cloud-api-v1
 ---
 
 This skill documents the **OpenHands Cloud API V1** and provides a small, easy-to-copy Python client.
