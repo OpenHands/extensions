@@ -280,4 +280,4 @@ python skills/openhands-api-v1/scripts/openhands_api_v1.py start-conversation \
 See also:
 - `skills/openhands-api-v1/scripts/openhands_api_v1.py`
 - The original inspiration client: `enyst/llm-playground` → `openhands-api-client-v1/scripts/cloud_api_v1.py`
-- Troubleshooting content and real-world usage feedback → `https://github.com/jpshackelford/.openhands/`
+- Troubleshooting content and real-world usage feedback → `https://github.com/jpshackelford/.openhands/tree/main/skills/openhands-cloud-api`
