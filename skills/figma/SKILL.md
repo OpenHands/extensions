@@ -16,7 +16,7 @@ The Figma MCP server provides tools to interact with Figma designs directly from
 To install the Figma MCP server, run the following command in your terminal:
 
 ```bash
-openhands mcp add figma --transport http --auth oauth https://figma.com/mcp/sse
+openhands mcp add figma --transport http https://mcp.figma.com/mcp
 ```
 
 This will:
