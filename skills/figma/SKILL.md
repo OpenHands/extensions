@@ -16,12 +16,12 @@ The Figma MCP server provides tools to interact with Figma designs directly from
 To install the Figma MCP server, run the following command in your terminal:
 
 ```bash
-openhands mcp add figma --transport http --auth oauth https://figma.com/mcp/sse
+openhands mcp add figma --transport http https://mcp.figma.com/mcp
 ```
 
 This will:
 1. Add the Figma MCP server to your OpenHands configuration
-2. Configure OAuth authentication (you'll be prompted to authorize when first used)
+2. You'll be prompted to authorize via Figma OAuth when first used
 3. Enable the server immediately
 
 After installation, restart your OpenHands session to apply the changes.
