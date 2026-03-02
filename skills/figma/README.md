@@ -1,62 +1,33 @@
-# Figma MCP
+# Figma MCP Skill
 
-Access Figma designs using the Figma MCP server. Read design files, extract components, get design tokens, and inspect layer properties.
+> See [SKILL.md](./SKILL.md) for the agent-consumable skill definition.
 
-## Triggers
+This directory contains the Figma MCP skill for OpenHands.
 
-This skill is activated by the following keywords:
+## Overview
 
-- `figma`
-- `figma design`
-- `figma mcp`
-
-## Details
-
-The Figma MCP server provides tools to interact with Figma designs directly from OpenHands. It uses OAuth authentication to securely access your Figma account.
+The Figma MCP server provides tools to interact with Figma designs directly from OpenHands using the official [Figma MCP Server](https://developers.figma.com/docs/figma-mcp-server).
 
 ## Installation
-
-To install the Figma MCP server, run the following command in your terminal:
 
 ```bash
 openhands mcp add figma --transport http --auth oauth https://figma.com/mcp/sse
 ```
 
-This will:
-1. Add the Figma MCP server to your OpenHands configuration
-2. Configure OAuth authentication (you'll be prompted to authorize when first used)
-3. Enable the server immediately
+Restart OpenHands after installation.
 
-After installation, restart your OpenHands session to apply the changes.
-
-## Verification
-
-To verify the installation:
+## Server Management
 
 ```bash
-openhands mcp list
+openhands mcp list           # List all MCP servers
+openhands mcp get figma      # Get Figma server details
+openhands mcp disable figma  # Temporarily disable
+openhands mcp enable figma   # Re-enable
+openhands mcp remove figma   # Remove completely
 ```
 
-You should see the Figma server listed with status "enabled".
+## Resources
 
-## Managing the Server
-
-```bash
-# Disable the Figma MCP server
-openhands mcp disable figma
-
-# Re-enable the Figma MCP server
-openhands mcp enable figma
-
-# Remove the Figma MCP server
-openhands mcp remove figma
-
-# Get details about the Figma server
-openhands mcp get figma
-```
-
-## Documentation
-
-- Figma MCP Server: https://developers.figma.com/docs/figma-mcp-server
-- Remote Server Installation: https://developers.figma.com/docs/figma-mcp-server/remote-server-installation/
-- Figma API: https://www.figma.com/developers/api
+- [Figma MCP Server Documentation](https://developers.figma.com/docs/figma-mcp-server)
+- [Remote Server Installation Guide](https://developers.figma.com/docs/figma-mcp-server/remote-server-installation/)
+- [Figma REST API Reference](https://www.figma.com/developers/api)
