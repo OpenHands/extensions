@@ -19,10 +19,7 @@ With the server enabled, you can:
 openhands mcp add figma --transport http https://mcp.figma.com/mcp
 ```
 
-This will:
-1. Add the Figma MCP server to your OpenHands configuration
-2. You'll be prompted to authorize via Figma OAuth when first used
-3. Enable the server immediately
+This adds the Figma MCP server to your OpenHands configuration. OAuth authentication is handled automatically by the server - you'll be prompted to authorize via your browser when first accessing Figma data.
 
 After installation, restart your OpenHands session to apply the changes.
 
