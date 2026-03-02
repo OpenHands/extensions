@@ -1,30 +1,27 @@
 # Figma MCP
 
-Access Figma designs using the Figma MCP server. Read design files, extract components, get design tokens, and inspect layer properties.
+Read-only access to Figma designs using the Figma MCP server. Read design files, extract components, get design tokens, and inspect layer properties.
 
-## Triggers
-
-This skill is activated by the following keywords:
-
-- `figma`
-- `figma design`
-- `figma mcp`
-
-## Details
+## Overview
 
 The Figma MCP server provides tools to interact with Figma designs directly from OpenHands. It uses OAuth authentication to securely access your Figma account.
 
+With the server enabled, you can:
+
+- **Generate code from selected frames**: Select a Figma frame and turn it into code
+- **Extract design context**: Pull in variables, components, and layout data
+- **Retrieve design tokens**: Access colors, typography, and spacing values
+- **Inspect layer properties**: Get detailed information about any design element
+
 ## Installation
 
-To install the Figma MCP server, run the following command in your terminal:
-
 ```bash
-openhands mcp add figma --transport http --auth oauth https://figma.com/mcp/sse
+openhands mcp add figma --transport http https://mcp.figma.com/mcp
 ```
 
 This will:
 1. Add the Figma MCP server to your OpenHands configuration
-2. Configure OAuth authentication (you'll be prompted to authorize when first used)
+2. You'll be prompted to authorize via Figma OAuth when first used
 3. Enable the server immediately
 
 After installation, restart your OpenHands session to apply the changes.
@@ -55,8 +52,23 @@ openhands mcp remove figma
 openhands mcp get figma
 ```
 
+## Usage
+
+The MCP server is link-based. To use it:
+
+1. Copy the link to a frame or layer in Figma
+2. Prompt OpenHands to help you implement the design at the selected URL
+
+The agent will extract the node-id from the URL and retrieve information about that object.
+
+## Troubleshooting
+
+- **OAuth errors**: Re-run the installation command to re-authenticate
+- **Server not found**: Ensure you've restarted your OpenHands session after installation
+- **Access denied**: Verify you have view access to the Figma file you're trying to access
+
 ## Documentation
 
-- Figma MCP Server: https://developers.figma.com/docs/figma-mcp-server
-- Remote Server Installation: https://developers.figma.com/docs/figma-mcp-server/remote-server-installation/
-- Figma API: https://www.figma.com/developers/api
+- [Figma MCP Server](https://developers.figma.com/docs/figma-mcp-server)
+- [Remote Server Installation](https://developers.figma.com/docs/figma-mcp-server/remote-server-installation/)
+- [Figma API](https://www.figma.com/developers/api)

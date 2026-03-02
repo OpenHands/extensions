@@ -1,6 +1,6 @@
 ---
 name: figma
-description: Access Figma designs using the Figma MCP server. Read design files, extract components, get design tokens, and inspect layer properties.
+description: Read-only access to Figma designs using the Figma MCP server. Read design files, extract components, get design tokens, and inspect layer properties.
 triggers:
 - figma
 - figma design
@@ -9,51 +9,14 @@ triggers:
 
 # Figma MCP
 
-The Figma MCP server provides tools to interact with Figma designs directly from OpenHands. It uses OAuth authentication to securely access your Figma account.
+Read-only access to Figma designs via the official Figma MCP server. Uses OAuth authentication.
 
 ## Installation
-
-To install the Figma MCP server, run the following command in your terminal:
 
 ```bash
 openhands mcp add figma --transport http https://mcp.figma.com/mcp
 ```
 
-This will:
-1. Add the Figma MCP server to your OpenHands configuration
-2. You'll be prompted to authorize via Figma OAuth when first used
-3. Enable the server immediately
+You'll be prompted to authorize via Figma OAuth when first used. Restart your OpenHands session after installation.
 
-After installation, restart your OpenHands session to apply the changes.
-
-## Verification
-
-To verify the installation:
-
-```bash
-openhands mcp list
-```
-
-You should see the Figma server listed with status "enabled".
-
-## Managing the Server
-
-```bash
-# Disable the Figma MCP server
-openhands mcp disable figma
-
-# Re-enable the Figma MCP server
-openhands mcp enable figma
-
-# Remove the Figma MCP server
-openhands mcp remove figma
-
-# Get details about the Figma server
-openhands mcp get figma
-```
-
-## Documentation
-
-- Figma MCP Server: https://developers.figma.com/docs/figma-mcp-server
-- Remote Server Installation: https://developers.figma.com/docs/figma-mcp-server/remote-server-installation/
-- Figma API: https://www.figma.com/developers/api
+See [README.md](./README.md) for verification, management commands, and detailed documentation.
