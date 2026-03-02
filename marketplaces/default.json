@@ -400,6 +400,19 @@
                 "preview",
                 "hosting"
             ]
+        },
+        {
+            "name": "linear",
+            "source": "./linear",
+            "description": "Interact with Linear project management - query issues, update status, create tickets using the Linear GraphQL API.",
+            "category": "integration",
+            "keywords": [
+                "linear",
+                "ticket",
+                "issue",
+                "project-management",
+                "graphql"
+            ]
         }
     ]
 }
