@@ -402,45 +402,6 @@
       ]
     },
     {
-      "name": "debug-github-ci",
-      "source": "./debug-github-ci",
-      "description": "Debug GitHub Actions CI failures by fetching logs, identifying root causes, and suggesting fixes.",
-      "category": "debugging",
-      "keywords": [
-        "github",
-        "ci",
-        "actions",
-        "debugging",
-        "workflow"
-      ]
-    },
-    {
-      "name": "debug-jenkins-ci",
-      "source": "./debug-jenkins-ci",
-      "description": "Debug Jenkins CI/CD pipeline failures by fetching logs, identifying root causes, and suggesting fixes.",
-      "category": "debugging",
-      "keywords": [
-        "jenkins",
-        "ci",
-        "pipeline",
-        "debugging",
-        "build"
-      ]
-    },
-    {
-      "name": "linear",
-      "source": "./linear",
-      "description": "Interact with Linear project management - query issues, update status, create tickets using the Linear GraphQL API.",
-      "category": "integration",
-      "keywords": [
-        "linear",
-        "ticket",
-        "issue",
-        "project-management",
-        "graphql"
-      ]
-    },
-    {
       "name": "linear",
       "source": "./linear",
       "description": "Interact with Linear project management - query issues, update status, create tickets using the Linear GraphQL API.",
