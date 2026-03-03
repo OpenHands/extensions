@@ -131,31 +131,11 @@ When patterns are general repository conventions, propose additions to AGENTS.md
 
 ### Step 6: Create Draft PR
 
-Open a draft PR with the proposed changes:
-
-```bash
-# Create branch
-git checkout -b openhands/learn-from-reviews-$(date +%Y%m%d)
-
-# Add generated files
-git add .openhands/skills/ AGENTS.md
-
-# Commit
-git commit -m "Add learnings from code review analysis
-
-Distilled patterns from recent PR reviews into:
-- [List of new skills if any]
-- AGENTS.md guideline updates"
-
-# Push and create draft PR
-git push -u origin HEAD
-```
-
-Use the `create_pr` tool to open a draft PR with a summary of:
+Use the `create_pr` tool to open a draft PR with the proposed changes. The PR description should include:
 - Number of PRs analyzed
 - Number of comments processed
 - Categories of patterns found
-- List of proposed changes
+- List of proposed changes (new skills and/or AGENTS.md updates)
 
 ## Example Output
 
@@ -197,16 +177,9 @@ return error_response(e)
 ```
 ```
 
-## Configuration Options
+## Defaults
 
-When running this workflow, consider:
-
-| Option | Default | Description |
-|--------|---------|-------------|
-| Time range | 30 days | How far back to look for PRs |
-| Min comments | 3 | Minimum similar comments to form a pattern |
-| Include bots | No | Whether to include bot review comments |
-| Output format | both | Generate skills, AGENTS.md, or both |
+This workflow analyzes PRs from the past 30 days by default.
 
 ## Best Practices
 
@@ -215,6 +188,15 @@ When running this workflow, consider:
 3. **Iterate** - Refine patterns based on team feedback
 4. **Avoid duplication** - Check existing AGENTS.md and skills before adding
 5. **Cite sources** - Reference PR numbers when documenting patterns
+
+## Error Handling
+
+Handle these common edge cases gracefully:
+
+- **Repository has few PRs**: If fewer than 10 merged PRs exist in the timeframe, inform the user that there may not be enough data to identify patterns. Proceed with analysis but note the limited sample size.
+- **No patterns emerge**: When comments don't cluster into recurring themes (common for well-established codebases), report this to the user and suggest either expanding the time range or that the codebase may already have strong conventions.
+- **Token lacks repository access**: If the GitHub API returns 403/404, explain that the token may not have access to the repository and suggest checking token permissions.
+- **`gh` CLI unavailable**: Fall back to direct GitHub API calls using `curl` with `$GITHUB_TOKEN`, or inform the user that `gh` needs to be installed.
 
 ## Limitations
 
