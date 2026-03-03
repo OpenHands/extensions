@@ -85,17 +85,10 @@ For each category with sufficient examples (3+ similar comments), identify:
 
 ### Step 5: Generate Output
 
-Based on the patterns found, generate appropriate outputs:
+Based on the patterns found, generate skills. Prefer creating focused skill files over modifying AGENTS.md, since AGENTS.md typically already contains general coding guidelines.
 
-#### For Specific Domain Patterns → Create Skills
+Create a skill file in `.openhands/skills/{domain-name}/SKILL.md`:
 
-When patterns are specific to a domain (e.g., database queries, API design, testing), create a skill file:
-
-```
-.openhands/skills/{domain-name}/SKILL.md
-```
-
-Example structure:
 ```yaml
 ---
 name: database-queries
@@ -111,19 +104,7 @@ description: Database query patterns and best practices for this repository.
 [Pattern description with examples]
 ```
 
-#### For General Guidelines → Update AGENTS.md
-
-When patterns are general repository conventions, propose additions to AGENTS.md:
-
-```markdown
-## Error Handling
-- Always wrap external API calls in try-catch blocks
-- Log errors with context before re-throwing
-
-## Testing
-- Include edge case tests for user input validation
-- Mock external services in unit tests
-```
+Only propose AGENTS.md additions if the patterns represent genuinely new guidelines not already covered by existing content.
 
 ### Step 6: Create Draft PR
 
