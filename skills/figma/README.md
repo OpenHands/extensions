@@ -21,7 +21,7 @@ openhands mcp add figma --transport http https://mcp.figma.com/mcp
 
 This adds the Figma MCP server to your OpenHands configuration. OAuth authentication is handled automatically by the server - you'll be prompted to authorize via your browser when first accessing Figma data.
 
-After installation, restart your OpenHands session to apply the changes.
+**Note:** Restart your OpenHands session after installation to load the new MCP server. This is required because MCP servers are initialized at session startup - the server configuration is loaded once when OpenHands starts, so changes to `mcp.json` require a restart to take effect.
 
 ## Verification
 
@@ -60,7 +60,7 @@ The agent will extract the node-id from the URL and retrieve information about t
 
 ## Troubleshooting
 
-- **OAuth errors**: Re-run the installation command to re-authenticate
+- **OAuth errors**: The Figma MCP server uses browser-based OAuth that caches credentials. To re-authenticate, you may need to clear your browser's OAuth session for Figma or visit `https://www.figma.com/` and log out/log back in. Re-running `openhands mcp add` will refresh the server configuration but won't reset OAuth state cached in your browser.
 - **Server not found**: Ensure you've restarted your OpenHands session after installation
 - **Access denied**: Verify you have view access to the Figma file you're trying to access
 
