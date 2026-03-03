@@ -99,12 +99,10 @@ Example structure:
 ```yaml
 ---
 name: database-queries
-description: Database query patterns and best practices derived from code review feedback.
+description: Database query patterns and best practices for this repository.
 ---
 
 # Database Query Guidelines
-
-## Patterns from Code Reviews
 
 ### Always Use Parameterized Queries
 [Pattern description with examples]
@@ -118,13 +116,11 @@ description: Database query patterns and best practices derived from code review
 When patterns are general repository conventions, propose additions to AGENTS.md:
 
 ```markdown
-## Code Review Learnings
-
-### Error Handling
+## Error Handling
 - Always wrap external API calls in try-catch blocks
 - Log errors with context before re-throwing
 
-### Testing
+## Testing
 - Include edge case tests for user input validation
 - Mock external services in unit tests
 ```
@@ -144,12 +140,10 @@ Use the `create_pr` tool to open a draft PR with the proposed changes. The PR de
 ```yaml
 ---
 name: api-error-handling
-description: API error handling patterns learned from code review feedback.
+description: API error handling patterns for this repository.
 ---
 
-# API Error Handling Patterns
-
-Based on recurring code review feedback, follow these patterns:
+# API Error Handling
 
 ## Always Return Structured Errors
 
