@@ -75,6 +75,21 @@ Start each comment with a priority label. **Minimize nits** - leave minor style 
 | 🟠 **Important** | Should fix: logic errors, performance issues, missing error handling |
 | 🟡 **Suggestion** | Worth considering: significant improvements to clarity or maintainability |
 | 🟢 **Nit** | Optional: minor style preferences (use sparingly) |
+| 🟢 **Acceptable** | Pragmatic choice: acknowledged trade-off that is reasonable given constraints or out of scope for this PR |
+
+### Pragmatic Choices
+
+When you recognize that a code pattern could theoretically be improved but:
+- The improvement is **out of scope** for the current PR
+- The choice is **pragmatic** given project constraints (time, complexity, backwards compatibility)
+- The trade-off is **reasonable** and doesn't introduce bugs or security issues
+
+Mark these with 🟢 **Acceptable** instead of requesting changes. This acknowledges the trade-off without blocking the PR.
+
+**Example:**
+```
+🟢 Acceptable: This helper could be extracted to a shared utility, but keeping it inline is reasonable for this PR's scope.
+```
 
 **Example:**
 ```
@@ -135,6 +150,7 @@ curl -X POST \
 1. Analyze the code and identify important issues (minimize nits)
 2. Post **ONE** review with all inline comments bundled
 3. Use priority labels (🔴🟠🟡🟢) on every comment
-4. Use suggestion syntax for concrete code changes
-5. Keep the review body brief (details go in inline comments)
-6. If no issues: post a short message
+4. Mark pragmatic trade-offs as 🟢 **Acceptable** - don't block PRs for out-of-scope improvements
+5. Use suggestion syntax for concrete code changes
+6. Keep the review body brief (details go in inline comments)
+7. If no issues: post a short message
