@@ -1,0 +1,135 @@
+---
+name: OpenHands Debug GitHub CI
+description: Automated CI failure debugging using OpenHands agent
+author: OpenHands
+
+branding:
+    icon: alert-circle
+    color: red
+
+inputs:
+    llm-model:
+        description: LLM model to use for debugging
+        required: false
+        default: anthropic/claude-sonnet-4-5-20250929
+    llm-base-url:
+        description: LLM base URL (optional, for custom LLM endpoints)
+        required: false
+        default: ''
+    run-id:
+        description: Specific workflow run ID to debug (auto-detected if not provided)
+        required: false
+        default: ''
+    extensions-repo:
+        description: GitHub repository for extensions (owner/repo)
+        required: false
+        default: OpenHands/extensions
+    extensions-version:
+        description: Git ref to use for extensions (tag, branch, or commit SHA)
+        required: false
+        default: main
+    llm-api-key:
+        description: LLM API key (required)
+        required: true
+    github-token:
+        description: GitHub token for API access (required)
+        required: true
+    use-cache:
+        description: |
+            Enable uv cache for faster dependency installation (default: false).
+            Disabled by default since debug tools benefit from fresh state to
+            avoid masking environment-related issues.
+        required: false
+        default: 'false'
+
+runs:
+    using: composite
+    steps:
+        - name: Checkout extensions repository
+          uses: actions/checkout@v4
+          with:
+              repository: ${{ inputs.extensions-repo }}
+              ref: ${{ inputs.extensions-version }}
+              path: extensions
+
+        - name: Set up Python
+          uses: actions/setup-python@v5
+          with:
+              python-version: '3.12'
+
+        - name: Install uv
+          uses: astral-sh/setup-uv@v6
+          with:
+              enable-cache: ${{ inputs.use-cache == 'true' }}
+
+        - name: Install GitHub CLI
+          shell: bash
+          run: |
+              sudo apt-get update
+              sudo apt-get install -y gh
+
+        - name: Determine run ID
+          id: get-run-id
+          shell: bash
+          env:
+              GITHUB_TOKEN: ${{ inputs.github-token }}
+              INPUT_RUN_ID: ${{ inputs.run-id }}
+          run: |
+              if [ -n "$INPUT_RUN_ID" ]; then
+                echo "run_id=$INPUT_RUN_ID" >> $GITHUB_OUTPUT
+              elif [ -n "${{ github.event.workflow_run.id }}" ]; then
+                echo "run_id=${{ github.event.workflow_run.id }}" >> $GITHUB_OUTPUT
+              else
+                # Get the most recent failed run
+                RUN_ID=$(gh run list --status failure --limit 1 --json databaseId --jq '.[0].databaseId' 2>/dev/null || echo "")
+                if [ -z "$RUN_ID" ]; then
+                  echo "::error::No run ID provided and no failed runs found"
+                  exit 1
+                fi
+                echo "run_id=$RUN_ID" >> $GITHUB_OUTPUT
+              fi
+
+        - name: Check required configuration
+          shell: bash
+          env:
+              LLM_API_KEY: ${{ inputs.llm-api-key }}
+              GITHUB_TOKEN: ${{ inputs.github-token }}
+          run: |
+              if [ -z "$LLM_API_KEY" ]; then
+                echo "Error: llm-api-key is required."
+                exit 1
+              fi
+
+              if [ -z "$GITHUB_TOKEN" ]; then
+                echo "Error: github-token is required."
+                exit 1
+              fi
+
+              echo "Run ID to debug: ${{ steps.get-run-id.outputs.run_id }}"
+              echo "Repository: ${{ github.repository }}"
+              echo "LLM model: ${{ inputs.llm-model }}"
+
+        - name: Run CI debug analysis
+          shell: bash
+          env:
+              LLM_MODEL: ${{ inputs.llm-model }}
+              LLM_BASE_URL: ${{ inputs.llm-base-url }}
+              LLM_API_KEY: ${{ inputs.llm-api-key }}
+              GITHUB_TOKEN: ${{ inputs.github-token }}
+              RUN_ID: ${{ steps.get-run-id.outputs.run_id }}
+              REPO_NAME: ${{ github.repository }}
+              # Marker to prevent recursive debugging - checked by agent_script.py
+              OH_DEBUG_WORKFLOW: 'true'
+          run: |
+              uv run --with openhands-sdk --with openhands-tools \
+                python extensions/plugins/debug-github-ci/scripts/agent_script.py
+
+        - name: Upload logs as artifact
+          uses: actions/upload-artifact@v4
+          if: always()
+          with:
+              name: openhands-ci-debug-logs
+              path: |
+                  *.log
+                  output/
+              retention-days: 7
