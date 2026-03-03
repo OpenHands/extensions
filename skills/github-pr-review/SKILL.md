@@ -77,19 +77,6 @@ Start each comment with a priority label. **Minimize nits** - leave minor style 
 | 🟢 **Nit** | Optional: minor style preferences (use sparingly) |
 | 🟢 **Acceptable** | Pragmatic choice: acknowledged trade-off that is reasonable given constraints or out of scope for this PR |
 
-### Pragmatic Choices
-
-When you recognize that a code pattern could theoretically be improved but:
-- The improvement is **out of scope** for the current PR
-- The choice is **pragmatic** given project constraints (time, complexity, backwards compatibility)
-- The trade-off is **reasonable** and doesn't introduce bugs or security issues
-
-Mark these with 🟢 **Acceptable** instead of requesting changes. This acknowledges the trade-off without blocking the PR.
-
-**Example:**
-```
-🟢 Acceptable: This helper could be extracted to a shared utility, but keeping it inline is reasonable for this PR's scope.
-```
 
 **Example:**
 ```
