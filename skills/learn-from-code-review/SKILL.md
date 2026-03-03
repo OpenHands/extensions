@@ -85,9 +85,9 @@ For each category with sufficient examples (3+ similar comments), identify:
 
 ### Step 5: Generate Output
 
-Based on the patterns found, generate skills. Prefer creating focused skill files over modifying AGENTS.md, since AGENTS.md typically already contains general coding guidelines.
+If clear, actionable patterns emerge, generate focused skill files. If no clear patterns emerge, report this to the user—it's fine to produce no output when the codebase already has strong conventions or when review comments don't cluster into recurring themes.
 
-Create a skill file in `.openhands/skills/{domain-name}/SKILL.md`:
+When creating skills, place them in `.openhands/skills/{domain-name}/SKILL.md`:
 
 ```yaml
 ---
@@ -104,9 +104,9 @@ description: Database query patterns and best practices for this repository.
 [Pattern description with examples]
 ```
 
-Only propose AGENTS.md additions if the patterns represent genuinely new guidelines not already covered by existing content.
+Prefer skills over AGENTS.md updates, since AGENTS.md typically already contains general coding guidelines.
 
-### Step 6: Create Draft PR
+### Step 6: Create Draft PR (if applicable)
 
 Use the `create_pr` tool to open a draft PR with the proposed changes. The PR description should include:
 - Number of PRs analyzed
