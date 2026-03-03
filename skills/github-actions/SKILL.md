@@ -23,45 +23,51 @@ Add debug steps that print non-secret parameters when:
 
 (Not required for every workflow - use when needed)
 
-## Quick Patterns
+## Testing & Monitoring Strategy
 
-**Basic Workflow:**
-```yaml
-# .github/workflows/ci.yml
-on: [push, pull_request]
-jobs:
-  test:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - run: npm test
+**Actions have costs** - Each workflow run consumes CI minutes. Plan efficiently:
+
+1. **Test locally first** with `act` when possible
+2. **Use debug steps early** - don't guess, read actual values
+3. **Monitor actively** - use `gh run watch <run-id>` or `gh pr checks <pr-number> --watch`
+4. **Read logs immediately** - `gh run view <run-id> --log` or view in GitHub UI
+5. **Understand before changing** - examine what actually ran, not what you think ran
+
+**Effective debugging workflow:**
+```bash
+# Watch workflow run in real-time
+gh run watch
+
+# Or monitor PR checks with auto-refresh
+gh pr checks <pr-number> --watch --interval 10
+
+# When failed, read full logs immediately
+gh run view <run-id> --log
+
+# Examine specific job logs
+gh run view <run-id> --log --job=<job-id>
 ```
 
-**Composite Action:**
+**Add visibility to your actions:**
 ```yaml
-# .github/actions/setup/action.yml
-name: Setup
-runs:
-  using: composite
-  steps:
-    - run: npm install
-      shell: bash
-```
-
-**Reusable Workflow:**
-```yaml
-# .github/workflows/deploy.yml
-on:
-  workflow_call:
-    inputs:
-      env:
-        required: true
-        type: string
-jobs:
-  deploy:
-    runs-on: ubuntu-latest
-    steps:
-      - run: echo "Deploy to ${{ inputs.env }}"
+steps:
+  # Print all non-secret inputs/context at start
+  - name: Debug - Action inputs
+    run: |
+      echo "Event: ${{ github.event_name }}"
+      echo "Ref: ${{ github.ref }}"
+      echo "Actor: ${{ github.actor }}"
+      echo "Working dir: $(pwd)"
+      echo "Custom input: ${{ inputs.my-param }}"
+  
+  # Your action logic here
+  
+  # Verify outcome before finishing
+  - name: Debug - Verify results
+    run: |
+      echo "Files created:"
+      ls -la
+      echo "Exit code: $?"
 ```
 
 ## Key Gotchas
