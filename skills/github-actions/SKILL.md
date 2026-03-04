@@ -14,7 +14,7 @@ triggers:
 
 **Custom Action Deployment:**
 - New custom actions MUST be merged to the main branch before they can be used
-- After the initial merge, changes can be tested from feature branches
+- After the initial merge, should tested from feature branches
 
 **Debug Steps:**
 Add debug steps that print non-secret parameters when:
@@ -27,11 +27,10 @@ Add debug steps that print non-secret parameters when:
 
 **Actions have costs** - Each workflow run consumes CI minutes. Plan efficiently:
 
-1. **Test locally first** with `act` when possible
-2. **Use debug steps early** - don't guess, read actual values
-3. **Monitor actively** - use `gh run watch <run-id>` or `gh pr checks <pr-number> --watch`
-4. **Read logs immediately** - `gh run view <run-id> --log` or view in GitHub UI
-5. **Understand before changing** - examine what actually ran, not what you think ran
+1. **Use debug steps early** - don't guess, read actual values
+2. **Monitor actively** - use `gh run watch <run-id>` or `gh pr checks <pr-number> --watch`
+3. **Read logs immediately** - `gh run view <run-id> --log` or view in GitHub UI
+4. **Understand before changing** - examine what actually ran, not what you think ran
 
 **Effective debugging workflow:**
 ```bash
@@ -77,11 +76,3 @@ steps:
 3. **Explicit permissions** - Set `permissions:` block for GITHUB_TOKEN operations
 4. **Artifacts for job-to-job data** - Files don't persist between jobs without `upload-artifact`/`download-artifact`
 
-## Detailed Information
-
-See [README.md](README.md) for:
-- Step-by-step examples and scenarios
-- Complete list of common pitfalls
-- Local testing with `act`
-- Debugging techniques and `gh` CLI usage
-- Advanced patterns and best practices
