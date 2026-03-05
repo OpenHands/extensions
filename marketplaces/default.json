@@ -239,6 +239,19 @@
             ]
         },
         {
+            "name": "learn-from-code-review",
+            "source": "./learn-from-code-review",
+            "description": "Distill code review feedback from GitHub PRs into reusable skills and guidelines. Use when users ask to learn from code reviews, extract review patterns, or generate coding standards from historical PR feedback.",
+            "category": "code-quality",
+            "keywords": [
+                "code-review",
+                "learning",
+                "skills",
+                "guidelines",
+                "pr-feedback"
+            ]
+        },
+        {
             "name": "notion",
             "source": "./notion",
             "description": "Create, search, and update Notion pages/databases using the Notion API. Use for documenting work, generating runbooks, and automating knowledge base updates.",
