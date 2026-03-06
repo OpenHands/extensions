@@ -67,6 +67,9 @@ runs:
           with:
               python-version: '3.12'
 
+        # Caching is enabled for faster dependency installation.
+        # GitHub Actions caches are scoped to repository and branch, providing
+        # isolation between PRs and preventing cache poisoning.
         - name: Install uv
           uses: astral-sh/setup-uv@v6
           with:
