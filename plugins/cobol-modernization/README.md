@@ -187,6 +187,10 @@ brew install gnucobol
 - Screen handling (BMS) is stubbed, not fully migrated
 - Some proprietary extensions may require manual intervention
 
+## Related Resources
+
+- **Blog Post**: [COBOL to Java Refactoring with OpenHands](https://openhands.dev/blog/20251218-cobol-to-java-refactoring) — Detailed walkthrough of the migration process
+
 ## Contributing
 
 See the main [extensions repository](https://github.com/OpenHands/extensions) for contribution guidelines.
