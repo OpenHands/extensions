@@ -34,6 +34,10 @@ plugins/debug-jenkins-ci/
     └── prompt.py          # Prompt template for debugging
 ```
 
+Notes:
+- The marketplace manifest uses the repo-wide `pluginRoot: "./skills"`, so `source: "./debug-jenkins-ci"` resolves to `skills/debug-jenkins-ci`.
+- The `plugins/debug-jenkins-ci/skills/debug-jenkins-ci` symlink mirrors the `pr-review` plugin pattern so the plugin bundle can reference the matching skill content without duplicating `SKILL.md`.
+
 ## Installation
 
 ### 1. Configure Jenkins Credentials

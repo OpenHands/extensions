@@ -47,6 +47,10 @@ plugins/debug-github-ci/
     └── prompt.py          # Prompt template for debugging
 ```
 
+Notes:
+- The marketplace manifest uses the repo-wide `pluginRoot: "./skills"`, so `source: "./debug-github-ci"` resolves to `skills/debug-github-ci`.
+- The `plugins/debug-github-ci/skills/debug-github-ci` symlink mirrors the `pr-review` plugin pattern so the plugin bundle can reference the matching skill content without duplicating `SKILL.md`.
+
 ## Installation
 
 ### 1. Copy the Workflow File

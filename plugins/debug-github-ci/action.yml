@@ -65,6 +65,8 @@ runs:
         - name: Install GitHub CLI
           shell: bash
           run: |
+              # The bundled workflow template runs on ubuntu-24.04, so apt is the
+              # simplest way to guarantee gh is available on the runner.
               sudo apt-get update
               sudo apt-get install -y gh
 
