@@ -18,6 +18,7 @@ Environment Variables:
 from __future__ import annotations
 
 import json
+import logging
 import os
 import re
 import subprocess
@@ -25,9 +26,21 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
-from openhands.sdk import LLM, Agent, AgentContext, Conversation, get_logger
-from openhands.sdk.context.skills import load_project_skills
-from openhands.tools.preset.default import get_default_condenser, get_default_tools
+try:
+    from openhands.sdk import LLM, Agent, AgentContext, Conversation, get_logger
+    from openhands.sdk.context.skills import load_project_skills
+    from openhands.tools.preset.default import (
+        get_default_condenser,
+        get_default_tools,
+    )
+    OPENHANDS_IMPORT_ERROR: ModuleNotFoundError | None = None
+except ModuleNotFoundError as exc:
+    LLM = Agent = AgentContext = Conversation = None
+    load_project_skills = get_default_condenser = get_default_tools = None
+    OPENHANDS_IMPORT_ERROR = exc
+
+    def get_logger(name: str) -> logging.Logger:
+        return logging.getLogger(name)
 
 script_dir = Path(__file__).parent
 sys.path.insert(0, str(script_dir))
@@ -35,6 +48,15 @@ sys.path.insert(0, str(script_dir))
 from prompt import format_prompt
 
 logger = get_logger(__name__)
+
+
+def _require_openhands_runtime() -> None:
+    """Raise a helpful error when OpenHands runtime deps are unavailable."""
+    if OPENHANDS_IMPORT_ERROR is not None:
+        raise ModuleNotFoundError(
+            "OpenHands runtime dependencies are required to execute this script"
+        ) from OPENHANDS_IMPORT_ERROR
+
 
 # Max characters to keep from logs. Configurable via MAX_LOG_SIZE env var.
 # Default keeps ~50k chars which is roughly 12k tokens.
@@ -173,7 +195,22 @@ def _load_error_patterns() -> list[str]:
     return DEFAULT_ERROR_PATTERNS
 
 
-def _find_error_context(logs: str, max_size: int) -> str:
+def _compile_error_patterns(patterns: list[str]) -> list[re.Pattern[str]]:
+    """Compile regex patterns once before scanning logs."""
+    compiled_patterns: list[re.Pattern[str]] = []
+    for pattern in patterns:
+        try:
+            compiled_patterns.append(re.compile(pattern))
+        except re.error as exc:
+            logger.warning(f"Skipping invalid error pattern {pattern!r}: {exc}")
+    return compiled_patterns
+
+
+def _find_error_context(
+    logs: str,
+    max_size: int,
+    error_patterns: list[str] | None = None,
+) -> str | None:
     """Extract context around error patterns in logs.
 
     Strategy:
@@ -182,13 +219,15 @@ def _find_error_context(logs: str, max_size: int) -> str:
     3. Fall back to head/tail truncation if no patterns found
     """
     lines = logs.split("\n")
-    error_patterns = _load_error_patterns()
+    compiled_patterns = _compile_error_patterns(
+        error_patterns if error_patterns is not None else _load_error_patterns()
+    )
 
     # Find lines containing error patterns
     error_indices = []
     for i, line in enumerate(lines):
-        for pattern in error_patterns:
-            if re.search(pattern, line):
+        for pattern in compiled_patterns:
+            if pattern.search(line):
                 error_indices.append(i)
                 break
 
@@ -362,6 +401,8 @@ def fetch_workflow_data(run_id: str, repo_name: str) -> WorkflowData:
 
 def create_agent(config: Config) -> Agent:
     """Create and configure the debug agent."""
+    _require_openhands_runtime()
+
     llm_config = {
         "model": config.model,
         "api_key": config.api_key,
