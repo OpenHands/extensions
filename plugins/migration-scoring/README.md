@@ -1,6 +1,6 @@
 # Migration Scoring Plugin
 
-Comprehensive quality evaluation for code migration projects using OpenHands agents. This plugin scores completed migrations across multiple dimensions including coverage, correctness, and code style, generating executive reports with actionable recommendations.
+Quality evaluation for code migration projects using OpenHands agents. This plugin scores completed migrations across multiple dimensions including coverage, correctness, and code style, generating executive reports with actionable recommendations.
 
 ## Quick Start
 
