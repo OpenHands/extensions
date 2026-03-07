@@ -31,11 +31,12 @@ uv run python -m lc_sdk_examples.cobol_modernization --src-path /path/to/cobol/p
 ```
 plugins/cobol-modernization/
 ├── README.md                              # This file
-├── SKILL.md                               # Plugin skill definition
 ├── references/                            # Reference documentation
 │   └── troubleshooting.md                 # Common issues and solutions
 └── skills/                                # Workflow phase skills
     ├── build-setup/                       # Phase 1: Build environment
+    │   └── SKILL.md
+    ├── cobol-modernization-overview/      # Plugin overview
     │   └── SKILL.md
     ├── mainframe-planning/                # Phase 2: Transformation planning
     │   └── SKILL.md
