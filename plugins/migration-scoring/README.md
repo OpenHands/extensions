@@ -100,7 +100,7 @@ Evaluates target code against style guidelines:
 
 ### Phase 4: Executive Report
 
-Generates a comprehensive report:
+Generates a detailed report:
 
 - Overall health assessment
 - Score statistics and distribution
