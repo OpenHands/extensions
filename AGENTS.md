@@ -90,6 +90,12 @@ When editing or adding skills in this repo, follow these rules (and add new skil
 - If you change a skill’s behavior or scope, update its `README.md` (if present) accordingly.
 - If you change top-level documentation, ensure links still resolve.
 
+## CI / validation gotchas
+
+- The test suite expects **every directory under `skills/`** to be listed in `marketplaces/default.json`.
+  - If you add a new skill (or rebase onto a main branch that added skills), update the marketplace file or CI will fail with `Skills missing from marketplace: [...]`.
+
+
 ## When uncertain
 
 - Prefer the official OpenHands docs on skills: https://docs.openhands.dev/overview/skills

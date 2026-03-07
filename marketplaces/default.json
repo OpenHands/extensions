@@ -297,6 +297,22 @@
             ]
         },
         {
+            "name": "openhands-api-v1",
+            "source": "./openhands-api-v1",
+            "description": "Use the OpenHands Cloud REST API (V1) to create and manage app conversations and to access sandbox agent-server endpoints. Includes minimal Python and TypeScript clients under scripts/.",
+            "category": "development",
+            "keywords": [
+                "openhands",
+                "api",
+                "cloud",
+                "v1",
+                "agent-server",
+                "sandbox",
+                "conversations",
+                "automation"
+            ]
+        },
+        {
             "name": "pdflatex",
             "source": "./pdflatex",
             "description": "Install and use pdflatex to compile LaTeX documents into PDFs on Linux. Use when generating academic papers, research publications, or any documents written in LaTeX.",
