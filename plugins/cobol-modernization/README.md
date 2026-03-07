@@ -24,7 +24,7 @@ uv run python -m lc_sdk_examples.cobol_modernization --src-path /path/to/cobol/p
 - GnuCOBOL compiler (`cobc`)
 - Java 11+ with Maven or Gradle
 - Python 3.13 with `uv`
-- LLM API key (Anthropic or OpenAI)
+- LLM API key
 
 ## Plugin Contents
 
