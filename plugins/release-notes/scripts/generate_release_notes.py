@@ -25,29 +25,42 @@ from datetime import datetime, timezone
 from typing import Any
 
 # Category definitions with emojis and patterns
+# Patterns match both conventional commit style (feat:, fix:) and bracket/paren style ([Feat]:, (Fix):)
 CATEGORIES = {
     "breaking": {
         "emoji": "⚠️",
         "title": "Breaking Changes",
-        "commit_patterns": [r"^BREAKING[\s\-:]", r"!:"],
+        "commit_patterns": [r"^BREAKING[\s\-:]", r"!:", r"^\[?BREAKING\]?[\s\-:]"],
         "labels": ["breaking-change", "breaking"],
     },
     "features": {
         "emoji": "✨",
         "title": "New Features",
-        "commit_patterns": [r"^feat(?:ure)?[\s\-:\(]"],
+        "commit_patterns": [
+            r"^feat(?:ure)?[\s\-:\(]",
+            r"^[\[\(]feat(?:ure)?[\]\)][\s\-:]*",  # [Feat]: or (Feat):
+        ],
         "labels": ["enhancement", "feature"],
     },
     "fixes": {
         "emoji": "🐛",
         "title": "Bug Fixes",
-        "commit_patterns": [r"^fix(?:es)?[\s\-:\(]", r"^bugfix[\s\-:\(]"],
+        "commit_patterns": [
+            r"^fix(?:es)?[\s\-:\(]",
+            r"^bugfix[\s\-:\(]",
+            r"^[\[\(]fix(?:es)?[\]\)][\s\-:]*",  # [Fix]: or (Fix):
+            r"^[\[\(]hotfix[\]\)][\s\-:]*",  # [Hotfix]: or (Hotfix):
+            r"^hotfix[\s\-:\(]",
+        ],
         "labels": ["bug", "bugfix"],
     },
     "docs": {
         "emoji": "📚",
         "title": "Documentation",
-        "commit_patterns": [r"^docs?[\s\-:\(]"],
+        "commit_patterns": [
+            r"^docs?[\s\-:\(]",
+            r"^[\[\(]docs?[\]\)][\s\-:]*",  # [Docs]: or (Docs):
+        ],
         "labels": ["documentation", "docs"],
     },
     "internal": {
@@ -61,6 +74,10 @@ CATEGORIES = {
             r"^build[\s\-:\(]",
             r"^style[\s\-:\(]",
             r"^perf[\s\-:\(]",
+            r"^[\[\(]chore[\]\)][\s\-:]*",  # [Chore]: or (Chore):
+            r"^[\[\(]ci[\]\)][\s\-:]*",
+            r"^[\[\(]refactor[\]\)][\s\-:]*",
+            r"^[\[\(]test[\]\)][\s\-:]*",
         ],
         "labels": ["internal", "chore", "ci", "dependencies"],
     },
@@ -81,10 +98,15 @@ class Change:
     def to_markdown(self, repo_name: str) -> str:
         """Format the change as a markdown list item."""
         # Clean up the message - remove conventional commit prefix
-        # Only match actual prefixes with required colon and whitespace delimiter
+        # Supports multiple formats:
+        #   - feat: message, fix(scope): message, feat!: breaking
+        #   - [Feat]: message, (Fix): message, [Chore]: message
         msg = self.message.strip()
         for pattern in [
-            r"^(feat|fix|docs?|chore|ci|refactor|test|build|style|perf|BREAKING)(\(.+?\))?:\s+",
+            # Standard conventional commit: feat:, fix(scope):, feat!:
+            r"^(feat|fix|docs?|chore|ci|refactor|test|build|style|perf|BREAKING|hotfix)(\(.+?\))?!?:\s+",
+            # Bracket/paren style: [Feat]:, (Fix):, [Hotfix]:
+            r"^[\[\(](feat|fix|docs?|chore|ci|refactor|test|build|style|perf|BREAKING|hotfix)[\]\)][\s\-:]+",
         ]:
             msg = re.sub(pattern, "", msg, flags=re.IGNORECASE)
         msg = msg.strip()
@@ -93,9 +115,11 @@ class Change:
         if msg:
             msg = msg[0].upper() + msg[1:]
 
-        # Add PR link if available
+        # Add PR link if available and not already in the message
         if self.pr_number:
-            msg += f" (#{self.pr_number})"
+            pr_ref = f"#{self.pr_number}"
+            if pr_ref not in msg:
+                msg += f" ({pr_ref})"
 
         # Add author
         if self.author:
@@ -281,8 +305,6 @@ def get_pr_for_commit(
 
 def categorize_change(change: Change) -> str:
     """Determine the category for a change based on commit message and PR labels."""
-    message_lower = change.message.lower()
-
     # Check each category
     for category, info in CATEGORIES.items():
         # Check commit message patterns
