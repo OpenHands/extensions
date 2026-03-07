@@ -8,10 +8,10 @@ The Figma MCP server provides tools to interact with Figma designs directly from
 
 With the server enabled, you can:
 
-- **Generate code from selected frames**: Select a Figma frame and turn it into code
+- **Generate implementation prompts from frames**: Ask OpenHands to read a Figma frame through MCP and generate React, HTML, or other code from the retrieved design data
 - **Extract design context**: Pull in variables, components, and layout data
 - **Retrieve design tokens**: Access colors, typography, and spacing values
-- **Inspect layer properties**: Get detailed information about any design element
+- **Inspect layer properties**: Get detailed information about supported Figma nodes such as frames, components, instances, text, and shapes
 
 ## Installation
 
@@ -19,7 +19,7 @@ With the server enabled, you can:
 openhands mcp add figma --transport http https://mcp.figma.com/mcp
 ```
 
-This adds the Figma MCP server to your OpenHands configuration. OAuth authentication is handled automatically by the server - you'll be prompted to authorize via your browser when first accessing Figma data.
+This adds the Figma MCP server to your OpenHands configuration. The first time OpenHands calls a Figma MCP tool, the server will open your browser and prompt you to authorize access with Figma OAuth.
 
 **Note:** Restart your OpenHands session after installation to load the new MCP server. This is required because MCP servers are initialized at session startup - the server configuration is loaded once when OpenHands starts, so changes to `mcp.json` require a restart to take effect.
 
@@ -53,14 +53,20 @@ openhands mcp get figma
 
 The MCP server is link-based. To use it:
 
-1. Copy the link to a frame or layer in Figma
-2. Prompt OpenHands to help you implement the design at the selected URL
+1. In Figma, copy the link to a frame or layer (for example `https://www.figma.com/file/ABC123/MyDesign?node-id=1-2`)
+2. In OpenHands, prompt: `Generate a React component from this Figma frame: https://www.figma.com/file/ABC123/MyDesign?node-id=1-2`
+3. OpenHands will use the Figma MCP server to read the frame data, then generate code from the retrieved design information
 
-The agent will extract the node-id from the URL and retrieve information about that object.
+You can use the same pattern for other tasks, such as extracting design tokens or inspecting a component tree from a specific node URL.
 
 ## Troubleshooting
 
-- **OAuth errors**: The Figma MCP server uses browser-based OAuth that caches credentials. To re-authenticate, you may need to clear your browser's OAuth session for Figma or visit `https://www.figma.com/` and log out/log back in. Re-running `openhands mcp add` will refresh the server configuration but won't reset OAuth state cached in your browser.
+- **OAuth errors**:
+  1. Visit `https://www.figma.com/`, log out, and log back in to refresh your Figma session
+  2. If that does not work, clear your browser cookies/cache for `figma.com`
+  3. Restart your OpenHands session and retry the same Figma prompt
+
+  Re-running `openhands mcp add` refreshes the server configuration, but it does not reset OAuth state cached in your browser.
 - **Server not found**: Ensure you've restarted your OpenHands session after installation
 - **Access denied**: Verify you have view access to the Figma file you're trying to access
 
