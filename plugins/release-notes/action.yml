@@ -60,11 +60,6 @@ runs:
           with:
               python-version: '3.12'
 
-        - name: Install dependencies
-          shell: bash
-          run: |
-              pip install --quiet requests
-
         - name: Generate release notes
           id: generate
           shell: bash

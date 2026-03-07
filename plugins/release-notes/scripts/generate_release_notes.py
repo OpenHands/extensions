@@ -14,8 +14,6 @@ Environment Variables:
     REPO_NAME: Repository name in format owner/repo (required)
 """
 
-from __future__ import annotations
-
 import json
 import os
 import re
@@ -83,9 +81,10 @@ class Change:
     def to_markdown(self, repo_name: str) -> str:
         """Format the change as a markdown list item."""
         # Clean up the message - remove conventional commit prefix
+        # Only match actual prefixes with required colon and whitespace delimiter
         msg = self.message.strip()
         for pattern in [
-            r"^(feat|fix|docs?|chore|ci|refactor|test|build|style|perf|BREAKING)(\(.+?\))?[:\s]+",
+            r"^(feat|fix|docs?|chore|ci|refactor|test|build|style|perf|BREAKING)(\(.+?\))?:\s+",
         ]:
             msg = re.sub(pattern, "", msg, flags=re.IGNORECASE)
         msg = msg.strip()
@@ -230,8 +229,8 @@ def find_previous_tag(
     current_tag: str, tags: list[dict[str, Any]]
 ) -> str | None:
     """Find the previous release tag before the current one."""
-    # Filter to only semver tags
-    semver_pattern = re.compile(r"^v?\d+\.\d+\.\d+")
+    # Filter to only semver tags (with optional pre-release/build metadata)
+    semver_pattern = re.compile(r"^v?\d+\.\d+\.\d+(?:[.-].*)?$")
     semver_tags = [t for t in tags if semver_pattern.match(t["name"])]
 
     # Find current tag index
@@ -274,8 +273,9 @@ def get_pr_for_commit(
                     return pr
             # If no merged PR, return the first one
             return prs[0]
-    except Exception:
-        pass
+    except Exception as e:
+        # Log but don't fail - PR data is optional
+        print(f"Warning: Could not fetch PR for commit {sha[:7]}: {e}", file=sys.stderr)
     return None
 
 
@@ -310,7 +310,9 @@ def is_new_contributor(
     try:
         commits = github_api_request(endpoint, token)
         return len(commits) == 0
-    except Exception:
+    except Exception as e:
+        # Log but don't fail - contributor check is best-effort
+        print(f"Warning: Could not check contributor history for {author}: {e}", file=sys.stderr)
         return False
 
 
@@ -337,8 +339,83 @@ def get_tag_date(repo_name: str, tag: str, token: str) -> str:
         # Parse and format the date
         dt = datetime.fromisoformat(date_str.replace("Z", "+00:00"))
         return dt.strftime("%Y-%m-%d")
-    except Exception:
+    except Exception as e:
+        # Log but fall back to current date
+        print(f"Warning: Could not get tag date for {tag}: {e}", file=sys.stderr)
         return datetime.now(timezone.utc).strftime("%Y-%m-%d")
+
+
+def _process_commit(
+    commit_data: dict[str, Any], repo_name: str, token: str
+) -> Change | None:
+    """Process a single commit into a Change object."""
+    sha = commit_data["sha"]
+    message = commit_data["commit"]["message"].split("\n")[0]  # First line only
+    author = commit_data.get("author", {}).get("login", "")
+
+    # Skip merge commits
+    if message.lower().startswith("merge "):
+        return None
+
+    # Get PR info
+    pr_number = None
+    pr_labels: list[str] = []
+    pr = get_pr_for_commit(repo_name, sha, token)
+    if pr:
+        pr_number = pr["number"]
+        pr_labels = [label["name"] for label in pr.get("labels", [])]
+        # Use PR author if commit author not available
+        if not author:
+            author = pr.get("user", {}).get("login", "")
+
+    return Change(
+        message=message,
+        sha=sha,
+        author=author,
+        pr_number=pr_number,
+        pr_labels=pr_labels,
+    )
+
+
+def _categorize_changes(
+    changes_list: list[Change],
+) -> dict[str, list[Change]]:
+    """Categorize a list of changes by type."""
+    categorized: dict[str, list[Change]] = {cat: [] for cat in CATEGORIES}
+    categorized["other"] = []
+
+    for change in changes_list:
+        change.category = categorize_change(change)
+        if change.category in categorized:
+            categorized[change.category].append(change)
+        else:
+            categorized["other"].append(change)
+
+    return categorized
+
+
+def _process_contributors(
+    changes_list: list[Change],
+    repo_name: str,
+    tag_date: str,
+    token: str,
+) -> tuple[list[Contributor], list[Contributor]]:
+    """Extract contributors from changes and identify new contributors."""
+    contributors: dict[str, Contributor] = {}
+    new_contributors: list[Contributor] = []
+
+    for change in changes_list:
+        author = change.author
+        if author and author not in contributors:
+            contrib = Contributor(username=author, first_pr=change.pr_number)
+            contributors[author] = contrib
+
+            # Check if new contributor
+            if is_new_contributor(author, repo_name, f"{tag_date}T00:00:00Z", token):
+                contrib.is_new = True
+                new_contributors.append(contrib)
+
+    return list(contributors.values()), new_contributors
 
 
 def generate_release_notes(
@@ -369,67 +446,28 @@ def generate_release_notes(
     commits = get_commits_between_tags(repo_name, previous_tag, tag, token)
     print(f"Found {len(commits)} commits")
 
-    # Process commits into changes
-    changes: dict[str, list[Change]] = {cat: [] for cat in CATEGORIES}
-    changes["other"] = []
-    contributors: dict[str, Contributor] = {}
-    new_contributors: list[Contributor] = []
+    # Phase 1: Process commits into Change objects
+    raw_changes = [
+        change
+        for c in commits
+        if (change := _process_commit(c, repo_name, token)) is not None
+    ]
 
-    for commit_data in commits:
-        sha = commit_data["sha"]
-        message = commit_data["commit"]["message"].split("\n")[0]  # First line only
-        author = commit_data.get("author", {}).get("login", "")
+    # Phase 2: Categorize changes
+    categorized = _categorize_changes(raw_changes)
 
-        # Skip merge commits
-        if message.lower().startswith("merge "):
-            continue
-
-        # Get PR info
-        pr_number = None
-        pr_labels: list[str] = []
-        pr = get_pr_for_commit(repo_name, sha, token)
-        if pr:
-            pr_number = pr["number"]
-            pr_labels = [label["name"] for label in pr.get("labels", [])]
-            # Use PR author if commit author not available
-            if not author:
-                author = pr.get("user", {}).get("login", "")
-
-        # Create change object
-        change = Change(
-            message=message,
-            sha=sha,
-            author=author,
-            pr_number=pr_number,
-            pr_labels=pr_labels,
-        )
-
-        # Categorize
-        change.category = categorize_change(change)
-
-        # Add to appropriate category
-        if change.category in changes:
-            changes[change.category].append(change)
-        else:
-            changes["other"].append(change)
-
-        # Track contributor
-        if author and author not in contributors:
-            contrib = Contributor(username=author, first_pr=pr_number)
-            contributors[author] = contrib
-
-            # Check if new contributor
-            if is_new_contributor(author, repo_name, f"{tag_date}T00:00:00Z", token):
-                contrib.is_new = True
-                new_contributors.append(contrib)
+    # Phase 3: Extract and identify contributors
+    contributors, new_contributors = _process_contributors(
+        raw_changes, repo_name, tag_date, token
+    )
 
     return ReleaseNotes(
         tag=tag,
         previous_tag=previous_tag,
         date=tag_date,
         repo_name=repo_name,
-        changes=changes,
-        contributors=list(contributors.values()),
+        changes=categorized,
+        contributors=contributors,
         new_contributors=new_contributors,
     )
 
