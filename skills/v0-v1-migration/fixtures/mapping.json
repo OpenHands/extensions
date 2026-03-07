@@ -1,0 +1,169 @@
+{
+  "description": "Maps V0 fixtures to their V1 equivalents for migration testing",
+  "mappings": [
+    {
+      "operation": "create_conversation",
+      "v0": {
+        "method": "POST",
+        "path": "/api/conversations",
+        "request": "v0/conversations/create-request.json",
+        "response": "v0/conversations/create-response.json"
+      },
+      "v1": {
+        "method": "POST",
+        "path": "/api/v1/app-conversations",
+        "request": "v1/app-conversations/create-request.json",
+        "response": "v1/app-conversations/create-response.json",
+        "notes": "V1 is async - returns start task, poll start-tasks endpoint for conversation_id"
+      },
+      "complexity": "moderate",
+      "breaking_changes": [
+        "Response no longer contains conversation_id immediately",
+        "Must poll /api/v1/app-conversations/start-tasks?id={id} until status=READY",
+        "Request field 'initial_user_msg' renamed to 'initial_message' with content array",
+        "Request field 'repository' renamed to 'selected_repository'"
+      ]
+    },
+    {
+      "operation": "poll_start_task",
+      "v0": null,
+      "v1": {
+        "method": "GET",
+        "path": "/api/v1/app-conversations/start-tasks?id={start_task_id}",
+        "response_starting": "v1/app-conversations/create-response.json",
+        "response_ready": "v1/app-conversations/start-task-ready.json"
+      },
+      "complexity": "new",
+      "notes": "New endpoint in V1 - no V0 equivalent"
+    },
+    {
+      "operation": "list_conversations",
+      "v0": {
+        "method": "GET",
+        "path": "/api/conversations"
+      },
+      "v1": {
+        "method": "GET",
+        "path": "/api/v1/app-conversations/search"
+      },
+      "complexity": "simple",
+      "breaking_changes": []
+    },
+    {
+      "operation": "get_conversation",
+      "v0": {
+        "method": "GET",
+        "path": "/api/conversations/{id}"
+      },
+      "v1": {
+        "method": "GET",
+        "path": "/api/v1/app-conversations?id={id}"
+      },
+      "complexity": "simple",
+      "breaking_changes": [
+        "Path parameter becomes query parameter"
+      ]
+    },
+    {
+      "operation": "send_message",
+      "v0": {
+        "method": "POST",
+        "path": "/api/conversations/{id}/messages",
+        "request": "v0/events/send-message-request.json"
+      },
+      "v1": {
+        "method": "POST",
+        "path": "/api/v1/conversation/{id}/events",
+        "request": "v1/conversation-events/send-message-request.json"
+      },
+      "complexity": "moderate",
+      "breaking_changes": [
+        "Endpoint path changed",
+        "Request body: 'message' string → 'content' array with type objects"
+      ]
+    },
+    {
+      "operation": "get_events",
+      "v0": {
+        "method": "GET",
+        "path": "/api/conversations/{id}/events"
+      },
+      "v1": {
+        "method": "GET",
+        "path": "/api/v1/conversation/{id}/events/search"
+      },
+      "complexity": "simple",
+      "breaking_changes": []
+    },
+    {
+      "operation": "list_files",
+      "v0": {
+        "method": "GET",
+        "path": "/api/conversations/{id}/list-files"
+      },
+      "v1": {
+        "method": "POST",
+        "path": "{agent_server_url}/api/bash/execute_bash_command",
+        "request": "v1/agent-server/bash-execute-request.json",
+        "response": "v1/agent-server/bash-execute-response.json",
+        "auth_header": "X-Session-API-Key"
+      },
+      "complexity": "complex",
+      "breaking_changes": [
+        "Moved to Agent Server (per-sandbox URL)",
+        "Requires session_api_key from sandbox info",
+        "Different auth header: X-Session-API-Key instead of Authorization: Bearer",
+        "Must get sandbox info first to obtain agent_server_url and session_api_key"
+      ],
+      "prerequisites": [
+        "GET /api/v1/sandboxes?id={sandbox_id} to get agent_server_url and session_api_key"
+      ]
+    },
+    {
+      "operation": "download_file",
+      "v0": {
+        "method": "GET",
+        "path": "/api/conversations/{id}/select-file?file={path}"
+      },
+      "v1": {
+        "method": "GET",
+        "path": "{agent_server_url}/api/file/download/{path}",
+        "auth_header": "X-Session-API-Key"
+      },
+      "complexity": "complex",
+      "breaking_changes": [
+        "Moved to Agent Server",
+        "Path is now part of URL, not query parameter",
+        "Different auth header"
+      ]
+    },
+    {
+      "operation": "upload_files",
+      "v0": {
+        "method": "POST",
+        "path": "/api/conversations/{id}/upload-files"
+      },
+      "v1": {
+        "method": "POST",
+        "path": "{agent_server_url}/api/file/upload/{path}",
+        "auth_header": "X-Session-API-Key"
+      },
+      "complexity": "complex",
+      "breaking_changes": [
+        "Moved to Agent Server",
+        "Upload path is part of URL"
+      ]
+    },
+    {
+      "operation": "get_sandbox_info",
+      "v0": null,
+      "v1": {
+        "method": "GET",
+        "path": "/api/v1/sandboxes?id={sandbox_id}",
+        "response": "v1/sandboxes/get-response.json"
+      },
+      "complexity": "new",
+      "notes": "New endpoint - required for Agent Server operations"
+    }
+  ]
+}
