@@ -83,6 +83,47 @@ CATEGORIES = {
     },
 }
 
+KEYWORD_PATTERNS = {
+    "docs": [
+        r"\bdocs?\b",
+        r"\bdocumentation\b",
+        r"\breadme\b",
+        r"\bchangelog\b",
+        r"\bguide\b",
+        r"\bopenapi\b",
+    ],
+    "internal": [
+        r"\bci\b",
+        r"\blint\b",
+        r"\btyping\b",
+        r"\brefactor\b",
+        r"\bdebug\b",
+        r"\bpre-commit\b",
+        r"\bdockerfile\b",
+        r"\bdependencies?\b",
+        r"\brelease\b",
+        r"\btool descriptions?\b",
+        r"\bmicroagents?\b",
+    ],
+    "fixes": [
+        r"\bfix(?:es|ed)?\b",
+        r"\bbug\b",
+        r"\berror\b",
+        r"\bfail(?:ed|ing)?\b",
+        r"\bissue\b",
+        r"\bcrash\b",
+        r"\btimeout\b",
+        r"\bleak\b",
+        r"\bmissing\b",
+        r"\berroneous\b",
+        r"\breconnect\b",
+        r"\breset\b",
+    ],
+    "features": [
+        r"^(add|allow|support|enable|implement|introduce|create|provide|improve)\b",
+    ],
+}
+
 
 @dataclass
 class Change:
@@ -145,6 +186,7 @@ class ReleaseNotes:
     previous_tag: str
     date: str
     repo_name: str
+    commit_count: int = 0
     changes: dict[str, list[Change]] = field(default_factory=dict)
     contributors: list[Contributor] = field(default_factory=list)
     new_contributors: list[Contributor] = field(default_factory=list)
@@ -168,14 +210,6 @@ class ReleaseNotes:
                     lines.append(change.to_markdown(self.repo_name))
                 lines.append("")
 
-        # Add uncategorized changes if any
-        other_changes = self.changes.get("other", [])
-        if other_changes:
-            lines.append("### Other Changes")
-            for change in other_changes:
-                lines.append(change.to_markdown(self.repo_name))
-            lines.append("")
-
         # Add new contributors section
         if self.new_contributors:
             lines.append("### 👥 New Contributors")
@@ -185,7 +219,6 @@ class ReleaseNotes:
             lines.append("")
 
         # Add full changelog link
-        owner, repo = self.repo_name.split("/")
         lines.append(
             f"**Full Changelog**: https://github.com/{self.repo_name}/compare/"
             f"{self.previous_tag}...{self.tag}"
@@ -280,7 +313,17 @@ def get_commits_between_tags(
     """Get all commits between two tags."""
     endpoint = f"/repos/{repo_name}/compare/{base_tag}...{head_tag}"
     response = github_api_request(endpoint, token)
-    return response.get("commits", [])
+    commits = response.get("commits", [])
+
+    total_commits = response.get("total_commits")
+    if isinstance(total_commits, int) and total_commits > len(commits):
+        print(
+            "Warning: GitHub compare API truncated the commit list; "
+            "release notes may be incomplete.",
+            file=sys.stderr,
+        )
+
+    return commits
 
 
 def get_pr_for_commit(
@@ -303,19 +346,34 @@ def get_pr_for_commit(
     return None
 
 
+def _matches_any_pattern(text: str, patterns: list[str]) -> bool:
+    """Return True if the text matches any of the provided regex patterns."""
+    return any(re.search(pattern, text, re.IGNORECASE) for pattern in patterns)
+
+
 def categorize_change(change: Change) -> str:
     """Determine the category for a change based on commit message and PR labels."""
-    # Check each category
+    # Exact matches first: conventional commit prefixes are the strongest signal.
     for category, info in CATEGORIES.items():
-        # Check commit message patterns
-        for pattern in info["commit_patterns"]:
-            if re.search(pattern, change.message, re.IGNORECASE):
-                return category
+        if _matches_any_pattern(change.message, info["commit_patterns"]):
+            return category
 
-        # Check PR labels
-        for label in change.pr_labels:
-            if label.lower() in [l.lower() for l in info["labels"]]:
-                return category
+    # Strong keyword matches help suppress noisy internal-only PRs even when a
+    # repository applies broad labels like `bug` or `enhancement`.
+    for category in ["docs", "internal"]:
+        if _matches_any_pattern(change.message, KEYWORD_PATTERNS[category]):
+            return category
+
+    label_names = [label.lower() for label in change.pr_labels]
+    for category, info in CATEGORIES.items():
+        if any(label.lower() in label_names for label in info["labels"]):
+            return category
+
+    # Fallback heuristics make PR-title based release notes more useful while
+    # still preferring user-facing categories over noisy implementation details.
+    for category in ["fixes", "features"]:
+        if _matches_any_pattern(change.message, KEYWORD_PATTERNS[category]):
+            return category
 
     return "other"
 
@@ -386,9 +444,8 @@ def _process_commit(
     if pr:
         pr_number = pr["number"]
         pr_labels = [label["name"] for label in pr.get("labels", [])]
-        # Use PR author if commit author not available
-        if not author:
-            author = pr.get("user", {}).get("login", "")
+        author = pr.get("user", {}).get("login", "") or author
+        message = pr.get("title") or message
 
     return Change(
         message=message,
@@ -397,6 +454,21 @@ def _process_commit(
         pr_number=pr_number,
         pr_labels=pr_labels,
     )
+
+
+def _dedupe_changes(changes_list: list[Change]) -> list[Change]:
+    """Collapse multiple commits from the same PR into one release-note entry."""
+    deduped: list[Change] = []
+    seen_keys: set[str] = set()
+
+    for change in changes_list:
+        key = f"pr:{change.pr_number}" if change.pr_number else f"sha:{change.sha}"
+        if key in seen_keys:
+            continue
+        seen_keys.add(key)
+        deduped.append(change)
+
+    return deduped
 
 
 def _categorize_changes(
@@ -475,12 +547,15 @@ def generate_release_notes(
         if (change := _process_commit(c, repo_name, token)) is not None
     ]
 
-    # Phase 2: Categorize changes
-    categorized = _categorize_changes(raw_changes)
+    # Phase 2: Collapse multiple commits from the same PR into a single entry.
+    changes = _dedupe_changes(raw_changes)
 
-    # Phase 3: Extract and identify contributors
+    # Phase 3: Categorize changes
+    categorized = _categorize_changes(changes)
+
+    # Phase 4: Extract and identify contributors
     contributors, new_contributors = _process_contributors(
-        raw_changes, repo_name, tag_date, token
+        changes, repo_name, tag_date, token
     )
 
     return ReleaseNotes(
@@ -488,6 +563,7 @@ def generate_release_notes(
         previous_tag=previous_tag,
         date=tag_date,
         repo_name=repo_name,
+        commit_count=len(commits),
         changes=categorized,
         contributors=contributors,
         new_contributors=new_contributors,
@@ -501,7 +577,7 @@ def set_github_output(name: str, value: str) -> None:
         with open(output_file, "a") as f:
             # Handle multiline values
             if "\n" in value:
-                delimiter = "EOF"
+                delimiter = f"EOF_{os.urandom(4).hex()}"
                 f.write(f"{name}<<{delimiter}\n{value}\n{delimiter}\n")
             else:
                 f.write(f"{name}={value}\n")
@@ -550,7 +626,7 @@ def main():
     # Set GitHub Actions outputs
     set_github_output("release_notes", markdown)
     set_github_output("previous_tag", notes.previous_tag)
-    set_github_output("commit_count", str(sum(len(c) for c in notes.changes.values())))
+    set_github_output("commit_count", str(notes.commit_count))
     set_github_output("contributor_count", str(len(notes.contributors)))
     set_github_output("new_contributor_count", str(len(notes.new_contributors)))
 

@@ -17,7 +17,8 @@ Then configure the required secrets (see [Installation](#installation) below).
 ## Features
 
 - **Automatic Tag Detection**: Automatically finds the previous release tag to determine the commit range
-- **Categorized Changes**: Groups commits into Breaking Changes, Features, Bug Fixes, Documentation, and Internal sections
+- **Categorized Changes**: Groups user-facing updates into Breaking Changes, Features, Bug Fixes, Documentation, and Internal sections
+- **PR-Level Summaries**: Uses merged PR titles when available and collapses multiple commits from the same PR into one entry
 - **Conventional Commits Support**: Categorizes based on commit prefixes (`feat:`, `fix:`, `docs:`, etc.)
 - **PR Label Support**: Also categorizes based on GitHub PR labels
 - **Contributor Attribution**: Includes PR numbers and author usernames for each change
@@ -178,8 +179,8 @@ Changes are categorized using two methods:
 
 The generator follows these principles:
 
-- **Concise but informative**: Provides enough context without being verbose
-- **User-focused**: Emphasizes user-facing changes over internal details
+- **Concise but informative**: Uses one line per merged PR where possible instead of listing every commit
+- **User-focused**: Prioritizes categorized, user-facing changes and omits uncategorized noise from the default output
 - **Scannable**: Easy to quickly find relevant changes
 - **Imperative mood**: Uses "Add feature" not "Added feature"
 - **Attribution**: Includes PR number and author for traceability

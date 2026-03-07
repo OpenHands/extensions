@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 
@@ -17,7 +17,10 @@ from generate_release_notes import (
     Change,
     Contributor,
     ReleaseNotes,
+    _dedupe_changes,
+    _process_commit,
     categorize_change,
+    get_commits_between_tags,
 )
 
 
@@ -163,6 +166,42 @@ class TestCategorizeChange:
         # Should be categorized as feature based on prefix
         assert categorize_change(change) == "features"
 
+    def test_keyword_categorizes_docs(self):
+        """Test docs keyword fallback categorization."""
+        change = Change(
+            message="Update documentation with new examples",
+            sha="abc",
+            author="user",
+        )
+        assert categorize_change(change) == "docs"
+
+    def test_keyword_categorizes_internal_before_feature(self):
+        """Test internal keyword fallback takes precedence over generic feature verbs."""
+        change = Change(
+            message="Add extensive typing to controller directory",
+            sha="abc",
+            author="user",
+        )
+        assert categorize_change(change) == "internal"
+
+    def test_keyword_categorizes_fixes(self):
+        """Test fix keyword fallback categorization."""
+        change = Change(
+            message="Resolve timeout error in session reconnect",
+            sha="abc",
+            author="user",
+        )
+        assert categorize_change(change) == "fixes"
+
+    def test_keyword_categorizes_features(self):
+        """Test feature keyword fallback categorization."""
+        change = Change(
+            message="Add VS Code tab alongside the terminal",
+            sha="abc",
+            author="user",
+        )
+        assert categorize_change(change) == "features"
+
 
 class TestReleaseNotes:
     """Tests for the ReleaseNotes dataclass."""
@@ -261,6 +300,78 @@ class TestReleaseNotes:
 
         assert "### 🏗️ Internal/Infrastructure" in markdown
         assert "Update CI" in markdown
+
+    def test_to_markdown_omits_other_changes(self):
+        """Test that uncategorized changes are omitted for a more concise summary."""
+        notes = ReleaseNotes(
+            tag="v1.0.0",
+            previous_tag="v0.9.0",
+            date="2026-03-06",
+            repo_name="owner/repo",
+            changes={
+                "other": [
+                    Change(message="Random internal cleanup", sha="abc", author="user")
+                ],
+            },
+        )
+        markdown = notes.to_markdown()
+
+        assert "Other Changes" not in markdown
+        assert "Random internal cleanup" not in markdown
+
+
+class TestProcessingHelpers:
+    """Tests for processing helpers."""
+
+    def test_dedupe_changes_collapses_multiple_commits_from_same_pr(self):
+        """Test that only one entry is kept per PR."""
+        changes = [
+            Change(message="First commit", sha="abc", author="user", pr_number=10),
+            Change(message="Second commit", sha="def", author="user", pr_number=10),
+            Change(message="Standalone commit", sha="ghi", author="user"),
+        ]
+
+        deduped = _dedupe_changes(changes)
+
+        assert [change.pr_number for change in deduped] == [10, None]
+        assert [change.sha for change in deduped] == ["abc", "ghi"]
+
+    @patch("generate_release_notes.get_pr_for_commit")
+    def test_process_commit_prefers_pr_title_and_author(self, mock_get_pr_for_commit):
+        """Test that PR metadata is preferred for user-facing release note entries."""
+        mock_get_pr_for_commit.return_value = {
+            "number": 42,
+            "title": "Add settings page",
+            "labels": [{"name": "enhancement"}],
+            "user": {"login": "pr-author"},
+        }
+        commit = {
+            "sha": "abc123",
+            "commit": {"message": "feat: Low-level implementation detail\n\nMore text"},
+            "author": {"login": "commit-author"},
+        }
+
+        change = _process_commit(commit, "owner/repo", "token")
+
+        assert change is not None
+        assert change.message == "Add settings page"
+        assert change.author == "pr-author"
+        assert change.pr_number == 42
+        assert change.pr_labels == ["enhancement"]
+
+    @patch("generate_release_notes.github_api_request")
+    def test_get_commits_between_tags_warns_on_truncation(self, mock_github_api_request, capsys):
+        """Test that compare API truncation is surfaced to users."""
+        mock_github_api_request.return_value = {
+            "total_commits": 300,
+            "commits": [{"sha": "abc"}],
+        }
+
+        commits = get_commits_between_tags("owner/repo", "v1.0.0", "v1.1.0", "token")
+
+        assert commits == [{"sha": "abc"}]
+        assert "truncated the commit list" in capsys.readouterr().err
+
 
 
 class TestCategories:
