@@ -48,6 +48,8 @@ def test_format_prompt_includes_evidence_requirements_when_enabled():
     assert "## PR Description Evidence Requirement" in prompt
     assert "`Evidence` section" in prompt
     assert "screenshot or video" in prompt
-    assert "command(s) used to run or exercise the code and the resulting output" in prompt
+    assert "real code path end-to-end" in prompt
+    assert "Tests alone do **not** count as evidence." in prompt
+    assert "Do not accept `pytest`, unit test output, or similar test runs" in prompt
     assert "https://app.all-hands.dev/conversations/{conversation_id}" in prompt
     assert 'Do not accept vague claims like "tested locally"' in prompt

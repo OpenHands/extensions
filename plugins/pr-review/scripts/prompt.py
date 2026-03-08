@@ -38,10 +38,11 @@ _EVIDENCE_REQUIREMENT_SECTION = """
 Active review instruction: require the PR description to include an `Evidence` section (or similarly labeled section) showing that the code actually works.
 
 When checking the PR description:
-- For frontend or UI changes, require a screenshot or video that demonstrates the implemented behavior.
-- For backend, API, CLI, or script changes, require the command(s) used to run or exercise the code and the resulting output.
+- For frontend or UI changes, require a screenshot or video that demonstrates the implemented behavior in the actual product.
+- For backend, API, CLI, or script changes, require the command(s) used to run or exercise the real code path end-to-end and the resulting output.
+- Tests alone do **not** count as evidence. Do not accept `pytest`, unit test output, or similar test runs as the only proof that the change works.
 - If the change appears to come from an agent conversation or AI-assisted workflow, prefer a conversation link such as `https://app.all-hands.dev/conversations/{conversation_id}` so reviewers can trace the work.
-- Do not accept vague claims like "tested locally" without concrete artifacts, commands, or output.
+- Do not accept vague claims like "tested locally" without concrete runtime artifacts, commands, or output.
 
 If the change is substantive and this evidence is missing or weak, call it out as a must-fix issue in your review. Do not invent evidence that is not present in the PR description.
 """
