@@ -1,6 +1,6 @@
 ---
 name: OpenHands Release Notes Generator
-description: Generate consistent, well-structured release notes from git history
+description: Generate agent-authored release notes from git history and PR context
 author: OpenHands
 
 branding:
@@ -23,6 +23,17 @@ inputs:
         description: "Output format: 'release' (GitHub release) or 'changelog' (CHANGELOG.md)"
         required: false
         default: release
+    llm-model:
+        description: LLM model to use for agent-based release note generation
+        required: false
+        default: anthropic/claude-sonnet-4-5-20250929
+    llm-base-url:
+        description: LLM base URL (optional, for custom LLM endpoints)
+        required: false
+        default: ''
+    llm-api-key:
+        description: LLM API key (required)
+        required: true
     github-token:
         description: GitHub token for API access (required)
         required: true
@@ -60,10 +71,18 @@ runs:
           with:
               python-version: '3.12'
 
+        - name: Install uv
+          uses: astral-sh/setup-uv@v6
+          with:
+              enable-cache: true
+
         - name: Generate release notes
           id: generate
           shell: bash
           env:
+              LLM_MODEL: ${{ inputs.llm-model }}
+              LLM_BASE_URL: ${{ inputs.llm-base-url }}
+              LLM_API_KEY: ${{ inputs.llm-api-key }}
               GITHUB_TOKEN: ${{ inputs.github-token }}
               TAG: ${{ inputs.tag }}
               PREVIOUS_TAG: ${{ inputs.previous-tag }}
@@ -71,7 +90,8 @@ runs:
               OUTPUT_FORMAT: ${{ inputs.output-format }}
               REPO_NAME: ${{ github.repository }}
           run: |
-              python extensions/plugins/release-notes/scripts/generate_release_notes.py
+              uv run --with openhands-sdk --with openhands-tools \
+                python extensions/plugins/release-notes/scripts/agent_script.py
 
         - name: Update GitHub release (if release format)
           if: inputs.output-format == 'release'

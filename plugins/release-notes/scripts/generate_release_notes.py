@@ -134,6 +134,8 @@ class Change:
     author: str
     pr_number: int | None = None
     pr_labels: list[str] = field(default_factory=list)
+    body: str = ""
+    url: str = ""
     category: str = "other"
 
     def to_markdown(self, repo_name: str) -> str:
@@ -441,11 +443,15 @@ def _process_commit(
     pr_number = None
     pr_labels: list[str] = []
     pr = get_pr_for_commit(repo_name, sha, token)
+    body = ""
+    url = ""
     if pr:
         pr_number = pr["number"]
         pr_labels = [label["name"] for label in pr.get("labels", [])]
         author = pr.get("user", {}).get("login", "") or author
         message = pr.get("title") or message
+        body = pr.get("body") or ""
+        url = pr.get("html_url") or ""
 
     return Change(
         message=message,
@@ -453,6 +459,8 @@ def _process_commit(
         author=author,
         pr_number=pr_number,
         pr_labels=pr_labels,
+        body=body,
+        url=url,
     )
 
 

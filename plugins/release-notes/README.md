@@ -17,11 +17,11 @@ Then configure the required secrets (see [Installation](#installation) below).
 ## Features
 
 - **Automatic Tag Detection**: Automatically finds the previous release tag to determine the commit range
-- **Categorized Changes**: Groups user-facing updates into Breaking Changes, Features, Bug Fixes, Documentation, and Internal sections
-- **PR-Level Summaries**: Uses merged PR titles when available and collapses multiple commits from the same PR into one entry
-- **Conventional Commits Support**: Categorizes based on commit prefixes (`feat:`, `fix:`, `docs:`, etc.)
-- **PR Label Support**: Also categorizes based on GitHub PR labels
-- **Contributor Attribution**: Includes PR numbers and author usernames for each change
+- **Agent-Based Summaries**: Uses an OpenHands agent to judge significance, merge related PRs, and decide what is worth mentioning
+- **Structured GitHub Context**: Feeds the agent merged PR titles, labels, bodies, authors, and contributor information for the release range
+- **Conventional Commits Support**: Uses commit prefixes (`feat:`, `fix:`, `docs:`, etc.) as categorization hints for the agent
+- **PR Label Support**: Uses GitHub PR labels as additional hints for the agent
+- **Contributor Attribution**: Includes PR numbers and author usernames for each change the agent keeps
 - **New Contributor Highlighting**: Identifies and celebrates first-time contributors
 - **Flexible Output**: Updates GitHub release notes directly or outputs for CHANGELOG.md
 
@@ -33,7 +33,9 @@ plugins/release-notes/
 ├── SKILL.md               # Plugin definition
 ├── action.yml             # Composite GitHub Action
 ├── scripts/               # Python scripts
-│   └── generate_release_notes.py
+│   ├── agent_script.py    # OpenHands agent orchestration
+│   ├── generate_release_notes.py
+│   └── prompt.py
 └── workflows/             # Example GitHub workflow files
     └── release-notes.yml
 ```
@@ -56,6 +58,7 @@ Add the following secrets in your repository settings (**Settings → Secrets an
 
 | Secret | Required | Description |
 |--------|----------|-------------|
+| `LLM_API_KEY` | Yes | API key for the LLM used by the OpenHands agent |
 | `GITHUB_TOKEN` | Auto | Provided automatically by GitHub Actions |
 
 **Note**: The default `GITHUB_TOKEN` is sufficient for most use cases. For repositories that need elevated permissions, use a personal access token.
@@ -70,17 +73,21 @@ Edit the workflow file to customize:
   with:
     # The release tag to generate notes for
     tag: ${{ github.ref_name }}
-    
+
     # Optional: Override previous tag detection
     # previous-tag: v1.0.0
-    
+
     # Include internal/infrastructure changes (default: false)
     include-internal: false
-    
+
     # Output format: 'release' (GitHub release) or 'changelog' (CHANGELOG.md)
     output-format: release
-    
+
+    # Optional model override
+    # llm-model: anthropic/claude-sonnet-4-5-20250929
+
     # Secrets
+    llm-api-key: ${{ secrets.LLM_API_KEY }}
     github-token: ${{ secrets.GITHUB_TOKEN }}
 ```
 
@@ -109,6 +116,9 @@ You can also manually trigger release notes generation:
 | `previous-tag` | No | Auto-detect | Override automatic detection of previous release |
 | `include-internal` | No | `false` | Include internal/infrastructure changes |
 | `output-format` | No | `release` | Output format: `release` or `changelog` |
+| `llm-model` | No | `anthropic/claude-sonnet-4-5-20250929` | LLM used by the OpenHands agent |
+| `llm-base-url` | No | - | Optional custom LLM endpoint |
+| `llm-api-key` | Yes | - | API key for the OpenHands agent's LLM |
 | `github-token` | Yes | - | GitHub token for API access |
 
 ## Action Outputs
@@ -153,7 +163,7 @@ Generated release notes follow this format:
 
 ## Change Categorization
 
-Changes are categorized using two methods:
+The agent receives deterministic categorization hints, but it makes the final decision about significance, grouping, and which entries to keep.
 
 ### 1. Conventional Commit Prefixes
 
@@ -179,8 +189,8 @@ Changes are categorized using two methods:
 
 The generator follows these principles:
 
-- **Concise but informative**: Uses one line per merged PR where possible instead of listing every commit
-- **User-focused**: Prioritizes categorized, user-facing changes and omits uncategorized noise from the default output
+- **Concise but informative**: The agent decides which changes matter and can merge related PRs into a single higher-signal bullet
+- **User-focused**: The agent prioritizes user-facing changes over low-level implementation detail
 - **Scannable**: Easy to quickly find relevant changes
 - **Imperative mood**: Uses "Add feature" not "Added feature"
 - **Attribution**: Includes PR number and author for traceability
@@ -216,6 +226,10 @@ Then use the output in a subsequent step:
 ```
 
 ## Troubleshooting
+
+### Missing LLM Credentials
+
+Make sure `LLM_API_KEY` is configured in repository secrets and passed to the action.
 
 ### Release Notes Not Generated
 

@@ -22,6 +22,7 @@ from generate_release_notes import (
     categorize_change,
     get_commits_between_tags,
 )
+from prompt import format_prompt
 
 
 class TestChange:
@@ -342,6 +343,8 @@ class TestProcessingHelpers:
         mock_get_pr_for_commit.return_value = {
             "number": 42,
             "title": "Add settings page",
+            "body": "Adds a new settings page for managing preferences.",
+            "html_url": "https://github.com/owner/repo/pull/42",
             "labels": [{"name": "enhancement"}],
             "user": {"login": "pr-author"},
         }
@@ -358,6 +361,8 @@ class TestProcessingHelpers:
         assert change.author == "pr-author"
         assert change.pr_number == 42
         assert change.pr_labels == ["enhancement"]
+        assert change.body == "Adds a new settings page for managing preferences."
+        assert change.url == "https://github.com/owner/repo/pull/42"
 
     @patch("generate_release_notes.github_api_request")
     def test_get_commits_between_tags_warns_on_truncation(self, mock_github_api_request, capsys):
@@ -371,6 +376,33 @@ class TestProcessingHelpers:
 
         assert commits == [{"sha": "abc"}]
         assert "truncated the commit list" in capsys.readouterr().err
+
+
+class TestPrompt:
+    """Tests for the release-notes agent prompt."""
+
+    def test_format_prompt_includes_editorial_instructions(self):
+        """Test that the prompt tells the agent to make editorial judgments."""
+        prompt = format_prompt(
+            repo_name="owner/repo",
+            tag="v1.2.0",
+            previous_tag="v1.1.0",
+            date="2026-03-07",
+            commit_count=12,
+            include_internal=False,
+            output_format="release",
+            full_changelog_url="https://github.com/owner/repo/compare/v1.1.0...v1.2.0",
+            change_candidates="- Ref: #42\n  Title: Add dark mode",
+            new_contributors="- @new-user made their first contribution in #42",
+        )
+
+        assert "Write official release notes for `owner/repo` tag `v1.2.0`." in prompt
+        assert "decide which PRs are important enough to mention" in prompt
+        assert "group related PRs into a single bullet" in prompt
+        assert "omit trivial, repetitive, or low-signal changes" in prompt
+        assert "include every new contributor listed below" in prompt
+        assert "Current tag: v1.2.0" in prompt
+        assert "Full changelog URL:" in prompt
 
 
 
@@ -454,6 +486,28 @@ class TestPluginStructure:
             / "release-notes.yml"
         )
         assert workflow.is_file()
+
+    def test_agent_script_exists(self):
+        """Test that the agent orchestration script exists."""
+        script = (
+            Path(__file__).parent.parent
+            / "plugins"
+            / "release-notes"
+            / "scripts"
+            / "agent_script.py"
+        )
+        assert script.is_file()
+
+    def test_prompt_script_exists(self):
+        """Test that the prompt template exists."""
+        prompt = (
+            Path(__file__).parent.parent
+            / "plugins"
+            / "release-notes"
+            / "scripts"
+            / "prompt.py"
+        )
+        assert prompt.is_file()
 
     def test_skills_symlink_exists(self):
         """Test that the skills symlink exists."""

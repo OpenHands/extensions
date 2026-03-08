@@ -53,6 +53,7 @@ jobs:
                   previous-tag: ${{ github.event.inputs.previous-tag || '' }}
                   include-internal: ${{ github.event.inputs.include-internal || 'false' }}
                   output-format: release
+                  llm-api-key: ${{ secrets.LLM_API_KEY }}
                   github-token: ${{ secrets.GITHUB_TOKEN }}
 
             - name: Display generated notes

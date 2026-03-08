@@ -8,12 +8,13 @@ triggers:
 
 # Release Notes Generator Plugin
 
-Automates the generation of standardized release notes for OpenHands repositories. This plugin can be triggered via GitHub Actions on release tags matching semver patterns (e.g., `v*.*.*`) or manually invoked.
+Automates the generation of standardized release notes for OpenHands repositories using an OpenHands agent. The agent reviews the release range, judges significance, groups related PRs, and produces concise markdown for GitHub releases or changelogs.
 
 ## Features
 
 - **Automatic tag detection**: Finds the previous release tag to determine the commit range
-- **Categorized changes**: Groups commits into Breaking Changes, Features, Bug Fixes, Documentation, and Internal sections
+- **Agent-based editing**: Lets the agent decide which changes matter and group related PRs into higher-signal summaries
+- **Structured GitHub context**: Supplies PR titles, labels, descriptions, and contributor metadata to guide the agent
 - **Contributor attribution**: Includes PR numbers and author usernames for each change
 - **New contributor highlighting**: Identifies and celebrates first-time contributors
 - **Flexible output**: Can update GitHub release notes or generate CHANGELOG.md entries
