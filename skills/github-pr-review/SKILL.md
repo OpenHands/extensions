@@ -75,6 +75,8 @@ Start each comment with a priority label. **Minimize nits** - leave minor style 
 | 🟠 **Important** | Should fix: logic errors, performance issues, missing error handling |
 | 🟡 **Suggestion** | Worth considering: significant improvements to clarity or maintainability |
 | 🟢 **Nit** | Optional: minor style preferences (use sparingly) |
+| 🟢 **Acceptable** | Pragmatic choice: acknowledged trade-off that is reasonable given constraints or out of scope for this PR |
+
 
 **Example:**
 ```
@@ -135,6 +137,7 @@ curl -X POST \
 1. Analyze the code and identify important issues (minimize nits)
 2. Post **ONE** review with all inline comments bundled
 3. Use priority labels (🔴🟠🟡🟢) on every comment
-4. Use suggestion syntax for concrete code changes
-5. Keep the review body brief (details go in inline comments)
-6. If no issues: post a short message
+4. Mark pragmatic trade-offs as 🟢 **Acceptable** - don't block PRs for out-of-scope improvements
+5. Use suggestion syntax for concrete code changes
+6. Keep the review body brief (details go in inline comments)
+7. If no issues: post a short message

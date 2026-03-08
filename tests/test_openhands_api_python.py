@@ -1,11 +1,25 @@
+import importlib.util
 import json
+import sys
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
 
 
+def _load_openhands_api_module():
+    """Load the openhands_api module from the hyphenated directory."""
+    skill_path = Path(__file__).parent.parent / "skills" / "openhands-api" / "scripts" / "openhands_api.py"
+    spec = importlib.util.spec_from_file_location("openhands_api", skill_path)
+    mod = importlib.util.module_from_spec(spec)
+    sys.modules["openhands_api"] = mod
+    spec.loader.exec_module(mod)
+    return mod
+
+
 def test_create_conversation_builds_payload(monkeypatch):
-    from skills.openhands_api.scripts.openhands_api import OpenHandsAPI
+    mod = _load_openhands_api_module()
+    OpenHandsAPI = mod.OpenHandsAPI
 
     captured = {}
 
@@ -45,8 +59,6 @@ def test_create_conversation_builds_payload(monkeypatch):
             raise AttributeError(name)
 
     # Patch requests.Session to our fake
-    import skills.openhands_api.scripts.openhands_api as mod
-
     monkeypatch.setattr(mod.requests, "Session", lambda: FakeSession())
 
     api = OpenHandsAPI(api_key="k", base_url="https://example.com/")
@@ -67,7 +79,8 @@ def test_create_conversation_builds_payload(monkeypatch):
 
 
 def test_get_events_clamps_limit_and_params(monkeypatch):
-    from skills.openhands_api.scripts.openhands_api import OpenHandsAPI
+    mod = _load_openhands_api_module()
+    OpenHandsAPI = mod.OpenHandsAPI
 
     captured = {}
 
@@ -96,8 +109,6 @@ def test_get_events_clamps_limit_and_params(monkeypatch):
         def delete(self, url, params=None):
             raise AssertionError("unexpected")
 
-    import skills.openhands_api.scripts.openhands_api as mod
-
     monkeypatch.setattr(mod.requests, "Session", lambda: FakeSession())
 
     api = OpenHandsAPI(api_key="k", base_url="https://example.com")
@@ -105,7 +116,8 @@ def test_get_events_clamps_limit_and_params(monkeypatch):
 
 
 def test_update_conversation_title_calls_patch(monkeypatch):
-    from skills.openhands_api.scripts.openhands_api import OpenHandsAPI
+    mod = _load_openhands_api_module()
+    OpenHandsAPI = mod.OpenHandsAPI
 
     captured = {}
 
@@ -133,8 +145,6 @@ def test_update_conversation_title_calls_patch(monkeypatch):
 
         def delete(self, url, params=None):
             raise AssertionError("unexpected")
-
-    import skills.openhands_api.scripts.openhands_api as mod
 
     monkeypatch.setattr(mod.requests, "Session", lambda: FakeSession())
 
