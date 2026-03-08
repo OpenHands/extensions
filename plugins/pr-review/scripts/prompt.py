@@ -40,7 +40,7 @@ Require the PR description to include an `Evidence` section (or similarly labele
 When checking the PR description:
 - For frontend or UI changes, require a screenshot or video that demonstrates the implemented behavior in the actual product.
 - For backend, API, CLI, or script changes, require the command(s) used to run or exercise the real code path end-to-end and the resulting output.
-- Tests alone do **not** count as evidence. Do not accept `pytest`, unit test output, or similar test runs as the only proof that the change works.
+- Unit tests alone do **not** count as evidence. Do not accept `pytest`, unit test output, or similar test runs as the only proof that the change works.
 - If the change appears to come from an agent conversation or AI-assisted workflow, prefer a conversation link such as `https://app.all-hands.dev/conversations/{conversation_id}` so reviewers can trace the work.
 - Do not accept vague claims like "tested locally" without concrete runtime artifacts, commands, or output.
 
