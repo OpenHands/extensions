@@ -89,7 +89,6 @@ Require:
 - For frontend/UI changes: a screenshot or video demonstrating the implemented behavior in the real product
 - For backend, API, CLI, or script changes: the exact command(s) used to run the real code path end-to-end and the resulting output
 - Tests alone do not count as evidence; reject `pytest`, unit test output, or similar test runs when they are the only proof provided
-- For agent-generated work when available: a link back to the originating conversation, e.g. `https://app.all-hands.dev/conversations/{conversation_id}`
 - Reject hand-wavy claims like "tested locally" without concrete runtime artifacts
 
 CRITICAL REVIEW OUTPUT FORMAT:
