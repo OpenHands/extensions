@@ -125,8 +125,6 @@ Suggested flow:
    gh api -X POST repos/<owner>/<repo>/pulls/<pr_number>/requested_reviewers \
      -f reviewers[]=reviewer1 \
      -f reviewers[]=reviewer2
-   # For team reviewers:
-   #   -f team_reviewers[]=my-team
    ```
 
 If the API returns an error indicating reviewers are already requested, treat it as non-fatal and continue monitoring.
