@@ -59,6 +59,20 @@
             ]
         },
         {
+            "name": "babysit-pr",
+            "source": "./babysit-pr",
+            "description": "Babysit a GitHub pull request by monitoring CI checks, workflow runs, review comments, and mergeability until it is ready to merge.",
+            "category": "productivity",
+            "keywords": [
+                "github",
+                "pull-request",
+                "ci",
+                "actions",
+                "review",
+                "monitoring"
+            ]
+        },
+        {
             "name": "bitbucket",
             "source": "./bitbucket",
             "description": "Interact with Bitbucket repositories and pull requests using the BITBUCKET_TOKEN environment variable. Use when working with code hosted on Bitbucket or managing Bitbucket resources via API.",
