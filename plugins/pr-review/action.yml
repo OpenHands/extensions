@@ -23,6 +23,10 @@ inputs:
         description: "Review style: 'standard' (balanced review covering style, readability, and security) or 'roasted' (Linus Torvalds-style brutally honest feedback focusing on data structures, simplicity, and pragmatism)"
         required: false
         default: roasted
+    require-evidence:
+        description: "When true, require the reviewer to check the PR description for an Evidence section proving the code works end-to-end (screenshots/videos for frontend changes; commands and runtime output for backend, CLI, or script changes; conversation link when agent-generated). Test output alone does not count."
+        required: false
+        default: 'false'
     extensions-repo:
         description: GitHub repository for extensions (owner/repo)
         required: false
@@ -117,6 +121,7 @@ runs:
               LLM_MODEL: ${{ steps.select-model.outputs.selected_model }}
               LLM_BASE_URL: ${{ inputs.llm-base-url }}
               REVIEW_STYLE: ${{ inputs.review-style }}
+              REQUIRE_EVIDENCE: ${{ inputs.require-evidence }}
               LLM_API_KEY: ${{ inputs.llm-api-key }}
               GITHUB_TOKEN: ${{ inputs.github-token }}
               LMNR_PROJECT_API_KEY: ${{ inputs.lmnr-api-key }}

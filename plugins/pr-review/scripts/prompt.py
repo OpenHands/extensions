@@ -32,6 +32,21 @@ When reviewing, consider:
 4. Focus on NEW issues in the current diff that haven't been discussed yet
 """
 
+_EVIDENCE_REQUIREMENT_SECTION = """
+## PR Description Evidence Requirement
+
+Require the PR description to include an `Evidence` section (or similarly labeled section) showing that the code actually works.
+
+When checking the PR description:
+- For frontend or UI changes, require a screenshot or video that demonstrates the implemented behavior in the actual product.
+- For backend, API, CLI, or script changes, require the command(s) used to run or exercise the real code path end-to-end and the resulting output.
+- Unit tests alone do **not** count as evidence. Do not accept `pytest`, unit test output, or similar test runs as the only proof that the change works.
+- If the change appears to come from an agent conversation or AI-assisted workflow, prefer a conversation link such as `https://app.all-hands.dev/conversations/{conversation_id}` so reviewers can trace the work.
+- Do not accept vague claims like "tested locally" without concrete runtime artifacts, commands, or output.
+
+If the change is substantive and this evidence is missing or weak, call it out as a must-fix issue in your review. Do not invent evidence that is not present in the PR description.
+"""
+
 PROMPT = """{skill_trigger}
 /github-pr-review
 
@@ -49,7 +64,7 @@ Review the PR changes below and identify issues that need to be addressed.
 - **PR Number**: {pr_number}
 - **Commit ID**: {commit_id}
 
-{review_context_section}
+{review_context_section}{evidence_requirements_section}
 
 ## Git Diff
 
@@ -72,6 +87,7 @@ def format_prompt(
     commit_id: str,
     diff: str,
     review_context: str = "",
+    require_evidence: bool = False,
 ) -> str:
     """Format the PR review prompt with all parameters.
 
@@ -87,6 +103,8 @@ def format_prompt(
         diff: Git diff content
         review_context: Formatted previous review context. If empty or whitespace-only,
                         the review context section is omitted from the prompt.
+        require_evidence: Whether to instruct the reviewer to enforce PR description
+                          evidence showing the code works.
 
     Returns:
         Formatted prompt string
@@ -99,6 +117,10 @@ def format_prompt(
     else:
         review_context_section = ""
 
+    evidence_requirements_section = (
+        _EVIDENCE_REQUIREMENT_SECTION if require_evidence else ""
+    )
+
     return PROMPT.format(
         skill_trigger=skill_trigger,
         title=title,
@@ -109,5 +131,6 @@ def format_prompt(
         pr_number=pr_number,
         commit_id=commit_id,
         review_context_section=review_context_section,
+        evidence_requirements_section=evidence_requirements_section,
         diff=diff,
     )

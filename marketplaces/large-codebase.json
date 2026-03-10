@@ -1,0 +1,52 @@
+{
+  "name": "large-codebase",
+  "owner": {
+    "name": "OpenHands",
+    "email": "contact@all-hands.dev"
+  },
+  "metadata": {
+    "description": "OpenHands skills for interacting, improving, and refactoring large codebases",
+    "version": "1.0.0",
+    "pluginRoot": "./skills"
+  },
+  "plugins": [
+    {
+      "name": "add-javadoc",
+      "source": "./add-javadoc",
+      "description": "Add comprehensive JavaDoc documentation to Java classes and methods. Use when documenting Java code, adding API documentation, or improving code documentation.",
+      "category": "documentation",
+      "keywords": [
+        "javadoc",
+        "java",
+        "documentation",
+        "api-docs"
+      ]
+    },
+    {
+      "name": "cobol-modernization",
+      "source": "../plugins/cobol-modernization",
+      "description": "End-to-end COBOL to Java migration workflow. Handles build setup, mainframe dependency removal, and code migration with test validation.",
+      "category": "development",
+      "keywords": [
+        "cobol",
+        "java",
+        "migration",
+        "mainframe",
+        "modernization"
+      ]
+    },
+    {
+      "name": "migration-scoring",
+      "source": "../plugins/migration-scoring",
+      "description": "Evaluate code migration quality with coverage, correctness, and style scoring. Generates executive reports with actionable recommendations.",
+      "category": "code-quality",
+      "keywords": [
+        "migration",
+        "scoring",
+        "quality",
+        "evaluation",
+        "reporting"
+      ]
+    }
+  ]
+}

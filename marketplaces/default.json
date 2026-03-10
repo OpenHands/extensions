@@ -59,6 +59,20 @@
             ]
         },
         {
+            "name": "babysit-pr",
+            "source": "./babysit-pr",
+            "description": "Babysit a GitHub pull request by monitoring CI checks, workflow runs, review comments, and mergeability until it is ready to merge.",
+            "category": "productivity",
+            "keywords": [
+                "github",
+                "pull-request",
+                "ci",
+                "actions",
+                "review",
+                "monitoring"
+            ]
+        },
+        {
             "name": "bitbucket",
             "source": "./bitbucket",
             "description": "Interact with Bitbucket repositories and pull requests using the BITBUCKET_TOKEN environment variable. Use when working with code hosted on Bitbucket or managing Bitbucket resources via API.",
@@ -239,6 +253,19 @@
             ]
         },
         {
+            "name": "learn-from-code-review",
+            "source": "./learn-from-code-review",
+            "description": "Distill code review feedback from GitHub PRs into reusable skills and guidelines. Use when users ask to learn from code reviews, extract review patterns, or generate coding standards from historical PR feedback.",
+            "category": "code-quality",
+            "keywords": [
+                "code-review",
+                "learning",
+                "skills",
+                "guidelines",
+                "pr-feedback"
+            ]
+        },
+        {
             "name": "notion",
             "source": "./notion",
             "description": "Create, search, and update Notion pages/databases using the Notion API. Use for documenting work, generating runbooks, and automating knowledge base updates.",
@@ -415,6 +442,19 @@
                 "deployment",
                 "preview",
                 "hosting"
+            ]
+        },
+        {
+            "name": "linear",
+            "source": "./linear",
+            "description": "Interact with Linear project management - query issues, update status, create tickets using the Linear GraphQL API.",
+            "category": "integration",
+            "keywords": [
+                "linear",
+                "ticket",
+                "issue",
+                "project-management",
+                "graphql"
             ]
         }
     ]
