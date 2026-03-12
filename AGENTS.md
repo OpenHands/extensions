@@ -89,6 +89,10 @@ When editing or adding skills in this repo, follow these rules (and add new skil
 - Keep formatting consistent across skills.
 - If you change a skill’s behavior or scope, update its `README.md` (if present) accordingly.
 - If you change top-level documentation, ensure links still resolve.
+- For Python test runs, prefer `uv sync --group test` followed by `uv run pytest -q`; the full suite depends on `openhands-sdk`, which is not available in the base environment.
+- Agent-driven plugins (for example `plugins/pr-review` and `plugins/release-notes`) use `uv run --with openhands-sdk --with openhands-tools ...` and require an `LLM_API_KEY` in addition to `GITHUB_TOKEN`.
+
+
 
 ## CI / validation gotchas
 
