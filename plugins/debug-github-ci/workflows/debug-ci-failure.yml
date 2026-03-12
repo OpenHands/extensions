@@ -1,0 +1,48 @@
+---
+name: Debug CI Failure
+
+# IMPORTANT: This workflow is a template. Customize before use.
+# Using workflows: ["*"] can cause high LLM costs in busy repositories.
+
+on:
+    # Trigger when specific workflows fail (CUSTOMIZE THIS LIST)
+    # Uncomment and edit to enable automatic debugging:
+    # workflow_run:
+    #     workflows: ["CI", "Tests", "Build"]  # List your critical workflows
+    #     types: [completed]
+
+    # Manual trigger (recommended for initial setup)
+    workflow_dispatch:
+        inputs:
+            run_id:
+                description: 'Workflow run ID to debug'
+                required: true
+                type: string
+
+permissions:
+    contents: read
+    actions: read
+    issues: write
+    pull-requests: write
+
+jobs:
+    debug-failure:
+        # Only run if manually triggered or the triggering workflow failed
+        # The agent script has additional env-var-based recursion guards
+        if: |
+            github.event_name == 'workflow_dispatch' ||
+            github.event.workflow_run.conclusion == 'failure'
+        runs-on: ubuntu-24.04
+        timeout-minutes: 15  # Prevent runaway debug sessions
+        env:
+            # Marker for recursion prevention - the agent script checks this
+            # to avoid debugging debug workflows, even if they have custom names
+            OH_DEBUG_WORKFLOW: 'true'
+        steps:
+            - name: Debug CI Failure
+              uses: OpenHands/extensions/plugins/debug-github-ci@main
+              with:
+                  llm-model: anthropic/claude-sonnet-4-5-20250929
+                  run-id: ${{ github.event.inputs.run_id || github.event.workflow_run.id }}
+                  llm-api-key: ${{ secrets.LLM_API_KEY }}
+                  github-token: ${{ secrets.GITHUB_TOKEN }}
