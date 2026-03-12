@@ -2,10 +2,7 @@
 name: PR Review by OpenHands
 
 on:
-    # TEMPORARY MITIGATION (Clinejection hardening)
-    #
-    # We temporarily avoid `pull_request_target` here. We'll restore it after the PR review
-    # workflow is fully hardened for untrusted execution.
+    # Run on pull requests and review same-repository PRs only.
     pull_request:
         types: [opened, ready_for_review, labeled, review_requested]
 
@@ -16,8 +13,8 @@ permissions:
 
 jobs:
     pr-review:
-        # Note: fork PRs will not have access to repository secrets under `pull_request`.
-        # Skip forks to avoid noisy failures until we restore a hardened `pull_request_target` flow.
+        # Fork PRs do not have access to repository secrets under `pull_request`.
+        # Review same-repository PRs only.
         if: |
             github.event.pull_request.head.repo.full_name == github.repository &&
             (
