@@ -1,11 +1,11 @@
 {
-    "name": "openhands-skills",
+    "name": "default",
     "owner": {
         "name": "OpenHands",
         "email": "contact@all-hands.dev"
     },
     "metadata": {
-        "description": "Public registry of Skills for OpenHands - reusable guidelines that customize agent behavior",
+        "description": "Official OpenHands skills marketplace - reusable guidelines that customize agent behavior",
         "version": "1.0.0",
         "pluginRoot": "./skills"
     },
@@ -59,6 +59,20 @@
             ]
         },
         {
+            "name": "babysit-pr",
+            "source": "./babysit-pr",
+            "description": "Babysit a GitHub pull request by monitoring CI checks, workflow runs, review comments, and mergeability until it is ready to merge.",
+            "category": "productivity",
+            "keywords": [
+                "github",
+                "pull-request",
+                "ci",
+                "actions",
+                "review",
+                "monitoring"
+            ]
+        },
+        {
             "name": "bitbucket",
             "source": "./bitbucket",
             "description": "Interact with Bitbucket repositories and pull requests using the BITBUCKET_TOKEN environment variable. Use when working with code hosted on Bitbucket or managing Bitbucket resources via API.",
@@ -70,8 +84,8 @@
             ]
         },
         {
-            "name": "codereview",
-            "source": "./codereview",
+            "name": "code-review",
+            "source": "./code-review",
             "description": "Structured code review covering style, readability, and security concerns with actionable feedback. Use when reviewing pull requests or merge requests to identify issues and suggest improvements.",
             "category": "code-quality",
             "keywords": [
@@ -115,6 +129,18 @@
                 "typescript",
                 "javascript",
                 "runtime"
+            ]
+        },
+        {
+            "name": "discord",
+            "source": "./discord",
+            "description": "Build and automate Discord integrations (bots, webhooks, slash commands, and REST API workflows). Use when the user mentions Discord, a Discord server/guild, channels, webhooks, bot tokens, slash commands/application commands, discord.js, or discord.py.",
+            "category": "integration",
+            "keywords": [
+                "discord",
+                "bot",
+                "webhook",
+                "automation"
             ]
         },
         {
@@ -227,6 +253,19 @@
             ]
         },
         {
+            "name": "learn-from-code-review",
+            "source": "./learn-from-code-review",
+            "description": "Distill code review feedback from GitHub PRs into reusable skills and guidelines. Use when users ask to learn from code reviews, extract review patterns, or generate coding standards from historical PR feedback.",
+            "category": "code-quality",
+            "keywords": [
+                "code-review",
+                "learning",
+                "skills",
+                "guidelines",
+                "pr-feedback"
+            ]
+        },
+        {
             "name": "notion",
             "source": "./notion",
             "description": "Create, search, and update Notion pages/databases using the Notion API. Use for documenting work, generating runbooks, and automating knowledge base updates.",
@@ -257,6 +296,34 @@
                 "onboarding",
                 "planning",
                 "requirements"
+            ]
+        },
+        {
+            "name": "openhands-api",
+            "source": "./openhands-api",
+            "description": "Use the OpenHands REST API (V0) to create and manage agent conversations programmatically. Includes minimal Python and TypeScript clients under scripts/.",
+            "category": "development",
+            "keywords": [
+                "openhands",
+                "api",
+                "conversations",
+                "automation"
+            ]
+        },
+        {
+            "name": "openhands-api-v1",
+            "source": "./openhands-api-v1",
+            "description": "Use the OpenHands Cloud REST API (V1) to create and manage app conversations and to access sandbox agent-server endpoints. Includes minimal Python and TypeScript clients under scripts/.",
+            "category": "development",
+            "keywords": [
+                "openhands",
+                "api",
+                "cloud",
+                "v1",
+                "agent-server",
+                "sandbox",
+                "conversations",
+                "automation"
             ]
         },
         {
@@ -375,6 +442,19 @@
                 "deployment",
                 "preview",
                 "hosting"
+            ]
+        },
+        {
+            "name": "linear",
+            "source": "./linear",
+            "description": "Interact with Linear project management - query issues, update status, create tickets using the Linear GraphQL API.",
+            "category": "integration",
+            "keywords": [
+                "linear",
+                "ticket",
+                "issue",
+                "project-management",
+                "graphql"
             ]
         },
         {

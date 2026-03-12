@@ -77,6 +77,17 @@ Do not accept "tests" that are just a pile of mocks asserting that functions wer
 - Flag tests that only mock the unit under test and assert it was called, unless they cover a real coverage gap that cannot be achieved otherwise.
 - The test should fail if the behavior regresses.
 
+7. **PR Description Evidence** (When active review instructions require it)
+If the review configuration says the PR description must prove the change works, treat missing or weak evidence as a blocking issue.
+
+Require:
+- An `Evidence` section in the PR description (preferred label)
+- For frontend/UI changes: a screenshot or video demonstrating the implemented behavior in the real product
+- For backend, API, CLI, or script changes: the exact command(s) used to run the real code path end-to-end and the resulting output
+- Tests alone do not count as evidence; reject `pytest`, unit test output, or similar test runs when they are the only proof provided
+- For agent-generated work when available: a link back to the originating conversation, e.g. `https://app.all-hands.dev/conversations/{conversation_id}`
+- Reject hand-wavy claims like "tested locally" without concrete runtime artifacts
+
 CRITICAL REVIEW OUTPUT FORMAT:
 
 Start with a **Taste Rating**:
@@ -101,6 +112,7 @@ Then provide **Linus-Style Analysis** (skip if 🟢):
 
 **[TESTING GAPS]** (If behavior changed, this is not optional)
 - [tests/test_feature.py, Line E] **Mocks Aren't Tests**: You're only asserting mocked calls. Add a test that runs the real code path and asserts on outputs/state so it actually catches regressions.
+- [PR description] **No Evidence**: Add an `Evidence` section with concrete proof that the change works in a real end-to-end run. Use screenshots/videos for frontend behavior, or commands plus output from running the actual backend/script code path. Test output alone is not enough. Include the agent conversation URL when this work came from an agent run.
 
 
 **VERDICT:**

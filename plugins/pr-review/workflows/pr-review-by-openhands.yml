@@ -8,10 +8,9 @@ on:
     #   2. A draft PR is marked as ready for review, OR
     #   3. A maintainer adds the 'review-this' label, OR
     #   4. A maintainer requests openhands-agent or all-hands-bot as a reviewer
-    # Adding labels and requesting new reviewers requires write access. GitHub may also allow PR authors
-    # to re-request review from a previous reviewer.
+    # Adding labels and requesting reviewers requires write access.
     # The PR code is explicitly checked out for review, but secrets are only accessible
-    # because the workflow runs in the base repository context
+    # because the workflow runs in the base repository context.
     pull_request_target:
         types: [opened, ready_for_review, labeled, review_requested]
 
@@ -27,7 +26,7 @@ jobs:
         #   2. A draft PR is converted to ready for review by a non-first-time contributor, OR
         #   3. 'review-this' label is added, OR
         #   4. openhands-agent or all-hands-bot is requested as a reviewer
-        # Note: FIRST_TIME_CONTRIBUTOR PRs require manual trigger via label/reviewer request
+        # Note: FIRST_TIME_CONTRIBUTOR and NONE PRs require manual trigger via label/reviewer request.
         if: |
             (github.event.action == 'opened' && github.event.pull_request.draft == false && github.event.pull_request.author_association != 'FIRST_TIME_CONTRIBUTOR' && github.event.pull_request.author_association != 'NONE') ||
             (github.event.action == 'ready_for_review' && github.event.pull_request.author_association != 'FIRST_TIME_CONTRIBUTOR' && github.event.pull_request.author_association != 'NONE') ||
@@ -42,13 +41,10 @@ jobs:
             - name: Run PR Review
               uses: OpenHands/extensions/plugins/pr-review@main
               with:
-                  # LLM model(s) to use. Can be comma-separated for A/B testing
-                  # - one model will be randomly selected per review
-                  llm-model: anthropic/claude-sonnet-4-5-20250929
-                  # llm-base-url: https://llm-proxy.app.all-hands.dev
+                  llm-model: litellm_proxy/claude-sonnet-4-5-20250929
+                  llm-base-url: https://llm-proxy.app.all-hands.dev
                   # Review style: roasted (other option: standard)
                   review-style: roasted
                   llm-api-key: ${{ secrets.LLM_API_KEY }}
-                  github-token: ${{ secrets.GITHUB_TOKEN }}
-                  # Optional: Laminar API key for observability
-                  # lmnr-api-key: ${{ secrets.LMNR_PROJECT_API_KEY }}
+                  github-token: ${{ secrets.ALLHANDS_BOT_GITHUB_PAT }}
+                  lmnr-api-key: ${{ secrets.LMNR_SKILLS_API_KEY }}

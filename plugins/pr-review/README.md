@@ -2,6 +2,20 @@
 
 Automated pull request review using OpenHands agents. This plugin provides GitHub workflows that automatically review PRs with detailed, inline code review comments.
 
+## Quick Start
+
+Copy both workflow files to your repository:
+
+```bash
+mkdir -p .github/workflows
+curl -o .github/workflows/pr-review-by-openhands.yml \
+  https://raw.githubusercontent.com/OpenHands/extensions/main/.github/workflows/pr-review-by-openhands.yml
+curl -o .github/workflows/pr-review-evaluation.yml \
+  https://raw.githubusercontent.com/OpenHands/extensions/main/.github/workflows/pr-review-evaluation.yml
+```
+
+Then configure the required secrets (see [Installation](#installation) below).
+
 ## Features
 
 - **Automated PR Reviews**: Triggered when PRs are opened, marked ready, or when a reviewer is requested
@@ -11,6 +25,7 @@ Automated pull request review using OpenHands agents. This plugin provides GitHu
   - `roasted` - Linus Torvalds-style brutally honest feedback focusing on data structures, simplicity, and pragmatism
 - **A/B Testing**: Support for testing multiple LLM models
 - **Review Context Awareness**: Considers previous reviews and unresolved threads
+- **Evidence Enforcement**: Optional check that PR descriptions include concrete end-to-end proof the code works, not just test output
 - **Observability**: Optional Laminar integration for tracing and evaluation
 
 ## Plugin Contents
@@ -33,16 +48,16 @@ plugins/pr-review/
 
 ## Installation
 
-### 1. Copy the Workflow File
+### 1. Copy the Workflow Files
 
-Copy the workflow file to your repository's `.github/workflows/` directory:
+Copy the workflow files to your repository's `.github/workflows/` directory:
 
 ```bash
-# Option A: Download from GitHub
+mkdir -p .github/workflows
 curl -o .github/workflows/pr-review-by-openhands.yml \
-  https://raw.githubusercontent.com/OpenHands/extensions/main/plugins/pr-review/workflows/pr-review-by-openhands.yml
-
-# Option B: Create manually (see workflow content below)
+  https://raw.githubusercontent.com/OpenHands/extensions/main/.github/workflows/pr-review-by-openhands.yml
+curl -o .github/workflows/pr-review-evaluation.yml \
+  https://raw.githubusercontent.com/OpenHands/extensions/main/.github/workflows/pr-review-evaluation.yml
 ```
 
 ### 2. Configure Secrets
@@ -53,7 +68,7 @@ Add the following secrets in your repository settings (**Settings → Secrets an
 |--------|----------|-------------|
 | `LLM_API_KEY` | Yes | API key for your LLM provider |
 | `GITHUB_TOKEN` | Auto | Provided automatically by GitHub Actions |
-| `LMNR_PROJECT_API_KEY` | No | Laminar API key for observability |
+| `LMNR_SKILLS_API_KEY` | No | Laminar API key (org-level secret; mapped to `LMNR_PROJECT_API_KEY` env var in workflows) |
 
 **Note**: For repositories that need to post review comments from a bot account, use `ALLHANDS_BOT_GITHUB_PAT` instead of `GITHUB_TOKEN`.
 
@@ -73,6 +88,9 @@ Edit the workflow file to customize:
     
     # Review style: 'standard' or 'roasted'
     review-style: roasted
+
+    # Optional: require an Evidence section proving the code works end-to-end
+    # require-evidence: 'true'
     
     # Pin to a specific version (tag, branch, or commit SHA)
     extensions-version: main
@@ -124,6 +142,7 @@ PR reviews are automatically triggered when:
 | `llm-model` | No | `anthropic/claude-sonnet-4-5-20250929` | LLM model(s), comma-separated for A/B testing |
 | `llm-base-url` | No | `''` | Custom LLM endpoint URL |
 | `review-style` | No | `roasted` | Review style: `standard` or `roasted` |
+| `require-evidence` | No | `'false'` | Require the reviewer to enforce an `Evidence` section in the PR description with end-to-end proof: screenshots/videos for frontend work, commands and runtime output for backend or scripts, and an agent conversation link when applicable. Test output alone does not qualify. |
 | `extensions-repo` | No | `OpenHands/extensions` | Extensions repository |
 | `extensions-version` | No | `main` | Git ref (tag, branch, or SHA) |
 | `llm-api-key` | Yes | - | LLM API key |
@@ -157,14 +176,7 @@ One model is randomly selected for each review. When Laminar observability is en
 
 ### Review Evaluation
 
-To evaluate how well reviews were addressed, add the evaluation workflow:
-
-```bash
-curl -o .github/workflows/pr-review-evaluation.yml \
-  https://raw.githubusercontent.com/OpenHands/extensions/main/plugins/pr-review/workflows/pr-review-evaluation.yml
-```
-
-This workflow runs when PRs are closed and:
+The evaluation workflow (`pr-review-evaluation.yml`) runs when PRs are closed and:
 1. Downloads the review trace artifact
 2. Fetches final PR state and comments
 3. Creates an evaluation span in Laminar

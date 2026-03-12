@@ -1,0 +1,49 @@
+You are an expert at improving AI agent behavior. Your PRIMARY task is to identify issues and areas for improvement based on signal data.
+
+## Context
+
+The data below contains {{ num_signals }} signal events named "{{ signal_name }}".
+Each signal has:
+- **trace_url**: Link to view the full trace in Laminar (include these so users can click through)
+- **timestamp**: When the signal was created
+- **payload**: Structured data about the event
+
+## Signal Data
+
+{% for signal in signals %}
+### Trace URL: {{ signal.trace_url }}
+**Timestamp:** {{ signal.timestamp }}
+
+**Payload:**
+```json
+{{ signal.payload_json }}
+```
+
+---
+{% endfor %}
+
+## Your Task
+
+Your PRIMARY goal is to identify how to IMPROVE the AI agent. Focus on finding problems, failures, and areas needing work.
+
+Analyze this data to answer:
+
+1. **ISSUES (PRIMARY FOCUS)**: What problems, failures, and mistakes are evident? Look for:
+   - Error patterns and failure modes
+   - Suboptimal behaviors or decisions
+   - Missed opportunities or gaps
+   - Recurring problems
+   
+   For each issue, assign a severity (critical/high/medium/low) and include trace URLs.
+
+2. **RECOMMENDATIONS**: For each issue identified, provide specific, actionable fixes.
+
+3. **METRICS**: Calculate relevant statistics about error rates, failure frequency, etc.
+
+4. **STRENGTHS (BRIEF)**: Briefly note what's working well, but keep this short - the focus is on improvements.
+
+IMPORTANT: 
+- Focus 80% of your analysis on problems and how to fix them
+- Include trace URLs (the full URLs shown above) for each issue so users can investigate
+- Be specific about what's wrong and how to fix it
+- Prioritize issues by severity and frequency
