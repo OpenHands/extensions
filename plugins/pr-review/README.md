@@ -28,6 +28,28 @@ Then configure the required secrets (see [Installation](#installation) below).
 - **Evidence Enforcement**: Optional check that PR descriptions include concrete end-to-end proof the code works, not just test output
 - **Observability**: Optional Laminar integration for tracing and evaluation
 
+## How It Works
+
+The PR review workflow uses the OpenHands Software Agent SDK to analyze your code changes:
+
+1. **Trigger**: The workflow runs when a PR is opened, marked ready, labeled, or when a reviewer is requested
+2. **Analysis**: The agent receives the complete PR diff and uses skills from this repository:
+   - **`/codereview`** or **`/codereview-roasted`**: Analyzes code for quality, security, and best practices
+   - **`/github-pr-review`**: Posts structured inline comments via the GitHub API
+3. **Output**: Review comments are posted directly on the PR with priority labels (🔴 Critical, 🟠 Important, 🟡 Suggestion, 🟢 Nit) and actionable suggestions
+
+### Composite Action
+
+This plugin uses a reusable composite GitHub Action that handles all the setup automatically:
+
+- **Checkout**: Downloads both the extensions repository and your PR code
+- **Environment Setup**: Installs Python 3.12, uv, and GitHub CLI
+- **Dependencies**: Uses `uv run` to install openhands-sdk, openhands-tools, and lmnr on-demand
+- **Execution**: Runs the PR review agent script with your configuration
+- **Artifacts**: Uploads logs and trace information for debugging and evaluation
+
+The composite action approach means you don't need to maintain the workflow logic in your repository—just reference the action and provide your configuration.
+
 ## Plugin Contents
 
 ```
@@ -192,11 +214,21 @@ In your Laminar dashboard, you can:
 
 ## Customizing Review Guidelines
 
-Instead of forking the scripts, add custom guidelines to your repository:
+Instead of forking the scripts, you can customize the code review behavior by adding repository-specific guidelines. This is the **recommended approach** for customization.
+
+### How Skill Overriding Works
+
+The PR review agent uses skills from the [OpenHands/extensions](https://github.com/OpenHands/extensions) repository by default. When you add a `.agents/skills/code-review.md` file to your repository, it **overrides** the default skill with your custom guidelines.
+
+This means you can:
+- Keep using the official action without forking
+- Maintain your review standards in version control
+- Update your guidelines without waiting for upstream changes
+- Ensure consistent reviews across your team
 
 ### Option 1: Custom Code Review Skill
 
-Create `.agents/skills/code-review.md`:
+Create `.agents/skills/code-review.md` in your repository:
 
 ```markdown
 ---
@@ -210,19 +242,32 @@ triggers:
 
 You are a code reviewer for this project. Follow these guidelines:
 
-## Review Focus
-- Security vulnerabilities and data handling
-- API contract compatibility
-- Test coverage for new functionality
+## Review Decisions
+
+- **APPROVE** straightforward changes (config updates, typo fixes, documentation)
+- **COMMENT** when you have feedback or concerns
+
+## What to Check
+
+- Code follows our project conventions
+- Tests are included for new functionality
+- No security vulnerabilities introduced
+- Documentation is updated if needed
 
 ## Communication Style
+
 - Be direct and constructive
 - Use GitHub suggestion syntax for code fixes
+- Approve quickly when code is good
 ```
+
+**Important**: The skill file must use `/codereview` as the trigger (in the frontmatter) to override the default review behavior.
+
+**Reference Example**: See the [OpenHands Software Agent SDK's code-review skill](https://github.com/OpenHands/software-agent-sdk/blob/main/.agents/skills/code-review.md) for a comprehensive example.
 
 ### Option 2: Repository AGENTS.md
 
-Add project-specific context to `AGENTS.md` at your repository root:
+Add project-specific context to `AGENTS.md` at your repository root. This provides additional context without replacing the default review skill:
 
 ```markdown
 # Project Context
@@ -233,7 +278,14 @@ This is a Python web application using FastAPI.
 - All public functions must have docstrings
 - Use type hints for function signatures
 - Follow PEP 8 style guidelines
+
+## Testing Requirements
+- Unit tests required for all new features
+- Integration tests for API endpoints
+- Minimum 80% code coverage
 ```
+
+The agent will consider both the skill guidelines and your AGENTS.md context when reviewing code.
 
 ## Migration from software-agent-sdk
 
@@ -251,32 +303,123 @@ uses: OpenHands/extensions/plugins/pr-review@main
 
 Also update any `sdk-repo` and `sdk-version` inputs to `extensions-repo` and `extensions-version`.
 
+## Example Reviews
+
+See real automated reviews in action from the OpenHands Software Agent SDK repository:
+
+| PR | Description | Review Highlights |
+|---|---|---|
+| [#1927](https://github.com/OpenHands/software-agent-sdk/pull/1927#pullrequestreview-3767493657) | Composite GitHub Action refactor | Comprehensive review with 🔴 Critical, 🟠 Important, and 🟡 Suggestion labels |
+| [#1916](https://github.com/OpenHands/software-agent-sdk/pull/1916#pullrequestreview-3758297071) | Add example for reconstructing messages | Critical issues flagged with clear explanations |
+| [#1904](https://github.com/OpenHands/software-agent-sdk/pull/1904#pullrequestreview-3751821740) | Update code-review skill guidelines | APPROVED review highlighting key strengths |
+| [#1889](https://github.com/OpenHands/software-agent-sdk/pull/1889#pullrequestreview-3747576245) | Fix tmux race condition | Technical review of concurrency fix with dual-lock strategy analysis |
+
+These examples demonstrate:
+- **Inline comments** on specific lines of code
+- **Priority labeling** (🔴 Critical, 🟠 Important, 🟡 Suggestion, 🟢 Nit)
+- **Actionable feedback** with code examples and suggestions
+- **Context-aware analysis** considering the broader codebase
+
 ## Troubleshooting
 
 ### Review Not Triggered
 
-1. Check that the workflow file is in `.github/workflows/`
-2. Verify the PR author association (first-time contributors need manual trigger)
-3. Ensure secrets are configured correctly
+**Symptoms**: Workflow doesn't start when you expect it to
+
+**Solutions**:
+1. **Check workflow file location**: Ensure the workflow file is in `.github/workflows/` directory
+2. **Verify PR author association**: First-time contributors (`FIRST_TIME_CONTRIBUTOR` or `NONE` association) require manual trigger via label or reviewer request for security
+3. **Check secrets**: Verify `LLM_API_KEY` is set in repository settings under **Settings → Secrets and variables → Actions**
+4. **Review trigger conditions**: Check the `if:` condition in your workflow matches your intended trigger events
+5. **Check Actions tab**: Look for workflow run errors in the **Actions** tab of your repository
 
 ### Review Comments Not Appearing
 
-1. Check the `GITHUB_TOKEN` has write permissions for pull requests
-2. Review the workflow logs for API errors
-3. Verify the LLM API key is valid
+**Symptoms**: Workflow runs successfully but no comments appear on the PR
+
+**Solutions**:
+1. **Check permissions**: Ensure your workflow has these permissions:
+   ```yaml
+   permissions:
+     contents: read
+     pull-requests: write
+     issues: write
+   ```
+2. **Verify GITHUB_TOKEN**: For fork PRs, ensure you're using `pull_request_target` (not `pull_request`)
+3. **Check workflow logs**: Look for GitHub API errors in the workflow execution logs
+4. **Validate LLM API key**: Test that your `LLM_API_KEY` is valid and has available quota
+5. **Review rate limits**: Check if you've hit GitHub API rate limits (rare with default tokens)
+
+### Review Taking Too Long
+
+**Symptoms**: Review runs for more than 5-10 minutes
+
+**Solutions**:
+1. **Large PRs**: PRs with many files or large diffs take longer to analyze
+   - Consider splitting large PRs into smaller, focused changes
+   - The agent truncates very large diffs (>100,000 characters) automatically
+2. **LLM API delays**: Check if your LLM provider is experiencing slowdowns
+3. **Check concurrency**: The workflow uses concurrency control to cancel previous runs when new commits are pushed
 
 ### Rate Limiting
 
-If you see rate limit errors:
-1. Reviews are automatically paginated to avoid limits
-2. Consider using a dedicated bot token for high-volume repositories
+**Symptoms**: GitHub API rate limit errors in logs
+
+**Solutions**:
+1. Reviews are automatically paginated to avoid limits on fetching review history
+2. For high-volume repositories, consider using a dedicated bot token (e.g., `ALLHANDS_BOT_GITHUB_PAT`) instead of the default `GITHUB_TOKEN`
+3. GitHub's rate limits reset hourly—you can wait and retry
+
+### Agent Not Using Custom Skill
+
+**Symptoms**: Agent ignores your `.agents/skills/code-review.md` file
+
+**Solutions**:
+1. **Check file location**: File must be at `.agents/skills/code-review.md` (note the dot prefix)
+2. **Verify frontmatter**: Ensure the YAML frontmatter includes `triggers: [/codereview]`
+3. **Review file syntax**: Make sure the markdown is valid and frontmatter is properly formatted
+4. **Check workflow logs**: Look for skill loading messages in the agent execution logs
 
 ## Security
 
-- Uses `pull_request_target` to safely access secrets for fork PRs
-- Only triggers for trusted contributors or when maintainers add labels/reviewers
-- PR code is checked out explicitly; secrets are not exposed to PR code
-- Credentials are not persisted during checkout
+### Why `pull_request_target`?
+
+This workflow uses `pull_request_target` instead of `pull_request` so the code review agent can access secrets and post comments on PRs from forks. The workflow runs in the context of the base repository (not the fork), which provides access to repository secrets.
+
+### Security Safeguards
+
+1. **Trusted Contributors Only**: The workflow automatically runs for non-first-time contributors. First-time contributors require a maintainer to manually add the `review-this` label or request a review.
+
+2. **Explicit Checkout**: The PR code is explicitly checked out in a separate directory (`pr-repo/`) and is not automatically trusted.
+
+3. **No Credential Persistence**: The checkout uses `persist-credentials: false` to prevent git credentials from being stored.
+
+4. **SDK Secret Masking**: API keys are passed as SDK secrets rather than plain environment variables, which provides automatic masking in logs and prevents the agent from directly accessing these credentials during code execution.
+
+### Potential Risk
+
+⚠️ **Important**: A malicious contributor could submit a PR containing code designed to exfiltrate your `LLM_API_KEY` when the review agent analyzes their code.
+
+**Mitigation**: The PR review workflow passes API keys as SDK secrets, which are:
+- Automatically masked in all agent output and logs
+- Not directly accessible as environment variables during agent execution
+- Only used internally by the SDK for LLM API calls
+
+For more details on how SDK secrets work, see the [SDK Secrets documentation](https://docs.openhands.dev/sdk/guides/secrets).
+
+### Caching Strategy
+
+This action uses `uv` with caching enabled to speed up dependency installation. GitHub Actions caches are scoped to the repository and branch, providing isolation between different PRs and preventing cache poisoning attacks.
+
+## Related Resources
+
+- **[OpenHands Extensions Repository](https://github.com/OpenHands/extensions)** - Source code for this plugin and other OpenHands extensions
+- **[Code Review Skills](https://github.com/OpenHands/extensions/tree/main/skills/code-review)** - Default review skills used by the agent
+- **[PR Review Action](https://github.com/OpenHands/extensions/blob/main/plugins/pr-review/action.yml)** - Composite GitHub Action implementation
+- **[Software Agent SDK](https://docs.openhands.dev/sdk)** - Build your own AI-powered workflows
+- **[SDK Secrets Guide](https://docs.openhands.dev/sdk/guides/secrets)** - Learn about secure credential handling
+- **[Skills Documentation](https://docs.openhands.dev/overview/skills)** - Learn more about OpenHands skills
+- **[OpenHands Cloud GitHub Integration](https://docs.openhands.dev/openhands/usage/cloud/github-installation)** - Alternative: Use OpenHands Cloud for PR reviews
 
 ## Contributing
 
