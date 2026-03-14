@@ -54,10 +54,9 @@ from typing import Any
 
 from lmnr import Laminar
 from openhands.sdk import LLM, Agent, AgentContext, Conversation, get_logger
-from openhands.sdk.context.skills import load_project_skills
+from openhands.sdk.context.skills import Skill, load_project_skills
 from openhands.sdk.conversation import get_agent_final_response
 from openhands.sdk.git.utils import run_git_command
-from openhands.tools.preset.default import get_default_condenser, get_default_tools
 
 # Add the script directory to Python path so we can import prompt.py
 script_dir = Path(__file__).parent
@@ -76,6 +75,19 @@ MAX_REVIEW_CONTEXT = 30000
 
 # Maximum time (seconds) for GraphQL pagination to prevent hanging on slow APIs
 MAX_PAGINATION_TIME = 120
+
+
+# Maximum number of files returned per page by the GitHub PR files API
+PR_FILES_PER_PAGE = 100
+
+# Case-insensitive filenames treated as AGENTS instructions
+AGENTS_FILE_NAMES = tuple(
+    sorted(
+        name
+        for name, skill_name in Skill.PATH_TO_THIRD_PARTY_SKILL_NAME.items()
+        if skill_name == "agents"
+    )
+)
 
 # GraphQL queries as module-level constants for reusability and testability
 REVIEWS_QUERY = """
@@ -586,6 +598,172 @@ def get_pr_review_context(pr_number: str) -> str:
     return format_review_context(reviews, threads)
 
 
+
+def get_pr_changed_files(pr_number: str) -> list[str]:
+    """Fetch changed file paths for a pull request."""
+    repo = _get_required_env("REPO_NAME")
+    changed_files: list[str] = []
+    page = 1
+
+    while True:
+        response = _call_github_api(
+            f"/repos/{repo}/pulls/{pr_number}/files"
+            f"?per_page={PR_FILES_PER_PAGE}&page={page}"
+        )
+        if not isinstance(response, list):
+            raise RuntimeError(
+                "GitHub PR files API returned an unexpected response shape"
+            )
+
+        changed_files.extend(
+            item["filename"]
+            for item in response
+            if isinstance(item, dict) and item.get("filename")
+        )
+
+        if len(response) < PR_FILES_PER_PAGE:
+            break
+        page += 1
+
+    return changed_files
+
+
+def _find_git_repo_root(path: Path) -> Path | None:
+    for candidate in (path, *path.parents):
+        if (candidate / ".git").exists():
+            return candidate
+    return None
+
+
+def _find_agents_file(directory: Path) -> Path | None:
+    if not directory.exists() or not directory.is_dir():
+        return None
+
+    matches = sorted(
+        item
+        for item in directory.iterdir()
+        if item.is_file() and item.name.lower() in AGENTS_FILE_NAMES
+    )
+    if not matches:
+        return None
+
+    if len(matches) > 1:
+        logger.warning(
+            f"Multiple AGENTS files found in {directory}; using {matches[0].name}"
+        )
+    return matches[0]
+
+
+def find_changed_file_agents_files(
+    work_dir: str | Path, changed_files: list[str]
+) -> list[Path]:
+    """Find AGENTS files that apply to the changed paths.
+
+    Returns repo-root and nested ancestor AGENTS files in shallow-to-deep order,
+    deduplicated across all changed paths.
+    """
+    work_dir = Path(work_dir) if isinstance(work_dir, str) else work_dir
+    repo_root = _find_git_repo_root(work_dir) or work_dir
+
+    candidate_dirs: list[Path] = [repo_root]
+    seen_dirs = {repo_root}
+
+    for changed_file in changed_files:
+        changed_path = Path(changed_file)
+        if changed_path.is_absolute() or ".." in changed_path.parts:
+            logger.warning(f"Skipping invalid changed file path: {changed_file}")
+            continue
+
+        current_dir = repo_root
+        for part in changed_path.parent.parts:
+            current_dir = current_dir / part
+            if current_dir not in seen_dirs:
+                candidate_dirs.append(current_dir)
+                seen_dirs.add(current_dir)
+
+    agents_files: list[Path] = []
+    seen_files: set[Path] = set()
+    for directory in candidate_dirs:
+        agents_file = _find_agents_file(directory)
+        if agents_file is not None and agents_file not in seen_files:
+            agents_files.append(agents_file)
+            seen_files.add(agents_file)
+
+    return agents_files
+
+
+def build_agents_skill(agents_files: list[Path], repo_root: Path) -> Skill | None:
+    """Build a single always-on skill from the applicable AGENTS files."""
+    if not agents_files:
+        return None
+
+    loaded_skills = [Skill.load(path) for path in agents_files]
+    if len(loaded_skills) == 1:
+        return loaded_skills[0]
+
+    sections = [
+        "# Combined AGENTS.md context",
+        "",
+        "Apply these instructions in order. Later sections are closer to the "
+        "changed code and should take precedence when guidance conflicts.",
+    ]
+    for skill in loaded_skills:
+        source = Path(skill.source) if skill.source else repo_root / "AGENTS.md"
+        try:
+            display_path = source.relative_to(repo_root)
+        except ValueError:
+            display_path = source
+        sections.extend(["", f"## {display_path}", "", skill.content.strip()])
+
+    return Skill(
+        name="agents",
+        content="\n".join(sections).strip() + "\n",
+        source=str(agents_files[-1]),
+        trigger=None,
+    )
+
+
+def load_review_skills(work_dir: str | Path, pr_number: str) -> list[Skill]:
+    """Load repo skills plus AGENTS files relevant to the changed paths."""
+    work_dir = Path(work_dir) if isinstance(work_dir, str) else Path(work_dir)
+    project_skills = load_project_skills(work_dir)
+
+    try:
+        changed_files = get_pr_changed_files(pr_number)
+        logger.info(f"Fetched {len(changed_files)} changed files")
+    except Exception as e:
+        logger.warning(f"Failed to fetch changed files for nested AGENTS loading: {e}")
+        return project_skills
+
+    repo_root = _find_git_repo_root(work_dir) or work_dir
+    agents_files = find_changed_file_agents_files(repo_root, changed_files)
+    if not agents_files:
+        return project_skills
+
+    logger.info(
+        "Applying AGENTS files for changed paths: "
+        f"{[str(path.relative_to(repo_root)) for path in agents_files]}"
+    )
+    merged_agents_skill = build_agents_skill(agents_files, repo_root)
+    if merged_agents_skill is None:
+        return project_skills
+
+    merged_skills: list[Skill] = []
+    replaced_agents = False
+    for skill in project_skills:
+        if skill.name == "agents":
+            if not replaced_agents:
+                merged_skills.append(merged_agents_skill)
+                replaced_agents = True
+            continue
+        merged_skills.append(skill)
+
+    if not replaced_agents:
+        merged_skills.insert(0, merged_agents_skill)
+
+    return merged_skills
+
+
 def get_pr_diff_via_github_api(pr_number: str) -> str:
     """Fetch the PR diff exactly as GitHub renders it.
 
@@ -732,6 +910,11 @@ def create_agent(config: dict[str, Any]) -> Agent:
     Returns:
         Configured Agent instance
     """
+    from openhands.tools.preset.default import (
+        get_default_condenser,
+        get_default_tools,
+    )
+
     llm_config = {
         "model": config["model"],
         "api_key": config["api_key"],
@@ -744,7 +927,7 @@ def create_agent(config: dict[str, Any]) -> Agent:
     llm = LLM(**llm_config)
 
     cwd = os.getcwd()
-    project_skills = load_project_skills(cwd)
+    project_skills = load_review_skills(cwd, config["pr_info"]["number"])
     logger.info(
         f"Loaded {len(project_skills)} project skills: "
         f"{[s.name for s in project_skills]}"

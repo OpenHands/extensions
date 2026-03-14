@@ -99,7 +99,8 @@ When editing or adding skills in this repo, follow these rules (and add new skil
 
 - `plugins/pr-review` supports an optional `require-evidence` action input that tells the reviewer to require end-to-end proof in the PR description that the code works; test output alone is not sufficient evidence.
 - The corresponding `REQUIRE_EVIDENCE` env flag is consumed by `plugins/pr-review/scripts/agent_script.py` and injected into the review prompt via `plugins/pr-review/scripts/prompt.py`.
-- Prompt coverage for this behavior lives in `tests/test_pr_review_prompt.py`.
+- The PR reviewer now loads repo-root project skills plus the AGENTS files that apply to changed paths, merging repo-root and nested/package-specific `AGENTS.md` content into a single always-on `agents` skill.
+- Prompt coverage for this behavior lives in `tests/test_pr_review_prompt.py`, and nested AGENTS coverage lives in `tests/test_pr_review_agents_loading.py`.
 
 
 ## When uncertain
