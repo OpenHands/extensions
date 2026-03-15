@@ -1,0 +1,45 @@
+name: Update Example
+
+on:
+  workflow_dispatch:
+
+jobs:
+  update-example:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install OpenHands CLI
+        run: pip install openhands
+
+      - name: Copy before to after
+        run: |
+          cp -r plugins/python-type-annotations/examples/basic/before/* \
+                plugins/python-type-annotations/examples/basic/after/
+
+      - name: Run OpenHands with plugin
+        working-directory: plugins/python-type-annotations/examples/basic/after
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          LLM_MODEL: anthropic/claude-sonnet-4-6-20250514
+        run: |
+          openhands run \
+            --plugin ../../../ \
+            --prompt "$(cat ../prompt.md)" \
+            --trajectory ../trajectory.json
+
+      - name: Commit and push changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add plugins/python-type-annotations/examples/basic/after/
+          git add plugins/python-type-annotations/examples/basic/trajectory.json
+          git diff --cached --quiet || git commit -m "Update example output with type annotations"
+          git push
