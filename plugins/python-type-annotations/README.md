@@ -49,7 +49,7 @@ See the `examples/basic/` directory for a before/after example:
 
 ## Testing
 
-The [`update-type-annotations-example.yml`](../../.github/workflows/update-type-annotations-example.yml) GitHub Action can be triggered manually to regenerate the `after/` example using the current plugin and OpenHands CLI. You can run it on any branch or on main.
+The [`update-example.yaml`](../../.github/workflows/update-example.yaml) GitHub Action can be triggered manually to regenerate the `after/` example using the current plugin and OpenHands CLI. You can run it on any branch or on main. It also runs automatically on any push that changes the plugin.
 
 ## Plugin Structure
 

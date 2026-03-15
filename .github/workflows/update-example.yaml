@@ -10,7 +10,7 @@ on:
   push:
     paths:
       - "plugins/python-type-annotations/**"
-      - ".github/workflows/update-type-annotations-example.yml"
+      - ".github/workflows/update-example.yaml"
 
 jobs:
   update-example:
