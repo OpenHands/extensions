@@ -239,6 +239,8 @@ env:
   OPENAPI_SPEC_URL: 'https://api.example.com/openapi.json'
   # Where to store the spec snapshot
   SPEC_SNAPSHOT_PATH: '.openapi/spec.json'
+  # OpenHands extensions branch (use 'main' for stable, or a feature branch)
+  OPENHANDS_EXTENSIONS_BRANCH: ${{ vars.OPENHANDS_EXTENSIONS_BRANCH || 'main' }}
 
 jobs:
   sync:
@@ -268,10 +270,23 @@ jobs:
           pip install uv
           uv tool install openhands --python 3.12
 
+      - name: Install openapi-to-frontend plugin
+        run: |
+          # Clone the OpenHands extensions repository
+          git clone --depth 1 --branch "$OPENHANDS_EXTENSIONS_BRANCH" \
+            https://github.com/OpenHands/extensions.git \
+            /tmp/openhands-extensions
+          
+          # Install the plugin to the OpenHands skills directory
+          mkdir -p ~/.openhands/plugins
+          cp -r /tmp/openhands-extensions/plugins/openapi-to-frontend ~/.openhands/plugins/
+          
+          echo "✅ Installed openapi-to-frontend plugin from branch: $OPENHANDS_EXTENSIONS_BRANCH"
+
       - name: Configure OpenHands
         run: |
           mkdir -p ~/.openhands
-          cat > ~/.openhands/settings.json << 'EOF'
+          cat > ~/.openhands/settings.json << EOF
           {
             "llm_provider": "${{ vars.LLM_PROVIDER || 'anthropic' }}",
             "llm_model": "${{ vars.LLM_MODEL || 'claude-sonnet-4-20250514' }}",
@@ -315,7 +330,14 @@ jobs:
       - name: Generate initial codebase
         if: steps.check-mode.outputs.mode == 'initial'
         run: |
-          openhands --headless -t "Using the openapi-to-frontend plugin, generate a complete frontend codebase from the OpenAPI spec at new-spec.json.
+          openhands --headless -t "Using the openapi-to-frontend plugin (installed at ~/.openhands/plugins/openapi-to-frontend), generate a complete frontend codebase from the OpenAPI spec at new-spec.json.
+
+          First, read the plugin's skills to understand the generation process:
+          - ~/.openhands/plugins/openapi-to-frontend/skills/generate-client/SKILL.md
+          - ~/.openhands/plugins/openapi-to-frontend/skills/generate-components/SKILL.md
+          - ~/.openhands/plugins/openapi-to-frontend/skills/generate-frontend/SKILL.md
+          - ~/.openhands/plugins/openapi-to-frontend/skills/generate-tests/SKILL.md
+          - ~/.openhands/plugins/openapi-to-frontend/skills/generate-ci/SKILL.md
 
           Run all phases:
           1. Generate TypeScript client in client/
@@ -329,7 +351,12 @@ jobs:
       - name: Apply incremental updates
         if: steps.check-mode.outputs.mode == 'update' && steps.check-changes.outputs.changed == 'true'
         run: |
-          openhands --headless -t "Using the openapi-to-frontend plugin's update-from-spec skill, apply incremental updates to the codebase.
+          openhands --headless -t "Using the openapi-to-frontend plugin (installed at ~/.openhands/plugins/openapi-to-frontend), apply incremental updates to the codebase.
+
+          First, read the update skill:
+          - ~/.openhands/plugins/openapi-to-frontend/skills/update-from-spec/SKILL.md
+          - ~/.openhands/plugins/openapi-to-frontend/agents/spec-differ.md
+          - ~/.openhands/plugins/openapi-to-frontend/references/change-taxonomy.md
 
           The old spec is at: old-spec.json
           The new spec is at: new-spec.json
@@ -361,6 +388,7 @@ jobs:
             ${{ steps.check-mode.outputs.mode == 'initial' && 'This PR contains the initial frontend codebase generated from the OpenAPI specification.' || 'This PR contains incremental updates based on changes to the OpenAPI specification.' }}
             
             **Spec URL:** `${{ env.OPENAPI_SPEC_URL }}`
+            **Plugin branch:** `${{ env.OPENHANDS_EXTENSIONS_BRANCH }}`
             
             ## What's included
             
@@ -398,6 +426,7 @@ jobs:
 4. **Optional variables** (repository variables, not secrets):
    - `LLM_PROVIDER`: Your LLM provider (defaults to `anthropic`)
    - `LLM_MODEL`: Override the default model (defaults to `claude-sonnet-4-20250514`)
+   - `OPENHANDS_EXTENSIONS_BRANCH`: Branch of OpenHands/extensions to use (defaults to `main`)
 
 ### How the Snapshot Works
 
