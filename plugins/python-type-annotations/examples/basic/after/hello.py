@@ -1,14 +1,14 @@
-def greet(name: str) -> str:
+def greet(name):
     """Return a greeting message."""
     return f"Hello, {name}!"
 
 
-def add(a: int, b: int) -> int:
+def add(a, b):
     """Add two numbers."""
     return a + b
 
 
-def find_longest(words: list[str]) -> str | None:
+def find_longest(words):
     """Find the longest word in a list."""
     if not words:
         return None
@@ -16,16 +16,16 @@ def find_longest(words: list[str]) -> str | None:
 
 
 class Calculator:
-    def __init__(self, initial_value: float) -> None:
-        self.value: float = initial_value
+    def __init__(self, initial_value):
+        self.value = initial_value
 
-    def add(self, n: float) -> "Calculator":
+    def add(self, n):
         self.value += n
         return self
 
-    def subtract(self, n: float) -> "Calculator":
+    def subtract(self, n):
         self.value -= n
         return self
 
-    def get_value(self) -> float:
+    def get_value(self):
         return self.value

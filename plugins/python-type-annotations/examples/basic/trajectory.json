@@ -1,8 +1,8 @@
-{
-  "metadata": {
-    "model": "anthropic/claude-sonnet-4-6-20250514",
-    "plugin": "python-type-annotations",
-    "prompt": "Add type annotations to all Python files in this directory."
-  },
-  "events": []
-}
+OpenHands CLI terminal UI may not work correctly in this environment: Rich detected a non-interactive or unsupported terminal; interactive UI may not render correctly
+To override Rich's detection, you can set TTY_INTERACTIVE=1 (and optionally TTY_COMPATIBLE=1).
+[91mHeadless mode requires existing settings.[0m
+[1mPlease run:[0m [93mopenhands[0m to configure your settings before using [94m--headless[0m.
+Goodbye! 👋
+Conversation ID: ca820ab0dfbb4ea8a1d8fa067db667fb
+Hint: run openhands --resume ca820ab0-dfbb-4ea8-a1d8-fa067db667fb to resume this
+conversation.
