@@ -253,10 +253,31 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
+
+      - name: Install OpenHands CLI
+        run: |
+          pip install uv
+          uv tool install openhands --python 3.12
+
+      - name: Configure OpenHands
+        run: |
+          mkdir -p ~/.openhands
+          cat > ~/.openhands/settings.json << 'EOF'
+          {
+            "llm_provider": "${{ vars.LLM_PROVIDER || 'anthropic' }}",
+            "llm_model": "${{ vars.LLM_MODEL || 'claude-sonnet-4-20250514' }}",
+            "llm_api_key": "${{ secrets.LLM_API_KEY }}"
+          }
+          EOF
 
       - name: Create spec directory
         run: mkdir -p $(dirname $SPEC_SNAPSHOT_PATH)
@@ -294,46 +315,30 @@ jobs:
       - name: Generate initial codebase
         if: steps.check-mode.outputs.mode == 'initial'
         run: |
-          docker run --rm \
-            -v "${{ github.workspace }}:/workspace" \
-            -w /workspace \
-            -e LLM_API_KEY=${{ secrets.LLM_API_KEY }} \
-            -e LLM_MODEL=${{ vars.LLM_MODEL || 'anthropic/claude-sonnet-4-20250514' }} \
-            docker.all-hands.dev/all-hands-ai/openhands:latest \
-            python -m openhands.core.cli \
-            --mode headless \
-            --task "Using the openapi-to-frontend plugin, generate a complete frontend codebase from the OpenAPI spec at new-spec.json.
+          openhands --headless -t "Using the openapi-to-frontend plugin, generate a complete frontend codebase from the OpenAPI spec at new-spec.json.
 
-            Run all phases:
-            1. Generate TypeScript client in client/
-            2. Generate React components in components/  
-            3. Generate React frontend app in app/
-            4. Generate tests in tests/
-            5. Generate CI workflows in .github/workflows/
+          Run all phases:
+          1. Generate TypeScript client in client/
+          2. Generate React components in components/
+          3. Generate React frontend app in app/
+          4. Generate tests in tests/
+          5. Generate CI workflows in .github/workflows/
 
-            After generation, verify the output compiles correctly."
+          After generation, verify the output compiles correctly."
 
       - name: Apply incremental updates
         if: steps.check-mode.outputs.mode == 'update' && steps.check-changes.outputs.changed == 'true'
         run: |
-          docker run --rm \
-            -v "${{ github.workspace }}:/workspace" \
-            -w /workspace \
-            -e LLM_API_KEY=${{ secrets.LLM_API_KEY }} \
-            -e LLM_MODEL=${{ vars.LLM_MODEL || 'anthropic/claude-sonnet-4-20250514' }} \
-            docker.all-hands.dev/all-hands-ai/openhands:latest \
-            python -m openhands.core.cli \
-            --mode headless \
-            --task "Using the openapi-to-frontend plugin's update-from-spec skill, apply incremental updates to the codebase.
+          openhands --headless -t "Using the openapi-to-frontend plugin's update-from-spec skill, apply incremental updates to the codebase.
 
-            The old spec is at: old-spec.json
-            The new spec is at: new-spec.json
+          The old spec is at: old-spec.json
+          The new spec is at: new-spec.json
 
-            1. Use the spec-differ agent to compare the specs
-            2. For each detected change, apply the appropriate update
-            3. Do NOT regenerate from scratch - make surgical edits
-            4. Verify the updated code compiles correctly
-            5. Run existing tests to catch regressions"
+          1. Use the spec-differ agent to compare the specs
+          2. For each detected change, apply the appropriate update
+          3. Do NOT regenerate from scratch - make surgical edits
+          4. Verify the updated code compiles correctly
+          5. Run existing tests to catch regressions"
 
       - name: Update spec snapshot
         if: steps.check-mode.outputs.mode == 'initial' || steps.check-changes.outputs.changed == 'true'
@@ -390,8 +395,9 @@ jobs:
 3. **Set up secrets**:
    - `LLM_API_KEY` (required): Your LLM provider API key (e.g., Anthropic, OpenAI)
    - `GITHUB_TOKEN`: Ensure it has write permissions for contents and pull-requests
-4. **Optional variables**:
-   - `LLM_MODEL`: Override the default model (defaults to `anthropic/claude-sonnet-4-20250514`)
+4. **Optional variables** (repository variables, not secrets):
+   - `LLM_PROVIDER`: Your LLM provider (defaults to `anthropic`)
+   - `LLM_MODEL`: Override the default model (defaults to `claude-sonnet-4-20250514`)
 
 ### How the Snapshot Works
 
