@@ -7,6 +7,10 @@ on:
         description: "Branch to run on (leave empty for current branch)"
         required: false
         default: ""
+  push:
+    paths:
+      - "plugins/python-type-annotations/**"
+      - ".github/workflows/update-type-annotations-example.yml"
 
 jobs:
   update-example:
