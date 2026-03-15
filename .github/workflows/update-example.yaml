@@ -54,8 +54,8 @@ jobs:
         working-directory: plugins/python-type-annotations/examples/basic/after
         env:
           LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
-          LLM_MODEL: ${{ github.event.inputs.llm_model || 'anthropic/claude-sonnet-4-6-20250514' }}
-          LLM_BASE_URL: ${{ github.event.inputs.llm_base_url || secrets.LLM_BASE_URL }}
+          LLM_MODEL: ${{ github.event.inputs.llm_model || secrets.LLM_MODEL  }}
+          LLM_BASE_URL: ${{ secrets.LLM_BASE_URL }}
         run: |
           # Run headless and capture conversation ID from output
           output=$(openhands --headless --override-with-envs -f ../prompt.md 2>&1 | tee /dev/stderr)
