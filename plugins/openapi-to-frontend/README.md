@@ -290,15 +290,26 @@ jobs:
           echo "✅ Installed openapi-to-frontend plugin from branch: $OPENHANDS_EXTENSIONS_BRANCH"
 
       - name: Configure OpenHands
+        env:
+          LLM_MODEL: ${{ vars.LLM_MODEL || 'anthropic/claude-opus-4-20250514' }}
+          LLM_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          LLM_BASE_URL: ${{ vars.LLM_BASE_URL || '' }}
         run: |
           mkdir -p ~/.openhands
+          
+          # Build settings JSON
           cat > ~/.openhands/settings.json << EOF
           {
-            "llm_provider": "${{ vars.LLM_PROVIDER || 'anthropic' }}",
-            "llm_model": "${{ vars.LLM_MODEL || 'claude-sonnet-4-20250514' }}",
-            "llm_api_key": "${{ secrets.LLM_API_KEY }}"
+            "LLM_MODEL": "${LLM_MODEL}",
+            "LLM_API_KEY": "${LLM_API_KEY}",
+            "LLM_BASE_URL": "${LLM_BASE_URL}",
+            "AGENT": "CodeActAgent",
+            "LANGUAGE": "en",
+            "CONFIRMATION_MODE": "false"
           }
           EOF
+          
+          echo "✅ Configured OpenHands with model: ${LLM_MODEL}"
 
       - name: Create spec directory
         run: mkdir -p $(dirname $SPEC_SNAPSHOT_PATH)
@@ -396,13 +407,21 @@ jobs:
 
 1. **Set your OpenAPI URL**: Update the `OPENAPI_SPEC_URL` environment variable to point to your API's spec
 2. **Configure triggers**: Adjust the `on:` section for your needs (manual, scheduled, or event-based)
-3. **Set up secrets**:
-   - `LLM_API_KEY` (required): Your LLM provider API key (e.g., Anthropic, OpenAI)
-   - `GITHUB_TOKEN`: Ensure it has write permissions for contents and pull-requests
-4. **Optional variables** (repository variables, not secrets):
-   - `LLM_PROVIDER`: Your LLM provider (defaults to `anthropic`)
-   - `LLM_MODEL`: Override the default model (defaults to `claude-sonnet-4-20250514`)
+3. **Set up secrets** (in repository Settings → Secrets and variables → Actions):
+   - `ANTHROPIC_API_KEY` (required): Your Anthropic API key
+4. **Optional variables** (in repository Settings → Secrets and variables → Actions → Variables):
+   - `LLM_MODEL`: Model to use (defaults to `anthropic/claude-opus-4-20250514`)
+   - `LLM_BASE_URL`: Custom API base URL (optional, for proxies)
    - `OPENHANDS_EXTENSIONS_BRANCH`: Branch of OpenHands/extensions to use (defaults to `main`)
+
+**Using a different LLM provider:**
+
+To use OpenAI or another provider, update the workflow:
+```yaml
+env:
+  LLM_MODEL: ${{ vars.LLM_MODEL || 'openai/gpt-4o' }}
+  LLM_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+```
 
 ### How the Snapshot Works
 
