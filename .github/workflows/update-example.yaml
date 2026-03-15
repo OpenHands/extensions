@@ -7,6 +7,14 @@ on:
         description: "Branch to run on (leave empty for current branch)"
         required: false
         default: ""
+      llm_model:
+        description: "LLM model to use"
+        required: false
+        default: "anthropic/claude-sonnet-4-6-20250514"
+      llm_base_url:
+        description: "LLM base URL (optional)"
+        required: false
+        default: ""
   push:
     paths:
       - "plugins/python-type-annotations/**"
@@ -44,10 +52,11 @@ jobs:
       - name: Run OpenHands in headless mode
         working-directory: plugins/python-type-annotations/examples/basic/after
         env:
-          LLM_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-          LLM_MODEL: anthropic/claude-sonnet-4-6-20250514
+          LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
+          LLM_MODEL: ${{ github.event.inputs.llm_model || 'anthropic/claude-sonnet-4-6-20250514' }}
+          LLM_BASE_URL: ${{ github.event.inputs.llm_base_url || secrets.LLM_BASE_URL }}
         run: |
-          openhands --headless --json -f ../prompt.md > ../trajectory.json
+          openhands --headless --override-with-envs --json -f ../prompt.md > ../trajectory.json
 
       - name: Clean up skills directory
         run: |
