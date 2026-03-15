@@ -209,6 +209,238 @@ See [references/auth-patterns.md](references/auth-patterns.md)
 
 See [references/naming-conventions.md](references/naming-conventions.md)
 
+## Automated Generation with GitHub Actions
+
+You can set up a GitHub Action that automatically generates and updates your frontend codebase from a remote OpenAPI spec. The workflow:
+
+1. **First run**: Fetches the spec, generates the full codebase, and commits the spec as a snapshot
+2. **Subsequent runs**: Fetches the new spec, compares with the snapshot, applies incremental updates
+
+### Sample Workflow
+
+Create `.github/workflows/sync-openapi.yml` in your repository:
+
+```yaml
+name: Sync OpenAPI Frontend
+
+on:
+  # Run on demand
+  workflow_dispatch:
+  # Or on a schedule (e.g., daily at midnight)
+  schedule:
+    - cron: '0 0 * * *'
+  # Or when the workflow file itself changes
+  push:
+    paths:
+      - '.github/workflows/sync-openapi.yml'
+
+env:
+  # ⚠️ CONFIGURE THIS: URL to your OpenAPI specification
+  OPENAPI_SPEC_URL: 'https://api.example.com/openapi.json'
+  # Where to store the spec snapshot
+  SPEC_SNAPSHOT_PATH: '.openapi/spec.json'
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Create spec directory
+        run: mkdir -p $(dirname $SPEC_SNAPSHOT_PATH)
+
+      - name: Download current OpenAPI spec
+        run: |
+          curl -fSL "$OPENAPI_SPEC_URL" -o new-spec.json
+          echo "Downloaded spec from $OPENAPI_SPEC_URL"
+
+      - name: Check if this is initial generation or update
+        id: check-mode
+        run: |
+          if [ -f "$SPEC_SNAPSHOT_PATH" ]; then
+            echo "mode=update" >> $GITHUB_OUTPUT
+            echo "📝 Existing spec found - will perform incremental update"
+          else
+            echo "mode=initial" >> $GITHUB_OUTPUT
+            echo "🆕 No existing spec - will perform initial generation"
+          fi
+
+      - name: Check for spec changes (update mode only)
+        id: check-changes
+        if: steps.check-mode.outputs.mode == 'update'
+        run: |
+          if diff -q "$SPEC_SNAPSHOT_PATH" new-spec.json > /dev/null 2>&1; then
+            echo "changed=false" >> $GITHUB_OUTPUT
+            echo "✅ Spec unchanged - no update needed"
+          else
+            echo "changed=true" >> $GITHUB_OUTPUT
+            echo "🔄 Spec changed - update required"
+            # Keep the old spec for diff
+            cp "$SPEC_SNAPSHOT_PATH" old-spec.json
+          fi
+
+      - name: Generate initial codebase
+        if: steps.check-mode.outputs.mode == 'initial'
+        run: |
+          docker run --rm \
+            -v "${{ github.workspace }}:/workspace" \
+            -w /workspace \
+            -e LLM_API_KEY=${{ secrets.LLM_API_KEY }} \
+            -e LLM_MODEL=${{ vars.LLM_MODEL || 'anthropic/claude-sonnet-4-20250514' }} \
+            docker.all-hands.dev/all-hands-ai/openhands:latest \
+            python -m openhands.core.cli \
+            --mode headless \
+            --task "Using the openapi-to-frontend plugin, generate a complete frontend codebase from the OpenAPI spec at new-spec.json.
+
+            Run all phases:
+            1. Generate TypeScript client in client/
+            2. Generate React components in components/  
+            3. Generate React frontend app in app/
+            4. Generate tests in tests/
+            5. Generate CI workflows in .github/workflows/
+
+            After generation, verify the output compiles correctly."
+
+      - name: Apply incremental updates
+        if: steps.check-mode.outputs.mode == 'update' && steps.check-changes.outputs.changed == 'true'
+        run: |
+          docker run --rm \
+            -v "${{ github.workspace }}:/workspace" \
+            -w /workspace \
+            -e LLM_API_KEY=${{ secrets.LLM_API_KEY }} \
+            -e LLM_MODEL=${{ vars.LLM_MODEL || 'anthropic/claude-sonnet-4-20250514' }} \
+            docker.all-hands.dev/all-hands-ai/openhands:latest \
+            python -m openhands.core.cli \
+            --mode headless \
+            --task "Using the openapi-to-frontend plugin's update-from-spec skill, apply incremental updates to the codebase.
+
+            The old spec is at: old-spec.json
+            The new spec is at: new-spec.json
+
+            1. Use the spec-differ agent to compare the specs
+            2. For each detected change, apply the appropriate update
+            3. Do NOT regenerate from scratch - make surgical edits
+            4. Verify the updated code compiles correctly
+            5. Run existing tests to catch regressions"
+
+      - name: Update spec snapshot
+        if: steps.check-mode.outputs.mode == 'initial' || steps.check-changes.outputs.changed == 'true'
+        run: |
+          cp new-spec.json "$SPEC_SNAPSHOT_PATH"
+          echo "📸 Spec snapshot updated"
+
+      - name: Create Pull Request
+        if: steps.check-mode.outputs.mode == 'initial' || steps.check-changes.outputs.changed == 'true'
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: |
+            ${{ steps.check-mode.outputs.mode == 'initial' && 'chore: initial frontend generation from OpenAPI spec' || 'chore: update frontend from OpenAPI spec changes' }}
+          title: |
+            ${{ steps.check-mode.outputs.mode == 'initial' && '🆕 Initial frontend generation from OpenAPI' || '🔄 Update frontend from OpenAPI changes' }}
+          body: |
+            ## Summary
+            
+            ${{ steps.check-mode.outputs.mode == 'initial' && 'This PR contains the initial frontend codebase generated from the OpenAPI specification.' || 'This PR contains incremental updates based on changes to the OpenAPI specification.' }}
+            
+            **Spec URL:** `${{ env.OPENAPI_SPEC_URL }}`
+            
+            ## What's included
+            
+            ${{ steps.check-mode.outputs.mode == 'initial' && '- TypeScript API client (`client/`)
+            - React components (`components/`)
+            - Frontend application (`app/`)
+            - Test suite (`tests/`)
+            - CI/CD workflows (`.github/workflows/`)
+            - OpenAPI spec snapshot (`.openapi/spec.json`)' || '- Updated TypeScript types and API methods
+            - Updated React components
+            - Updated tests
+            - New OpenAPI spec snapshot' }}
+            
+            ## Review checklist
+            
+            - [ ] Generated code compiles without errors
+            - [ ] Tests pass
+            - [ ] UI renders correctly
+            - [ ] API integration works as expected
+          branch: openapi-frontend-sync
+          delete-branch: true
+
+      - name: Skip message
+        if: steps.check-mode.outputs.mode == 'update' && steps.check-changes.outputs.changed == 'false'
+        run: echo "✅ No changes detected in OpenAPI spec - nothing to do"
+```
+
+### Configuration
+
+1. **Set your OpenAPI URL**: Update the `OPENAPI_SPEC_URL` environment variable to point to your API's spec
+2. **Configure triggers**: Adjust the `on:` section for your needs (manual, scheduled, or event-based)
+3. **Set up secrets**:
+   - `LLM_API_KEY` (required): Your LLM provider API key (e.g., Anthropic, OpenAI)
+   - `GITHUB_TOKEN`: Ensure it has write permissions for contents and pull-requests
+4. **Optional variables**:
+   - `LLM_MODEL`: Override the default model (defaults to `anthropic/claude-sonnet-4-20250514`)
+
+### How the Snapshot Works
+
+The workflow maintains a snapshot of the OpenAPI spec at `.openapi/spec.json`:
+
+```
+your-repo/
+├── .openapi/
+│   └── spec.json          # Committed snapshot of the last processed spec
+├── client/
+├── components/
+├── app/
+└── ...
+```
+
+- **Initial run**: No snapshot exists, so full generation runs and the spec is committed
+- **Subsequent runs**: The snapshot is compared with the freshly downloaded spec
+  - If unchanged: workflow exits early
+  - If changed: incremental update runs, using `old-spec.json` (the snapshot) and `new-spec.json` (the download)
+
+This ensures the agent always knows the exact state of the codebase relative to the spec it was generated from.
+
+### Alternative: Local Spec File
+
+If your OpenAPI spec is checked into the repository instead of fetched from a URL:
+
+```yaml
+env:
+  # Path to spec in your repo
+  OPENAPI_SPEC_PATH: 'api/openapi.yaml'
+  SPEC_SNAPSHOT_PATH: '.openapi/last-processed-spec.yaml'
+
+# ... in steps:
+- name: Check for spec changes
+  run: |
+    if [ -f "$SPEC_SNAPSHOT_PATH" ]; then
+      if diff -q "$OPENAPI_SPEC_PATH" "$SPEC_SNAPSHOT_PATH" > /dev/null; then
+        echo "No changes"
+      else
+        cp "$SPEC_SNAPSHOT_PATH" old-spec.yaml
+        cp "$OPENAPI_SPEC_PATH" new-spec.yaml
+        # ... trigger update
+      fi
+    else
+      cp "$OPENAPI_SPEC_PATH" new-spec.yaml
+      # ... trigger initial generation
+    fi
+```
+
 ## Scripts
 
 ### parse-openapi.py
