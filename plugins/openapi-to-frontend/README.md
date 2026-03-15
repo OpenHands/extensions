@@ -289,28 +289,6 @@ jobs:
           
           echo "✅ Installed openapi-to-frontend plugin from branch: $OPENHANDS_EXTENSIONS_BRANCH"
 
-      - name: Configure OpenHands
-        env:
-          LLM_MODEL: ${{ vars.LLM_MODEL || 'anthropic/claude-opus-4-20250514' }}
-          LLM_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-          LLM_BASE_URL: ${{ vars.LLM_BASE_URL || '' }}
-        run: |
-          mkdir -p ~/.openhands
-          
-          # Build settings JSON
-          cat > ~/.openhands/settings.json << EOF
-          {
-            "LLM_MODEL": "${LLM_MODEL}",
-            "LLM_API_KEY": "${LLM_API_KEY}",
-            "LLM_BASE_URL": "${LLM_BASE_URL}",
-            "AGENT": "CodeActAgent",
-            "LANGUAGE": "en",
-            "CONFIRMATION_MODE": "false"
-          }
-          EOF
-          
-          echo "✅ Configured OpenHands with model: ${LLM_MODEL}"
-
       - name: Create spec directory
         run: mkdir -p $(dirname $SPEC_SNAPSHOT_PATH)
 
@@ -346,13 +324,21 @@ jobs:
 
       - name: Generate initial codebase
         if: steps.check-mode.outputs.mode == 'initial'
+        env:
+          LLM_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          LLM_MODEL: ${{ vars.LLM_MODEL || 'anthropic/claude-opus-4-20250514' }}
+          LLM_BASE_URL: ${{ vars.LLM_BASE_URL || '' }}
         run: |
-          openhands --headless -t "Read ~/.openhands/plugins/openapi-to-frontend/commands/openapi-to-frontend.md and execute: /openapi-to-frontend new-spec.json"
+          openhands --headless --override-with-envs -t "Read ~/.openhands/plugins/openapi-to-frontend/commands/openapi-to-frontend.md and execute: /openapi-to-frontend new-spec.json"
 
       - name: Apply incremental updates
         if: steps.check-mode.outputs.mode == 'update' && steps.check-changes.outputs.changed == 'true'
+        env:
+          LLM_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          LLM_MODEL: ${{ vars.LLM_MODEL || 'anthropic/claude-opus-4-20250514' }}
+          LLM_BASE_URL: ${{ vars.LLM_BASE_URL || '' }}
         run: |
-          openhands --headless -t "Read ~/.openhands/plugins/openapi-to-frontend/commands/openapi-to-frontend.md and execute: /openapi-to-frontend new-spec.json old-spec.json"
+          openhands --headless --override-with-envs -t "Read ~/.openhands/plugins/openapi-to-frontend/commands/openapi-to-frontend.md and execute: /openapi-to-frontend new-spec.json old-spec.json"
 
       - name: Update spec snapshot
         if: steps.check-mode.outputs.mode == 'initial' || steps.check-changes.outputs.changed == 'true'
@@ -416,12 +402,19 @@ jobs:
 
 **Using a different LLM provider:**
 
-To use OpenAI or another provider, update the workflow:
+To use OpenAI or another provider, update the `env` sections in the workflow:
 ```yaml
 env:
-  LLM_MODEL: ${{ vars.LLM_MODEL || 'openai/gpt-4o' }}
   LLM_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+  LLM_MODEL: ${{ vars.LLM_MODEL || 'openai/gpt-4o' }}
 ```
+
+**Environment Variables:**
+
+The workflow uses `--override-with-envs` to configure OpenHands via environment variables:
+- `LLM_API_KEY`: Your LLM provider API key (required)
+- `LLM_MODEL`: The model to use, e.g., `anthropic/claude-opus-4-20250514` (required)
+- `LLM_BASE_URL`: Custom API endpoint (optional)
 
 ### How the Snapshot Works
 
