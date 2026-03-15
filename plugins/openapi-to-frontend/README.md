@@ -16,19 +16,25 @@ The plugin also handles **incremental updates**: given a change to the OpenAPI s
 
 ## Quick Start
 
-Provide an OpenAPI spec (JSON or YAML) and run phases sequentially:
+**Initial generation** — generate a complete frontend from an OpenAPI spec:
 
 ```
-/generate-all path/to/openapi.yaml
+/openapi-to-frontend path/to/openapi.yaml
 ```
 
-Or run individual phases:
+**Incremental update** — update existing code when the spec changes:
 
-1. **Generate client**: Creates TypeScript types and API class
-2. **Generate components**: Creates React components for each schema
-3. **Generate frontend**: Creates a full application shell
-4. **Generate tests**: Creates unit, integration, and e2e tests
-5. **Generate CI**: Creates GitHub Actions workflows
+```
+/openapi-to-frontend new-spec.json old-spec.json
+```
+
+This generates/updates:
+
+1. **TypeScript client** — types and API class
+2. **React components** — Form, Detail, List per schema
+3. **Frontend app** — routing, context, pages
+4. **Tests** — unit, integration, and e2e
+5. **CI workflows** — GitHub Actions for build/test/deploy
 
 ## Plugin Contents
 
@@ -36,7 +42,7 @@ Or run individual phases:
 plugins/openapi-to-frontend/
 ├── README.md                           # This file
 ├── commands/
-│   └── generate-all.md                 # Slash command: run all phases
+│   └── openapi-to-frontend.md          # Main command: generate or update
 ├── skills/
 │   ├── generate-client/
 │   │   └── SKILL.md                    # Phase 1: OpenAPI → TypeScript client
@@ -330,42 +336,12 @@ jobs:
       - name: Generate initial codebase
         if: steps.check-mode.outputs.mode == 'initial'
         run: |
-          openhands --headless -t "Using the openapi-to-frontend plugin (installed at ~/.openhands/plugins/openapi-to-frontend), generate a complete frontend codebase from the OpenAPI spec at new-spec.json.
-
-          First, read the plugin's skills to understand the generation process:
-          - ~/.openhands/plugins/openapi-to-frontend/skills/generate-client/SKILL.md
-          - ~/.openhands/plugins/openapi-to-frontend/skills/generate-components/SKILL.md
-          - ~/.openhands/plugins/openapi-to-frontend/skills/generate-frontend/SKILL.md
-          - ~/.openhands/plugins/openapi-to-frontend/skills/generate-tests/SKILL.md
-          - ~/.openhands/plugins/openapi-to-frontend/skills/generate-ci/SKILL.md
-
-          Run all phases:
-          1. Generate TypeScript client in client/
-          2. Generate React components in components/
-          3. Generate React frontend app in app/
-          4. Generate tests in tests/
-          5. Generate CI workflows in .github/workflows/
-
-          After generation, verify the output compiles correctly."
+          openhands --headless -t "Read ~/.openhands/plugins/openapi-to-frontend/commands/openapi-to-frontend.md and execute: /openapi-to-frontend new-spec.json"
 
       - name: Apply incremental updates
         if: steps.check-mode.outputs.mode == 'update' && steps.check-changes.outputs.changed == 'true'
         run: |
-          openhands --headless -t "Using the openapi-to-frontend plugin (installed at ~/.openhands/plugins/openapi-to-frontend), apply incremental updates to the codebase.
-
-          First, read the update skill:
-          - ~/.openhands/plugins/openapi-to-frontend/skills/update-from-spec/SKILL.md
-          - ~/.openhands/plugins/openapi-to-frontend/agents/spec-differ.md
-          - ~/.openhands/plugins/openapi-to-frontend/references/change-taxonomy.md
-
-          The old spec is at: old-spec.json
-          The new spec is at: new-spec.json
-
-          1. Use the spec-differ agent to compare the specs
-          2. For each detected change, apply the appropriate update
-          3. Do NOT regenerate from scratch - make surgical edits
-          4. Verify the updated code compiles correctly
-          5. Run existing tests to catch regressions"
+          openhands --headless -t "Read ~/.openhands/plugins/openapi-to-frontend/commands/openapi-to-frontend.md and execute: /openapi-to-frontend new-spec.json old-spec.json"
 
       - name: Update spec snapshot
         if: steps.check-mode.outputs.mode == 'initial' || steps.check-changes.outputs.changed == 'true'
