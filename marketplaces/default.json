@@ -483,6 +483,22 @@
                 "verification",
                 "sample"
             ]
+        },
+        {
+            "name": "openapi-to-frontend",
+            "source": "./plugins/openapi-to-frontend",
+            "description": "Generate a full TypeScript client, React component library, and frontend app from an OpenAPI spec. Includes tests and CI/CD workflows.",
+            "category": "development",
+            "keywords": [
+                "openapi",
+                "swagger",
+                "typescript",
+                "react",
+                "codegen",
+                "frontend",
+                "api",
+                "client"
+            ]
         }
     ]
 }
