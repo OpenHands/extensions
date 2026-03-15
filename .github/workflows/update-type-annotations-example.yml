@@ -1,7 +1,12 @@
-name: Update Example
+name: Update Type Annotations Example
 
 on:
   workflow_dispatch:
+    inputs:
+      branch:
+        description: "Branch to run on (leave empty for current branch)"
+        required: false
+        default: ""
 
 jobs:
   update-example:
@@ -10,6 +15,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.branch || github.ref }}
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -41,5 +48,5 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add plugins/python-type-annotations/examples/basic/after/
           git add plugins/python-type-annotations/examples/basic/trajectory.json
-          git diff --cached --quiet || git commit -m "Update example output with type annotations"
+          git diff --cached --quiet || git commit -m "Update type annotations example output"
           git push

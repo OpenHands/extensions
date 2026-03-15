@@ -49,7 +49,7 @@ See the `examples/basic/` directory for a before/after example:
 
 ## Testing
 
-The `workflows/update-example.yml` GitHub Action can be triggered manually to regenerate the `after/` example using the current plugin and OpenHands CLI.
+The [`update-type-annotations-example.yml`](../../.github/workflows/update-type-annotations-example.yml) GitHub Action can be triggered manually to regenerate the `after/` example using the current plugin and OpenHands CLI. You can run it on any branch or on main.
 
 ## Plugin Structure
 
@@ -63,11 +63,10 @@ python-type-annotations/
 ├── examples/
 │   └── basic/
 │       ├── prompt.md
+│       ├── trajectory.json
 │       ├── before/
 │       │   └── hello.py
 │       └── after/
 │           └── hello.py
-├── workflows/
-│   └── update-example.yml
 └── README.md
 ```
