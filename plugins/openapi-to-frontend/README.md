@@ -346,6 +346,12 @@ jobs:
           cp new-spec.json "$SPEC_SNAPSHOT_PATH"
           echo "📸 Spec snapshot updated"
 
+      - name: Revert changes to .github directory
+        if: steps.check-mode.outputs.mode == 'initial' || steps.check-changes.outputs.changed == 'true'
+        run: |
+          git checkout HEAD -- .github/ 2>/dev/null || true
+          echo "🔄 Reverted any changes to .github/ directory"
+
       - name: Create Pull Request
         if: steps.check-mode.outputs.mode == 'initial' || steps.check-changes.outputs.changed == 'true'
         uses: peter-evans/create-pull-request@v6
