@@ -34,10 +34,12 @@ Upgrade Apache Spark applications between major versions with a structured, phas
 
 ## Phase 1: Inventory & Impact Analysis
 
-Before changing any code, assess what needs to change.
+Before changing any code, assess what needs to change. Read the official Apache Spark migration guide for the target version — it documents every API removal, config rename, and behavioral change per release:
+https://spark.apache.org/docs/latest/migration-guide.html
 
 ### Checklist
 
+- [ ] Read the migration guide section for the target Spark version
 - [ ] Identify current Spark version (check `pom.xml`, `build.sbt`, `build.gradle`, or `requirements.txt`)
 - [ ] Identify target Spark version
 - [ ] Search for deprecated APIs: `grep -rn 'import org.apache.spark' --include='*.scala' --include='*.java' --include='*.py'`
