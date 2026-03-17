@@ -39,8 +39,7 @@ This skill provides a structured, six-phase workflow for upgrading Apache Spark 
 
 ## Reference Material
 
-- [references/api-changes.md](references/api-changes.md) — Catalog of removed/deprecated APIs with before/after code
-- [references/config-changes.md](references/config-changes.md) — Spark configuration property rename/removal mapping
+- [Apache Spark Migration Guide](https://spark.apache.org/docs/latest/migration-guide.html) — The official, up-to-date guide covering API removals, configuration changes, SQL behavior, PySpark, Structured Streaming, and MLlib for every Spark release
 
 ## Example Usage
 

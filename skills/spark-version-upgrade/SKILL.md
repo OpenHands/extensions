@@ -115,7 +115,8 @@ Replace removed and deprecated APIs. Work through compiler errors systematically
 
 ### Common Patterns
 
-See [references/api-changes.md](references/api-changes.md) for a full catalog.
+Consult the official Apache Spark migration guide for the complete list of changes for each version:
+https://spark.apache.org/docs/latest/migration-guide.html
 
 #### SparkSession Creation (2.x → 3.x)
 
@@ -168,9 +169,8 @@ val acc = sc.longAccumulator("name")
 
 ## Phase 4: Configuration Migration
 
-Spark renames and removes configuration properties between versions.
-
-See [references/config-changes.md](references/config-changes.md) for the full mapping.
+Spark renames and removes configuration properties between versions. The official migration guide documents every renamed and removed property per release:
+https://spark.apache.org/docs/latest/migration-guide.html
 
 ### Checklist
 
