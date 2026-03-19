@@ -1,6 +1,6 @@
 ---
 name: figma
-description: Read-only access to Figma designs using the Figma MCP server. Read design files, extract components, get design tokens, and inspect layer properties.
+description: Read Figma design data using the Figma MCP server. Inspect files, components, design tokens, and layer properties.
 triggers:
 - figma
 - figma design
@@ -9,7 +9,7 @@ triggers:
 
 # Figma MCP
 
-Read-only access to Figma designs via the official Figma MCP server. Uses OAuth authentication.
+Read Figma design data via the official Figma MCP server. Uses OAuth authentication.
 
 ## Installation
 
@@ -17,6 +17,6 @@ Read-only access to Figma designs via the official Figma MCP server. Uses OAuth 
 openhands mcp add figma --transport http https://mcp.figma.com/mcp
 ```
 
-You'll be prompted to authorize via Figma OAuth when first used. Restart your OpenHands session after installation.
+You'll be prompted to authorize via Figma OAuth the first time OpenHands calls a Figma tool. Restart your OpenHands session after installation.
 
-See [README.md](./README.md) for verification, management commands, and detailed documentation.
+See [README.md](./README.md) for verification, example prompts, management commands, and detailed documentation.
