@@ -39,6 +39,7 @@ import httpx
 
 
 DEFAULT_BASE_URL = "https://app.all-hands.dev"
+PREFERRED_API_KEY_ENV_VARS = ("OPENHANDS_CLOUD_API_KEY", "OPENHANDS_API_KEY")
 
 
 # Start-task statuses observed in the wild. These may evolve, so keep this centralized.
@@ -65,9 +66,15 @@ class OpenHandsV1API:
     """Minimal OpenHands Cloud API V1 client (app server + agent server helpers)."""
 
     def __init__(self, api_key: str | None = None, base_url: str = DEFAULT_BASE_URL):
-        resolved_key = api_key or os.getenv("OPENHANDS_API_KEY")
+        resolved_key = api_key
         if not resolved_key:
-            raise ValueError("Missing API key. Set OPENHANDS_API_KEY or pass api_key=...")
+            for env_name in PREFERRED_API_KEY_ENV_VARS:
+                resolved_key = os.getenv(env_name)
+                if resolved_key:
+                    break
+        if not resolved_key:
+            env_list = ", ".join(PREFERRED_API_KEY_ENV_VARS)
+            raise ValueError(f"Missing API key. Set one of: {env_list}, or pass api_key=...")
 
         self._cfg = OpenHandsV1Config(api_key=resolved_key, base_url=base_url.rstrip("/"))
         self._client = httpx.Client(
@@ -565,13 +572,21 @@ def main(argv: list[str] | None = None) -> int:
     sub = parser.add_subparsers(dest="cmd", required=True)
 
     p_search = sub.add_parser("search-conversations", help="GET /api/v1/app-conversations/search")
-    p_search.add_argument("--api-key", default=None, help="Defaults to OPENHANDS_API_KEY env var")
+    p_search.add_argument(
+        "--api-key",
+        default=None,
+        help="Defaults to OPENHANDS_CLOUD_API_KEY, then OPENHANDS_API_KEY",
+    )
     p_search.add_argument("--base-url", default=DEFAULT_BASE_URL)
     p_search.add_argument("--limit", type=int, default=5)
     p_search.set_defaults(func=_cmd_search_conversations)
 
     p_start = sub.add_parser("start-conversation", help="POST /api/v1/app-conversations from a prompt file")
-    p_start.add_argument("--api-key", default=None, help="Defaults to OPENHANDS_API_KEY env var")
+    p_start.add_argument(
+        "--api-key",
+        default=None,
+        help="Defaults to OPENHANDS_CLOUD_API_KEY, then OPENHANDS_API_KEY",
+    )
     p_start.add_argument("--base-url", default=DEFAULT_BASE_URL)
     p_start.add_argument("--prompt-file", required=True)
     p_start.add_argument("--append-file", default=None)

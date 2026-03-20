@@ -1,6 +1,8 @@
 # openhands-api-v1
 
-Minimal skill + reference client for the **OpenHands Cloud API V1**.
+Reference skill + minimal clients for the **OpenHands Cloud API V1**.
+
+This skill now also covers the **multi-conversation delegation pattern**: start additional Cloud conversations when you want fresh context windows, background work, or parallel tasks.
 
 - Skill instructions and endpoint overview: [`SKILL.md`](./SKILL.md)
 - Minimal Python client: [`scripts/openhands_api_v1.py`](./scripts/openhands_api_v1.py)
@@ -10,9 +12,17 @@ Minimal skill + reference client for the **OpenHands Cloud API V1**.
 ## Quick start
 
 ```bash
-export OPENHANDS_API_KEY="..."
+export OPENHANDS_CLOUD_API_KEY="..."
 python skills/openhands-api-v1/scripts/openhands_api_v1.py search-conversations --limit 5
 ```
+
+The Python client prefers `OPENHANDS_CLOUD_API_KEY` and falls back to `OPENHANDS_API_KEY`.
+
+## Delegating work with new Cloud conversations
+
+Use `POST /api/v1/app-conversations` to create a separate OpenHands Cloud conversation for a self-contained task, then poll `GET /api/v1/app-conversations/start-tasks?ids=...` until you have an `app_conversation_id`.
+
+Keep delegated prompts self-contained: include the repository, branch, relevant files, constraints, and expected output. Prefer five or fewer concurrently running delegated conversations.
 
 ## Start-task vs app conversation id
 
