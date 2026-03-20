@@ -6,8 +6,6 @@ triggers:
 - openhands-api-v1
 - openhands-cloud
 - openhands-cloud-api-v1
-- cloud-api
-- multi-conversation
 - oh-api-v1
 - oh-cloud-api-v1
 ---
