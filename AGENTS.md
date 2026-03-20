@@ -89,7 +89,7 @@ When editing or adding skills in this repo, follow these rules (and add new skil
 - Keep formatting consistent across skills.
 - If you change a skill’s behavior or scope, update its `README.md` (if present) accordingly.
 - If you change top-level documentation, ensure links still resolve.
-- For OpenHands Cloud API guidance, prefer updating `skills/openhands-api-v1` (current V1 Cloud skill). `skills/openhands-api` is the legacy V0 skill, so avoid adding a duplicate Cloud skill unless the scope is clearly distinct.
+- For OpenHands Cloud API guidance, use `skills/openhands-api`. It is the canonical OpenHands Cloud API skill and documents the supported V1 API.
 
 
 ## CI / validation gotchas
