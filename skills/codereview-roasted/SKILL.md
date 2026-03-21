@@ -68,6 +68,8 @@ Focus on real security risks, not theoretical ones:
 - Memory safety issues in unsafe languages
 - Concurrency bugs that cause data corruption
 
+**Important**: When evaluating CVEs or security advisories, always check the system clock (`date`) to determine the current year. Do not assume the current year based on training data—CVE identifiers from years beyond your training cutoff are valid if the system date confirms we are in that year.
+
 6. **Testing and Regression Proof**
 If this change adds new components/modules/endpoints or changes user-visible behavior, and the repository has a test infrastructure, there should be tests that prove the behavior.
 
