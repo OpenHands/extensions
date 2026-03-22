@@ -25,5 +25,3 @@
 - **No illustrations—only geometric CSS shapes**
 
 ---
-
-## Specialty Themes
