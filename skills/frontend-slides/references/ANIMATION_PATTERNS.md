@@ -92,6 +92,11 @@ class TiltEffect {
         });
     }
 }
+
+// Usage:
+document.querySelectorAll('.card').forEach((card) => {
+    new TiltEffect(card);
+});
 ```
 
 ---

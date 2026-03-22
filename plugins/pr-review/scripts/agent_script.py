@@ -33,6 +33,8 @@ Environment Variables:
     PR_HEAD_BRANCH: Head branch name (required)
     REPO_NAME: Repository name in format owner/repo (required)
     REVIEW_STYLE: Review style ('standard' or 'roasted', default: 'standard')
+    REQUIRE_EVIDENCE: Whether to require PR description evidence showing the code
+        works ('true'/'false', default: 'false')
 
 For setup instructions, usage examples, and GitHub Actions integration,
 see README.md in this directory.
@@ -140,6 +142,13 @@ def _get_required_env(name: str) -> str:
     if not value:
         raise ValueError(f"{name} environment variable is required")
     return value
+
+
+def _get_bool_env(name: str, default: bool = False) -> bool:
+    value = os.getenv(name)
+    if value is None:
+        return default
+    return value.strip().lower() in {"1", "true", "yes", "on"}
 
 
 def _call_github_api(
@@ -644,7 +653,7 @@ def get_head_commit_sha(repo_dir: Path | None = None) -> str:
     return run_git_command(["git", "rev-parse", "HEAD"], repo_dir).strip()
 
 
-def validate_environment() -> dict[str, str]:
+def validate_environment() -> dict[str, Any]:
     """Validate required environment variables and return config.
 
     Returns:
@@ -678,6 +687,7 @@ def validate_environment() -> dict[str, str]:
         "model": os.getenv("LLM_MODEL", "anthropic/claude-sonnet-4-5-20250929"),
         "base_url": os.getenv("LLM_BASE_URL"),
         "review_style": review_style,
+        "require_evidence": _get_bool_env("REQUIRE_EVIDENCE"),
         "pr_info": {
             "number": os.getenv("PR_NUMBER"),
             "title": os.getenv("PR_TITLE"),
@@ -874,9 +884,11 @@ def main():
     config = validate_environment()
     pr_info = config["pr_info"]
     review_style = config["review_style"]
+    require_evidence = config["require_evidence"]
 
     logger.info(f"Reviewing PR #{pr_info['number']}: {pr_info['title']}")
     logger.info(f"Review style: {review_style}")
+    logger.info(f"Require PR evidence: {require_evidence}")
 
     try:
         pr_diff, commit_id, review_context = fetch_pr_context(pr_info["number"])
@@ -897,6 +909,7 @@ def main():
             commit_id=commit_id,
             diff=pr_diff,
             review_context=review_context,
+            require_evidence=require_evidence,
         )
 
         agent = create_agent(config)
