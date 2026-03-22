@@ -1,6 +1,6 @@
 # Troubleshooting / Common Issues
 
-This file documents common issues encountered when working with the OpenHands Cloud API V1.
+This file documents common issues encountered when working with the OpenHands Cloud API.
 
 ## 1. Direct ID lookup returns HTML instead of JSON
 
@@ -13,12 +13,12 @@ This file documents common issues encountered when working with the OpenHands Cl
 ```bash
 # ❌ Wrong (returns HTML)
 curl "${BASE_URL:-https://app.all-hands.dev}/api/v1/app-conversations/${APP_CONVERSATION_ID}" \
-  -H "Authorization: Bearer ${OPENHANDS_API_KEY}" \
+  -H "Authorization: Bearer ${OPENHANDS_CLOUD_API_KEY:-$OPENHANDS_API_KEY}" \
   -H "Accept: application/json"
 
 # ✅ Correct (returns JSON)
 curl "${BASE_URL:-https://app.all-hands.dev}/api/v1/app-conversations?ids=${APP_CONVERSATION_ID}" \
-  -H "Authorization: Bearer ${OPENHANDS_API_KEY}" \
+  -H "Authorization: Bearer ${OPENHANDS_CLOUD_API_KEY:-$OPENHANDS_API_KEY}" \
   -H "Accept: application/json"
 ```
 
