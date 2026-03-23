@@ -28,6 +28,21 @@ most** across all pillars, ranked by impact.  Not every pillar needs to be
 represented — focus on what matters most for this repo.  The goal is to
 meaningfully improve the score, not to hit 74/74.
 
+**Ranking heuristic** — rank by how directly the change helps an agent complete a
+coding task in this repo:
+
+1. Things that unblock agents from working at all (AGENTS.md, build commands,
+   bootstrap scripts, dev environment setup)
+2. Things that give agents faster feedback on their work (pre-commit hooks, test
+   documentation, PR templates with checklists)
+3. Things that improve quality or process (CI caching, label automation, spell
+   checking, merge queues)
+4. Things that improve governance or compliance (SECURITY.md, CODEOWNERS,
+   actionlint, CodeQL)
+
+A single change that lets an agent build and test the project outranks a 2-for-1
+that addresses minor gaps.
+
 Proposals should fit **this specific repo**:
 
 - Look at the languages, frameworks, and tools already in use
