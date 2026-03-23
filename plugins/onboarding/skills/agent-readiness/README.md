@@ -64,4 +64,4 @@ Structured output with per-pillar scores, evidence for passing features, and not
 
 ## References
 
-- `references/criteria.md` — full 74-feature evaluation criteria derived from analysis of 123 repositories
+- `references/criteria.md` — full 74-feature evaluation criteria

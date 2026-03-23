@@ -31,12 +31,6 @@ Run the readiness report on any repository to get a scored evaluation across fiv
 | [agent-onboarding](skills/agent-onboarding/) | `/agent-onboarding` | Propose and implement fixes from a readiness report |
 | [agents-md](skills/agents-md/) | `/agents-md` | Generate a repo-specific AGENTS.md |
 
-## Five Pillars
+## Shared References
 
-| Pillar | Question | Features |
-|--------|----------|----------|
-| **Agent Instructions** | Does the agent know what to do? | 18 |
-| **Feedback Loops** | Does the agent know if it's right? | 16 |
-| **Workflows & Automation** | Does the process support agent work? | 15 |
-| **Policy & Governance** | Does the agent know the rules? | 13 |
-| **Build & Dev Environment** | Can the agent build and run the project? | 12 |
+The `agent-readiness` and `agent-onboarding` skills both use the same 74-feature evaluation criteria. The canonical file lives at `references/criteria.md` at the plugin root, and each skill symlinks to it from its own `references/` directory. Edit the plugin-level copy — the symlinks keep both skills in sync automatically.
