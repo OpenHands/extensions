@@ -1,42 +1,38 @@
-# openhands_api (OpenHands REST API V0)
+# openhands-api
 
-Use this skill when you want to **programmatically create and monitor OpenHands conversations** via the **legacy V0 REST API** (the `/api/...` routes).
+Reference skill + minimal clients for the **OpenHands Cloud API** (V1).
 
-This directory includes:
-- **Documentation**: [`SKILL.md`](./SKILL.md)
-- **Minimal clients** (copy/paste friendly):
-  - Python: [`scripts/openhands_api.py`](./scripts/openhands_api.py)
-  - TypeScript: [`scripts/openhands_api.ts`](./scripts/openhands_api.ts)
-- **References & prompt template**: [`references/`](./references/)
+This skill now also covers the **multi-conversation delegation pattern**: start additional Cloud conversations when you want fresh context windows, background work, or parallel tasks.
 
-## What you can do with the V0 API client
-
-Typical automation flow:
-1. `POST /api/conversations` to start a new conversation
-2. `GET /api/conversations/{id}` to check status/metadata
-3. `GET /api/conversations/{id}/events` (incremental) or `.../trajectory` (full) to read progress
+- Skill instructions and endpoint overview: [`SKILL.md`](./SKILL.md)
+- Minimal Python client: [`scripts/openhands_api.py`](./scripts/openhands_api.py)
+- Minimal TypeScript client: [`scripts/openhands_api.ts`](./scripts/openhands_api.ts)
+- References: [`references/README.md`](./references/README.md)
 
 ## Quick start
 
-### Python
-
 ```bash
-export OPENHANDS_API_KEY="..."
-python -c "from skills.openhands_api.scripts.openhands_api import OpenHandsAPI; api=OpenHandsAPI(); c=api.create_conversation(initial_user_msg='Hello from API'); print(c)"
+export OPENHANDS_CLOUD_API_KEY="..."
+python skills/openhands-api/scripts/openhands_api.py search-conversations --limit 5
 ```
 
-### TypeScript
+The Python client prefers `OPENHANDS_CLOUD_API_KEY` and falls back to `OPENHANDS_API_KEY`.
 
-```ts
-import { OpenHandsAPI } from "./scripts/openhands_api";
+## Delegating work with new Cloud conversations
 
-const api = new OpenHandsAPI({ apiKey: process.env.OPENHANDS_API_KEY! });
-const conv = await api.createConversation({ initialUserMsg: "Hello from API" });
-console.log(conv);
-```
+Use `POST /api/v1/app-conversations` to create a separate OpenHands Cloud conversation for a self-contained task, then poll `GET /api/v1/app-conversations/start-tasks?ids=...` until you have an `app_conversation_id`.
 
-## API versions
+Keep delegated prompts self-contained: include the repository, branch, relevant files, constraints, and expected output. Prefer five or fewer concurrently running delegated conversations.
 
-This skill targets the **legacy V0** OpenHands REST API (`/api/...`).
+## Start-task vs app conversation id
 
-If you need the newer Cloud **V1** API (`/api/v1/...`), use the dedicated V1 skill/clients (not included in this PR).
+In many deployments, `POST /api/v1/app-conversations` returns a **start-task** object.
+
+- `id` is the **start_task_id**
+- `app_conversation_id` is what you should use for `/download` and `/conversation/.../events/...`
+
+If `app_conversation_id` is missing from the initial response, fetch it via:
+
+- `GET /api/v1/app-conversations/start-tasks?ids=<start_task_id>`
+
+(If you accidentally use a start-task id with `/download`, you’ll get `404 Not Found`.)

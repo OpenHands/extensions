@@ -1,14 +1,12 @@
-# Example prompt for an OpenHands API conversation
+# Example prompt file (OpenHands Cloud API)
 
-You are an autonomous software engineer.
+Replace the text below with the task you want OpenHands to perform.
 
-Task:
-1. Inspect the repository.
-2. Find an improvement that can be implemented quickly (tests, lint, docs build, CI reliability).
-3. Implement the change.
-4. Run the relevant tests.
-5. Open a pull request with a clear title and description.
+---
 
-Constraints:
-- Do not guess. Verify by reading code and running commands.
-- Keep changes minimal.
+Please:
+1) Explain what this repository does.
+2) List the existing test/lint commands you can find.
+3) Propose the smallest possible change to address the issue described in the task.
+
+(Do not run long loops or poll APIs. Keep external calls minimal.)

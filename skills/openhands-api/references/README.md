@@ -1,19 +1,19 @@
-# OpenHands API references
+# OpenHands Cloud API references
 
-This skill targets the **OpenHands REST API** documented at:
+This skill ships a minimal client plus a short list of the most useful endpoints.
 
-- https://docs.openhands.dev/api-reference/new-conversation
+The V1 app server routes are served from the OpenHands Cloud app host:
 
-Start there, then browse the other endpoints under the “API Reference” sidebar.
+- Base URL (default): `https://app.all-hands.dev`
+- API prefix: `/api/v1`
 
-## Implementation source of truth
+Key concepts:
 
-This skill intentionally targets the **legacy V0** server routes in:
+- **App server** endpoints use Bearer auth (`Authorization: Bearer <OPENHANDS_CLOUD_API_KEY>`).
+- **Agent server** endpoints are served by the sandbox runtime and use session auth (`X-Session-API-Key`).
 
-- https://github.com/OpenHands/OpenHands/tree/main/openhands/server/routes
+If you need deeper, up-to-date definitions, check the OpenHands main repository for the latest server route implementations. In that repo, the V1 app server routes typically live under:
 
-If an endpoint differs from the docs, prefer the server implementation.
+- `openhands/app_server/routes/`
 
-## Minimal example prompt
-
-See `example_prompt.md`.
+(The legacy V0 API routes live under `openhands/server/routes/`.)
