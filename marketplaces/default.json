@@ -483,6 +483,19 @@
                 "verification",
                 "sample"
             ]
+        },
+        {
+            "name": "onboarding",
+            "source": "./plugins/onboarding",
+            "description": "Assess repository agent-readiness across five pillars, propose high-impact fixes, and generate repo-specific AGENTS.md files.",
+            "category": "productivity",
+            "keywords": [
+                "onboarding",
+                "readiness",
+                "agents-md",
+                "agent-readiness",
+                "assessment"
+            ]
         }
     ]
 }
