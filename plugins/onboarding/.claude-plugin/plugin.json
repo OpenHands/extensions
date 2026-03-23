@@ -9,5 +9,12 @@
   "homepage": "https://github.com/OpenHands/extensions",
   "repository": "https://github.com/OpenHands/extensions",
   "license": "MIT",
-  "keywords": ["onboarding", "readiness", "agents-md", "agent-readiness", "assessment"]
+  "keywords": [
+    "onboarding",
+    "readiness",
+    "agents-md",
+    "agent-readiness",
+    "assessment",
+    "ai-readiness"
+  ]
 }
