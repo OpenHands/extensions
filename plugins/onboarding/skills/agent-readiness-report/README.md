@@ -10,7 +10,7 @@ This skill is activated by the following keywords:
 
 ## What This Does
 
-Assesses a codebase across five pillars covering 74 features that determine whether an AI agent can work effectively in a repository. Produces a structured report identifying what's present, what's missing, and which pillars are strongest and weakest.
+Assesses a codebase across five pillars that determine whether an AI agent can work effectively in a repository. Produces a structured report identifying what's present, what's missing, and which pillars are strongest and weakest.
 
 The five pillars are:
 
