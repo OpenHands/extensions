@@ -1,8 +1,9 @@
 ---
-name: agents-md
+name: setup-agents-md
 description: Generate a high-quality, repo-specific AGENTS.md file that tells AI agents how to work effectively in a repository. Reads the actual repo to extract commands, structure, conventions, and guardrails — never generates generic boilerplate. Use when a user wants to create or improve their AGENTS.md, or after a readiness report identifies a missing agent instruction file.
 triggers:
-- /agents-md
+- setup-agents-md
+- agents-md
 ---
 
 # Generate AGENTS.md

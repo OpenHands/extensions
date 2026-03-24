@@ -1,8 +1,8 @@
 ---
-name: openhands-setup
+name: setup-openhands
 description: Set up a repository for effective use with OpenHands. Creates AGENTS.md, setup and pre-commit scripts, and a PR review workflow. Designed to run automatically with minimal user intervention. Use when a user wants to configure their repo for OpenHands.
 triggers:
-- /setup-openhands
+- setup-openhands
 - set up openhands
 - configure openhands for this repo
 ---

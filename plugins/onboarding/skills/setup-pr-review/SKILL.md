@@ -1,8 +1,8 @@
 ---
-name: pr-review-setup
+name: setup-pr-review
 description: Set up the OpenHands automated PR review workflow in a GitHub repository. Creates the workflow file and asks the user for configuration preferences. Use when a user wants AI code review on their pull requests.
 triggers:
-- /setup-pr-review
+- setup-pr-review
 - set up pr review
 - add code review workflow
 - openhands pr review

@@ -1,8 +1,9 @@
 ---
-name: agent-onboarding
-description: Use an agent readiness report to identify and implement improvements that make a repository more agent-friendly. Proposes repo-appropriate fixes for each pillar, then implements them on request. Use after running `/readiness-report` or when a user wants to improve their repo's AI-readiness.
+name: improve-agent-readiness
+description: Use an agent readiness report to identify and implement improvements that make a repository more agent-friendly. Proposes repo-appropriate fixes for each pillar, then implements them on request. Use after running a readiness report or when a user wants to improve their repo's AI-readiness.
 triggers:
-- /agent-onboarding
+- improve-agent-readiness
+- agent onboarding
 ---
 
 # Agent Onboarding
