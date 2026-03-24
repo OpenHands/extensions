@@ -13,7 +13,7 @@ Work through these steps in order.
 
 ## Step 1: Create AGENTS.md
 
-Run `/agents-md` to generate a root-level `AGENTS.md` from the repo's actual
+Run `setup-agents-md` to generate a root-level `AGENTS.md` from the repo's actual
 CI workflows, build files, and documentation.
 
 ## Step 2: Create `.openhands/setup.sh`
@@ -44,7 +44,7 @@ The script should run the same checks CI runs — if CI runs `ruff check` and
 
 ## Step 4: Set up PR review
 
-Run `/setup-pr-review` to create the GitHub Actions workflow and walk the user
+Run `setup-pr-review` to create the GitHub Actions workflow and walk the user
 through configuration.
 
 ## Step 5: Verify

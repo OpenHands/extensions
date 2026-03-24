@@ -6,11 +6,11 @@ Take an agent readiness report and turn its gaps into concrete, repo-appropriate
 
 This skill is activated by the following keywords:
 
-- `/agent-onboarding`
+- `improve-agent-readiness`
 
 ## Prerequisites
 
-An agent readiness report must already exist — either from running `/readiness-report` on the target repo or provided directly by the user. If no report exists, run the readiness report skill first.
+An agent readiness report must already exist — either from running `agent-readiness-report` on the target repo or provided directly by the user. If no report exists, run the readiness report skill first.
 
 ## How It Works
 

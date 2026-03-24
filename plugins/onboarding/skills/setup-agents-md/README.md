@@ -6,7 +6,7 @@ Generate a high-quality, repo-specific AGENTS.md file that tells AI agents how t
 
 This skill is activated by the following keywords:
 
-- `/agents-md`
+- `setup-agents-md`
 
 ## What This Does
 

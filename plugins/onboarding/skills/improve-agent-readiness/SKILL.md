@@ -13,7 +13,7 @@ Take a readiness report and turn its gaps into concrete, repo-appropriate fixes.
 ## Prerequisites
 
 This skill expects an agent readiness report to already exist — either from
-running `/readiness-report` on this repo or provided by the user.  If no report
+running `agent-readiness-report` on this repo or provided by the user.  If no report
 exists, run the readiness report skill first.
 
 ## How to run

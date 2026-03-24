@@ -6,7 +6,7 @@ Evaluate how well a repository supports autonomous AI-assisted development.
 
 This skill is activated by the following keywords:
 
-- `/readiness-report`
+- `agent-readiness-report`
 
 ## What This Does
 
