@@ -1,5 +1,5 @@
 ---
-allowed-tools: Bash(curl:*)
+allowed-tools: Bash(curl:*), Bash(tar:*), Bash(cat:*), Bash(echo:*), Bash(jq:*)
 description: Create a new OpenHands automation with cron scheduling
 ---
 
@@ -11,9 +11,46 @@ Guide the user through creating a new automation that runs on a cron schedule.
 
 Help the user create an automation by collecting the required information interactively.
 
-### Step 1: Collect Required Information
+### Step 0: Ask About Code Location
 
-Ask the user for each of these fields one at a time:
+First, ask the user if they:
+1. **Have code to upload** - They have local files that need to be uploaded as a tarball
+2. **Have an existing tarball URL** - They already have code hosted somewhere (S3, GCS, HTTPS, or a previous upload)
+
+If they need to upload code, guide them through the upload process first (see Step 1a).
+If they have an existing URL, skip to Step 1b.
+
+### Step 1a: Upload Code (if needed)
+
+If the user has local code to upload:
+
+1. Help them create a tarball from their code:
+   ```bash
+   tar -czf automation.tar.gz -C /path/to/code .
+   ```
+
+2. Upload the tarball (max 1MB):
+   ```bash
+   curl -X POST "https://automations.all-hands.dev/api/v1/uploads?name=UPLOAD_NAME" \
+     -H "Authorization: Bearer ${OPENHANDS_API_KEY}" \
+     -H "Content-Type: application/gzip" \
+     --data-binary @automation.tar.gz
+   ```
+
+3. Extract the `tarball_path` from the response:
+   ```bash
+   # Response includes: "tarball_path": "oh-internal://uploads/{uuid}"
+   ```
+
+4. Verify the upload status is `COMPLETED` before proceeding.
+
+**Upload Constraints:**
+- Maximum file size: 1MB
+- Allowed content types: `application/gzip`, `application/x-tar`, `application/x-gzip`, `application/x-compressed-tar`, `application/octet-stream`
+
+### Step 1b: Collect Automation Details
+
+Ask the user for each of these fields:
 
 1. **Name** (required): A descriptive name for the automation (1-500 characters)
 
@@ -24,9 +61,11 @@ Ask the user for each of these fields one at a time:
 3. **Timezone** (optional): IANA timezone name (default: UTC)
    - Examples: `America/New_York`, `Europe/London`, `Asia/Tokyo`
 
-4. **Tarball Path** (required): Location of the code to run
-   - Internal upload: `oh-internal://uploads/{uuid}`
-   - External URL: `https://...`, `s3://...`, or `gs://...`
+4. **Tarball Path** (required if not uploaded): Location of the code to run
+   - Internal upload: `oh-internal://uploads/{uuid}` (from Step 1a)
+   - S3: `s3://bucket/path/file.tar.gz`
+   - GCS: `gs://bucket/path/file.tar.gz`
+   - HTTPS: `https://example.com/file.tar.gz`
 
 5. **Entrypoint** (required): Command to execute
    - Examples: `uv run main.py`, `python script.py`, `./run.sh`

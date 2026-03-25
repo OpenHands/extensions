@@ -5,8 +5,8 @@ Create and manage OpenHands automations - scheduled tasks that run SDK scripts i
 ## Features
 
 - **Slash command**: `/automation:create` - Create a new automation interactively
+- **Tarball uploads**: Upload your SDK code as a tarball (up to 1MB)
 - **Cron scheduling**: Schedule automations to run on any cron schedule
-- **Tarball uploads**: Upload your SDK code as a tarball
 - **Configurable timeout**: Set execution timeout (up to 10 minutes)
 - **Setup scripts**: Optional setup.sh for environment preparation
 
@@ -19,9 +19,9 @@ Create and manage OpenHands automations - scheduled tasks that run SDK scripts i
 ```
 
 The agent will guide you through:
-1. Providing a name for your automation
-2. Setting up a cron schedule (e.g., `0 9 * * 5` for every Friday at 9 AM)
-3. Specifying your code tarball path
+1. Uploading your code as a tarball (if needed)
+2. Providing a name for your automation
+3. Setting up a cron schedule (e.g., `0 9 * * 5` for every Friday at 9 AM)
 4. Defining the entrypoint command
 5. Optionally setting a timeout and setup script
 
@@ -30,7 +30,20 @@ The agent will guide you through:
 ```
 User: /automation:create
 
-Agent: I'll help you create a new automation. Please provide the following details:
+Agent: I'll help you create a new automation. First, do you:
+1. Have local code that needs to be uploaded?
+2. Already have a tarball URL (S3, GCS, HTTPS)?
+
+User: I have local code in ./my-automation/
+
+Agent: I'll help you upload that. Let me create and upload the tarball...
+
+[Creates tarball and uploads]
+
+✅ Upload successful!
+- Tarball path: oh-internal://uploads/550e8400-e29b-41d4-a716-446655440000
+
+Now let's configure the automation:
 
 1. **Name**: What would you like to call this automation?
 
@@ -40,26 +53,72 @@ Agent: 2. **Cron Schedule**: When should this run? (e.g., "0 9 * * 5" for Friday
 
 User: 0 9 * * 1
 
-Agent: 3. **Tarball Path**: Where is your code? This can be:
-   - An uploaded tarball: `oh-internal://uploads/{uuid}`
-   - An external URL: `https://...`, `s3://...`, or `gs://...`
-
-User: s3://my-bucket/automations/weekly-report.tar.gz
-
-Agent: 4. **Entrypoint**: What command runs your automation? (e.g., "uv run main.py")
+Agent: 3. **Entrypoint**: What command runs your automation? (e.g., "uv run main.py")
 
 User: python generate_report.py
 
 Agent: Creating your automation...
 
 ✅ Automation created successfully!
-- ID: 550e8400-e29b-41d4-a716-446655440000
+- ID: 123e4567-e89b-12d3-a456-426614174000
 - Name: Weekly Report Generator
 - Schedule: Every Monday at 9:00 AM UTC
 - Status: Enabled
 ```
 
-## API Reference
+---
+
+## Uploading Tarballs
+
+Before creating an automation with local code, you must upload it as a tarball.
+
+### Upload Endpoint
+
+```bash
+curl -X POST "https://automations.all-hands.dev/api/v1/uploads?name=my-code&description=My%20automation%20code" \
+  -H "Authorization: Bearer ${OPENHANDS_API_KEY}" \
+  -H "Content-Type: application/gzip" \
+  --data-binary @automation.tar.gz
+```
+
+### Upload Constraints
+
+| Constraint | Value |
+|------------|-------|
+| Max file size | 1 MB |
+| Content types | `application/gzip`, `application/x-tar`, `application/x-gzip`, `application/x-compressed-tar`, `application/octet-stream` |
+
+### Upload Response
+
+```json
+{
+  "id": "550e8400-e29b-41d4-a716-446655440000",
+  "name": "my-code",
+  "status": "COMPLETED",
+  "tarball_path": "oh-internal://uploads/550e8400-e29b-41d4-a716-446655440000",
+  "size_bytes": 12345
+}
+```
+
+**Important:** Use the `tarball_path` value when creating your automation.
+
+### List Uploads
+
+```bash
+curl "https://automations.all-hands.dev/api/v1/uploads" \
+  -H "Authorization: Bearer ${OPENHANDS_API_KEY}"
+```
+
+### Delete Upload
+
+```bash
+curl -X DELETE "https://automations.all-hands.dev/api/v1/uploads/{upload_id}" \
+  -H "Authorization: Bearer ${OPENHANDS_API_KEY}"
+```
+
+---
+
+## Automation API Reference
 
 The automation service exposes a REST API at `/api/v1/automations`:
 
