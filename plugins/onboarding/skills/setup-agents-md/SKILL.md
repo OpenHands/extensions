@@ -24,10 +24,19 @@ directly addresses features across multiple pillars:
 
 Without it, agents guess at build commands, miss project conventions, run the
 wrong test suite, and don't know what's dangerous.  The best AGENTS.md files
-we've studied (airflow, CopilotKit, grafana, swc) all share the same core
-pattern: real commands, clear structure, explicit boundaries.
+share the same core pattern: real commands, clear structure, explicit boundaries.
 
 ## How to run
+
+### Step 0: Check for an existing AGENTS.md
+
+Look for an existing `AGENTS.md` (or `.agents/AGENTS.md`) in the repo root.
+If one exists, **do not rewrite it from scratch**. Instead, read the repo
+(Step 1), compare what you find against what's already documented, and suggest
+specific additions or changes. Present the suggestions to the user and let them
+decide what to incorporate.
+
+If no file exists, proceed to create one.
 
 ### Step 1: Read the repo
 
@@ -136,38 +145,6 @@ that drifts out of date.  Reference CI configs and Makefiles by path so a human
 
 ### Monorepo considerations
 
-If the repo is a monorepo, consider whether sub-directory AGENTS.md files are
-warranted.  The root AGENTS.md should cover repo-wide commands and conventions.
-Per-package files should only exist if a package has substantially different
-commands or conventions from the root.
-
-CopilotKit does this well: the root file covers Nx monorepo basics and
-architecture, then links to `.claude/docs/` for deeper topic-specific guidance.
-Grafana versions its root file and explicitly lists sub-directory AGENTS.md paths.
-
-## Examples from real repos
-
-These patterns come from studying the best AGENTS.md files across 125
-repositories:
-
-**Concise and effective** (CopilotKit, 32 lines): One-sentence architecture,
-"Essentials" section with 4 bullet points, then links to detailed docs.  An
-agent can read the whole thing in seconds and knows where to find more.
-
-**Thorough command reference** (airflow, 215 lines): Every test command has a
-real example with placeholders (`<PROJECT>`, `<target_branch>`).  Repository
-structure section maps paths to purposes.  Architecture boundaries section
-explains what talks to what.
-
-**Categorized commands** (grafana, 480 lines): Build, test, lint commands
-separated into backend/frontend blocks with exact shell commands.  Sub-directory
-AGENTS.md files linked from root for specialized areas (docs, alerting).
-
-**Performance-first philosophy** (swc, 75 lines): States the project's core
-value ("always prefer performance") upfront so every decision the agent makes
-is anchored to it.  Verification checklist tells the agent exactly what to run
-before finishing.
-
-**Safety-critical guardrails** (Lychee, 122 lines): Explicit "NEVER RUN THESE
-COMMANDS" section with database-destroying operations called out.  Test database
-isolation explained so the agent doesn't accidentally use production.
+If the repo is a monorepo, the root AGENTS.md should cover repo-wide commands
+and conventions.  Consider sub-directory AGENTS.md files only for packages with
+substantially different commands or conventions, and link to them from the root.
