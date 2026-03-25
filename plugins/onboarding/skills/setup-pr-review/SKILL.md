@@ -19,28 +19,37 @@ review pull requests and post inline comments.
 
 Create `.github/workflows/pr-review.yml` in the target repo. Fetch the latest
 example from https://docs.all-hands.dev/sdk/guides/github-workflows/pr-review
-and use it as the starting template. The workflow checks out the
-`OpenHands/extensions` repo and runs the `plugins/pr-review` composite action.
+and use it as the starting template. The workflow calls the
+`OpenHands/extensions/plugins/pr-review` composite action directly.
 
-Key elements the workflow must have:
-- `on.pull_request` with appropriate trigger types
-- `permissions`: `contents: read`, `pull-requests: write`, `issues: write`
-- `concurrency` group per PR number with `cancel-in-progress: true`
-- `uses: ./plugins/pr-review` with `llm-model`, `review-style`, `llm-api-key`,
-  and `github-token`
+## Step 2: Configure the LLM
 
-## Step 2: Tell the user to add the secret
+Ask the user whether they are using the **OpenHands app** (app.all-hands.dev)
+or their **own LLM provider** (e.g. Anthropic, OpenAI directly).
 
-The workflow requires an `LLM_API_KEY` repository secret. **You cannot create
-this — the user must do it manually.**
+### OpenHands app (default)
 
-Tell them:
+OpenHands app users already have access to an LLM API key through the
+OpenHands litellm proxy. Tell them:
 
-> To activate the workflow, add your LLM API key as a GitHub repository secret:
+> Go to https://app.all-hands.dev → Account → API Keys → OpenHands LLM Key, and copy your key.
+> Then add it as a GitHub repository secret:
 > Settings → Secrets and variables → Actions → New repository secret.
-> Name it `LLM_API_KEY`. The `GITHUB_TOKEN` is provided automatically.
+> Name it `LLM_API_KEY`.
 
-Do not ask the user for the key value. Just tell them where to put it.
+Set these inputs in the workflow `with:` block:
+- `llm-model: litellm_proxy/claude-sonnet-4-5-20250929`
+- `llm-base-url: https://llm-proxy.app.all-hands.dev`
+
+### Own LLM provider
+
+If the user has their own API key (e.g. from Anthropic or OpenAI), tell them
+to add it as a repository secret named `LLM_API_KEY` using the same path
+above. Leave `llm-base-url` unset and set `llm-model` to the provider-prefixed
+model name (e.g. `anthropic/claude-sonnet-4-5-20250929`).
+
+**You cannot create secrets — the user must do it manually.** Do not ask for
+the key value. Just tell them where to put it.
 
 ## Step 3: Ask the user for preferences
 
@@ -56,17 +65,8 @@ Present these options and apply any requested changes to the workflow file:
 - Automatic: review every new PR. Add `opened` and `ready_for_review` to
   `on.pull_request.types` and matching conditions to the `if:` block.
 
-**Which model** (default: `anthropic/claude-sonnet-4-5-20250929`)
-- Any model supported by litellm. Can be a comma-separated list for A/B testing
-  (one model selected randomly per review).
-
-**Evidence requirement** (default: `false`)
-- When `true`, the reviewer checks the PR description for an Evidence section
-  (screenshots for frontend, command output for backend).
-
-## Step 4: Verify
-
-Confirm:
-- `.github/workflows/pr-review.yml` exists and is valid YAML
-- The `if:` conditions match the triggers in `on.pull_request.types`
-- The `secrets.LLM_API_KEY` reference is present in the `with:` block
+After applying these, ask the user if they want to explore additional options
+(model selection, evidence requirements, custom review skills, observability).
+If yes, walk them through it — use the docs as a reference:
+https://docs.all-hands.dev/sdk/guides/github-workflows/pr-review
+If not, you're done.
