@@ -1,0 +1,181 @@
+# Automation Creation Plugin
+
+Create and manage OpenHands automations - scheduled tasks that run SDK scripts in sandboxes on a cron schedule.
+
+## Features
+
+- **Slash command**: `/automation:create` - Create a new automation interactively
+- **Cron scheduling**: Schedule automations to run on any cron schedule
+- **Tarball uploads**: Upload your SDK code as a tarball
+- **Configurable timeout**: Set execution timeout (up to 10 minutes)
+- **Setup scripts**: Optional setup.sh for environment preparation
+
+## Usage
+
+### Create an Automation
+
+```
+/automation:create
+```
+
+The agent will guide you through:
+1. Providing a name for your automation
+2. Setting up a cron schedule (e.g., `0 9 * * 5` for every Friday at 9 AM)
+3. Specifying your code tarball path
+4. Defining the entrypoint command
+5. Optionally setting a timeout and setup script
+
+### Example Interaction
+
+```
+User: /automation:create
+
+Agent: I'll help you create a new automation. Please provide the following details:
+
+1. **Name**: What would you like to call this automation?
+
+User: Weekly Report Generator
+
+Agent: 2. **Cron Schedule**: When should this run? (e.g., "0 9 * * 5" for Fridays at 9 AM UTC)
+
+User: 0 9 * * 1
+
+Agent: 3. **Tarball Path**: Where is your code? This can be:
+   - An uploaded tarball: `oh-internal://uploads/{uuid}`
+   - An external URL: `https://...`, `s3://...`, or `gs://...`
+
+User: s3://my-bucket/automations/weekly-report.tar.gz
+
+Agent: 4. **Entrypoint**: What command runs your automation? (e.g., "uv run main.py")
+
+User: python generate_report.py
+
+Agent: Creating your automation...
+
+✅ Automation created successfully!
+- ID: 550e8400-e29b-41d4-a716-446655440000
+- Name: Weekly Report Generator
+- Schedule: Every Monday at 9:00 AM UTC
+- Status: Enabled
+```
+
+## API Reference
+
+The automation service exposes a REST API at `/api/v1/automations`:
+
+### Create Automation
+
+```bash
+curl -X POST "https://automations.all-hands.dev/api/v1/automations" \
+  -H "Authorization: Bearer ${OPENHANDS_API_KEY}" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "My Automation",
+    "trigger": {
+      "type": "cron",
+      "schedule": "0 9 * * 5",
+      "timezone": "UTC"
+    },
+    "tarball_path": "s3://bucket/code.tar.gz",
+    "entrypoint": "uv run main.py",
+    "timeout": 300
+  }'
+```
+
+### Request Fields
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `name` | Yes | Name of the automation (1-500 characters) |
+| `trigger.type` | Yes | Must be `"cron"` |
+| `trigger.schedule` | Yes | Cron expression (e.g., `"0 9 * * 5"`) |
+| `trigger.timezone` | No | IANA timezone (default: `"UTC"`) |
+| `tarball_path` | Yes | Path to code tarball (`oh-internal://`, `s3://`, `gs://`, `https://`) |
+| `entrypoint` | Yes | Command to execute (e.g., `"uv run main.py"`) |
+| `setup_script_path` | No | Relative path to setup script inside tarball |
+| `timeout` | No | Max execution time in seconds (1-600, default: 600) |
+
+### List Automations
+
+```bash
+curl "https://automations.all-hands.dev/api/v1/automations" \
+  -H "Authorization: Bearer ${OPENHANDS_API_KEY}"
+```
+
+### Update Automation
+
+```bash
+curl -X PATCH "https://automations.all-hands.dev/api/v1/automations/{id}" \
+  -H "Authorization: Bearer ${OPENHANDS_API_KEY}" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "enabled": false
+  }'
+```
+
+### Manually Trigger a Run
+
+```bash
+curl -X POST "https://automations.all-hands.dev/api/v1/automations/{id}/dispatch" \
+  -H "Authorization: Bearer ${OPENHANDS_API_KEY}"
+```
+
+## Cron Schedule Examples
+
+| Schedule | Description |
+|----------|-------------|
+| `0 9 * * *` | Every day at 9:00 AM |
+| `0 9 * * 1` | Every Monday at 9:00 AM |
+| `0 9 * * 5` | Every Friday at 9:00 AM |
+| `0 0 1 * *` | First day of each month at midnight |
+| `*/15 * * * *` | Every 15 minutes |
+| `0 */6 * * *` | Every 6 hours |
+
+## Tarball Structure
+
+Your automation tarball should contain:
+
+```
+my-automation/
+├── main.py           # Your entrypoint script
+├── setup.sh          # Optional setup script
+├── requirements.txt  # Dependencies (if using pip)
+└── pyproject.toml    # Or use uv/poetry
+```
+
+### Environment Variables
+
+Your script receives these environment variables:
+
+| Variable | Description |
+|----------|-------------|
+| `OPENHANDS_API_KEY` | API key for OpenHands services |
+| `OPENHANDS_CLOUD_API_URL` | Base URL for the OpenHands Cloud API |
+| `AUTOMATION_EVENT_PAYLOAD` | JSON with trigger info, automation ID, and name |
+| `AUTOMATION_RUN_ID` | Unique ID for this run |
+| `AUTOMATION_CALLBACK_URL` | URL to POST completion status |
+
+## Validation Rules
+
+- **Name**: 1-500 characters, required
+- **Cron schedule**: Must be a valid cron expression
+- **Entrypoint**: Must be a relative path, no shell metacharacters (`;&|` etc.)
+- **Setup script path**: Must be relative, no path traversal (`..`)
+- **Timeout**: 1-600 seconds (10 minutes max)
+
+## Plugin Structure
+
+```
+automation-creation/
+├── .claude-plugin/
+│   └── plugin.json      # Plugin manifest
+├── commands/
+│   └── create.md        # Slash command definition
+└── README.md            # This file
+```
+
+## Related Resources
+
+- [OpenHands SDK Documentation](https://docs.openhands.dev/sdk)
+- [OpenHands Cloud](https://app.all-hands.dev)
+- [Cron Expression Reference](https://crontab.guru/)
