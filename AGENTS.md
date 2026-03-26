@@ -91,8 +91,18 @@ When editing or adding skills in this repo, follow these rules (and add new skil
 - If you change top-level documentation, ensure links still resolve.
 - For Python test runs, prefer `uv sync --group test` followed by `uv run pytest -q`; the full suite depends on `openhands-sdk`, which is not available in the base environment.
 - Agent-driven plugins (for example `plugins/pr-review` and `plugins/release-notes`) use `uv run --with openhands-sdk --with openhands-tools ...` and require an `LLM_API_KEY` in addition to `GITHUB_TOKEN`.
+- For OpenHands Cloud API guidance, use `skills/openhands-api`. It is the canonical OpenHands Cloud API skill and documents the supported V1 API.
 
+## CI / validation gotchas
 
+- The test suite expects **every directory under `skills/`** to be listed in `marketplaces/default.json`.
+  - If you add a new skill (or rebase onto a main branch that added skills), update the marketplace file or CI will fail with `Skills missing from marketplace: [...]`.
+
+## PR review plugin notes
+
+- `plugins/pr-review` supports an optional `require-evidence` action input that tells the reviewer to require end-to-end proof in the PR description that the code works; test output alone is not sufficient evidence.
+- The corresponding `REQUIRE_EVIDENCE` env flag is consumed by `plugins/pr-review/scripts/agent_script.py` and injected into the review prompt via `plugins/pr-review/scripts/prompt.py`.
+- Prompt coverage for this behavior lives in `tests/test_pr_review_prompt.py`.
 
 ## When uncertain
 

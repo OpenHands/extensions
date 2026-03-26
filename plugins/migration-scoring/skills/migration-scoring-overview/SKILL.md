@@ -43,7 +43,7 @@ uv run python -m lc_sdk_examples.migration_scoring \
 
 ### Phase 1: Migration Mapping
 
-See [skills/mapping/SKILL.md](skills/mapping/SKILL.md)
+See [../migration-mapping/SKILL.md](../migration-mapping/SKILL.md)
 
 Creates a source→target file mapping:
 - Identifies which target files implement each source file
@@ -61,7 +61,7 @@ Creates a source→target file mapping:
 
 ### Phase 2: Quality Scoring
 
-See [skills/score-quality/SKILL.md](skills/score-quality/SKILL.md)
+See [../score-quality/SKILL.md](../score-quality/SKILL.md)
 
 Scores each source file on:
 - **Coverage (1-5)**: How much functionality was migrated
@@ -81,7 +81,7 @@ Scores each source file on:
 
 ### Phase 3: Style Scoring
 
-See [skills/score-style/SKILL.md](skills/score-style/SKILL.md)
+See [../score-style/SKILL.md](../score-style/SKILL.md)
 
 Evaluates target code against style guidelines:
 - Naming conventions
@@ -94,7 +94,7 @@ Evaluates target code against style guidelines:
 
 ### Phase 4: Executive Report
 
-See [skills/report/SKILL.md](skills/report/SKILL.md)
+See [../migration-report/SKILL.md](../migration-report/SKILL.md)
 
 Generates a comprehensive report:
 - Overall health assessment
@@ -117,7 +117,7 @@ your-project/
 
 ## Scoring Criteria
 
-See [skills/score-quality/references/scoring-criteria.md](skills/score-quality/references/scoring-criteria.md) for the 1-5 scoring scales.
+See [../score-quality/references/scoring-criteria.md](../score-quality/references/scoring-criteria.md) for the 1-5 scoring scales.
 
 ### Risk Categories
 

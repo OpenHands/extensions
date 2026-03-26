@@ -15,23 +15,40 @@ Bundle ALL comments into a **single review API call**. Do not post comments indi
 
 ## Posting a Review
 
-Use the GitHub CLI (`gh`). The `GITHUB_TOKEN` is automatically available.
+Use the GitHub CLI (`gh`) with a JSON input file. The `GITHUB_TOKEN` is automatically available.
+
+**Important**: Always use `--input` with a JSON file instead of `-F` flags. This avoids shell quoting issues with special characters in comment bodies (quotes, backticks, newlines, etc.) and eliminates the need for complex heredoc scripts.
+
+### Step 1: Create a JSON file
 
 ```bash
-gh api \
-  -X POST \
-  repos/{owner}/{repo}/pulls/{pr_number}/reviews \
-  -F commit_id='{commit_sha}' \
-  -F event='COMMENT' \
-  -F body='Brief 1-3 sentence summary.' \
-  -F comments[][path]='path/to/file.py' \
-  -F comments[][line]=42 \
-  -F comments[][side]='RIGHT' \
-  -F comments[][body]='🟠 Important: Your comment here.' \
-  -F comments[][path]='another/file.js' \
-  -F comments[][line]=15 \
-  -F comments[][side]='RIGHT' \
-  -F comments[][body]='🟡 Suggestion: Another comment.'
+cat > /tmp/review.json << 'EOF'
+{
+  "commit_id": "{commit_sha}",
+  "event": "COMMENT",
+  "body": "Brief 1-3 sentence summary.",
+  "comments": [
+    {
+      "path": "path/to/file.py",
+      "line": 42,
+      "side": "RIGHT",
+      "body": "🟠 Important: Your comment here."
+    },
+    {
+      "path": "another/file.js",
+      "line": 15,
+      "side": "RIGHT",
+      "body": "🟡 Suggestion: Another comment."
+    }
+  ]
+}
+EOF
+```
+
+### Step 2: Post the review
+
+```bash
+gh api -X POST repos/{owner}/{repo}/pulls/{pr_number}/reviews --input /tmp/review.json
 ```
 
 ### Parameters
@@ -49,18 +66,14 @@ gh api \
 
 For comments spanning multiple lines, add `start_line` to specify the range:
 
-```bash
-  -F comments[][path]='path/to/file.py' \
-  -F comments[][start_line]=10 \
-  -F comments[][line]=12 \
-  -F comments[][side]='RIGHT' \
-  -F comments[][body]='🟡 Suggestion: Refactor this block:
-
-```suggestion
-line_one = "new"
-line_two = "code"
-line_three = "here"
-```'
+```json
+{
+  "path": "path/to/file.py",
+  "start_line": 10,
+  "line": 12,
+  "side": "RIGHT",
+  "body": "🟡 Suggestion: Refactor this block:\n\n```suggestion\nline_one = \"new\"\nline_two = \"code\"\nline_three = \"here\"\n```"
+}
 ```
 
 **Important**: The suggestion must have the same number of lines as the range (e.g., lines 10-12 = 3 lines).
@@ -114,30 +127,23 @@ head -n 42 filename | tail -1  # Verify line content
 
 ## Fallback: curl
 
-If `gh` is unavailable:
+If `gh` is unavailable, use curl with the JSON file:
 
 ```bash
 curl -X POST \
   -H "Authorization: token $GITHUB_TOKEN" \
   -H "Accept: application/vnd.github+json" \
   "https://api.github.com/repos/{owner}/{repo}/pulls/{pr_number}/reviews" \
-  -d '{
-    "commit_id": "{commit_sha}",
-    "event": "COMMENT",
-    "body": "Review summary.",
-    "comments": [
-      {"path": "file.py", "line": 42, "side": "RIGHT", "body": "Comment"},
-      {"path": "file.py", "start_line": 10, "line": 12, "side": "RIGHT", "body": "Multi-line"}
-    ]
-  }'
+  -d @/tmp/review.json
 ```
 
 ## Summary
 
 1. Analyze the code and identify important issues (minimize nits)
-2. Post **ONE** review with all inline comments bundled
-3. Use priority labels (🔴🟠🟡🟢) on every comment
-4. Mark pragmatic trade-offs as 🟢 **Acceptable** - don't block PRs for out-of-scope improvements
-5. Use suggestion syntax for concrete code changes
-6. Keep the review body brief (details go in inline comments)
-7. If no issues: post a short message
+2. Write review data to a JSON file (e.g., `/tmp/review.json`)
+3. Post **ONE** review using `gh api --input /tmp/review.json`
+4. Use priority labels (🔴🟠🟡🟢) on every comment
+5. Mark pragmatic trade-offs as 🟢 **Acceptable** - don't block PRs for out-of-scope improvements
+6. Use suggestion syntax for concrete code changes
+7. Keep the review body brief (details go in inline comments)
+8. If no issues: post a short message

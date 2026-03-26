@@ -41,7 +41,7 @@ uv run python -m lc_sdk_examples.cobol_modernization --src-path /path/to/cobol/p
 
 ### Phase 1: Build Setup
 
-See [skills/build-setup/SKILL.md](skills/build-setup/SKILL.md)
+See [../build-setup/SKILL.md](../build-setup/SKILL.md)
 
 Creates the foundation for the migration:
 - COBOL compilation environment (GnuCOBOL)
@@ -55,7 +55,7 @@ Creates the foundation for the migration:
 
 ### Phase 2: Mainframe Planning
 
-See [skills/mainframe-planning/SKILL.md](skills/mainframe-planning/SKILL.md)
+See [../mainframe-planning/SKILL.md](../mainframe-planning/SKILL.md)
 
 Creates a transformation guide without modifying code:
 - Maps CICS/VSAM constructs to standard COBOL equivalents
@@ -67,7 +67,7 @@ Creates a transformation guide without modifying code:
 
 ### Phase 3: Mainframe Removal
 
-See [skills/mainframe-removal/SKILL.md](skills/mainframe-removal/SKILL.md)
+See [../mainfraime-removal/SKILL.md](../mainfraime-removal/SKILL.md)
 
 Applies the transformation guide:
 - Replaces EXEC CICS commands with file I/O
@@ -80,7 +80,7 @@ Applies the transformation guide:
 
 ### Phase 4: Java Migration
 
-See [skills/to-java-migration/SKILL.md](skills/to-java-migration/SKILL.md)
+See [../to-java-migration/SKILL.md](../to-java-migration/SKILL.md)
 
 Translates to idiomatic Java:
 - Proper Java conventions (not literal translations)
@@ -110,4 +110,4 @@ your-project/
 
 ## Troubleshooting
 
-See [references/troubleshooting.md](references/troubleshooting.md) for common issues and solutions.
+See [../../references/troubleshooting.md](../../references/troubleshooting.md) for common issues and solutions.

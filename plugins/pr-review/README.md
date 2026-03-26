@@ -25,6 +25,7 @@ Then configure the required secrets (see [Installation](#installation) below).
   - `roasted` - Linus Torvalds-style brutally honest feedback focusing on data structures, simplicity, and pragmatism
 - **A/B Testing**: Support for testing multiple LLM models
 - **Review Context Awareness**: Considers previous reviews and unresolved threads
+- **Evidence Enforcement**: Optional check that PR descriptions include concrete end-to-end proof the code works, not just test output
 - **Observability**: Optional Laminar integration for tracing and evaluation
 
 ## Plugin Contents
@@ -87,6 +88,9 @@ Edit the workflow file to customize:
     
     # Review style: 'standard' or 'roasted'
     review-style: roasted
+
+    # Optional: require an Evidence section proving the code works end-to-end
+    # require-evidence: 'true'
     
     # Pin to a specific version (tag, branch, or commit SHA)
     extensions-version: main
@@ -138,6 +142,7 @@ PR reviews are automatically triggered when:
 | `llm-model` | No | `anthropic/claude-sonnet-4-5-20250929` | LLM model(s), comma-separated for A/B testing |
 | `llm-base-url` | No | `''` | Custom LLM endpoint URL |
 | `review-style` | No | `roasted` | Review style: `standard` or `roasted` |
+| `require-evidence` | No | `'false'` | Require the reviewer to enforce an `Evidence` section in the PR description with end-to-end proof: screenshots/videos for frontend work, commands and runtime output for backend or scripts, and an agent conversation link when applicable. Test output alone does not qualify. |
 | `extensions-repo` | No | `OpenHands/extensions` | Extensions repository |
 | `extensions-version` | No | `main` | Git ref (tag, branch, or SHA) |
 | `llm-api-key` | Yes | - | LLM API key |
