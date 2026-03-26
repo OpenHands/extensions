@@ -7,6 +7,10 @@ description: Create a new OpenHands automation with cron scheduling
 
 Guide the user through creating a new automation that runs on a cron schedule.
 
+## API Base URL
+
+All automation endpoints are at: `https://app.all-hands.dev/api/automation/v1`
+
 ## Instructions
 
 Help the user create an automation by collecting the required information interactively.
@@ -31,7 +35,7 @@ If the user has local code to upload:
 
 2. Upload the tarball (max 1MB):
    ```bash
-   curl -X POST "https://automations.all-hands.dev/api/v1/uploads?name=UPLOAD_NAME" \
+   curl -X POST "https://app.all-hands.dev/api/automation/v1/uploads?name=UPLOAD_NAME" \
      -H "Authorization: Bearer ${OPENHANDS_API_KEY}" \
      -H "Content-Type: application/gzip" \
      --data-binary @automation.tar.gz
@@ -92,7 +96,7 @@ Before creating, validate:
 Use the OpenHands Automations API to create the automation:
 
 ```bash
-curl -X POST "https://automations.all-hands.dev/api/v1/automations" \
+curl -X POST "https://app.all-hands.dev/api/automation/v1" \
   -H "Authorization: Bearer ${OPENHANDS_API_KEY}" \
   -H "Content-Type: application/json" \
   -d '{

@@ -68,6 +68,14 @@ Agent: Creating your automation...
 
 ---
 
+## API Base URL
+
+All automation endpoints are available through the OpenHands Cloud API:
+- **Automations**: `https://app.all-hands.dev/api/automation/v1`
+- **Uploads**: `https://app.all-hands.dev/api/automation/v1/uploads`
+
+---
+
 ## Uploading Tarballs
 
 Before creating an automation with local code, you must upload it as a tarball.
@@ -75,7 +83,7 @@ Before creating an automation with local code, you must upload it as a tarball.
 ### Upload Endpoint
 
 ```bash
-curl -X POST "https://automations.all-hands.dev/api/v1/uploads?name=my-code&description=My%20automation%20code" \
+curl -X POST "https://app.all-hands.dev/api/automation/v1/uploads?name=my-code&description=My%20automation%20code" \
   -H "Authorization: Bearer ${OPENHANDS_API_KEY}" \
   -H "Content-Type: application/gzip" \
   --data-binary @automation.tar.gz
@@ -93,10 +101,16 @@ curl -X POST "https://automations.all-hands.dev/api/v1/uploads?name=my-code&desc
 ```json
 {
   "id": "550e8400-e29b-41d4-a716-446655440000",
+  "user_id": "...",
+  "org_id": "...",
   "name": "my-code",
+  "description": "My automation code",
   "status": "COMPLETED",
+  "error_message": null,
+  "size_bytes": 12345,
   "tarball_path": "oh-internal://uploads/550e8400-e29b-41d4-a716-446655440000",
-  "size_bytes": 12345
+  "created_at": "2025-03-25T10:00:00Z",
+  "updated_at": "2025-03-25T10:00:00Z"
 }
 ```
 
@@ -105,14 +119,14 @@ curl -X POST "https://automations.all-hands.dev/api/v1/uploads?name=my-code&desc
 ### List Uploads
 
 ```bash
-curl "https://automations.all-hands.dev/api/v1/uploads" \
+curl "https://app.all-hands.dev/api/automation/v1/uploads" \
   -H "Authorization: Bearer ${OPENHANDS_API_KEY}"
 ```
 
 ### Delete Upload
 
 ```bash
-curl -X DELETE "https://automations.all-hands.dev/api/v1/uploads/{upload_id}" \
+curl -X DELETE "https://app.all-hands.dev/api/automation/v1/uploads/{upload_id}" \
   -H "Authorization: Bearer ${OPENHANDS_API_KEY}"
 ```
 
@@ -120,12 +134,12 @@ curl -X DELETE "https://automations.all-hands.dev/api/v1/uploads/{upload_id}" \
 
 ## Automation API Reference
 
-The automation service exposes a REST API at `/api/v1/automations`:
+The automation service exposes a REST API at `https://app.all-hands.dev/api/automation/v1`:
 
 ### Create Automation
 
 ```bash
-curl -X POST "https://automations.all-hands.dev/api/v1/automations" \
+curl -X POST "https://app.all-hands.dev/api/automation/v1" \
   -H "Authorization: Bearer ${OPENHANDS_API_KEY}" \
   -H "Content-Type: application/json" \
   -d '{
@@ -157,14 +171,14 @@ curl -X POST "https://automations.all-hands.dev/api/v1/automations" \
 ### List Automations
 
 ```bash
-curl "https://automations.all-hands.dev/api/v1/automations" \
+curl "https://app.all-hands.dev/api/automation/v1" \
   -H "Authorization: Bearer ${OPENHANDS_API_KEY}"
 ```
 
 ### Update Automation
 
 ```bash
-curl -X PATCH "https://automations.all-hands.dev/api/v1/automations/{id}" \
+curl -X PATCH "https://app.all-hands.dev/api/automation/v1/{id}" \
   -H "Authorization: Bearer ${OPENHANDS_API_KEY}" \
   -H "Content-Type: application/json" \
   -d '{
@@ -175,7 +189,14 @@ curl -X PATCH "https://automations.all-hands.dev/api/v1/automations/{id}" \
 ### Manually Trigger a Run
 
 ```bash
-curl -X POST "https://automations.all-hands.dev/api/v1/automations/{id}/dispatch" \
+curl -X POST "https://app.all-hands.dev/api/automation/v1/{id}/dispatch" \
+  -H "Authorization: Bearer ${OPENHANDS_API_KEY}"
+```
+
+### List Automation Runs
+
+```bash
+curl "https://app.all-hands.dev/api/automation/v1/{id}/runs" \
   -H "Authorization: Bearer ${OPENHANDS_API_KEY}"
 ```
 
@@ -211,8 +232,10 @@ Your script receives these environment variables:
 | `OPENHANDS_API_KEY` | API key for OpenHands services |
 | `OPENHANDS_CLOUD_API_URL` | Base URL for the OpenHands Cloud API |
 | `AUTOMATION_EVENT_PAYLOAD` | JSON with trigger info, automation ID, and name |
-| `AUTOMATION_RUN_ID` | Unique ID for this run |
-| `AUTOMATION_CALLBACK_URL` | URL to POST completion status |
+| `SANDBOX_ID` | The sandbox ID where the automation is running |
+| `SESSION_API_KEY` | Session API key for sandbox operations |
+
+**Note:** The automation framework automatically handles run completion callbacks.
 
 ## Validation Rules
 

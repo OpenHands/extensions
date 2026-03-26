@@ -15,7 +15,9 @@ This skill helps you create and manage OpenHands automations - scheduled tasks t
 
 ## API Base URL
 
-All automation endpoints are at: `https://automations.all-hands.dev/api/v1/`
+All automation endpoints are available through the OpenHands Cloud API:
+- **Automations**: `https://app.all-hands.dev/api/automation/v1`
+- **Uploads**: `https://app.all-hands.dev/api/automation/v1/uploads`
 
 ## Authentication
 
@@ -52,7 +54,7 @@ automation.tar.gz
 ### Upload the Tarball
 
 ```bash
-curl -X POST "https://automations.all-hands.dev/api/v1/uploads?name=my-automation&description=Weekly%20report%20generator" \
+curl -X POST "https://app.all-hands.dev/api/automation/v1/uploads?name=my-automation&description=Weekly%20report%20generator" \
   -H "Authorization: Bearer ${OPENHANDS_API_KEY}" \
   -H "Content-Type: application/gzip" \
   --data-binary @automation.tar.gz
@@ -101,21 +103,21 @@ curl -X POST "https://automations.all-hands.dev/api/v1/uploads?name=my-automatio
 ### List Uploads
 
 ```bash
-curl "https://automations.all-hands.dev/api/v1/uploads?limit=10" \
+curl "https://app.all-hands.dev/api/automation/v1/uploads?limit=10" \
   -H "Authorization: Bearer ${OPENHANDS_API_KEY}"
 ```
 
 ### Get Upload Details
 
 ```bash
-curl "https://automations.all-hands.dev/api/v1/uploads/{upload_id}" \
+curl "https://app.all-hands.dev/api/automation/v1/uploads/{upload_id}" \
   -H "Authorization: Bearer ${OPENHANDS_API_KEY}"
 ```
 
 ### Delete Upload
 
 ```bash
-curl -X DELETE "https://automations.all-hands.dev/api/v1/uploads/{upload_id}" \
+curl -X DELETE "https://app.all-hands.dev/api/automation/v1/uploads/{upload_id}" \
   -H "Authorization: Bearer ${OPENHANDS_API_KEY}"
 ```
 
@@ -126,7 +128,7 @@ curl -X DELETE "https://automations.all-hands.dev/api/v1/uploads/{upload_id}" \
 Once you have a tarball uploaded (or an external URL), create the automation:
 
 ```bash
-curl -X POST "https://automations.all-hands.dev/api/v1/automations" \
+curl -X POST "https://app.all-hands.dev/api/automation/v1" \
   -H "Authorization: Bearer ${OPENHANDS_API_KEY}" \
   -H "Content-Type: application/json" \
   -d '{
@@ -169,8 +171,10 @@ curl -X POST "https://automations.all-hands.dev/api/v1/automations" \
 ```json
 {
   "id": "123e4567-e89b-12d3-a456-426614174000",
+  "user_id": "...",
+  "org_id": "...",
   "name": "Weekly Report Generator",
-  "triggers": {
+  "trigger": {
     "type": "cron",
     "schedule": "0 9 * * 1",
     "timezone": "UTC"
@@ -180,6 +184,7 @@ curl -X POST "https://automations.all-hands.dev/api/v1/automations" \
   "setup_script_path": null,
   "timeout": 300,
   "enabled": true,
+  "last_triggered_at": null,
   "created_at": "2025-03-25T10:00:00Z",
   "updated_at": "2025-03-25T10:00:00Z"
 }
@@ -192,21 +197,21 @@ curl -X POST "https://automations.all-hands.dev/api/v1/automations" \
 ### List Automations
 
 ```bash
-curl "https://automations.all-hands.dev/api/v1/automations?limit=20" \
+curl "https://app.all-hands.dev/api/automation/v1?limit=20" \
   -H "Authorization: Bearer ${OPENHANDS_API_KEY}"
 ```
 
 ### Get Automation Details
 
 ```bash
-curl "https://automations.all-hands.dev/api/v1/automations/{automation_id}" \
+curl "https://app.all-hands.dev/api/automation/v1/{automation_id}" \
   -H "Authorization: Bearer ${OPENHANDS_API_KEY}"
 ```
 
 ### Update Automation
 
 ```bash
-curl -X PATCH "https://automations.all-hands.dev/api/v1/automations/{automation_id}" \
+curl -X PATCH "https://app.all-hands.dev/api/automation/v1/{automation_id}" \
   -H "Authorization: Bearer ${OPENHANDS_API_KEY}" \
   -H "Content-Type: application/json" \
   -d '{
@@ -226,16 +231,31 @@ curl -X PATCH "https://automations.all-hands.dev/api/v1/automations/{automation_
 ### Delete Automation
 
 ```bash
-curl -X DELETE "https://automations.all-hands.dev/api/v1/automations/{automation_id}" \
+curl -X DELETE "https://app.all-hands.dev/api/automation/v1/{automation_id}" \
   -H "Authorization: Bearer ${OPENHANDS_API_KEY}"
 ```
 
 ### Manually Trigger a Run
 
 ```bash
-curl -X POST "https://automations.all-hands.dev/api/v1/automations/{automation_id}/dispatch" \
+curl -X POST "https://app.all-hands.dev/api/automation/v1/{automation_id}/dispatch" \
   -H "Authorization: Bearer ${OPENHANDS_API_KEY}"
 ```
+
+### List Automation Runs
+
+```bash
+curl "https://app.all-hands.dev/api/automation/v1/{automation_id}/runs?limit=20" \
+  -H "Authorization: Bearer ${OPENHANDS_API_KEY}"
+```
+
+**Run Status Values:**
+| Status | Description |
+|--------|-------------|
+| `PENDING` | Run scheduled, waiting for dispatch |
+| `RUNNING` | Execution in progress |
+| `COMPLETED` | Run finished successfully |
+| `FAILED` | Run failed, check `error_detail` |
 
 ---
 
@@ -270,9 +290,11 @@ Your automation script receives these environment variables:
 |----------|-------------|
 | `OPENHANDS_API_KEY` | API key for OpenHands services |
 | `OPENHANDS_CLOUD_API_URL` | Base URL for the OpenHands Cloud API |
-| `AUTOMATION_RUN_ID` | Unique ID for this run |
 | `AUTOMATION_EVENT_PAYLOAD` | JSON with trigger info, automation ID, and name |
-| `AUTOMATION_CALLBACK_URL` | URL to POST completion status |
+| `SANDBOX_ID` | The sandbox ID where the automation is running |
+| `SESSION_API_KEY` | Session API key for sandbox operations |
+
+**Note:** The automation framework automatically handles run completion callbacks. Your script does not need to manage these manually.
 
 ---
 
@@ -298,10 +320,11 @@ import os
 import json
 
 print("Running automation!")
-print(f"Run ID: {os.environ.get('AUTOMATION_RUN_ID')}")
 
 payload = json.loads(os.environ.get('AUTOMATION_EVENT_PAYLOAD', '{}'))
 print(f"Automation: {payload.get('automation_name')}")
+print(f"Automation ID: {payload.get('automation_id')}")
+print(f"Trigger: {payload.get('trigger')}")
 EOF
 
 # 2. Create the tarball
@@ -310,7 +333,7 @@ cd ..
 
 # 3. Upload the tarball
 UPLOAD_RESPONSE=$(curl -s -X POST \
-  "https://automations.all-hands.dev/api/v1/uploads?name=my-automation" \
+  "https://app.all-hands.dev/api/automation/v1/uploads?name=my-automation" \
   -H "Authorization: Bearer ${OPENHANDS_API_KEY}" \
   -H "Content-Type: application/gzip" \
   --data-binary @my-automation.tar.gz)
@@ -319,7 +342,7 @@ TARBALL_PATH=$(echo "$UPLOAD_RESPONSE" | jq -r '.tarball_path')
 echo "Uploaded: $TARBALL_PATH"
 
 # 4. Create the automation
-curl -X POST "https://automations.all-hands.dev/api/v1/automations" \
+curl -X POST "https://app.all-hands.dev/api/automation/v1" \
   -H "Authorization: Bearer ${OPENHANDS_API_KEY}" \
   -H "Content-Type: application/json" \
   -d "{

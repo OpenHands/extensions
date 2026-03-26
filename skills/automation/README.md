@@ -16,6 +16,10 @@ This skill is activated by keywords:
 - **Automation Management**: List, update, enable/disable, and delete automations
 - **Manual Dispatch**: Trigger automation runs on-demand
 
+## API Base URL
+
+All automation endpoints are at: `https://app.all-hands.dev/api/automation/v1`
+
 ## Quick Start
 
 ### 1. Upload Your Code
@@ -25,7 +29,7 @@ This skill is activated by keywords:
 tar -czf automation.tar.gz -C /path/to/code .
 
 # Upload (max 1MB)
-curl -X POST "https://automations.all-hands.dev/api/v1/uploads?name=my-code" \
+curl -X POST "https://app.all-hands.dev/api/automation/v1/uploads?name=my-code" \
   -H "Authorization: Bearer ${OPENHANDS_API_KEY}" \
   -H "Content-Type: application/gzip" \
   --data-binary @automation.tar.gz
@@ -34,7 +38,7 @@ curl -X POST "https://automations.all-hands.dev/api/v1/uploads?name=my-code" \
 ### 2. Create Automation
 
 ```bash
-curl -X POST "https://automations.all-hands.dev/api/v1/automations" \
+curl -X POST "https://app.all-hands.dev/api/automation/v1" \
   -H "Authorization: Bearer ${OPENHANDS_API_KEY}" \
   -H "Content-Type: application/json" \
   -d '{
@@ -49,16 +53,17 @@ curl -X POST "https://automations.all-hands.dev/api/v1/automations" \
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|
-| `/api/v1/uploads` | POST | Upload a tarball |
-| `/api/v1/uploads` | GET | List uploads |
-| `/api/v1/uploads/{id}` | GET | Get upload details |
-| `/api/v1/uploads/{id}` | DELETE | Delete upload |
-| `/api/v1/automations` | POST | Create automation |
-| `/api/v1/automations` | GET | List automations |
-| `/api/v1/automations/{id}` | GET | Get automation |
-| `/api/v1/automations/{id}` | PATCH | Update automation |
-| `/api/v1/automations/{id}` | DELETE | Delete automation |
-| `/api/v1/automations/{id}/dispatch` | POST | Trigger run |
+| `/api/automation/v1/uploads` | POST | Upload a tarball |
+| `/api/automation/v1/uploads` | GET | List uploads |
+| `/api/automation/v1/uploads/{id}` | GET | Get upload details |
+| `/api/automation/v1/uploads/{id}` | DELETE | Delete upload |
+| `/api/automation/v1` | POST | Create automation |
+| `/api/automation/v1` | GET | List automations |
+| `/api/automation/v1/{id}` | GET | Get automation |
+| `/api/automation/v1/{id}` | PATCH | Update automation |
+| `/api/automation/v1/{id}` | DELETE | Delete automation |
+| `/api/automation/v1/{id}/dispatch` | POST | Trigger run |
+| `/api/automation/v1/{id}/runs` | GET | List runs |
 
 ## See Also
 
