@@ -47,6 +47,19 @@
             ]
         },
         {
+            "name": "automation",
+            "source": "./automation",
+            "description": "Create and manage OpenHands automations - scheduled tasks that run SDK scripts in sandboxes. Use when creating cron-scheduled automations, uploading tarballs, or managing automation runs.",
+            "category": "integration",
+            "keywords": [
+                "automation",
+                "cron",
+                "scheduled-task",
+                "sandbox",
+                "openhands"
+            ]
+        },
+        {
             "name": "azure-devops",
             "source": "./azure-devops",
             "description": "Interact with Azure DevOps repositories, pull requests, and APIs using the AZURE_DEVOPS_TOKEN environment variable. Use when working with code hosted on Azure DevOps or managing Azure DevOps resources.",
