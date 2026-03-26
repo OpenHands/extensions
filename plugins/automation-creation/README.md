@@ -211,17 +211,57 @@ curl "https://app.all-hands.dev/api/automation/v1/{id}/runs" \
 | `*/15 * * * *` | Every 15 minutes |
 | `0 */6 * * *` | Every 6 hours |
 
-## Tarball Structure
+## Writing Automation Code
+
+Automations must use the **OpenHands Software Agent SDK** to create conversations and interact with OpenHands Cloud.
+
+**SDK Documentation:** https://docs.openhands.dev/sdk
+
+### Tarball Structure
 
 Your automation tarball should contain:
 
 ```
 my-automation/
-├── main.py           # Your entrypoint script
-├── setup.sh          # Optional setup script
-├── requirements.txt  # Dependencies (if using pip)
-└── pyproject.toml    # Or use uv/poetry
+├── main.py           # Your entrypoint script (uses SDK)
+├── setup.sh          # REQUIRED: installs SDK dependencies
+├── pyproject.toml    # Optional: for uv/poetry
+└── requirements.txt  # Optional: additional dependencies
 ```
+
+### Setup Script (Required)
+
+Your `setup.sh` must install the OpenHands SDK packages:
+
+```bash
+#!/bin/bash
+set -e
+pip install openhands-sdk openhands-workspace openhands-tools
+```
+
+### Example Entrypoint
+
+```python
+import os
+from openhands.sdk import Conversation
+from openhands.tools.preset.default import get_default_agent
+from openhands.workspace import OpenHandsCloudWorkspace
+
+with OpenHandsCloudWorkspace(
+    local_agent_server_mode=True,
+    cloud_api_url=os.environ["OPENHANDS_CLOUD_API_URL"],
+    cloud_api_key=os.environ["OPENHANDS_API_KEY"],
+) as workspace:
+    llm = workspace.get_llm()
+    agent = get_default_agent(llm=llm, cli_mode=True)
+    
+    conversation = Conversation(agent=agent, workspace=workspace)
+    conversation.send_message("Your automation prompt")
+    conversation.run()
+    conversation.close()
+```
+
+For a complete working example, see the [test_tarball](https://github.com/OpenHands/automation/tree/main/scripts/test_tarball) in the automation repository.
 
 ### Environment Variables
 
