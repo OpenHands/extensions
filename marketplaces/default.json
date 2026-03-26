@@ -484,6 +484,19 @@
                 "verification",
                 "sample"
             ]
+        },
+        {
+            "name": "automation-creation",
+            "source": "./plugins/automation-creation",
+            "description": "Interactive slash command for creating OpenHands automations. Provides /automation:create for guided cron-scheduled automation setup.",
+            "category": "integration",
+            "keywords": [
+                "automation",
+                "cron",
+                "scheduling",
+                "openhands",
+                "slash-command"
+            ]
         }
     ]
 }

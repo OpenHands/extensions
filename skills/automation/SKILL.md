@@ -11,7 +11,9 @@ triggers:
 
 # OpenHands Automations
 
-This skill helps you create and manage OpenHands automations - scheduled tasks that run your code in sandboxes on a cron schedule.
+This skill provides comprehensive API documentation for creating and managing OpenHands automations - scheduled tasks that run your code in sandboxes on a cron schedule.
+
+**Interactive Setup:** For a guided slash command experience, use the [automation-creation plugin](../../plugins/automation-creation/README.md) with `/automation:create`.
 
 **Important:** Automation code must use the [OpenHands Software Agent SDK](https://docs.openhands.dev/sdk) to create conversations and interact with OpenHands Cloud services.
 
