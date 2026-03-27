@@ -196,11 +196,11 @@ Instead of forking the scripts, add custom guidelines to your repository:
 
 ### Option 1: Custom Code Review Skill
 
-Create `.agents/skills/code-review.md`:
+Create `.agents/skills/custom-codereview-guide.md`:
 
 ```markdown
 ---
-name: code-review
+name: custom-codereview-guide
 description: Custom code review guidelines for my project
 triggers:
 - /codereview
@@ -219,6 +219,9 @@ You are a code reviewer for this project. Follow these guidelines:
 - Be direct and constructive
 - Use GitHub suggestion syntax for code fixes
 ```
+
+Use a unique skill name (for example `custom-codereview-guide`) to **supplement** the default public `code-review` skill,
+rather than overriding it. Keep `/codereview` as the trigger if you want this guidance applied in PR review runs.
 
 ### Option 2: Repository AGENTS.md
 
@@ -273,7 +276,8 @@ If you see rate limit errors:
 
 ## Security
 
-- Uses `pull_request_target` to safely access secrets for fork PRs
+- Uses `pull_request_target` when you need secrets for fork PR reviews; apply strict maintainer-controlled triggers and checkout safeguards
+- For lower-trust or comment-only smoke-test setups, prefer `pull_request` to reduce privilege by default
 - Only triggers for trusted contributors or when maintainers add labels/reviewers
 - PR code is checked out explicitly; secrets are not exposed to PR code
 - Credentials are not persisted during checkout
@@ -285,3 +289,4 @@ See the main [extensions repository](https://github.com/OpenHands/extensions) fo
 ## License
 
 This plugin is part of the OpenHands extensions repository. See [LICENSE](../../LICENSE) for details.
+
