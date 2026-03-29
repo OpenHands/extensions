@@ -22,6 +22,7 @@ Then configure the required secrets (see [Installation](#installation) below).
 - **Conventional Commits Support**: Uses commit prefixes (`feat:`, `fix:`, `docs:`, etc.) as categorization hints for the agent
 - **PR Label Support**: Uses GitHub PR labels as additional hints for the agent
 - **Contributor Attribution**: Includes PR numbers and author usernames for each change the agent keeps
+- **Attribution Validation**: Fails the workflow if a change bullet omits an explicit PR/commit reference or the corresponding author handle
 - **New Contributor Highlighting**: Identifies and celebrates first-time contributors
 - **Flexible Output**: Updates GitHub release notes directly or outputs for CHANGELOG.md
 
@@ -35,7 +36,8 @@ plugins/release-notes/
 ├── scripts/               # Python scripts
 │   ├── agent_script.py    # OpenHands agent orchestration
 │   ├── generate_release_notes.py
-│   └── prompt.py
+│   ├── prompt.py
+│   └── validate_release_notes.py
 └── workflows/             # Example GitHub workflow files
     └── release-notes.yml
 ```
@@ -194,6 +196,17 @@ The generator follows these principles:
 - **Scannable**: Easy to quickly find relevant changes
 - **Imperative mood**: Uses "Add feature" not "Added feature"
 - **Attribution**: Includes PR number and author for traceability
+
+## Validation Guardrail
+
+After the agent writes `release_notes.md`, the action runs `scripts/validate_release_notes.py`.
+That validator rebuilds the deterministic PR/author context for the same tag range and checks that every change bullet:
+
+- includes at least one explicit PR or commit reference
+- includes the author handle for every referenced PR or commit
+- does not reference unknown PRs or commits
+
+This lets the agent stay concise while still guaranteeing traceable attribution in the final release description.
 
 ## Customizing Output
 

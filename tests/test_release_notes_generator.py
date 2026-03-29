@@ -23,6 +23,11 @@ from generate_release_notes import (
     get_commits_between_tags,
 )
 from prompt import format_prompt
+from validate_release_notes import (
+    ReleaseNotesValidationError,
+    format_coverage_summary,
+    validate_release_notes_markdown,
+)
 
 
 class TestChange:
@@ -400,10 +405,159 @@ class TestPrompt:
         assert "decide which PRs are important enough to mention" in prompt
         assert "group related PRs into a single bullet" in prompt
         assert "omit trivial, repetitive, or low-signal changes" in prompt
+        assert "every change bullet must end with explicit references" in prompt
+        assert "format PR references as `(#123) @username`" in prompt
         assert "include every new contributor listed below" in prompt
         assert "Current tag: v1.2.0" in prompt
         assert "Full changelog URL:" in prompt
 
+
+class TestValidation:
+    """Tests for release notes attribution validation."""
+
+    def test_validate_release_notes_accepts_grouped_prs_with_authors(self):
+        """Grouped bullets are allowed when every PR and author is listed."""
+        notes = ReleaseNotes(
+            tag="v1.2.0",
+            previous_tag="v1.1.0",
+            date="2026-03-07",
+            repo_name="owner/repo",
+            changes={
+                "features": [
+                    Change(message="Add dark mode", sha="abc1234", author="alice", pr_number=42),
+                    Change(message="Add theme presets", sha="def5678", author="bob", pr_number=43),
+                ]
+            },
+        )
+        markdown = """## [v1.2.0] - 2026-03-07
+
+### ✨ New Features
+- Add appearance improvements (#42) @alice, (#43) @bob
+
+**Full Changelog**: https://github.com/owner/repo/compare/v1.1.0...v1.2.0
+"""
+
+        summary = validate_release_notes_markdown(markdown, notes)
+
+        assert summary.bullet_count == 1
+        assert summary.referenced_prs == [42, 43]
+        assert summary.referenced_authors == ["alice", "bob"]
+
+    def test_validate_release_notes_rejects_missing_author(self):
+        """Each referenced PR must include the matching author handle."""
+        notes = ReleaseNotes(
+            tag="v1.2.0",
+            previous_tag="v1.1.0",
+            date="2026-03-07",
+            repo_name="owner/repo",
+            changes={
+                "fixes": [
+                    Change(message="Fix reconnect bug", sha="abc1234", author="alice", pr_number=42),
+                ]
+            },
+        )
+        markdown = """## [v1.2.0] - 2026-03-07
+
+### 🐛 Bug Fixes
+- Fix reconnect bug (#42)
+
+**Full Changelog**: https://github.com/owner/repo/compare/v1.1.0...v1.2.0
+"""
+
+        with pytest.raises(ReleaseNotesValidationError, match=r"missing @alice"):
+            validate_release_notes_markdown(markdown, notes)
+
+    def test_validate_release_notes_rejects_missing_refs(self):
+        """Each change bullet must contain explicit references."""
+        notes = ReleaseNotes(
+            tag="v1.2.0",
+            previous_tag="v1.1.0",
+            date="2026-03-07",
+            repo_name="owner/repo",
+            changes={
+                "features": [
+                    Change(message="Add dark mode", sha="abc1234", author="alice", pr_number=42),
+                ]
+            },
+        )
+        markdown = """## [v1.2.0] - 2026-03-07
+
+### ✨ New Features
+- Add dark mode @alice
+
+**Full Changelog**: https://github.com/owner/repo/compare/v1.1.0...v1.2.0
+"""
+
+        with pytest.raises(
+            ReleaseNotesValidationError,
+            match=r"Bullet missing explicit PR/commit references",
+        ):
+            validate_release_notes_markdown(markdown, notes)
+
+    def test_validate_release_notes_accepts_standalone_commit_refs(self):
+        """Standalone commits can be referenced by short SHA plus author."""
+        notes = ReleaseNotes(
+            tag="v1.2.0",
+            previous_tag="v1.1.0",
+            date="2026-03-07",
+            repo_name="owner/repo",
+            changes={
+                "docs": [
+                    Change(message="Update docs", sha="abc1234fedcba", author="alice"),
+                ]
+            },
+        )
+        markdown = """## [v1.2.0] - 2026-03-07
+
+### 📚 Documentation
+- Update docs (abc1234) @alice
+
+**Full Changelog**: https://github.com/owner/repo/compare/v1.1.0...v1.2.0
+"""
+
+        summary = validate_release_notes_markdown(markdown, notes)
+
+        assert summary.referenced_commits == ["abc1234"]
+        assert summary.referenced_authors == ["alice"]
+
+    def test_format_coverage_summary_lists_prs_and_authors(self):
+        """Coverage summary output is suitable for logs and evidence."""
+        summary = format_coverage_summary(
+            validate_release_notes_markdown(
+                """## [v1.2.0] - 2026-03-07
+
+### ✨ New Features
+- Add dark mode (#42) @alice, (#43) @bob
+
+**Full Changelog**: https://github.com/owner/repo/compare/v1.1.0...v1.2.0
+""",
+                ReleaseNotes(
+                    tag="v1.2.0",
+                    previous_tag="v1.1.0",
+                    date="2026-03-07",
+                    repo_name="owner/repo",
+                    changes={
+                        "features": [
+                            Change(
+                                message="Add dark mode",
+                                sha="abc1234",
+                                author="alice",
+                                pr_number=42,
+                            ),
+                            Change(
+                                message="Add theme presets",
+                                sha="def5678",
+                                author="bob",
+                                pr_number=43,
+                            ),
+                        ]
+                    },
+                ),
+            )
+        )
+
+        assert "PRs referenced: #42, #43" in summary
+        assert "Authors referenced: @alice, @bob" in summary
 
 
 class TestCategories:
@@ -486,6 +640,17 @@ class TestPluginStructure:
             / "release-notes.yml"
         )
         assert workflow.is_file()
+
+    def test_validator_script_exists(self):
+        """Test that the attribution validator script exists."""
+        validator = (
+            Path(__file__).parent.parent
+            / "plugins"
+            / "release-notes"
+            / "scripts"
+            / "validate_release_notes.py"
+        )
+        assert validator.is_file()
 
     def test_agent_script_exists(self):
         """Test that the agent orchestration script exists."""

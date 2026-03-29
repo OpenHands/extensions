@@ -13,7 +13,9 @@ Your job is editorial, not mechanical:
 - when `include_internal` is false, omit internal-only work unless it is important for users
 - use imperative mood
 - keep each bullet to one line
-- format bullet references as `(#123) @username`; if you group multiple PRs, include each reference explicitly, for example `(#123) @alice, (#124) @bob`
+- every change bullet must end with explicit references for each included item
+- format PR references as `(#123) @username`; if you group multiple PRs, include each reference explicitly, for example `(#123) @alice, (#124) @bob`
+- if you mention a standalone commit instead of a PR, format it as `(abc1234) @username`
 - include every new contributor listed below in the `### 👥 New Contributors` section
 - for breaking changes, briefly note the migration path when the provided context makes it clear
 

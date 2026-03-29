@@ -16,6 +16,7 @@ Automates the generation of standardized release notes for OpenHands repositorie
 - **Agent-based editing**: Lets the agent decide which changes matter and group related PRs into higher-signal summaries
 - **Structured GitHub context**: Supplies PR titles, labels, descriptions, and contributor metadata to guide the agent
 - **Contributor attribution**: Includes PR numbers and author usernames for each change
+- **Attribution validation**: Verifies every change bullet contains explicit PR/commit references and the matching author handles
 - **New contributor highlighting**: Identifies and celebrates first-time contributors
 - **Flexible output**: Can update GitHub release notes or generate CHANGELOG.md entries
 

@@ -93,6 +93,17 @@ runs:
               uv run --with openhands-sdk --with openhands-tools \
                 python extensions/plugins/release-notes/scripts/agent_script.py
 
+        - name: Validate PR and author attribution
+          shell: bash
+          env:
+              GITHUB_TOKEN: ${{ inputs.github-token }}
+              TAG: ${{ inputs.tag }}
+              PREVIOUS_TAG: ${{ inputs.previous-tag }}
+              INCLUDE_INTERNAL: ${{ inputs.include-internal }}
+              REPO_NAME: ${{ github.repository }}
+          run: |
+              python extensions/plugins/release-notes/scripts/validate_release_notes.py
+
         - name: Update GitHub release (if release format)
           if: inputs.output-format == 'release'
           shell: bash

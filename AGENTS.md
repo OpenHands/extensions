@@ -92,6 +92,8 @@ When editing or adding skills in this repo, follow these rules (and add new skil
 - For Python test runs, prefer `uv sync --group test` followed by `uv run pytest -q`; the full suite depends on `openhands-sdk`, which is not available in the base environment.
 - Agent-driven plugins (for example `plugins/pr-review` and `plugins/release-notes`) use `uv run --with openhands-sdk --with openhands-tools ...` and require an `LLM_API_KEY` in addition to `GITHUB_TOKEN`.
 - For OpenHands Cloud API guidance, use `skills/openhands-api`. It is the canonical OpenHands Cloud API skill and documents the supported V1 API.
+- `plugins/release-notes` now has a standalone validator at `plugins/release-notes/scripts/validate_release_notes.py`; it rebuilds the deterministic tag-range context and fails if a change bullet omits explicit PR/commit refs or the matching author handles.
+
 
 ## CI / validation gotchas
 
