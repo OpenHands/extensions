@@ -12,6 +12,16 @@ from generate_release_notes import CATEGORIES, ReleaseNotes, generate_release_no
 PR_REF_PATTERN = re.compile(r"#(\d+)\b")
 COMMIT_REF_PATTERN = re.compile(r"\(([0-9a-f]{7,40})\)")
 NEW_CONTRIBUTORS_HEADING = "### 👥 New Contributors"
+COVERAGE_HEADING = "### 🔎 Complete PR and Author Reference Coverage"
+REFERENCE_CATEGORY_ORDER = ["breaking", "features", "fixes", "docs", "internal", "other"]
+REFERENCE_CATEGORY_LABELS = {
+    "breaking": "Breaking-change refs",
+    "features": "Feature/API refs",
+    "fixes": "Bug-fix refs",
+    "docs": "Documentation refs",
+    "internal": "Internal/infrastructure refs",
+    "other": "Additional refs",
+}
 
 
 @dataclass
@@ -22,6 +32,7 @@ class CoverageSummary:
     referenced_prs: list[int]
     referenced_authors: list[str]
     referenced_commits: list[str]
+    required_reference_count: int
 
 
 @dataclass
@@ -29,6 +40,8 @@ class ValidationContext:
     """Parsed validation context for a single release note run."""
 
     reference_authors: dict[str, str]
+    reference_categories: dict[str, str]
+    reference_order: list[str]
     change_section_headings: set[str]
 
 
@@ -36,57 +49,68 @@ class ReleaseNotesValidationError(ValueError):
     """Raised when generated release notes violate attribution rules."""
 
 
+@dataclass
+class MentionScanResult:
+    """Collected ref/author coverage from markdown."""
+
+    covered_refs: set[str]
+    referenced_prs: set[int]
+    referenced_authors: set[str]
+    referenced_commits: set[str]
+    bullet_count: int
+    errors: list[str]
+
+
 def build_validation_context(
     notes: ReleaseNotes, include_internal: bool = False
 ) -> ValidationContext:
     """Build the reference and section metadata used for validation."""
-    del include_internal  # Validation should cover every candidate the agent may cite.
+    del include_internal  # Coverage should include every candidate the release may cite.
 
     reference_authors: dict[str, str] = {}
+    reference_categories: dict[str, str] = {}
+    reference_order: list[str] = []
     change_section_headings = {
         f"### {CATEGORIES[category]['emoji']} {CATEGORIES[category]['title']}"
         for category in CATEGORIES
     }
 
-    for category in list(CATEGORIES) + ["other"]:
+    for category in REFERENCE_CATEGORY_ORDER:
         for change in notes.changes.get(category, []):
-            if change.pr_number:
-                reference_authors[f"#{change.pr_number}"] = change.author
-            else:
-                reference_authors[change.sha[:7].lower()] = change.author
+            ref = f"#{change.pr_number}" if change.pr_number else change.sha[:7].lower()
+            if ref in reference_authors:
+                continue
+            reference_authors[ref] = change.author
+            reference_categories[ref] = category
+            reference_order.append(ref)
 
     return ValidationContext(
         reference_authors=reference_authors,
+        reference_categories=reference_categories,
+        reference_order=reference_order,
         change_section_headings=change_section_headings,
     )
 
 
-def _extract_bullet_references(
-    bullet: str, reference_authors: dict[str, str]
-) -> list[str]:
-    refs = [f"#{match}" for match in PR_REF_PATTERN.findall(bullet)]
+def _extract_explicit_references(text: str) -> list[str]:
+    refs = [f"#{match}" for match in PR_REF_PATTERN.findall(text)]
+    refs.extend(match.lower() for match in COMMIT_REF_PATTERN.findall(text))
 
-    for match in COMMIT_REF_PATTERN.findall(bullet):
-        ref = match.lower()
-        if ref in reference_authors and ref not in refs:
-            refs.append(ref)
-
-    return refs
+    deduped: list[str] = []
+    for ref in refs:
+        if ref not in deduped:
+            deduped.append(ref)
+    return deduped
 
 
-def validate_release_notes_markdown(
-    markdown: str,
-    notes: ReleaseNotes,
-    include_internal: bool = False,
-) -> CoverageSummary:
-    """Validate that every included change lists explicit refs and authors."""
-    context = build_validation_context(notes, include_internal=include_internal)
-    errors: list[str] = []
+def _scan_reference_mentions(markdown: str, context: ValidationContext) -> MentionScanResult:
     current_heading = ""
-    bullet_count = 0
+    covered_refs: set[str] = set()
     referenced_prs: set[int] = set()
     referenced_authors: set[str] = set()
     referenced_commits: set[str] = set()
+    errors: list[str] = []
+    bullet_count = 0
 
     for raw_line in markdown.splitlines():
         line = raw_line.strip()
@@ -97,47 +121,120 @@ def validate_release_notes_markdown(
         if not line.startswith("- "):
             continue
 
-        if current_heading == NEW_CONTRIBUTORS_HEADING:
-            continue
+        refs = _extract_explicit_references(line)
+        is_change_bullet = current_heading in context.change_section_headings
+        is_new_contributor_bullet = current_heading == NEW_CONTRIBUTORS_HEADING
 
-        if current_heading not in context.change_section_headings:
-            continue
-
-        bullet_count += 1
-        refs = _extract_bullet_references(line, context.reference_authors)
-        if not refs:
-            errors.append(f"Bullet missing explicit PR/commit references: {line}")
-            continue
-
-        unknown_refs = [ref for ref in refs if ref not in context.reference_authors]
-        if unknown_refs:
-            errors.append(
-                f"Bullet references unknown PR/commit {', '.join(sorted(unknown_refs))}: {line}"
-            )
-            continue
+        if is_change_bullet:
+            bullet_count += 1
+            if not refs:
+                errors.append(f"Bullet missing explicit PR/commit references: {line}")
+                continue
 
         for ref in refs:
-            author = context.reference_authors.get(ref, "")
-            if author and f"@{author}" not in line:
+            author = context.reference_authors.get(ref)
+            if not author:
+                errors.append(f"Bullet references unknown PR/commit {ref}: {line}")
+                continue
+            if f"@{author}" not in line:
                 errors.append(f"Bullet mentioning {ref} is missing @{author}: {line}")
                 continue
 
+            covered_refs.add(ref)
+            referenced_authors.add(author)
             if ref.startswith("#"):
                 referenced_prs.add(int(ref[1:]))
             else:
                 referenced_commits.add(ref)
 
-            if author:
-                referenced_authors.add(author)
+        if is_new_contributor_bullet and not refs:
+            continue
+
+    return MentionScanResult(
+        covered_refs=covered_refs,
+        referenced_prs=referenced_prs,
+        referenced_authors=referenced_authors,
+        referenced_commits=referenced_commits,
+        bullet_count=bullet_count,
+        errors=errors,
+    )
+
+
+def missing_references(
+    markdown: str,
+    notes: ReleaseNotes,
+    include_internal: bool = False,
+) -> list[str]:
+    """Return required refs that are not yet covered in the markdown."""
+    context = build_validation_context(notes, include_internal=include_internal)
+    scan = _scan_reference_mentions(markdown, context)
+    return [ref for ref in context.reference_order if ref not in scan.covered_refs]
+
+
+def append_reference_coverage_appendix(
+    markdown: str,
+    notes: ReleaseNotes,
+    include_internal: bool = False,
+    chunk_size: int = 8,
+) -> str:
+    """Append a compact appendix covering any PRs/authors omitted by the agent."""
+    context = build_validation_context(notes, include_internal=include_internal)
+    scan = _scan_reference_mentions(markdown, context)
+    missing_refs = [ref for ref in context.reference_order if ref not in scan.covered_refs]
+    if not missing_refs:
+        return markdown
+
+    grouped: dict[str, list[str]] = {category: [] for category in REFERENCE_CATEGORY_ORDER}
+    for ref in missing_refs:
+        author = context.reference_authors[ref]
+        formatted_ref = f"({ref}) @{author}" if not ref.startswith("#") else f"({ref}) @{author}"
+        grouped[context.reference_categories[ref]].append(formatted_ref)
+
+    appendix_lines = [COVERAGE_HEADING]
+    for category in REFERENCE_CATEGORY_ORDER:
+        refs = grouped[category]
+        if not refs:
+            continue
+        label = REFERENCE_CATEGORY_LABELS[category]
+        for index in range(0, len(refs), chunk_size):
+            chunk = refs[index : index + chunk_size]
+            appendix_lines.append(f"- {label}: {', '.join(chunk)}")
+
+    base_lines = markdown.rstrip().splitlines()
+    for index, line in enumerate(base_lines):
+        if line.startswith("**Full Changelog**:"):
+            combined = base_lines[:index] + [""] + appendix_lines + [""] + base_lines[index:]
+            return "\n".join(combined) + "\n"
+
+    return "\n".join(base_lines + [""] + appendix_lines + [""])
+
+
+def validate_release_notes_markdown(
+    markdown: str,
+    notes: ReleaseNotes,
+    include_internal: bool = False,
+) -> CoverageSummary:
+    """Validate that every included change lists explicit refs and authors."""
+    context = build_validation_context(notes, include_internal=include_internal)
+    scan = _scan_reference_mentions(markdown, context)
+    missing_refs = [ref for ref in context.reference_order if ref not in scan.covered_refs]
+
+    errors = list(scan.errors)
+    if missing_refs:
+        errors.append(
+            "Release notes are missing PR/commit coverage for: "
+            + ", ".join(missing_refs)
+        )
 
     if errors:
         raise ReleaseNotesValidationError("\n".join(errors))
 
     return CoverageSummary(
-        bullet_count=bullet_count,
-        referenced_prs=sorted(referenced_prs),
-        referenced_authors=sorted(referenced_authors),
-        referenced_commits=sorted(referenced_commits),
+        bullet_count=scan.bullet_count,
+        referenced_prs=sorted(scan.referenced_prs),
+        referenced_authors=sorted(scan.referenced_authors),
+        referenced_commits=sorted(scan.referenced_commits),
+        required_reference_count=len(context.reference_order),
     )
 
 
@@ -150,6 +247,7 @@ def format_coverage_summary(summary: CoverageSummary) -> str:
         [
             "Release notes attribution coverage validated.",
             f"- Change bullets checked: {summary.bullet_count}",
+            f"- Covered references: {len(summary.referenced_prs) + len(summary.referenced_commits)}/{summary.required_reference_count}",
             f"- PRs referenced: {prs}",
             f"- Authors referenced: {authors}",
             f"- Standalone commits referenced: {commits}",

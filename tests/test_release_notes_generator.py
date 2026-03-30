@@ -25,7 +25,9 @@ from generate_release_notes import (
 from prompt import format_prompt
 from validate_release_notes import (
     ReleaseNotesValidationError,
+    append_reference_coverage_appendix,
     format_coverage_summary,
+    missing_references,
     validate_release_notes_markdown,
 )
 
@@ -589,6 +591,67 @@ class TestValidation:
 
         assert summary.referenced_prs == [42]
         assert summary.referenced_authors == ["alice"]
+
+    def test_validate_release_notes_rejects_missing_pr_coverage(self):
+        """Validation fails if any release-range PR is omitted entirely."""
+        notes = ReleaseNotes(
+            tag="v1.2.0",
+            previous_tag="v1.1.0",
+            date="2026-03-07",
+            repo_name="owner/repo",
+            changes={
+                "features": [
+                    Change(message="Add dark mode", sha="abc1234", author="alice", pr_number=42),
+                    Change(message="Add theme presets", sha="def5678", author="bob", pr_number=43),
+                ]
+            },
+        )
+        markdown = """## [v1.2.0] - 2026-03-07
+
+### ✨ New Features
+- Add dark mode (#42) @alice
+
+**Full Changelog**: https://github.com/owner/repo/compare/v1.1.0...v1.2.0
+"""
+
+        with pytest.raises(
+            ReleaseNotesValidationError,
+            match=r"missing PR/commit coverage for: #43",
+        ):
+            validate_release_notes_markdown(markdown, notes)
+
+        assert missing_references(markdown, notes) == ["#43"]
+
+    def test_append_reference_coverage_appendix_adds_missing_refs(self):
+        """A deterministic appendix covers PRs the agent chose not to mention."""
+        notes = ReleaseNotes(
+            tag="v1.2.0",
+            previous_tag="v1.1.0",
+            date="2026-03-07",
+            repo_name="owner/repo",
+            changes={
+                "features": [
+                    Change(message="Add dark mode", sha="abc1234", author="alice", pr_number=42),
+                ],
+                "internal": [
+                    Change(message="Update CI", sha="def5678", author="bob", pr_number=43),
+                ],
+            },
+        )
+        markdown = """## [v1.2.0] - 2026-03-07
+
+### ✨ New Features
+- Add dark mode (#42) @alice
+
+**Full Changelog**: https://github.com/owner/repo/compare/v1.1.0...v1.2.0
+"""
+
+        augmented = append_reference_coverage_appendix(markdown, notes)
+
+        assert "### 🔎 Complete PR and Author Reference Coverage" in augmented
+        assert "(#43) @bob" in augmented
+        summary = validate_release_notes_markdown(augmented, notes)
+        assert summary.referenced_prs == [42, 43]
 
 
 class TestCategories:

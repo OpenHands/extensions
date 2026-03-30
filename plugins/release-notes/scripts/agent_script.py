@@ -35,6 +35,7 @@ sys.path.insert(0, str(script_dir))
 
 from generate_release_notes import Change, ReleaseNotes, generate_release_notes, set_github_output  # noqa: E402
 from prompt import format_prompt  # noqa: E402
+from validate_release_notes import append_reference_coverage_appendix  # noqa: E402
 
 logger = get_logger(__name__)
 
@@ -261,6 +262,11 @@ def main() -> None:
             "LLM_API_KEY": config["api_key"],
             "GITHUB_TOKEN": config["github_token"],
         },
+    )
+    markdown = append_reference_coverage_appendix(
+        markdown,
+        notes,
+        include_internal=config["include_internal"],
     )
 
     with open("release_notes.md", "w") as file:

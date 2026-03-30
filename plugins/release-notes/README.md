@@ -22,7 +22,8 @@ Then configure the required secrets (see [Installation](#installation) below).
 - **Conventional Commits Support**: Uses commit prefixes (`feat:`, `fix:`, `docs:`, etc.) as categorization hints for the agent
 - **PR Label Support**: Uses GitHub PR labels as additional hints for the agent
 - **Contributor Attribution**: Includes PR numbers and author usernames for each change the agent keeps
-- **Attribution Validation**: Fails the workflow if a change bullet omits an explicit PR/commit reference or the corresponding author handle
+- **Attribution Validation**: Fails the workflow if any release-range PR/commit or corresponding author is omitted from the final notes
+- **Deterministic Coverage Appendix**: When the agent omits lower-signal PRs, the action appends a compact reference appendix so every PR and author in the release range is still listed somewhere in the output
 - **New Contributor Highlighting**: Identifies and celebrates first-time contributors
 - **Flexible Output**: Updates GitHub release notes directly or outputs for CHANGELOG.md
 
@@ -200,13 +201,14 @@ The generator follows these principles:
 ## Validation Guardrail
 
 After the agent writes `release_notes.md`, the action runs `scripts/validate_release_notes.py`.
-That validator rebuilds the deterministic PR/author context for the same tag range and checks that every change bullet:
+That validator rebuilds the deterministic PR/author context for the same tag range and checks that the final notes:
 
-- includes at least one explicit PR or commit reference
-- includes the author handle for every referenced PR or commit
-- does not reference unknown PRs or commits
+- include at least one explicit PR or commit reference in every user-facing change bullet
+- include the author handle for every referenced PR or commit
+- do not reference unknown PRs or commits
+- cover every PR/commit in the release range somewhere in the markdown
 
-This lets the agent stay concise while still guaranteeing traceable attribution in the final release description.
+If the agent keeps the main sections concise and omits lower-signal PRs, `agent_script.py` inserts a compact `### 🔎 Complete PR and Author Reference Coverage` appendix before the full changelog link so the output remains readable while still being exhaustive.
 
 ## Customizing Output
 
