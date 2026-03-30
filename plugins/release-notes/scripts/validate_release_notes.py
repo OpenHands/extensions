@@ -40,17 +40,15 @@ def build_validation_context(
     notes: ReleaseNotes, include_internal: bool = False
 ) -> ValidationContext:
     """Build the reference and section metadata used for validation."""
-    enabled_categories = ["breaking", "features", "fixes", "docs"]
-    if include_internal:
-        enabled_categories.append("internal")
+    del include_internal  # Validation should cover every candidate the agent may cite.
 
     reference_authors: dict[str, str] = {}
     change_section_headings = {
         f"### {CATEGORIES[category]['emoji']} {CATEGORIES[category]['title']}"
-        for category in enabled_categories
+        for category in CATEGORIES
     }
 
-    for category in enabled_categories:
+    for category in list(CATEGORIES) + ["other"]:
         for change in notes.changes.get(category, []):
             if change.pr_number:
                 reference_authors[f"#{change.pr_number}"] = change.author

@@ -7,8 +7,14 @@ Use the structured release data below as your primary source of truth. You may i
 Your job is editorial, not mechanical:
 - decide which PRs are important enough to mention
 - group related PRs into a single bullet when they form one coherent feature or fix
+- for larger releases, aggressively compress the notes into a shorter set of higher-signal bullets instead of listing one bullet per PR
+- if a section would have more than 5 bullets, merge same-theme items until the section is scannable
 - omit trivial, repetitive, or low-signal changes from the final notes
 - prefer user impact over implementation detail
+- prioritize public APIs, user-visible capabilities, security fixes, supported integrations/models, and operational changes users directly invoke
+- avoid maintainer-facing churn unless it materially changes how users adopt, run, or integrate the project
+- use `### 📚 Documentation` only for notable docs/reference/policy updates; public API additions still belong in `### ✨ New Features`
+- omit prompt wording, benchmark plumbing, workflow maintenance, and similar maintainer-only changes unless they materially alter observable user behavior
 - treat the suggested category as a hint, not a rule
 - when `include_internal` is false, omit internal-only work unless it is important for users
 - use imperative mood

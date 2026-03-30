@@ -404,7 +404,12 @@ class TestPrompt:
         assert "Write official release notes for `owner/repo` tag `v1.2.0`." in prompt
         assert "decide which PRs are important enough to mention" in prompt
         assert "group related PRs into a single bullet" in prompt
+        assert "aggressively compress the notes into a shorter set of higher-signal bullets" in prompt
+        assert "if a section would have more than 5 bullets" in prompt
         assert "omit trivial, repetitive, or low-signal changes" in prompt
+        assert "prioritize public APIs, user-visible capabilities, security fixes" in prompt
+        assert "public API additions still belong in `### ✨ New Features`" in prompt
+        assert "omit prompt wording, benchmark plumbing, workflow maintenance" in prompt
         assert "every change bullet must end with explicit references" in prompt
         assert "format PR references as `(#123) @username`" in prompt
         assert "include every new contributor listed below" in prompt
@@ -558,6 +563,32 @@ class TestValidation:
 
         assert "PRs referenced: #42, #43" in summary
         assert "Authors referenced: @alice, @bob" in summary
+
+    def test_validate_release_notes_allows_agent_to_recategorize_other_candidates(self):
+        """The validator should allow refs for candidates the agent re-categorizes."""
+        notes = ReleaseNotes(
+            tag="v1.2.0",
+            previous_tag="v1.1.0",
+            date="2026-03-07",
+            repo_name="owner/repo",
+            changes={
+                "other": [
+                    Change(message="Export public API", sha="abc1234", author="alice", pr_number=42),
+                ]
+            },
+        )
+        markdown = """## [v1.2.0] - 2026-03-07
+
+### ✨ New Features
+- Export public API (#42) @alice
+
+**Full Changelog**: https://github.com/owner/repo/compare/v1.1.0...v1.2.0
+"""
+
+        summary = validate_release_notes_markdown(markdown, notes)
+
+        assert summary.referenced_prs == [42]
+        assert summary.referenced_authors == ["alice"]
 
 
 class TestCategories:
