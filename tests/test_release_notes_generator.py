@@ -412,6 +412,8 @@ class TestPrompt:
         assert "prioritize public APIs, user-visible capabilities, security fixes" in prompt
         assert "public API additions still belong in `### ✨ New Features`" in prompt
         assert "omit prompt wording, benchmark plumbing, workflow maintenance" in prompt
+        assert "start with a short, conversational 1-2 sentence overview" in prompt
+        assert "optional top-level highlight bullets (maximum 3)" in prompt
         assert "every change bullet must end with explicit references" in prompt
         assert "format PR references as `(#123) @username`" in prompt
         assert "include every new contributor listed below" in prompt
@@ -635,10 +637,13 @@ class TestValidation:
                 ],
                 "internal": [
                     Change(message="Update CI", sha="def5678", author="bob", pr_number=43),
+                    Change(message="Refactor workflow", sha="fedcba9", author="bob", pr_number=44),
                 ],
             },
         )
         markdown = """## [v1.2.0] - 2026-03-07
+
+This release focuses on polish and delivery improvements.
 
 ### ✨ New Features
 - Add dark mode (#42) @alice
@@ -648,10 +653,11 @@ class TestValidation:
 
         augmented = append_reference_coverage_appendix(markdown, notes)
 
-        assert "### 🔎 Complete PR and Author Reference Coverage" in augmented
-        assert "(#43) @bob" in augmented
+        assert "### 🔎 Small Fixes/Internal Changes" in augmented
+        assert "- @bob: #43, #44" in augmented
+        assert augmented.count("@bob") == 1
         summary = validate_release_notes_markdown(augmented, notes)
-        assert summary.referenced_prs == [42, 43]
+        assert summary.referenced_prs == [42, 43, 44]
 
 
 class TestCategories:

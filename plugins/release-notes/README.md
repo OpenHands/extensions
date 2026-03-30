@@ -23,7 +23,7 @@ Then configure the required secrets (see [Installation](#installation) below).
 - **PR Label Support**: Uses GitHub PR labels as additional hints for the agent
 - **Contributor Attribution**: Includes PR numbers and author usernames for each change the agent keeps
 - **Attribution Validation**: Fails the workflow if any release-range PR/commit or corresponding author is omitted from the final notes
-- **Deterministic Coverage Appendix**: When the agent omits lower-signal PRs, the action appends a compact reference appendix so every PR and author in the release range is still listed somewhere in the output
+- **Deterministic Coverage Appendix**: When the agent omits lower-signal PRs, the action appends a compact `### 🔎 Small Fixes/Internal Changes` appendix grouped by author so every PR and author in the release range is still listed somewhere in the output
 - **New Contributor Highlighting**: Identifies and celebrates first-time contributors
 - **Flexible Output**: Updates GitHub release notes directly or outputs for CHANGELOG.md
 
@@ -192,6 +192,7 @@ The agent receives deterministic categorization hints, but it makes the final de
 
 The generator follows these principles:
 
+- **Conversational overview**: Starts with a short plain-language summary of the release before the detailed sections
 - **Concise but informative**: The agent decides which changes matter and can merge related PRs into a single higher-signal bullet
 - **User-focused**: The agent prioritizes user-facing changes over low-level implementation detail
 - **Scannable**: Easy to quickly find relevant changes
@@ -208,7 +209,7 @@ That validator rebuilds the deterministic PR/author context for the same tag ran
 - do not reference unknown PRs or commits
 - cover every PR/commit in the release range somewhere in the markdown
 
-If the agent keeps the main sections concise and omits lower-signal PRs, `agent_script.py` inserts a compact `### 🔎 Complete PR and Author Reference Coverage` appendix before the full changelog link so the output remains readable while still being exhaustive.
+If the agent keeps the main sections concise and omits lower-signal PRs, `agent_script.py` inserts a compact `### 🔎 Small Fixes/Internal Changes` appendix before the full changelog link. That appendix is grouped by author so the output remains readable while still being exhaustive.
 
 ## Customizing Output
 

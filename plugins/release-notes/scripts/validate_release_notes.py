@@ -12,16 +12,8 @@ from generate_release_notes import CATEGORIES, ReleaseNotes, generate_release_no
 PR_REF_PATTERN = re.compile(r"#(\d+)\b")
 COMMIT_REF_PATTERN = re.compile(r"\(([0-9a-f]{7,40})\)")
 NEW_CONTRIBUTORS_HEADING = "### 👥 New Contributors"
-COVERAGE_HEADING = "### 🔎 Complete PR and Author Reference Coverage"
+COVERAGE_HEADING = "### 🔎 Small Fixes/Internal Changes"
 REFERENCE_CATEGORY_ORDER = ["breaking", "features", "fixes", "docs", "internal", "other"]
-REFERENCE_CATEGORY_LABELS = {
-    "breaking": "Breaking-change refs",
-    "features": "Feature/API refs",
-    "fixes": "Bug-fix refs",
-    "docs": "Documentation refs",
-    "internal": "Internal/infrastructure refs",
-    "other": "Additional refs",
-}
 
 
 @dataclass
@@ -40,7 +32,6 @@ class ValidationContext:
     """Parsed validation context for a single release note run."""
 
     reference_authors: dict[str, str]
-    reference_categories: dict[str, str]
     reference_order: list[str]
     change_section_headings: set[str]
 
@@ -68,7 +59,6 @@ def build_validation_context(
     del include_internal  # Coverage should include every candidate the release may cite.
 
     reference_authors: dict[str, str] = {}
-    reference_categories: dict[str, str] = {}
     reference_order: list[str] = []
     change_section_headings = {
         f"### {CATEGORIES[category]['emoji']} {CATEGORIES[category]['title']}"
@@ -81,12 +71,10 @@ def build_validation_context(
             if ref in reference_authors:
                 continue
             reference_authors[ref] = change.author
-            reference_categories[ref] = category
             reference_order.append(ref)
 
     return ValidationContext(
         reference_authors=reference_authors,
-        reference_categories=reference_categories,
         reference_order=reference_order,
         change_section_headings=change_section_headings,
     )
@@ -171,11 +159,14 @@ def missing_references(
     return [ref for ref in context.reference_order if ref not in scan.covered_refs]
 
 
+def _format_reference_token(ref: str) -> str:
+    return ref if ref.startswith("#") else f"({ref})"
+
+
 def append_reference_coverage_appendix(
     markdown: str,
     notes: ReleaseNotes,
     include_internal: bool = False,
-    chunk_size: int = 8,
 ) -> str:
     """Append a compact appendix covering any PRs/authors omitted by the agent."""
     context = build_validation_context(notes, include_internal=include_internal)
@@ -184,21 +175,18 @@ def append_reference_coverage_appendix(
     if not missing_refs:
         return markdown
 
-    grouped: dict[str, list[str]] = {category: [] for category in REFERENCE_CATEGORY_ORDER}
+    refs_by_author: dict[str, list[str]] = {}
+    author_order: list[str] = []
     for ref in missing_refs:
         author = context.reference_authors[ref]
-        formatted_ref = f"({ref}) @{author}" if not ref.startswith("#") else f"({ref}) @{author}"
-        grouped[context.reference_categories[ref]].append(formatted_ref)
+        if author not in refs_by_author:
+            refs_by_author[author] = []
+            author_order.append(author)
+        refs_by_author[author].append(_format_reference_token(ref))
 
     appendix_lines = [COVERAGE_HEADING]
-    for category in REFERENCE_CATEGORY_ORDER:
-        refs = grouped[category]
-        if not refs:
-            continue
-        label = REFERENCE_CATEGORY_LABELS[category]
-        for index in range(0, len(refs), chunk_size):
-            chunk = refs[index : index + chunk_size]
-            appendix_lines.append(f"- {label}: {', '.join(chunk)}")
+    for author in author_order:
+        appendix_lines.append(f"- @{author}: {', '.join(refs_by_author[author])}")
 
     base_lines = markdown.rstrip().splitlines()
     for index, line in enumerate(base_lines):

@@ -13,11 +13,11 @@ Automates the generation of standardized release notes for OpenHands repositorie
 ## Features
 
 - **Automatic tag detection**: Finds the previous release tag to determine the commit range
-- **Agent-based editing**: Lets the agent decide which changes matter and group related PRs into higher-signal summaries
+- **Agent-based editing**: Lets the agent decide which changes matter, open with a short conversational summary, and group related PRs into higher-signal summaries
 - **Structured GitHub context**: Supplies PR titles, labels, descriptions, and contributor metadata to guide the agent
 - **Contributor attribution**: Includes PR numbers and author usernames for each change
 - **Attribution validation**: Verifies every change bullet contains explicit PR/commit references and the matching author handles
-- **Full coverage appendix**: Appends a compact reference section when needed so every PR and author in the release range is still listed somewhere in the final markdown
+- **Full coverage appendix**: Appends a compact `### 🔎 Small Fixes/Internal Changes` section grouped by author when needed so every PR and author in the release range is still listed somewhere in the final markdown
 - **New contributor highlighting**: Identifies and celebrates first-time contributors
 - **Flexible output**: Can update GitHub release notes or generate CHANGELOG.md entries
 

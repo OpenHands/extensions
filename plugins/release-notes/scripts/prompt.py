@@ -15,6 +15,8 @@ Your job is editorial, not mechanical:
 - avoid maintainer-facing churn unless it materially changes how users adopt, run, or integrate the project
 - use `### 📚 Documentation` only for notable docs/reference/policy updates; public API additions still belong in `### ✨ New Features`
 - omit prompt wording, benchmark plumbing, workflow maintenance, and similar maintainer-only changes unless they materially alter observable user behavior
+- start with a short, conversational 1-2 sentence overview of the release before the categorized sections
+- if you add top-level highlight bullets, keep them to at most 3 and reserve them for the biggest user-facing changes
 - treat the suggested category as a hint, not a rule
 - when `include_internal` is false, omit internal-only work unless it is important for users
 - use imperative mood
@@ -29,6 +31,8 @@ Return markdown only. Do not wrap the result in a code fence.
 
 Required structure:
 - `## [{tag}] - {date}`
+- a short conversational overview paragraph immediately after the title
+- optional top-level highlight bullets (maximum 3) before the categorized sections
 - `### ⚠️ Breaking Changes` when applicable
 - `### ✨ New Features` when applicable
 - `### 🐛 Bug Fixes` when applicable
