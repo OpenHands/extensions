@@ -24,7 +24,7 @@ Then configure the required secrets (see [Installation](#installation) below).
 - **Contributor Attribution**: Includes PR numbers and author usernames for each change the agent keeps
 - **Attribution Validation**: Fails the workflow if any release-range PR/commit or corresponding author is omitted from the final notes
 - **Deterministic Coverage Appendix**: When the agent omits lower-signal PRs, the action appends a compact `### 🔎 Small Fixes/Internal Changes` appendix grouped by author so every PR and author in the release range is still listed somewhere in the output
-- **New Contributor Highlighting**: Identifies and celebrates first-time contributors
+- **New Contributor Highlighting**: Identifies first-time human contributors from merged PR history and excludes bot accounts
 - **Flexible Output**: Updates GitHub release notes directly or outputs for CHANGELOG.md
 
 ## Plugin Contents
@@ -194,7 +194,8 @@ The generator follows these principles:
 
 - **Conversational overview**: Starts with a short plain-language summary of the release before the detailed sections
 - **Concise but informative**: The agent decides which changes matter and can merge related PRs into a single higher-signal bullet
-- **User-focused**: The agent prioritizes user-facing changes over low-level implementation detail
+- **User-focused**: The agent prioritizes end-user and client-developer impact over low-level implementation detail
+- **Internal changes stay secondary**: CI churn, prompt tweaks, workflow plumbing, contributor ergonomics, and similar toolkit-maintainer details belong in `### 🔎 Small Fixes/Internal Changes` unless they are unusually significant
 - **Scannable**: Easy to quickly find relevant changes
 - **Imperative mood**: Uses "Add feature" not "Added feature"
 - **Attribution**: Includes PR number and author for traceability

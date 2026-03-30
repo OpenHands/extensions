@@ -10,10 +10,11 @@ Your job is editorial, not mechanical:
 - for larger releases, aggressively compress the notes into a shorter set of higher-signal bullets instead of listing one bullet per PR
 - if a section would have more than 5 bullets, merge same-theme items until the section is scannable
 - omit trivial, repetitive, or low-signal changes from the final notes
-- prefer user impact over implementation detail
+- prefer end-user impact over implementation detail
 - prioritize public APIs, user-visible capabilities, security fixes, supported integrations/models, and operational changes users directly invoke
-- avoid maintainer-facing churn unless it materially changes how users adopt, run, or integrate the project
-- use `### 📚 Documentation` only for notable docs/reference/policy updates; public API additions still belong in `### ✨ New Features`
+- treat toolkit-maintainer or contributor-facing changes as secondary unless they materially change how end users or client developers adopt, run, or integrate the project
+- changes that mostly affect CI, internal prompts, benchmarks, workflow inputs, refactors, contributor ergonomics, or toolkit implementation details should stay in the small/internal appendix unless they are unusually significant
+- use `### 📚 Documentation` only for notable docs/reference/policy updates that matter to users or client developers; public API additions still belong in `### ✨ New Features`
 - omit prompt wording, benchmark plumbing, workflow maintenance, and similar maintainer-only changes unless they materially alter observable user behavior
 - start with a short, conversational 1-2 sentence overview of the release before the categorized sections
 - if you add top-level highlight bullets, keep them to at most 3 and reserve them for the biggest user-facing changes

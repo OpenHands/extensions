@@ -11,6 +11,7 @@ from generate_release_notes import CATEGORIES, ReleaseNotes, generate_release_no
 
 PR_REF_PATTERN = re.compile(r"#(\d+)\b")
 COMMIT_REF_PATTERN = re.compile(r"\(([0-9a-f]{7,40})\)")
+USER_HANDLE_PATTERN = re.compile(r"@([A-Za-z0-9][A-Za-z0-9_\-\[\]]*)")
 NEW_CONTRIBUTORS_HEADING = "### 👥 New Contributors"
 COVERAGE_HEADING = "### 🔎 Small Fixes/Internal Changes"
 REFERENCE_CATEGORY_ORDER = ["breaking", "features", "fixes", "docs", "internal", "other"]
@@ -34,6 +35,7 @@ class ValidationContext:
     reference_authors: dict[str, str]
     reference_order: list[str]
     change_section_headings: set[str]
+    expected_new_contributors: dict[str, int | None]
 
 
 class ReleaseNotesValidationError(ValueError):
@@ -48,6 +50,7 @@ class MentionScanResult:
     referenced_prs: set[int]
     referenced_authors: set[str]
     referenced_commits: set[str]
+    found_new_contributors: dict[str, int | None]
     bullet_count: int
     errors: list[str]
 
@@ -60,6 +63,9 @@ def build_validation_context(
 
     reference_authors: dict[str, str] = {}
     reference_order: list[str] = []
+    expected_new_contributors = {
+        contributor.username: contributor.first_pr for contributor in notes.new_contributors
+    }
     change_section_headings = {
         f"### {CATEGORIES[category]['emoji']} {CATEGORIES[category]['title']}"
         for category in CATEGORIES
@@ -77,6 +83,7 @@ def build_validation_context(
         reference_authors=reference_authors,
         reference_order=reference_order,
         change_section_headings=change_section_headings,
+        expected_new_contributors=expected_new_contributors,
     )
 
 
@@ -97,6 +104,7 @@ def _scan_reference_mentions(markdown: str, context: ValidationContext) -> Menti
     referenced_prs: set[int] = set()
     referenced_authors: set[str] = set()
     referenced_commits: set[str] = set()
+    found_new_contributors: dict[str, int | None] = {}
     errors: list[str] = []
     bullet_count = 0
 
@@ -119,6 +127,27 @@ def _scan_reference_mentions(markdown: str, context: ValidationContext) -> Menti
                 errors.append(f"Bullet missing explicit PR/commit references: {line}")
                 continue
 
+        if is_new_contributor_bullet:
+            usernames = USER_HANDLE_PATTERN.findall(line)
+            if len(usernames) != 1:
+                errors.append(
+                    "New contributor bullet must mention exactly one contributor handle: "
+                    f"{line}"
+                )
+            else:
+                username = usernames[0]
+                expected_first_pr = context.expected_new_contributors.get(username)
+                if username not in context.expected_new_contributors:
+                    errors.append(f"Unknown new contributor @{username}: {line}")
+                elif username in found_new_contributors:
+                    errors.append(f"Duplicate new contributor @{username}: {line}")
+                else:
+                    found_new_contributors[username] = expected_first_pr
+                    if expected_first_pr is not None and f"#{expected_first_pr}" not in refs:
+                        errors.append(
+                            f"New contributor @{username} must reference #{expected_first_pr}: {line}"
+                        )
+
         for ref in refs:
             author = context.reference_authors.get(ref)
             if not author:
@@ -135,14 +164,15 @@ def _scan_reference_mentions(markdown: str, context: ValidationContext) -> Menti
             else:
                 referenced_commits.add(ref)
 
-        if is_new_contributor_bullet and not refs:
-            continue
+        if is_new_contributor_bullet and not refs and context.expected_new_contributors:
+            errors.append(f"New contributor bullet missing PR reference: {line}")
 
     return MentionScanResult(
         covered_refs=covered_refs,
         referenced_prs=referenced_prs,
         referenced_authors=referenced_authors,
         referenced_commits=referenced_commits,
+        found_new_contributors=found_new_contributors,
         bullet_count=bullet_count,
         errors=errors,
     )
@@ -206,12 +236,22 @@ def validate_release_notes_markdown(
     context = build_validation_context(notes, include_internal=include_internal)
     scan = _scan_reference_mentions(markdown, context)
     missing_refs = [ref for ref in context.reference_order if ref not in scan.covered_refs]
+    missing_new_contributors = [
+        username
+        for username in context.expected_new_contributors
+        if username not in scan.found_new_contributors
+    ]
 
     errors = list(scan.errors)
     if missing_refs:
         errors.append(
             "Release notes are missing PR/commit coverage for: "
             + ", ".join(missing_refs)
+        )
+    if missing_new_contributors:
+        errors.append(
+            "Release notes are missing new contributor coverage for: "
+            + ", ".join(f"@{username}" for username in missing_new_contributors)
         )
 
     if errors:

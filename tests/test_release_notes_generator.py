@@ -19,8 +19,10 @@ from generate_release_notes import (
     ReleaseNotes,
     _dedupe_changes,
     _process_commit,
+    _process_contributors,
     categorize_change,
     get_commits_between_tags,
+    is_new_contributor,
 )
 from prompt import format_prompt
 from validate_release_notes import (
@@ -353,7 +355,9 @@ class TestProcessingHelpers:
             "body": "Adds a new settings page for managing preferences.",
             "html_url": "https://github.com/owner/repo/pull/42",
             "labels": [{"name": "enhancement"}],
-            "user": {"login": "pr-author"},
+            "user": {"login": "pr-author", "type": "User"},
+            "created_at": "2026-03-05T12:00:00Z",
+            "merged_at": "2026-03-06T09:30:00Z",
         }
         commit = {
             "sha": "abc123",
@@ -370,6 +374,9 @@ class TestProcessingHelpers:
         assert change.pr_labels == ["enhancement"]
         assert change.body == "Adds a new settings page for managing preferences."
         assert change.url == "https://github.com/owner/repo/pull/42"
+        assert change.author_type == "User"
+        assert change.pr_created_at == "2026-03-05T12:00:00Z"
+        assert change.pr_merged_at == "2026-03-06T09:30:00Z"
 
     @patch("generate_release_notes.github_api_request")
     def test_get_commits_between_tags_warns_on_truncation(self, mock_github_api_request, capsys):
@@ -383,6 +390,106 @@ class TestProcessingHelpers:
 
         assert commits == [{"sha": "abc"}]
         assert "truncated the commit list" in capsys.readouterr().err
+
+    @patch("generate_release_notes._search_merged_pull_requests_by_author")
+    def test_is_new_contributor_rejects_prior_merged_pr(self, mock_search):
+        """A contributor is not new if they already merged a PR earlier."""
+        mock_search.return_value = [
+            {"number": 41, "closed_at": "2026-03-01T10:00:00Z"},
+            {"number": 42, "closed_at": "2026-03-06T09:30:00Z"},
+        ]
+
+        assert not is_new_contributor(
+            "pr-author",
+            "owner/repo",
+            "2026-03-06T09:30:00Z",
+            "token",
+            current_pr_number=42,
+            author_type="User",
+        )
+
+    @patch("generate_release_notes._search_merged_pull_requests_by_author")
+    def test_is_new_contributor_accepts_first_merged_pr(self, mock_search):
+        """A contributor is new when the only merged PR found is the current one."""
+        mock_search.return_value = [{"number": 42, "closed_at": "2026-03-06T09:30:00Z"}]
+
+        assert is_new_contributor(
+            "pr-author",
+            "owner/repo",
+            "2026-03-06T09:30:00Z",
+            "token",
+            current_pr_number=42,
+            author_type="User",
+        )
+
+    @patch("generate_release_notes._search_merged_pull_requests_by_author")
+    def test_is_new_contributor_ignores_bot_accounts(self, mock_search):
+        """Bot-authored PRs should never appear in new contributors."""
+        assert not is_new_contributor(
+            "dependabot[bot]",
+            "owner/repo",
+            "2026-03-06T09:30:00Z",
+            "token",
+            current_pr_number=42,
+            author_type="Bot",
+        )
+        mock_search.assert_not_called()
+
+    @patch("generate_release_notes.is_new_contributor")
+    def test_process_contributors_uses_earliest_release_pr_per_author(self, mock_is_new):
+        """Contributor detection should use the author's earliest PR in the release."""
+        mock_is_new.side_effect = lambda author, *_args, **_kwargs: author == "alice"
+        changes = [
+            Change(
+                message="Later PR",
+                sha="bbb2222",
+                author="alice",
+                pr_number=43,
+                author_type="User",
+                pr_created_at="2026-03-10T12:00:00Z",
+                pr_merged_at="2026-03-11T12:00:00Z",
+            ),
+            Change(
+                message="Earlier PR",
+                sha="aaa1111",
+                author="alice",
+                pr_number=42,
+                author_type="User",
+                pr_created_at="2026-03-05T12:00:00Z",
+                pr_merged_at="2026-03-06T09:30:00Z",
+            ),
+            Change(
+                message="Bot PR",
+                sha="ccc3333",
+                author="dependabot[bot]",
+                pr_number=44,
+                author_type="Bot",
+                pr_created_at="2026-03-07T12:00:00Z",
+                pr_merged_at="2026-03-08T12:00:00Z",
+            ),
+        ]
+
+        contributors, new_contributors = _process_contributors(changes, "owner/repo", "token")
+
+        assert [contributor.username for contributor in contributors] == ["alice", "dependabot[bot]"]
+        assert [contributor.first_pr for contributor in contributors] == [42, 44]
+        assert [contributor.username for contributor in new_contributors] == ["alice"]
+        mock_is_new.assert_any_call(
+            "alice",
+            "owner/repo",
+            "2026-03-06T09:30:00Z",
+            "token",
+            current_pr_number=42,
+            author_type="User",
+        )
+        mock_is_new.assert_any_call(
+            "dependabot[bot]",
+            "owner/repo",
+            "2026-03-08T12:00:00Z",
+            "token",
+            current_pr_number=44,
+            author_type="Bot",
+        )
 
 
 class TestPrompt:
@@ -409,7 +516,10 @@ class TestPrompt:
         assert "aggressively compress the notes into a shorter set of higher-signal bullets" in prompt
         assert "if a section would have more than 5 bullets" in prompt
         assert "omit trivial, repetitive, or low-signal changes" in prompt
+        assert "prefer end-user impact over implementation detail" in prompt
         assert "prioritize public APIs, user-visible capabilities, security fixes" in prompt
+        assert "treat toolkit-maintainer or contributor-facing changes as secondary" in prompt
+        assert "should stay in the small/internal appendix unless they are unusually significant" in prompt
         assert "public API additions still belong in `### ✨ New Features`" in prompt
         assert "omit prompt wording, benchmark plumbing, workflow maintenance" in prompt
         assert "start with a short, conversational 1-2 sentence overview" in prompt
@@ -528,6 +638,96 @@ class TestValidation:
 
         assert summary.referenced_commits == ["abc1234"]
         assert summary.referenced_authors == ["alice"]
+
+    def test_validate_release_notes_accepts_accurate_new_contributor_section(self):
+        """The validator should allow the exact expected new contributor entry."""
+        notes = ReleaseNotes(
+            tag="v1.2.0",
+            previous_tag="v1.1.0",
+            date="2026-03-07",
+            repo_name="owner/repo",
+            changes={
+                "fixes": [
+                    Change(message="Fix reconnect bug", sha="abc1234", author="alice", pr_number=42),
+                ]
+            },
+            new_contributors=[Contributor(username="alice", first_pr=42, is_new=True)],
+        )
+        markdown = """## [v1.2.0] - 2026-03-07
+
+### 🐛 Bug Fixes
+- Fix reconnect bug (#42) @alice
+
+### 👥 New Contributors
+- @alice made their first contribution in #42
+
+**Full Changelog**: https://github.com/owner/repo/compare/v1.1.0...v1.2.0
+"""
+
+        summary = validate_release_notes_markdown(markdown, notes)
+
+        assert summary.referenced_prs == [42]
+        assert summary.referenced_authors == ["alice"]
+
+    def test_validate_release_notes_rejects_inaccurate_new_contributor_entry(self):
+        """The validator should reject incorrect or hallucinated first-contribution bullets."""
+        notes = ReleaseNotes(
+            tag="v1.2.0",
+            previous_tag="v1.1.0",
+            date="2026-03-07",
+            repo_name="owner/repo",
+            changes={
+                "fixes": [
+                    Change(message="Fix reconnect bug", sha="abc1234", author="alice", pr_number=42),
+                ]
+            },
+            new_contributors=[Contributor(username="alice", first_pr=42, is_new=True)],
+        )
+        markdown = """## [v1.2.0] - 2026-03-07
+
+### 🐛 Bug Fixes
+- Fix reconnect bug (#42) @alice
+
+### 👥 New Contributors
+- @alice made their first contribution in #99
+
+**Full Changelog**: https://github.com/owner/repo/compare/v1.1.0...v1.2.0
+"""
+
+        with pytest.raises(
+            ReleaseNotesValidationError,
+            match=r"must reference #42",
+        ):
+            validate_release_notes_markdown(markdown, notes)
+
+
+    def test_validate_release_notes_rejects_missing_new_contributor_section(self):
+        """Expected new contributors must appear in the dedicated section."""
+        notes = ReleaseNotes(
+            tag="v1.2.0",
+            previous_tag="v1.1.0",
+            date="2026-03-07",
+            repo_name="owner/repo",
+            changes={
+                "fixes": [
+                    Change(message="Fix reconnect bug", sha="abc1234", author="alice", pr_number=42),
+                ]
+            },
+            new_contributors=[Contributor(username="alice", first_pr=42, is_new=True)],
+        )
+        markdown = """## [v1.2.0] - 2026-03-07
+
+### 🐛 Bug Fixes
+- Fix reconnect bug (#42) @alice
+
+**Full Changelog**: https://github.com/owner/repo/compare/v1.1.0...v1.2.0
+"""
+
+        with pytest.raises(
+            ReleaseNotesValidationError,
+            match=r"missing new contributor coverage for: @alice",
+        ):
+            validate_release_notes_markdown(markdown, notes)
 
     def test_format_coverage_summary_lists_prs_and_authors(self):
         """Coverage summary output is suitable for logs and evidence."""

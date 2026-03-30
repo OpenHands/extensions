@@ -19,6 +19,7 @@ import os
 import re
 import sys
 import urllib.error
+import urllib.parse
 import urllib.request
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -136,6 +137,9 @@ class Change:
     pr_labels: list[str] = field(default_factory=list)
     body: str = ""
     url: str = ""
+    author_type: str = ""
+    pr_created_at: str = ""
+    pr_merged_at: str = ""
     category: str = "other"
 
     def to_markdown(self, repo_name: str) -> str:
@@ -380,20 +384,66 @@ def categorize_change(change: Change) -> str:
     return "other"
 
 
+def _parse_github_timestamp(timestamp: str) -> datetime:
+    """Parse a GitHub timestamp into a timezone-aware datetime."""
+    return datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
+
+
+def _is_bot_author(author: str, author_type: str = "") -> bool:
+    """Return True when the contributor is clearly a bot account."""
+    normalized_type = author_type.lower()
+    return normalized_type == "bot" or author.endswith("[bot]")
+
+
+def _search_merged_pull_requests_by_author(
+    repo_name: str, author: str, token: str
+) -> list[dict[str, Any]]:
+    """Return merged PRs in the repo authored by the given GitHub user."""
+    results: list[dict[str, Any]] = []
+    page = 1
+    query = f'repo:{repo_name} is:pr is:merged author:"{author}"'
+    encoded_query = urllib.parse.quote(query)
+
+    while True:
+        endpoint = (
+            f"/search/issues?q={encoded_query}&per_page=100&page={page}"
+            "&sort=created&order=asc"
+        )
+        response = github_api_request(endpoint, token)
+        items = response.get("items", [])
+        results.extend(items)
+        if len(items) < 100:
+            break
+        page += 1
+
+    return results
+
+
 def is_new_contributor(
-    author: str, repo_name: str, before_date: str, token: str
+    author: str,
+    repo_name: str,
+    before_timestamp: str,
+    token: str,
+    current_pr_number: int | None = None,
+    author_type: str = "",
 ) -> bool:
-    """Check if this is the author's first contribution to the repository."""
-    # Search for commits by this author before the given date
-    endpoint = (
-        f"/repos/{repo_name}/commits"
-        f"?author={author}&until={before_date}&per_page=1"
-    )
+    """Check whether a human author's earliest release PR is their first merged PR."""
+    if not author or _is_bot_author(author, author_type) or not before_timestamp:
+        return False
+
+    threshold = _parse_github_timestamp(before_timestamp)
+
     try:
-        commits = github_api_request(endpoint, token)
-        return len(commits) == 0
+        for pr in _search_merged_pull_requests_by_author(repo_name, author, token):
+            if current_pr_number and pr.get("number") == current_pr_number:
+                continue
+            closed_at = pr.get("closed_at")
+            if not closed_at:
+                continue
+            if _parse_github_timestamp(closed_at) < threshold:
+                return False
+        return True
     except Exception as e:
-        # Log but don't fail - contributor check is best-effort
         print(f"Warning: Could not check contributor history for {author}: {e}", file=sys.stderr)
         return False
 
@@ -445,13 +495,19 @@ def _process_commit(
     pr = get_pr_for_commit(repo_name, sha, token)
     body = ""
     url = ""
+    author_type = ""
+    pr_created_at = ""
+    pr_merged_at = ""
     if pr:
         pr_number = pr["number"]
         pr_labels = [label["name"] for label in pr.get("labels", [])]
         author = pr.get("user", {}).get("login", "") or author
+        author_type = pr.get("user", {}).get("type", "") or ""
         message = pr.get("title") or message
         body = pr.get("body") or ""
         url = pr.get("html_url") or ""
+        pr_created_at = pr.get("created_at") or ""
+        pr_merged_at = pr.get("merged_at") or ""
 
     return Change(
         message=message,
@@ -461,6 +517,9 @@ def _process_commit(
         pr_labels=pr_labels,
         body=body,
         url=url,
+        author_type=author_type,
+        pr_created_at=pr_created_at,
+        pr_merged_at=pr_merged_at,
     )
 
 
@@ -499,23 +558,54 @@ def _categorize_changes(
 def _process_contributors(
     changes_list: list[Change],
     repo_name: str,
-    tag_date: str,
     token: str,
 ) -> tuple[list[Contributor], list[Contributor]]:
-    """Extract contributors from changes and identify new contributors."""
+    """Extract contributors and identify first-time human PR contributors."""
     contributors: dict[str, Contributor] = {}
+    earliest_pr_by_author: dict[str, Change] = {}
     new_contributors: list[Contributor] = []
 
     for change in changes_list:
         author = change.author
-        if author and author not in contributors:
+        if not author:
+            continue
+
+        contrib = contributors.get(author)
+        if contrib is None:
             contrib = Contributor(username=author, first_pr=change.pr_number)
             contributors[author] = contrib
+        elif contrib.first_pr is None and change.pr_number:
+            contrib.first_pr = change.pr_number
 
-            # Check if new contributor
-            if is_new_contributor(author, repo_name, f"{tag_date}T00:00:00Z", token):
-                contrib.is_new = True
-                new_contributors.append(contrib)
+        if not change.pr_number:
+            continue
+
+        candidate_timestamp = change.pr_merged_at or change.pr_created_at
+        current = earliest_pr_by_author.get(author)
+        current_timestamp = (current.pr_merged_at or current.pr_created_at) if current else ""
+        if current is None or (
+            candidate_timestamp
+            and (not current_timestamp or candidate_timestamp < current_timestamp)
+        ):
+            earliest_pr_by_author[author] = change
+            contrib.first_pr = change.pr_number
+
+    for author, contrib in contributors.items():
+        first_pr_change = earliest_pr_by_author.get(author)
+        if not first_pr_change:
+            continue
+
+        first_pr_timestamp = first_pr_change.pr_merged_at or first_pr_change.pr_created_at
+        if is_new_contributor(
+            author,
+            repo_name,
+            first_pr_timestamp,
+            token,
+            current_pr_number=first_pr_change.pr_number,
+            author_type=first_pr_change.author_type,
+        ):
+            contrib.is_new = True
+            new_contributors.append(contrib)
 
     return list(contributors.values()), new_contributors
 
@@ -562,9 +652,7 @@ def generate_release_notes(
     categorized = _categorize_changes(changes)
 
     # Phase 4: Extract and identify contributors
-    contributors, new_contributors = _process_contributors(
-        changes, repo_name, tag_date, token
-    )
+    contributors, new_contributors = _process_contributors(changes, repo_name, token)
 
     return ReleaseNotes(
         tag=tag,
