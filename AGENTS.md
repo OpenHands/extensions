@@ -97,6 +97,14 @@ When editing or adding skills in this repo, follow these rules (and add new skil
 - The test suite expects **every directory under `skills/`** to be listed in `marketplaces/default.json`.
   - If you add a new skill (or rebase onto a main branch that added skills), update the marketplace file or CI will fail with `Skills missing from marketplace: [...]`.
 
+## Plugin packaging notes
+
+- SDK plugin packaging now prefers `.plugin/plugin.json` as documented in the official plugins guide.
+- Some older example plugins in this repo still use `.claude-plugin/plugin.json`, so both layouts may appear during migration.
+- `plugins/vulnerability-remediation` was migrated to `.plugin/plugin.json` and plugin-local skills with trigger frontmatter.
+- Keep any reusable workflow templates under `plugins/<plugin>/workflows/` in sync with matching copies under `.github/workflows/`.
+
+
 ## PR review plugin notes
 
 - `plugins/pr-review` supports an optional `require-evidence` action input that tells the reviewer to require end-to-end proof in the PR description that the code works; test output alone is not sufficient evidence.
