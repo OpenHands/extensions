@@ -15,7 +15,7 @@ This skill provides comprehensive API documentation for creating and managing Op
 
 **Interactive Setup:** For a guided slash command experience, use the [automation-creation plugin](../../plugins/automation-creation/README.md) with `/automation:create`.
 
-**Important:** Automation code must use the [OpenHands Software Agent SDK](https://docs.openhands.dev/sdk) to create conversations and interact with OpenHands Cloud services.
+**Important:** Automation code must use the [OpenHands Software Agent SDK](https://docs.openhands.dev/sdk) to create conversations and interact with OpenHands Cloud services. See the [SDK Documentation](https://docs.openhands.dev/sdk) for complete API reference.
 
 ## API Base URL
 
@@ -48,6 +48,8 @@ Automations run inside OpenHands Cloud sandboxes and use the **Software Agent SD
 
 Your automation must install the OpenHands SDK packages. Use a `setup.sh` script:
 
+#### Option 1: Install from PyPI (recommended for released versions)
+
 ```bash
 #!/bin/bash
 set -e
@@ -56,9 +58,28 @@ set -e
 curl -LsSf https://astral.sh/uv/install.sh | sh
 export PATH="$HOME/.local/bin:$PATH"
 
-# Install the OpenHands SDK packages
-pip install openhands-sdk openhands-workspace openhands-tools
+# Install the OpenHands SDK packages from PyPI
+pip install -q openhands-sdk openhands-workspace openhands-tools
 ```
+
+#### Option 2: Install from GitHub (for specific branches/versions)
+
+```bash
+#!/bin/bash
+# Install the OpenHands SDK from a specific branch or release.
+# Replace "vX.X.X" with your desired version or use "@main" for latest.
+set -e
+
+SDK_REF="v0.5.0"  # Use a specific released version
+echo "[setup] installing openhands SDK ($SDK_REF)"
+pip install -q --no-cache-dir \
+  "openhands-workspace @ git+https://github.com/OpenHands/software-agent-sdk.git@${SDK_REF}#subdirectory=openhands-workspace" \
+  "openhands-sdk @ git+https://github.com/OpenHands/software-agent-sdk.git@${SDK_REF}#subdirectory=openhands-sdk" \
+  "openhands-tools @ git+https://github.com/OpenHands/software-agent-sdk.git@${SDK_REF}#subdirectory=openhands-tools"
+echo "[setup] done"
+```
+
+**Tip:** Replace `SDK_REF` with your desired version (e.g., `v0.5.0`, `v0.6.0`) or `@main` for the latest development version.
 
 ### Basic Automation Structure
 
