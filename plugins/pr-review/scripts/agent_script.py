@@ -126,6 +126,7 @@ query($owner: String!, $repo: String!, $pr_number: Int!, $cursor: String) {
                             id
                             author { login }
                             body
+                            bodyText
                             createdAt
                         }
                     }
@@ -501,6 +502,53 @@ def format_review_context(
     return "\n".join(sections)
 
 
+def _is_empty_suggestion_block(body: str) -> bool:
+    """Return True when a suggestion fence contains no visible replacement text."""
+    lines = body.splitlines()
+    return (
+        len(lines) >= 2
+        and lines[0].strip() == "```suggestion"
+        and lines[-1].strip() == "```"
+        and all(not line.strip() for line in lines[1:-1])
+    )
+
+
+def _normalize_review_comment_text(text: str) -> str:
+    """Normalize GitHub review comment text for prompt readability."""
+    normalized_lines = [line.rstrip() for line in text.splitlines()]
+    cleaned_lines: list[str] = []
+    previous_blank = False
+
+    for line in normalized_lines:
+        is_blank = not line.strip()
+        if is_blank:
+            if previous_blank:
+                continue
+            cleaned_lines.append("")
+        else:
+            cleaned_lines.append(line)
+        previous_blank = is_blank
+
+    return "\n".join(cleaned_lines).strip()
+
+
+def _get_review_comment_body(comment: dict[str, Any]) -> str:
+    """Get the best available comment text for review context.
+
+    GitHub stores deletion-only suggestions as an empty ```suggestion``` block in
+    `body`, but exposes the rendered suggestion content in `bodyText`/`bodyHTML`.
+    Prefer the original markdown when it contains real text, and fall back to the
+    normalized plain-text rendering when the raw body would look empty to the agent.
+    """
+    body = _normalize_review_comment_text(comment.get("body") or "")
+    body_text = _normalize_review_comment_text(comment.get("bodyText") or "")
+
+    if not body or _is_empty_suggestion_block(body):
+        return body_text or body
+
+    return body
+
+
 def _format_thread(thread: dict[str, Any]) -> list[str]:
     """Format a single review thread.
 
@@ -533,7 +581,7 @@ def _format_thread(thread: dict[str, Any]) -> list[str]:
     for comment in comments:
         author_data = comment.get("author") or {}
         author = author_data.get("login", "unknown")
-        body = (comment.get("body") or "").strip()
+        body = _get_review_comment_body(comment)
 
         if body:
             # Truncate individual comments if too long
