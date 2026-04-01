@@ -110,15 +110,15 @@ curl -X POST "https://{host}/api/automation/v1/preset/prompt" \
 }
 ```
 
-### Example: Send a Slack Message
+### Example: Generic Automation
 
 ```bash
 curl -X POST "https://staging.all-hands.dev/api/automation/v1/preset/prompt" \
   -H "Authorization: Bearer ${OPENHANDS_API_KEY}" \
   -H "Content-Type: application/json" \
   -d '{
-    "name": "Daily Slack Update",
-    "prompt": "send a message \"hello world\" to the slack channel \"testing-rohit-external\" using the OpenHands context layer",
+    "name": "Daily Report",
+    "prompt": "generate a daily status report and save it to a file in the workspace",
     "trigger": {
       "type": "cron",
       "schedule": "0 9 * * 1",
