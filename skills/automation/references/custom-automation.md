@@ -1,18 +1,13 @@
----
-name: automation-custom
-description: Reference documentation for custom automation creation with user-provided SDK scripts. Do NOT use this unless the user explicitly requests a custom automation — always prefer the preset/prompt endpoint first.
----
-
 # Custom Automation Reference
 
-> **⚠️ Agent: Do NOT use this reference to create custom automations unless the user has explicitly requested it.** Always use the preset/prompt endpoint from [SKILL.md](./SKILL.md) first. If the preset approach cannot satisfy the requirement, explain the options to the user and let them decide.
+> **⚠️ Do NOT use this reference unless the user has explicitly requested a custom automation.** Always use the preset/prompt endpoint from the main SKILL.md first. If the preset approach cannot satisfy the requirement, explain the options to the user and let them decide.
 
-This file contains detailed documentation for creating custom automations with your own code, uploads, and entrypoints.
+This file contains detailed documentation for creating custom automations with user-provided code, uploads, and entrypoints.
 
 **When to use custom automation (only if the user explicitly chooses this):**
-- The user needs full control over the automation code structure
-- The user wants to use custom dependencies or a specific runtime
-- The user has confirmed that the prompt preset doesn't meet their requirements
+- Full control over the automation code structure is needed
+- Custom dependencies or a specific runtime are required
+- The user has confirmed that the prompt preset does not meet their requirements
 
 ## Table of Contents
 

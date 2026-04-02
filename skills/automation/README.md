@@ -14,7 +14,7 @@ This skill is activated by keywords:
 - **Prompt-based creation**: Create automations from a natural language prompt (recommended)
 - **Automation management**: List, update, enable/disable, and delete automations
 - **Manual dispatch**: Trigger automation runs on-demand
-- **Custom automations**: For advanced users who need full control (see [CUSTOM.md](CUSTOM.md))
+- **Custom automations**: For advanced users who need full control (see [references/custom-automation.md](references/custom-automation.md))
 
 ## API Base URL
 
@@ -40,4 +40,4 @@ The service handles SDK code generation, tarball packaging, upload, and automati
 ## See Also
 
 - [SKILL.md](SKILL.md) — Full API reference, agent behavior rules, and examples
-- [CUSTOM.md](CUSTOM.md) — Reference for custom automations with user-provided SDK scripts
+- [references/custom-automation.md](references/custom-automation.md) — Reference for custom automations with user-provided SDK scripts

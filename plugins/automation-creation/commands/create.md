@@ -52,4 +52,4 @@ curl -X POST "https://app.all-hands.dev/api/automation/v1/preset/prompt" \
 
 ### If the Preset Is Not Enough
 
-If the user needs custom dependencies, a non-Python entrypoint, or full control over the SDK code, explain the options and let them decide. If they choose a custom automation, refer to [CUSTOM.md](../../../skills/automation/CUSTOM.md) for the tarball upload and custom creation workflow.
+If the user needs custom dependencies, a non-Python entrypoint, or full control over the SDK code, explain the options and let them decide. If they choose a custom automation, refer to [references/custom-automation.md](../../../skills/automation/references/custom-automation.md) for the tarball upload and custom creation workflow.

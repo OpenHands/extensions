@@ -35,7 +35,7 @@ automation-creation/
 ## Related Resources
 
 - **[Automation Skill](../../skills/automation/SKILL.md)** — Full API reference, agent behavior rules, and examples
-- **[Custom Automation Reference](../../skills/automation/CUSTOM.md)** — For advanced users who need custom SDK scripts
+- **[Custom Automation Reference](../../skills/automation/references/custom-automation.md)** — For advanced users who need custom SDK scripts
 - [OpenHands SDK Documentation](https://docs.openhands.dev/sdk)
 - [OpenHands Cloud](https://app.all-hands.dev)
 - [Cron Expression Reference](https://crontab.guru/)
