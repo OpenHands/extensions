@@ -39,6 +39,7 @@ from openhands.sdk import LLM, Agent, AgentContext, Conversation, get_logger
 from openhands.sdk.context.skills import load_project_skills
 from openhands.sdk.conversation import get_agent_final_response
 from openhands.sdk.git.utils import run_git_command
+from openhands.sdk.plugin import Plugin
 from openhands.tools.preset.default import get_default_condenser, get_default_tools
 
 # Add the script directory to Python path so we can import prompt.py
@@ -156,8 +157,29 @@ def validate_environment() -> dict[str, Any]:
     }
 
 
-def create_agent(config: dict[str, Any]) -> Agent:
-    """Create and configure the QA agent."""
+def load_qa_plugin() -> Plugin | None:
+    """Load the qa-changes plugin from the extensions directory.
+
+    The plugin is located relative to this script at ../../ (the plugin root).
+    """
+    plugin_dir = script_dir.parent  # plugins/qa-changes/
+    try:
+        plugin = Plugin.load(str(plugin_dir))
+        logger.info(
+            f"Loaded plugin '{plugin.name}' with "
+            f"{len(plugin.skills)} skill(s)"
+        )
+        return plugin
+    except Exception as e:
+        logger.warning(f"Failed to load qa-changes plugin: {e}")
+        return None
+
+
+def create_agent_and_conversation(
+    config: dict[str, Any],
+    secrets: dict[str, str],
+) -> tuple[Agent, Conversation]:
+    """Create the QA agent and conversation with the plugin loaded."""
     llm_config: dict[str, Any] = {
         "model": config["model"],
         "api_key": config["api_key"],
@@ -169,6 +191,10 @@ def create_agent(config: dict[str, Any]) -> Agent:
 
     llm = LLM(**llm_config)
 
+    # Load the qa-changes plugin
+    plugin = load_qa_plugin()
+
+    # Load project-specific skills from the workspace
     cwd = os.getcwd()
     project_skills = load_project_skills(cwd)
     logger.info(
@@ -176,14 +202,19 @@ def create_agent(config: dict[str, Any]) -> Agent:
         f"{[s.name for s in project_skills]}"
     )
 
+    # Combine plugin skills with project skills
+    all_skills = list(plugin.skills) if plugin else []
+    all_skills.extend(project_skills)
+
     agent_context = AgentContext(
         load_public_skills=True,
-        skills=project_skills,
+        skills=all_skills,
     )
 
-    return Agent(
+    agent = Agent(
         llm=llm,
         tools=get_default_tools(enable_browser=False),
+        mcp_config=plugin.mcp_config or {} if plugin else {},
         agent_context=agent_context,
         system_prompt_kwargs={"cli_mode": True},
         condenser=get_default_condenser(
@@ -191,20 +222,21 @@ def create_agent(config: dict[str, Any]) -> Agent:
         ),
     )
 
-
-def run_qa(
-    agent: Agent,
-    prompt: str,
-    secrets: dict[str, str],
-) -> Conversation:
-    """Execute the QA validation."""
-    cwd = os.getcwd()
     conversation = Conversation(
         agent=agent,
         workspace=cwd,
         secrets=secrets,
+        hook_config=plugin.hooks if plugin else None,
     )
 
+    return agent, conversation
+
+
+def run_qa(
+    conversation: Conversation,
+    prompt: str,
+) -> Conversation:
+    """Execute the QA validation."""
     logger.info("Starting QA validation...")
     logger.info("Agent will set up environment, run tests, and exercise changes")
 
@@ -260,15 +292,14 @@ def main():
             diff=pr_diff,
         )
 
-        agent = create_agent(config)
-
         secrets: dict[str, str] = {}
         if config["api_key"]:
             secrets["LLM_API_KEY"] = config["api_key"]
         if config["github_token"]:
             secrets["GITHUB_TOKEN"] = config["github_token"]
 
-        conversation = run_qa(agent, prompt, secrets)
+        _, conversation = create_agent_and_conversation(config, secrets)
+        conversation = run_qa(conversation, prompt)
         log_cost_summary(conversation)
 
         logger.info("QA validation completed successfully")
