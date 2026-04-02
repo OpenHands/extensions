@@ -133,7 +133,7 @@ runs:
               REPO_NAME: ${{ github.repository }}
           run: |
               cd pr-repo
-              uv run --with openhands-sdk --with openhands-tools --with lmnr \
+              uv run --no-project --with openhands-sdk --with openhands-tools --with lmnr \
                 python ../extensions/plugins/pr-review/scripts/agent_script.py
 
         - name: Upload logs as artifact
