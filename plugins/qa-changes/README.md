@@ -15,13 +15,14 @@ Then configure the required secrets (see [Installation](#installation) below).
 
 ## How It Works
 
-The QA agent follows a five-phase methodology:
+The QA agent follows a four-phase methodology:
 
-1. **Understand** — Reads the PR diff, title, and description. Classifies changes as new features, bug fixes, refactors, or config/docs.
-2. **Setup** — Bootstraps the repo: installs dependencies, builds the project, establishes a test baseline.
-3. **Test** — Runs the existing test suite. Records pass/fail counts and detects regressions.
-4. **Exercise** — Goes beyond the test suite: manually executes new features, reproduces fixed bugs, verifies edge cases.
-5. **Report** — Posts a structured QA report as a PR comment with evidence (commands, outputs) and a verdict (PASS / PASS WITH ISSUES / FAIL).
+1. **Understand** — Reads the PR diff, title, and description. Classifies changes and identifies entry points (CLI commands, API endpoints, UI pages).
+2. **Setup** — Bootstraps the repo: installs dependencies, builds the project. Checks CI status and only runs tests CI does not cover.
+3. **Exercise** — The core phase. Actually uses the software the way a human would: spins up servers, opens browsers, runs CLI commands, makes HTTP requests. The bar is high — "tests pass" is not enough.
+4. **Report** — Posts a structured QA report as a PR comment with evidence (commands, outputs, screenshots) and a verdict.
+
+The agent knows when to give up: if a verification approach fails after three materially different attempts, it switches to a different approach. If two fundamentally different approaches fail, it reports honestly what could not be verified and suggests `AGENTS.md` guidance for future runs.
 
 ## Plugin Contents
 
@@ -111,11 +112,14 @@ The agent posts a PR comment with this structure:
 ### Environment Setup
 [Build/install results]
 
-### Test Suite Results
-[Pass/fail counts, regressions]
+### CI & Test Status
+[CI check results, any additional tests run beyond CI]
 
 ### Functional Verification
-[Commands run, outputs observed, behavior verified]
+[Commands run, outputs observed, screenshots, behavior verified]
+
+### Unable to Verify (if applicable)
+[What could not be verified, what was attempted, suggested AGENTS.md guidance]
 
 ### Issues Found
 - 🔴 **Blocker**: [Description]
@@ -123,7 +127,7 @@ The agent posts a PR comment with this structure:
 - 🟡 **Minor**: [Description]
 
 ### Verdict
-✅ PASS / ⚠️ PASS WITH ISSUES / ❌ FAIL
+✅ PASS / ⚠️ PASS WITH ISSUES / ❌ FAIL / 🟡 PARTIAL
 ```
 
 ## Customizing QA Guidelines
