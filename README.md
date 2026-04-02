@@ -57,6 +57,6 @@ Many thanks to all individual contributors
 
 <p align="center">
   <a href="https://github.com/OpenHands/extensions/graphs/contributors">
-    <img src="https://assets.openhands.dev/readme/20260401-openhands-extensions-contributors.svg" />
+    <img src="https://assets.openhands.dev/readme/openhands-extensions-contributors.svg" />
   </a>
 </p>
