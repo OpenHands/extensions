@@ -1,0 +1,116 @@
+---
+name: OpenHands QA Changes
+description: Automated QA validation of PR changes using OpenHands agent
+author: OpenHands
+
+branding:
+  icon: check-circle
+  color: green
+
+inputs:
+  llm-model:
+    description: LLM model to use for QA validation.
+    required: false
+    default: anthropic/claude-sonnet-4-5-20250929
+  llm-base-url:
+    description: LLM base URL (optional, for custom LLM endpoints)
+    required: false
+    default: ''
+  extensions-repo:
+    description: GitHub repository for extensions (owner/repo)
+    required: false
+    default: OpenHands/extensions
+  extensions-version:
+    description: Git ref to use for extensions (tag, branch, or commit SHA)
+    required: false
+    default: main
+  llm-api-key:
+    description: LLM API key (required)
+    required: true
+  github-token:
+    description: GitHub token for API access (required)
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Checkout extensions repository
+      uses: actions/checkout@v4
+      with:
+        repository: ${{ inputs.extensions-repo }}
+        ref: ${{ inputs.extensions-version }}
+        path: extensions
+
+    - name: Checkout PR repository
+      uses: actions/checkout@v4
+      with:
+        repository: ${{ github.event.pull_request.head.repo.full_name }}
+        ref: ${{ github.event.pull_request.head.ref }}
+        fetch-depth: 0
+        persist-credentials: false
+        path: pr-repo
+        submodules: recursive
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.12'
+
+    - name: Install uv
+      uses: astral-sh/setup-uv@v6
+      with:
+        enable-cache: true
+
+    - name: Install GitHub CLI
+      shell: bash
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y gh
+
+    - name: Check required configuration
+      shell: bash
+      env:
+        LLM_API_KEY: ${{ inputs.llm-api-key }}
+        GITHUB_TOKEN: ${{ inputs.github-token }}
+      run: |
+        if [ -z "$LLM_API_KEY" ]; then
+          echo "Error: llm-api-key is required."
+          exit 1
+        fi
+        if [ -z "$GITHUB_TOKEN" ]; then
+          echo "Error: github-token is required."
+          exit 1
+        fi
+
+        echo "PR Number: ${{ github.event.pull_request.number }}"
+        echo "PR Title: ${{ github.event.pull_request.title }}"
+        echo "Repository: ${{ github.repository }}"
+        echo "LLM model: ${{ inputs.llm-model }}"
+
+    - name: Run QA validation
+      shell: bash
+      env:
+        LLM_MODEL: ${{ inputs.llm-model }}
+        LLM_BASE_URL: ${{ inputs.llm-base-url }}
+        LLM_API_KEY: ${{ inputs.llm-api-key }}
+        GITHUB_TOKEN: ${{ inputs.github-token }}
+        PR_NUMBER: ${{ github.event.pull_request.number }}
+        PR_TITLE: ${{ github.event.pull_request.title }}
+        PR_BODY: ${{ github.event.pull_request.body }}
+        PR_BASE_BRANCH: ${{ github.event.pull_request.base.ref }}
+        PR_HEAD_BRANCH: ${{ github.event.pull_request.head.ref }}
+        REPO_NAME: ${{ github.repository }}
+      run: |
+        cd pr-repo
+        uv run --no-project --with openhands-sdk --with openhands-tools \
+          python ../extensions/plugins/qa-changes/scripts/agent_script.py
+
+    - name: Upload logs as artifact
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: openhands-qa-changes-logs
+        path: |
+          *.log
+          output/
+        retention-days: 7
