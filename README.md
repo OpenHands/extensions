@@ -55,4 +55,8 @@ See [`AGENTS.md`](AGENTS.md) for the rules agents should follow when editing/add
 
 Many thanks to all individual contributors
 
-[![](https://assets.openhands.dev/readme/20260401-openhands-extensions-contributors.svg)](https://github.com/OpenHands/extensions/graphs/contributors)
+<p align="center">
+  <a href="https://github.com/OpenHands/extensions/graphs/contributors">
+    <img src="https://assets.openhands.dev/readme/20260401-openhands-extensions-contributors.svg" />
+  </a>
+</p>
