@@ -11,25 +11,17 @@ triggers:
 
 # OpenHands Automations
 
-This skill provides documentation for creating and managing OpenHands automations - scheduled tasks that run in sandboxes on a cron schedule.
+Create and manage scheduled tasks that run in OpenHands Cloud sandboxes on a cron schedule.
 
-**Quick Start:** Use the prompt endpoint to create automations with a simple natural language prompt.
-
-## API Endpoints
-
-All automation endpoints use the OpenHands Cloud API. Replace `{host}` with your API host (e.g., `staging.all-hands.dev` or `app.all-hands.dev`).
-
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `{host}/api/automation/v1/preset/prompt` | POST | Create automation from a prompt (recommended) |
-| `{host}/api/automation/v1` | POST | Create custom automation |
-| `{host}/api/automation/v1` | GET | List automations |
-| `{host}/api/automation/v1/{id}` | GET | Get automation details |
-| `{host}/api/automation/v1/{id}` | PATCH | Update automation |
-| `{host}/api/automation/v1/{id}` | DELETE | Delete automation |
-| `{host}/api/automation/v1/{id}/dispatch` | POST | Trigger a run manually |
-| `{host}/api/automation/v1/{id}/runs` | GET | List automation runs |
-| `{host}/api/automation/v1/uploads` | POST | Upload a tarball |
+> **⚠️ CRITICAL — Agent behavior rules:**
+>
+> 1. **ALWAYS use the preset/prompt endpoint** (`POST /v1/preset/prompt`) to create automations. This is the only approach the agent should use by default. It handles all SDK boilerplate, tarball packaging, and upload automatically.
+> 2. **NEVER write custom SDK scripts or create tarballs yourself.** Do not generate Python SDK code, `setup.sh` files, or tarball uploads on behalf of the user unless they explicitly ask for it.
+> 3. **If the preset/prompt approach cannot satisfy the user's requirement**, do NOT silently fall back to custom automation. Instead, explain the available options to the user:
+>    - **Prompt preset** (recommended) — describe what it can do and its limitations
+>    - **Custom SDK script** — explain that the user can write their own SDK code with full control, and point them to the [Custom Automation Reference](./CUSTOM.md)
+>    - Let the user choose which approach to use.
+> 4. **Only create custom SDK scripts if the user explicitly requests it.** When they do, refer to [CUSTOM.md](./CUSTOM.md) for the full reference.
 
 ## Authentication
 
@@ -41,16 +33,40 @@ All requests require Bearer authentication with your OpenHands API key:
 
 The `OPENHANDS_API_KEY` environment variable should be available in your session.
 
+## API Endpoints
+
+All automation endpoints use the OpenHands Cloud API. The production host is `app.all-hands.dev`.
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/automation/v1/preset/prompt` | POST | **Create automation from a prompt (always use this)** |
+| `/api/automation/v1` | GET | List automations |
+| `/api/automation/v1/{id}` | GET | Get automation details |
+| `/api/automation/v1/{id}` | PATCH | Update automation |
+| `/api/automation/v1/{id}` | DELETE | Delete automation |
+| `/api/automation/v1/{id}/dispatch` | POST | Trigger a run manually |
+| `/api/automation/v1/{id}/runs` | GET | List automation runs |
+
 ---
 
-## Creating Automations (Recommended)
+## Creating Automations
 
-Use the **preset/prompt endpoint** to create automations with a simple natural language prompt. This is the recommended approach for most use cases.
+Use the **preset/prompt endpoint** to create automations. You provide a natural language prompt describing what the automation should do, and the service handles everything else — SDK code generation, tarball packaging, upload, and automation creation.
+
+### How It Works
+
+1. You send a prompt describing the task (e.g., "Generate a weekly status report")
+2. The service generates SDK boilerplate that will:
+   - Connect to the user's OpenHands Cloud account
+   - Fetch their LLM config, secrets, and MCP server configuration
+   - Create an AI agent conversation with the prompt
+   - Run the conversation and report completion
+3. The service packages the code into a tarball, uploads it, and creates the automation
 
 ### Request
 
 ```bash
-curl -X POST "https://{host}/api/automation/v1/preset/prompt" \
+curl -X POST "https://app.all-hands.dev/api/automation/v1/preset/prompt" \
   -H "Authorization: Bearer ${OPENHANDS_API_KEY}" \
   -H "Content-Type: application/json" \
   -d '{
@@ -69,9 +85,19 @@ curl -X POST "https://{host}/api/automation/v1/preset/prompt" \
 | Field | Required | Description |
 |-------|----------|-------------|
 | `name` | Yes | Name of the automation (1-500 characters) |
-| `prompt` | Yes | Natural language instructions for what the automation should do |
+| `prompt` | Yes | Natural language instructions for what the automation should do (1-50,000 characters) |
+| `trigger.type` | Yes | Must be `"cron"` |
 | `trigger.schedule` | Yes | Cron expression (5 fields: min hour day month weekday) |
 | `trigger.timezone` | No | IANA timezone (default: `"UTC"`) |
+| `timeout` | No | Max execution time in seconds (default: system maximum) |
+
+### Prompt Tips
+
+Write the prompt as if you are instructing an AI agent. The prompt is executed inside a sandbox with full tool access (bash, file editing, etc.), the user's configured LLM, their stored secrets, and their MCP server integrations. Examples:
+
+- `"Generate a weekly status report summarizing the team's GitHub activity and post it to Slack"`
+- `"Check the production API health endpoint every hour and alert if it returns non-200"`
+- `"Pull the latest data from our analytics API and update the dashboard spreadsheet"`
 
 ### Cron Schedule
 
@@ -110,20 +136,30 @@ curl -X POST "https://{host}/api/automation/v1/preset/prompt" \
 }
 ```
 
-### Example: Generic Automation
+### Examples
 
+**Daily report:**
 ```bash
-curl -X POST "https://staging.all-hands.dev/api/automation/v1/preset/prompt" \
+curl -X POST "https://app.all-hands.dev/api/automation/v1/preset/prompt" \
   -H "Authorization: Bearer ${OPENHANDS_API_KEY}" \
   -H "Content-Type: application/json" \
   -d '{
     "name": "Daily Report",
-    "prompt": "generate a daily status report and save it to a file in the workspace",
-    "trigger": {
-      "type": "cron",
-      "schedule": "0 9 * * 1",
-      "timezone": "UTC"
-    }
+    "prompt": "Generate a daily status report and save it to a file in the workspace",
+    "trigger": {"type": "cron", "schedule": "0 9 * * 1-5", "timezone": "America/New_York"}
+  }'
+```
+
+**Weekly cleanup:**
+```bash
+curl -X POST "https://app.all-hands.dev/api/automation/v1/preset/prompt" \
+  -H "Authorization: Bearer ${OPENHANDS_API_KEY}" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Weekly Cleanup",
+    "prompt": "Clean up temporary files older than 7 days and send a summary of what was removed",
+    "trigger": {"type": "cron", "schedule": "0 2 * * 0", "timezone": "UTC"},
+    "timeout": 300
   }'
 ```
 
@@ -134,73 +170,57 @@ curl -X POST "https://staging.all-hands.dev/api/automation/v1/preset/prompt" \
 ### List Automations
 
 ```bash
-curl "https://{host}/api/automation/v1?limit=20" \
+curl "https://app.all-hands.dev/api/automation/v1?limit=20" \
   -H "Authorization: Bearer ${OPENHANDS_API_KEY}"
 ```
 
 ### Get Automation Details
 
 ```bash
-curl "https://{host}/api/automation/v1/{automation_id}" \
+curl "https://app.all-hands.dev/api/automation/v1/{automation_id}" \
   -H "Authorization: Bearer ${OPENHANDS_API_KEY}"
 ```
 
 ### Update Automation
 
 ```bash
-curl -X PATCH "https://{host}/api/automation/v1/{automation_id}" \
+curl -X PATCH "https://app.all-hands.dev/api/automation/v1/{automation_id}" \
   -H "Authorization: Bearer ${OPENHANDS_API_KEY}" \
   -H "Content-Type: application/json" \
   -d '{"enabled": false}'
 ```
 
+Updatable fields: `name`, `trigger`, `enabled`, `timeout`.
+
 ### Delete Automation
 
 ```bash
-curl -X DELETE "https://{host}/api/automation/v1/{automation_id}" \
+curl -X DELETE "https://app.all-hands.dev/api/automation/v1/{automation_id}" \
   -H "Authorization: Bearer ${OPENHANDS_API_KEY}"
 ```
 
 ### Manually Trigger a Run
 
 ```bash
-curl -X POST "https://{host}/api/automation/v1/{automation_id}/dispatch" \
+curl -X POST "https://app.all-hands.dev/api/automation/v1/{automation_id}/dispatch" \
   -H "Authorization: Bearer ${OPENHANDS_API_KEY}"
 ```
 
 ### List Automation Runs
 
 ```bash
-curl "https://{host}/api/automation/v1/{automation_id}/runs?limit=20" \
+curl "https://app.all-hands.dev/api/automation/v1/{automation_id}/runs?limit=20" \
   -H "Authorization: Bearer ${OPENHANDS_API_KEY}"
 ```
 
 **Run Status Values:**
+
 | Status | Description |
 |--------|-------------|
 | `PENDING` | Run scheduled, waiting for dispatch |
 | `RUNNING` | Execution in progress |
 | `COMPLETED` | Run finished successfully |
 | `FAILED` | Run failed, check `error_detail` |
-
----
-
-## Custom Automation Reference
-
-For advanced use cases where you need full control over your automation code, you may need to create a custom automation with your own tarball and entrypoint.
-
-**When to use custom automation:**
-- You need full control over the automation code structure
-- You want to use custom dependencies or runtime
-- The prompt endpoint doesn't meet your requirements
-
-See [CUSTOM.md](./CUSTOM.md) for:
-- Tarball uploads and structure
-- Creating custom automations with your own code
-- Writing automation code with the OpenHands SDK
-- Environment variables
-- Validation rules
-- Complete examples
 
 ---
 
@@ -211,16 +231,16 @@ After an automation run completes, the sandbox is **kept alive** by default. Thi
 - Users can continue or resume the conversation interactively
 - The sandbox persists until it times out or is manually deleted
 
-When writing custom automation code, the `Conversation` class accepts a `delete_on_close` parameter (defaults to `False` for remote conversations). See [CUSTOM.md](./CUSTOM.md) for details on controlling sandbox and conversation lifecycle.
-
 ---
 
-## SDK Documentation
+## When the Prompt Preset Is Not Enough
 
-Automation code uses the **OpenHands Software Agent SDK**. See https://docs.openhands.dev/sdk for complete API reference.
+The prompt preset covers most use cases. However, if the user needs any of the following, the preset may not be sufficient:
 
-### Required SDK Packages
+- Custom Python dependencies beyond what the SDK provides
+- A specific runtime environment or non-Python entrypoint
+- Multi-file project structure with complex logic
+- Direct control over the SDK conversation lifecycle
+- Integration with tools not available through the standard agent
 
-```bash
-pip install openhands-sdk openhands-workspace openhands-tools
-```
+**In these cases, do not attempt to create custom automation yourself.** Instead, explain the options to the user and let them decide. If they choose the custom route, refer them to the [Custom Automation Reference](./CUSTOM.md) which covers tarball uploads, SDK code structure, environment variables, and complete examples.

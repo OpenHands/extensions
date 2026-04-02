@@ -1,6 +1,6 @@
 # Automation Creation Plugin
 
-Interactive slash command for creating OpenHands automations via guided prompts.
+Interactive slash command for creating OpenHands automations via a guided prompt-based workflow.
 
 ## Quick Start
 
@@ -9,15 +9,17 @@ Interactive slash command for creating OpenHands automations via guided prompts.
 ```
 
 The agent guides you through:
-1. Uploading your code as a tarball (if needed)
-2. Setting a name, cron schedule, and entrypoint
-3. Creating the automation via the OpenHands Cloud API
+1. Describing what the automation should do (used as the prompt)
+2. Setting a name, cron schedule, and timezone
+3. Creating the automation via the preset/prompt API endpoint
+
+The preset endpoint handles all SDK code generation, tarball packaging, and upload automatically.
 
 ## Plugin vs Skill
 
 This **plugin** provides the `/automation:create` slash command for interactive automation setup.
 
-For comprehensive API documentation (all endpoints, SDK examples, validation rules), see the **[automation skill](../../skills/automation/SKILL.md)**.
+For comprehensive API documentation (all endpoints, behavior rules, examples), see the **[automation skill](../../skills/automation/SKILL.md)**.
 
 ## Plugin Structure
 
@@ -32,7 +34,8 @@ automation-creation/
 
 ## Related Resources
 
-- **[Automation Skill](../../skills/automation/SKILL.md)** - Full API reference and SDK examples
+- **[Automation Skill](../../skills/automation/SKILL.md)** — Full API reference, agent behavior rules, and examples
+- **[Custom Automation Reference](../../skills/automation/CUSTOM.md)** — For advanced users who need custom SDK scripts
 - [OpenHands SDK Documentation](https://docs.openhands.dev/sdk)
 - [OpenHands Cloud](https://app.all-hands.dev)
 - [Cron Expression Reference](https://crontab.guru/)

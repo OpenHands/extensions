@@ -1,6 +1,6 @@
 # Automation Skill
 
-Create and manage OpenHands automations - scheduled tasks that run SDK scripts in sandboxes on a cron schedule.
+Create and manage OpenHands automations — scheduled tasks that run in sandboxes on a cron schedule.
 
 ## Triggers
 
@@ -11,10 +11,10 @@ This skill is activated by keywords:
 
 ## Features
 
-- **Tarball Upload**: Upload your code (up to 1MB) for use in automations
-- **Automation Creation**: Create cron-scheduled automations
-- **Automation Management**: List, update, enable/disable, and delete automations
-- **Manual Dispatch**: Trigger automation runs on-demand
+- **Prompt-based creation**: Create automations from a natural language prompt (recommended)
+- **Automation management**: List, update, enable/disable, and delete automations
+- **Manual dispatch**: Trigger automation runs on-demand
+- **Custom automations**: For advanced users who need full control (see [CUSTOM.md](CUSTOM.md))
 
 ## API Base URL
 
@@ -22,49 +22,22 @@ All automation endpoints are at: `https://app.all-hands.dev/api/automation/v1`
 
 ## Quick Start
 
-### 1. Upload Your Code
+Create an automation with a single API call — just provide a name, prompt, and schedule:
 
 ```bash
-# Create tarball
-tar -czf automation.tar.gz -C /path/to/code .
-
-# Upload (max 1MB)
-curl -X POST "https://app.all-hands.dev/api/automation/v1/uploads?name=my-code" \
-  -H "Authorization: Bearer ${OPENHANDS_API_KEY}" \
-  -H "Content-Type: application/gzip" \
-  --data-binary @automation.tar.gz
-```
-
-### 2. Create Automation
-
-```bash
-curl -X POST "https://app.all-hands.dev/api/automation/v1" \
+curl -X POST "https://app.all-hands.dev/api/automation/v1/preset/prompt" \
   -H "Authorization: Bearer ${OPENHANDS_API_KEY}" \
   -H "Content-Type: application/json" \
   -d '{
-    "name": "My Automation",
-    "trigger": {"type": "cron", "schedule": "0 9 * * 1"},
-    "tarball_path": "oh-internal://uploads/{upload_id}",
-    "entrypoint": "python main.py"
+    "name": "Daily Report",
+    "prompt": "Generate a daily status report and save it to the workspace",
+    "trigger": {"type": "cron", "schedule": "0 9 * * 1-5", "timezone": "UTC"}
   }'
 ```
 
-## API Endpoints
-
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/api/automation/v1/uploads` | POST | Upload a tarball |
-| `/api/automation/v1/uploads` | GET | List uploads |
-| `/api/automation/v1/uploads/{id}` | GET | Get upload details |
-| `/api/automation/v1/uploads/{id}` | DELETE | Delete upload |
-| `/api/automation/v1` | POST | Create automation |
-| `/api/automation/v1` | GET | List automations |
-| `/api/automation/v1/{id}` | GET | Get automation |
-| `/api/automation/v1/{id}` | PATCH | Update automation |
-| `/api/automation/v1/{id}` | DELETE | Delete automation |
-| `/api/automation/v1/{id}/dispatch` | POST | Trigger run |
-| `/api/automation/v1/{id}/runs` | GET | List runs |
+The service handles SDK code generation, tarball packaging, upload, and automation creation automatically.
 
 ## See Also
 
-- [SKILL.md](SKILL.md) - Full API reference and examples
+- [SKILL.md](SKILL.md) — Full API reference, agent behavior rules, and examples
+- [CUSTOM.md](CUSTOM.md) — Reference for custom automations with user-provided SDK scripts

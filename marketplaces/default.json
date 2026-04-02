@@ -49,7 +49,7 @@
         {
             "name": "automation",
             "source": "./automation",
-            "description": "Create and manage OpenHands automations - scheduled tasks that run SDK scripts in sandboxes. Use when creating cron-scheduled automations, uploading tarballs, or managing automation runs.",
+            "description": "Create and manage OpenHands automations - scheduled tasks that run in sandboxes. Use the prompt preset to create automations from natural language, or manage existing automations.",
             "category": "integration",
             "keywords": [
                 "automation",
@@ -488,7 +488,7 @@
         {
             "name": "automation-creation",
             "source": "./plugins/automation-creation",
-            "description": "Interactive slash command for creating OpenHands automations. Provides /automation:create for guided cron-scheduled automation setup.",
+            "description": "Interactive slash command for creating OpenHands automations from a natural language prompt. Provides /automation:create for guided prompt-based automation setup.",
             "category": "integration",
             "keywords": [
                 "automation",

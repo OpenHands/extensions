@@ -1,5 +1,5 @@
 ---
-allowed-tools: Bash(curl:*), Bash(tar:*), Bash(cat:*), Bash(echo:*), Bash(jq:*)
+allowed-tools: Bash(curl:*), Bash(cat:*), Bash(echo:*), Bash(jq:*)
 description: Create a new OpenHands automation with cron scheduling
 ---
 
@@ -9,62 +9,47 @@ Guide the user through creating a new automation interactively.
 
 **API Base URL:** `https://app.all-hands.dev/api/automation/v1`
 
-**Full API Reference:** See [skills/automation/SKILL.md](../../../skills/automation/SKILL.md) for complete documentation on endpoints, validation rules, SDK examples, and cron syntax.
+**Full API Reference:** See [skills/automation/SKILL.md](../../../skills/automation/SKILL.md) for complete documentation.
+
+> **⚠️ CRITICAL:** Always use the **preset/prompt endpoint** to create automations. Do NOT write custom SDK scripts or create tarballs unless the user explicitly requests it. If the prompt approach cannot meet the user's needs, explain the available options and let them choose.
 
 ## Workflow
 
-### Step 1: Ask About Code Location
+### Step 1: Understand What the User Wants
 
-Ask the user if they:
-1. **Have local code** - Needs to be uploaded as a tarball first
-2. **Have an existing URL** - Already hosted (S3, GCS, HTTPS, or previous upload)
+Ask the user to describe what the automation should do. In most cases, the user's description can be used directly as the prompt for the preset endpoint.
 
-### Step 2: Upload Code (if needed)
+### Step 2: Collect Required Fields
 
-If uploading local code:
-```bash
-# Create tarball
-tar -czf automation.tar.gz -C /path/to/code .
+1. **Name**: Descriptive name for the automation (1-500 characters)
+2. **Prompt**: What the automation should do — use the user's description
+3. **Cron Schedule**: e.g., `0 9 * * 1` (Mondays at 9 AM UTC)
+4. **Timezone** (optional): IANA timezone (default: UTC)
+5. **Timeout** (optional): Max execution time in seconds
 
-# Upload (max 1MB)
-curl -X POST "https://app.all-hands.dev/api/automation/v1/uploads?name=UPLOAD_NAME" \
-  -H "Authorization: Bearer ${OPENHANDS_API_KEY}" \
-  -H "Content-Type: application/gzip" \
-  --data-binary @automation.tar.gz
-```
-
-Extract `tarball_path` from response (e.g., `oh-internal://uploads/{uuid}`).
-
-### Step 3: Collect Required Fields
-
-1. **Name**: Descriptive name (1-500 characters)
-2. **Cron Schedule**: e.g., `0 9 * * 1` (Mondays at 9 AM UTC)
-3. **Tarball Path**: `oh-internal://`, `s3://`, `gs://`, or `https://`
-4. **Entrypoint**: e.g., `python main.py` or `uv run script.py`
-5. **Timezone** (optional): IANA timezone (default: UTC)
-6. **Setup Script** (optional): Relative path, e.g., `setup.sh`
-7. **Timeout** (optional): 1-600 seconds (default: 600)
-
-### Step 4: Create the Automation
+### Step 3: Create the Automation
 
 ```bash
-curl -X POST "https://app.all-hands.dev/api/automation/v1" \
+curl -X POST "https://app.all-hands.dev/api/automation/v1/preset/prompt" \
   -H "Authorization: Bearer ${OPENHANDS_API_KEY}" \
   -H "Content-Type: application/json" \
   -d '{
     "name": "USER_PROVIDED_NAME",
+    "prompt": "USER_PROVIDED_DESCRIPTION_OF_WHAT_TO_DO",
     "trigger": {
       "type": "cron",
       "schedule": "USER_PROVIDED_SCHEDULE",
       "timezone": "USER_PROVIDED_TIMEZONE_OR_UTC"
-    },
-    "tarball_path": "USER_PROVIDED_TARBALL_PATH",
-    "entrypoint": "USER_PROVIDED_ENTRYPOINT"
+    }
   }'
 ```
 
-### Step 5: Present Result
+### Step 4: Present Result
 
 **On success (HTTP 201):** Show automation ID, name, schedule, and status.
 
 **On error:** Show the error message from the API response.
+
+### If the Preset Is Not Enough
+
+If the user needs custom dependencies, a non-Python entrypoint, or full control over the SDK code, explain the options and let them decide. If they choose a custom automation, refer to [CUSTOM.md](../../../skills/automation/CUSTOM.md) for the tarball upload and custom creation workflow.
