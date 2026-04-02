@@ -51,9 +51,9 @@ Browse available plugins in [`plugins/`](plugins/).
 
 See [`AGENTS.md`](AGENTS.md) for the rules agents should follow when editing/adding skills and plugins.
 
-## Contributors
+<hr>
 
-Many thanks to all individual contributors
+### Thank You to Our Contributors
 
 <p align="center">
   <a href="https://github.com/OpenHands/extensions/graphs/contributors">
