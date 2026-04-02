@@ -261,6 +261,28 @@ with OpenHandsCloudWorkspace(
     conversation.close()
 ```
 
+### Sandbox Lifecycle & Conversation Persistence
+
+By default, the sandbox is **kept alive** after the automation run completes. This means:
+- Users can view the conversation history in the OpenHands UI after the run
+- Users can "continue" or "log into" the conversation to interact further
+- The sandbox and its state persist until it times out or is manually deleted
+
+The `Conversation` constructor accepts a `delete_on_close` parameter that controls whether the conversation resources are cleaned up when `close()` is called:
+
+```python
+# Default: delete_on_close=False for remote conversations (sandbox kept alive)
+conversation = Conversation(agent=agent, workspace=workspace)
+
+# Explicitly keep the conversation alive (same as default for remote)
+conversation = Conversation(agent=agent, workspace=workspace, delete_on_close=False)
+
+# Clean up conversation resources on close (sandbox still persists)
+conversation = Conversation(agent=agent, workspace=workspace, delete_on_close=True)
+```
+
+The `OpenHandsCloudWorkspace` also has a `keep_alive` parameter, but in `local_agent_server_mode=True` (used by automations), sandbox lifecycle is managed by the automation service — not the workspace. The automation service defaults to keeping sandboxes alive.
+
 ---
 
 ## Environment Variables

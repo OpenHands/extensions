@@ -204,6 +204,17 @@ See [CUSTOM.md](./CUSTOM.md) for:
 
 ---
 
+## Sandbox Lifecycle
+
+After an automation run completes, the sandbox is **kept alive** by default. This means:
+- Users can view the full conversation history in the OpenHands UI
+- Users can continue or resume the conversation interactively
+- The sandbox persists until it times out or is manually deleted
+
+When writing custom automation code, the `Conversation` class accepts a `delete_on_close` parameter (defaults to `False` for remote conversations). See [CUSTOM.md](./CUSTOM.md) for details on controlling sandbox and conversation lifecycle.
+
+---
+
 ## SDK Documentation
 
 Automation code uses the **OpenHands Software Agent SDK**. See https://docs.openhands.dev/sdk for complete API reference.
