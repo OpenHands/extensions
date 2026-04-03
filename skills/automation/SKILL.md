@@ -15,11 +15,14 @@ Create and manage scheduled tasks that run in OpenHands Cloud sandboxes on a cro
 
 > **⚠️ CRITICAL — Agent behavior rules:**
 >
-> 1. **ALWAYS use the preset/prompt endpoint** (`POST /v1/preset/prompt`) to create automations. It handles all SDK boilerplate, tarball packaging, and upload automatically.
+> 1. **ALWAYS use preset endpoints** to create automations. They handle all SDK boilerplate, tarball packaging, and upload automatically:
+>    - **Prompt preset** (`POST /v1/preset/prompt`) — for simple tasks with a natural language prompt
+>    - **Plugin preset** (`POST /v1/preset/plugin`) — when plugins with skills, MCP configs, or commands are needed
 > 2. **NEVER write custom SDK scripts or create tarballs.** Do not generate Python SDK code, `setup.sh` files, or tarball uploads unless the user explicitly asks for it.
-> 3. **If the preset/prompt approach cannot satisfy the requirement**, do NOT silently fall back to custom automation. Instead, explain the available options to the user:
->    - **Prompt preset** (recommended) — describe what it can do and its limitations
->    - **Custom SDK script** — the user can write their own SDK code with full control; point them to `references/custom-automation.md`
+> 3. **If neither preset can satisfy the requirement**, do NOT silently fall back to custom automation. Instead, explain the available options to the user:
+>    - **Prompt preset** — simple natural language prompt execution
+>    - **Plugin preset** — load plugins with extended capabilities (skills, MCP, hooks, commands)
+>    - **Custom SDK script** — full control over code; point them to `references/custom-automation.md`
 >    - Let the user choose which approach to use.
 > 4. **Only create custom SDK scripts if the user explicitly requests it.** Refer to `references/custom-automation.md` for the full reference.
 
@@ -37,7 +40,8 @@ Production host: `app.all-hands.dev`
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|
-| `/api/automation/v1/preset/prompt` | POST | **Create automation from a prompt (always use this)** |
+| `/api/automation/v1/preset/prompt` | POST | **Create automation from a prompt (recommended)** |
+| `/api/automation/v1/preset/plugin` | POST | **Create automation with plugins** |
 | `/api/automation/v1` | GET | List automations |
 | `/api/automation/v1/{id}` | GET | Get automation details |
 | `/api/automation/v1/{id}` | PATCH | Update automation |
@@ -49,15 +53,24 @@ Production host: `app.all-hands.dev`
 
 ## Creating Automations
 
-Use the **preset/prompt endpoint**. Provide a natural language prompt describing the task, and the service handles SDK code generation, tarball packaging, upload, and automation creation.
+Two preset endpoints simplify automation creation by handling SDK boilerplate, tarball packaging, and upload automatically:
 
-### How It Works
+1. **Prompt Preset** — Execute a natural language prompt (simple tasks)
+2. **Plugin Preset** — Load plugins with skills, MCP configs, and commands (extended capabilities)
+
+---
+
+### Prompt Preset
+
+Use the **preset/prompt endpoint** for simple automations. Provide a natural language prompt describing the task.
+
+#### How It Works
 
 1. Send a prompt describing the task (e.g., "Generate a weekly status report")
 2. The service generates SDK boilerplate that connects to the user's OpenHands Cloud account, fetches their LLM config, secrets, and MCP server configuration, creates an AI agent conversation with the prompt, and reports completion
 3. The service packages the code into a tarball, uploads it, and creates the automation
 
-### Request
+#### Request
 
 ```bash
 curl -X POST "https://app.all-hands.dev/api/automation/v1/preset/prompt" \
@@ -74,7 +87,7 @@ curl -X POST "https://app.all-hands.dev/api/automation/v1/preset/prompt" \
   }'
 ```
 
-### Request Fields
+#### Request Fields
 
 | Field | Required | Description |
 |-------|----------|-------------|
@@ -85,7 +98,7 @@ curl -X POST "https://app.all-hands.dev/api/automation/v1/preset/prompt" \
 | `trigger.timezone` | No | IANA timezone (default: `"UTC"`) |
 | `timeout` | No | Max execution time in seconds (default: system maximum) |
 
-### Prompt Tips
+#### Prompt Tips
 
 Write the prompt as an instruction to an AI agent. The prompt executes inside a sandbox with full tool access (bash, file editing, etc.), the user's configured LLM, stored secrets, and MCP server integrations. Examples:
 
@@ -93,7 +106,7 @@ Write the prompt as an instruction to an AI agent. The prompt executes inside a 
 - `"Check the production API health endpoint every hour and alert if it returns non-200"`
 - `"Pull the latest data from our analytics API and update the dashboard spreadsheet"`
 
-### Cron Schedule
+#### Cron Schedule
 
 | Field | Values | Description |
 |-------|--------|-------------|
@@ -105,7 +118,7 @@ Write the prompt as an instruction to an AI agent. The prompt executes inside a 
 
 Common schedules: `0 9 * * *` (daily 9 AM), `0 9 * * 1-5` (weekdays 9 AM), `0 9 * * 1` (Mondays 9 AM), `0 0 1 * *` (first of month), `*/15 * * * *` (every 15 min), `0 */6 * * *` (every 6 hours).
 
-### Response (HTTP 201)
+#### Response (HTTP 201)
 
 ```json
 {
@@ -117,7 +130,7 @@ Common schedules: `0 9 * * *` (daily 9 AM), `0 9 * * 1-5` (weekdays 9 AM), `0 9 
 }
 ```
 
-### Examples
+#### Prompt Preset Examples
 
 **Daily report:**
 ```bash
@@ -141,6 +154,125 @@ curl -X POST "https://app.all-hands.dev/api/automation/v1/preset/prompt" \
     "prompt": "Clean up temporary files older than 7 days and send a summary of what was removed",
     "trigger": {"type": "cron", "schedule": "0 2 * * 0", "timezone": "UTC"},
     "timeout": 300
+  }'
+```
+
+---
+
+### Plugin Preset
+
+Use the **preset/plugin endpoint** when you need to load one or more plugins that provide extended capabilities like skills, MCP configurations, hooks, and commands.
+
+#### How It Works
+
+1. Specify one or more plugins (from GitHub repos, git URLs, or monorepo subdirectories)
+2. Provide a prompt that can invoke plugin commands (e.g., `/plugin-name:command`)
+3. The service generates SDK boilerplate that loads all plugins at runtime, creates a conversation with plugin capabilities, and executes the prompt
+4. The service packages everything into a tarball, uploads it, and creates the automation
+
+#### Request
+
+```bash
+curl -X POST "https://app.all-hands.dev/api/automation/v1/preset/plugin" \
+  -H "Authorization: Bearer ${OPENHANDS_API_KEY}" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "My Plugin Automation",
+    "plugins": [
+      {"source": "github:owner/repo", "ref": "v1.0.0"},
+      {"source": "github:owner/another-plugin"}
+    ],
+    "prompt": "Use the plugin commands to perform the task",
+    "trigger": {
+      "type": "cron",
+      "schedule": "0 9 * * 1",
+      "timezone": "UTC"
+    }
+  }'
+```
+
+#### Request Fields
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `name` | Yes | Name of the automation (1-500 characters) |
+| `plugins` | Yes | List of plugin sources (at least one required) |
+| `plugins[].source` | Yes | Plugin source: `github:owner/repo`, git URL, or local path |
+| `plugins[].ref` | No | Git ref: branch, tag, or commit SHA |
+| `plugins[].repo_path` | No | Subdirectory path for monorepos |
+| `prompt` | Yes | Instructions for the automation (1-50,000 characters) |
+| `trigger.type` | Yes | Must be `"cron"` |
+| `trigger.schedule` | Yes | Cron expression (5 fields: min hour day month weekday) |
+| `trigger.timezone` | No | IANA timezone (default: `"UTC"`) |
+| `timeout` | No | Max execution time in seconds (default: system maximum) |
+
+#### Plugin Source Formats
+
+| Format | Example | Description |
+|--------|---------|-------------|
+| GitHub shorthand | `github:owner/repo` | Fetches from GitHub |
+| Git URL | `https://github.com/owner/repo.git` | Any git repository |
+| With ref | `{"source": "github:owner/repo", "ref": "v1.0.0"}` | Specific branch/tag/commit |
+| Monorepo | `{"source": "github:org/monorepo", "repo_path": "plugins/my-plugin"}` | Subdirectory in repo |
+
+#### Response (HTTP 201)
+
+```json
+{
+  "id": "123e4567-e89b-12d3-a456-426614174000",
+  "name": "My Plugin Automation",
+  "trigger": {"type": "cron", "schedule": "0 9 * * 1", "timezone": "UTC"},
+  "enabled": true,
+  "created_at": "2025-03-25T10:00:00Z"
+}
+```
+
+#### Plugin Preset Examples
+
+**Single plugin with version:**
+```bash
+curl -X POST "https://app.all-hands.dev/api/automation/v1/preset/plugin" \
+  -H "Authorization: Bearer ${OPENHANDS_API_KEY}" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Code Review Automation",
+    "plugins": [
+      {"source": "github:owner/code-review-plugin", "ref": "v2.0.0"}
+    ],
+    "prompt": "Review all Python files in the repository for code quality issues",
+    "trigger": {"type": "cron", "schedule": "0 9 * * 1-5", "timezone": "UTC"}
+  }'
+```
+
+**Multiple plugins:**
+```bash
+curl -X POST "https://app.all-hands.dev/api/automation/v1/preset/plugin" \
+  -H "Authorization: Bearer ${OPENHANDS_API_KEY}" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Security Scan Automation",
+    "plugins": [
+      {"source": "github:owner/security-scanner"},
+      {"source": "github:owner/report-generator", "ref": "main"}
+    ],
+    "prompt": "Run a security scan on the codebase and generate a report",
+    "trigger": {"type": "cron", "schedule": "0 2 * * 0", "timezone": "UTC"},
+    "timeout": 600
+  }'
+```
+
+**Monorepo plugin:**
+```bash
+curl -X POST "https://app.all-hands.dev/api/automation/v1/preset/plugin" \
+  -H "Authorization: Bearer ${OPENHANDS_API_KEY}" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Style Guide Enforcement",
+    "plugins": [
+      {"source": "github:company/monorepo", "repo_path": "plugins/style-guide", "ref": "main"}
+    ],
+    "prompt": "Check all files against the company style guide",
+    "trigger": {"type": "cron", "schedule": "0 8 * * 1", "timezone": "America/Los_Angeles"}
   }'
 ```
 
@@ -195,11 +327,17 @@ After a run completes, the sandbox is **kept alive** by default — users can vi
 
 ---
 
-## When the Prompt Preset Is Not Enough
+## Choosing the Right Preset
 
-The prompt preset covers most use cases. It may not be sufficient when custom Python dependencies, a non-Python entrypoint, multi-file project structure, direct SDK conversation lifecycle control, or non-standard tool integrations are required.
+| Use Case | Recommended Preset |
+|----------|-------------------|
+| Simple tasks with natural language prompt | **Prompt Preset** |
+| Need plugin skills, MCP configs, or commands | **Plugin Preset** |
+| Custom dependencies or non-Python entrypoint | **Custom Automation** (see below) |
 
-**Do not attempt to create custom automation without explicit user request.** Instead, explain the options and let the user decide. If they choose the custom route, refer to `references/custom-automation.md`.
+The **prompt preset** covers most use cases. Use the **plugin preset** when you need extended capabilities from plugins (skills, MCP configurations, hooks, commands). The plugin preset fetches plugins at runtime from their sources and loads them into the conversation.
+
+**When neither preset is sufficient** (e.g., custom Python dependencies, non-Python entrypoint, multi-file project structure, direct SDK lifecycle control), explain the options to the user and let them decide. Do not attempt custom automation without explicit user request. If they choose the custom route, refer to `references/custom-automation.md`.
 
 ## Reference Files
 
