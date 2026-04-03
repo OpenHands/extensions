@@ -106,6 +106,7 @@ Then provide **Linus-Style Analysis** (skip if 🟢):
 - [src/core.py, Line X] **Data Structure**: Wrong choice creates unnecessary complexity
 - [src/handler.py, Line Y] **Complexity**: >3 levels of nesting - redesign required
 - [src/api.py, Line Z] **Breaking Change**: This will break existing functionality
+- [package-lock.json, Line X] **Dependency Downgrade**: library-name downgraded from 2.1.0 to 1.9.5 - was this intentional? Check for breaking changes or security implications.
 
 **[IMPROVEMENT OPPORTUNITIES]** (Should fix - violates good taste)
 - [src/utils.py, Line A] **Special Case**: Can be eliminated with better design
