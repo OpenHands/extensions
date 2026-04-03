@@ -786,7 +786,7 @@ def load_pr_review_plugin() -> Plugin | None:
         )
         return plugin
     except Exception as e:
-        logger.warning(f"Failed to load pr-review plugin: {e}")
+        logger.exception(f"Failed to load pr-review plugin: {e}")
         return None
 
 
