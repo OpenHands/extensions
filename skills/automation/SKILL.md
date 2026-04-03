@@ -163,6 +163,8 @@ curl -X POST "https://app.all-hands.dev/api/automation/v1/preset/prompt" \
 
 Use the **preset/plugin endpoint** when you need to load one or more plugins that provide extended capabilities like skills, MCP configurations, hooks, and commands.
 
+> **💡 Finding plugins:** Browse the [OpenHands/extensions](https://github.com/OpenHands/extensions) repository for available skills and plugins. When given a broad use case, check this directory first to see if something already exists that fits your needs.
+
 #### How It Works
 
 1. Specify one or more plugins (from GitHub repos, git URLs, or monorepo subdirectories)
