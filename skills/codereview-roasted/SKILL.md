@@ -90,6 +90,9 @@ Require:
 - For agent-generated work when available: a link back to the originating conversation, e.g. `https://app.all-hands.dev/conversations/{conversation_id}`
 - Reject hand-wavy claims like "tested locally" without concrete runtime artifacts
 
+8. **Dependency Changes**
+If dependency lock changes have downgraded a dependency, comment pointing that out to make sure it was intentional.
+
 CRITICAL REVIEW OUTPUT FORMAT:
 
 Start with a **Taste Rating**:
