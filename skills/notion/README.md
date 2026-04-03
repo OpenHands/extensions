@@ -13,19 +13,21 @@ This skill is activated by the following keywords:
 # Notion
 
 <IMPORTANT>
-Before performing any Notion operations, first check if the required environment variable is set:
+If authenticated Notion MCP tools are available in the environment, use them first. MCP tools do not require passing `NOTION_INTEGRATION_KEY` as a tool argument; authentication is handled by the configured MCP integration.
+
+Use the direct Notion REST API examples below only when MCP is unavailable or when you explicitly need raw API/curl access. For that direct-API path, first check whether the required environment variable is set:
 
 ```bash
 [ -n "$NOTION_INTEGRATION_KEY" ] && echo "NOTION_INTEGRATION_KEY is set" || echo "NOTION_INTEGRATION_KEY is NOT set"
 ```
 
-If it’s missing, ask the user to provide it (or connect a Notion integration) before proceeding:
+If it’s missing and you need the direct API path, ask the user to provide it (or connect a Notion integration) before proceeding:
 - **NOTION_INTEGRATION_KEY**: Notion integration secret (starts with `ntn_...`)
 
-Also confirm the integration has been **shared** with the target page/database in Notion.
+Whether you use MCP or the direct API, also confirm the configured integration has been **shared** with the target page/database in Notion.
 </IMPORTANT>
 
-## Base headers
+## Base headers for direct API calls
 
 ```bash
 -H "Authorization: Bearer ${NOTION_INTEGRATION_KEY}" \
