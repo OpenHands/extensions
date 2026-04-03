@@ -57,7 +57,7 @@ from openhands.sdk import LLM, Agent, AgentContext, Conversation, get_logger
 from openhands.sdk.context.skills import load_project_skills
 from openhands.sdk.conversation import get_agent_final_response
 from openhands.sdk.git.utils import run_git_command
-from openhands.sdk.plugin import Plugin
+from openhands.sdk.plugin import PluginSource
 from openhands.tools.preset.default import get_default_condenser, get_default_tools
 
 # Add the script directory to Python path so we can import prompt.py
@@ -772,36 +772,22 @@ def fetch_pr_context(pr_number: str) -> tuple[str, str, str]:
     return pr_diff, commit_id, review_context
 
 
-def load_pr_review_plugin() -> Plugin | None:
-    """Load the pr-review plugin from the plugin directory.
-
-    The plugin is located relative to this script at ../../ (the plugin root).
-    """
-    plugin_dir = script_dir.parent  # plugins/pr-review/
-    try:
-        plugin = Plugin.load(str(plugin_dir))
-        logger.info(
-            f"Loaded plugin '{plugin.name}' with "
-            f"{len(plugin.skills)} skill(s)"
-        )
-        return plugin
-    except Exception as e:
-        logger.exception(f"Failed to load pr-review plugin: {e}")
-        return None
-
-
-def create_agent_and_conversation(
+def create_conversation(
     config: dict[str, Any],
     secrets: dict[str, str],
-) -> tuple[Agent, Conversation]:
-    """Create the review agent and conversation with the plugin loaded.
+) -> Conversation:
+    """Create the review conversation with the plugin loaded.
+
+    The pr-review plugin is passed to Conversation via PluginSource, which
+    handles wiring skills, MCP config, and hooks automatically.
+    Project-specific skills from the workspace are loaded separately.
 
     Args:
         config: Configuration dictionary from validate_environment()
         secrets: Secrets to mask in output
 
     Returns:
-        Tuple of (Agent, Conversation)
+        Configured Conversation instance
     """
     llm_config: dict[str, Any] = {
         "model": config["model"],
@@ -814,9 +800,6 @@ def create_agent_and_conversation(
 
     llm = LLM(**llm_config)
 
-    # Load the pr-review plugin
-    plugin = load_pr_review_plugin()
-
     # Load project-specific skills from the workspace
     cwd = os.getcwd()
     project_skills = load_project_skills(cwd)
@@ -825,19 +808,14 @@ def create_agent_and_conversation(
         f"{[s.name for s in project_skills]}"
     )
 
-    # Combine plugin skills with project skills
-    all_skills = list(plugin.skills) if plugin else []
-    all_skills.extend(project_skills)
-
     agent_context = AgentContext(
         load_public_skills=True,
-        skills=all_skills,
+        skills=project_skills,
     )
 
     agent = Agent(
         llm=llm,
         tools=get_default_tools(enable_browser=False),
-        mcp_config=plugin.mcp_config or {} if plugin else {},
         agent_context=agent_context,
         system_prompt_kwargs={"cli_mode": True},
         condenser=get_default_condenser(
@@ -845,14 +823,14 @@ def create_agent_and_conversation(
         ),
     )
 
-    conversation = Conversation(
+    # The plugin directory is the parent of the scripts/ directory
+    plugin_dir = script_dir.parent  # plugins/pr-review/
+    return Conversation(
         agent=agent,
         workspace=cwd,
         secrets=secrets,
-        hook_config=plugin.hooks if plugin else None,
+        plugins=[PluginSource(source=str(plugin_dir))],
     )
-
-    return agent, conversation
 
 
 def run_review(
@@ -998,7 +976,7 @@ def main():
         if config["github_token"]:
             secrets["GITHUB_TOKEN"] = config["github_token"]
 
-        _, conversation = create_agent_and_conversation(config, secrets)
+        conversation = create_conversation(config, secrets)
         conversation = run_review(conversation, prompt)
 
         log_cost_summary(conversation)
