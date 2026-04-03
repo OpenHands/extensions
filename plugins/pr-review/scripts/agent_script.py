@@ -57,6 +57,7 @@ from openhands.sdk import LLM, Agent, AgentContext, Conversation, get_logger
 from openhands.sdk.context.skills import load_project_skills
 from openhands.sdk.conversation import get_agent_final_response
 from openhands.sdk.git.utils import run_git_command
+from openhands.sdk.plugin import Plugin
 from openhands.tools.preset.default import get_default_condenser, get_default_tools
 
 # Add the script directory to Python path so we can import prompt.py
@@ -771,16 +772,38 @@ def fetch_pr_context(pr_number: str) -> tuple[str, str, str]:
     return pr_diff, commit_id, review_context
 
 
-def create_agent(config: dict[str, Any]) -> Agent:
-    """Create and configure the review agent.
+def load_pr_review_plugin() -> Plugin | None:
+    """Load the pr-review plugin from the plugin directory.
+
+    The plugin is located relative to this script at ../../ (the plugin root).
+    """
+    plugin_dir = script_dir.parent  # plugins/pr-review/
+    try:
+        plugin = Plugin.load(str(plugin_dir))
+        logger.info(
+            f"Loaded plugin '{plugin.name}' with "
+            f"{len(plugin.skills)} skill(s)"
+        )
+        return plugin
+    except Exception as e:
+        logger.warning(f"Failed to load pr-review plugin: {e}")
+        return None
+
+
+def create_agent_and_conversation(
+    config: dict[str, Any],
+    secrets: dict[str, str],
+) -> tuple[Agent, Conversation]:
+    """Create the review agent and conversation with the plugin loaded.
 
     Args:
         config: Configuration dictionary from validate_environment()
+        secrets: Secrets to mask in output
 
     Returns:
-        Configured Agent instance
+        Tuple of (Agent, Conversation)
     """
-    llm_config = {
+    llm_config: dict[str, Any] = {
         "model": config["model"],
         "api_key": config["api_key"],
         "usage_id": "pr_review_agent",
@@ -791,6 +814,10 @@ def create_agent(config: dict[str, Any]) -> Agent:
 
     llm = LLM(**llm_config)
 
+    # Load the pr-review plugin
+    plugin = load_pr_review_plugin()
+
+    # Load project-specific skills from the workspace
     cwd = os.getcwd()
     project_skills = load_project_skills(cwd)
     logger.info(
@@ -798,14 +825,19 @@ def create_agent(config: dict[str, Any]) -> Agent:
         f"{[s.name for s in project_skills]}"
     )
 
+    # Combine plugin skills with project skills
+    all_skills = list(plugin.skills) if plugin else []
+    all_skills.extend(project_skills)
+
     agent_context = AgentContext(
         load_public_skills=True,
-        skills=project_skills,
+        skills=all_skills,
     )
 
-    return Agent(
+    agent = Agent(
         llm=llm,
         tools=get_default_tools(enable_browser=False),
+        mcp_config=plugin.mcp_config or {} if plugin else {},
         agent_context=agent_context,
         system_prompt_kwargs={"cli_mode": True},
         condenser=get_default_condenser(
@@ -813,29 +845,29 @@ def create_agent(config: dict[str, Any]) -> Agent:
         ),
     )
 
-
-def run_review(
-    agent: Agent,
-    prompt: str,
-    secrets: dict[str, str],
-) -> Conversation:
-    """Execute the PR review.
-
-    Args:
-        agent: Configured Agent instance
-        prompt: Review prompt
-        secrets: Secrets to mask in output
-
-    Returns:
-        Completed Conversation
-    """
-    cwd = os.getcwd()
     conversation = Conversation(
         agent=agent,
         workspace=cwd,
         secrets=secrets,
+        hook_config=plugin.hooks if plugin else None,
     )
 
+    return agent, conversation
+
+
+def run_review(
+    conversation: Conversation,
+    prompt: str,
+) -> Conversation:
+    """Execute the PR review.
+
+    Args:
+        conversation: Configured Conversation instance
+        prompt: Review prompt
+
+    Returns:
+        Completed Conversation
+    """
     logger.info("Starting PR review analysis...")
     logger.info("Agent will post inline review comments directly via GitHub API")
 
@@ -960,15 +992,14 @@ def main():
             require_evidence=require_evidence,
         )
 
-        agent = create_agent(config)
-
         secrets = {}
         if config["api_key"]:
             secrets["LLM_API_KEY"] = config["api_key"]
         if config["github_token"]:
             secrets["GITHUB_TOKEN"] = config["github_token"]
 
-        conversation = run_review(agent, prompt, secrets)
+        _, conversation = create_agent_and_conversation(config, secrets)
+        conversation = run_review(conversation, prompt)
 
         log_cost_summary(conversation)
         save_trace_context(pr_info, commit_id, review_style, config["model"])
