@@ -256,7 +256,7 @@ Also update any `sdk-repo` and `sdk-version` inputs to `extensions-repo` and `ex
 ### Review Not Triggered
 
 1. Check that the workflow file is in `.github/workflows/`
-2. Verify the PR author association (first-time contributors need manual trigger)
+2. This workflow reviews same-repository PRs only; fork PRs are skipped
 3. Ensure secrets are configured correctly
 
 ### Review Comments Not Appearing
@@ -273,10 +273,10 @@ If you see rate limit errors:
 
 ## Security
 
-- Uses `pull_request_target` to safely access secrets for fork PRs
-- Only triggers for trusted contributors or when maintainers add labels/reviewers
-- PR code is checked out explicitly; secrets are not exposed to PR code
-- Credentials are not persisted during checkout
+- Uses `pull_request`
+- Only triggers for same-repository PRs when opened, marked ready for review, labeled `review-this`, or when `openhands-agent` / `all-hands-bot` is requested
+- Fork PRs are skipped
+- PR code is checked out explicitly and credentials are not persisted during checkout
 
 ## Contributing
 
