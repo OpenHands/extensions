@@ -23,6 +23,20 @@
             ]
         },
         {
+            "name": "agentskill-learn",
+            "source": "./agentskill-learn",
+            "description": "Discover, install, and manage 110,000+ AI agent skills from agentskill.sh. Search by keyword, install mid-session, scan for security issues, and rate skills after use.",
+            "category": "productivity",
+            "keywords": [
+                "skills",
+                "marketplace",
+                "registry",
+                "install",
+                "discover",
+                "agentskill"
+            ]
+        },
+        {
             "name": "agent-memory",
             "source": "./agent-memory",
             "description": "Persist and retrieve repository-specific knowledge using AGENTS.md files. Use when you want to save important information about a codebase (build commands, code style, workflows) for future sessions.",
