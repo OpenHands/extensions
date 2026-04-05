@@ -1,0 +1,4 @@
+{
+  "output": "total 24\ndrwxr-xr-x 4 openhands openhands 4096 Jan 15 10:30 .\ndrwxr-xr-x 1 root      root      4096 Jan 15 10:30 ..\ndrwxr-xr-x 8 openhands openhands 4096 Jan 15 10:30 .git\n-rw-r--r-- 1 openhands openhands  156 Jan 15 10:30 README.md\n-rw-r--r-- 1 openhands openhands 1024 Jan 15 10:30 package.json\ndrwxr-xr-x 2 openhands openhands 4096 Jan 15 10:30 src\n",
+  "exit_code": 0
+}

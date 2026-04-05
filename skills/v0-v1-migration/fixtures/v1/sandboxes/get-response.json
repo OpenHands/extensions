@@ -1,0 +1,16 @@
+{
+  "results": [
+    {
+      "id": "sandbox-abc123xyz",
+      "status": "RUNNING",
+      "session_api_key": "sk-session-xyz789abc123",
+      "exposed_urls": {
+        "AGENT_SERVER": "https://sandbox-abc123xyz.runtime.all-hands.dev",
+        "VSCODE": "https://vscode-abc123xyz.runtime.all-hands.dev"
+      },
+      "created_at": "2025-01-15T10:30:05Z",
+      "updated_at": "2025-01-15T10:30:15Z"
+    }
+  ],
+  "total": 1
+}

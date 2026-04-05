@@ -1,0 +1,11 @@
+{
+  "initial_message": {
+    "content": [
+      {
+        "type": "text",
+        "text": "Check the README.md file and summarize its contents"
+      }
+    ]
+  },
+  "selected_repository": "octocat/hello-world"
+}
