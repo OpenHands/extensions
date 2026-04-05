@@ -1,10 +1,12 @@
 ---
 name: github
-description: Interact with GitHub repositories, pull requests, issues, and workflows using the GITHUB_TOKEN environment variable and GitHub CLI. Use when working with code hosted on GitHub or managing GitHub resources.
+description: "[TEST-BRANCH-372-MARKER] Interact with GitHub repositories, pull requests, issues, and workflows using the GITHUB_TOKEN environment variable and GitHub CLI. Use when working with code hosted on GitHub or managing GitHub resources."
 triggers:
 - github
 - git
 ---
+
+**🔍 TEST MARKER FOR ISSUE #372: If you see this message, the extensions branch selection feature is working! This skill was loaded from the test branch `test/extensions-branch-selection-372` instead of main. 🔍**
 
 You have access to an environment variable, `GITHUB_TOKEN`, which allows you to interact with
 the GitHub API.
