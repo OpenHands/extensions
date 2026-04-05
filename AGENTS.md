@@ -97,8 +97,7 @@ When editing or adding skills in this repo, follow these rules (and add new skil
 
 ## CI / validation gotchas
 
-- The test suite expects **every directory under `skills/`** to be listed in `marketplaces/default.json`.
-  - If you add a new skill (or rebase onto a main branch that added skills), update the marketplace file or CI will fail with `Skills missing from marketplace: [...]`.
+- The test suite expects **every directory under `skills/`** to be listed in a marketplace. If you add a new skill (or rebase onto a main branch that added skills), update the appropriate marketplace file or CI will fail with `Skills missing from marketplace: [...]`.
 
 ## PR review plugin notes
 
