@@ -1,0 +1,37 @@
+---
+name: QA Changes by OpenHands
+
+on:
+    # Use pull_request_target to allow fork PRs to access secrets
+    # when triggered by maintainers via label or reviewer request.
+    pull_request_target:
+        types: [opened, ready_for_review, labeled, review_requested]
+
+permissions:
+    contents: read
+    pull-requests: write
+    issues: write
+
+jobs:
+    qa-changes:
+        # Run when:
+        #   1. A new non-draft PR is opened by a trusted contributor, OR
+        #   2. A draft PR is converted to ready for review, OR
+        #   3. 'qa-this' label is added, OR
+        #   4. openhands-agent is requested as a reviewer
+        if: |
+            (github.event.action == 'opened' && github.event.pull_request.draft == false && github.event.pull_request.author_association != 'FIRST_TIME_CONTRIBUTOR' && github.event.pull_request.author_association != 'NONE') ||
+            (github.event.action == 'ready_for_review' && github.event.pull_request.author_association != 'FIRST_TIME_CONTRIBUTOR' && github.event.pull_request.author_association != 'NONE') ||
+            github.event.label.name == 'qa-this' ||
+            github.event.requested_reviewer.login == 'openhands-agent'
+        concurrency:
+            group: qa-changes-${{ github.event.pull_request.number }}
+            cancel-in-progress: true
+        runs-on: ubuntu-24.04
+        steps:
+            - name: Run QA Changes
+              uses: OpenHands/extensions/plugins/qa-changes@main
+              with:
+                  llm-model: anthropic/claude-sonnet-4-5-20250929
+                  llm-api-key: ${{ secrets.LLM_API_KEY }}
+                  github-token: ${{ secrets.GITHUB_TOKEN }}
