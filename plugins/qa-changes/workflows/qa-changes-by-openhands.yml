@@ -39,6 +39,6 @@ jobs:
                   llm-model: anthropic/claude-sonnet-4-5-20250929
                   max-budget: '10.0'
                   timeout-minutes: '30'
-                  max-iterations: '200'
+                  max-iterations: '500'
                   llm-api-key: ${{ secrets.LLM_API_KEY }}
                   github-token: ${{ secrets.GITHUB_TOKEN }}

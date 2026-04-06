@@ -19,7 +19,7 @@ Environment Variables:
     LLM_BASE_URL: Optional base URL for LLM API
     GITHUB_TOKEN: GitHub token for API access (required)
     MAX_BUDGET: Maximum LLM cost in dollars (default: 10.0)
-    MAX_ITERATIONS: Maximum agent iterations (default: 200)
+    MAX_ITERATIONS: Maximum agent iterations (default: 500)
     PR_NUMBER: Pull request number (required)
     PR_TITLE: Pull request title (required)
     PR_BODY: Pull request body (optional)
@@ -56,7 +56,7 @@ logger = get_logger(__name__)
 MAX_TOTAL_DIFF = 100000
 # Cost and iteration defaults
 DEFAULT_MAX_BUDGET = 10.0
-DEFAULT_MAX_ITERATIONS = 200
+DEFAULT_MAX_ITERATIONS = 500
 
 
 def _get_required_env(name: str) -> str:

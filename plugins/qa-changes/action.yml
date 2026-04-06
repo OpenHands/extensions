@@ -35,7 +35,7 @@ inputs:
   max-iterations:
     description: Maximum number of agent iterations (each iteration is one LLM call + action).
     required: false
-    default: '200'
+    default: '500'
   llm-api-key:
     description: LLM API key (required)
     required: true
