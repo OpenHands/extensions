@@ -103,7 +103,6 @@ runs:
 
     - name: Run QA validation
       shell: bash
-      timeout-minutes: ${{ fromJSON(inputs.timeout-minutes) }}
       env:
         LLM_MODEL: ${{ inputs.llm-model }}
         LLM_BASE_URL: ${{ inputs.llm-base-url }}
@@ -111,6 +110,7 @@ runs:
         GITHUB_TOKEN: ${{ inputs.github-token }}
         MAX_BUDGET: ${{ inputs.max-budget }}
         MAX_ITERATIONS: ${{ inputs.max-iterations }}
+        TIMEOUT_MINUTES: ${{ inputs.timeout-minutes }}
         PR_NUMBER: ${{ github.event.pull_request.number }}
         PR_TITLE: ${{ github.event.pull_request.title }}
         PR_BODY: ${{ github.event.pull_request.body }}
@@ -119,8 +119,12 @@ runs:
         REPO_NAME: ${{ github.repository }}
       run: |
         cd pr-repo
-        uv run --no-project --with openhands-sdk --with openhands-tools \
-          python ../extensions/plugins/qa-changes/scripts/agent_script.py
+        # timeout-minutes is not supported on composite action steps,
+        # so we enforce the time limit via the coreutils timeout command.
+        TIMEOUT_SECONDS=$((TIMEOUT_MINUTES * 60))
+        timeout "${TIMEOUT_SECONDS}" \
+          uv run --no-project --with openhands-sdk --with openhands-tools \
+            python ../extensions/plugins/qa-changes/scripts/agent_script.py
 
     - name: Upload logs as artifact
       uses: actions/upload-artifact@v4
