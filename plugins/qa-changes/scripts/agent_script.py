@@ -213,7 +213,7 @@ def create_agent_and_conversation(
 
     agent = Agent(
         llm=llm,
-        tools=get_default_tools(enable_browser=False),
+        tools=get_default_tools(enable_browser=True),
         mcp_config=plugin.mcp_config or {} if plugin else {},
         agent_context=agent_context,
         system_prompt_kwargs={"cli_mode": True},
