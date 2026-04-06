@@ -42,6 +42,10 @@ inputs:
   github-token:
     description: GitHub token for API access (required)
     required: true
+  lmnr-api-key:
+    description: Laminar API key for observability (optional)
+    required: false
+    default: ''
 
 runs:
   using: composite
@@ -108,6 +112,7 @@ runs:
         LLM_BASE_URL: ${{ inputs.llm-base-url }}
         LLM_API_KEY: ${{ inputs.llm-api-key }}
         GITHUB_TOKEN: ${{ inputs.github-token }}
+        LMNR_PROJECT_API_KEY: ${{ inputs.lmnr-api-key }}
         MAX_BUDGET: ${{ inputs.max-budget }}
         MAX_ITERATIONS: ${{ inputs.max-iterations }}
         TIMEOUT_MINUTES: ${{ inputs.timeout-minutes }}
@@ -123,7 +128,7 @@ runs:
         # so we enforce the time limit via the coreutils timeout command.
         TIMEOUT_SECONDS=$((TIMEOUT_MINUTES * 60))
         timeout "${TIMEOUT_SECONDS}" \
-          uv run --no-project --with openhands-sdk --with openhands-tools \
+          uv run --no-project --with openhands-sdk --with openhands-tools --with lmnr \
             python ../extensions/plugins/qa-changes/scripts/agent_script.py
 
     - name: Upload logs as artifact
@@ -135,3 +140,12 @@ runs:
           *.log
           output/
         retention-days: 7
+
+    - name: Upload Laminar trace info for evaluation
+      uses: actions/upload-artifact@v4
+      if: success()
+      with:
+        name: qa-changes-trace-${{ github.event.pull_request.number }}
+        path: pr-repo/laminar_trace_info.json
+        retention-days: 30
+        if-no-files-found: ignore
