@@ -327,6 +327,19 @@
             ]
         },
         {
+            "name": "qa-changes",
+            "source": "./qa-changes",
+            "description": "Validate pull request changes by actually running the code \u2014 setting up the environment, exercising changed behavior, and posting a structured QA report.",
+            "category": "quality-assurance",
+            "keywords": [
+                "qa",
+                "testing",
+                "pull-request",
+                "validation",
+                "automation"
+            ]
+        },
+        {
             "name": "readiness-report",
             "source": "./readiness-report",
             "description": "Assess repository readiness for autonomous AI development and generate prioritized recommendations.",

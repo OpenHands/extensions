@@ -2,9 +2,12 @@
 name: QA Changes by OpenHands
 
 on:
-    # Use pull_request_target to allow fork PRs to access secrets
-    # when triggered by maintainers via label or reviewer request.
-    pull_request_target:
+    # Use pull_request (not pull_request_target) so the workflow runs in the
+    # context of the PR head — this avoids executing untrusted fork code with
+    # the base repo's secrets.  The trade-off is that fork PRs won't have
+    # access to repository secrets; maintainers can run QA locally or via a
+    # separate trusted workflow for those cases.
+    pull_request:
         types: [opened, ready_for_review, labeled, review_requested]
 
 permissions:
