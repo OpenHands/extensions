@@ -37,6 +37,7 @@ import urllib.request
 from pathlib import Path
 from typing import Any
 
+from lmnr import Laminar
 from openhands.sdk import LLM, Agent, AgentContext, Conversation, get_logger
 from openhands.sdk.context.skills import load_project_skills
 from openhands.sdk.conversation import get_agent_final_response
@@ -312,6 +313,64 @@ def log_cost_summary(conversation: Conversation) -> None:
             print(f"Cache Write Tokens: {usage.cache_write_tokens}")
 
 
+def save_trace_context(
+    pr_info: dict[str, Any],
+    commit_id: str,
+    model: str,
+) -> None:
+    """Capture and store Laminar trace context for evaluation.
+
+    Saves trace info to file for GitHub artifact upload, enabling
+    the evaluation workflow to continue the trace.
+    """
+    trace_id = Laminar.get_trace_id()
+    laminar_span_context = Laminar.get_laminar_span_context()
+    span_context = (
+        laminar_span_context.model_dump(mode="json") if laminar_span_context else None
+    )
+
+    if not trace_id or not laminar_span_context:
+        logger.warning(
+            "No Laminar trace ID found - observability may not be enabled"
+        )
+        return
+
+    with Laminar.start_as_current_span(
+        name="qa-changes-metadata",
+        parent_span_context=laminar_span_context,
+    ) as _:
+        pr_url = f"https://github.com/{pr_info['repo_name']}/pull/{pr_info['number']}"
+        Laminar.set_trace_metadata(
+            {
+                "pr_number": pr_info["number"],
+                "repo_name": pr_info["repo_name"],
+                "pr_url": pr_url,
+                "workflow_phase": "qa-changes",
+                "model": model,
+            }
+        )
+
+    trace_data = {
+        "trace_id": str(trace_id),
+        "span_context": span_context,
+        "pr_number": pr_info["number"],
+        "repo_name": pr_info["repo_name"],
+        "commit_id": commit_id,
+        "model": model,
+    }
+    with open("laminar_trace_info.json", "w") as f:
+        json.dump(trace_data, f, indent=2)
+
+    logger.info(f"Laminar trace ID: {trace_id}")
+    logger.info(f"Model used: {model}")
+    if span_context:
+        logger.info("Laminar span context captured for trace continuation")
+    print("\n=== Laminar Trace ===")
+    print(f"Trace ID: {trace_id}")
+
+    Laminar.flush()
+
+
 def main():
     """Run the QA agent."""
     logger.info("Starting QA changes process...")
@@ -348,6 +407,7 @@ def main():
         _, conversation = create_agent_and_conversation(config, secrets)
         conversation = run_qa(conversation, prompt)
         log_cost_summary(conversation)
+        save_trace_context(pr_info, commit_id, config["model"])
 
         logger.info("QA validation completed successfully")
 

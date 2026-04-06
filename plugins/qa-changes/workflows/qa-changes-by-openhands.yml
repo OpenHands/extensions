@@ -42,3 +42,4 @@ jobs:
                   max-iterations: '500'
                   llm-api-key: ${{ secrets.LLM_API_KEY }}
                   github-token: ${{ secrets.GITHUB_TOKEN }}
+                  lmnr-api-key: ${{ secrets.LMNR_SKILLS_API_KEY }}
