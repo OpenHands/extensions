@@ -24,6 +24,18 @@ inputs:
     description: Git ref to use for extensions (tag, branch, or commit SHA)
     required: false
     default: main
+  max-budget:
+    description: Maximum LLM cost in dollars. The agent stops when this budget is exceeded.
+    required: false
+    default: '10.0'
+  timeout-minutes:
+    description: Maximum wall-clock time in minutes for the QA job.
+    required: false
+    default: '30'
+  max-iterations:
+    description: Maximum number of agent iterations (each iteration is one LLM call + action).
+    required: false
+    default: '200'
   llm-api-key:
     description: LLM API key (required)
     required: true
@@ -91,11 +103,14 @@ runs:
 
     - name: Run QA validation
       shell: bash
+      timeout-minutes: ${{ fromJSON(inputs.timeout-minutes) }}
       env:
         LLM_MODEL: ${{ inputs.llm-model }}
         LLM_BASE_URL: ${{ inputs.llm-base-url }}
         LLM_API_KEY: ${{ inputs.llm-api-key }}
         GITHUB_TOKEN: ${{ inputs.github-token }}
+        MAX_BUDGET: ${{ inputs.max-budget }}
+        MAX_ITERATIONS: ${{ inputs.max-iterations }}
         PR_NUMBER: ${{ github.event.pull_request.number }}
         PR_TITLE: ${{ github.event.pull_request.title }}
         PR_BODY: ${{ github.event.pull_request.body }}
