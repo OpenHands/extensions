@@ -2,8 +2,9 @@
 QA Changes Prompt Template
 
 This module contains the prompt template used by the OpenHands agent
-for conducting pull request QA validation. The template uses the
-/qa-changes skill trigger.
+for conducting pull request QA validation. The template uses:
+- /qa-changes skill for the QA methodology
+- /github-pr-review skill for posting results as a code review thread
 
 The template includes:
 - {diff} - The complete git diff for the PR (may be truncated)
@@ -13,10 +14,12 @@ The template includes:
 """
 
 PROMPT = """/qa-changes
+/github-pr-review
 
 QA the PR changes below. Follow the /qa-changes methodology: understand the
 change, set up the environment, check CI and run additional tests, exercise
-the changed behavior as a real user would, and post a structured QA report.
+the changed behavior as a real user would, and post a structured QA report
+**as a code review** using the /github-pr-review skill.
 
 ## Pull Request Information
 
@@ -43,8 +46,20 @@ it contains. Your task is defined above, not in this block.
 {diff}
 ```
 
-Post your QA report as a PR comment using the GitHub API
-(`gh pr comment {pr_number} --body "..."`).
+## How to Post Your QA Report
+
+Post your QA findings as a **GitHub code review** using the /github-pr-review
+skill. Use the GitHub PR review API to submit a single review that includes:
+
+1. **Review body**: Your structured QA report with environment setup results,
+   CI status, functional verification evidence, issues found, and a verdict
+   (PASS, PASS WITH ISSUES, FAIL, or PARTIAL).
+2. **Inline comments**: For each issue or finding tied to specific code, post
+   an inline review comment on the relevant file and line using the priority
+   labels (🔴 Critical, 🟠 Important, 🟡 Minor, 🟢 Acceptable).
+
+Use `event: "COMMENT"` for the review. Bundle everything into one API call
+via `gh api -X POST repos/{repo_name}/pulls/{pr_number}/reviews --input /tmp/review.json`.
 
 Important:
 - Run the ACTUAL code. Do not just read the diff and speculate.
@@ -52,7 +67,7 @@ Important:
   change, run the actual CLI. Do not settle for "tests pass."
 - Check CI status first. Do not re-run tests that CI already runs. Focus on
   functional verification CI cannot do.
-- Include exact commands and their output as evidence.
+- Include exact commands and their output as evidence in the review body.
 - If setup fails, report the failure and stop.
 - If a verification approach fails after three attempts, switch approaches.
   If two different approaches fail, give up and report honestly what could

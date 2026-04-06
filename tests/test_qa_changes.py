@@ -119,9 +119,14 @@ class TestFormatPrompt:
         assert "let {x} = props" in result
         assert "{destructuring}" in result
 
-    def test_gh_pr_comment_command_uses_pr_number(self, prompt_mod):
+    def test_review_api_command_uses_repo_and_pr_number(self, prompt_mod):
         result = prompt_mod.format_prompt(**_PROMPT_KWARGS)
-        assert "gh pr comment 42" in result
+        assert "pulls/42/reviews" in result
+        assert "acme/repo" in result
+
+    def test_triggers_github_pr_review_skill(self, prompt_mod):
+        result = prompt_mod.format_prompt(**_PROMPT_KWARGS)
+        assert "/github-pr-review" in result
 
     def test_verdict_options_mentioned(self, prompt_mod):
         result = prompt_mod.format_prompt(**_PROMPT_KWARGS)
