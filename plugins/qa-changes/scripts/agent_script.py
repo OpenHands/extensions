@@ -18,6 +18,8 @@ Environment Variables:
     LLM_MODEL: Language model to use (default: anthropic/claude-sonnet-4-5-20250929)
     LLM_BASE_URL: Optional base URL for LLM API
     GITHUB_TOKEN: GitHub token for API access (required)
+    MAX_BUDGET: Maximum LLM cost in dollars (default: 10.0)
+    MAX_ITERATIONS: Maximum agent iterations (default: 200)
     PR_NUMBER: Pull request number (required)
     PR_TITLE: Pull request title (required)
     PR_BODY: Pull request body (optional)
@@ -52,6 +54,9 @@ logger = get_logger(__name__)
 
 # Maximum total diff size (characters)
 MAX_TOTAL_DIFF = 100000
+# Cost and iteration defaults
+DEFAULT_MAX_BUDGET = 10.0
+DEFAULT_MAX_ITERATIONS = 200
 
 
 def _get_required_env(name: str) -> str:
@@ -146,6 +151,8 @@ def validate_environment() -> dict[str, Any]:
         "github_token": os.getenv("GITHUB_TOKEN"),
         "model": os.getenv("LLM_MODEL", "anthropic/claude-sonnet-4-5-20250929"),
         "base_url": os.getenv("LLM_BASE_URL"),
+        "max_budget": float(os.getenv("MAX_BUDGET", str(DEFAULT_MAX_BUDGET))),
+        "max_iterations": int(os.getenv("MAX_ITERATIONS", str(DEFAULT_MAX_ITERATIONS))),
         "pr_info": {
             "number": os.getenv("PR_NUMBER"),
             "title": os.getenv("PR_TITLE"),
@@ -173,6 +180,34 @@ def load_qa_plugin() -> Plugin | None:
     except Exception as e:
         logger.warning(f"Failed to load qa-changes plugin: {e}")
         return None
+
+
+class BudgetExceeded(RuntimeError):
+    """Raised when the LLM cost exceeds the configured budget."""
+
+
+def _make_budget_callback(
+    conversation_holder: list,
+    max_budget: float,
+) -> Any:
+    """Return an event callback that stops the agent when cost exceeds budget.
+
+    Uses a mutable list so the callback can reference the Conversation object
+    that hasn't been created yet at callback-definition time.
+    """
+    def _check_budget(event: Any) -> None:
+        if not conversation_holder:
+            return
+        conv = conversation_holder[0]
+        metrics = conv.conversation_stats.get_combined_metrics()
+        cost = metrics.accumulated_cost
+        if cost > max_budget:
+            raise BudgetExceeded(
+                f"Budget exceeded: ${cost:.2f} spent, "
+                f"${max_budget:.2f} limit"
+            )
+
+    return _check_budget
 
 
 def create_agent_and_conversation(
@@ -214,7 +249,7 @@ def create_agent_and_conversation(
     agent = Agent(
         llm=llm,
         tools=get_default_tools(enable_browser=True),
-        mcp_config=plugin.mcp_config or {} if plugin else {},
+        mcp_config=(plugin.mcp_config or {}) if plugin else {},
         agent_context=agent_context,
         system_prompt_kwargs={"cli_mode": True},
         condenser=get_default_condenser(
@@ -222,12 +257,24 @@ def create_agent_and_conversation(
         ),
     )
 
+    max_budget = config["max_budget"]
+    max_iterations = config["max_iterations"]
+    logger.info(f"Budget: ${max_budget:.2f}, max iterations: {max_iterations}")
+
+    # Budget callback uses a holder list so we can wire it up before
+    # the Conversation object exists.
+    conversation_holder: list = []
+    budget_callback = _make_budget_callback(conversation_holder, max_budget)
+
     conversation = Conversation(
         agent=agent,
         workspace=cwd,
         secrets=secrets,
         hook_config=plugin.hooks if plugin else None,
+        max_iteration_per_run=max_iterations,
+        callbacks=[budget_callback],
     )
+    conversation_holder.append(conversation)
 
     return agent, conversation
 

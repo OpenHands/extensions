@@ -97,6 +97,9 @@ Request `openhands-agent` as a reviewer on the PR.
 | `llm-base-url` | No | `''` | Custom LLM endpoint URL |
 | `extensions-repo` | No | `OpenHands/extensions` | Extensions repository |
 | `extensions-version` | No | `main` | Git ref (tag, branch, or SHA) |
+| `max-budget` | No | `10.0` | Maximum LLM cost in dollars — agent stops when exceeded |
+| `timeout-minutes` | No | `30` | Wall-clock timeout for the QA step |
+| `max-iterations` | No | `200` | Maximum agent iterations (each is one LLM call + action) |
 | `llm-api-key` | Yes | - | LLM API key |
 | `github-token` | Yes | - | GitHub token for API access |
 
