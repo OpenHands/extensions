@@ -21,4 +21,6 @@ env/
 .DS_Store
 Thumbs.db
 .agents/
+
+# uv lock file (no application code in this repo)
 uv.lock
