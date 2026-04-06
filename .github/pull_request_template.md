@@ -33,14 +33,6 @@ Provide a video or screenshots of testing your PR. e.g. you added a new feature 
 
 -->
 
-## Type
-
-- [ ] Bug fix
-- [ ] Feature
-- [ ] Refactor
-- [ ] Breaking change
-- [ ] Docs / chore
-
 ## Notes
 
 <!-- Optional: migrations, config changes, rollout concerns, follow-ups, or anything reviewers should know. -->
