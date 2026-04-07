@@ -47,6 +47,19 @@
             ]
         },
         {
+            "name": "automation",
+            "source": "./automation",
+            "description": "Create and manage OpenHands automations - scheduled tasks that run in sandboxes. Use the prompt preset to create automations from natural language, or manage existing automations.",
+            "category": "integration",
+            "keywords": [
+                "automation",
+                "cron",
+                "scheduled-task",
+                "sandbox",
+                "openhands"
+            ]
+        },
+        {
             "name": "azure-devops",
             "source": "./azure-devops",
             "description": "Interact with Azure DevOps repositories, pull requests, and APIs using the AZURE_DEVOPS_TOKEN environment variable. Use when working with code hosted on Azure DevOps or managing Azure DevOps resources.",
@@ -470,6 +483,19 @@
                 "plugin",
                 "verification",
                 "sample"
+            ]
+        },
+        {
+            "name": "automation-creation",
+            "source": "./plugins/automation-creation",
+            "description": "Interactive slash command for creating OpenHands automations from a natural language prompt. Provides /automation:create for guided prompt-based automation setup.",
+            "category": "integration",
+            "keywords": [
+                "automation",
+                "cron",
+                "scheduling",
+                "openhands",
+                "slash-command"
             ]
         }
     ]
