@@ -214,8 +214,8 @@ set -e
 curl -LsSf https://astral.sh/uv/install.sh | sh
 export PATH="$HOME/.local/bin:$PATH"
 
-# Install the OpenHands SDK packages from PyPI
-pip install -q openhands-sdk openhands-workspace openhands-tools
+# Install the OpenHands SDK packages from PyPI using uv
+uv pip install -q openhands-sdk openhands-workspace openhands-tools
 ```
 
 ### Basic Automation Structure
