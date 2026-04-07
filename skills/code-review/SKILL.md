@@ -1,6 +1,6 @@
 ---
 name: code-review
-description: Structured code review covering style, readability, and security concerns with actionable feedback. Use when reviewing pull requests or merge requests to identify issues and suggest improvements.
+description: Structured code review covering style, readability, security, and risk/safety evaluation with actionable feedback. Use when reviewing pull requests or merge requests to identify issues, suggest improvements, and assess change risk level.
 triggers:
 - /codereview
 ---
@@ -53,6 +53,30 @@ When reviewing tests, prioritize tests that validate real behavior over tests th
 - Flag tests that only mock the unit under test and assert it was called, unless they cover a real coverage gap that cannot be achieved otherwise.
 - Ensure tests fail for the right reasons (i.e., would catch a regression), and are not tautologies.
 
+5. Risk and Safety Evaluation
+Assess the overall risk level of the PR and classify it as one of:
+- :green_circle: **Low Risk** — Safe for autonomous merge. The change follows existing patterns, has limited blast radius, and does not touch sensitive areas.
+- :yellow_circle: **Medium Risk** — Merge with caution. The change refactors shared code, modifies non-trivial logic, or has moderate blast radius.
+- :red_circle: **High Risk** — Needs human reviewer attention. The change introduces new patterns, architectural shifts, or touches sensitive areas.
+
+Evaluate risk based on these factors:
+- **Pattern conformance**: Does the change follow existing code patterns and conventions, or does it introduce new patterns or architectural shifts?
+- **Security sensitivity**: Does it touch authentication, authorization, cryptography, secrets handling, or permission logic?
+- **Infrastructure dependencies**: Does it introduce new external services, databases, message queues, or third-party integrations?
+- **Blast radius**: Is the change isolated to a single module, or does it affect widely imported shared code, public APIs, or core system behavior?
+- **Core system impact**: Does it modify agent orchestration, LLM prompt construction, data pipeline logic, or other foundational system behavior?
+
+When risk is :red_circle: **High**:
+- State clearly why the PR is flagged as high-risk.
+- Identify what specific aspects need human judgment (e.g., architecture decision, security audit, performance review, evaluation run).
+- Recommend **not auto-merging** and request human reviewer or architect attention.
+
+When risk is :yellow_circle: **Medium**:
+- Note the risk factors that elevate it above low-risk.
+- Suggest specific areas a reviewer should focus on.
+
+Repo-specific risk rules: If the repository defines custom risk criteria in its `AGENTS.md`, code review guide, or similar configuration, respect and apply those rules in addition to the defaults above. For example, a repo may designate certain directories (e.g., `src/core/`) or file patterns as always high-risk.
+
 INSTRUCTIONS FOR RESPONSE:
 Group the feedback by the scenarios above.
 
@@ -61,11 +85,20 @@ Then, for each issue you find:
 - Briefly explain why it's an issue
 - Suggest a concrete improvement
 
-Use the following structure in your output:
+Always include the Risk and Safety Evaluation as the final section of your review, even when no other issues are found. Use this format:
+
+[Overall PR] :warning: Risk Assessment: :green_circle: LOW / :yellow_circle: MEDIUM / :red_circle: HIGH
+Brief explanation of the risk classification and key factors considered.
+If HIGH: **Recommendation**: Do not auto-merge. Request review from a human architect/reviewer to validate [specific concern].
+
+Use the following structure for other findings:
 [src/utils.py, Line 42] :hammer_and_wrench: Unused import: The 'os' module is imported but never used. Remove it to clean up the code.
 [src/database.py, Lines 78–85] :mag: Readability: This nested if-else block is hard to follow. Consider refactoring into smaller functions or using early returns.
 [src/auth.py, Line 102] :closed_lock_with_key: Security Risk: User input is directly concatenated into an SQL query. This could allow SQL injection. Use parameterized queries instead.
 [tests/test_auth.py, Lines 12–45] :test_tube: Testing: This PR adds new behavior but the tests only assert mocked calls. Add a test that exercises the real code path and asserts on outputs/state so it would catch regressions.
+[Overall PR] :warning: Risk Assessment: :red_circle: HIGH
+This PR introduces a new message queue (RabbitMQ) dependency and changes the event processing architecture from synchronous to asynchronous. This is a significant architectural change that adds a new infrastructure dependency affecting deployment and operations, changes the data flow pattern, and could impact system reliability if not properly configured.
+**Recommendation**: Do not auto-merge. Request review from a human architect to validate the architectural decision and operational readiness.
 
 
 REMEMBER, DO NOT MODIFY THE CODE. ONLY PROVIDE FEEDBACK IN YOUR RESPONSE.
