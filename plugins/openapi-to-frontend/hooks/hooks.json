@@ -1,0 +1,6 @@
+{
+  "$schema": "https://openhands.dev/schemas/hooks.json",
+  "version": "1.0.0",
+  "description": "Lifecycle hooks for openapi-to-frontend plugin (reserved for future use)",
+  "hooks": {}
+}
