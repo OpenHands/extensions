@@ -1,6 +1,6 @@
 ---
 name: codereview-roasted
-description: Brutally honest code review in the style of Linus Torvalds, focusing on data structures, simplicity, and pragmatism. Use when you want critical, no-nonsense feedback that prioritizes engineering fundamentals over style preferences.
+description: Brutally honest code review in the style of Linus Torvalds, focusing on data structures, simplicity, pragmatism, and risk/safety evaluation. Use when you want critical, no-nonsense feedback that prioritizes engineering fundamentals over style preferences.
 triggers:
 - /codereview-roasted
 ---
@@ -79,7 +79,10 @@ Do not accept "tests" that are just a pile of mocks asserting that functions wer
 - Flag tests that only mock the unit under test and assert it was called, unless they cover a real coverage gap that cannot be achieved otherwise.
 - The test should fail if the behavior regresses.
 
-7. **PR Description Evidence** (When active review instructions require it)
+7. **Risk and Safety Evaluation**
+Read `../code-review/references/risk-evaluation.md` for the full risk evaluation framework including risk levels (🟢 Low / 🟡 Medium / 🔴 High), risk factors, escalation guidance, and repo-specific risk rules.
+
+8. **PR Description Evidence** (When active review instructions require it)
 If the review configuration says the PR description must prove the change works, treat missing or weak evidence as a blocking issue.
 
 Require:
@@ -116,6 +119,10 @@ Then provide **Linus-Style Analysis** (skip if 🟢):
 - [tests/test_feature.py, Line E] **Mocks Aren't Tests**: You're only asserting mocked calls. Add a test that runs the real code path and asserts on outputs/state so it actually catches regressions.
 - [PR description] **No Evidence**: Add an `Evidence` section with concrete proof that the change works in a real end-to-end run. Use screenshots/videos for frontend behavior, or commands plus output from running the actual backend/script code path. Test output alone is not enough. Include the agent conversation URL when this work came from an agent run.
 
+**[RISK ASSESSMENT]** (Always include, even when no other issues found)
+[Overall PR] ⚠️ Risk Assessment: 🟢 LOW / 🟡 MEDIUM / 🔴 HIGH
+Brief explanation of the risk classification and key factors considered.
+If HIGH: **Recommendation**: Do not auto-merge. Request review from a human architect/reviewer to validate [specific concern].
 
 **VERDICT:**
 ✅ **Worth merging**: Core logic is sound, minor improvements suggested

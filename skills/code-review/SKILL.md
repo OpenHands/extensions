@@ -54,28 +54,7 @@ When reviewing tests, prioritize tests that validate real behavior over tests th
 - Ensure tests fail for the right reasons (i.e., would catch a regression), and are not tautologies.
 
 5. Risk and Safety Evaluation
-Assess the overall risk level of the PR and classify it as one of:
-- :green_circle: **Low Risk** — Safe for autonomous merge. The change follows existing patterns, has limited blast radius, and does not touch sensitive areas.
-- :yellow_circle: **Medium Risk** — Merge with caution. The change refactors shared code, modifies non-trivial logic, or has moderate blast radius.
-- :red_circle: **High Risk** — Needs human reviewer attention. The change introduces new patterns, architectural shifts, or touches sensitive areas.
-
-Evaluate risk based on these factors:
-- **Pattern conformance**: Does the change follow existing code patterns and conventions, or does it introduce new patterns or architectural shifts?
-- **Security sensitivity**: Does it touch authentication, authorization, cryptography, secrets handling, or permission logic?
-- **Infrastructure dependencies**: Does it introduce new external services, databases, message queues, or third-party integrations?
-- **Blast radius**: Is the change isolated to a single module, or does it affect widely imported shared code, public APIs, or core system behavior?
-- **Core system impact**: Does it modify agent orchestration, LLM prompt construction, data pipeline logic, or other foundational system behavior?
-
-When risk is :red_circle: **High**:
-- State clearly why the PR is flagged as high-risk.
-- Identify what specific aspects need human judgment (e.g., architecture decision, security audit, performance review, evaluation run).
-- Recommend **not auto-merging** and request human reviewer or architect attention.
-
-When risk is :yellow_circle: **Medium**:
-- Note the risk factors that elevate it above low-risk.
-- Suggest specific areas a reviewer should focus on.
-
-Repo-specific risk rules: If the repository defines custom risk criteria in its `AGENTS.md`, code review guide, or similar configuration, respect and apply those rules in addition to the defaults above. For example, a repo may designate certain directories (e.g., `src/core/`) or file patterns as always high-risk.
+Read `references/risk-evaluation.md` for the full risk evaluation framework including risk levels (🟢 Low / 🟡 Medium / 🔴 High), risk factors, escalation guidance, and repo-specific risk rules.
 
 INSTRUCTIONS FOR RESPONSE:
 Group the feedback by the scenarios above.

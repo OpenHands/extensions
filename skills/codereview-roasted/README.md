@@ -1,6 +1,6 @@
 # Codereview Roasted
 
-Brutally honest code review in the style of Linus Torvalds, focusing on data structures, simplicity, and pragmatism. Use when you want critical, no-nonsense feedback that prioritizes engineering fundamentals over style preferences.
+Brutally honest code review in the style of Linus Torvalds, focusing on data structures, simplicity, pragmatism, and risk/safety evaluation. Use when you want critical, no-nonsense feedback that prioritizes engineering fundamentals over style preferences.
 
 ## Triggers
 
@@ -81,7 +81,10 @@ Do not accept "tests" that are just a pile of mocks asserting that functions wer
 - Flag tests that only mock the unit under test and assert it was called, unless they cover a real coverage gap that cannot be achieved otherwise.
 - The test should fail if the behavior regresses.
 
-7. **PR Description Evidence** (When active review instructions require it)
+7. **Risk and Safety Evaluation**
+See [`../code-review/references/risk-evaluation.md`](../code-review/references/risk-evaluation.md) for the full risk evaluation framework. This component is shared with the `code-review` skill — both skills use the same risk classification (🟢 Low / 🟡 Medium / 🔴 High), risk factors, escalation guidance, and repo-specific risk rules.
+
+8. **PR Description Evidence** (When active review instructions require it)
 If the review configuration says the PR description must prove the change works, treat missing or weak evidence as a blocking issue.
 
 Require:
