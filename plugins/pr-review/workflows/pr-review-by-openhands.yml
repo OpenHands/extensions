@@ -2,7 +2,6 @@
 name: PR Review by OpenHands
 
 on:
-    # TEMPORARY MITIGATION (Clinejection hardening)
     #
     # We temporarily avoid `pull_request_target` here. We'll restore it after the PR review
     # workflow is fully hardened for untrusted execution.
