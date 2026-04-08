@@ -30,6 +30,30 @@ it.
 - the write action is narrow and tied to something that was just read
 - the agent points back to an inspectable draft or auditable-run artifact
 
+## What the output should look like
+
+You do not need byte-for-byte identical JSON, but the shape should feel like
+the tested MCP outputs:
+
+```json
+[
+  {
+    "id": "draft:1",
+    "notebook_id": "notebook:1",
+    "status": "completed"
+  }
+]
+```
+
+```json
+{
+  "status": "verified"
+}
+```
+
+That is the level of concreteness the demo should reach: list something real,
+then mutate one real thing, then point back to the changed artifact.
+
 ## OpenClaw variant
 
 Use the same prompt after loading the MCP config from

@@ -29,6 +29,23 @@ differences and recommend which answer is better for a friendly product update.
 - the compare step creates a real turn/session artifact
 - the analysis step refers back to the compare output instead of inventing text
 
+## What the output should look like
+
+You do not need byte-for-byte identical JSON, but the shape should feel like
+this:
+
+- readiness output names which models are ready or blocked
+- compare output yields a session/turn pair the host can inspect later
+- analysis output cites the compare turn instead of free-writing from memory
+
+Example compare-oriented fields to expect:
+
+```text
+sessionId: session-1
+turnId: turn-1
+requestedModels: [ChatGPT, Gemini]
+```
+
 ## OpenClaw variant
 
 Use the same prompt after loading the MCP config from
