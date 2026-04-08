@@ -12,7 +12,7 @@ triggers:
 
 Use this skill when you want OpenHands to inspect one SourceHarbor watchlist and answer a question with the current story and evidence context.
 
-Think of it as an **operator briefing plugin without executable code**:
+Think of it as an **operator briefing skill card**:
 
 - it teaches the agent how to use SourceHarbor's MCP or HTTP API
 - it starts from one watchlist
@@ -39,6 +39,7 @@ Think of it as an **operator briefing plugin without executable code**:
 - a connected SourceHarbor MCP server, or
 - a running local SourceHarbor HTTP API
 - if neither is ready yet, use `references/mcp-and-http-setup.md`
+- if HTTP is the only path, use `references/http-fallback.md`
 
 ## Capability map
 
@@ -47,7 +48,7 @@ SourceHarbor exposes a shared operator truth across MCP and HTTP API. The capabi
 - watchlist and briefing retrieval
 - Ask/search over the current story context
 - jobs, artifacts, and reports as evidence follow-ups
-- health and workflow tools when the runtime itself needs checking
+- health checks when the runtime itself needs checking
 
 Use `references/capability-map.md` for a concrete tool-group map.
 
@@ -91,5 +92,6 @@ Return a compact answer with:
 ## Local references
 
 - `references/mcp-and-http-setup.md`
+- `references/http-fallback.md`
 - `references/capability-map.md`
 - `references/example-output.md`

@@ -2,7 +2,7 @@
 
 This skill packages the watchlist-briefing workflow from [SourceHarbor](https://github.com/xiaojiou176-open/sourceharbor) for OpenHands.
 
-It is meant to feel like a **plugin-grade operator recipe**:
+It is meant to feel like a **self-contained operator skill package**:
 
 - start from one watchlist
 - load the current briefing/story payload
@@ -14,5 +14,6 @@ Use it when you want a source-first briefing workflow that can reuse SourceHarbo
 Included companion references:
 
 - `references/mcp-and-http-setup.md`
+- `references/http-fallback.md`
 - `references/capability-map.md`
 - `references/example-output.md`

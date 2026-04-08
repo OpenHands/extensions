@@ -14,5 +14,6 @@ Use this when you want a lightweight OpenHands skill that feels like a decision 
 Included companion references:
 
 - `references/mcp-setup.md`
+- `references/input-shape.md`
 - `references/capability-map.md`
 - `references/example-output.md`

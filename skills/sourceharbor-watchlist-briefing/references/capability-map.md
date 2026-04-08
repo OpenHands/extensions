@@ -9,8 +9,7 @@ This skill focuses on the SourceHarbor surfaces that help answer one operator qu
 - `sourceharbor.jobs.get` and `sourceharbor.jobs.compare`: inspect recent processing results
 - `sourceharbor.artifacts.get`: fetch saved artifacts that back a claim
 - `sourceharbor.reports.daily_send`: summarize the latest report-style output
-- `sourceharbor.workflows.run`: only when the operator explicitly wants a governed workflow rerun
-- `sourceharbor.subscriptions.manage` and `sourceharbor.notifications.manage`: useful only when the question is about source/watchlist configuration rather than story content
+- `sourceharbor.workflows.run`: only when the operator explicitly wants a governed workflow rerun after the briefing
 
 ## Best default order
 
@@ -18,3 +17,4 @@ This skill focuses on the SourceHarbor surfaces that help answer one operator qu
 2. watchlist / briefing payload
 3. retrieval or ask-style evidence lookup
 4. jobs or artifacts only if the answer needs proof of what changed
+5. do not drift into subscription or notification changes unless the operator changes the task
