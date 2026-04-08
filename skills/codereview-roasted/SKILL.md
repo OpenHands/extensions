@@ -80,7 +80,7 @@ Do not accept "tests" that are just a pile of mocks asserting that functions wer
 - The test should fail if the behavior regresses.
 
 7. **Risk and Safety Evaluation**
-Read `../code-review/references/risk-evaluation.md` for the full risk evaluation framework including risk levels (🟢 Low / 🟡 Medium / 🔴 High), risk factors, escalation guidance, and repo-specific risk rules.
+Read `references/risk-evaluation.md` for the full risk evaluation framework including risk levels (🟢 Low / 🟡 Medium / 🔴 High), risk factors, escalation guidance, and repo-specific risk rules.
 
 8. **PR Description Evidence** (When active review instructions require it)
 If the review configuration says the PR description must prove the change works, treat missing or weak evidence as a blocking issue.

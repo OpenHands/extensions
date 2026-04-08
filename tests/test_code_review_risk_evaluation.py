@@ -104,9 +104,23 @@ class TestRoastedSkillReferencesRisk:
         content = get_roasted_skill()
         assert "Risk and Safety Evaluation" in content
 
-    def test_references_shared_component(self):
+    def test_references_local_symlink(self):
         content = get_roasted_skill()
-        assert "code-review/references/risk-evaluation.md" in content
+        assert "references/risk-evaluation.md" in content
+
+    def test_symlink_exists_and_resolves(self):
+        symlink_path = (
+            get_repo_root()
+            / "skills"
+            / "codereview-roasted"
+            / "references"
+            / "risk-evaluation.md"
+        )
+        assert symlink_path.is_symlink(), "Expected a symlink"
+        assert symlink_path.resolve().exists(), "Symlink target does not exist"
+        # Verify it points to the code-review shared reference
+        target = symlink_path.resolve()
+        assert "code-review" in str(target) and "risk-evaluation.md" in str(target)
 
     def test_has_risk_assessment_in_output_format(self):
         content = get_roasted_skill()
