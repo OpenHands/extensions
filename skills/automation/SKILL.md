@@ -377,7 +377,7 @@ curl -X POST "https://app.all-hands.dev/api/automation/v1/preset/prompt" \
 
 ## Custom Webhooks
 
-For services other than GitHub (Stripe, Slack, Linear, etc.), register a custom webhook first.
+For services other than GitHub (Linear, Stripe, Slack, etc.), register a custom webhook first.
 
 ### Register a Custom Webhook
 
@@ -386,10 +386,11 @@ curl -X POST "https://app.all-hands.dev/api/automation/v1/webhooks" \
   -H "Authorization: Bearer ${OPENHANDS_API_KEY}" \
   -H "Content-Type: application/json" \
   -d '{
-    "name": "Stripe Payments",
-    "source": "stripe",
+    "name": "Linear Issues",
+    "source": "linear",
     "event_key_expr": "type",
-    "signature_header": "Stripe-Signature"
+    "signature_header": "Linear-Signature",
+    "webhook_secret": "your-linear-webhook-secret"
   }'
 ```
 
@@ -401,21 +402,20 @@ curl -X POST "https://app.all-hands.dev/api/automation/v1/webhooks" \
 | `source` | Yes | Unique source identifier (lowercase, alphanumeric with hyphens, 1-50 chars) |
 | `event_key_expr` | No | JMESPath expression to extract event type from payload (default: `"type"`) |
 | `signature_header` | No | HTTP header containing HMAC signature (default: `"X-Signature-256"`) |
-| `webhook_secret` | No | Optional signing secret (if not provided, one is generated) |
+| `webhook_secret` | No | Signing secret — provide your own (from the external service) or let the system generate one |
 
 #### Response
 
 ```json
 {
   "id": "550e8400-e29b-41d4-a716-446655440000",
-  "webhook_url": "https://app.all-hands.dev/v1/events/{org_id}/stripe",
-  "webhook_secret": "whsec_abc123...",
-  "source": "stripe",
+  "webhook_url": "https://app.all-hands.dev/v1/events/{org_id}/linear",
+  "source": "linear",
   "enabled": true
 }
 ```
 
-**Important:** The `webhook_secret` is only shown once (if system-generated). Configure this in your external service.
+**Note:** When you provide your own `webhook_secret`, it won't be echoed back in the response. If you don't provide one, the system generates a secret and returns it once — store it securely.
 
 ### Manage Custom Webhooks
 
@@ -439,34 +439,72 @@ curl -X DELETE "https://app.all-hands.dev/api/automation/v1/webhooks/{webhook_id
   -H "Authorization: Bearer ${OPENHANDS_API_KEY}"
 ```
 
-### Custom Webhook Automation Example
+### Custom Webhook Example: Linear
+
+Linear sends webhooks with:
+- Signature header: `Linear-Signature`
+- Event type in payload: `type` field (e.g., `Issue`, `Comment`, `Project`)
+- Action in payload: `action` field (e.g., `create`, `update`, `remove`)
 
 ```bash
-# 1. Register the webhook (get webhook_url to configure in Stripe)
+# 1. Register the Linear webhook
+#    - Get your webhook signing secret from Linear's webhook settings
+#    - Use "Linear-Signature" as the signature header
+#    - Use "type" to extract the event type from the payload
 curl -X POST "https://app.all-hands.dev/api/automation/v1/webhooks" \
   -H "Authorization: Bearer ${OPENHANDS_API_KEY}" \
   -H "Content-Type: application/json" \
   -d '{
-    "name": "Stripe Payments",
-    "source": "stripe",
+    "name": "Linear Issues",
+    "source": "linear",
     "event_key_expr": "type",
-    "signature_header": "Stripe-Signature"
+    "signature_header": "Linear-Signature",
+    "webhook_secret": "lin_wh_xxxxxxxxxxxxx"
   }'
 
-# 2. Create an automation for payment events
+# Response includes webhook_url — configure this in Linear:
+# Settings → API → Webhooks → New webhook → paste the webhook_url
+
+# 2. Create an automation for new Linear issues
 curl -X POST "https://app.all-hands.dev/api/automation/v1/preset/prompt" \
   -H "Authorization: Bearer ${OPENHANDS_API_KEY}" \
   -H "Content-Type: application/json" \
   -d '{
-    "name": "Payment Success Handler",
-    "prompt": "A payment was successful. Update our records and send a confirmation to the customer.",
+    "name": "Triage New Linear Issues",
+    "prompt": "A new issue was created in Linear. Analyze the issue title and description, suggest appropriate labels, and add a comment with initial triage notes.",
     "trigger": {
       "type": "event",
-      "source": "stripe",
-      "on": "payment_intent.succeeded"
+      "source": "linear",
+      "on": "Issue",
+      "filter": "action == '\''create'\''"
+    }
+  }'
+
+# 3. Create an automation for high-priority issue updates
+curl -X POST "https://app.all-hands.dev/api/automation/v1/preset/prompt" \
+  -H "Authorization: Bearer ${OPENHANDS_API_KEY}" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "High Priority Issue Alert",
+    "prompt": "A high-priority issue was updated. Review the changes and notify the team if action is needed.",
+    "trigger": {
+      "type": "event",
+      "source": "linear",
+      "on": "Issue",
+      "filter": "action == '\''update'\'' && data.priority == `1`"
     }
   }'
 ```
+
+### Common Signature Headers by Service
+
+| Service | Signature Header | Event Key Expression |
+|---------|-----------------|---------------------|
+| Linear | `Linear-Signature` | `type` |
+| Stripe | `Stripe-Signature` | `type` |
+| Slack | `X-Slack-Signature` | `type` |
+| Twilio | `X-Twilio-Signature` | `type` |
+| Generic | `X-Signature-256` | `type` |
 
 ---
 
