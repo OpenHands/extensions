@@ -276,6 +276,7 @@ If you see rate limit errors:
 
 - Uses `pull_request_target` only for explicit maintainer-triggered reviews on fork PRs
 - Reviews the PR diff from the GitHub API while checking out the trusted base revision for workspace context
+- Keeps GitHub Actions caching disabled in privileged review workflows to avoid cache-poisoning pivots from prompt injection
 - Defaults to the ephemeral `${{ github.token }}`; switch to a PAT only if you need a dedicated bot identity
 - For lower-trust or comment-only smoke-test setups, prefer `pull_request` to reduce privilege by default
 
