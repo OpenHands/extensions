@@ -340,6 +340,32 @@
             ]
         },
         {
+            "name": "prompt-switchboard-compare-workflows",
+            "source": "./prompt-switchboard-compare-workflows",
+            "description": "Use Prompt Switchboard as a compare-first browser workspace with a local MCP sidecar, while preserving its no-hosted-relay and local-first boundaries.",
+            "category": "productivity",
+            "keywords": [
+                "browser",
+                "mcp",
+                "compare",
+                "local-first",
+                "ai-workspace"
+            ]
+        },
+        {
+            "name": "provenote-mcp-outcome-workflows",
+            "source": "./provenote-mcp-outcome-workflows",
+            "description": "Guide read-first Provenote MCP workflows for drafts, research threads, and auditable runs without overclaiming marketplace or hosted-product status.",
+            "category": "productivity",
+            "keywords": [
+                "provenote",
+                "mcp",
+                "research",
+                "auditable",
+                "knowledge-workflow"
+            ]
+        },
+        {
             "name": "readiness-report",
             "source": "./readiness-report",
             "description": "Assess repository readiness for autonomous AI development and generate prioritized recommendations.",
