@@ -1,19 +1,25 @@
 ---
 name: provenote-mcp-outcome-workflows
-description: Use this skill when you want Provenote's first-party MCP outcome workflows through a host-facing skill packet without overclaiming a live listing or marketplace status.
-version: 1.0.0
+description: Teach an agent to install Provenote's first-party MCP server, connect it in a host, and run read-first outcome workflows.
+version: 1.1.0
+triggers:
+  - provenote
+  - provenote-mcp
+  - research thread
+  - auditable run
+  - source-grounded notes
 ---
 
 # Provenote MCP Outcome Workflows
 
-Teach the agent how to use Provenote's first-party MCP server for structured,
-source-grounded note and research workflows.
+Teach the agent how to install, connect, and use Provenote's first-party MCP
+server for structured, source-grounded note and research workflows.
 
 ## Use this skill when
 
 - the user wants to turn messy long context into structured drafts or research threads
-- the user wants auditable outcomes instead of free-form note taking
-- the user wants a read-first MCP workflow before narrow write actions
+- the host can run a local MCP server
+- the user wants inspectable outcomes before broad write automation
 
 ## What the agent should know
 
@@ -21,18 +27,21 @@ source-grounded note and research workflows.
 - the most important read surfaces are drafts, research threads, and auditable runs
 - the safest first success path is to inspect existing outcomes before mutating anything
 
+## Start here
+
+1. Read [references/INSTALL.md](references/INSTALL.md)
+2. Load the right host config from:
+   - [references/OPENHANDS_MCP_CONFIG.json](references/OPENHANDS_MCP_CONFIG.json)
+   - [references/OPENCLAW_MCP_CONFIG.json](references/OPENCLAW_MCP_CONFIG.json)
+3. Skim the tool surface in [references/CAPABILITIES.md](references/CAPABILITIES.md)
+4. Run the demo from [references/DEMO.md](references/DEMO.md)
+
 ## Recommended workflow
 
-1. List drafts
-2. List research threads
-3. List auditable runs
+1. `draft.list`
+2. `research_thread.list`
+3. `auditable_run.list`
 4. Pick one narrow write-oriented action only after the read surfaces make sense
-
-## Good first actions
-
-- summarize the current draft set
-- inspect how a research thread maps into a draft
-- create or download one auditable run tied to a real repo-owned result
 
 ## Safe first mutations
 
@@ -41,6 +50,14 @@ source-grounded note and research workflows.
 - `draft.download`
 - `auditable_run.create`
 - `auditable_run.download`
+
+## Suggested first prompt
+
+Use Provenote to inspect the current drafts, research threads, and auditable
+runs for this workspace. Start with `draft.list`, `research_thread.list`, and
+`auditable_run.list`. After you summarize what already exists, choose one
+narrow next step: either convert a research thread into a draft with
+`research_thread.to_draft` or verify an existing draft with `draft.verify`.
 
 ## Validation
 

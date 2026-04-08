@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "prompt_switchboard": {
+      "command": "npm",
+      "args": [
+        "--prefix",
+        "/absolute/path/to/multi-ai-sidepanel",
+        "run",
+        "mcp:server"
+      ]
+    }
+  }
+}

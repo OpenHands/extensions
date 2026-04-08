@@ -342,7 +342,7 @@
         {
             "name": "prompt-switchboard-compare-workflows",
             "source": "./prompt-switchboard-compare-workflows",
-            "description": "Use Prompt Switchboard as a compare-first browser workspace with a local MCP sidecar, while preserving its no-hosted-relay and local-first boundaries.",
+            "description": "Install Prompt Switchboard's local MCP sidecar, connect it in a host, and run compare-first browser workflows with concrete demo prompts and config snippets.",
             "category": "productivity",
             "keywords": [
                 "browser",
@@ -355,7 +355,7 @@
         {
             "name": "provenote-mcp-outcome-workflows",
             "source": "./provenote-mcp-outcome-workflows",
-            "description": "Guide read-first Provenote MCP workflows for drafts, research threads, and auditable runs without overclaiming marketplace or hosted-product status.",
+            "description": "Install Provenote's first-party MCP server, connect it in a host, and run read-first draft, research-thread, and auditable-run workflows with self-contained references.",
             "category": "productivity",
             "keywords": [
                 "provenote",

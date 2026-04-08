@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "provenote": {
+      "command": "bash",
+      "args": [
+        "-lc",
+        "cd /absolute/path/to/provenote && uv run provenote-mcp"
+      ]
+    }
+  }
+}
