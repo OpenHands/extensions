@@ -471,6 +471,32 @@
                 "verification",
                 "sample"
             ]
+        },
+        {
+            "name": "dealwatch-readonly-builder",
+            "source": "./dealwatch-readonly-builder",
+            "description": "Safe-first DealWatch builder route for local-first compare, proof, and read-only MCP workflows.",
+            "category": "integration",
+            "keywords": [
+                "dealwatch",
+                "builder",
+                "mcp",
+                "compare",
+                "local-first"
+            ]
+        },
+        {
+            "name": "cortexpilot-adoption-router",
+            "source": "./cortexpilot-adoption-router",
+            "description": "Route CortexPilot users to the right read-only MCP, builder, and proof-first adoption lane without overclaiming hosted support.",
+            "category": "productivity",
+            "keywords": [
+                "cortexpilot",
+                "router",
+                "mcp",
+                "proof",
+                "adoption"
+            ]
         }
     ]
 }
