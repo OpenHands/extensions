@@ -379,6 +379,12 @@ curl -X POST "https://app.all-hands.dev/api/automation/v1/preset/prompt" \
 
 For services other than GitHub (Linear, Stripe, Slack, etc.), register a custom webhook first.
 
+> **Agent behavior:**
+> - **Always provide the curl request** to the user — do not attempt to register webhooks yourself.
+> - **Ask the user:** "Do you have a webhook signing secret from [service], or should the system generate one?"
+>   - If they have one → include `webhook_secret` in the request
+>   - If not → omit it; the response will contain a generated secret they must configure in their service
+
 ### Register a Custom Webhook
 
 ```bash
