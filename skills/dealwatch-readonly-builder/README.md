@@ -1,19 +1,25 @@
 # DealWatch Read-only Builder
 
-This public skill package turns the current DealWatch builder front door into a
-registry-friendly skill surface.
+Public OpenHands skill for connecting the published DealWatch MCP package and
+using its read-only tools safely.
 
-It is meant for host ecosystems that accept skill directories built around a
-`SKILL.md` contract plus a manifest.
+## What this skill teaches
 
-## What it does
+- how to install the published `dealwatch==1.0.1` MCP package
+- which DealWatch MCP tools are safe-first
+- how to move from runtime readiness into compare preview and then into deeper
+  detail reads
+- which claims stay out of bounds
 
-- routes builders to the safe first DealWatch entry path
-- keeps the workflow local-first and read-only
-- points back to the current builder starter pack and compare preview loop
+## Included files
 
-## What it does not claim
+- `SKILL.md` — the agent-facing prompt
+- `references/mcp-install.md` — exact OpenHands install snippet
+- `references/tool-map.md` — the stable DealWatch MCP tool map
+- `references/example-tasks.md` — concrete tasks this skill is meant to handle
+
+## Hard boundaries
 
 - no hosted DealWatch control plane
 - no write-side MCP surface
-- no official marketplace listing unless the registry itself confirms one
+- no first-party marketplace claim unless the host independently confirms it

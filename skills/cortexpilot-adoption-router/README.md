@@ -1,19 +1,25 @@
 # CortexPilot Adoption Router
 
-This public skill package exposes the current CortexPilot adoption router as a
-registry-friendly skill surface.
+Public OpenHands skill for connecting the published CortexPilot read-only MCP
+package and choosing the right public lane.
 
-It is designed for host ecosystems that want a single skill folder with a
-`SKILL.md` contract and semver-friendly manifest.
+## What this skill teaches
 
-## What it does
+- how to install the published `cortexpilot-orchestrator==0.1.0a4` MCP package
+- which read-only CortexPilot tools are safe-first
+- how to choose between run/workflow inspection, queue/approval reads, and
+  proof/incident reads
+- which claims stay out of bounds
 
-- routes operators to the right CortexPilot adoption lane
-- keeps read-only MCP vs starter vs builder boundaries honest
-- points back to the current public repo and Pages front door
+## Included files
 
-## What it does not claim
+- `SKILL.md` — the agent-facing prompt
+- `references/mcp-install.md` — exact OpenHands install snippet
+- `references/tool-map.md` — the stable CortexPilot MCP tool map
+- `references/example-tasks.md` — concrete tasks this skill is meant to handle
+
+## Hard boundaries
 
 - no hosted operator service
 - no write-capable public MCP
-- no live marketplace / registry listing unless independently confirmed
+- no first-party marketplace claim unless the host independently confirms it

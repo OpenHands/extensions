@@ -475,7 +475,7 @@
         {
             "name": "dealwatch-readonly-builder",
             "source": "./dealwatch-readonly-builder",
-            "description": "Safe-first DealWatch builder route for local-first compare, proof, and read-only MCP workflows.",
+            "description": "Teach the agent how to install and use the published DealWatch read-only MCP package for compare-first grocery workflows.",
             "category": "integration",
             "keywords": [
                 "dealwatch",
@@ -488,7 +488,7 @@
         {
             "name": "cortexpilot-adoption-router",
             "source": "./cortexpilot-adoption-router",
-            "description": "Route CortexPilot users to the right read-only MCP, builder, and proof-first adoption lane without overclaiming hosted support.",
+            "description": "Teach the agent how to install and use the published CortexPilot read-only MCP package and choose the right public lane.",
             "category": "productivity",
             "keywords": [
                 "cortexpilot",
