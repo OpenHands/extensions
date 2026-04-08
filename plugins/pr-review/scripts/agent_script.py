@@ -33,6 +33,8 @@ Environment Variables:
     PR_HEAD_BRANCH: Head branch name (required)
     REPO_NAME: Repository name in format owner/repo (required)
     REVIEW_STYLE: Review style ('standard' or 'roasted', default: 'standard')
+    REQUIRE_EVIDENCE: Whether to require PR description evidence showing the code
+        works ('true'/'false', default: 'false')
 
 For setup instructions, usage examples, and GitHub Actions integration,
 see README.md in this directory.
@@ -55,6 +57,7 @@ from openhands.sdk import LLM, Agent, AgentContext, Conversation, get_logger
 from openhands.sdk.context.skills import load_project_skills
 from openhands.sdk.conversation import get_agent_final_response
 from openhands.sdk.git.utils import run_git_command
+from openhands.sdk.plugin import PluginSource
 from openhands.tools.preset.default import get_default_condenser, get_default_tools
 
 # Add the script directory to Python path so we can import prompt.py
@@ -124,6 +127,7 @@ query($owner: String!, $repo: String!, $pr_number: Int!, $cursor: String) {
                             id
                             author { login }
                             body
+                            bodyText
                             createdAt
                         }
                     }
@@ -140,6 +144,13 @@ def _get_required_env(name: str) -> str:
     if not value:
         raise ValueError(f"{name} environment variable is required")
     return value
+
+
+def _get_bool_env(name: str, default: bool = False) -> bool:
+    value = os.getenv(name)
+    if value is None:
+        return default
+    return value.strip().lower() in {"1", "true", "yes", "on"}
 
 
 def _call_github_api(
@@ -492,6 +503,53 @@ def format_review_context(
     return "\n".join(sections)
 
 
+def _is_empty_suggestion_block(body: str) -> bool:
+    """Return True when a suggestion fence contains no visible replacement text."""
+    lines = body.splitlines()
+    return (
+        len(lines) >= 2
+        and lines[0].strip() == "```suggestion"
+        and lines[-1].strip() == "```"
+        and all(not line.strip() for line in lines[1:-1])
+    )
+
+
+def _normalize_review_comment_text(text: str) -> str:
+    """Normalize GitHub review comment text for prompt readability."""
+    normalized_lines = [line.rstrip() for line in text.splitlines()]
+    cleaned_lines: list[str] = []
+    previous_blank = False
+
+    for line in normalized_lines:
+        is_blank = not line.strip()
+        if is_blank:
+            if previous_blank:
+                continue
+            cleaned_lines.append("")
+        else:
+            cleaned_lines.append(line)
+        previous_blank = is_blank
+
+    return "\n".join(cleaned_lines).strip()
+
+
+def _get_review_comment_body(comment: dict[str, Any]) -> str:
+    """Get the best available comment text for review context.
+
+    GitHub stores deletion-only suggestions as an empty ```suggestion``` block in
+    `body`, but exposes the rendered suggestion content in `bodyText`/`bodyHTML`.
+    Prefer the original markdown when it contains real text, and fall back to the
+    normalized plain-text rendering when the raw body would look empty to the agent.
+    """
+    body = _normalize_review_comment_text(comment.get("body") or "")
+    body_text = _normalize_review_comment_text(comment.get("bodyText") or "")
+
+    if not body or _is_empty_suggestion_block(body):
+        return body_text or body
+
+    return body
+
+
 def _format_thread(thread: dict[str, Any]) -> list[str]:
     """Format a single review thread.
 
@@ -524,7 +582,7 @@ def _format_thread(thread: dict[str, Any]) -> list[str]:
     for comment in comments:
         author_data = comment.get("author") or {}
         author = author_data.get("login", "unknown")
-        body = (comment.get("body") or "").strip()
+        body = _get_review_comment_body(comment)
 
         if body:
             # Truncate individual comments if too long
@@ -644,7 +702,7 @@ def get_head_commit_sha(repo_dir: Path | None = None) -> str:
     return run_git_command(["git", "rev-parse", "HEAD"], repo_dir).strip()
 
 
-def validate_environment() -> dict[str, str]:
+def validate_environment() -> dict[str, Any]:
     """Validate required environment variables and return config.
 
     Returns:
@@ -678,6 +736,7 @@ def validate_environment() -> dict[str, str]:
         "model": os.getenv("LLM_MODEL", "anthropic/claude-sonnet-4-5-20250929"),
         "base_url": os.getenv("LLM_BASE_URL"),
         "review_style": review_style,
+        "require_evidence": _get_bool_env("REQUIRE_EVIDENCE"),
         "pr_info": {
             "number": os.getenv("PR_NUMBER"),
             "title": os.getenv("PR_TITLE"),
@@ -713,16 +772,24 @@ def fetch_pr_context(pr_number: str) -> tuple[str, str, str]:
     return pr_diff, commit_id, review_context
 
 
-def create_agent(config: dict[str, Any]) -> Agent:
-    """Create and configure the review agent.
+def create_conversation(
+    config: dict[str, Any],
+    secrets: dict[str, str],
+) -> Conversation:
+    """Create the review conversation with the plugin loaded.
+
+    The pr-review plugin is passed to Conversation via PluginSource, which
+    handles wiring skills, MCP config, and hooks automatically.
+    Project-specific skills from the workspace are loaded separately.
 
     Args:
         config: Configuration dictionary from validate_environment()
+        secrets: Secrets to mask in output
 
     Returns:
-        Configured Agent instance
+        Configured Conversation instance
     """
-    llm_config = {
+    llm_config: dict[str, Any] = {
         "model": config["model"],
         "api_key": config["api_key"],
         "usage_id": "pr_review_agent",
@@ -733,6 +800,7 @@ def create_agent(config: dict[str, Any]) -> Agent:
 
     llm = LLM(**llm_config)
 
+    # Load project-specific skills from the workspace
     cwd = os.getcwd()
     project_skills = load_project_skills(cwd)
     logger.info(
@@ -745,7 +813,7 @@ def create_agent(config: dict[str, Any]) -> Agent:
         skills=project_skills,
     )
 
-    return Agent(
+    agent = Agent(
         llm=llm,
         tools=get_default_tools(enable_browser=False),
         agent_context=agent_context,
@@ -755,29 +823,29 @@ def create_agent(config: dict[str, Any]) -> Agent:
         ),
     )
 
+    # The plugin directory is the parent of the scripts/ directory
+    plugin_dir = script_dir.parent  # plugins/pr-review/
+    return Conversation(
+        agent=agent,
+        workspace=cwd,
+        secrets=secrets,
+        plugins=[PluginSource(source=str(plugin_dir))],
+    )
+
 
 def run_review(
-    agent: Agent,
+    conversation: Conversation,
     prompt: str,
-    secrets: dict[str, str],
 ) -> Conversation:
     """Execute the PR review.
 
     Args:
-        agent: Configured Agent instance
+        conversation: Configured Conversation instance
         prompt: Review prompt
-        secrets: Secrets to mask in output
 
     Returns:
         Completed Conversation
     """
-    cwd = os.getcwd()
-    conversation = Conversation(
-        agent=agent,
-        workspace=cwd,
-        secrets=secrets,
-    )
-
     logger.info("Starting PR review analysis...")
     logger.info("Agent will post inline review comments directly via GitHub API")
 
@@ -874,9 +942,11 @@ def main():
     config = validate_environment()
     pr_info = config["pr_info"]
     review_style = config["review_style"]
+    require_evidence = config["require_evidence"]
 
     logger.info(f"Reviewing PR #{pr_info['number']}: {pr_info['title']}")
     logger.info(f"Review style: {review_style}")
+    logger.info(f"Require PR evidence: {require_evidence}")
 
     try:
         pr_diff, commit_id, review_context = fetch_pr_context(pr_info["number"])
@@ -897,9 +967,8 @@ def main():
             commit_id=commit_id,
             diff=pr_diff,
             review_context=review_context,
+            require_evidence=require_evidence,
         )
-
-        agent = create_agent(config)
 
         secrets = {}
         if config["api_key"]:
@@ -907,7 +976,8 @@ def main():
         if config["github_token"]:
             secrets["GITHUB_TOKEN"] = config["github_token"]
 
-        conversation = run_review(agent, prompt, secrets)
+        conversation = create_conversation(config, secrets)
+        conversation = run_review(conversation, prompt)
 
         log_cost_summary(conversation)
         save_trace_context(pr_info, commit_id, review_style, config["model"])

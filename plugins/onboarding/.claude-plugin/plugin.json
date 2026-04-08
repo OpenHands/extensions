@@ -1,0 +1,20 @@
+{
+  "name": "onboarding",
+  "version": "1.0.0",
+  "description": "Assess repository agent-readiness across five pillars, propose high-impact fixes, and generate repo-specific AGENTS.md files",
+  "author": {
+    "name": "OpenHands",
+    "email": "contact@all-hands.dev"
+  },
+  "homepage": "https://github.com/OpenHands/extensions",
+  "repository": "https://github.com/OpenHands/extensions",
+  "license": "MIT",
+  "keywords": [
+    "onboarding",
+    "readiness",
+    "agents-md",
+    "agent-readiness",
+    "assessment",
+    "ai-readiness"
+  ]
+}

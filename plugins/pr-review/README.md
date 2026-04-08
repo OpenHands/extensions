@@ -25,6 +25,7 @@ Then configure the required secrets (see [Installation](#installation) below).
   - `roasted` - Linus Torvalds-style brutally honest feedback focusing on data structures, simplicity, and pragmatism
 - **A/B Testing**: Support for testing multiple LLM models
 - **Review Context Awareness**: Considers previous reviews and unresolved threads
+- **Evidence Enforcement**: Optional check that PR descriptions include concrete end-to-end proof the code works, not just test output
 - **Observability**: Optional Laminar integration for tracing and evaluation
 
 ## Plugin Contents
@@ -87,6 +88,9 @@ Edit the workflow file to customize:
     
     # Review style: 'standard' or 'roasted'
     review-style: roasted
+
+    # Optional: require an Evidence section proving the code works end-to-end
+    # require-evidence: 'true'
     
     # Pin to a specific version (tag, branch, or commit SHA)
     extensions-version: main
@@ -115,21 +119,21 @@ Create a `review-this` label for manual review triggers:
 
 PR reviews are automatically triggered when:
 
-1. A new non-draft PR is opened by a collaborator (same repository branches)
-2. A draft PR is marked as ready for review by a collaborator
-3. The `review-this` label is added by a user with **write (or higher)** permission
-4. `openhands-agent` is requested as a reviewer by a user with **write** permission
+1. A new non-draft PR is opened from a branch in the same repository
+2. A draft PR from the same repository is marked as ready for review
+3. The `review-this` label is added to a same-repository PR
+4. `openhands-agent` or `all-hands-bot` is requested as a reviewer on a same-repository PR
 
 ### Requesting a Review
 
-Only users with **write (or higher)** permission can trigger a review.
+Only users with the repository permissions GitHub requires for labeling PRs or requesting reviewers can trigger a manual review.
 
-In this workflow, the **triggering user** is `github.actor`: the account that performed the action that started the run (e.g. the person who added the `review-this` label or requested the reviewer) — not necessarily the PR author.
+In this workflow, the **triggering user** is `github.actor`: the account that performed the action that started the run (for example, the person who added the `review-this` label or requested the reviewer) — not necessarily the PR author.
 
 **Option 1: Request as Reviewer**
 1. Open the PR
 2. Click **Reviewers** in the sidebar
-3. Select `openhands-agent` as a reviewer
+3. Select `openhands-agent` or `all-hands-bot` as a reviewer
 
 **Option 2: Add Label**
 1. Open the PR
@@ -142,6 +146,7 @@ In this workflow, the **triggering user** is `github.actor`: the account that pe
 | `llm-model` | No | `anthropic/claude-sonnet-4-5-20250929` | LLM model(s), comma-separated for A/B testing |
 | `llm-base-url` | No | `''` | Custom LLM endpoint URL |
 | `review-style` | No | `roasted` | Review style: `standard` or `roasted` |
+| `require-evidence` | No | `'false'` | Require the reviewer to enforce an `Evidence` section in the PR description with end-to-end proof: screenshots/videos for frontend work, commands and runtime output for backend or scripts, and an agent conversation link when applicable. Test output alone does not qualify. |
 | `extensions-repo` | No | `OpenHands/extensions` | Extensions repository |
 | `extensions-version` | No | `main` | Git ref (tag, branch, or SHA) |
 | `llm-api-key` | Yes | - | LLM API key |
@@ -195,11 +200,11 @@ Instead of forking the scripts, add custom guidelines to your repository:
 
 ### Option 1: Custom Code Review Skill
 
-Create `.agents/skills/code-review.md`:
+Create `.agents/skills/custom-codereview-guide.md`:
 
 ```markdown
 ---
-name: code-review
+name: custom-codereview-guide
 description: Custom code review guidelines for my project
 triggers:
 - /codereview
@@ -218,6 +223,9 @@ You are a code reviewer for this project. Follow these guidelines:
 - Be direct and constructive
 - Use GitHub suggestion syntax for code fixes
 ```
+
+Use a unique skill name (for example `custom-codereview-guide`) to **supplement** the default public `code-review` skill,
+rather than overriding it. Keep `/codereview` as the trigger if you want this guidance applied in PR review runs.
 
 ### Option 2: Repository AGENTS.md
 
@@ -255,7 +263,7 @@ Also update any `sdk-repo` and `sdk-version` inputs to `extensions-repo` and `ex
 ### Review Not Triggered
 
 1. Check that the workflow file is in `.github/workflows/`
-2. Verify the PR author association (automatic runs only for collaborators; otherwise a maintainer must trigger via label/reviewer request)
+2. Verify that the PR comes from a branch in the same repository; fork PRs are skipped in this `pull_request` configuration
 3. Ensure secrets are configured correctly
 
 ### Review Comments Not Appearing
@@ -272,10 +280,12 @@ If you see rate limit errors:
 
 ## Security
 
-- Uses `pull_request_target` to safely access secrets for fork PRs
-- Automatic reviews only run for collaborators; manual triggers require **write (or higher)** permission
-- PR code is checked out explicitly; secrets are not exposed to PR code
-- Credentials are not persisted during checkout
+- This example uses `pull_request` to reduce privilege by default while the trigger path is hardened.
+- If you need secrets for fork PR reviews later, use `pull_request_target` only with strict maintainer-controlled triggers and checkout safeguards.
+- Automatic reviews only run for same-repository PRs; fork PRs are skipped to avoid secret-backed execution from untrusted code.
+- Keeps GitHub Actions caching disabled in privileged review workflows to avoid cache-poisoning pivots from prompt injection.
+- PR code is checked out explicitly; secrets are not exposed to PR code.
+- Credentials are not persisted during checkout.
 
 ## Contributing
 

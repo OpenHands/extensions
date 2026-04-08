@@ -1,73 +1,72 @@
-import json
-from types import SimpleNamespace
+import importlib.util
+import sys
+from pathlib import Path
 
-import pytest
+
+def _load_openhands_api_module():
+    skill_path = Path(__file__).parent.parent / "skills" / "openhands-api" / "scripts" / "openhands_api.py"
+    spec = importlib.util.spec_from_file_location("openhands_api", skill_path)
+    mod = importlib.util.module_from_spec(spec)
+    sys.modules["openhands_api"] = mod
+    spec.loader.exec_module(mod)
+    return mod
 
 
-def test_create_conversation_builds_payload(monkeypatch):
-    from skills.openhands_api.scripts.openhands_api import OpenHandsAPI
+def test_app_conversation_start_builds_v1_payload(monkeypatch):
+    mod = _load_openhands_api_module()
+    OpenHandsAPI = mod.OpenHandsAPI
 
     captured = {}
 
     class FakeResp:
-        def __init__(self, payload):
-            self._payload = payload
-            self.ok = True
-            self.status_code = 200
-
         def raise_for_status(self):
             return None
 
         def json(self):
-            return {"conversation_id": "abc", "status": "ok"}
+            return {"id": "task-1", "status": "WORKING"}
 
-    class FakeSession:
-        def __init__(self):
-            self.headers = {}
+    class FakeClient:
+        def __init__(self, **kwargs):
+            self.kwargs = kwargs
 
-        def post(self, url, json=None):
+        def post(self, url, json=None, timeout=None):
             captured["url"] = url
             captured["json"] = json
-            return FakeResp(json)
+            captured["timeout"] = timeout
+            return FakeResp()
 
-        def get(self, url, params=None):
-            raise AssertionError("unexpected")
+        def close(self):
+            return None
 
-        def patch(self, url, json=None):
-            raise AssertionError("unexpected")
-
-        def delete(self, url, params=None):
-            raise AssertionError("unexpected")
-
-        def __getattr__(self, name):
-            if name == "headers":
-                return self.headers
-            raise AttributeError(name)
-
-    # Patch requests.Session to our fake
-    import skills.openhands_api.scripts.openhands_api as mod
-
-    monkeypatch.setattr(mod.requests, "Session", lambda: FakeSession())
+    monkeypatch.setattr(mod.httpx, "Client", lambda **kwargs: FakeClient(**kwargs))
 
     api = OpenHandsAPI(api_key="k", base_url="https://example.com/")
-    api.create_conversation(
-        initial_user_msg="hi",
-        repository="o/r",
+    resp = api.app_conversation_start(
+        initial_message="hi",
+        selected_repository="o/r",
         selected_branch="main",
-        git_provider="github",
+        title="Test title",
+        run=False,
     )
 
-    assert captured["url"] == "https://example.com/api/conversations"
+    assert resp == {"id": "task-1", "status": "WORKING"}
+    assert captured["url"] == "https://example.com/api/v1/app-conversations"
+    assert captured["timeout"] == 120
     assert captured["json"] == {
-        "initial_user_msg": "hi",
-        "repository": "o/r",
+        "initial_message": {
+            "role": "user",
+            "content": [{"type": "text", "text": "hi"}],
+            "run": False,
+        },
+        "selected_repository": "o/r",
         "selected_branch": "main",
-        "git_provider": "github",
+        "title": "Test title",
     }
 
 
-def test_get_events_clamps_limit_and_params(monkeypatch):
-    from skills.openhands_api.scripts.openhands_api import OpenHandsAPI
+def test_app_conversations_get_batch_passes_ids(monkeypatch):
+    mod = _load_openhands_api_module()
+    OpenHandsAPI = mod.OpenHandsAPI
 
     captured = {}
 
@@ -76,70 +75,78 @@ def test_get_events_clamps_limit_and_params(monkeypatch):
             return None
 
         def json(self):
-            return {"events": [], "has_more": False}
+            return [{"id": "conv-1"}]
 
-    class FakeSession:
-        def __init__(self):
-            self.headers = {}
+    class FakeClient:
+        def __init__(self, **kwargs):
+            self.kwargs = kwargs
 
         def get(self, url, params=None):
             captured["url"] = url
             captured["params"] = params
             return FakeResp()
 
-        def post(self, url, json=None):
-            raise AssertionError("unexpected")
-
-        def patch(self, url, json=None):
-            raise AssertionError("unexpected")
-
-        def delete(self, url, params=None):
-            raise AssertionError("unexpected")
-
-    import skills.openhands_api.scripts.openhands_api as mod
-
-    monkeypatch.setattr(mod.requests, "Session", lambda: FakeSession())
-
-    api = OpenHandsAPI(api_key="k", base_url="https://example.com")
-    api.get_events("cid", limit=1000, reverse=True, start_id=5, end_id=6)
-
-
-def test_update_conversation_title_calls_patch(monkeypatch):
-    from skills.openhands_api.scripts.openhands_api import OpenHandsAPI
-
-    captured = {}
-
-    class FakeResp:
-        def raise_for_status(self):
+        def close(self):
             return None
 
-        def json(self):
-            return {"status": "ok"}
-
-    class FakeSession:
-        def __init__(self):
-            self.headers = {}
-
-        def patch(self, url, json=None):
-            captured["url"] = url
-            captured["json"] = json
-            return FakeResp()
-
-        def post(self, url, json=None):
-            raise AssertionError("unexpected")
-
-        def get(self, url, params=None):
-            raise AssertionError("unexpected")
-
-        def delete(self, url, params=None):
-            raise AssertionError("unexpected")
-
-    import skills.openhands_api.scripts.openhands_api as mod
-
-    monkeypatch.setattr(mod.requests, "Session", lambda: FakeSession())
+    monkeypatch.setattr(mod.httpx, "Client", lambda **kwargs: FakeClient(**kwargs))
 
     api = OpenHandsAPI(api_key="k", base_url="https://example.com")
-    api.update_conversation_title("cid", "New Title")
+    conversations = api.app_conversations_get_batch(ids=["conv-1", "conv-2"])
 
-    assert captured["url"] == "https://example.com/api/conversations/cid"
-    assert captured["json"] == {"title": "New Title"}
+    assert conversations == [{"id": "conv-1"}]
+    assert captured["url"] == "https://example.com/api/v1/app-conversations"
+    assert captured["params"] == {"ids": ["conv-1", "conv-2"]}
+
+
+def test_poll_start_task_until_ready_uses_start_task_endpoint(monkeypatch):
+    mod = _load_openhands_api_module()
+    OpenHandsAPI = mod.OpenHandsAPI
+
+    states = [
+        {"id": "task-1", "status": "WORKING"},
+        {"id": "task-1", "status": "READY", "app_conversation_id": "conv-1"},
+    ]
+    call_count = {"sleep": 0}
+
+    class FakeClient:
+        def __init__(self, **kwargs):
+            self.kwargs = kwargs
+
+        def get(self, url, params=None):
+            class FakeResp:
+                def raise_for_status(self_nonlocal):
+                    return None
+
+                def json(self_nonlocal):
+                    return [states.pop(0)]
+
+            return FakeResp()
+
+        def close(self):
+            return None
+
+    monkeypatch.setattr(mod.httpx, "Client", lambda **kwargs: FakeClient(**kwargs))
+    monkeypatch.setattr(mod.time, "sleep", lambda *_args, **_kwargs: call_count.__setitem__("sleep", call_count["sleep"] + 1))
+
+    api = OpenHandsAPI(api_key="k", base_url="https://example.com")
+    ready = api.poll_start_task_until_ready("task-1", timeout_s=10, poll_interval_s=0.01, backoff_factor=1.0)
+
+    assert ready == {"id": "task-1", "status": "READY", "app_conversation_id": "conv-1"}
+    assert call_count["sleep"] == 1
+
+
+def test_legacy_alias_still_exists(monkeypatch):
+    mod = _load_openhands_api_module()
+
+    class FakeClient:
+        def __init__(self, **kwargs):
+            self.kwargs = kwargs
+
+        def close(self):
+            return None
+
+    monkeypatch.setattr(mod.httpx, "Client", lambda **kwargs: FakeClient(**kwargs))
+
+    api = mod.OpenHandsV1API(api_key="k")
+    assert isinstance(api, mod.OpenHandsAPI)
