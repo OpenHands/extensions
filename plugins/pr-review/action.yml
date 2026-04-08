@@ -71,10 +71,13 @@ runs:
           with:
               python-version: '3.12'
 
+        # Security: keep GitHub Actions caching disabled in this workflow.
+        # Prompt injection can coerce the reviewer into running commands, and
+        # shared caches can become a pivot into more privileged workflows.
         - name: Install uv
           uses: astral-sh/setup-uv@v6
           with:
-              enable-cache: true
+              enable-cache: false
 
         - name: Install GitHub CLI
           shell: bash

@@ -277,6 +277,7 @@ If you see rate limit errors:
 ## Security
 
 - Uses `pull_request_target` when you need secrets for fork PR reviews; apply strict maintainer-controlled triggers and checkout safeguards
+- Keeps GitHub Actions caching disabled in privileged review workflows to avoid cache-poisoning pivots from prompt injection
 - For lower-trust or comment-only smoke-test setups, prefer `pull_request` to reduce privilege by default
 - Only triggers for trusted contributors or when maintainers add labels/reviewers
 - PR code is checked out explicitly; secrets are not exposed to PR code
