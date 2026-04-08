@@ -3,15 +3,33 @@
 OpenHands skill for the Apple Notes Snapshot local-first backup control room on
 macOS.
 
+## What this skill teaches an agent
+
+- how to prove the operator lane before touching builder surfaces
+- how to wire `notesctl mcp` into a local host
+- how to separate AI Diagnose, Local Web API, and MCP into honest lanes
+- how to talk about attach proof without overstating what is universal
+
+## First-success path
+
+1. Read `SKILL.md`
+2. Open `references/install-and-attach.md`
+3. Run the proof path from `references/usage-and-proof.md`
+4. Only then attach the MCP lane or explain host-specific boundaries
+
+## Demo / proof links
+
+- Landing: https://xiaojiou176-open.github.io/apple-notes-snapshot/
+- Quickstart: https://xiaojiou176-open.github.io/apple-notes-snapshot/quickstart/
+- Proof page: https://xiaojiou176-open.github.io/apple-notes-snapshot/proof/
+- MCP guide: https://xiaojiou176-open.github.io/apple-notes-snapshot/mcp/
+- For Agents: https://xiaojiou176-open.github.io/apple-notes-snapshot/for-agents/
+
 ## Best fit
 
 - operators who want a calmer Apple Notes backup loop on their own Mac
 - repo-scoped guidance for hosts that consume a stdio-first MCP server
 - public skill-folder distribution lanes that need an honest control-room story
-
-## Source repository
-
-- https://github.com/xiaojiou176-open/apple-notes-snapshot
 
 ## What this skill does not claim
 
