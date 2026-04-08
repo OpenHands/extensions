@@ -1,6 +1,6 @@
 # Code Review
 
-Structured code review covering style, readability, and security concerns with actionable feedback. Use when reviewing pull requests or merge requests to identify issues and suggest improvements.
+Structured code review covering style, readability, security, and risk/safety evaluation with actionable feedback. Use when reviewing pull requests or merge requests to identify issues, suggest improvements, and assess change risk level.
 
 ## Triggers
 
@@ -54,6 +54,9 @@ When reviewing tests, prioritize tests that validate real behavior over tests th
 - Flag tests that only mock the unit under test and assert it was called, unless they cover a real coverage gap that cannot be achieved otherwise.
 - Ensure tests fail for the right reasons (i.e., would catch a regression), and are not tautologies.
 
+5. Risk and Safety Evaluation
+See [`references/risk-evaluation.md`](references/risk-evaluation.md) for the full risk evaluation framework. This component is shared with the `codereview-roasted` skill — both skills use the same risk classification (🟢 Low / 🟡 Medium / 🔴 High), risk factors, escalation guidance, and repo-specific risk rules.
+
 INSTRUCTIONS FOR RESPONSE:
 Group the feedback by the scenarios above.
 
@@ -62,11 +65,22 @@ Then, for each issue you find:
 - Briefly explain why it's an issue
 - Suggest a concrete improvement
 
-Use the following structure in your output:
+Always include the Risk and Safety Evaluation as the final section of your review, even when no other issues are found. Use this format:
+
+```
+[Overall PR] ⚠️ Risk Assessment: 🟢 LOW / 🟡 MEDIUM / 🔴 HIGH
+Brief explanation of the risk classification and key factors considered.
+If HIGH: **Recommendation**: Do not auto-merge. Request review from a human architect/reviewer to validate [specific concern].
+```
+
+Use the following structure for other findings:
 [src/utils.py, Line 42] :hammer_and_wrench: Unused import: The 'os' module is imported but never used. Remove it to clean up the code.
 [src/database.py, Lines 78–85] :mag: Readability: This nested if-else block is hard to follow. Consider refactoring into smaller functions or using early returns.
 [src/auth.py, Line 102] :closed_lock_with_key: Security Risk: User input is directly concatenated into an SQL query. This could allow SQL injection. Use parameterized queries instead.
 [tests/test_auth.py, Lines 12–45] :test_tube: Testing: This PR adds new behavior but the tests only assert mocked calls. Add a test that exercises the real code path and asserts on outputs/state so it would catch regressions.
+[Overall PR] ⚠️ Risk Assessment: 🔴 HIGH
+This PR introduces a new message queue (RabbitMQ) dependency and changes the event processing architecture from synchronous to asynchronous. This is a significant architectural change that adds a new infrastructure dependency affecting deployment and operations, changes the data flow pattern, and could impact system reliability if not properly configured.
+**Recommendation**: Do not auto-merge. Request review from a human architect to validate the architectural decision and operational readiness.
 
 
 REMEMBER, DO NOT MODIFY THE CODE. ONLY PROVIDE FEEDBACK IN YOUR RESPONSE.
