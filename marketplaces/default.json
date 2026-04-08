@@ -11,6 +11,17 @@
     },
     "plugins": [
         {
+            "name": "test-marker-372",
+            "source": "./test-marker-372",
+            "description": "[TEST-BRANCH-372-MARKER] Test marker to verify extensions branch selection is working",
+            "category": "testing",
+            "keywords": [
+                "test",
+                "marker",
+                "branch"
+            ]
+        },
+        {
             "name": "add-skill",
             "source": "./add-skill",
             "description": "Add (import) an OpenHands skill from a GitHub repository into the current workspace.",
