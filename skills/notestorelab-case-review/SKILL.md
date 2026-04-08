@@ -22,6 +22,15 @@ Lab review flow on one explicit case root or the public-safe demo surface.
 - how to inspect one case root at a time using derived artifacts first
 - how to ask bounded, evidence-backed questions instead of free-form guessing
 
+## MCP capability surface
+
+- read-only review surfaces: `list_case_roots`, `inspect_case_manifest`,
+  `select_case_evidence`, `inspect_case_artifact`, and `ask_case`
+- bounded workflows: `run_verify`, `run_report`, `build_timeline`, and
+  `public_safe_export`
+- one explicit case root at a time, local stdio only, with no live Notes store
+  access
+
 ## Product truth
 
 - Recovery is the main product.
@@ -29,7 +38,7 @@ Lab review flow on one explicit case root or the public-safe demo surface.
 - Stay local, copy-first, and case-root-driven.
 - Prefer derived artifacts before raw copied evidence.
 - Do not treat the live Notes store as a target.
-- Do not describe this repo as a hosted or multi-tenant platform.
+- Do not describe NoteStore Lab as a hosted or multi-tenant platform.
 
 ## First-success flow
 

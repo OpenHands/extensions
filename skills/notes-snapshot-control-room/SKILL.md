@@ -1,7 +1,7 @@
 ---
 name: notes-snapshot-control-room
 description: This skill should be used when the user asks to "connect Apple Notes Snapshot to a host", "run notesctl mcp", "diagnose why Apple Notes Snapshot failed to attach", "separate AI Diagnose from MCP", or "verify the control-room proof path". It teaches local preflight, MCP wiring, capability boundaries, and proof-first usage without turning the repo into a hosted platform.
-version: 1.0.1
+version: 1.0.2
 triggers:
   - notesctl mcp
   - apple notes snapshot
@@ -19,6 +19,8 @@ rewriting it into a hosted AI platform or a generic assistant product.
 
 ## What this skill teaches
 
+- how to acquire `notesctl` from a public checkout when the host does not
+  already have it
 - how to prove the local control room before touching builder surfaces
 - how to wire `notesctl mcp` into a host without pretending there is a remote
   service
@@ -36,16 +38,27 @@ rewriting it into a hosted AI platform or a generic assistant product.
 
 ## First-success flow
 
-1. Prove the operator lane first:
+1. Acquire `notesctl` first using `references/install-and-attach.md`.
+2. Prove the operator lane first:
    - `./notesctl run --no-status`
    - `./notesctl install --minutes 30 --load`
    - `./notesctl verify`
    - `./notesctl doctor`
-2. Only after local state exists, attach the builder lane:
+3. Only after local state exists, attach the builder lane:
    - `./notesctl ai-diagnose`
    - `./notesctl web`
    - `./notesctl mcp`
-3. Keep host proof separate from repo proof.
+4. Keep host proof separate from repo proof.
+
+## MCP capability surface
+
+- post-attach host checks should see `get_status`, `run_doctor`,
+  `verify_freshness`, `get_log_health`, `list_recent_runs`, and
+  `get_access_policy`
+- the repo also documents the `notes-snapshot://recent-runs` resource as a
+  first read-back surface
+- boundary:
+  local stdio only, read-only-first tools/resources, and no hosted runtime
 
 ## Preflight before any attach claim
 

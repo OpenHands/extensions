@@ -279,7 +279,7 @@
         {
             "name": "notes-snapshot-control-room",
             "source": "./notes-snapshot-control-room",
-            "description": "Teach agents how to prove Apple Notes Snapshot's local control room, wire the `notesctl mcp` lane, separate AI Diagnose / Local Web API / MCP, and keep attach claims truthful.",
+            "description": "Teach agents how to acquire `notesctl`, prove Apple Notes Snapshot's local control room, wire the `notesctl mcp` lane, confirm the post-attach tools/resources, separate AI Diagnose / Local Web API / MCP, and keep attach claims truthful.",
             "category": "productivity",
             "keywords": [
                 "apple-notes",
@@ -293,7 +293,7 @@
         {
             "name": "notestorelab-case-review",
             "source": "./notestorelab-case-review",
-            "description": "Teach agents how to install NoteStore Lab's local MCP lane, prove the public-safe workflow on demo artifacts, and review one Apple Notes case root with bounded evidence-backed prompts.",
+            "description": "Teach agents how to install NoteStore Lab's local MCP lane, prove the public-safe workflow on demo artifacts, understand the exact case-review resources/tools, and review one Apple Notes case root with bounded evidence-backed prompts.",
             "category": "productivity",
             "keywords": [
                 "apple-notes",
