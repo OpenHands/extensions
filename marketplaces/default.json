@@ -460,6 +460,19 @@
             ]
         },
         {
+            "name": "campus-copilot-current-view-triage",
+            "source": "./campus-copilot-current-view-triage",
+            "description": "Turn a Campus Copilot snapshot or current-view export into one plain-language what-to-do-first answer for a student.",
+            "category": "productivity",
+            "keywords": [
+                "campus-copilot",
+                "student",
+                "triage",
+                "snapshot",
+                "read-only"
+            ]
+        },
+        {
             "name": "magic-test",
             "source": "./plugins/magic-test",
             "description": "A simple test plugin for verifying plugin loading. Triggers on magic words (alakazam, abracadabra) and returns a specific phrase to confirm plugins are working.",
@@ -470,6 +483,19 @@
                 "plugin",
                 "verification",
                 "sample"
+            ]
+        },
+        {
+            "name": "sourceharbor-watchlist-briefing",
+            "source": "./sourceharbor-watchlist-briefing",
+            "description": "Use SourceHarbor watchlists and briefing payloads to answer one operator question with evidence and a concrete next action.",
+            "category": "productivity",
+            "keywords": [
+                "sourceharbor",
+                "watchlist",
+                "briefing",
+                "mcp",
+                "operator"
             ]
         }
     ]
