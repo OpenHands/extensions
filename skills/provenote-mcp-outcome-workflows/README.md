@@ -9,6 +9,12 @@ This skill ports the public host-facing workflow packet from
 - first-party MCP usage through `provenote-mcp`
 - read-first validation before write-oriented automation
 
+## What this skill teaches
+
+- how to inspect Provenote drafts, research threads, and auditable runs first
+- how to keep write actions narrow and outcome-linked
+- how to treat `provenote-mcp` as the main execution surface
+
 ## Source repository
 
 - Repo: https://github.com/xiaojiou176-open/provenote

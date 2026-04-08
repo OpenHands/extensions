@@ -6,37 +6,36 @@ version: 1.0.0
 
 # Prompt Switchboard Compare Workflows
 
-## Purpose
+Teach the agent how to use Prompt Switchboard as a local browser workspace for
+side-by-side AI comparison.
 
-Help an OpenHands user consume Prompt Switchboard as a compare-first browser
-workspace instead of misframing it as a hosted AI platform.
+## Use this skill when
 
-## Keep this identity first
+- the user wants to compare the same prompt across multiple already-open AI chat tabs
+- the user wants a browser-native compare workspace instead of a hosted API service
+- the user wants one read-first MCP check before larger browser automation
 
-- browser-native compare workspace first
-- local MCP sidecar for builder lanes second
-- no hosted relay
-- no public HTTP API
-- no "already listed everywhere" claim
+## What the agent should know
 
-## Preferred flow
+- Prompt Switchboard is a compare-first browser extension workspace
+- the MCP sidecar is local and supports readiness, compare, and workflow helper tools
+- the first success path is to run one real compare and inspect the result locally
 
-1. `prompt_switchboard.bridge_status`
-2. `prompt_switchboard.check_readiness`
-3. `prompt_switchboard.compare`
-4. `prompt_switchboard.analyze_compare`
-5. `prompt_switchboard.run_workflow`
+## Recommended workflow
 
-## Proof path
+1. Confirm the bridge is healthy with `prompt_switchboard.bridge_status`
+2. Check the current browser/session state with `prompt_switchboard.check_readiness`
+3. Run one comparison with `prompt_switchboard.compare`
+4. Summarize the differences with `prompt_switchboard.analyze_compare`
+5. Only then move to `prompt_switchboard.run_workflow` for broader orchestration
 
-1. Install the latest release zip
-2. Run one real compare from the side panel
-3. Verify the MCP sidecar can read readiness and compare state
-4. Keep the first success path local and inspectable
+## Good first tasks
 
-## Truth language
+- compare one prompt across two or more models
+- verify which model tabs are ready before asking for automation
+- collect one inspectable compare artifact before proposing larger workflow changes
 
-- Good: "repo-owned public skill packet"
-- Good: "compare-first local MCP workflow skill"
-- Forbidden: "officially listed skill" without fresh host-side read-back
-- Forbidden: "hosted Prompt Switchboard platform"
+## Boundaries
+
+- treat Prompt Switchboard as a local browser workflow, not a hosted platform
+- keep claims grounded in the repo-owned MCP and extension surfaces
