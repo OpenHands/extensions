@@ -277,6 +277,32 @@
             ]
         },
         {
+            "name": "notes-snapshot-control-room",
+            "source": "./notes-snapshot-control-room",
+            "description": "Apple Notes local-first backup control-room guidance for macOS, including local preflight, truthful attach boundaries, and stdio-first MCP positioning.",
+            "category": "productivity",
+            "keywords": [
+                "apple-notes",
+                "backup",
+                "macos",
+                "mcp",
+                "local-first"
+            ]
+        },
+        {
+            "name": "notestorelab-case-review",
+            "source": "./notestorelab-case-review",
+            "description": "Copy-first Apple Notes case review guidance for NoteStore Lab, including bounded case-root review, derived-artifact-first triage, and local stdio MCP usage.",
+            "category": "productivity",
+            "keywords": [
+                "apple-notes",
+                "forensics",
+                "incident-response",
+                "mcp",
+                "local-first"
+            ]
+        },
+        {
             "name": "npm",
             "source": "./npm",
             "description": "Handle npm package installation in non-interactive environments by piping confirmations. Use when installing Node.js packages that require user confirmation prompts.",
