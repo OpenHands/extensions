@@ -87,6 +87,10 @@ def _load_agent_script_module():
     git_utils.run_git_command = lambda command, repo_dir: "deadbeef"
     sys.modules["openhands.sdk.git.utils"] = git_utils
 
+    plugin_module = types.ModuleType("openhands.sdk.plugin")
+    plugin_module.PluginSource = object
+    sys.modules["openhands.sdk.plugin"] = plugin_module
+
     tools_preset = types.ModuleType("openhands.tools.preset.default")
     tools_preset.get_default_condenser = lambda llm: None
     tools_preset.get_default_tools = lambda enable_browser=False: []
@@ -163,3 +167,11 @@ def test_format_thread_includes_rendered_suggestion_text_in_review_context():
     assert "- Do **NOT** approve the PR." in formatted
     assert "Dependabot ignores the freshness guardrail" in formatted
     assert "```suggestion" not in formatted
+
+
+def test_get_head_commit_sha_prefers_pr_head_sha(monkeypatch):
+    module = _load_agent_script_module()
+
+    monkeypatch.setenv("PR_HEAD_SHA", "abc123")
+
+    assert module.get_head_commit_sha() == "abc123"
