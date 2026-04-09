@@ -47,7 +47,7 @@ backup control room.
 
 ## Best fit
 
-- operators who want a calmer Apple Notes backup loop on their own Mac
+- operators who want a bounded Apple Notes backup loop on their own Mac
 - repo-scoped guidance for hosts that consume a stdio-first MCP server
 - public skill-folder distribution lanes that need an honest control-room story
 
