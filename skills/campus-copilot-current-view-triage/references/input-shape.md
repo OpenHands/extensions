@@ -1,4 +1,4 @@
-# Campus Copilot Input Shape
+# Current View Input Shape
 
 Use this when Campus Copilot MCP is not connected and the agent only has a snapshot or current-view export.
 
@@ -37,7 +37,7 @@ The exact JSON can vary, but the triage workflow expects something equivalent to
 
 Use the smallest helpful transformation first:
 
-- inspect one or more `*_snapshot_view` MCP tools, or
-- ask the operator for a current-view export that already summarizes Focus Queue and recent changes
+- inspect the `*_snapshot_view` MCP tools, or
+- ask for a current-view export that already summarizes Focus Queue and recent changes
 
 Do not invent overdue items, grades, or browser/session truth that are not present in the provided input.

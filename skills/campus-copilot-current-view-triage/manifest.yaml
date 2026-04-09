@@ -1,0 +1,41 @@
+schema_version: 1
+artifact: public-skill-listing-manifest
+
+skill:
+  name: current-view-triage
+  display_name: Current View Triage
+  version: 1.0.0
+  entrypoint: SKILL.md
+  package_shape: skill-folder
+
+registry_targets:
+  clawhub:
+    status: listed-live
+    package_shape: skill-folder
+    listing_url: https://www.clawhub.ai/skills/current-view-triage
+    submit_via: clawhub publish . --slug current-view-triage --name "Current View Triage" --version 1.0.0 --tags campus,student,triage,mcp,read-only
+  openhands-extensions:
+    status: review-pending
+    package_shape: skill-folder
+    submission_url: https://github.com/OpenHands/extensions/pull/155
+    submit_via: submit this folder as skills/current-view-triage/ in OpenHands/extensions
+
+boundaries:
+  product_identity: Read-only student triage over Campus Copilot snapshots or current-view MCP output.
+  canonical_repo_version: 0.1.0
+  official_listing_state: clawhub-live-openhands-review-pending
+  not_claimed:
+    - No live OpenHands/extensions listing exists yet
+    - No live browser-session truth is claimed from snapshot-only evidence
+    - No hosted Campus Copilot service is claimed
+
+pair_with:
+  - SKILL.md
+  - README.md
+  - references/README.md
+  - references/INSTALL.md
+  - references/OPENHANDS_MCP_CONFIG.json
+  - references/OPENCLAW_MCP_CONFIG.json
+  - references/CAPABILITIES.md
+  - references/DEMO.md
+  - references/TROUBLESHOOTING.md

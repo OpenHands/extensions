@@ -10,22 +10,41 @@ triggers:
 
 # SourceHarbor Watchlist Briefing
 
-Use this skill when you want OpenHands to inspect one SourceHarbor watchlist and answer a question with the current story and evidence context.
+Use this skill when you want OpenClaw to inspect one SourceHarbor watchlist and
+answer a question with the current story and evidence context.
 
 Think of it as an **operator briefing skill card**:
 
-- it teaches the agent how to use SourceHarbor's MCP or HTTP API
-- it starts from one watchlist
-- it reuses the current briefing/story payload
-- it answers one operator question with evidence
-- it finishes with one concrete next action
+- it teaches the agent the workflow
+- it names the MCP/HTTP setup needed
+- it shows which SourceHarbor capabilities matter
+- it keeps the answer evidence-backed and operational
 
-## What this skill teaches the agent
+## Goal
 
-- how to prefer SourceHarbor MCP when it is already connected
-- how to fall back to the HTTP API without pretending the product is hosted SaaS
-- how to answer from the current story and change set rather than from vague search alone
-- how to return a briefing-style answer with explicit evidence and next action
+- start from one watchlist
+- reuse the current briefing or story payload
+- answer one operator question
+- cite the evidence used
+- return one concrete next action
+
+## Runtime you need
+
+- one connected SourceHarbor MCP server, or
+- one running SourceHarbor HTTP API at `SOURCE_HARBOR_API_BASE_URL`
+- if either still needs wiring, use `references/INSTALL.md`
+
+## Exposed MCP abilities
+
+This skill is built around these SourceHarbor capability groups:
+
+- health
+- retrieval / Ask-style evidence lookup
+- jobs and compare views
+- artifacts and reports
+- workflows, subscriptions, and notifications when the question is really about operator state
+
+Use `references/CAPABILITIES.md` for the concrete tool map.
 
 ## Inputs To Fill In
 
@@ -33,24 +52,6 @@ Think of it as an **operator briefing skill card**:
 - `QUESTION`: the question you want answered
 - `SOURCE_HARBOR_API_BASE_URL`: the SourceHarbor API base URL when MCP is not wired
 - `SOURCE_HARBOR_MCP_STATUS`: whether SourceHarbor MCP is already connected
-
-## Runtime you need
-
-- a connected SourceHarbor MCP server, or
-- a running local SourceHarbor HTTP API
-- if neither is ready yet, use `references/mcp-and-http-setup.md`
-- if HTTP is the only path, use `references/http-fallback.md`
-
-## Capability map
-
-SourceHarbor exposes a shared operator truth across MCP and HTTP API. The capability groups that matter most for this skill are:
-
-- watchlist and briefing retrieval
-- Ask/search over the current story context
-- jobs, artifacts, and reports as evidence follow-ups
-- health checks when the runtime itself needs checking
-
-Use `references/capability-map.md` for a concrete tool-group map.
 
 ## Workflow
 
@@ -74,7 +75,7 @@ Required steps:
 
 ## Output contract
 
-Return a compact answer with:
+Return:
 
 - `current_story`
 - `what_changed`
@@ -85,13 +86,17 @@ Return a compact answer with:
 ## Guardrails
 
 - Do not pretend SourceHarbor is a hosted SaaS.
-- Do not turn sample or demo surfaces into live-proof claims.
+- Do not turn sample/demo surfaces into live-proof claims.
 - Do not answer without evidence.
 - If MCP or HTTP access is partial, say so clearly instead of filling gaps.
 
-## Local references
+## Companion references
 
-- `references/mcp-and-http-setup.md`
-- `references/http-fallback.md`
-- `references/capability-map.md`
-- `references/example-output.md`
+- `README.md`
+- `references/README.md`
+- `references/INSTALL.md`
+- `references/OPENHANDS_MCP_CONFIG.json`
+- `references/OPENCLAW_MCP_CONFIG.json`
+- `references/CAPABILITIES.md`
+- `references/DEMO.md`
+- `references/TROUBLESHOOTING.md`

@@ -1,19 +1,39 @@
-# Campus Copilot Current View Triage
+# Current View Triage
 
-This skill packages the strongest "what should I do first right now?" workflow from [Campus Copilot](https://github.com/xiaojiou176-open/campus-copilot).
+This skill is the compact read-only triage card for Campus Copilot.
 
-It is designed as a **read-only skill plus MCP setup companion**:
+It is designed to work like a lightweight plugin bundle:
 
-- summarize what is open right now
-- inspect the top Focus Queue items
-- answer one student question in plain language
-- call out trust gaps instead of inventing facts
+- one skill prompt that tells the agent what job to do
+- one install/config pack that tells the operator how to connect the runtime
+- one capability map that explains which Campus Copilot tools are exposed
+- one demo path that shows the shortest first-success flow
+- one troubleshooting page that explains where the first failures usually live
+- one manifest so the folder can travel into review-driven skill registries
 
-Use this when you want a lightweight OpenHands skill that feels like a decision card, not a live campus-browser automation flow.
+Use it when you want the shortest truthful answer to:
 
-Included companion references:
+- what should the student do first right now
 
-- `references/mcp-setup.md`
-- `references/input-shape.md`
-- `references/capability-map.md`
-- `references/example-output.md`
+## What this packet includes
+
+- `SKILL.md`
+  - the agent-facing triage workflow
+- `README.md`
+  - the human-facing packet overview
+- `manifest.yaml`
+  - registry-style metadata for host skill registries
+- `references/README.md`
+  - the local index for every supporting file
+- `references/INSTALL.md`
+  - install and host wiring guidance
+- `references/OPENHANDS_MCP_CONFIG.json`
+  - a ready-to-edit `mcpServers` snippet
+- `references/OPENCLAW_MCP_CONFIG.json`
+  - a ready-to-edit `mcp.servers` snippet
+- `references/CAPABILITIES.md`
+  - the read-only Campus Copilot tool surface
+- `references/DEMO.md`
+  - the first-success walkthrough and expected output shape
+- `references/TROUBLESHOOTING.md`
+  - the first places to check when setup or triage fails

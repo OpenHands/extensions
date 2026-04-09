@@ -1,0 +1,11 @@
+{
+  "mcp": {
+    "servers": {
+      "campus-copilot": {
+        "command": "pnpm",
+        "args": ["--filter", "@campus-copilot/mcp-server", "start"],
+        "cwd": "/ABSOLUTE/PATH/TO/campus-copilot"
+      }
+    }
+  }
+}

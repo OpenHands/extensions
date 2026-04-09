@@ -1,31 +1,28 @@
-# SourceHarbor MCP And HTTP Setup
+# SourceHarbor OpenClaw Setup
 
-Use this when the host runtime does not already have SourceHarbor connected.
+## Fastest local setup
 
-## Local repo setup
-
-1. Clone the public repo:
-
-```bash
-git clone https://github.com/xiaojiou176-open/sourceharbor.git
-cd sourceharbor
-```
-
-2. Start the local MCP surface:
+From the SourceHarbor repo root:
 
 ```bash
 ./bin/dev-mcp
 ```
 
-3. If you need the HTTP API fallback, make sure the local API is running and set:
+If the MCP client is not wired yet, keep the HTTP fallback ready:
 
 ```bash
 export SOURCE_HARBOR_API_BASE_URL=http://127.0.0.1:9000
 ```
 
-## What the operator should hand back
+## OpenClaw starter-pack files
 
-- whether SourceHarbor MCP is already connected
-- the watchlist id to inspect
-- the operator question
-- the current `SOURCE_HARBOR_API_BASE_URL` if MCP is not available
+- `../../openclaw.plugin.json`
+- `../../sourceharbor-mcp-template.json`
+- `../../README.md`
+
+## Minimum handoff to the agent
+
+- one `WATCHLIST_ID`
+- one `QUESTION`
+- whether MCP is connected
+- the live `SOURCE_HARBOR_API_BASE_URL` if HTTP fallback is needed
