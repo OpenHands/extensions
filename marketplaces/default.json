@@ -434,6 +434,20 @@
             ]
         },
         {
+            "name": "v0-v1-migration",
+            "source": "./v0-v1-migration",
+            "description": "Comprehensive toolkit for migrating from OpenHands V0 API to V1 API. Detects V0 call sites, generates migration plans, provides transformation guidance, and includes test fixtures.",
+            "category": "development",
+            "keywords": [
+                "migration",
+                "api",
+                "v0",
+                "v1",
+                "deprecation",
+                "upgrade"
+            ]
+        },
+        {
             "name": "vercel",
             "source": "./vercel",
             "description": "Deploy and manage applications on Vercel, including preview deployments and deployment protection.",

@@ -1,0 +1,114 @@
+{
+  "description": "Regex patterns for detecting V0 API usage in codebases",
+  "url_patterns": [
+    {
+      "name": "v0_conversations_base",
+      "pattern": "/api/conversations(?!/start-tasks)(?![\\w-]*/v1)",
+      "description": "Matches /api/conversations but not V1 paths",
+      "examples": [
+        "/api/conversations",
+        "/api/conversations/abc123",
+        "/api/conversations/abc123/events"
+      ],
+      "non_matches": [
+        "/api/v1/app-conversations",
+        "/api/v1/conversation/abc123/events"
+      ]
+    },
+    {
+      "name": "v0_create_conversation",
+      "pattern": "POST\\s+[\"'`]?[^\"'`]*?/api/conversations[\"'`]?",
+      "description": "POST to /api/conversations (V0 create)",
+      "severity": "moderate"
+    },
+    {
+      "name": "v0_send_message",
+      "pattern": "/api/conversations/[^/]+/messages",
+      "description": "V0 message endpoint",
+      "severity": "moderate"
+    },
+    {
+      "name": "v0_list_files",
+      "pattern": "/api/conversations/[^/]+/list-files",
+      "description": "V0 file listing (moved to Agent Server)",
+      "severity": "complex"
+    },
+    {
+      "name": "v0_select_file",
+      "pattern": "/api/conversations/[^/]+/select-file",
+      "description": "V0 file download (moved to Agent Server)",
+      "severity": "complex"
+    },
+    {
+      "name": "v0_upload_files",
+      "pattern": "/api/conversations/[^/]+/upload-files",
+      "description": "V0 file upload (moved to Agent Server)",
+      "severity": "complex"
+    },
+    {
+      "name": "v0_zip_directory",
+      "pattern": "/api/conversations/[^/]+/zip-directory",
+      "description": "V0 zip download (no direct V1 equivalent)",
+      "severity": "complex"
+    },
+    {
+      "name": "v0_vscode_url",
+      "pattern": "/api/conversations/[^/]+/vscode-url",
+      "description": "V0 VSCode URL (get from sandbox exposed_urls in V1)",
+      "severity": "moderate"
+    },
+    {
+      "name": "v0_web_hosts",
+      "pattern": "/api/conversations/[^/]+/web-hosts",
+      "description": "V0 web hosts (get from sandbox exposed_urls in V1)",
+      "severity": "moderate"
+    }
+  ],
+  "field_patterns": [
+    {
+      "name": "v0_initial_user_msg",
+      "pattern": "[\"']initial_user_msg[\"']",
+      "description": "V0 field name for initial message",
+      "v1_equivalent": "initial_message",
+      "severity": "moderate"
+    },
+    {
+      "name": "v0_repository_field",
+      "pattern": "[\"']repository[\"']\\s*:",
+      "description": "V0 field name for repository (context-dependent)",
+      "v1_equivalent": "selected_repository",
+      "severity": "simple",
+      "notes": "May have false positives - verify context"
+    }
+  ],
+  "file_extensions": [
+    ".py",
+    ".js",
+    ".ts",
+    ".tsx",
+    ".jsx",
+    ".sh",
+    ".bash",
+    ".zsh",
+    ".yaml",
+    ".yml",
+    ".json",
+    ".md"
+  ],
+  "exclude_patterns": [
+    "node_modules/",
+    ".git/",
+    "dist/",
+    "build/",
+    "__pycache__/",
+    ".venv/",
+    "venv/",
+    "*.min.js",
+    "*.bundle.js"
+  ],
+  "grep_commands": {
+    "find_all_v0": "grep -rn --include='*.py' --include='*.ts' --include='*.js' --include='*.sh' -E '/api/conversations[^/]|/api/conversations/[^v]' .",
+    "find_v0_fields": "grep -rn --include='*.py' --include='*.ts' --include='*.js' -E 'initial_user_msg' .",
+    "find_file_ops": "grep -rn --include='*.py' --include='*.ts' --include='*.js' -E 'list-files|select-file|upload-files|zip-directory' ."
+  }
+}
