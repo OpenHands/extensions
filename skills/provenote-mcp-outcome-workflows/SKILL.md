@@ -13,7 +13,7 @@ triggers:
 # Provenote MCP Outcome Workflows
 
 Teach the agent how to install, connect, and use Provenote's first-party MCP
-server for structured, source-grounded note and research workflows.
+server for read-first note and research workflows.
 
 ## Use this skill when
 
@@ -21,11 +21,12 @@ server for structured, source-grounded note and research workflows.
 - the host can run a local MCP server
 - the user wants inspectable outcomes before broad write automation
 
-## What the agent should know
+## What this package teaches
 
-- Provenote ships a first-party MCP entrypoint: `provenote-mcp`
-- the most important read surfaces are drafts, research threads, and auditable runs
-- the safest first success path is to inspect existing outcomes before mutating anything
+- how to launch `provenote-mcp` from a local clone
+- how to wire it into OpenHands or OpenClaw
+- which read-first MCP tools to use first
+- which write actions are narrow and safe to try next
 
 ## Start here
 
@@ -36,12 +37,12 @@ server for structured, source-grounded note and research workflows.
 3. Skim the tool surface in [references/CAPABILITIES.md](references/CAPABILITIES.md)
 4. Run the demo from [references/DEMO.md](references/DEMO.md)
 
-## Recommended workflow
+## Read-first workflow
 
 1. `draft.list`
 2. `research_thread.list`
 3. `auditable_run.list`
-4. Pick one narrow write-oriented action only after the read surfaces make sense
+4. only then move to one narrow write-oriented action
 
 ## Safe first mutations
 
@@ -59,16 +60,13 @@ runs for this workspace. Start with `draft.list`, `research_thread.list`, and
 narrow next step: either convert a research thread into a draft with
 `research_thread.to_draft` or verify an existing draft with `draft.verify`.
 
-## Validation
+## Success checks
 
-Before treating the workflow as working, prove all four:
-
-1. the host can execute `provenote-mcp`
-2. a read-first tool succeeds
-3. one narrow write-oriented workflow succeeds
-4. the result maps back to an inspectable repo-owned surface
+- the host can launch `provenote-mcp` from the provided config
+- the three read-first list calls succeed
+- one narrow mutation succeeds and maps back to an inspectable artifact
 
 ## Boundaries
 
-- keep Provenote centered on its first-party MCP server
+- Provenote stays centered on its first-party MCP server
 - keep outcome claims tied to inspectable repo-owned artifacts

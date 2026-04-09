@@ -12,8 +12,8 @@ triggers:
 
 # Prompt Switchboard Compare Workflows
 
-Teach the agent how to install, connect, and use Prompt Switchboard as a local
-browser workspace for side-by-side AI comparison.
+Teach the agent how to install, connect, and use Prompt Switchboard as a
+compare-first browser workspace.
 
 ## Use this skill when
 
@@ -21,11 +21,12 @@ browser workspace for side-by-side AI comparison.
 - the host can run a local MCP server
 - the user wants one inspectable compare artifact before broader automation
 
-## What the agent should know
+## What this package teaches
 
-- Prompt Switchboard is a compare-first browser extension workspace
-- the MCP sidecar is local and supports readiness, compare, analysis, export, and workflow tools
-- the first success path is bridge -> readiness -> compare
+- how to wire the local Prompt Switchboard MCP sidecar into a host
+- which MCP tools are safe and useful first
+- how to move from readiness checks to a real compare turn
+- how to keep the workflow grounded in a browser-native compare product
 
 ## Start here
 
@@ -62,5 +63,6 @@ important wording differences.
 
 ## Boundaries
 
-- treat Prompt Switchboard as a local browser workflow, not a hosted platform
-- keep claims grounded in the MCP tool surface documented in this package
+- Prompt Switchboard stays a local browser workflow, not a hosted service
+- the MCP sidecar supports compare workflows; it does not replace the extension
+- keep claims grounded in the actual tool surface documented in this package

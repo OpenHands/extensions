@@ -15,3 +15,5 @@ without depending on repo-root documents.
   - a ready-to-edit `mcpServers` snippet
 - `OPENCLAW_MCP_CONFIG.json`
   - a ready-to-edit `mcp.servers` snippet
+- `TROUBLESHOOTING.md`
+  - the first places to check when launch, list calls, or the first narrow mutation fails

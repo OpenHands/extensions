@@ -1,43 +1,62 @@
-# Provenote MCP Outcome Workflows
+# Provenote MCP Outcome Workflows Public Skill
 
-This skill teaches an OpenHands agent how to connect Provenote's first-party
-MCP server and use it for read-first outcome workflows.
+This folder is the public, self-contained skill packet for Provenote.
+It is designed to carry install, config, capability, and demo material inside
+the skill folder instead of pushing that burden back to repo-root docs.
 
-## What this package includes
+## Purpose
+
+Use it when you want one portable skill folder that teaches four things clearly:
+
+- how to install and launch the first-party `provenote-mcp` server
+- how to wire it into OpenHands or OpenClaw
+- what MCP tool families Provenote exposes
+- what a read-first outcome workflow looks like in practice
+
+## What this packet includes
 
 - `SKILL.md`
   - the agent-facing workflow prompt
+- `manifest.yaml`
+  - listing metadata for registry-style distribution
 - `references/INSTALL.md`
   - install and host wiring guide
 - `references/CAPABILITIES.md`
-  - exposed MCP tools and the recommended first-use path
+  - exposed MCP tools and recommended first-use path
 - `references/DEMO.md`
-  - exact demo prompt and success criteria
+  - exact demo prompts and success criteria
 - `references/OPENHANDS_MCP_CONFIG.json`
-  - ready-to-edit `mcpServers` config
+  - host config snippet for `mcpServers`
 - `references/OPENCLAW_MCP_CONFIG.json`
-  - equivalent OpenClaw config
+  - host config snippet for `mcp.servers`
+- `references/TROUBLESHOOTING.md`
+  - first-failure checks for launch, empty workspaces, and narrow write steps
 
-## What this skill teaches
+## Best-fit hosts
 
-- how to install and launch `provenote-mcp`
-- how to connect it inside OpenHands or OpenClaw
-- how to inspect Provenote drafts, research threads, and auditable runs first
-- how to keep write actions narrow and outcome-linked
+- OpenHands/extensions contribution flow
+- ClawHub-style skill publication
+- repo-local skill import flows that expect a standalone folder with its own
+  install and demo references
 
-## Best fit
+## Current verified state
 
-- long-context to structured research workflows
-- first-party MCP usage through `provenote-mcp`
-- read-first validation before write-oriented automation
+- the ClawHub skill listing is live
+- the Provenote MCP server is live in the Official MCP Registry
+- the OpenHands/extensions lane is review-pending, not merged
 
-## Source repository
+## What this packet must not claim
 
-- Repo: https://github.com/xiaojiou176-open/provenote
-- MCP docs: https://github.com/xiaojiou176-open/provenote/blob/main/docs/mcp.md
+- no live OpenHands/extensions listing without fresh PR/read-back
+- no official marketplace or directory listing by itself
+- no replacement of the first-party `provenote-mcp` server
 
-## Boundaries
+## Source of truth
 
-- This skill does not replace the first-party `provenote-mcp` server.
-- This skill does not imply a hosted Provenote SaaS surface.
-- This skill should stay aligned with the source repo's MCP docs and demo flow.
+Keep this packet aligned with the source repo, but do not make reviewers depend
+on repo-root docs before they can understand the skill:
+
+- `docs/distribution.md`
+- `docs/project-status.md`
+- `server.json`
+- `examples/hosts/openclaw/clawhub/provenote-mcp-outcome-workflows/SKILL.md`

@@ -1,0 +1,40 @@
+schema_version: 1
+artifact: public-skill-listing-manifest
+
+skill:
+  name: provenote-mcp-outcome-workflows
+  display_name: Provenote MCP Outcome Workflows
+  version: 1.1.0
+  entrypoint: SKILL.md
+  package_shape: skill-folder
+
+registry_targets:
+  clawhub:
+    status: listed-live
+    package_shape: skill-folder
+    listing_url: https://www.clawhub.ai/skills/provenote-mcp-outcome-workflows
+    submit_via: clawhub publish . --slug provenote-mcp-outcome-workflows --name "Provenote MCP Outcome Workflows" --version 1.1.0 --tags mcp,notes,research,outcomes,provenote
+  openhands-extensions:
+    status: review-pending
+    package_shape: skill-folder
+    submission_url: https://github.com/OpenHands/extensions/pull/154
+    submit_via: submit this folder as skills/provenote-mcp-outcome-workflows/ in OpenHands/extensions
+
+boundaries:
+  product_identity: Source-grounded Provenote outcome workflows through the first-party MCP server.
+  canonical_repo_version: 1.8.5
+  official_listing_state: partially-live
+  not_claimed:
+    - No live OpenHands/extensions listing exists yet
+    - No hosted Glama deployment exists yet
+
+pair_with:
+  - SKILL.md
+  - README.md
+  - references/README.md
+  - references/INSTALL.md
+  - references/CAPABILITIES.md
+  - references/DEMO.md
+  - references/OPENHANDS_MCP_CONFIG.json
+  - references/OPENCLAW_MCP_CONFIG.json
+  - references/TROUBLESHOOTING.md
