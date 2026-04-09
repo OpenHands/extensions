@@ -1,7 +1,7 @@
 ---
 name: provenote-mcp-outcome-workflows
 description: Teach an agent to install Provenote's first-party MCP server, connect it in a host, and run read-first outcome workflows.
-version: 1.1.0
+version: 1.1.1
 triggers:
   - provenote
   - provenote-mcp

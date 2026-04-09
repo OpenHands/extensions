@@ -4,7 +4,7 @@ artifact: public-skill-listing-manifest
 skill:
   name: provenote-mcp-outcome-workflows
   display_name: Provenote MCP Outcome Workflows
-  version: 1.1.0
+  version: 1.1.1
   entrypoint: SKILL.md
   package_shape: skill-folder
 
@@ -13,7 +13,7 @@ registry_targets:
     status: listed-live
     package_shape: skill-folder
     listing_url: https://www.clawhub.ai/skills/provenote-mcp-outcome-workflows
-    submit_via: clawhub publish . --slug provenote-mcp-outcome-workflows --name "Provenote MCP Outcome Workflows" --version 1.1.0 --tags mcp,notes,research,outcomes,provenote
+    submit_via: clawhub publish . --slug provenote-mcp-outcome-workflows --name "Provenote MCP Outcome Workflows" --version 1.1.1 --tags mcp,notes,research,outcomes,provenote
   openhands-extensions:
     status: review-pending
     package_shape: skill-folder
