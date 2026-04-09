@@ -471,6 +471,84 @@
                 "verification",
                 "sample"
             ]
+        },
+        {
+            "name": "openui-workspace-delivery",
+            "source": "./openui-workspace-delivery",
+            "description": "Teach an agent how to install OpenUI MCP Studio, connect it to a host, and run the core UI generation and review workflow through a local MCP lane.",
+            "category": "productivity",
+            "keywords": [
+                "openui",
+                "mcp",
+                "ui-generation",
+                "local-first",
+                "review"
+            ]
+        },
+        {
+            "name": "movi-review-first-bundle",
+            "source": "./movi-review-first-bundle",
+            "description": "Teach an agent how to install Movi, stay review-first, and use the safest manifest and batch-analysis tools before deeper mutation.",
+            "category": "productivity",
+            "keywords": [
+                "movi",
+                "mcp",
+                "review-first",
+                "media",
+                "batch"
+            ]
+        },
+        {
+            "name": "switchyard-runtime-diagnostics",
+            "source": "./switchyard-runtime-diagnostics",
+            "description": "Teach an agent how to connect Switchyard and use the safest runtime diagnostics and provider-boundary tools first.",
+            "category": "integration",
+            "keywords": [
+                "switchyard",
+                "mcp",
+                "diagnostics",
+                "runtime",
+                "read-only"
+            ]
+        },
+        {
+            "name": "prooftrail-mcp",
+            "source": "./prooftrail-mcp",
+            "description": "Teach an agent how to install ProofTrail as a governed stdio MCP surface and start with read-first proof and recovery workflows.",
+            "category": "productivity",
+            "keywords": [
+                "prooftrail",
+                "mcp",
+                "browser-evidence",
+                "recovery",
+                "local-first"
+            ]
+        },
+        {
+            "name": "shopflow-read-only-packet",
+            "source": "./shopflow-read-only-packet",
+            "description": "Teach an agent how to connect Shopflow for read-only submission-readiness and storefront packet review without live store claims.",
+            "category": "productivity",
+            "keywords": [
+                "shopflow",
+                "mcp",
+                "read-only",
+                "distribution",
+                "packet"
+            ]
+        },
+        {
+            "name": "prooflane-mcp",
+            "source": "./prooflane-mcp",
+            "description": "Teach an agent how to install Prooflane, connect the repo-native MCP server, and inspect governed automation and proof workflows safely.",
+            "category": "productivity",
+            "keywords": [
+                "prooflane",
+                "mcp",
+                "automation",
+                "proof",
+                "review"
+            ]
         }
     ]
 }

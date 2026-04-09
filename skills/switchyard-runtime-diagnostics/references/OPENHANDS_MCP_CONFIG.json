@@ -1,0 +1,15 @@
+{
+  "mcpServers": {
+    "switchyard": {
+      "command": "pnpm",
+      "args": [
+        "run",
+        "switchyard:mcp",
+        "--",
+        "--base-url",
+        "http://127.0.0.1:4010"
+      ],
+      "cwd": "/ABSOLUTE/PATH/TO/SWITCHYARD"
+    }
+  }
+}

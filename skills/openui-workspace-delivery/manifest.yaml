@@ -1,0 +1,40 @@
+schema_version: 1
+artifact: public-skill-listing-manifest
+
+skill:
+  name: openui-workspace-delivery
+  display_name: OpenUI Workspace Delivery
+  version: 1.0.0
+  entrypoint: SKILL.md
+  package_shape: skill-folder
+
+registry_targets:
+  clawhub:
+    status: listed-live
+    package_shape: skill-folder
+    listing_url: https://www.clawhub.ai/skills/openui-workspace-delivery
+    submit_via: clawhub publish . --slug openui-workspace-delivery --name "OpenUI Workspace Delivery" --version 1.0.0 --tags openui,mcp,ui,workspace,delivery
+  openhands-extensions:
+    status: folder-ready
+    package_shape: skill-folder
+    submit_via: submit this folder as skills/openui-workspace-delivery/ in OpenHands/extensions
+
+boundaries:
+  product_identity: Local MCP-first UI generation and review workspace for OpenUI MCP Studio.
+  canonical_repo_version: 0.1.0
+  official_listing_state: clawhub-live-openhands-folder-ready
+  not_claimed:
+    - No live OpenHands/extensions listing exists yet
+    - No live official marketplace listing exists yet
+    - No hosted runtime or managed API publication is claimed
+
+pair_with:
+  - SKILL.md
+  - README.md
+  - references/README.md
+  - references/INSTALL.md
+  - references/CAPABILITIES.md
+  - references/DEMO.md
+  - references/OPENHANDS_MCP_CONFIG.json
+  - references/OPENCLAW_MCP_CONFIG.json
+  - references/TROUBLESHOOTING.md

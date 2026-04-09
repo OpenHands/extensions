@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "openui": {
+      "command": "node",
+      "args": [
+        "/ABSOLUTE/PATH/TO/OPENUI-MCP-STUDIO/.runtime-cache/build/mcp-server/services/mcp-server/src/main.js"
+      ],
+      "env": {
+        "GEMINI_API_KEY": "your_key"
+      }
+    }
+  }
+}

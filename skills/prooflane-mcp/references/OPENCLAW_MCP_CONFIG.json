@@ -1,0 +1,17 @@
+{
+  "mcp": {
+    "servers": {
+      "uiq": {
+        "command": "pnpm",
+        "args": [
+          "mcp:start"
+        ],
+        "cwd": "/ABSOLUTE/PATH/TO/REPO",
+        "env": {
+          "UIQ_MCP_API_BASE_URL": "http://127.0.0.1:18080",
+          "UIQ_MCP_TOOL_GROUPS": "advanced,analysis,proof"
+        }
+      }
+    }
+  }
+}

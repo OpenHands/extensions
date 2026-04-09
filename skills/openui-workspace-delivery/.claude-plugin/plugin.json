@@ -1,0 +1,7 @@
+{
+  "name": "openui-workspace-delivery",
+  "version": "0.1.0",
+  "description": "Claude Code and OpenClaw-compatible bundle for installing OpenUI MCP Studio from a local repo checkout and proving the workflow honestly.",
+  "commands": "./commands/",
+  "skills": "./skills/"
+}
