@@ -4,7 +4,7 @@ artifact: public-skill-listing-manifest
 skill:
   name: cortexpilot-adoption-router
   display_name: CortexPilot Adoption Router
-  version: 1.1.0
+  version: 1.1.1
   entrypoint: SKILL.md
   package_shape: skill-folder
 
@@ -13,7 +13,7 @@ registry_targets:
     status: listed-live
     package_shape: skill-folder
     listing_url: https://www.clawhub.ai/skills/cortexpilot-adoption-router
-    submit_via: clawhub publish . --slug cortexpilot-adoption-router --name "CortexPilot Adoption Router" --version 1.1.0 --tags mcp,workflow,proof,read-only,cortexpilot
+    submit_via: clawhub publish . --slug cortexpilot-adoption-router --name "CortexPilot Adoption Router" --version 1.1.1 --tags mcp,workflow,proof,read-only,cortexpilot
   openhands-extensions:
     status: review-pending
     package_shape: skill-folder
