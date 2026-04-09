@@ -1,0 +1,42 @@
+schema_version: 1
+artifact: public-skill-listing-manifest
+
+skill:
+  name: cortexpilot-adoption-router
+  display_name: CortexPilot Adoption Router
+  version: 1.1.0
+  entrypoint: SKILL.md
+  package_shape: skill-folder
+
+registry_targets:
+  clawhub:
+    status: listed-live
+    package_shape: skill-folder
+    listing_url: https://www.clawhub.ai/skills/cortexpilot-adoption-router
+    submit_via: clawhub publish . --slug cortexpilot-adoption-router --name "CortexPilot Adoption Router" --version 1.1.0 --tags mcp,workflow,proof,read-only,cortexpilot
+  openhands-extensions:
+    status: review-pending
+    package_shape: skill-folder
+    submission_url: https://github.com/OpenHands/extensions/pull/151
+    submit_via: submit this folder as skills/cortexpilot-adoption-router/ in OpenHands/extensions
+
+boundaries:
+  product_identity: Proof-first CortexPilot adoption routing through the published read-only MCP surface.
+  canonical_repo_version: 0.1.0a4
+  official_listing_state: clawhub-live-other-hosts-pending
+  not_claimed:
+    - No hosted operator service is claimed
+    - No write-capable public MCP surface is claimed
+    - No first-party marketplace listing is claimed unless independently confirmed
+    - No live OpenHands/extensions listing is claimed until the PR lands
+
+pair_with:
+  - SKILL.md
+  - README.md
+  - references/README.md
+  - references/INSTALL.md
+  - references/OPENHANDS_MCP_CONFIG.json
+  - references/OPENCLAW_MCP_CONFIG.json
+  - references/CAPABILITIES.md
+  - references/DEMO.md
+  - references/TROUBLESHOOTING.md

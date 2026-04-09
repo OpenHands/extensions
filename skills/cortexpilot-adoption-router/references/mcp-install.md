@@ -8,9 +8,9 @@ Use the published PyPI package, not a repo-local checkout.
 - executable: `cortexpilot-readonly-mcp`
 - transport: `stdio`
 
-## OpenHands config example
+## OpenHands example
 
-Add this to `~/.openhands/config.toml`:
+Add the server to `~/.openhands/config.toml`:
 
 ```toml
 [mcp]
@@ -19,7 +19,24 @@ stdio_servers = [
 ]
 ```
 
+## OpenClaw example
+
+Add the server to your saved MCP server config:
+
+```json
+{
+  "mcp": {
+    "servers": {
+      "cortexpilot-readonly": {
+        "command": "uvx",
+        "args": ["--from", "cortexpilot-orchestrator==0.1.0a4", "cortexpilot-readonly-mcp"]
+      }
+    }
+  }
+}
+```
+
 ## Smoke check
 
-After the host attaches the server, request `tools/list` and confirm the
-read-only run/workflow tools are present.
+Use a minimal MCP handshake and `tools/list` request after the host attaches the
+server.

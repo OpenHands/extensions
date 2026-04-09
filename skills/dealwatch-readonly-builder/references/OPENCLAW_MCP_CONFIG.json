@@ -1,0 +1,10 @@
+{
+  "mcp": {
+    "servers": {
+      "dealwatch": {
+        "command": "uvx",
+        "args": ["--from", "dealwatch==1.0.1", "dealwatch-mcp", "serve"]
+      }
+    }
+  }
+}

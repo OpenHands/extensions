@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "cortexpilot-readonly": {
+      "command": "uvx",
+      "args": ["--from", "cortexpilot-orchestrator==0.1.0a4", "cortexpilot-readonly-mcp"]
+    }
+  }
+}

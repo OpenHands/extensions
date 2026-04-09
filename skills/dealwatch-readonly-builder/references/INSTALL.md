@@ -10,31 +10,11 @@ Use the published PyPI package, not a repo-local `PYTHONPATH=src` shortcut.
 
 ## OpenHands example
 
-Add the server to `~/.openhands/config.toml`:
-
-```toml
-[mcp]
-stdio_servers = [
-  { name = "dealwatch", command = "uvx", args = ["--from", "dealwatch==1.0.1", "dealwatch-mcp", "serve"] }
-]
-```
+Use `OPENHANDS_MCP_CONFIG.json` as the starting point for your host config.
 
 ## OpenClaw example
 
-Add the server to your saved MCP server config:
-
-```json
-{
-  "mcp": {
-    "servers": {
-      "dealwatch": {
-        "command": "uvx",
-        "args": ["--from", "dealwatch==1.0.1", "dealwatch-mcp", "serve"]
-      }
-    }
-  }
-}
-```
+Use `OPENCLAW_MCP_CONFIG.json` as the starting point for your host config.
 
 ## Smoke check
 

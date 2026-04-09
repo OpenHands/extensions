@@ -1,24 +1,24 @@
-# DealWatch MCP Tool Map
+# DealWatch MCP Capabilities
 
 These are the stable read-only tools exposed by the published DealWatch MCP.
 
 ## Safe-first tools
 
 1. `get_runtime_readiness`
-   Use first when the user needs to know whether the local runtime is ready.
+   - use first when setup, environment, or startup truth is unclear
 2. `compare_preview`
-   Use first when the user wants to compare submitted product URLs without
-   creating durable state.
+   - use first when the user wants to compare candidate grocery URLs without
+     creating durable state
 3. `get_builder_starter_pack`
-   Use when the user needs the integration contract, launch commands, and host
-   config guidance.
+   - use when the user needs the integration contract, launch commands, and
+     host setup path
 
 ## Watch-task tools
 
 - `list_watch_tasks`
 - `get_watch_task_detail`
 
-Use these after the user is already inside an existing watch-task flow.
+Use these after the safe-first path is already clear.
 
 ## Watch-group tools
 
@@ -35,5 +35,4 @@ Use these after the user is already inside an existing watch-group flow.
 - `list_store_bindings`
 - `get_store_onboarding_cockpit`
 
-Use these only after the safe-first path is clear and the user needs a deeper
-read-only diagnostic.
+Use these only after the safe-first path is grounded in a real runtime state.

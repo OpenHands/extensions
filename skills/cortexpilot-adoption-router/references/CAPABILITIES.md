@@ -1,17 +1,17 @@
-# CortexPilot MCP Tool Map
+# CortexPilot MCP Capabilities
 
 These are the stable read-only tools exposed by the published CortexPilot MCP.
 
 ## Safe-first tools
 
 1. `list_runs`
-   Use first when the user needs the current run ledger.
+   - use first when the user needs the current run ledger
 2. `get_run`
-   Use when the user already has one run identifier and needs the run snapshot.
+   - use when the user already has one run identifier and needs the run snapshot
 3. `list_workflows`
-   Use when the user needs the current Workflow Case ledger.
+   - use when the user needs the current workflow ledger
 4. `get_workflow`
-   Use when the user already has one workflow identifier.
+   - use when the user already has one workflow identifier
 
 ## Queue and approval tools
 
