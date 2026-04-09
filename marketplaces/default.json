@@ -193,6 +193,21 @@
             ]
         },
         {
+            "name": "frontend-slides",
+            "source": "./frontend-slides",
+            "description": "Create stunning, animation-rich HTML presentations from scratch or by converting PowerPoint files. Use when the user wants to build a presentation, convert a PPT/PPTX to web, or create slides for a talk/pitch.",
+            "category": "design",
+            "keywords": [
+                "slides",
+                "presentation",
+                "ppt",
+                "pptx",
+                "html",
+                "css",
+                "animation"
+            ]
+        },
+        {
             "name": "github",
             "source": "./github",
             "description": "Interact with GitHub repositories, pull requests, issues, and workflows using the GITHUB_TOKEN environment variable and GitHub CLI. Use when working with code hosted on GitHub or managing GitHub resources.",
