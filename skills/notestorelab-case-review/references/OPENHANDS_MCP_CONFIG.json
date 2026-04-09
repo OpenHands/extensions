@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "notestorelab": {
+      "command": "uvx",
+      "args": [
+        "--from",
+        "apple-notes-forensics==0.1.0.post1",
+        "notes-recovery-mcp",
+        "--case-dir",
+        "./output/Notes_Forensics_<run_ts>"
+      ]
+    }
+  }
+}

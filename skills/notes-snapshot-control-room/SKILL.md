@@ -38,7 +38,7 @@ rewriting it into a hosted AI platform or a generic assistant product.
 
 ## First-success flow
 
-1. Acquire `notesctl` first using `references/install-and-attach.md`.
+1. Acquire `notesctl` first using `references/INSTALL.md`.
 2. Prove the operator lane first:
    - `./notesctl run --no-status`
    - `./notesctl install --minutes 30 --load`
@@ -87,6 +87,13 @@ If those fail, call it a local snapshot preflight problem, not an MCP bug.
 - "Show me the shortest proof path from first run to MCP attach."
 - "Use the control-room skill to explain why a backup loop drifted."
 
+## Best-fit use cases
+
+- Repo-scoped guidance for Codex, Claude Code, OpenClaw, or another local host
+- Public skill distribution through a ClawHub-style listing or another
+  skill-folder distribution lane
+- Public-facing docs or README edits that must keep builder wording honest
+
 ## What this skill should not do
 
 - Do not reposition Apple Notes Snapshot as a hosted agent platform.
@@ -96,5 +103,10 @@ If those fail, call it a local snapshot preflight problem, not an MCP bug.
 
 ## Read next
 
-- `references/install-and-attach.md`
-- `references/usage-and-proof.md`
+- `references/README.md`
+- `references/INSTALL.md`
+- `references/OPENHANDS_MCP_CONFIG.json`
+- `references/OPENCLAW_MCP_CONFIG.json`
+- `references/CAPABILITIES.md`
+- `references/DEMO.md`
+- `references/TROUBLESHOOTING.md`

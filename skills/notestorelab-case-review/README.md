@@ -1,31 +1,56 @@
-# NoteStore Lab Case Review
+# NoteStore Lab Case Review Public Skill
 
-OpenHands skill for reviewing one NoteStore Lab Apple Notes case root without
-turning the workflow into a hosted service.
+This folder is the OpenHands/extensions-friendly and ClawHub-style public skill
+packet for NoteStore Lab.
 
 ## What this skill teaches an agent
 
-- how to install or launch the NoteStore Lab MCP surface
-- how to prove the workflow on public-safe demo artifacts first
-- how to inspect one case root at a time using derived artifacts first
-- how to ask bounded, evidence-backed questions instead of guessing
-- what the MCP lane gives a host after attach: case-root listing, manifest and
-  artifact inspection, bounded case Q&A, and bounded verify/report/timeline or
-  public-safe-export workflows
+This is not just a label for Apple Notes. It teaches an agent five concrete
+things:
+
+1. how to install or launch the NoteStore Lab MCP surface
+2. how to prove the review flow on public-safe demo artifacts first
+3. how to review one copied case root without touching the live Notes store
+4. how to ask bounded questions from derived artifacts instead of guessing
+5. what the MCP lane gives a host after attach: case-root listing, manifest and
+   artifact inspection, bounded case Q&A, and bounded
+   verify/report/timeline/export workflows
+
+## What this packet includes
+
+- `SKILL.md`
+  - the concise skill entry point for progressive disclosure
+- `manifest.yaml`
+  - listing metadata for ClawHub-style publication
+- `references/README.md`
+  - the local index for every supporting file
+- `references/INSTALL.md`
+  - exact install and MCP wiring examples
+- `references/OPENHANDS_MCP_CONFIG.json`
+  - a ready-to-edit `mcpServers` snippet
+- `references/OPENCLAW_MCP_CONFIG.json`
+  - a ready-to-edit `mcp.servers` snippet
+- `references/CAPABILITIES.md`
+  - the read-mostly case-review tool surface
+- `references/DEMO.md`
+  - first-success flow, real prompts, and proof/demo links
+- `references/TROUBLESHOOTING.md`
+  - the first places to check when attach or case-root review fails
 
 ## First-success path
 
-1. Read `SKILL.md`
-2. Open `references/install-and-mcp.md`
-3. Run the public-safe proof flow from `references/usage-and-proof.md`
-4. Only after that, point the MCP command at one explicit case root
+If a reviewer wants to understand the skill quickly, use this order:
+
+1. read `SKILL.md`
+2. open `references/install-and-mcp.md`
+3. run the public-safe proof path from `references/usage-and-proof.md`
+4. inspect the public proof links before claiming anything is officially listed
 
 ## Demo / proof links
 
 - Landing: https://xiaojiou176-open.github.io/apple-notes-forensics/
 - Public proof: https://github.com/xiaojiou176-open/apple-notes-forensics/blob/main/proof.html
 - Builder guide: https://github.com/xiaojiou176-open/apple-notes-forensics/blob/main/INTEGRATIONS.md
-- Distribution boundary: https://github.com/xiaojiou176-open/apple-notes-forensics/blob/main/DISTRIBUTION.md
 - Releases: https://github.com/xiaojiou176-open/apple-notes-forensics/releases
 
 ## Visual demo
@@ -47,16 +72,26 @@ turning the workflow into a hosted service.
   one explicit case root at a time, local stdio transport, and no live Notes
   store mutation path
 
-## Best fit
+## Best-fit hosts
 
-- copied-evidence Apple Notes investigations on macOS
-- one bounded case root at a time
-- derived-artifact-first AI review and case Q&A
-- local stdio MCP hosts that need the same review-safe surfaces as the CLI
+- OpenHands/extensions contribution flow
+- ClawHub-style skill publication
+- repo-local skill import flows that expect a standalone folder
+- any MCP-aware host that can launch a local stdio server on one explicit case
+  root
 
-## What this skill does not claim
+## What this packet must not claim
 
-- no official OpenHands listing beyond this registry entry
-- no live Notes store access
-- no hosted or multi-tenant Notes recovery platform
-- no remote MCP deployment
+- no official OpenHands/extensions listing without fresh PR/read-back
+- no live ClawHub listing without fresh host-side read-back
+- no hosted Glama deployment, Docker catalog listing, or remote MCP lane
+- no direct mutation of the live Apple Notes store
+
+## Source of truth
+
+The canonical skill text still lives at:
+
+- `skills/notestorelab-case-review/SKILL.md`
+
+This folder is a public-facing derived packet. If the canonical skill changes,
+copy the updated `SKILL.md` here before publishing.

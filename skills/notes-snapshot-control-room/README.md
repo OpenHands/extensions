@@ -1,7 +1,7 @@
 # Apple Notes Snapshot Control-Room
 
-OpenHands skill for the Apple Notes Snapshot local-first backup control room on
-macOS.
+This folder is the public skill packet for Apple Notes Snapshot's local-first
+backup control room.
 
 ## What this skill teaches an agent
 
@@ -56,3 +56,26 @@ macOS.
 - no hosted runtime or Docker lane for the full product
 - no universal attach proof on every machine
 - no official marketplace listing unless a host-side read-back confirms it
+
+## What this packet includes
+
+- `SKILL.md`
+  - the agent-facing workflow entry
+- `README.md`
+  - the human-facing packet overview
+- `manifest.yaml`
+  - registry-style metadata for host skill registries
+- `references/README.md`
+  - the local index for every supporting file
+- `references/INSTALL.md`
+  - install and host wiring guidance
+- `references/OPENHANDS_MCP_CONFIG.json`
+  - a ready-to-edit `mcpServers` snippet
+- `references/OPENCLAW_MCP_CONFIG.json`
+  - a ready-to-edit `mcp.servers` snippet
+- `references/CAPABILITIES.md`
+  - the MCP capability map and safe-first order
+- `references/DEMO.md`
+  - the first-success walkthrough and expected output shape
+- `references/TROUBLESHOOTING.md`
+  - the first places to check when preflight or attach fails
