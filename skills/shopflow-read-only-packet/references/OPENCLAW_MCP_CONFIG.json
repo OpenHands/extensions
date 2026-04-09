@@ -1,0 +1,11 @@
+{
+  "mcp": {
+    "servers": {
+      "shopflow": {
+        "command": "pnpm",
+        "args": ["mcp:stdio"],
+        "cwd": "/absolute/path/to/shopflow-suite"
+      }
+    }
+  }
+}

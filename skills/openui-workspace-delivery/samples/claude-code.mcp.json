@@ -1,0 +1,13 @@
+{
+  "host": "Claude Code",
+  "starterBundle": "packages/skills-kit/starter-bundles/claude-code.mcp.json",
+  "proofLoop": [
+    "openui-mcp-studio surface-guide --json",
+    "openui-mcp-studio ecosystem-guide --json",
+    "npm run repo:doctor"
+  ],
+  "notFor": [
+    "claiming an Anthropic marketplace listing",
+    "claiming a managed runtime or hosted API publication"
+  ]
+}

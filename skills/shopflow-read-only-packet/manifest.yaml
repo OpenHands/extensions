@@ -1,0 +1,41 @@
+schema_version: 1
+artifact: public-skill-listing-manifest
+
+skill:
+  name: shopflow-read-only-packet
+  display_name: Shopflow Read-only Packet
+  version: 1.0.0
+  entrypoint: SKILL.md
+  package_shape: skill-folder
+
+registry_targets:
+  clawhub:
+    status: listed-live
+    package_shape: skill-folder
+    listing_url: https://www.clawhub.ai/skills/shopflow-read-only-packet
+    submit_via: clawhub publish . --slug shopflow-read-only-packet --name "Shopflow Read-only Packet" --version 1.0.0 --tags shopflow,mcp,read-only,distribution,packet
+  openhands-extensions:
+    status: review-pending
+    package_shape: skill-folder
+    submission_url: https://github.com/OpenHands/extensions/pull/160
+    submit_via: submit this folder as skills/shopflow-read-only-packet/ in OpenHands/extensions
+
+boundaries:
+  product_identity: Read-only Shopflow packet surface for integration, runtime seam, submission readiness, and public distribution bundle truth.
+  canonical_repo_version: 0.1.0
+  official_listing_state: clawhub-live-openhands-review-pending
+  not_claimed:
+    - No live OpenHands/extensions listing exists yet
+    - No official registry or store listing exists yet
+    - No hosted runtime or public HTTP MCP transport is claimed
+
+pair_with:
+  - SKILL.md
+  - README.md
+  - references/README.md
+  - references/INSTALL.md
+  - references/CAPABILITIES.md
+  - references/DEMO.md
+  - references/OPENHANDS_MCP_CONFIG.json
+  - references/OPENCLAW_MCP_CONFIG.json
+  - references/TROUBLESHOOTING.md

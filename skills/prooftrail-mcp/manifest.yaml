@@ -1,0 +1,52 @@
+name: prooftrail-mcp
+version: 0.1.1
+description: Generic install skill for using ProofTrail as a governed stdio MCP surface.
+protocol: stdio
+transport: stdio
+auth: local-with-optional-backend-token
+entrypoint: SKILL.md
+package_shape: skill-folder
+registry_targets:
+  clawhub:
+    status: listed-live
+    package_shape: skill-folder
+    listing_url: https://www.clawhub.ai/skills/prooftrail-mcp
+    submit_via: clawhub publish . --slug prooftrail-mcp --name "ProofTrail MCP Skill" --version 0.1.1 --tags browser-evidence,mcp,recovery,prooftrail
+  openhands-extensions:
+    status: review-pending
+    package_shape: skill-folder
+    submission_url: https://github.com/OpenHands/extensions/pull/160
+    submit_via: submit this folder as skills/prooftrail-mcp/ in OpenHands/extensions
+surfaces:
+  - repo-native MCP package
+  - repo-owned install skill
+  - publish-ready Docker surface
+supported_shells:
+  - Codex
+  - Claude Code
+  - OpenCode
+  - OpenClaw
+  - OpenHands
+install_modes:
+  - local-checkout-stdio
+  - clawhub-listed-live
+docs:
+  - apps/mcp-server/README.md
+  - docs/how-to/mcp-quickstart-1pager.md
+  - docs/reference/mcp-distribution-contract.md
+  - DISTRIBUTION.md
+  - INTEGRATIONS.md
+limitations:
+  - not an official plugin
+  - not a hosted service
+  - no live OpenHands/extensions listing yet
+pair_with:
+  - SKILL.md
+  - README.md
+  - references/README.md
+  - references/INSTALL.md
+  - references/CAPABILITIES.md
+  - references/DEMO.md
+  - references/OPENHANDS_MCP_CONFIG.json
+  - references/OPENCLAW_MCP_CONFIG.json
+  - references/TROUBLESHOOTING.md

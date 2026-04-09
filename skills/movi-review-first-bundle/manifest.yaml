@@ -1,0 +1,37 @@
+version: 1
+id: movi-agent-bundle
+display_name: Movi Review-First Bundle
+status: clawhub-listed-live
+canonical_repo: xiaojiou176-open/movi-organizer
+entrypoint: SKILL.md
+package_shape: skill-folder
+registry_targets:
+  clawhub:
+    status: listed-live
+    package_shape: skill-folder
+    listing_url: https://www.clawhub.ai/skills/movi-review-first-bundle
+    submit_via: clawhub publish . --slug movi-review-first-bundle --name "Movi Review-First Bundle" --version 1.0.0 --tags mcp,review-first,batch,media,movi
+  openhands-extensions:
+    status: review-pending
+    package_shape: skill-folder
+    submission_url: https://github.com/OpenHands/extensions/pull/160
+    submit_via: submit this folder as skills/movi-review-first-bundle/ in OpenHands/extensions
+bundle_surfaces:
+  - SKILL.md
+  - README.md
+  - references/README.md
+  - references/INSTALL.md
+  - references/CAPABILITIES.md
+  - references/DEMO.md
+  - references/TROUBLESHOOTING.md
+  - references/OPENHANDS_MCP_CONFIG.json
+  - references/OPENCLAW_MCP_CONFIG.json
+  - codex.mcp.json
+  - claude-code.mcp.json
+  - openclaw.mcp.json
+  - install-and-proof.md
+claims_not_made:
+  - no live OpenHands listing is claimed
+  - no live OpenClaw listing is claimed
+  - no browser-extension marketplace listing is claimed
+  - no hosted Movi SaaS claim is made

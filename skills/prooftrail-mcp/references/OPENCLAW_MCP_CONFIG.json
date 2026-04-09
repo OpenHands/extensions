@@ -1,0 +1,13 @@
+{
+  "mcp": {
+    "servers": {
+      "prooftrail": {
+        "command": "pnpm",
+        "args": [
+          "mcp:start"
+        ],
+        "cwd": "/absolute/path/to/prooftrail"
+      }
+    }
+  }
+}

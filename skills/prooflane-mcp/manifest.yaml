@@ -1,0 +1,69 @@
+name: prooflane-mcp
+version: 0.1.0
+summary: >
+  Generic skill scaffold for teaching an agent to clone, install, configure,
+  verify, and use the Prooflane repo-native MCP server and local product paths.
+protocol: stdio
+entrypoint: SKILL.md
+package_shape: skill-folder
+registry_targets:
+  clawhub:
+    status: ready-but-not-listed
+    package_shape: skill-folder
+    submit_via: clawhub publish . --slug prooflane-mcp --name "Prooflane MCP Skill" --version 0.1.0 --tags mcp,proof,automation,review,prooflane
+  openhands-extensions:
+    status: review-pending
+    package_shape: skill-folder
+    submission_url: https://github.com/OpenHands/extensions/pull/160
+    submit_via: submit this folder as skills/prooflane-mcp/ in OpenHands/extensions
+installation:
+  repo: https://github.com/xiaojiou176-open/ui-automation-control-plane
+  steps:
+    - git clone https://github.com/xiaojiou176-open/ui-automation-control-plane.git
+    - cd ui-automation-control-plane
+    - ./scripts/setup.sh
+configuration:
+  repo_native:
+    command: pnpm
+    args:
+      - mcp:start
+    cwd: /ABSOLUTE/PATH/TO/REPO
+    env:
+      UIQ_MCP_API_BASE_URL: http://127.0.0.1:18080
+      UIQ_MCP_TOOL_GROUPS: advanced,analysis,proof
+  publish_ready_shape:
+    command: npx
+    args:
+      - -y
+      - "@uiq/mcp-server"
+    env:
+      UIQ_MCP_API_BASE_URL: http://127.0.0.1:18080
+      UIQ_MCP_TOOL_GROUPS: advanced,analysis,proof
+    note: publish-ready scoped package shape only; not published yet; bin inside remains prooflane-mcp
+verification:
+  steps:
+    - pnpm mcp:check
+    - pnpm mcp:build
+    - pnpm mcp:package:smoke
+    - pnpm mcp:doc:contract
+    - pnpm mcp:smoke
+supported_agents:
+  - Codex
+  - Claude Code
+  - OpenClaw
+  - generic-mcp-client
+capabilities:
+  - local stress-lab first-look
+  - repo-native stdio MCP startup
+  - governed run and proof path orientation
+  - truthful distribution boundary guidance
+pair_with:
+  - SKILL.md
+  - README.md
+  - references/README.md
+  - references/INSTALL.md
+  - references/CAPABILITIES.md
+  - references/DEMO.md
+  - references/OPENHANDS_MCP_CONFIG.json
+  - references/OPENCLAW_MCP_CONFIG.json
+  - references/TROUBLESHOOTING.md

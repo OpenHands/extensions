@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "movi": {
+      "command": "bash",
+      "args": [
+        "/absolute/path/to/movi-organizer/tooling/runtime/run_mcp_stdio.sh"
+      ]
+    }
+  }
+}
