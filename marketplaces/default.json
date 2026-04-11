@@ -471,6 +471,19 @@
                 "verification",
                 "sample"
             ]
+        },
+        {
+            "name": "docsiphon-doc-corpus-operator",
+            "source": "./docsiphon-doc-corpus-operator",
+            "description": "Run the Docsiphon CLI to export a small documentation subtree into a reviewable local Markdown corpus with manifest and report artifacts.",
+            "category": "documentation",
+            "keywords": [
+                "docs",
+                "documentation",
+                "corpus",
+                "rag",
+                "markdown"
+            ]
         }
     ]
 }

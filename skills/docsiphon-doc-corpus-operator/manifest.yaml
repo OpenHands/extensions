@@ -1,0 +1,36 @@
+schema_version: 1
+artifact: public-skill-listing-manifest
+
+skill:
+  name: docsiphon-doc-corpus-operator
+  display_name: docsiphon Doc Corpus Operator
+  version: 1.0.0
+  entrypoint: SKILL.md
+  package_shape: skill-folder
+
+registry_targets:
+  clawhub:
+    status: not-submitted-yet
+    package_shape: skill-folder
+  openhands-extensions:
+    status: not-submitted-yet
+    package_shape: skill-folder
+
+boundaries:
+  product_identity: CLI-first documentation corpus export packet for Docsiphon.
+  canonical_repo_version: 0.1.2
+  listing_state_summary: ClawHub and OpenHands/extensions not submitted yet.
+  not_claimed:
+    - No listed-live ClawHub entry exists yet
+    - No listed-live OpenHands/extensions entry exists yet
+    - No hosted docs export platform exists yet
+    - No MCP-first product claim exists yet
+
+pair_with:
+  - SKILL.md
+  - README.md
+  - references/README.md
+  - references/INSTALL.md
+  - references/DEMO.md
+  - references/CAPABILITIES.md
+  - references/TROUBLESHOOTING.md
