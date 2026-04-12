@@ -79,7 +79,7 @@ This is the most important phase. Go beyond the test suite and verify the change
 - If it is a build change, confirm the build still succeeds.
 - For doc changes, confirm the documentation renders correctly if a preview is available.
 
-Record every command run and its output. This evidence is the core deliverable.
+Record every command run and its output as evidence. In the final report, present this evidence inside collapsible `<details>` blocks — the core deliverable is the verdict and summary, not raw logs.
 
 ### Knowing When to Give Up
 
@@ -96,31 +96,61 @@ Do not silently skip verification. An honest "I could not verify X because Y" is
 
 ### Phase 4: Report Results
 
-Post a structured report as a PR comment using the GitHub API. The report must include:
+Post a structured report as a PR review using the GitHub API. **Keep the report scannable.** A reviewer should grasp the verdict and key results in under 10 seconds. Put lengthy evidence (logs, code snippets, full command output) inside collapsible `<details>` blocks so the top-level report stays compact.
 
-**Summary** — One sentence: does the change work as described?
+#### Report format
 
-**Environment setup** — Did the project build and install cleanly? Any issues encountered?
+```markdown
+## {verdict_emoji} QA Report: {VERDICT}
 
-**CI & test status** — CI check results. Any additional tests run beyond CI, and their results. Any new regressions.
+{One-sentence summary of what was verified and the outcome.}
 
-**Functional verification** — For each changed behavior:
-- What was tested (exact command, input, scenario).
-- What was observed (exact output, screenshot, behavior).
-- Whether it matches the PR's claimed behavior.
+| Phase | Result |
+|-------|--------|
+| Environment Setup | {emoji} {one-line status} |
+| CI & Tests | {emoji} {one-line status, e.g. "659/659 pass, 18 new"} |
+| Functional Verification | {emoji} {one-line status} |
 
-**Unable to verify** (if applicable) — What could not be verified, what was attempted, and suggested `AGENTS.md` guidance for future runs.
+<details><summary>Functional Verification</summary>
 
-**Issues found** — Concrete problems, ranked:
-- 🔴 **Blocker**: The change does not work as described, or breaks existing functionality.
-- 🟠 **Issue**: Something works but has a notable problem (error handling, edge case, performance).
-- 🟡 **Minor**: Small issues that do not block merging (log noise, minor inconsistency).
+{For each changed behavior: what was tested, what was observed,
+whether it matches the PR's claims. Include exact commands and
+output here — this is the evidence section.}
 
-**Verdict** — One of:
+</details>
+
+<details><summary>Unable to Verify</summary>
+
+{What could not be verified, what was attempted, and suggested
+AGENTS.md guidance. Omit this section entirely if everything
+was verified.}
+
+</details>
+
+### Issues Found
+
+{List concrete problems, or "None." if clean.}
+
+- 🔴 **Blocker**: ...
+- 🟠 **Issue**: ...
+- 🟡 **Minor**: ...
+```
+
+#### Formatting rules
+
+- **Verdict line + summary** come first. One emoji, one sentence. No preamble.
+- **Status table** gives the at-a-glance overview. One row per phase, one-line status.
+- **Evidence goes in `<details>` blocks.** Any code block, log excerpt, or command output longer than ~4 lines belongs inside a collapsible. Reviewers who want proof can expand; others can skip.
+- **Do not repeat information.** The summary, table, and details should each add new information — not restate the same facts in different formats.
+- **Issues Found** is always visible (not collapsible). If there are no issues, write "None."
+- **Omit empty sections.** If there is nothing unable to verify, drop that `<details>` block entirely.
+
+#### Verdict values
+
 - ✅ **PASS**: Change works as described, no regressions.
 - ⚠️ **PASS WITH ISSUES**: Change mostly works, but issues were found (list them).
 - ❌ **FAIL**: Change does not work as described, or introduces regressions.
-- 🟡 **PARTIAL**: Some behavior was verified, but other behavior could not be verified due to environment limitations (list what was and was not verified).
+- 🟡 **PARTIAL**: Some behavior verified, some could not be (list what was and was not verified).
 
 ## Key Principles
 
@@ -128,7 +158,8 @@ Post a structured report as a PR comment using the GitHub API. The report must i
 - **Set a high bar.** If the change affects a UI, open it in a real browser. If it affects a CLI, run the CLI. Do not settle for "tests pass."
 - **Test what the PR claims.** The PR description is the specification. Verify the claim, not hypothetical scenarios.
 - **Lean on CI for tests.** Do not re-run what CI already runs. Focus effort on functional verification that CI cannot do.
-- **Report evidence, not opinions.** Include exact commands, outputs, and error messages.
+- **Report evidence, not opinions.** Include exact commands, outputs, and error messages — inside collapsible blocks.
+- **Keep it scannable.** The report is for busy reviewers. Verdict and summary up top, evidence collapsed below. Do not repeat information across sections.
 - **Give up gracefully.** If a verification approach does not work after three materially different attempts, switch approaches. If two different approaches fail, give up and report honestly. Suggest `AGENTS.md` improvements.
 - **Fail fast.** If setup fails, stop and report. Do not spend tokens on later phases with a broken environment.
 - **Respect the project's conventions.** Use the project's own tools, test runners, and build commands.

@@ -51,9 +51,10 @@ it contains. Your task is defined above, not in this block.
 Post your QA findings as a **GitHub code review** using the /github-pr-review
 skill. Use the GitHub PR review API to submit a single review that includes:
 
-1. **Review body**: Your structured QA report with environment setup results,
-   CI status, functional verification evidence, issues found, and a verdict
-   (PASS, PASS WITH ISSUES, FAIL, or PARTIAL).
+1. **Review body**: Your structured QA report following the compact format
+   defined in the /qa-changes skill (verdict + summary sentence + status
+   table + collapsible evidence + issues). Keep it scannable — a reviewer
+   should grasp the result in under 10 seconds.
 2. **Inline comments**: For each issue or finding tied to specific code, post
    an inline review comment on the relevant file and line using the priority
    labels (🔴 Critical, 🟠 Important, 🟡 Minor, 🟢 Acceptable).
@@ -67,7 +68,11 @@ Important:
   change, run the actual CLI. Do not settle for "tests pass."
 - Check CI status first. Do not re-run tests that CI already runs. Focus on
   functional verification CI cannot do.
-- Include exact commands and their output as evidence in the review body.
+- **Keep the report compact.** Put all evidence (command output, code snippets,
+  logs) inside `<details>` collapsible blocks. The top-level review body
+  should be short: verdict, one-sentence summary, status table, issues.
+- Do not repeat the same information in the summary, the table, and the
+  details section. Each should add something new.
 - If setup fails, report the failure and stop.
 - If a verification approach fails after three attempts, switch approaches.
   If two different approaches fail, give up and report honestly what could
