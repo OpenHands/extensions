@@ -20,3 +20,6 @@ env/
 # OS
 .DS_Store
 Thumbs.db
+
+# uv lock file (no application code in this repo)
+uv.lock
