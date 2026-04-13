@@ -35,6 +35,11 @@ Environment Variables:
     REVIEW_STYLE: Review style ('standard' or 'roasted', default: 'standard')
     REQUIRE_EVIDENCE: Whether to require PR description evidence showing the code
         works ('true'/'false', default: 'false')
+    USE_SUB_AGENTS: Enable sub-agent delegation for file-level reviews
+        ('true'/'false', default: 'false'). When enabled, the main agent acts
+        as a coordinator that delegates per-file review work to
+        file_reviewer sub-agents via the TaskToolSet, then consolidates
+        findings into a single GitHub PR review.
 
 For setup instructions, usage examples, and GitHub Actions integration,
 see README.md in this directory.
@@ -53,18 +58,21 @@ from pathlib import Path
 from typing import Any
 
 from lmnr import Laminar
-from openhands.sdk import LLM, Agent, AgentContext, Conversation, get_logger
+from openhands.sdk import LLM, Agent, AgentContext, Conversation, Tool, get_logger
+from openhands.sdk.context import Skill
 from openhands.sdk.context.skills import load_project_skills
 from openhands.sdk.conversation import get_agent_final_response
 from openhands.sdk.git.utils import run_git_command
 from openhands.sdk.plugin import PluginSource
+from openhands.tools.delegate import DelegationVisualizer, register_agent
 from openhands.tools.preset.default import get_default_condenser, get_default_tools
+from openhands.tools.task import TaskToolSet
 
 # Add the script directory to Python path so we can import prompt.py
 script_dir = Path(__file__).parent
 sys.path.insert(0, str(script_dir))
 
-from prompt import format_prompt  # noqa: E402
+from prompt import format_prompt, get_file_reviewer_skill_content  # noqa: E402
 
 logger = get_logger(__name__)
 
@@ -737,6 +745,7 @@ def validate_environment() -> dict[str, Any]:
         "base_url": os.getenv("LLM_BASE_URL"),
         "review_style": review_style,
         "require_evidence": _get_bool_env("REQUIRE_EVIDENCE"),
+        "use_sub_agents": _get_bool_env("USE_SUB_AGENTS"),
         "pr_info": {
             "number": os.getenv("PR_NUMBER"),
             "title": os.getenv("PR_TITLE"),
@@ -772,6 +781,53 @@ def fetch_pr_context(pr_number: str) -> tuple[str, str, str]:
     return pr_diff, commit_id, review_context
 
 
+def _create_file_reviewer_agent(llm: LLM) -> Agent:
+    """Factory for file_reviewer sub-agents used during delegation.
+
+    Each sub-agent receives a skill that defines its review persona and
+    expected output format.  It has no tools — the coordinator handles
+    all GitHub API interaction.
+    """
+    # review_style is read at registration time from the environment
+    review_style = os.getenv("REVIEW_STYLE", "standard").lower()
+    skill_content = get_file_reviewer_skill_content(review_style)
+
+    skills = [
+        Skill(
+            name="file_review_instructions",
+            content=skill_content,
+            trigger=None,
+        ),
+    ]
+    return Agent(
+        llm=llm,
+        tools=[],  # sub-agents only analyse; coordinator posts the review
+        agent_context=AgentContext(
+            skills=skills,
+            system_message_suffix=(
+                "You are a file-level code reviewer sub-agent. "
+                "Return findings as a JSON array. Do NOT call the GitHub API."
+            ),
+        ),
+    )
+
+
+def _register_sub_agents() -> None:
+    """Register the file_reviewer agent type.
+
+    TaskToolSet auto-registers on import, so no explicit
+    ``register_tool()`` call is needed.
+    """
+    register_agent(
+        name="file_reviewer",
+        factory_func=_create_file_reviewer_agent,
+        description=(
+            "Reviews one or more files from a PR diff and returns structured "
+            "findings as a JSON array."
+        ),
+    )
+
+
 def create_conversation(
     config: dict[str, Any],
     secrets: dict[str, str],
@@ -781,6 +837,9 @@ def create_conversation(
     The pr-review plugin is passed to Conversation via PluginSource, which
     handles wiring skills, MCP config, and hooks automatically.
     Project-specific skills from the workspace are loaded separately.
+
+    When ``config["use_sub_agents"]`` is True the coordinator agent is
+    given the TaskToolSet so it can delegate to file_reviewer sub-agents.
 
     Args:
         config: Configuration dictionary from validate_environment()
@@ -813,9 +872,17 @@ def create_conversation(
         skills=project_skills,
     )
 
+    tools = get_default_tools(enable_browser=False)
+
+    use_sub_agents = config.get("use_sub_agents", False)
+    if use_sub_agents:
+        _register_sub_agents()
+        tools.append(Tool(name=TaskToolSet.name))
+        logger.info("Sub-agent delegation enabled — TaskToolSet added")
+
     agent = Agent(
         llm=llm,
-        tools=get_default_tools(enable_browser=False),
+        tools=tools,
         agent_context=agent_context,
         system_prompt_kwargs={"cli_mode": True},
         condenser=get_default_condenser(
@@ -825,12 +892,18 @@ def create_conversation(
 
     # The plugin directory is the parent of the scripts/ directory
     plugin_dir = script_dir.parent  # plugins/pr-review/
-    return Conversation(
-        agent=agent,
-        workspace=cwd,
-        secrets=secrets,
-        plugins=[PluginSource(source=str(plugin_dir))],
-    )
+    conversation_kwargs: dict[str, Any] = {
+        "agent": agent,
+        "workspace": cwd,
+        "secrets": secrets,
+        "plugins": [PluginSource(source=str(plugin_dir))],
+    }
+    if use_sub_agents:
+        conversation_kwargs["visualizer"] = DelegationVisualizer(
+            name="PR Review Coordinator"
+        )
+
+    return Conversation(**conversation_kwargs)
 
 
 def run_review(
@@ -943,10 +1016,12 @@ def main():
     pr_info = config["pr_info"]
     review_style = config["review_style"]
     require_evidence = config["require_evidence"]
+    use_sub_agents = config["use_sub_agents"]
 
     logger.info(f"Reviewing PR #{pr_info['number']}: {pr_info['title']}")
     logger.info(f"Review style: {review_style}")
     logger.info(f"Require PR evidence: {require_evidence}")
+    logger.info(f"Sub-agent delegation: {use_sub_agents}")
 
     try:
         pr_diff, commit_id, review_context = fetch_pr_context(pr_info["number"])
@@ -968,6 +1043,7 @@ def main():
             diff=pr_diff,
             review_context=review_context,
             require_evidence=require_evidence,
+            use_sub_agents=use_sub_agents,
         )
 
         secrets = {}

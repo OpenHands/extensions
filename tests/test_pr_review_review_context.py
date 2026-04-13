@@ -58,6 +58,7 @@ def _load_agent_script_module():
     sdk.Agent = object
     sdk.AgentContext = object
     sdk.Conversation = object
+    sdk.Tool = object
 
     class _Logger:
         def info(self, *args, **kwargs):
@@ -75,6 +76,10 @@ def _load_agent_script_module():
     sdk.get_logger = lambda name: _Logger()
     sys.modules["openhands.sdk"] = sdk
 
+    sdk_context = _ensure_package("openhands.sdk.context")
+    sdk_context.Skill = object
+    sys.modules["openhands.sdk.context"] = sdk_context
+
     context_skills = types.ModuleType("openhands.sdk.context.skills")
     context_skills.load_project_skills = lambda cwd: []
     sys.modules["openhands.sdk.context.skills"] = context_skills
@@ -87,10 +92,32 @@ def _load_agent_script_module():
     git_utils.run_git_command = lambda command, repo_dir: "deadbeef"
     sys.modules["openhands.sdk.git.utils"] = git_utils
 
+    sdk_plugin = types.ModuleType("openhands.sdk.plugin")
+    sdk_plugin.PluginSource = object
+    sys.modules["openhands.sdk.plugin"] = sdk_plugin
+
+    tools_delegate = types.ModuleType("openhands.tools.delegate")
+    tools_delegate.DelegationVisualizer = object
+    tools_delegate.register_agent = lambda **kwargs: None
+    sys.modules["openhands.tools.delegate"] = tools_delegate
+
+    tools_task = types.ModuleType("openhands.tools.task")
+
+    class _TaskToolSet:
+        name = "TaskToolSet"
+
+    tools_task.TaskToolSet = _TaskToolSet
+    sys.modules["openhands.tools.task"] = tools_task
+
     tools_preset = types.ModuleType("openhands.tools.preset.default")
     tools_preset.get_default_condenser = lambda llm: None
     tools_preset.get_default_tools = lambda enable_browser=False: []
     sys.modules["openhands.tools.preset.default"] = tools_preset
+
+    # Clear any cached 'prompt' module so agent_script.py picks up the
+    # correct prompt.py from its own scripts/ directory (not the one from
+    # another plugin like release-notes).
+    sys.modules.pop("prompt", None)
 
     script_path = (
         Path(__file__).parent.parent
