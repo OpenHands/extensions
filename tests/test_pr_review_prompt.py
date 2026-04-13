@@ -65,7 +65,7 @@ def test_format_prompt_uses_standard_prompt_by_default():
 
     # Standard prompt should NOT mention delegation or sub-agents
     assert "review coordinator" not in prompt
-    assert "DelegateTool" not in prompt
+    assert "TaskToolSet" not in prompt
     assert "file_reviewer" not in prompt
     # Standard prompt should contain the normal review instruction
     assert "Analyze the changes and post your review" in prompt
@@ -76,8 +76,8 @@ def test_format_prompt_uses_sub_agent_prompt_when_enabled():
 
     # Sub-agent prompt should mention coordination and delegation
     assert "review coordinator" in prompt
-    assert "DelegateTool" in prompt
-    assert "Spawn sub-agents" in prompt
+    assert "task" in prompt.lower()
+    assert "TaskToolSet" in prompt
     assert "file_reviewer" in prompt
     # Sub-agent prompt should still include the PR info
     assert "Add evidence enforcement" in prompt

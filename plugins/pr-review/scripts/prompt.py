@@ -14,7 +14,8 @@ The template includes:
 
 When sub-agent delegation is enabled, the main agent acts as a coordinator
 that splits the diff by file and delegates individual file reviews to
-sub-agents, then consolidates results and posts the final review.
+sub-agents via the TaskToolSet, then consolidates results and posts the
+final review.
 """
 
 # Template for when there is review context available
@@ -81,7 +82,8 @@ Analyze the changes and post your review using the GitHub API.
 
 # Prompt for the main coordinator agent when sub-agent delegation is enabled.
 # The coordinator splits the diff into per-file chunks and delegates each
-# to a "file_reviewer" sub-agent, then consolidates and posts the review.
+# to a "file_reviewer" sub-agent via the TaskToolSet, then consolidates
+# and posts the review.
 SUB_AGENT_PROMPT = """{skill_trigger}
 /github-pr-review
 
@@ -103,21 +105,21 @@ GitHub PR review.
 
 ## Instructions
 
-You have access to the **DelegateTool**. Follow these steps:
+You have access to the **task** tool (TaskToolSet). Follow these steps:
 
-1. **Spawn sub-agents** — one `file_reviewer` sub-agent per changed file (or
-   small group of closely related files). Use `spawn` with descriptive IDs
-   based on the file paths (e.g. `"review_src_utils"`, `"review_tests"`).
+1. **Delegate file reviews** — for each changed file (or small group of
+   closely related files), call the task tool with:
+   - `subagent_type`: `"file_reviewer"`
+   - `prompt`: the diff chunk for the file(s), together with the PR context
+     (title, description, base/head branch). Ask it to return a structured
+     list of findings with severity, file path, line number, and a short
+     description.
+   - `description`: a short label like `"Review src/utils.py"`
 
-2. **Delegate** — send each sub-agent the diff chunk for its file(s) together
-   with the PR context (title, description, base/head branch). Ask it to
-   return a structured list of findings with severity, file path, line number,
-   and a short description.
+2. **Collect results** — each task tool call returns the sub-agent's findings.
+   Merge them all together. De-duplicate and drop low-signal noise.
 
-3. **Collect results** — after all sub-agents respond, merge their findings.
-   De-duplicate and drop low-signal noise.
-
-4. **Post the review** — use the GitHub API (as described by /github-pr-review)
+3. **Post the review** — use the GitHub API (as described by /github-pr-review)
    to submit a single PR review with inline comments on the relevant lines.
    Keep the top-level review body brief.
 

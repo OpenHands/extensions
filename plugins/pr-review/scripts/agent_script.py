@@ -37,8 +37,8 @@ Environment Variables:
         works ('true'/'false', default: 'false')
     USE_SUB_AGENTS: Enable sub-agent delegation for file-level reviews
         ('true'/'false', default: 'false'). When enabled, the main agent acts
-        as a coordinator that spawns file_reviewer sub-agents via the
-        DelegateTool, delegates per-file review work, and consolidates
+        as a coordinator that delegates per-file review work to
+        file_reviewer sub-agents via the TaskToolSet, then consolidates
         findings into a single GitHub PR review.
 
 For setup instructions, usage examples, and GitHub Actions integration,
@@ -64,10 +64,9 @@ from openhands.sdk.context.skills import load_project_skills
 from openhands.sdk.conversation import get_agent_final_response
 from openhands.sdk.git.utils import run_git_command
 from openhands.sdk.plugin import PluginSource
-from openhands.sdk.subagent import register_agent
-from openhands.sdk.tool import register_tool
-from openhands.tools.delegate import DelegateTool, DelegationVisualizer
+from openhands.tools.delegate import DelegationVisualizer, register_agent
 from openhands.tools.preset.default import get_default_condenser, get_default_tools
+from openhands.tools.task import TaskToolSet
 
 # Add the script directory to Python path so we can import prompt.py
 script_dir = Path(__file__).parent
@@ -814,7 +813,11 @@ def _create_file_reviewer_agent(llm: LLM) -> Agent:
 
 
 def _register_sub_agents() -> None:
-    """Register the file_reviewer agent type and the DelegateTool."""
+    """Register the file_reviewer agent type.
+
+    TaskToolSet auto-registers on import, so no explicit
+    ``register_tool()`` call is needed.
+    """
     register_agent(
         name="file_reviewer",
         factory_func=_create_file_reviewer_agent,
@@ -823,7 +826,6 @@ def _register_sub_agents() -> None:
             "findings as a JSON array."
         ),
     )
-    register_tool("DelegateTool", DelegateTool)
 
 
 def create_conversation(
@@ -837,7 +839,7 @@ def create_conversation(
     Project-specific skills from the workspace are loaded separately.
 
     When ``config["use_sub_agents"]`` is True the coordinator agent is
-    given the DelegateTool so it can spawn file_reviewer sub-agents.
+    given the TaskToolSet so it can delegate to file_reviewer sub-agents.
 
     Args:
         config: Configuration dictionary from validate_environment()
@@ -875,8 +877,8 @@ def create_conversation(
     use_sub_agents = config.get("use_sub_agents", False)
     if use_sub_agents:
         _register_sub_agents()
-        tools.append(Tool(name=DelegateTool.name))
-        logger.info("Sub-agent delegation enabled — DelegateTool added")
+        tools.append(Tool(name=TaskToolSet.name))
+        logger.info("Sub-agent delegation enabled — TaskToolSet added")
 
     agent = Agent(
         llm=llm,
