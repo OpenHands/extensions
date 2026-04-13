@@ -106,7 +106,7 @@ When a PR only changes GitHub Action versions in workflow files (`.github/workfl
 **Outcome**:
 - ✅ If checks that use ALL updated actions ran and **succeeded**: Every updated action version works. Approve the PR.
 - ❌ If a check that uses ANY updated action **failed**: Investigate the failure - it may indicate compatibility issues with the new action version.
-- ⚠️ If ANY updated action has no corresponding check that ran: Request manual verification or ask for a test run for the unverified action(s). Do not approve until all actions are verified.
+- ⚠️ If ANY updated action has no corresponding check that ran: Comment "No PR check exercises this action - please trigger a workflow run" and submit review with REQUEST_CHANGES. Do not approve until all actions are verified.
 
 **Example**: A Dependabot PR bumps both `actions/upload-artifact` (v5→v7) and `actions/checkout` (v4→v6). You must verify that BOTH actions have successful checks - e.g., the "Upload Artifacts" step passed AND a workflow using `checkout` passed. If only one is verified, do not approve.
 
