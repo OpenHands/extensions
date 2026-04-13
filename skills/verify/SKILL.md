@@ -36,12 +36,12 @@ that don't exist.
 
 ## The loop
 
-1. Push and ensure PR exists.
+1. Push and ensure a draft PR exists.
 2. Poll each present verification layer.
 3. Decide: all passed? fix needed? wait?
 4. If fix needed — fix, commit, push, re-request review from bots, go to 2.
 5. If waiting — sleep 30-60s, go to 2.
-6. If all present layers passed on the *current* SHA — done.
+6. If all present layers passed on the *current* SHA — mark PR ready, done.
 
 IMPORTANT: pushing a fix is NOT the end. After every fix+push you MUST
 re-request review from the review bot (if present) and go back to step 2.
@@ -49,12 +49,22 @@ The loop only ends when the verifiers pass on your latest SHA. Addressing
 feedback and pushing a commit is just one iteration — the bot needs to
 review the new code too.
 
-## Step 1 — Push and ensure PR exists
+## Step 1 — Push and ensure PR exists (as draft)
+
+Create the PR as a draft. This prevents repo automations (merge workflows,
+artifact cleanup, auto-merge) from triggering while you're still iterating.
+You mark it ready only after all verification layers pass.
 
 ```bash
 git push origin HEAD
-gh pr create --fill 2>/dev/null || true
-gh pr view --json number,url,headRefOid --jq '"\(.number) \(.url) \(.headRefOid)"'
+gh pr create --fill --draft 2>/dev/null || true
+gh pr view --json number,url,headRefOid,isDraft --jq '"\(.number) \(.url) \(.headRefOid) draft=\(.isDraft)"'
+```
+
+If the PR already exists and is not a draft, convert it:
+
+```bash
+gh pr ready --undo
 ```
 
 ## Step 2 — Poll CI checks
@@ -169,6 +179,17 @@ Flaky / unrelated (rerun the jobs):
 Rerun: `gh run rerun <run-id> --failed`
 
 Retry budget: at most 3 reruns per SHA. After that, treat as real.
+
+## When done — mark PR ready
+
+Once all present verification layers pass on the current SHA, convert the
+draft PR to ready for review:
+
+```bash
+gh pr ready
+```
+
+Only do this at the very end, after the loop exits successfully.
 
 ## Stop conditions
 
