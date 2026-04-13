@@ -21,7 +21,7 @@ Create detailed Product Requirements Documents that are clear, actionable, and s
 1. Receive a feature description from the user
 2. Ask 3-5 essential clarifying questions (with lettered options)
 3. Generate a structured PRD based on answers
-4. Save to `prd-[feature-name].md` in the project directory
+4. Save to `prd-[feature-name].md` in the repository root
 
 **Important:** Do NOT start implementing. Just create the PRD.
 
@@ -165,8 +165,8 @@ Add priority levels to tasks so users can focus on what matters most. Tasks can 
 **Description:** As a developer, I need to store task priority so it persists across sessions.
 
 **Acceptance Criteria:**
-- [ ] Add priority column to tasks table: 'high' | 'medium' | 'low' (default 'medium')
-- [ ] Generate and run migration successfully
+- [ ] Priority column exists in tasks table with type 'high' | 'medium' | 'low' (default 'medium')
+- [ ] Priority values persist correctly across application restarts
 
 ### US-002: Display priority indicator on task cards
 **Description:** As a user, I want to see task priority at a glance so I know what needs attention first.
