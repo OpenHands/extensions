@@ -20,15 +20,19 @@ Requires: `gh` CLI authenticated with repo access, a PR branch.
 ## Discover what the repo has
 
 Not every repo has all three verification layers. Before entering the loop,
-figure out which ones apply. Only poll layers that actually exist.
+check which ones exist. Only poll layers that are actually set up.
 
-- **CI checks** — almost every repo has these (GitHub Actions, status checks). If `gh pr checks` returns results, CI is present.
-- **PR review bot** — only if the repo uses the OpenHands `pr-review` workflow or similar. Check: does the repo have a workflow that posts GitHub reviews from a bot account (openhands-agent, all-hands-bot, etc.)? If you're unsure, poll once after push — if no bot review appears within a few minutes, the repo doesn't have one. Skip it going forward.
-- **QA bot** — only if the repo uses the OpenHands `qa-changes` workflow or similar. Same approach: poll once, and if no QA comment appears, the repo doesn't have one. Skip it.
+```bash
+gh workflow list --json name --jq '.[].name'
+```
+
+- **CI checks** — almost every repo has these. If `gh pr checks` returns results, CI is present.
+- **PR review bot** — look for a workflow named like "PR Review" or "pr-review" in the output above, or check for `.github/workflows/pr-review*.yml` in the repo. If it's not there, the repo doesn't have automated PR review. Skip step 3 entirely.
+- **QA bot** — look for a workflow named like "QA" or "qa-changes". If it's not there, the repo doesn't have automated QA. Skip step 4 entirely.
 
 A repo might have only CI. Or CI + review. Or all three. Your "all passed"
-condition is: every *present* layer is green. Don't wait for layers that
-don't exist.
+condition is: every *present* layer is green. Don't block waiting for layers
+that don't exist.
 
 ## The loop
 
@@ -86,7 +90,7 @@ gh pr view --json reviews --jq '
 - `APPROVED` → review passed.
 - `CHANGES_REQUESTED` → read the body and inline comments, fix code.
 - `COMMENTED` → may have actionable suggestions; read and decide.
-- No matching review → bot hasn't run yet, or repo doesn't have one.
+- No matching review yet → bot may still be running; wait and re-poll.
 
 Inline review comments (when changes requested):
 
@@ -113,7 +117,7 @@ gh api "repos/{owner}/{repo}/issues/{number}/comments" --paginate \
 - `PASS` → QA passed.
 - `FAIL` → read details, fix code.
 - `PARTIAL` → some passed, some failed; read details.
-- No QA comment → repo doesn't use qa-changes. Not blocking.
+- No QA comment yet → bot may still be running; wait and re-poll.
 
 ## Step 5 — Decide
 
