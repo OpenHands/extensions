@@ -39,9 +39,15 @@ that don't exist.
 1. Push and ensure PR exists.
 2. Poll each present verification layer.
 3. Decide: all passed? fix needed? wait?
-4. If fix needed — fix, commit, push, go to 2.
+4. If fix needed — fix, commit, push, re-request review from bots, go to 2.
 5. If waiting — sleep 30-60s, go to 2.
-6. If all present layers passed — done.
+6. If all present layers passed on the *current* SHA — done.
+
+IMPORTANT: pushing a fix is NOT the end. After every fix+push you MUST
+re-request review from the review bot (if present) and go back to step 2.
+The loop only ends when the verifiers pass on your latest SHA. Addressing
+feedback and pushing a commit is just one iteration — the bot needs to
+review the new code too.
 
 ## Step 1 — Push and ensure PR exists
 
@@ -119,27 +125,33 @@ gh api "repos/{owner}/{repo}/issues/{number}/comments" --paginate \
 - `PARTIAL` → some passed, some failed; read details.
 - No QA comment yet → bot may still be running; wait and re-poll.
 
-## Step 5 — Decide
+## Step 5 — Decide and act
 
 For each present layer, check its status. If a layer is not present in the
 repo, treat it as passing.
 
-- All present layers green → done.
+- All present layers green on current SHA → done.
 - CI failed → fix code, or rerun if flaky (see below).
 - Review requested changes → read comments, fix, push.
 - QA failed/partial → read report, fix, push.
 - Anything still pending → sleep 30-60s, re-poll.
 - PR closed/merged → stop.
 
-After fixing, commit and push:
+After fixing, commit, push, AND re-request review:
 
 ```bash
 git add -A
 git commit -m "fix: address <CI failure | review feedback | QA failure>"
 git push origin HEAD
+
+# Re-request review from the bot so it reviews the new SHA:
+gh pr comment --body "Addressed feedback in $(git rev-parse --short HEAD). Ready for another look."
+gh api -X POST "repos/{owner}/{repo}/pulls/{number}/requested_reviewers" \
+  -f 'reviewers[]=all-hands-bot'
 ```
 
-Then go back to step 2.
+Then go back to step 2. You are not done until the bot reviews the new
+SHA and all present layers pass.
 
 ## CI failure classification
 
@@ -158,25 +170,18 @@ Rerun: `gh run rerun <run-id> --failed`
 
 Retry budget: at most 3 reruns per SHA. After that, treat as real.
 
-## Requesting re-review
-
-After fixing review feedback:
-
-```bash
-gh pr comment --body "Addressed review feedback in $(git rev-parse --short HEAD). Ready for another look."
-gh api -X POST "repos/{owner}/{repo}/pulls/{number}/requested_reviewers" \
-  -f 'reviewers[]=openhands-agent'
-```
-
-Only do this when you've actually addressed the feedback.
-
 ## Stop conditions
 
-Stop when:
-- All present verification layers passed.
+Stop ONLY when:
+- All present verification layers passed on the current SHA.
 - PR closed or merged (`gh pr view --json state --jq .state`).
 - Retry budget exhausted — CI still failing after 3 reruns of the same SHA.
 - Blocked on something requiring user input.
+
+NOT a stop condition:
+- You pushed a fix commit. That's just one iteration — re-request review and keep going.
+- You replied to review comments. The bot still needs to review the new code.
+- CI is green but review bot hasn't re-reviewed your fix yet. Wait for it.
 
 Keep going when:
 - Checks still pending.
