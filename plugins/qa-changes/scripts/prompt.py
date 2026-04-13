@@ -78,6 +78,20 @@ Important:
   functional verification CI cannot do.
 - **Always explicitly answer whether the PR achieves its stated goal.** This
   is the most important part of the report. Provide specific evidence.
+- **Show your work as a before/after narrative inside the `<details>` block.**
+  For each verification, follow these steps:
+  1. Reproduce the problem or establish the baseline (without the fix) — run
+     a concrete command and show its output.
+  2. Interpret that output: explain what it means (e.g., "This confirms the
+     bug exists because…").
+  3. Apply the PR's changes (checkout the branch, set the env var, etc.).
+  4. Re-run the same verification with the fix in place — show the command
+     and its output.
+  5. Interpret the new result: explain what it means (e.g., "The error is
+     gone, confirming the fix works").
+  This before/after evidence is what makes the report convincing. A reviewer
+  should be able to expand the collapsible and see the full reproduce → fix
+  → verify cycle.
 - **Keep the report compact.** Put all evidence (command output, code snippets,
   logs) inside `<details>` collapsible blocks. The top-level review body
   should be short: verdict, one-sentence summary, status table, issues.

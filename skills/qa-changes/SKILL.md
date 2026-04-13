@@ -76,10 +76,13 @@ This is the most important phase. Go beyond the test suite and verify the change
 - Verify response status codes, response bodies, and side effects (database writes, file creation).
 - Test error cases (bad input, missing auth, not found).
 
-**For bug fixes:**
-- Reproduce the original bug first (from the PR description or linked issue).
-- Confirm the fix resolves it.
-- Confirm the fix does not introduce side effects in related functionality.
+**For bug fixes — use a before/after comparison:**
+1. **Reproduce the bug without the fix.** Check out the base branch (or revert the PR's changes) and run a concrete command or code path that triggers the reported failure. Show the exact command and its output.
+2. **Interpret the baseline result.** Explain what the output means — e.g., "This confirms the bug exists: the resolver cannot find the package because the lockfile's cutoff date is too old."
+3. **Apply the PR's changes.** Check out the PR branch, apply the patch, or set the environment variable — whatever the fix entails.
+4. **Re-run the same verification.** Run the same command or exercise the same code path with the fix in place. Show the exact command and its output.
+5. **Interpret the result.** Explain what the new output means — e.g., "The resolver now finds the package, confirming the fix works."
+6. **Check for side effects.** Confirm the fix does not break related functionality.
 
 **For library / SDK changes:**
 - Write a short script that imports and calls the changed functions.
@@ -95,7 +98,7 @@ This is the most important phase. Go beyond the test suite and verify the change
 - If it is a build change, confirm the build still succeeds.
 - For doc changes, confirm the documentation renders correctly if a preview is available.
 
-Record every command run and its output as evidence. In the final report, present this evidence inside collapsible `<details>` blocks — the core deliverable is the verdict and summary, not raw logs.
+**Always show your work with a before/after narrative.** For every verification, the report must include: (a) the exact command you ran, (b) the actual output you observed, and (c) your interpretation of that output. For bug fixes and behavioral changes, demonstrate BOTH the broken/old state AND the fixed/new state so the reviewer can see the delta. Present this evidence inside collapsible `<details>` blocks — the core deliverable is the verdict and summary, not raw logs.
 
 ### Knowing When to Give Up
 
@@ -138,9 +141,32 @@ about what the goal was and whether the changes deliver on it.}
 
 <details><summary>Functional Verification</summary>
 
-{For each changed behavior: what was tested, what was observed,
-whether it matches the PR's claims. Include exact commands and
-output here — this is the evidence section.}
+{Structure each verification as a before/after narrative:
+
+### Test N: {Description}
+
+**Step 1 — Reproduce / establish baseline (without the fix):**
+Ran `{exact command}`:
+```
+{actual output}
+```
+This shows {interpretation — what the output means, e.g. "the bug
+exists because..."}.
+
+**Step 2 — Apply the PR's changes:**
+{What was done — e.g. checked out the PR branch, set env var, etc.}
+
+**Step 3 — Re-run with the fix in place:**
+Ran `{same or equivalent command}`:
+```
+{actual output}
+```
+This shows {interpretation — e.g. "the fix works because the error
+is gone and the expected result appears"}.
+
+Repeat for each changed behavior. For non-bug-fix changes
+(features, refactors), the baseline step may simply describe the
+prior state rather than reproducing a failure.}
 
 </details>
 
