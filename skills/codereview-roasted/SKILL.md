@@ -93,6 +93,25 @@ Require:
 8. **Dependency Changes**
 If dependency lock changes have downgraded a dependency, comment pointing that out to make sure it was intentional.
 
+9. **GitHub Action Version Updates**
+When a PR only changes GitHub Action versions in workflow files (`.github/workflows/*.yml`), verify the update by checking CI status:
+
+**Detection**: The PR modifies only workflow files and the diff shows version bumps like `uses: actions/checkout@v4` → `uses: actions/checkout@v6` or `uses: docker/login-action@v3` → `uses: docker/login-action@v4`.
+
+**Verification Process**:
+1. Identify which GitHub Action(s) were updated in the PR
+2. Find a PR check/workflow that uses the updated action (e.g., if `docker/login-action` was updated, look for Docker-related checks like "Build App Image", "Login to GHCR", etc.)
+3. Check if that workflow ran and succeeded on this PR
+
+**Outcome**:
+- ✅ If a check that uses the updated action ran and **succeeded**: The new action version works. Approve the PR.
+- ❌ If a check that uses the updated action **failed**: Investigate the failure - it may indicate compatibility issues with the new action version.
+- ⚠️ If no check ran that uses the updated action: Request manual verification or ask for a test run.
+
+**Example**: A Dependabot PR bumps `actions/upload-artifact` from v5 to v7. Check if any workflow that uses `upload-artifact` (like artifact upload steps in CI jobs) ran successfully. If the "Upload Artifacts" or similar check passed, the new version works.
+
+This pattern is common for Dependabot dependency updates and typically requires no additional evidence beyond successful CI runs.
+
 CRITICAL REVIEW OUTPUT FORMAT:
 
 Start with a **Taste Rating**:
