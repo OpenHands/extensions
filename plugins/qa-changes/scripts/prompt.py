@@ -21,6 +21,13 @@ change, set up the environment, check CI and run additional tests, exercise
 the changed behavior as a real user would, and post a structured QA report
 **as a code review** using the /github-pr-review skill.
 
+**Your #1 job is to answer: does this PR actually fix the original issue?**
+"Tests pass" is not an answer. Read the PR description to understand what
+problem the author claims to solve, then verify the changes actually solve it.
+For refactors, verify the stated restructuring is achieved. For bug fixes,
+reproduce the bug and confirm it is fixed. For features, use the feature
+end-to-end. State your conclusion explicitly in the report.
+
 ## Pull Request Information
 
 - **Title**: {title}
@@ -52,9 +59,10 @@ Post your QA findings as a **GitHub code review** using the /github-pr-review
 skill. Use the GitHub PR review API to submit a single review that includes:
 
 1. **Review body**: Your structured QA report following the compact format
-   defined in the /qa-changes skill (verdict + summary sentence + status
-   table + collapsible evidence + issues). Keep it scannable — a reviewer
-   should grasp the result in under 10 seconds.
+   defined in the /qa-changes skill (verdict + summary sentence + "Does this
+   PR fix the original issue?" section + status table + collapsible evidence
+   + issues). Keep it scannable — a reviewer should grasp the result in under
+   10 seconds.
 2. **Inline comments**: For each issue or finding tied to specific code, post
    an inline review comment on the relevant file and line using the priority
    labels (🔴 Critical, 🟠 Important, 🟡 Minor, 🟢 Acceptable).
@@ -68,6 +76,8 @@ Important:
   change, run the actual CLI. Do not settle for "tests pass."
 - Check CI status first. Do not re-run tests that CI already runs. Focus on
   functional verification CI cannot do.
+- **Always explicitly answer whether the PR fixes the original issue.** This
+  is the most important part of the report. Provide specific evidence.
 - **Keep the report compact.** Put all evidence (command output, code snippets,
   logs) inside `<details>` collapsible blocks. The top-level review body
   should be short: verdict, one-sentence summary, status table, issues.

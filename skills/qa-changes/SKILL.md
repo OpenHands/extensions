@@ -17,7 +17,13 @@ QA proceeds in four phases. Complete each phase in order. If a phase fails, repo
 
 ### Phase 1: Understand the Change
 
-Read the PR diff, title, and description. Classify every changed file:
+Read the PR diff, title, and description. **Identify the original problem the PR claims to solve** — this is the single most important thing to understand before proceeding. Check:
+
+1. **The PR description "Why" section** — what problem or motivation does the author state?
+2. **Linked issues** — if the PR references an issue, read it. The issue describes the original problem, expected behavior, and reproduction steps.
+3. **The PR title** — often summarizes the intent (e.g., "fix: X not working when Y", "feat: add Z capability", "refactor: consolidate duplicated X logic").
+
+Then classify every changed file:
 
 - **New feature**: User-visible behavior that did not exist before.
 - **Bug fix**: Corrects existing behavior to match intended behavior.
@@ -25,6 +31,8 @@ Read the PR diff, title, and description. Classify every changed file:
 - **Configuration / CI / docs**: Non-functional changes.
 
 For each change, identify the *entry point* — the concrete way a user would interact with it (CLI command, API endpoint, UI page, function call). This drives what to exercise in Phase 3.
+
+Finally, form a clear hypothesis: "This PR should fix [original problem] by [approach taken in the diff]." Phase 3 will test that hypothesis.
 
 ### Phase 2: Set Up the Environment
 
@@ -41,6 +49,13 @@ If setup fails, report the failure with the exact error output and stop.
 ### Phase 3: Exercise the Changed Behavior
 
 This is the most important phase. Go beyond the test suite and verify the change *actually works* the way the PR claims. The standard is high — test as a real user would.
+
+**Start by verifying the PR addresses the original issue.** Use the hypothesis from Phase 1. For example:
+- If the PR claims to "consolidate duplicated fetch logic", verify that the duplication is actually eliminated — check that the old duplicated code is removed and the new shared code is used by all callers.
+- If the PR claims to "fix crash when X is empty", reproduce the crash scenario and confirm it no longer occurs.
+- If the PR claims to "add support for Y", actually use Y end-to-end and confirm it works.
+
+"Tests pass" is not sufficient to confirm the PR fixes the original issue. Tests might pass even if the PR only partially addresses the problem, or if the tests don't cover the original issue at all.
 
 **For frontend / UI changes:**
 - Start the development server.
@@ -105,6 +120,14 @@ Post a structured report as a PR review using the GitHub API. **Keep the report 
 
 {One-sentence summary of what was verified and the outcome.}
 
+### Does this PR fix the original issue?
+
+{Direct answer: Yes / Partially / No / Not applicable.}
+{2-3 sentences explaining WHY, referencing specific evidence from
+the diff and testing. For refactors: does it achieve the stated
+restructuring goal? For bug fixes: is the bug actually fixed?
+For features: does the feature work as described?}
+
 | Phase | Result |
 |-------|--------|
 | Environment Setup | {emoji} {one-line status} |
@@ -154,6 +177,7 @@ was verified.}
 
 ## Key Principles
 
+- **Answer the core question first: does this PR fix the original issue?** This is the primary deliverable. Tests passing, code compiling, and linting clean are necessary but not sufficient. Explicitly state whether the changes address the stated problem and why.
 - **Run the code.** Static analysis and diff reading are not QA. Execute the actual changed code paths.
 - **Set a high bar.** If the change affects a UI, open it in a real browser. If it affects a CLI, run the CLI. Do not settle for "tests pass."
 - **Test what the PR claims.** The PR description is the specification. Verify the claim, not hypothetical scenarios.
