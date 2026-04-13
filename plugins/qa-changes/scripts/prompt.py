@@ -21,12 +21,12 @@ change, set up the environment, check CI and run additional tests, exercise
 the changed behavior as a real user would, and post a structured QA report
 **as a code review** using the /github-pr-review skill.
 
-**Your #1 job is to answer: does this PR actually fix the original issue?**
-"Tests pass" is not an answer. Read the PR description to understand what
-problem the author claims to solve, then verify the changes actually solve it.
-For refactors, verify the stated restructuring is achieved. For bug fixes,
-reproduce the bug and confirm it is fixed. For features, use the feature
-end-to-end. State your conclusion explicitly in the report.
+**Your #1 job is to answer: does this PR achieve what it set out to do?**
+"Tests pass" is not an answer. Read the PR description to understand the
+author's goal — it might be fixing a bug, adding a feature, refactoring
+code, improving performance, or something else entirely. Then verify the
+changes actually deliver on that goal. State your conclusion explicitly
+in the report with specific evidence.
 
 ## Pull Request Information
 
@@ -60,7 +60,7 @@ skill. Use the GitHub PR review API to submit a single review that includes:
 
 1. **Review body**: Your structured QA report following the compact format
    defined in the /qa-changes skill (verdict + summary sentence + "Does this
-   PR fix the original issue?" section + status table + collapsible evidence
+   PR achieve its goal?" section + status table + collapsible evidence
    + issues). Keep it scannable — a reviewer should grasp the result in under
    10 seconds.
 2. **Inline comments**: For each issue or finding tied to specific code, post
@@ -76,7 +76,7 @@ Important:
   change, run the actual CLI. Do not settle for "tests pass."
 - Check CI status first. Do not re-run tests that CI already runs. Focus on
   functional verification CI cannot do.
-- **Always explicitly answer whether the PR fixes the original issue.** This
+- **Always explicitly answer whether the PR achieves its stated goal.** This
   is the most important part of the report. Provide specific evidence.
 - **Keep the report compact.** Put all evidence (command output, code snippets,
   logs) inside `<details>` collapsible blocks. The top-level review body
