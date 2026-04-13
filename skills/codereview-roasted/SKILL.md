@@ -99,16 +99,16 @@ When a PR only changes GitHub Action versions in workflow files (`.github/workfl
 **Detection**: The PR modifies only workflow files and the diff shows version bumps like `uses: actions/checkout@v4` → `uses: actions/checkout@v6` or `uses: docker/login-action@v3` → `uses: docker/login-action@v4`.
 
 **Verification Process**:
-1. Identify which GitHub Action(s) were updated in the PR
-2. Find a PR check/workflow that uses the updated action (e.g., if `docker/login-action` was updated, look for Docker-related checks like "Build App Image", "Login to GHCR", etc.)
-3. Check if that workflow ran and succeeded on this PR
+1. Identify ALL GitHub Actions that were updated in the PR
+2. For EACH updated action, find a PR check/workflow that uses it (e.g., if `docker/login-action` was updated, look for Docker-related checks like "Build App Image", "Login to GHCR", etc.)
+3. Verify that ALL updated actions have at least one corresponding check that ran and succeeded
 
 **Outcome**:
-- ✅ If a check that uses the updated action ran and **succeeded**: The new action version works. Approve the PR.
-- ❌ If a check that uses the updated action **failed**: Investigate the failure - it may indicate compatibility issues with the new action version.
-- ⚠️ If no check ran that uses the updated action: Request manual verification or ask for a test run.
+- ✅ If checks that use ALL updated actions ran and **succeeded**: Every updated action version works. Approve the PR.
+- ❌ If a check that uses ANY updated action **failed**: Investigate the failure - it may indicate compatibility issues with the new action version.
+- ⚠️ If ANY updated action has no corresponding check that ran: Request manual verification or ask for a test run for the unverified action(s). Do not approve until all actions are verified.
 
-**Example**: A Dependabot PR bumps `actions/upload-artifact` from v5 to v7. Check if any workflow that uses `upload-artifact` (like artifact upload steps in CI jobs) ran successfully. If the "Upload Artifacts" or similar check passed, the new version works.
+**Example**: A Dependabot PR bumps both `actions/upload-artifact` (v5→v7) and `actions/checkout` (v4→v6). You must verify that BOTH actions have successful checks - e.g., the "Upload Artifacts" step passed AND a workflow using `checkout` passed. If only one is verified, do not approve.
 
 This pattern is common for Dependabot dependency updates and typically requires no additional evidence beyond successful CI runs.
 
