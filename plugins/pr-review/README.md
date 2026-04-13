@@ -26,6 +26,7 @@ Then configure the required secrets (see [Installation](#installation) below).
 - **A/B Testing**: Support for testing multiple LLM models
 - **Review Context Awareness**: Considers previous reviews and unresolved threads
 - **Evidence Enforcement**: Optional check that PR descriptions include concrete end-to-end proof the code works, not just test output
+- **Sub-Agent Delegation** *(Experimental)*: Split large PR reviews across multiple sub-agents, one per file, then consolidate findings
 - **Observability**: Optional Laminar integration for tracing and evaluation
 
 ## Plugin Contents
@@ -143,6 +144,7 @@ PR reviews are automatically triggered when:
 | `llm-base-url` | No | `''` | Custom LLM endpoint URL |
 | `review-style` | No | `roasted` | Review style: `standard` or `roasted` |
 | `require-evidence` | No | `'false'` | Require the reviewer to enforce an `Evidence` section in the PR description with end-to-end proof: screenshots/videos for frontend work, commands and runtime output for backend or scripts, and an agent conversation link when applicable. Test output alone does not qualify. |
+| `use-sub-agents` | No | `'false'` | **(Experimental)** Enable sub-agent delegation for file-level reviews. The main agent acts as a coordinator that spawns `file_reviewer` sub-agents via the SDK DelegateTool, delegates per-file review work, and consolidates findings into a single PR review. Useful for large PRs with many changed files. |
 | `extensions-repo` | No | `OpenHands/extensions` | Extensions repository |
 | `extensions-version` | No | `main` | Git ref (tag, branch, or SHA) |
 | `llm-api-key` | Yes | - | LLM API key |

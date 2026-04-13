@@ -11,6 +11,10 @@ The template includes:
 - {pr_number} - The PR number
 - {commit_id} - The HEAD commit SHA
 - {review_context} - Previous review comments and thread resolution status
+
+When sub-agent delegation is enabled, the main agent acts as a coordinator
+that splits the diff by file and delegates individual file reviews to
+sub-agents, then consolidates results and posts the final review.
 """
 
 # Template for when there is review context available
@@ -75,6 +79,75 @@ Review the PR changes below and identify issues that need to be addressed.
 Analyze the changes and post your review using the GitHub API.
 """
 
+# Prompt for the main coordinator agent when sub-agent delegation is enabled.
+# The coordinator splits the diff into per-file chunks and delegates each
+# to a "file_reviewer" sub-agent, then consolidates and posts the review.
+SUB_AGENT_PROMPT = """{skill_trigger}
+/github-pr-review
+
+You are a **review coordinator**. Your job is to delegate the actual file-level
+review work to sub-agents and then consolidate their findings into a single
+GitHub PR review.
+
+## Pull Request Information
+
+- **Title**: {title}
+- **Description**: {body}
+- **Repository**: {repo_name}
+- **Base Branch**: {base_branch}
+- **Head Branch**: {head_branch}
+- **PR Number**: {pr_number}
+- **Commit ID**: {commit_id}
+
+{review_context_section}{evidence_requirements_section}
+
+## Instructions
+
+You have access to the **DelegateTool**. Follow these steps:
+
+1. **Spawn sub-agents** — one `file_reviewer` sub-agent per changed file (or
+   small group of closely related files). Use `spawn` with descriptive IDs
+   based on the file paths (e.g. `"review_src_utils"`, `"review_tests"`).
+
+2. **Delegate** — send each sub-agent the diff chunk for its file(s) together
+   with the PR context (title, description, base/head branch). Ask it to
+   return a structured list of findings with severity, file path, line number,
+   and a short description.
+
+3. **Collect results** — after all sub-agents respond, merge their findings.
+   De-duplicate and drop low-signal noise.
+
+4. **Post the review** — use the GitHub API (as described by /github-pr-review)
+   to submit a single PR review with inline comments on the relevant lines.
+   Keep the top-level review body brief.
+
+## Full Diff
+
+The complete diff is provided below. Split it by file when delegating.
+
+```diff
+{diff}
+```
+"""
+
+# System-level instruction injected into each file_reviewer sub-agent so it
+# knows its role, the review style, and the expected output format.
+FILE_REVIEWER_SKILL = """\
+You are a **file-level code reviewer**. You will receive a diff for one or more
+files from a pull request together with PR metadata.
+
+Review style: {review_style_description}
+
+For each issue you find, return a JSON object with:
+- `path`: the file path
+- `line`: the diff line number (use the NEW file line number)
+- `severity`: one of `critical`, `major`, `minor`, `nit`
+- `body`: a concise description of the issue with a suggested fix when possible
+
+Return your findings as a JSON array. If you find no issues, return `[]`.
+Do NOT post anything to the GitHub API — the coordinator agent will handle that.
+"""
+
 
 def format_prompt(
     skill_trigger: str,
@@ -88,6 +161,7 @@ def format_prompt(
     diff: str,
     review_context: str = "",
     require_evidence: bool = False,
+    use_sub_agents: bool = False,
 ) -> str:
     """Format the PR review prompt with all parameters.
 
@@ -105,6 +179,9 @@ def format_prompt(
                         the review context section is omitted from the prompt.
         require_evidence: Whether to instruct the reviewer to enforce PR description
                           evidence showing the code works.
+        use_sub_agents: When True, use the sub-agent coordinator prompt instead of
+                        the single-agent prompt. The coordinator will delegate
+                        file-level reviews to sub-agents and consolidate results.
 
     Returns:
         Formatted prompt string
@@ -121,7 +198,9 @@ def format_prompt(
         _EVIDENCE_REQUIREMENT_SECTION if require_evidence else ""
     )
 
-    return PROMPT.format(
+    template = SUB_AGENT_PROMPT if use_sub_agents else PROMPT
+
+    return template.format(
         skill_trigger=skill_trigger,
         title=title,
         body=body,
@@ -134,3 +213,26 @@ def format_prompt(
         evidence_requirements_section=evidence_requirements_section,
         diff=diff,
     )
+
+
+def get_file_reviewer_skill_content(review_style: str = "standard") -> str:
+    """Return the file_reviewer sub-agent skill content.
+
+    Args:
+        review_style: 'standard' or 'roasted'
+
+    Returns:
+        Formatted skill content string for the file_reviewer agent type
+    """
+    style_descriptions = {
+        "standard": (
+            "Balanced review covering correctness, style, readability, "
+            "and security. Be constructive."
+        ),
+        "roasted": (
+            "Linus Torvalds-style brutally honest review. Focus on data "
+            "structures, simplicity, and pragmatism. No hand-holding."
+        ),
+    }
+    description = style_descriptions.get(review_style, style_descriptions["standard"])
+    return FILE_REVIEWER_SKILL.format(review_style_description=description)
