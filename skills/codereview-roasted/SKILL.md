@@ -110,7 +110,7 @@ When a PR only changes GitHub Action versions in workflow files (`.github/workfl
 
 **Example**: A Dependabot PR bumps both `actions/upload-artifact` (v5→v7) and `actions/checkout` (v4→v6). You must verify that BOTH actions have successful checks - e.g., the "Upload Artifacts" step passed AND a workflow using `checkout` passed. If only one is verified, do not approve.
 
-This pattern is common for Dependabot dependency updates and typically requires no additional evidence beyond successful CI runs.
+**Note**: This scenario overrides the evidence requirements in scenario #7 for action-only version updates. Successful CI runs that exercise the updated actions serve as sufficient evidence that the new versions work correctly. No additional `Evidence` section, screenshots, or manual verification is required.
 
 CRITICAL REVIEW OUTPUT FORMAT:
 
