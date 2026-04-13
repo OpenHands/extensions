@@ -11,48 +11,43 @@ triggers:
 
 # /verify — Repo-Level Verification via Polling
 
-Orchestrate the full **push → poll → fix → push** loop for a pull request.
-Instead of writing custom hook scripts for every repo, follow the steps below
-to poll the repo's own CI + review + QA verifiers with `gh` CLI, read their
-feedback, fix issues, and iterate.
+Orchestrate the push → poll → fix → push loop for a pull request.
+You poll the repo's verifiers with `gh` CLI, read feedback, fix issues, and iterate.
+No scripts — you are the orchestration loop.
 
-> **No scripts required.** Everything below uses `gh` and `git` commands you
-> run directly. You *are* the orchestration loop.
+Requires: `gh` CLI authenticated with repo access, a PR branch.
 
-## Prerequisites
+## Discover what the repo has
 
-- **`gh` CLI** — authenticated with repo access (`gh auth status`).
-- **A PR branch** — commits ready to push (or already pushed).
-- **CI workflows** — whatever GitHub Actions / status checks the repo already has.
-- *Optional*: **PR Review workflow** — the OpenHands `pr-review` plugin (posts APPROVE / COMMENT / REQUEST_CHANGES reviews).
-- *Optional*: **QA Changes workflow** — the OpenHands `qa-changes` plugin (posts PASS / FAIL / PARTIAL comments).
+Not every repo has all three verification layers. Before entering the loop,
+figure out which ones apply. Only poll layers that actually exist.
 
-## The Loop
+- **CI checks** — almost every repo has these (GitHub Actions, status checks). If `gh pr checks` returns results, CI is present.
+- **PR review bot** — only if the repo uses the OpenHands `pr-review` workflow or similar. Check: does the repo have a workflow that posts GitHub reviews from a bot account (openhands-agent, all-hands-bot, etc.)? If you're unsure, poll once after push — if no bot review appears within a few minutes, the repo doesn't have one. Skip it going forward.
+- **QA bot** — only if the repo uses the OpenHands `qa-changes` workflow or similar. Same approach: poll once, and if no QA comment appears, the repo doesn't have one. Skip it.
 
-```
- ┌──────────────────────────────────────────────┐
- │  1. Push & ensure PR exists                  │
- │  2. Poll CI checks                           │
- │  3. Poll PR review verdict                   │
- │  4. Poll QA report                           │
- │  5. Decide: all passed? fix needed? wait?    │
- │  6. If fix needed → fix, commit, goto 1      │
- │  7. If waiting → sleep 30-60s, goto 2        │
- │  8. If all passed → done 🎉                  │
- └──────────────────────────────────────────────┘
-```
+A repo might have only CI. Or CI + review. Or all three. Your "all passed"
+condition is: every *present* layer is green. Don't wait for layers that
+don't exist.
 
-### Step 1 — Push & Ensure PR Exists
+## The loop
+
+1. Push and ensure PR exists.
+2. Poll each present verification layer.
+3. Decide: all passed? fix needed? wait?
+4. If fix needed — fix, commit, push, go to 2.
+5. If waiting — sleep 30-60s, go to 2.
+6. If all present layers passed — done.
+
+## Step 1 — Push and ensure PR exists
 
 ```bash
 git push origin HEAD
-# Create the PR if it doesn't exist yet:
 gh pr create --fill 2>/dev/null || true
-# Confirm PR number:
 gh pr view --json number,url,headRefOid --jq '"\(.number) \(.url) \(.headRefOid)"'
 ```
 
-### Step 2 — Poll CI Checks
+## Step 2 — Poll CI checks
 
 ```bash
 gh pr checks --json name,state,bucket --jq '
@@ -61,23 +56,22 @@ gh pr checks --json name,state,bucket --jq '
     pending: [.[] | select(.bucket=="pending")] | length }'
 ```
 
-- **All passed, zero failed, zero pending** → CI is green ✅
-- **Any pending** → still running, wait and re-poll.
-- **Any failed** → diagnose (see Step 5).
+- Zero failed, zero pending → CI green.
+- Any pending → wait and re-poll.
+- Any failed → diagnose (see "CI failure classification" below).
 
-To inspect a specific failed run:
+To inspect a failure:
 
 ```bash
-# List failed workflow runs for the current SHA:
 SHA=$(gh pr view --json headRefOid --jq .headRefOid)
 gh run list --commit "$SHA" --status failure --json databaseId,name,conclusion \
   --jq '.[] | "\(.databaseId)\t\(.name)\t\(.conclusion)"'
-
-# View logs for a failed run:
 gh run view <run-id> --log-failed
 ```
 
-### Step 3 — Poll PR Review Verdict
+## Step 3 — Poll PR review (if present)
+
+Skip this step if the repo has no review bot.
 
 ```bash
 gh pr view --json reviews --jq '
@@ -89,12 +83,12 @@ gh pr view --json reviews --jq '
   )] | last | { state: .state, reviewer: .author.login, body: .body[0:300] }'
 ```
 
-- **`APPROVED`** → review passed ✅
-- **`CHANGES_REQUESTED`** → read the review body + inline comments and fix.
-- **`COMMENTED`** → may contain actionable suggestions; read and decide.
-- **No matching review** → the review bot may not have run yet, or the repo doesn't use one. Treat as not blocking.
+- `APPROVED` → review passed.
+- `CHANGES_REQUESTED` → read the body and inline comments, fix code.
+- `COMMENTED` → may have actionable suggestions; read and decide.
+- No matching review → bot hasn't run yet, or repo doesn't have one.
 
-To read inline review comments:
+Inline review comments (when changes requested):
 
 ```bash
 gh api "repos/{owner}/{repo}/pulls/{number}/comments" \
@@ -102,11 +96,11 @@ gh api "repos/{owner}/{repo}/pulls/{number}/comments" \
         | { path: .path, line: .line, body: .body[0:200] }'
 ```
 
-### Step 4 — Poll QA Report
+## Step 4 — Poll QA report (if present)
 
-QA reports are posted as **PR issue comments** by the QA bot. Look for a
-comment containing a status line like `Status: PASS`, `Status: FAIL`, or
-`Status: PARTIAL`.
+Skip this step if the repo has no QA bot.
+
+QA reports are PR issue comments with a status line like `Status: PASS`.
 
 ```bash
 gh api "repos/{owner}/{repo}/issues/{number}/comments" --paginate \
@@ -116,103 +110,86 @@ gh api "repos/{owner}/{repo}/issues/{number}/comments" --paginate \
   )] | last | { author: .user.login, body: .body[0:500], url: .html_url }'
 ```
 
-- **`PASS`** → QA passed ✅
-- **`FAIL`** → read failure details and fix.
-- **`PARTIAL`** → some checks passed, some failed; read details.
-- **No QA comment** → the repo may not use qa-changes. Treat as not blocking.
+- `PASS` → QA passed.
+- `FAIL` → read details, fix code.
+- `PARTIAL` → some passed, some failed; read details.
+- No QA comment → repo doesn't use qa-changes. Not blocking.
 
-### Step 5 — Decide What To Do
+## Step 5 — Decide
 
-| CI | Review | QA | Action |
-|---|---|---|---|
-| ✅ green | ✅ approved or N/A | ✅ pass or N/A | **Done.** All verifiers passed. |
-| ❌ failed | any | any | **Fix CI.** Diagnose the failure (see below). |
-| ✅ green | ❌ changes requested | any | **Fix review.** Read comments, fix code, push. |
-| ✅ green | ✅ or N/A | ❌ fail/partial | **Fix QA.** Read the report, fix code, push. |
-| ⏳ pending | any | any | **Wait.** Sleep 30–60s and re-poll from Step 2. |
-| any | ⏳ no review yet | any | **Wait** (bot may need a few minutes). |
-| PR closed/merged | — | — | **Stop.** |
+For each present layer, check its status. If a layer is not present in the
+repo, treat it as passing.
 
-### Step 6 — Fix, Commit, Push
+- All present layers green → done.
+- CI failed → fix code, or rerun if flaky (see below).
+- Review requested changes → read comments, fix, push.
+- QA failed/partial → read report, fix, push.
+- Anything still pending → sleep 30-60s, re-poll.
+- PR closed/merged → stop.
+
+After fixing, commit and push:
 
 ```bash
-# ... make your code changes ...
 git add -A
 git commit -m "fix: address <CI failure | review feedback | QA failure>"
 git push origin HEAD
-# Go back to Step 2
 ```
 
-## CI Failure Classification
+Then go back to step 2.
 
-Before fixing or retrying a CI failure, classify it:
+## CI failure classification
 
-**Branch-related** (fix the code):
+Branch-related (fix the code):
 - Compile/lint/typecheck failures in files you touched
 - Deterministic test failures in changed areas
 - Snapshot or static-analysis violations from your changes
 
-**Flaky / unrelated** (rerun the jobs):
+Flaky / unrelated (rerun the jobs):
 - Network/DNS/registry timeouts
 - Runner provisioning or startup failures
 - GitHub Actions infrastructure errors
 - Non-deterministic failures in code you didn't touch
 
-To rerun failed jobs:
+Rerun: `gh run rerun <run-id> --failed`
+
+Retry budget: at most 3 reruns per SHA. After that, treat as real.
+
+## Requesting re-review
+
+After fixing review feedback:
 
 ```bash
-gh run rerun <run-id> --failed
-```
-
-**Retry budget**: rerun the same SHA at most 3 times. If it still fails after
-3 retries, treat it as a real failure and investigate.
-
-## Requesting Re-review
-
-After pushing a fix for review feedback, you may want to re-request review:
-
-```bash
-# Leave a comment summarizing what changed:
 gh pr comment --body "Addressed review feedback in $(git rev-parse --short HEAD). Ready for another look."
-
-# Re-request the reviewer:
 gh api -X POST "repos/{owner}/{repo}/pulls/{number}/requested_reviewers" \
   -f 'reviewers[]=openhands-agent'
 ```
 
-Only do this when you've actually addressed the feedback. Don't spam reviewers.
+Only do this when you've actually addressed the feedback.
 
-## Stop Conditions
+## Stop conditions
 
-Stop the loop when:
-
-- ✅ **All passed** — CI green + review approved (or N/A) + QA pass (or N/A).
-- 🚫 **PR closed/merged** — `gh pr view --json state --jq .state` returns `CLOSED` or `MERGED`.
-- 🚫 **Retry budget exhausted** — CI still failing after 3 reruns of the same SHA.
-- 🚫 **Blocked** — need user input (permissions issue, ambiguous reviewer request, infra outage).
+Stop when:
+- All present verification layers passed.
+- PR closed or merged (`gh pr view --json state --jq .state`).
+- Retry budget exhausted — CI still failing after 3 reruns of the same SHA.
+- Blocked on something requiring user input.
 
 Keep going when:
-- Checks are still pending.
-- Review or QA bots haven't posted yet (may take a few minutes after push).
-- You just pushed a fix and CI hasn't started yet.
+- Checks still pending.
+- Bots haven't posted yet (few minutes after push).
+- Just pushed a fix and CI hasn't started.
 
-## Polling Cadence
+## Polling cadence
 
-- **While CI is pending/failing**: re-poll every 30–60 seconds.
-- **After CI turns green**: back off (60s → 2m → 4m), reset on any state change.
-- **After pushing a fix**: immediately re-poll (new SHA triggers new runs).
+- CI pending/failing: every 30-60s.
+- CI green: back off (60s, 2m, 4m), reset on any state change.
+- Just pushed a fix: re-poll immediately.
 
-## Relationship to babysit-pr
+## vs babysit-pr
 
-| | `/verify` | `/babysit-pr` |
-|---|---|---|
-| **Role** | Active orchestrator — you're writing and pushing code | Passive monitor — watching someone else's PR |
-| **Scope** | CI + PR review + QA (all three layers) | CI + review (no QA awareness) |
-| **Dependencies** | `gh` CLI only | Python script (`gh_pr_watch.py`) |
-| **Loop driver** | You (the agent) | The script |
-
-Use `/verify` when you're the coding agent making changes.
-Use `/babysit-pr` when you just need to watch a PR.
+`/verify` is an active orchestrator — you write code, push, poll, fix, repeat.
+`/babysit-pr` is a passive monitor — watches someone else's PR via a Python script.
+Use `/verify` when you're the coding agent. Use `/babysit-pr` when you just need to watch.
 
 ## References
 

@@ -1,13 +1,14 @@
 # Verification Workflow Signals
 
-How each verification layer reports its results and how the `/verify` skill
-interprets them via `gh` CLI.
+Reference for what each verification layer looks like and how to read it.
+Not every repo has all three — see "Discover what the repo has" in SKILL.md.
 
-## 1. CI Checks (GitHub Actions / Status Checks)
+## CI checks
 
-**Source**: GitHub's built-in check runs and status checks on the PR.
+Source: GitHub Actions check runs / status checks on the PR.
+Present in almost every repo.
 
-**How to read it**:
+Read with:
 ```bash
 gh pr checks --json name,state,bucket --jq '
   { passed:  [.[] | select(.bucket=="pass")]  | length,
@@ -15,27 +16,18 @@ gh pr checks --json name,state,bucket --jq '
     pending: [.[] | select(.bucket=="pending")] | length }'
 ```
 
-**Bucket values**:
-- `pass` — check succeeded
-- `fail` — check failed
-- `pending` — still running / queued
+Bucket values: `pass`, `fail`, `pending`.
 
-**What to do**:
-- All passed, zero failed/pending → CI green ✅
-- Any failed → classify as branch-related (fix) or flaky (rerun)
-- Any pending → wait and re-poll
+## PR review bot
 
-## 2. PR Review (OpenHands pr-review plugin)
+Source: the OpenHands `pr-review` plugin posts a GitHub pull request review
+via the Reviews API. Not all repos have this.
 
-**Source**: The `pr-review` plugin posts a GitHub pull request review using
-the Reviews API.
+Typical triggers: `pull_request_target` events (opened, ready_for_review,
+labeled, review_requested), adding `review-this` label, or requesting
+`openhands-agent` / `all-hands-bot` as reviewer.
 
-**Trigger**: Typically runs on `pull_request_target` events (opened,
-ready_for_review, labeled, review_requested). Some repos trigger it when
-the `review-this` label is added or when `openhands-agent` / `all-hands-bot`
-is requested as a reviewer.
-
-**How to read it**:
+Read with:
 ```bash
 gh pr view --json reviews --jq '
   [.reviews[] | select(
@@ -46,24 +38,21 @@ gh pr view --json reviews --jq '
   )] | last | { state: .state, reviewer: .author.login }'
 ```
 
-**Review states**:
-- `APPROVED` — reviewer approves the changes → passed ✅
-- `CHANGES_REQUESTED` — reviewer requests changes → fix the code
-- `COMMENTED` — informational; may contain actionable suggestions
+States: `APPROVED` (passed), `CHANGES_REQUESTED` (fix needed), `COMMENTED` (read and decide).
 
-**Inline comments** (for CHANGES_REQUESTED):
+Inline comments when changes requested:
 ```bash
 gh api "repos/{owner}/{repo}/pulls/{number}/comments" \
   --jq '.[] | select(.user.login | test("openhands|all-hands-bot"; "i"))
         | { path: .path, line: .line, body: .body[0:200] }'
 ```
 
-## 3. QA Report (OpenHands qa-changes plugin)
+## QA bot
 
-**Source**: The `qa-changes` plugin posts a PR issue comment with a structured
-QA report containing a status line.
+Source: the OpenHands `qa-changes` plugin posts a PR issue comment with a
+status line. Not all repos have this.
 
-**How to read it**:
+Read with:
 ```bash
 gh api "repos/{owner}/{repo}/issues/{number}/comments" --paginate \
   --jq '[.[] | select(
@@ -72,33 +61,10 @@ gh api "repos/{owner}/{repo}/issues/{number}/comments" --paginate \
   )] | last | { author: .user.login, body: .body[0:500] }'
 ```
 
-**Status values** (found in the comment body as `Status: <VALUE>`):
-- `PASS` — all QA checks passed → passed ✅
-- `FAIL` — QA found failures → fix the code
-- `PARTIAL` — some checks passed, some failed → fix the failures
+Status values (in comment body as `Status: <VALUE>`): `PASS`, `FAIL`, `PARTIAL`.
+No QA comment found → repo doesn't use qa-changes, not blocking.
 
-**If no QA comment is found**, the repo likely doesn't use qa-changes.
-Treat as not blocking.
+## Bot login matching
 
-## Bot Login Detection
-
-When filtering reviews and comments, match bot logins case-insensitively
-against these keywords:
-- `openhands`
-- `openhands-agent`
-- `all-hands-bot`
-
-The `jq` patterns in the commands above use
-`test("openhands|all-hands-bot"; "i")` for this. Adjust the regex if your
-repo uses a different bot account.
-
-## Decision Matrix
-
-| CI | Review | QA | What to do |
-|---|---|---|---|
-| ✅ green | ✅ approved or N/A | ✅ pass or N/A | Done |
-| ❌ failed | any | any | Fix CI or retry flaky |
-| ✅ green | ❌ changes requested | any | Fix review feedback |
-| ✅ green | ✅ or N/A | ❌ fail/partial | Fix QA failures |
-| ⏳ pending | any | any | Wait and re-poll |
-| PR closed | — | — | Stop |
+The `jq` patterns use `test("openhands|all-hands-bot"; "i")` to match bot
+logins case-insensitively. Adjust the regex if the repo uses a different bot.
