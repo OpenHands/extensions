@@ -475,19 +475,6 @@
         "verification",
         "sample"
       ]
-    },
-    {
-      "name": "automation-creation",
-      "source": "./plugins/automation-creation",
-      "description": "Interactive slash command for creating OpenHands automations from a natural language prompt. Provides /automation:create for guided prompt-based automation setup.",
-      "category": "integration",
-      "keywords": [
-        "automation",
-        "cron",
-        "scheduling",
-        "openhands",
-        "slash-command"
-      ]
     }
   ]
 }
