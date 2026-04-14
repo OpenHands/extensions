@@ -537,6 +537,20 @@
                 "scanning",
                 "automation"
             ]
+        },
+        {
+            "name": "verify",
+            "source": "./verify",
+            "description": "Orchestrate repo-level PR verification by polling CI checks, PR review, and QA workflows \u2014 then driving the fix/push/re-verify loop.",
+            "category": "productivity",
+            "keywords": [
+                "github",
+                "ci",
+                "review",
+                "qa",
+                "verification",
+                "pull-request"
+            ]
         }
     ]
 }
