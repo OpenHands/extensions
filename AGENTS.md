@@ -55,7 +55,7 @@ OpenHands uses an **extended AgentSkills standard**:
 - **Compatible with the AgentSkills specification** (https://agentskills.io/specification)
 - **Extended with optional `triggers:` frontmatter** for keyword-based activation
 
-When editing or adding skills in this repo, follow these rules (and add new skills to `marketplaces/extensions.json`):
+When editing or adding skills in this repo, follow these rules (and add new skills to `marketplaces/openhands-extensions.json`):
 
 1. **One skill per directory**
    - Create `skills/<skill-name>/SKILL.md`.

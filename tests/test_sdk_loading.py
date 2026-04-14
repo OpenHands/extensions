@@ -21,12 +21,12 @@ def get_all_skill_directories():
     ]
 
 
-class TestExtensionsMarketplace:
-    """Test that the extensions marketplace can be loaded by the SDK."""
+class TestOpenHandsExtensionsMarketplace:
+    """Test that the OpenHands Extensions marketplace can be loaded by the SDK."""
 
     def test_marketplace_loads_with_sdk(self):
-        """Verify the extensions marketplace can be loaded using SDK's Marketplace model."""
-        marketplace_path = get_repo_root() / "marketplaces" / "extensions.json"
+        """Verify the OpenHands Extensions marketplace can be loaded using SDK's Marketplace model."""
+        marketplace_path = get_repo_root() / "marketplaces" / "openhands-extensions.json"
         
         # Load using SDK's pydantic model
         import json
@@ -35,14 +35,14 @@ class TestExtensionsMarketplace:
         
         marketplace = Marketplace.model_validate({**data, "path": str(get_repo_root())})
         
-        assert marketplace.name == "extensions"
+        assert marketplace.name == "openhands-extensions"
         assert marketplace.owner is not None
         assert marketplace.owner.name == "OpenHands"
         assert len(marketplace.plugins) > 0
 
     def test_all_plugin_entries_valid(self):
         """Verify all plugin entries can be validated as MarketplacePluginEntry."""
-        marketplace_path = get_repo_root() / "marketplaces" / "extensions.json"
+        marketplace_path = get_repo_root() / "marketplaces" / "openhands-extensions.json"
         
         import json
         with open(marketplace_path) as f:

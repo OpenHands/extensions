@@ -20,7 +20,7 @@ You can install this registry as a [Claude Code plugin marketplace](https://docs
 claude plugins add-marketplace https://github.com/OpenHands/extensions
 ```
 
-This registers the **extensions** marketplace. You can then discover and install individual skills:
+This registers the **OpenHands Extensions** marketplace. You can then discover and install individual skills:
 
 ```bash
 claude plugins discover
@@ -82,7 +82,7 @@ Browse available plugins in [`plugins/`](plugins/).
 
 Marketplace JSON files define curated collections of extensions:
 
-- `marketplaces/extensions.json` — the main marketplace containing all general-purpose skills and plugins
+- `marketplaces/openhands-extensions.json` — the main marketplace containing all general-purpose skills and plugins
 - `marketplaces/large-codebase.json` — specialized skills for large codebase migration and refactoring
 
 ## Contributing
@@ -92,7 +92,7 @@ Marketplace JSON files define curated collections of extensions:
 1. Fork this repository
 2. Create a new directory: `skills/<your-skill-name>/`
 3. Add `skills/<your-skill-name>/SKILL.md`
-4. Add an entry to `marketplaces/extensions.json` (or the appropriate marketplace)
+4. Add an entry to `marketplaces/openhands-extensions.json` (or the appropriate marketplace)
 5. (Optional) Add `README.md`, `references/`, `scripts/`, etc.
 6. Submit a pull request
 
@@ -102,7 +102,7 @@ Marketplace JSON files define curated collections of extensions:
 2. Create a new directory: `plugins/<your-plugin-name>/`
 3. Add `plugins/<your-plugin-name>/SKILL.md`
 4. Add `hooks/` and/or `scripts/` directories with your executable code
-5. Add an entry to `marketplaces/extensions.json` (or the appropriate marketplace)
+5. Add an entry to `marketplaces/openhands-extensions.json` (or the appropriate marketplace)
 6. Submit a pull request
 
 ## Agent Instructions
