@@ -32,13 +32,13 @@ Browse available plugins in [`plugins/`](plugins/).
 ## Extensions Catalog
 
 <!-- BEGIN AUTO-GENERATED CATALOG -->
-This repository contains **2 marketplace(s)** with **47 extensions** (36 skills, 9 plugins).
+This repository contains **2 marketplace(s)** with **47 extensions** (38 skills, 9 plugins).
 
 ### large-codebase
 
 OpenHands skills for interacting, improving, and refactoring large codebases
 
-**4 extensions** (0 skills, 2 plugins)
+**4 extensions** (2 skills, 2 plugins)
 
 ```bash
 claude plugins add-marketplace https://github.com/OpenHands/extensions  # registers "large-codebase"
@@ -46,10 +46,10 @@ claude plugins add-marketplace https://github.com/OpenHands/extensions  # regist
 
 | Name | Type | Description | Commands |
 |------|------|-------------|----------|
-| add-javadoc | extension | Add comprehensive JavaDoc documentation to Java classes and methods. Use when documenting Java code, adding API docum... | — |
+| add-javadoc | skill | Add comprehensive JavaDoc documentation to Java classes and methods. Use when documenting Java code, adding API docum... | — |
 | cobol-modernization | plugin | End-to-end COBOL to Java migration workflow. Handles build setup, mainframe dependency removal, and code migration wi... | — |
 | migration-scoring | plugin | Evaluate code migration quality with coverage, correctness, and style scoring. Generates executive reports with actio... | — |
-| spark-version-upgrade | extension | Upgrade Apache Spark applications between major versions (2.x→3.x, 3.x→4.x). Covers build files, deprecated APIs, con... | — |
+| spark-version-upgrade | skill | Upgrade Apache Spark applications between major versions (2.x→3.x, 3.x→4.x). Covers build files, deprecated APIs, con... | — |
 
 ### openhands-extensions
 

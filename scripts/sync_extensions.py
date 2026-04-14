@@ -27,6 +27,7 @@ import argparse
 import json
 import re
 import sys
+from dataclasses import dataclass
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -129,9 +130,17 @@ def build_command_content(description: str) -> str:
     return "\n".join(lines)
 
 
-def collect_needed_commands() -> list[tuple[Path, str, str]]:
-    """Return ``(command_path, trigger, description)`` for every slash trigger."""
-    needed: list[tuple[Path, str, str]] = []
+@dataclass
+class CommandSpec:
+    """A Claude Code command file that should exist for a slash trigger."""
+    path: Path
+    trigger: str
+    description: str
+
+
+def collect_needed_commands() -> list[CommandSpec]:
+    """Return a CommandSpec for every slash trigger found in SKILL.md files."""
+    needed: list[CommandSpec] = []
     for base in SKILL_DIRS:
         if not base.is_dir():
             continue
@@ -144,15 +153,16 @@ def collect_needed_commands() -> list[tuple[Path, str, str]]:
             for trigger in slash_triggers(meta):
                 cmd_name = trigger.lstrip("/")
                 cmd_path = skill_dir / "commands" / f"{cmd_name}.md"
-                needed.append((cmd_path, trigger, desc))
+                needed.append(CommandSpec(path=cmd_path, trigger=trigger, description=desc))
     return needed
 
 
 def sync_commands(*, check: bool) -> list[str]:
     """Returns list of problem descriptions (empty = all good)."""
     problems: list[str] = []
-    for cmd_path, trigger, description in collect_needed_commands():
-        expected = build_command_content(description)
+    for spec in collect_needed_commands():
+        expected = build_command_content(spec.description)
+        cmd_path = spec.path
         if cmd_path.is_file():
             existing = cmd_path.read_text()
             if existing == expected:
