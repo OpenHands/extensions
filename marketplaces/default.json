@@ -301,14 +301,16 @@
             ]
         },
         {
-            "name": "onboarding-agent",
-            "source": "./onboarding-agent",
-            "description": "Interactive onboarding workflow that interviews users to understand their coding goals and generates PR-ready implementation plans. Use when starting a new development task to ensure clear requirements and structured execution.",
+            "name": "prd",
+            "source": "./prd",
+            "description": "Generate a Product Requirements Document (PRD) for a new feature through an interactive clarifying-question workflow. Use when planning a feature, starting a new project, or when asked to create a PRD.",
             "category": "productivity",
             "keywords": [
-                "onboarding",
+                "prd",
+                "requirements",
                 "planning",
-                "requirements"
+                "product",
+                "specification"
             ]
         },
         {
