@@ -126,7 +126,7 @@
     {
       "name": "code-review",
       "source": "./skills/code-review",
-      "description": "Structured code review covering style, readability, and security concerns with actionable feedback. Use when reviewing pull requests or merge requests to identify issues and suggest improvements.",
+      "description": "Rigorous code review focusing on data structures, simplicity, security, and pragmatism. Provides brutally honest, actionable feedback on pull requests or merge requests. Use when reviewing code changes.",
       "category": "code-quality",
       "keywords": [
         "code-review",
