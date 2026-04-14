@@ -58,16 +58,17 @@ def parse_frontmatter(text: str) -> dict[str, str | list[str]]:
         return {}
     block = m.group(1)
     result: dict[str, str | list[str]] = {}
+    block_lines = block.splitlines()
     for key in ("name", "description"):
-        # Support both inline and multi-line (>) description values
         km = re.search(rf"^{key}:\s*(.+)$", block, re.MULTILINE)
         if km:
             val = km.group(1).strip()
             if val in (">", "|", ">-", "|-"):
                 # Folded/literal block scalar — collect indented continuation lines
-                lines_after = block[km.end():]
+                # Find the line index of this match
+                match_line = block[:km.start()].count("\n")
                 parts: list[str] = []
-                for cont_line in lines_after.splitlines():
+                for cont_line in block_lines[match_line + 1:]:
                     if cont_line and cont_line[0] in (" ", "\t"):
                         parts.append(cont_line.strip())
                     else:
