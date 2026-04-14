@@ -225,13 +225,17 @@ class TestGenerateCatalog:
         assert "extensions" in catalog
 
     def test_catalog_only_has_skill_or_plugin_types(self):
-        """Every entry type in the catalog should be skill or plugin."""
+        """Every table row's Type column must be 'skill' or 'plugin'."""
         catalog = generate_catalog()
-        # Verify no legacy or fallback type names leak into the table
-        assert "| extension |" not in catalog
-        assert "| unknown |" not in catalog
-        # Positive check: every table row has a known type
-        import re
-        type_cells = re.findall(r"\| (skill|plugin|extension|unknown) \|", catalog)
-        assert len(type_cells) > 0, "Expected at least one typed entry"
-        assert all(t in ("skill", "plugin") for t in type_cells)
+        types_found: list[str] = []
+        for line in catalog.splitlines():
+            # Skip non-table lines, header, and separator
+            if not line.startswith("|") or line.startswith("|---") or "Type" in line:
+                continue
+            cols = [c.strip() for c in line.split("|")]
+            # cols[0] is empty (before first |), cols[1]=Name, cols[2]=Type
+            if len(cols) >= 3:
+                types_found.append(cols[2])
+        assert len(types_found) > 0, "Expected at least one table entry"
+        invalid = [t for t in types_found if t not in ("skill", "plugin")]
+        assert not invalid, f"Found invalid types in catalog: {invalid}"
