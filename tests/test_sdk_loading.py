@@ -35,7 +35,7 @@ class TestDefaultMarketplace:
         
         marketplace = Marketplace.model_validate({**data, "path": str(get_repo_root())})
         
-        assert marketplace.name == "OpenHands Extensions"
+        assert marketplace.name == "openhands-extensions"
         assert marketplace.owner is not None
         assert marketplace.owner.name == "OpenHands"
         assert len(marketplace.plugins) > 0
