@@ -35,6 +35,25 @@ def _format_prompt(*, require_evidence: bool) -> str:
     )
 
 
+def test_prompt_with_roasted_trigger():
+    """Verify the backward-compatibility trigger alias works."""
+    module = _load_prompt_module()
+    prompt = module.format_prompt(
+        skill_trigger="/codereview-roasted",
+        title="Test PR",
+        body="Test body",
+        repo_name="owner/repo",
+        base_branch="main",
+        head_branch="feature",
+        pr_number="1",
+        commit_id="abc123",
+        diff="test diff",
+        review_context="",
+        require_evidence=False,
+    )
+    assert "/codereview-roasted" in prompt
+
+
 def test_format_prompt_omits_evidence_requirements_by_default():
     prompt = _format_prompt(require_evidence=False)
 
