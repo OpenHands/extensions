@@ -7,9 +7,7 @@ fine-grained review comments. The agent has full repository access and
 uses bash commands to analyze changes in context and post detailed review
 feedback directly via `gh` or the GitHub API.
 
-This example demonstrates how to use skills for code review:
-- `/codereview` - Standard code review skill
-- `/codereview-roasted` - Linus Torvalds style brutally honest review
+This example demonstrates how to use the `/codereview` skill for code review.
 
 The agent posts inline review comments on specific lines of code using
 the GitHub API, rather than posting one giant comment under the PR.
@@ -32,7 +30,8 @@ Environment Variables:
     PR_BASE_BRANCH: Base branch name (required)
     PR_HEAD_BRANCH: Head branch name (required)
     REPO_NAME: Repository name in format owner/repo (required)
-    REVIEW_STYLE: Review style ('standard' or 'roasted', default: 'standard')
+    REVIEW_STYLE: [DEPRECATED] Previously selected review style. Ignored — the
+        standard and roasted styles have been merged into a single skill.
     REQUIRE_EVIDENCE: Whether to require PR description evidence showing the code
         works ('true'/'false', default: 'false')
 
@@ -725,17 +724,21 @@ def validate_environment() -> dict[str, Any]:
         logger.error(f"Missing required environment variables: {missing_vars}")
         sys.exit(1)
 
-    review_style = os.getenv("REVIEW_STYLE", "standard").lower()
-    if review_style not in ("standard", "roasted"):
-        logger.warning(f"Unknown REVIEW_STYLE '{review_style}', using 'standard'")
-        review_style = "standard"
+    # REVIEW_STYLE is deprecated — standard and roasted have been merged.
+    # Keep reading the env var for backward compatibility but ignore its value.
+    review_style = os.getenv("REVIEW_STYLE", "")
+    if review_style:
+        logger.info(
+            f"REVIEW_STYLE='{review_style}' is deprecated and ignored. "
+            "The standard and roasted code review styles have been merged."
+        )
 
     return {
         "api_key": os.getenv("LLM_API_KEY"),
         "github_token": os.getenv("GITHUB_TOKEN"),
         "model": os.getenv("LLM_MODEL", "anthropic/claude-sonnet-4-5-20250929"),
         "base_url": os.getenv("LLM_BASE_URL"),
-        "review_style": review_style,
+        "review_style": "standard",  # kept for config compat; no longer affects behavior
         "require_evidence": _get_bool_env("REQUIRE_EVIDENCE"),
         "pr_info": {
             "number": os.getenv("PR_NUMBER"),
@@ -945,15 +948,12 @@ def main():
     require_evidence = config["require_evidence"]
 
     logger.info(f"Reviewing PR #{pr_info['number']}: {pr_info['title']}")
-    logger.info(f"Review style: {review_style}")
     logger.info(f"Require PR evidence: {require_evidence}")
 
     try:
         pr_diff, commit_id, review_context = fetch_pr_context(pr_info["number"])
 
-        skill_trigger = (
-            "/codereview" if review_style == "standard" else "/codereview-roasted"
-        )
+        skill_trigger = "/codereview"
         logger.info(f"Using skill trigger: {skill_trigger}")
 
         prompt = format_prompt(

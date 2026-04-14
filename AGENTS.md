@@ -101,6 +101,7 @@ When editing or adding skills in this repo, follow these rules (and add new skil
 
 ## PR review plugin notes
 
+- The `code-review` and `codereview-roasted` skills have been merged into a single `code-review` skill. The `/codereview-roasted` trigger is kept as an alias for backward compatibility. The `review-style` action input is deprecated and ignored.
 - `plugins/pr-review` supports an optional `require-evidence` action input that tells the reviewer to require end-to-end proof in the PR description that the code works; test output alone is not sufficient evidence.
 - The corresponding `REQUIRE_EVIDENCE` env flag is consumed by `plugins/pr-review/scripts/agent_script.py` and injected into the review prompt via `plugins/pr-review/scripts/prompt.py`.
 - GitHub review suggestions that only delete lines can look empty in `PullRequestReviewComment.body`; the rendered content is available via `bodyText`/`bodyHTML`, so review-context formatting should fall back there before treating a suggestion as empty.

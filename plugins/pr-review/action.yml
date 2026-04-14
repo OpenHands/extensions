@@ -20,9 +20,10 @@ inputs:
         required: false
         default: ''
     review-style:
-        description: "Review style: 'standard' (balanced review covering style, readability, and security) or 'roasted' (Linus Torvalds-style brutally honest feedback focusing on data structures, simplicity, and pragmatism)"
+        description: "[DEPRECATED] Previously chose between 'standard' and 'roasted' review styles. These have been merged into a single code-review skill. The input is kept for backward compatibility but no longer changes behavior. Will be removed in a future version."
         required: false
         default: roasted
+        deprecationMessage: "review-style is deprecated. The standard and roasted code review styles have been merged into a single unified code-review skill."
     require-evidence:
         description: "When true, require the reviewer to check the PR description for an Evidence section proving the code works end-to-end (screenshots/videos for frontend changes; commands and runtime output for backend, CLI, or script changes; conversation link when agent-generated). Test output alone does not count."
         required: false

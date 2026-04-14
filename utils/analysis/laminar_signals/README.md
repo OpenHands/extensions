@@ -85,7 +85,7 @@ Use `--skill-dir` to provide the current skill/plugin configuration. This allows
 
 ```bash
 # Use a skill directory
-python analyze.py --signal "..." --skill-dir path/to/skills/codereview-roasted
+python analyze.py --signal "..." --skill-dir path/to/skills/code-review
 
 # Use a plugin directory (loads nested skills and prompt.py)
 python analyze.py --signal "..." --skill-dir path/to/plugins/pr-review
