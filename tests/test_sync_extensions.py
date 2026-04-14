@@ -108,6 +108,31 @@ class TestCollectNeededCommands:
             assert spec.path.suffix == ".md"
 
 
+class TestParseFrontmatterEdgeCases:
+    """Edge-case tests ensuring graceful degradation."""
+
+    def test_malformed_yaml_returns_partial(self):
+        # Missing closing --- is handled (no match)
+        text = "---\nname: incomplete\ndescription: stuff\n"
+        assert parse_frontmatter(text) == {}
+
+    def test_colon_in_description(self):
+        text = "---\nname: test\ndescription: key: value pair\n---\n"
+        meta = parse_frontmatter(text)
+        assert meta["description"] == "key: value pair"
+
+    def test_quoted_values(self):
+        text = '---\nname: "quoted-name"\ndescription: \'single-quoted\'\n---\n'
+        meta = parse_frontmatter(text)
+        assert meta["name"] == '"quoted-name"'  # regex doesn't strip quotes
+
+    def test_triggers_end_at_next_key(self):
+        text = "---\ntriggers:\n  - /a\n  - /b\nname: after-triggers\n---\n"
+        meta = parse_frontmatter(text)
+        assert meta["triggers"] == ["/a", "/b"]
+        assert meta["name"] == "after-triggers"
+
+
 class TestGenerateCatalog:
     def test_catalog_contains_marketplace_names(self):
         catalog = generate_catalog()
@@ -119,6 +144,9 @@ class TestGenerateCatalog:
 
     def test_catalog_counts_are_consistent(self):
         catalog = generate_catalog()
-        # Should contain total count line
         assert "marketplace(s)" in catalog
         assert "extensions" in catalog
+
+    def test_no_unknown_type_in_catalog(self):
+        catalog = generate_catalog()
+        assert "unknown" not in catalog

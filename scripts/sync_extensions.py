@@ -34,6 +34,8 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 README_PATH = REPO_ROOT / "README.md"
 SKILL_DIRS = [REPO_ROOT / "skills", REPO_ROOT / "plugins"]
 MARKETPLACES_DIR = REPO_ROOT / "marketplaces"
+# Max description length in the catalog table (keeps Markdown readable)
+MAX_DESC_LEN = 120
 
 # Sentinel markers in README.md
 CATALOG_BEGIN = "<!-- BEGIN AUTO-GENERATED CATALOG -->"
@@ -216,6 +218,43 @@ def _get_slash_commands(source: str) -> list[str]:
     return result
 
 
+def _format_marketplace_section(mp: dict) -> list[str]:
+    """Format a single marketplace as Markdown lines."""
+    mp_name = mp.get("name", mp["_file"].stem)
+    mp_desc = mp.get("metadata", {}).get("description", "")
+    plugins = mp.get("plugins", [])
+    skill_count = sum(1 for p in plugins if _entry_type(p.get("source", "")) == "skill")
+    plugin_count = sum(1 for p in plugins if _entry_type(p.get("source", "")) == "plugin")
+
+    lines: list[str] = []
+    lines.append(f"### {mp_name}")
+    lines.append("")
+    if mp_desc:
+        lines.append(mp_desc)
+        lines.append("")
+    lines.append(f"**{len(plugins)} extensions** ({skill_count} skills, {plugin_count} plugins)")
+    lines.append("")
+    lines.append("```bash")
+    lines.append(f"claude plugins add-marketplace https://github.com/OpenHands/extensions  # registers \"{mp_name}\"")
+    lines.append("```")
+    lines.append("")
+
+    lines.append("| Name | Type | Description | Commands |")
+    lines.append("|------|------|-------------|----------|")
+    for p in sorted(plugins, key=lambda x: x["name"]):
+        name = p["name"]
+        etype = _entry_type(p.get("source", ""))
+        desc = (p.get("description") or "").replace("|", "\\|")
+        if len(desc) > MAX_DESC_LEN:
+            desc = desc[:MAX_DESC_LEN - 3] + "..."
+        cmds = _get_slash_commands(p.get("source", ""))
+        cmds_str = ", ".join(f"`{c}`" for c in cmds) if cmds else "—"
+        lines.append(f"| {name} | {etype} | {desc} | {cmds_str} |")
+
+    lines.append("")
+    return lines
+
+
 def generate_catalog() -> str:
     """Build the Markdown catalog section."""
     mps = load_marketplaces()
@@ -237,42 +276,8 @@ def generate_catalog() -> str:
         f"with **{total} extensions** ({total_skills} skills, {total_plugins} plugins)."
     )
     lines.append("")
-
     for mp in mps:
-        mp_name = mp.get("name", mp["_file"].stem)
-        mp_desc = mp.get("metadata", {}).get("description", "")
-        plugins = mp.get("plugins", [])
-        skill_count = sum(1 for p in plugins if _entry_type(p.get("source", "")) == "skill")
-        plugin_count = sum(1 for p in plugins if _entry_type(p.get("source", "")) == "plugin")
-
-        lines.append(f"### {mp_name}")
-        lines.append("")
-        if mp_desc:
-            lines.append(mp_desc)
-            lines.append("")
-        lines.append(f"**{len(plugins)} extensions** ({skill_count} skills, {plugin_count} plugins)")
-        lines.append("")
-        lines.append("```bash")
-        lines.append(f"claude plugins add-marketplace https://github.com/OpenHands/extensions  # registers \"{mp_name}\"")
-        lines.append("```")
-        lines.append("")
-
-        # Table
-        lines.append("| Name | Type | Description | Commands |")
-        lines.append("|------|------|-------------|----------|")
-        for p in sorted(plugins, key=lambda x: x["name"]):
-            name = p["name"]
-            etype = _entry_type(p.get("source", ""))
-            desc = (p.get("description") or "").replace("|", "\\|")
-            # Truncate long descriptions for the table
-            if len(desc) > 120:
-                desc = desc[:117] + "..."
-            cmds = _get_slash_commands(p.get("source", ""))
-            cmds_str = ", ".join(f"`{c}`" for c in cmds) if cmds else "—"
-            lines.append(f"| {name} | {etype} | {desc} | {cmds_str} |")
-
-        lines.append("")
-
+        lines.extend(_format_marketplace_section(mp))
     return "\n".join(lines)
 
 
