@@ -12,7 +12,7 @@
     "plugins": [
         {
             "name": "add-skill",
-            "source": "./add-skill",
+            "source": "./skills/add-skill",
             "description": "Add (import) an OpenHands skill from a GitHub repository into the current workspace.",
             "category": "productivity",
             "keywords": [
@@ -24,7 +24,7 @@
         },
         {
             "name": "agent-memory",
-            "source": "./agent-memory",
+            "source": "./skills/agent-memory",
             "description": "Persist and retrieve repository-specific knowledge using AGENTS.md files. Use when you want to save important information about a codebase (build commands, code style, workflows) for future sessions.",
             "category": "productivity",
             "keywords": [
@@ -36,7 +36,7 @@
         },
         {
             "name": "agent-sdk-builder",
-            "source": "./agent-sdk-builder",
+            "source": "./skills/agent-sdk-builder",
             "description": "Guided workflow for building custom AI agents using the OpenHands Software Agent SDK. Use when you want to create a new agent through an interactive interview process that gathers requirements and generates implementation plans.",
             "category": "development",
             "keywords": [
@@ -48,7 +48,7 @@
         },
         {
             "name": "automation",
-            "source": "./automation",
+            "source": "./skills/automation",
             "description": "Create and manage OpenHands automations - scheduled tasks that run in sandboxes. Use the prompt preset to create automations from natural language, or manage existing automations.",
             "category": "integration",
             "keywords": [
@@ -74,7 +74,7 @@
         },
         {
             "name": "azure-devops",
-            "source": "./azure-devops",
+            "source": "./skills/azure-devops",
             "description": "Interact with Azure DevOps repositories, pull requests, and APIs using the AZURE_DEVOPS_TOKEN environment variable. Use when working with code hosted on Azure DevOps or managing Azure DevOps resources.",
             "category": "integration",
             "keywords": [
@@ -86,7 +86,7 @@
         },
         {
             "name": "babysit-pr",
-            "source": "./babysit-pr",
+            "source": "./skills/babysit-pr",
             "description": "Babysit a GitHub pull request by monitoring CI checks, workflow runs, review comments, and mergeability until it is ready to merge.",
             "category": "productivity",
             "keywords": [
@@ -100,7 +100,7 @@
         },
         {
             "name": "bitbucket",
-            "source": "./bitbucket",
+            "source": "./skills/bitbucket",
             "description": "Interact with Bitbucket repositories and pull requests using the BITBUCKET_TOKEN environment variable. Use when working with code hosted on Bitbucket or managing Bitbucket resources via API.",
             "category": "integration",
             "keywords": [
@@ -125,7 +125,7 @@
         },
         {
             "name": "code-review",
-            "source": "./code-review",
+            "source": "./skills/code-review",
             "description": "Structured code review covering style, readability, and security concerns with actionable feedback. Use when reviewing pull requests or merge requests to identify issues and suggest improvements.",
             "category": "code-quality",
             "keywords": [
@@ -137,7 +137,7 @@
         },
         {
             "name": "codereview-roasted",
-            "source": "./codereview-roasted",
+            "source": "./skills/codereview-roasted",
             "description": "Brutally honest code review in the style of Linus Torvalds, focusing on data structures, simplicity, and pragmatism. Use when you want critical, no-nonsense feedback that prioritizes engineering fundamentals over style preferences.",
             "category": "code-quality",
             "keywords": [
@@ -148,7 +148,7 @@
         },
         {
             "name": "datadog",
-            "source": "./datadog",
+            "source": "./skills/datadog",
             "description": "Query and analyze Datadog logs, metrics, APM traces, and monitors using the Datadog API. Use when debugging production issues, monitoring application performance, or investigating alerts.",
             "category": "monitoring",
             "keywords": [
@@ -161,7 +161,7 @@
         },
         {
             "name": "deno",
-            "source": "./deno",
+            "source": "./skills/deno",
             "description": "Common project operations using Deno (tasks, run/test/lint/fmt, and dependency management).",
             "category": "development",
             "keywords": [
@@ -173,7 +173,7 @@
         },
         {
             "name": "discord",
-            "source": "./discord",
+            "source": "./skills/discord",
             "description": "Build and automate Discord integrations (bots, webhooks, slash commands, and REST API workflows). Use when the user mentions Discord, a Discord server/guild, channels, webhooks, bot tokens, slash commands/application commands, discord.js, or discord.py.",
             "category": "integration",
             "keywords": [
@@ -185,7 +185,7 @@
         },
         {
             "name": "docker",
-            "source": "./docker",
+            "source": "./skills/docker",
             "description": "Run Docker commands within a container environment, including starting the Docker daemon and managing containers. Use when building, running, or managing Docker containers and images.",
             "category": "infrastructure",
             "keywords": [
@@ -196,7 +196,7 @@
         },
         {
             "name": "flarglebargle",
-            "source": "./flarglebargle",
+            "source": "./skills/flarglebargle",
             "description": "A test skill that responds to the magic word 'flarglebargle' with a compliment. Use for testing skill activation and trigger functionality.",
             "category": "testing",
             "keywords": [
@@ -206,7 +206,7 @@
         },
         {
             "name": "frontend-design",
-            "source": "./frontend-design",
+            "source": "./skills/frontend-design",
             "description": "Create distinctive, production-grade frontend interfaces with high design quality. Use this skill when the user asks to build web components, pages, artifacts, posters, or applications. Generates creative, polished code and UI design that avoids generic AI aesthetics.",
             "category": "design",
             "keywords": [
@@ -221,7 +221,7 @@
         },
         {
             "name": "github",
-            "source": "./github",
+            "source": "./skills/github",
             "description": "Interact with GitHub repositories, pull requests, issues, and workflows using the GITHUB_TOKEN environment variable and GitHub CLI. Use when working with code hosted on GitHub or managing GitHub resources.",
             "category": "integration",
             "keywords": [
@@ -234,7 +234,7 @@
         },
         {
             "name": "github-pr-review",
-            "source": "./github-pr-review",
+            "source": "./skills/github-pr-review",
             "description": "Post structured PR reviews to GitHub with inline comments/suggestions in a single API call.",
             "category": "code-quality",
             "keywords": [
@@ -246,7 +246,7 @@
         },
         {
             "name": "gitlab",
-            "source": "./gitlab",
+            "source": "./skills/gitlab",
             "description": "Interact with GitLab repositories, merge requests, and APIs using the GITLAB_TOKEN environment variable. Use when working with code hosted on GitLab or managing GitLab resources.",
             "category": "integration",
             "keywords": [
@@ -257,7 +257,7 @@
         },
         {
             "name": "init",
-            "source": "./init",
+            "source": "./skills/init",
             "description": "Scaffold an AGENTS.md contributor guide for a repository or subdirectory.",
             "category": "documentation",
             "keywords": [
@@ -270,7 +270,7 @@
         },
         {
             "name": "jupyter",
-            "source": "./jupyter",
+            "source": "./skills/jupyter",
             "description": "Read, modify, execute, and convert Jupyter notebooks programmatically. Use when working with .ipynb files for data science workflows, including editing cells, clearing outputs, or converting to other formats.",
             "category": "data-science",
             "keywords": [
@@ -282,7 +282,7 @@
         },
         {
             "name": "kubernetes",
-            "source": "./kubernetes",
+            "source": "./skills/kubernetes",
             "description": "Set up and manage local Kubernetes clusters using KIND (Kubernetes IN Docker). Use when testing Kubernetes applications locally or developing cloud-native workloads.",
             "category": "infrastructure",
             "keywords": [
@@ -294,7 +294,7 @@
         },
         {
             "name": "learn-from-code-review",
-            "source": "./learn-from-code-review",
+            "source": "./skills/learn-from-code-review",
             "description": "Distill code review feedback from GitHub PRs into reusable skills and guidelines. Use when users ask to learn from code reviews, extract review patterns, or generate coding standards from historical PR feedback.",
             "category": "code-quality",
             "keywords": [
@@ -307,7 +307,7 @@
         },
         {
             "name": "linear",
-            "source": "./linear",
+            "source": "./skills/linear",
             "description": "Interact with Linear project management - query issues, update status, create tickets using the Linear GraphQL API.",
             "category": "integration",
             "keywords": [
@@ -333,7 +333,7 @@
         },
         {
             "name": "notion",
-            "source": "./notion",
+            "source": "./skills/notion",
             "description": "Create, search, and update Notion pages/databases using the Notion API. Use for documenting work, generating runbooks, and automating knowledge base updates.",
             "category": "productivity",
             "keywords": [
@@ -344,7 +344,7 @@
         },
         {
             "name": "npm",
-            "source": "./npm",
+            "source": "./skills/npm",
             "description": "Handle npm package installation in non-interactive environments by piping confirmations. Use when installing Node.js packages that require user confirmation prompts.",
             "category": "development",
             "keywords": [
@@ -368,7 +368,7 @@
         },
         {
             "name": "openhands-api",
-            "source": "./openhands-api",
+            "source": "./skills/openhands-api",
             "description": "Use the OpenHands Cloud REST API (V1) to create and manage app conversations, including multi-conversation delegation workflows, and to access sandbox agent-server endpoints. Includes minimal Python and TypeScript clients under scripts/.",
             "category": "development",
             "keywords": [
@@ -384,7 +384,7 @@
         },
         {
             "name": "pdflatex",
-            "source": "./pdflatex",
+            "source": "./skills/pdflatex",
             "description": "Install and use pdflatex to compile LaTeX documents into PDFs on Linux. Use when generating academic papers, research publications, or any documents written in LaTeX.",
             "category": "documentation",
             "keywords": [
@@ -408,7 +408,7 @@
         },
         {
             "name": "prd",
-            "source": "./prd",
+            "source": "./skills/prd",
             "description": "Generate a Product Requirements Document (PRD) for a new feature through an interactive clarifying-question workflow. Use when planning a feature, starting a new project, or when asked to create a PRD.",
             "category": "productivity",
             "keywords": [
@@ -433,7 +433,7 @@
         },
         {
             "name": "releasenotes",
-            "source": "./releasenotes",
+            "source": "./skills/releasenotes",
             "description": "Generate formatted changelogs from git history since the last release tag. Use when preparing release notes that categorize changes into breaking changes, features, fixes, and other sections.",
             "category": "development",
             "keywords": [
@@ -444,7 +444,7 @@
         },
         {
             "name": "security",
-            "source": "./security",
+            "source": "./skills/security",
             "description": "Security best practices for secure coding, authentication, authorization, and data protection. Use when developing features that handle sensitive data, user authentication, or require security review.",
             "category": "security",
             "keywords": [
@@ -456,7 +456,7 @@
         },
         {
             "name": "skill-creator",
-            "source": "./skill-creator",
+            "source": "./skills/skill-creator",
             "description": "Guide for creating effective skills. This skill should be used when users want to create a new skill (or update an existing skill) that extends Claude's capabilities with specialized knowledge, workflows, or tool integrations.",
             "category": "development",
             "keywords": [
@@ -467,7 +467,7 @@
         },
         {
             "name": "ssh",
-            "source": "./ssh",
+            "source": "./skills/ssh",
             "description": "Establish and manage SSH connections to remote machines, including key generation, configuration, and file transfers. Use when connecting to remote servers, executing remote commands, or transferring files via SCP.",
             "category": "infrastructure",
             "keywords": [
@@ -479,7 +479,7 @@
         },
         {
             "name": "swift-linux",
-            "source": "./swift-linux",
+            "source": "./skills/swift-linux",
             "description": "Install and configure Swift programming language on Debian Linux for server-side development. Use when building Swift applications on Linux or setting up a Swift development environment.",
             "category": "development",
             "keywords": [
@@ -490,7 +490,7 @@
         },
         {
             "name": "theme-factory",
-            "source": "./theme-factory",
+            "source": "./skills/theme-factory",
             "description": "Toolkit for styling artifacts with a theme. These artifacts can be slides, docs, reportings, HTML landing pages, etc. There are 10 pre-set themes with colors/fonts that you can apply to any artifact that has been creating, or can generate a new theme on-the-fly.",
             "category": "design",
             "keywords": [
@@ -503,7 +503,7 @@
         },
         {
             "name": "uv",
-            "source": "./uv",
+            "source": "./skills/uv",
             "description": "Common project, dependency, and environment operations using uv.",
             "category": "development",
             "keywords": [
@@ -515,7 +515,7 @@
         },
         {
             "name": "vercel",
-            "source": "./vercel",
+            "source": "./skills/vercel",
             "description": "Deploy and manage applications on Vercel, including preview deployments and deployment protection.",
             "category": "integration",
             "keywords": [
