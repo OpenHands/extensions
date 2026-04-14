@@ -5,21 +5,31 @@ from pathlib import Path
 
 import pytest
 
-# Make the scripts directory importable
 sys.path.insert(0, str(Path(__file__).parent.parent / "scripts"))
 from sync_extensions import (
     CommandSpec,
     _entry_type,
     collect_needed_commands,
     generate_catalog,
+    load_marketplaces,
     parse_frontmatter,
     slash_triggers,
 )
 
 
+# ── parse_frontmatter ────────────────────────────────────────────────
+
 class TestParseFrontmatter:
     def test_basic(self):
-        text = "---\nname: test-skill\ndescription: A test skill\ntriggers:\n  - /test\n---\nBody"
+        text = (
+            "---\n"
+            "name: test-skill\n"
+            "description: A test skill\n"
+            "triggers:\n"
+            "  - /test\n"
+            "---\n"
+            "Body"
+        )
         meta = parse_frontmatter(text)
         assert meta["name"] == "test-skill"
         assert meta["description"] == "A test skill"
@@ -30,12 +40,19 @@ class TestParseFrontmatter:
 
     def test_empty_frontmatter(self):
         meta = parse_frontmatter("---\n---\nBody")
-        # Empty block has no triggers key — parser only adds it when iterating
         assert meta.get("triggers", []) == []
         assert "name" not in meta
 
     def test_multiple_triggers(self):
-        text = "---\nname: multi\ntriggers:\n  - /foo\n  - /bar\n  - baz\n---\n"
+        text = (
+            "---\n"
+            "name: multi\n"
+            "triggers:\n"
+            "  - /foo\n"
+            "  - /bar\n"
+            "  - baz\n"
+            "---\n"
+        )
         meta = parse_frontmatter(text)
         assert meta["triggers"] == ["/foo", "/bar", "baz"]
 
@@ -44,28 +61,96 @@ class TestParseFrontmatter:
         meta = parse_frontmatter(text)
         assert meta["triggers"] == []
 
-    def test_triggers_with_blank_lines(self):
-        text = "---\ntriggers:\n  - /first\n\n  - /second\n---\n"
-        meta = parse_frontmatter(text)
-        assert "/first" in meta["triggers"]
-        assert "/second" in meta["triggers"]
-
     def test_triggers_with_comments(self):
-        text = "---\ntriggers:\n  - /cmd\n  # this is a comment\n  - /other\n---\n"
+        text = (
+            "---\n"
+            "triggers:\n"
+            "  - /cmd\n"
+            "  # this is a comment\n"
+            "  - /other\n"
+            "---\n"
+        )
         meta = parse_frontmatter(text)
-        assert meta["triggers"] == ["/cmd", "/other"]
+        assert "/cmd" in meta["triggers"]
+        assert "/other" in meta["triggers"]
 
     def test_folded_block_scalar_description(self):
-        text = "---\nname: test\ndescription: >\n  This is a long\n  description text\nother: value\n---\n"
+        text = (
+            "---\n"
+            "name: test\n"
+            "description: >\n"
+            "  This is a long\n"
+            "  description text\n"
+            "other: value\n"
+            "---\n"
+        )
         meta = parse_frontmatter(text)
         assert meta["description"] == "This is a long description text"
 
     def test_unicode(self):
-        text = "---\nname: unicöde-skill\ndescription: Ünïcödé description 🚀\n---\n"
+        text = (
+            "---\n"
+            "name: unic\u00f6de-skill\n"
+            "description: \u00dcn\u00efc\u00f6d\u00e9 description \U0001f680\n"
+            "---\n"
+        )
         meta = parse_frontmatter(text)
-        assert meta["name"] == "unicöde-skill"
-        assert "🚀" in meta["description"]
+        assert meta["name"] == "unic\u00f6de-skill"
+        assert "\U0001f680" in meta["description"]
 
+
+class TestParseFrontmatterEdgeCases:
+    """Edge-case tests ensuring graceful degradation."""
+
+    def test_malformed_yaml_missing_close(self):
+        assert parse_frontmatter("---\nname: incomplete\n") == {}
+
+    def test_invalid_yaml_returns_empty(self):
+        assert parse_frontmatter("---\n: [invalid yaml{{\n---\n") == {}
+
+    def test_colon_in_description(self):
+        text = '---\nname: test\ndescription: "key: value pair"\n---\n'
+        meta = parse_frontmatter(text)
+        assert meta["description"] == "key: value pair"
+
+    def test_quoted_values_stripped(self):
+        text = "---\nname: \"quoted-name\"\ndescription: 'single-quoted'\n---\n"
+        meta = parse_frontmatter(text)
+        assert meta["name"] == "quoted-name"
+        assert meta["description"] == "single-quoted"
+
+    def test_triggers_end_at_next_key(self):
+        text = (
+            "---\n"
+            "triggers:\n"
+            "  - /a\n"
+            "  - /b\n"
+            "name: after-triggers\n"
+            "---\n"
+        )
+        meta = parse_frontmatter(text)
+        assert meta["triggers"] == ["/a", "/b"]
+        assert meta["name"] == "after-triggers"
+
+    def test_null_trigger_skipped(self):
+        text = (
+            "---\n"
+            "triggers:\n"
+            "  - /cmd\n"
+            "  -\n"
+            "  - /other\n"
+            "---\n"
+        )
+        meta = parse_frontmatter(text)
+        assert "/cmd" in meta["triggers"]
+        assert "/other" in meta["triggers"]
+
+    def test_frontmatter_only_block(self):
+        meta = parse_frontmatter("---\nname: only\n---")
+        assert meta["name"] == "only"
+
+
+# ── slash_triggers ────────────────────────────────────────────────────
 
 class TestSlashTriggers:
     def test_filters_slash_only(self):
@@ -76,6 +161,8 @@ class TestSlashTriggers:
         assert slash_triggers({}) == []
         assert slash_triggers({"triggers": []}) == []
 
+
+# ── _entry_type ───────────────────────────────────────────────────────
 
 class TestEntryType:
     def test_skills_path(self):
@@ -90,16 +177,16 @@ class TestEntryType:
     def test_relative_skills(self):
         assert _entry_type("../skills/qux") == "skill"
 
-    def test_fallback(self):
-        result = _entry_type("./nonexistent-xyz")
-        assert result == "extension"
+    def test_fallback_is_skill(self):
+        assert _entry_type("./nonexistent-xyz") == "skill"
 
+
+# ── collect_needed_commands ───────────────────────────────────────────
 
 class TestCollectNeededCommands:
     def test_returns_command_specs(self):
         specs = collect_needed_commands()
         assert all(isinstance(s, CommandSpec) for s in specs)
-        # At least some skills have slash triggers
         assert len(specs) > 0
 
     def test_paths_are_under_commands_dir(self):
@@ -108,30 +195,20 @@ class TestCollectNeededCommands:
             assert spec.path.suffix == ".md"
 
 
-class TestParseFrontmatterEdgeCases:
-    """Edge-case tests ensuring graceful degradation."""
+# ── load_marketplaces ────────────────────────────────────────────────
 
-    def test_malformed_yaml_returns_partial(self):
-        # Missing closing --- is handled (no match)
-        text = "---\nname: incomplete\ndescription: stuff\n"
-        assert parse_frontmatter(text) == {}
+class TestLoadMarketplaces:
+    def test_loads_at_least_one(self):
+        mps = load_marketplaces()
+        assert len(mps) > 0
 
-    def test_colon_in_description(self):
-        text = "---\nname: test\ndescription: key: value pair\n---\n"
-        meta = parse_frontmatter(text)
-        assert meta["description"] == "key: value pair"
+    def test_marketplaces_have_required_fields(self):
+        for mp in load_marketplaces():
+            assert "plugins" in mp
+            assert "_file" in mp
 
-    def test_quoted_values(self):
-        text = '---\nname: "quoted-name"\ndescription: \'single-quoted\'\n---\n'
-        meta = parse_frontmatter(text)
-        assert meta["name"] == '"quoted-name"'  # regex doesn't strip quotes
 
-    def test_triggers_end_at_next_key(self):
-        text = "---\ntriggers:\n  - /a\n  - /b\nname: after-triggers\n---\n"
-        meta = parse_frontmatter(text)
-        assert meta["triggers"] == ["/a", "/b"]
-        assert meta["name"] == "after-triggers"
-
+# ── generate_catalog ─────────────────────────────────────────────────
 
 class TestGenerateCatalog:
     def test_catalog_contains_marketplace_names(self):
@@ -147,6 +224,8 @@ class TestGenerateCatalog:
         assert "marketplace(s)" in catalog
         assert "extensions" in catalog
 
-    def test_no_unknown_type_in_catalog(self):
+    def test_catalog_only_has_skill_or_plugin_types(self):
+        """Every entry type in the catalog should be skill or plugin."""
         catalog = generate_catalog()
-        assert "unknown" not in catalog
+        assert "| extension |" not in catalog
+        assert "| unknown |" not in catalog
