@@ -32,13 +32,13 @@ Browse available plugins in [`plugins/`](plugins/).
 ## Extensions Catalog
 
 <!-- BEGIN AUTO-GENERATED CATALOG -->
-This repository contains **2 marketplace(s)** with **36 skills** and **7 plugins**.
+This repository contains **2 marketplace(s)** with **47 extensions** (36 skills, 9 plugins).
 
 ### large-codebase
 
 OpenHands skills for interacting, improving, and refactoring large codebases
 
-**0 skills, 0 plugins**
+**4 extensions** (0 skills, 2 plugins)
 
 ```bash
 claude plugins add-marketplace https://github.com/OpenHands/extensions  # registers "large-codebase"
@@ -46,16 +46,16 @@ claude plugins add-marketplace https://github.com/OpenHands/extensions  # regist
 
 | Name | Type | Description | Commands |
 |------|------|-------------|----------|
-| add-javadoc | unknown | Add comprehensive JavaDoc documentation to Java classes and methods. Use when documenting Java code, adding API docum... | — |
-| cobol-modernization | unknown | End-to-end COBOL to Java migration workflow. Handles build setup, mainframe dependency removal, and code migration wi... | — |
-| migration-scoring | unknown | Evaluate code migration quality with coverage, correctness, and style scoring. Generates executive reports with actio... | — |
-| spark-version-upgrade | unknown | Upgrade Apache Spark applications between major versions (2.x→3.x, 3.x→4.x). Covers build files, deprecated APIs, con... | — |
+| add-javadoc | extension | Add comprehensive JavaDoc documentation to Java classes and methods. Use when documenting Java code, adding API docum... | — |
+| cobol-modernization | plugin | End-to-end COBOL to Java migration workflow. Handles build setup, mainframe dependency removal, and code migration wi... | — |
+| migration-scoring | plugin | Evaluate code migration quality with coverage, correctness, and style scoring. Generates executive reports with actio... | — |
+| spark-version-upgrade | extension | Upgrade Apache Spark applications between major versions (2.x→3.x, 3.x→4.x). Covers build files, deprecated APIs, con... | — |
 
 ### openhands-extensions
 
 Official skills and plugins for OpenHands — the open-source AI software engineer.
 
-**36 skills, 7 plugins**
+**43 extensions** (36 skills, 7 plugins)
 
 ```bash
 claude plugins add-marketplace https://github.com/OpenHands/extensions  # registers "openhands-extensions"
