@@ -339,18 +339,6 @@
             ]
         },
         {
-            "name": "readiness-report",
-            "source": "./skills/readiness-report",
-            "description": "Assess repository readiness for autonomous AI development and generate prioritized recommendations.",
-            "category": "productivity",
-            "keywords": [
-                "readiness",
-                "report",
-                "repo",
-                "quality"
-            ]
-        },
-        {
             "name": "releasenotes",
             "source": "./skills/releasenotes",
             "description": "Generate formatted changelogs from git history since the last release tag. Use when preparing release notes that categorize changes into breaking changes, features, fixes, and other sections.",

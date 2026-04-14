@@ -1,19 +1,20 @@
-"""Verify that every slash trigger has a matching Claude Code command file."""
+"""Verify that extensions are in sync (commands, catalog, coverage)."""
 
 import subprocess
 import sys
 from pathlib import Path
 
+SCRIPT = Path(__file__).parent.parent / "scripts" / "sync_extensions.py"
 
-def test_claude_commands_in_sync():
-    """Run sync_claude_commands.py --check and fail if out of sync."""
-    script = Path(__file__).parent.parent / "scripts" / "sync_claude_commands.py"
+
+def test_extensions_in_sync():
+    """Run sync_extensions.py --check and fail if commands or catalog are stale."""
     result = subprocess.run(
-        [sys.executable, str(script), "--check"],
+        [sys.executable, str(SCRIPT), "--check"],
         capture_output=True,
         text=True,
     )
     assert result.returncode == 0, (
-        f"Claude Code command files out of sync:\n{result.stdout}\n{result.stderr}\n"
-        f"Run `python scripts/sync_claude_commands.py` to fix."
+        f"Extensions out of sync:\n{result.stdout}\n{result.stderr}\n"
+        f"Run `python scripts/sync_extensions.py` to fix."
     )

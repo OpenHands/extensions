@@ -24,7 +24,7 @@ jobs:
       - name: Validate marketplace manifest
         run: claude plugin validate .
 
-  slash-commands:
+  sync-extensions:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -35,5 +35,5 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Check Claude Code command files are in sync
-        run: python scripts/sync_claude_commands.py --check
+      - name: Check extensions are in sync
+        run: python scripts/sync_extensions.py --check
