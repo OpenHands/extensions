@@ -55,7 +55,7 @@ OpenHands uses an **extended AgentSkills standard**:
 - **Compatible with the AgentSkills specification** (https://agentskills.io/specification)
 - **Extended with optional `triggers:` frontmatter** for keyword-based activation
 
-When editing or adding skills in this repo, follow these rules (and add new skills to `.plugin/marketplace.json`):
+When editing or adding skills in this repo, follow these rules (and add new skills to `marketplaces/openhands-extensions.json`):
 
 1. **One skill per directory**
    - Create `skills/<skill-name>/SKILL.md`.
@@ -98,6 +98,8 @@ When editing or adding skills in this repo, follow these rules (and add new skil
 ## CI / validation gotchas
 
 - The test suite expects **every directory under `skills/`** to be listed in a marketplace. If you add a new skill (or rebase onto a main branch that added skills), update the appropriate marketplace file or CI will fail with `Skills missing from marketplace: [...]`.
+- `scripts/sync_extensions.py` keeps generated artifacts in sync: Claude Code command files, README catalog section, coverage checks, and vendor symlinks. Run `python scripts/sync_extensions.py --check` (or just push — CI runs it) to verify everything is consistent. Run without `--check` to auto-fix.
+- The sync script uses PyYAML to parse SKILL.md frontmatter. If you add a skill with a slash trigger (e.g., `triggers: ["/mycommand"]`), the script auto-generates `commands/mycommand.md`.
 
 ## PR review plugin notes
 
