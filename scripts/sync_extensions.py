@@ -255,7 +255,7 @@ def sync_catalog(*, check: bool) -> list[str]:
 
 def sync_coverage(*, check: bool) -> list[str]:
     """Check that every directory is in a marketplace and vice versa."""
-    # Collect all dirs with SKILL.md OR .claude-plugin/plugin.json OR .plugin/plugin.json
+    # Collect all dirs with SKILL.md or .plugin/plugin.json (or vendor symlinks like .claude-plugin)
     all_dirs: set[str] = set()
     for base in SKILL_DIRS:
         if not base.is_dir():
