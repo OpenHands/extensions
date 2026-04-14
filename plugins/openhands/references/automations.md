@@ -1,14 +1,3 @@
----
-name: automation
-description: This skill should be used when the user asks to "create an automation", "schedule a task", "set up a cron job", or mentions automations, scheduled tasks, or cron scheduling in OpenHands Cloud.
-triggers:
-- automation
-- automations
-- scheduled task
-- cron job
-- cron schedule
----
-
 # OpenHands Automations
 
 Create and manage scheduled tasks that run in OpenHands Cloud sandboxes on a cron schedule.
