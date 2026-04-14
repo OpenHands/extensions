@@ -32,7 +32,7 @@ Browse available plugins in [`plugins/`](plugins/).
 ## Extensions Catalog
 
 <!-- BEGIN AUTO-GENERATED CATALOG -->
-This repository contains **2 marketplace(s)** with **47 extensions** (38 skills, 9 plugins).
+This repository contains **2 marketplace(s)** with **48 extensions** (39 skills, 9 plugins).
 
 ### large-codebase
 
@@ -55,7 +55,7 @@ claude plugins add-marketplace https://github.com/OpenHands/extensions  # regist
 
 Official skills and plugins for OpenHands — the open-source AI software engineer.
 
-**43 extensions** (36 skills, 7 plugins)
+**44 extensions** (37 skills, 7 plugins)
 
 ```bash
 claude plugins add-marketplace https://github.com/OpenHands/extensions  # registers "openhands-extensions"
@@ -105,6 +105,7 @@ claude plugins add-marketplace https://github.com/OpenHands/extensions  # regist
 | theme-factory | skill | Toolkit for styling artifacts with a theme. These artifacts can be slides, docs, reportings, HTML landing pages, etc.... | — |
 | uv | skill | Common project, dependency, and environment operations using uv. | — |
 | vercel | skill | Deploy and manage applications on Vercel, including preview deployments and deployment protection. | — |
+| verify | skill | Orchestrate repo-level PR verification by polling CI checks, PR review, and QA workflows — then driving the fix/push/... | `/verify` |
 | vulnerability-remediation | plugin | Automated security vulnerability scanning and AI-powered remediation. Scans repositories, skips when no issues found,... | — |
 <!-- END AUTO-GENERATED CATALOG -->
 
