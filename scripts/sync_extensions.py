@@ -36,7 +36,8 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 README_PATH = REPO_ROOT / "README.md"
 SKILL_DIRS = [REPO_ROOT / "skills", REPO_ROOT / "plugins"]
 MARKETPLACES_DIR = REPO_ROOT / "marketplaces"
-# Max description length in the catalog table (keeps Markdown readable)
+# Max description length in the catalog table.  120 chars fits GitHub's
+# diff viewer and rendered Markdown tables without horizontal scroll.
 MAX_DESC_LEN = 120
 
 # Sentinel markers in README.md
@@ -155,7 +156,13 @@ def sync_commands(*, check: bool) -> list[str]:
             if existing == expected:
                 continue
             if CMD_HEADER not in existing and _LEGACY_CMD_HEADER not in existing:
-                # manually authored — skip
+                rel = cmd_path.relative_to(REPO_ROOT)
+                print(
+                    f"[warning] {rel} exists but has no auto-generated header "
+                    f"— it won't be updated.  Add the header or delete the "
+                    f"file to let sync manage it.",
+                    file=sys.stderr,
+                )
                 continue
             problems.append(f"stale: {cmd_path.relative_to(REPO_ROOT)}")
         else:
