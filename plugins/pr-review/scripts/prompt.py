@@ -4,7 +4,10 @@ PR Review Prompt Template
 This module contains the prompt template used by the OpenHands agent
 for conducting pull request reviews. The template uses skill triggers:
 - {skill_trigger} will be replaced with '/codereview' or '/codereview-roasted'
-- /github-pr-review provides instructions for posting review comments via GitHub API
+
+The `/codereview` skill includes both review guidelines and instructions
+for posting review comments via the GitHub API (previously separate as
+`/github-pr-review`).
 
 The template includes:
 - {diff} - The complete git diff for the PR (may be truncated for large files)
@@ -48,7 +51,6 @@ If the change is substantive and this evidence is missing or weak, call it out a
 """
 
 PROMPT = """{skill_trigger}
-/github-pr-review
 
 When posting a review, keep the review body brief unless your active review instructions require a longer structured format.
 

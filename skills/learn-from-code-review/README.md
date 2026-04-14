@@ -58,7 +58,6 @@ The skill generates a draft PR containing proposed changes based on the analysis
 
 ## Related Skills
 
-- `github-pr-review` - Post structured code reviews
-- `code-review` - Perform code reviews
+- `code-review` - Perform code reviews and post structured inline comments via GitHub API
 - `skill-creator` - Create new skills manually
 - `agent-memory` - Persist repository knowledge

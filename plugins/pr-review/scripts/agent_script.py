@@ -8,11 +8,13 @@ uses bash commands to analyze changes in context and post detailed review
 feedback directly via `gh` or the GitHub API.
 
 This example demonstrates how to use skills for code review:
-- `/codereview` - Standard code review skill
+- `/codereview` - Standard code review skill (includes GitHub API posting)
 - `/codereview-roasted` - Linus Torvalds style brutally honest review
 
 The agent posts inline review comments on specific lines of code using
 the GitHub API, rather than posting one giant comment under the PR.
+Review guidelines and GitHub API posting instructions are combined in
+the `/codereview` skill.
 
 The agent also considers previous review context including:
 - Existing review comments and their resolution status

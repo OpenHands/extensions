@@ -35,8 +35,8 @@ plugins/pr-review/
 ├── README.md              # This file
 ├── action.yml             # Composite GitHub Action
 ├── skills/                # Symbolic links to review skills
-│   ├── codereview-roasted -> ../../../skills/codereview-roasted
-│   └── github-pr-review -> ../../../skills/github-pr-review
+│   ├── code-review -> ../../../skills/code-review
+│   └── codereview-roasted -> ../../../skills/codereview-roasted
 ├── workflows/             # Example GitHub workflow files
 │   ├── pr-review-by-openhands.yml
 │   └── pr-review-evaluation.yml
@@ -141,7 +141,7 @@ PR reviews are automatically triggered when:
 |-------|----------|---------|-------------|
 | `llm-model` | No | `anthropic/claude-sonnet-4-5-20250929` | LLM model(s), comma-separated for A/B testing |
 | `llm-base-url` | No | `''` | Custom LLM endpoint URL |
-| `review-style` | No | `roasted` | Review style: `standard` or `roasted` |
+| `review-style` | No | `roasted` | **[Deprecated]** Review style: `standard` or `roasted`. Both styles now use the combined `code-review` skill. |
 | `require-evidence` | No | `'false'` | Require the reviewer to enforce an `Evidence` section in the PR description with end-to-end proof: screenshots/videos for frontend work, commands and runtime output for backend or scripts, and an agent conversation link when applicable. Test output alone does not qualify. |
 | `extensions-repo` | No | `OpenHands/extensions` | Extensions repository |
 | `extensions-version` | No | `main` | Git ref (tag, branch, or SHA) |

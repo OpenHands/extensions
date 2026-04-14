@@ -99,13 +99,15 @@
         {
             "name": "code-review",
             "source": "./code-review",
-            "description": "Structured code review covering style, readability, and security concerns with actionable feedback. Use when reviewing pull requests or merge requests to identify issues and suggest improvements.",
+            "description": "Structured code review covering style, readability, and security concerns with actionable feedback. Posts inline review comments via the GitHub API with priority labels. Use when reviewing pull requests or merge requests.",
             "category": "code-quality",
             "keywords": [
                 "code-review",
                 "quality",
                 "security",
-                "style"
+                "github",
+                "pull-request",
+                "review"
             ]
         },
         {
@@ -203,18 +205,6 @@
                 "pull-request",
                 "issues",
                 "workflows"
-            ]
-        },
-        {
-            "name": "github-pr-review",
-            "source": "./github-pr-review",
-            "description": "Post structured PR reviews to GitHub with inline comments/suggestions in a single API call.",
-            "category": "code-quality",
-            "keywords": [
-                "github",
-                "pull-request",
-                "review",
-                "code-review"
             ]
         },
         {

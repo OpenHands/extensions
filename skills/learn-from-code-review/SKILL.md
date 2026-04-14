@@ -182,5 +182,5 @@ Handle these common edge cases gracefully:
 
 ## Additional Resources
 
-For posting structured code reviews, see the `github-pr-review` skill.
+For performing code reviews and posting structured inline comments, see the `code-review` skill.
 For creating new skills, see the `skill-creator` skill.
