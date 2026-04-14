@@ -58,7 +58,7 @@ See: https://github.com/OpenHands/extensions/blob/main/skills/<skill-name>/SKILL
 ## Catalog
 
 <!-- BEGIN AUTO-GENERATED CATALOG -->
-This repository contains **2 marketplace(s)** with **38 skills** and **8 plugins**.
+This repository contains **2 marketplace(s)** with **38 skills** and **9 plugins**.
 
 ### large-codebase
 
@@ -81,7 +81,7 @@ claude plugins add-marketplace https://github.com/OpenHands/extensions  # regist
 
 Official OpenHands extensions marketplace - reusable skills and plugins that customize agent behavior
 
-**36 skills, 6 plugins**
+**36 skills, 7 plugins**
 
 ```bash
 claude plugins add-marketplace https://github.com/OpenHands/extensions  # registers "openhands-extensions"
@@ -131,6 +131,7 @@ claude plugins add-marketplace https://github.com/OpenHands/extensions  # regist
 | theme-factory | skill | Toolkit for styling artifacts with a theme. These artifacts can be slides, docs, reportings, HTML landing pages, etc.... | — |
 | uv | skill | Common project, dependency, and environment operations using uv. | — |
 | vercel | skill | Deploy and manage applications on Vercel, including preview deployments and deployment protection. | — |
+| vulnerability-remediation | plugin | Automated security vulnerability scanning and AI-powered remediation. Scans repositories, skips when no issues found,... | — |
 <!-- END AUTO-GENERATED CATALOG -->
 
 ## Repository Layout

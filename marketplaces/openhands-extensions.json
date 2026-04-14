@@ -521,6 +521,19 @@
                 "preview",
                 "hosting"
             ]
+        },
+        {
+            "name": "vulnerability-remediation",
+            "source": "./plugins/vulnerability-remediation",
+            "description": "Automated security vulnerability scanning and AI-powered remediation. Scans repositories, skips when no issues found, and creates PRs with fixes.",
+            "category": "security",
+            "keywords": [
+                "security",
+                "vulnerability",
+                "remediation",
+                "scanning",
+                "automation"
+            ]
         }
     ]
 }
