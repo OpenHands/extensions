@@ -58,7 +58,7 @@ See: https://github.com/OpenHands/extensions/blob/main/skills/<skill-name>/SKILL
 ## Catalog
 
 <!-- BEGIN AUTO-GENERATED CATALOG -->
-This repository contains **2 marketplace(s)** with **38 skills** and **5 plugins**.
+This repository contains **2 marketplace(s)** with **38 skills** and **8 plugins**.
 
 ### large-codebase
 
@@ -81,7 +81,7 @@ claude plugins add-marketplace https://github.com/OpenHands/extensions  # regist
 
 Official OpenHands extensions marketplace - reusable skills and plugins that customize agent behavior
 
-**36 skills, 3 plugins**
+**36 skills, 6 plugins**
 
 ```bash
 claude plugins add-marketplace https://github.com/OpenHands/extensions  # registers "openhands-extensions"
@@ -117,9 +117,12 @@ claude plugins add-marketplace https://github.com/OpenHands/extensions  # regist
 | magic-test | plugin | A simple test plugin for verifying plugin loading. Triggers on magic words (alakazam, abracadabra) and returns a spec... | — |
 | notion | skill | Create, search, and update Notion pages/databases using the Notion API. Use for documenting work, generating runbooks... | — |
 | npm | skill | Handle npm package installation in non-interactive environments by piping confirmations. Use when installing Node.js ... | — |
+| onboarding | plugin | Assess repository agent-readiness across five pillars, propose high-impact fixes, and generate repo-specific AGENTS.m... | — |
 | onboarding-agent | skill | Interactive onboarding workflow that interviews users to understand their coding goals and generates PR-ready impleme... | `/onboard` |
 | openhands-api | skill | Use the OpenHands Cloud REST API (V1) to create and manage app conversations, including multi-conversation delegation... | — |
 | pdflatex | skill | Install and use pdflatex to compile LaTeX documents into PDFs on Linux. Use when generating academic papers, research... | — |
+| pr-review | plugin | Automated PR code review — analyzes diffs and posts inline review comments via the GitHub API. | — |
+| release-notes | plugin | Generate consistent, well-structured release notes from git history. Produces categorized changelog with breaking cha... | `/release-notes`, `/releasenotes` |
 | releasenotes | skill | Generate formatted changelogs from git history since the last release tag. Use when preparing release notes that cate... | `/releasenotes` |
 | security | skill | Security best practices for secure coding, authentication, authorization, and data protection. Use when developing fe... | — |
 | skill-creator | skill | Guide for creating effective skills. This skill should be used when users want to create a new skill (or update an ex... | — |
