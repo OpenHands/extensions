@@ -21,7 +21,7 @@ def _load_prompt_module():
 def _format_prompt(*, require_evidence: bool) -> str:
     module = _load_prompt_module()
     return module.format_prompt(
-        skill_trigger="/codereview",
+        skill_trigger="/code-review",
         title="Add evidence enforcement",
         body="## Summary\nAdds stricter review guidance.",
         repo_name="OpenHands/extensions",

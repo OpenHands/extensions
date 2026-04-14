@@ -201,7 +201,7 @@ Create `.agents/skills/custom-codereview-guide.md`:
 name: custom-codereview-guide
 description: Custom code review guidelines for my project
 triggers:
-- /codereview
+- /code-review
 ---
 
 # My Project Code Review Guidelines
@@ -219,7 +219,7 @@ You are a code reviewer for this project. Follow these guidelines:
 ```
 
 Use a unique skill name (for example `custom-codereview-guide`) to **supplement** the default public `code-review` skill,
-rather than overriding it. Keep `/codereview` as the trigger if you want this guidance applied in PR review runs.
+rather than overriding it. Keep `/code-review` as the trigger if you want this guidance applied in PR review runs.
 
 ### Option 2: Repository AGENTS.md
 

@@ -2,6 +2,7 @@
 name: code-review
 description: Rigorous code review focusing on data structures, simplicity, security, and pragmatism. Provides brutally honest, actionable feedback on pull requests or merge requests. Use when reviewing code changes.
 triggers:
+- /code-review
 - /codereview
 - /codereview-roasted
 ---
