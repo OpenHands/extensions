@@ -60,6 +60,25 @@ class TestDefaultMarketplace:
         
         assert len(errors) == 0, f"Plugin validation errors:\n" + "\n".join(errors)
 
+    def test_marketplace_source_paths_exist(self):
+        """Verify all source paths in the marketplace resolve to real directories."""
+        import json
+
+        marketplace_path = get_repo_root() / "marketplaces" / "openhands-extensions.json"
+        with open(marketplace_path) as f:
+            data = json.load(f)
+
+        root = get_repo_root()
+        missing = []
+        for entry in data["plugins"]:
+            src = entry["source"]
+            resolved = root / src
+            if not resolved.exists():
+                missing.append(f"{entry['name']}: {src} -> {resolved}")
+        assert len(missing) == 0, (
+            f"Source paths that don't exist on disk:\n" + "\n".join(missing)
+        )
+
     def test_marketplace_includes_all_skills(self):
         """Verify every skill directory is referenced in at least one marketplace."""
         import json
