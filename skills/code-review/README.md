@@ -8,8 +8,7 @@ This skill combines the previous `code-review` (standard) and `codereview-roaste
 
 This skill is activated by the following keywords:
 
-- `/code-review` (primary)
-- `/codereview` (backward-compatible alias)
+- `/codereview`
 - `/codereview-roasted` (backward-compatible alias)
 
 ## Details

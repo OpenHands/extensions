@@ -7,7 +7,7 @@ fine-grained review comments. The agent has full repository access and
 uses bash commands to analyze changes in context and post detailed review
 feedback directly via `gh` or the GitHub API.
 
-This example demonstrates how to use the `/code-review` skill for code review.
+This example demonstrates how to use the `/codereview` skill for code review.
 
 The agent posts inline review comments on specific lines of code using
 the GitHub API, rather than posting one giant comment under the PR.
@@ -953,7 +953,7 @@ def main():
     try:
         pr_diff, commit_id, review_context = fetch_pr_context(pr_info["number"])
 
-        skill_trigger = "/code-review"
+        skill_trigger = "/codereview"
         logger.info(f"Using skill trigger: {skill_trigger}")
 
         prompt = format_prompt(
