@@ -227,5 +227,11 @@ class TestGenerateCatalog:
     def test_catalog_only_has_skill_or_plugin_types(self):
         """Every entry type in the catalog should be skill or plugin."""
         catalog = generate_catalog()
+        # Verify no legacy or fallback type names leak into the table
         assert "| extension |" not in catalog
         assert "| unknown |" not in catalog
+        # Positive check: every table row has a known type
+        import re
+        type_cells = re.findall(r"\| (skill|plugin|extension|unknown) \|", catalog)
+        assert len(type_cells) > 0, "Expected at least one typed entry"
+        assert all(t in ("skill", "plugin") for t in type_cells)
