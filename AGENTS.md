@@ -10,7 +10,11 @@ It contains **shareable skills and plugins** that can be loaded by OpenHands (CL
   - `skills/<skill-name>/README.md` — optional extra docs/examples for humans
 
 - `plugins/` — a catalog of plugins with executable code components.
-  - `plugins/<plugin-name>/SKILL.md` — the plugin definition
+  - `plugins/<plugin-name>/.plugin/plugin.json` — **required** plugin manifest (source of truth)
+  - `plugins/<plugin-name>/.claude-plugin` → symlink to `.plugin` (Claude Code)
+  - `plugins/<plugin-name>/.codex-plugin` → symlink to `.plugin` (OpenAI Codex)
+  - `plugins/<plugin-name>/SKILL.md` — the plugin definition (optional for compound plugins with sub-skills)
+  - `plugins/<plugin-name>/skills/` — sub-skills, each with their own `SKILL.md`
   - `plugins/<plugin-name>/hooks/` — lifecycle hooks (optional)
   - `plugins/<plugin-name>/scripts/` — utility scripts (optional)
 
@@ -83,6 +87,37 @@ When editing or adding skills in this repo, follow these rules (and add new skil
 
 7. **Compatibility notes**
    - The legacy `.openhands/microagents/` location may still exist in user repos, but this registry uses the current skills layout.
+
+## Plugin manifest conventions (follow these)
+
+Every plugin under `plugins/` **must** have a `.plugin/plugin.json` manifest as the single source of truth. Vendor-specific directories are **symlinks** pointing to `.plugin/`:
+
+```
+plugins/<name>/
+├── .plugin/plugin.json          ← source of truth (required)
+├── .claude-plugin -> .plugin    ← symlink for Claude Code (required)
+├── .codex-plugin -> .plugin     ← symlink for OpenAI Codex (required)
+├── skills/                      ← sub-skills with SKILL.md each
+└── ...
+```
+
+**Rules:**
+1. **Never duplicate `plugin.json`** across vendor dirs — edit only `.plugin/plugin.json`.
+2. **Vendor symlinks are required.** CI enforces that `.claude-plugin` and `.codex-plugin` exist as symlinks to `.plugin`. Run `python scripts/sync_extensions.py symlinks` to auto-create missing symlinks.
+3. **Adding a new vendor** (e.g., GitHub Copilot): add the symlink name to `VENDOR_SYMLINKS` in `scripts/sync_extensions.py`, then run the script to create symlinks across all plugins.
+4. **`plugin.json` schema** — at minimum:
+   ```json
+   {
+     "name": "<plugin-name>",
+     "version": "1.0.0",
+     "description": "<one-line description>",
+     "author": { "name": "OpenHands", "email": "contact@all-hands.dev" },
+     "license": "MIT",
+     "keywords": ["<relevant>", "<keywords>"]
+   }
+   ```
+
+**Why symlinks?** Each vendor CLI (Claude Code, Codex, Copilot) looks for its own prefixed directory (`.claude-plugin/`, `.codex-plugin/`, etc.). Rather than maintaining duplicate files, we keep one source of truth and symlink. Git tracks symlinks, so they work in any clone.
 
 ## Repository conventions
 

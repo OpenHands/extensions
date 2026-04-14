@@ -1,13 +1,16 @@
 #!/usr/bin/env python3
 """Keep the OpenHands extensions registry in sync.
 
-Three responsibilities, runnable individually or all at once:
+Four responsibilities, runnable individually or all at once:
 
   1. **commands**  — generate Claude Code ``commands/<trigger>.md`` files from
      SKILL.md slash-triggers.
   2. **catalog**   — regenerate the auto-generated catalog section in README.md.
   3. **coverage**  — warn (or fail) when a skill/plugin directory is not listed
      in any marketplace, or a marketplace entry points to a missing directory.
+  4. **symlinks**  — enforce that every plugin has ``.plugin/plugin.json`` as the
+     source of truth and vendor symlinks (``.claude-plugin``, ``.codex-plugin``)
+     pointing to it.
 
 Usage:
     python scripts/sync_extensions.py                   # run all, write changes
@@ -15,6 +18,7 @@ Usage:
     python scripts/sync_extensions.py commands           # only sync command files
     python scripts/sync_extensions.py catalog            # only regenerate README catalog
     python scripts/sync_extensions.py coverage           # only check marketplace coverage
+    python scripts/sync_extensions.py symlinks           # only check/fix vendor symlinks
     python scripts/sync_extensions.py commands catalog   # combine sub-commands
 """
 
@@ -22,6 +26,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import sys
 from pathlib import Path
@@ -30,6 +35,10 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 README_PATH = REPO_ROOT / "README.md"
 SKILL_DIRS = [REPO_ROOT / "skills", REPO_ROOT / "plugins"]
 MARKETPLACES_DIR = REPO_ROOT / "marketplaces"
+
+# Vendor symlink names that must point to .plugin/ in every plugin directory.
+# Add new vendors here as they adopt plugin support.
+VENDOR_SYMLINKS = [".claude-plugin", ".codex-plugin"]
 
 # Sentinel markers in README.md
 CATALOG_BEGIN = "<!-- BEGIN AUTO-GENERATED CATALOG -->"
@@ -294,12 +303,78 @@ def sync_coverage(*, check: bool) -> list[str]:
     return problems
 
 
+# ── 4. Plugin symlink enforcement ─────────────────────────────────────
+
+def _plugin_dirs() -> list[Path]:
+    """Return plugin directories that have .plugin/plugin.json."""
+    plugins_root = REPO_ROOT / "plugins"
+    if not plugins_root.is_dir():
+        return []
+    return sorted(
+        d for d in plugins_root.iterdir()
+        if d.is_dir()
+        and not d.name.startswith(".")
+        and (d / ".plugin" / "plugin.json").exists()
+    )
+
+
+def sync_symlinks(*, check: bool) -> list[str]:
+    """Ensure every plugin has .plugin/plugin.json and vendor symlinks.
+
+    In check mode, report problems without fixing them.
+    In write mode, create missing symlinks automatically.
+    """
+    problems: list[str] = []
+    plugins_root = REPO_ROOT / "plugins"
+    if not plugins_root.is_dir():
+        return problems
+
+    for d in sorted(plugins_root.iterdir()):
+        if not d.is_dir() or d.name.startswith("."):
+            continue
+
+        source_of_truth = d / ".plugin" / "plugin.json"
+        if not source_of_truth.exists():
+            # No .plugin/plugin.json — this plugin has no manifest at all.
+            # Only flag it if the dir looks like a real plugin (has skills/ or README).
+            if (d / "skills").is_dir() or (d / "README.md").exists():
+                problems.append(
+                    f"plugins/{d.name}: missing .plugin/plugin.json (source of truth)"
+                )
+            continue
+
+        for vendor in VENDOR_SYMLINKS:
+            link_path = d / vendor
+            if link_path.is_symlink():
+                target = os.readlink(link_path)
+                if target != ".plugin":
+                    problems.append(
+                        f"plugins/{d.name}/{vendor}: symlink points to '{target}', expected '.plugin'"
+                    )
+            elif link_path.exists():
+                # It's a real directory, not a symlink
+                problems.append(
+                    f"plugins/{d.name}/{vendor}: is a real directory, should be a symlink to .plugin"
+                )
+            else:
+                # Missing symlink
+                if check:
+                    problems.append(
+                        f"plugins/{d.name}/{vendor}: missing symlink → .plugin"
+                    )
+                else:
+                    link_path.symlink_to(".plugin")
+
+    return problems
+
+
 # ── Main ─────────────────────────────────────────────────────────────
 
 ALL_SYNCS = {
     "commands": sync_commands,
     "catalog": sync_catalog,
     "coverage": sync_coverage,
+    "symlinks": sync_symlinks,
 }
 
 
