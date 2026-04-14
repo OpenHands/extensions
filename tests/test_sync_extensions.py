@@ -7,13 +7,17 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "scripts"))
 from sync_extensions import (
+    CMD_HEADER,
     CommandSpec,
+    REPO_ROOT,
     _entry_type,
+    build_command_content,
     collect_needed_commands,
     generate_catalog,
     load_marketplaces,
     parse_frontmatter,
     slash_triggers,
+    sync_commands,
 )
 
 
@@ -239,3 +243,50 @@ class TestGenerateCatalog:
         assert len(types_found) > 0, "Expected at least one table entry"
         invalid = [t for t in types_found if t not in ("skill", "plugin")]
         assert not invalid, f"Found invalid types in catalog: {invalid}"
+
+
+# ── sync_commands ────────────────────────────────────────────────────
+
+class TestSyncCommands:
+    def test_check_mode_reports_no_problems_when_in_sync(self):
+        problems = sync_commands(check=True)
+        assert problems == [], f"Unexpected problems: {problems}"
+
+    def test_manually_edited_file_detected_in_check_mode(self, tmp_path, monkeypatch):
+        """A command file without the header should be flagged in --check mode."""
+        # Create a skill with a slash trigger
+        skill_dir = tmp_path / "skills" / "test-skill"
+        skill_dir.mkdir(parents=True)
+        skill_md = skill_dir / "SKILL.md"
+        skill_md.write_text(
+            "---\nname: test-skill\ndescription: Test\ntriggers:\n  - /test-cmd\n---\nBody\n"
+        )
+        # Create a manually-edited command file (no header)
+        cmd_dir = skill_dir / "commands"
+        cmd_dir.mkdir()
+        (cmd_dir / "test-cmd.md").write_text("Custom content, no header\n")
+
+        monkeypatch.setattr("sync_extensions.REPO_ROOT", tmp_path)
+        monkeypatch.setattr("sync_extensions.SKILL_DIRS", [tmp_path / "skills"])
+        monkeypatch.setattr("sync_extensions._slash_cmd_cache", {})
+
+        problems = sync_commands(check=True)
+        assert any("manually-edited" in p for p in problems)
+
+
+# ── marketplace source paths ─────────────────────────────────────────
+
+class TestMarketplaceSourcePaths:
+    def test_all_source_paths_exist(self):
+        """Every source path in every marketplace should resolve on disk."""
+        import json
+
+        for mp in load_marketplaces():
+            mp_file = mp["_file"]
+            for plugin in mp["plugins"]:
+                src = plugin.get("source", "")
+                resolved = REPO_ROOT / src.lstrip("./")
+                assert resolved.exists(), (
+                    f"{mp_file.name}: {plugin.get('name', '?')} source "
+                    f"'{src}' does not exist at {resolved}"
+                )

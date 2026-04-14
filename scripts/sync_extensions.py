@@ -157,12 +157,15 @@ def sync_commands(*, check: bool) -> list[str]:
                 continue
             if CMD_HEADER not in existing and _LEGACY_CMD_HEADER not in existing:
                 rel = cmd_path.relative_to(REPO_ROOT)
-                print(
-                    f"[warning] {rel} exists but has no auto-generated header "
-                    f"— it won't be updated.  Add the header or delete the "
-                    f"file to let sync manage it.",
-                    file=sys.stderr,
+                msg = (
+                    f"{rel} exists but has no auto-generated header "
+                    f"— it won't be updated.  Add the header or delete "
+                    f"the file to let sync manage it."
                 )
+                if check:
+                    problems.append(f"manually-edited: {rel}")
+                else:
+                    print(f"[warning] {msg}", file=sys.stderr)
                 continue
             problems.append(f"stale: {cmd_path.relative_to(REPO_ROOT)}")
         else:
