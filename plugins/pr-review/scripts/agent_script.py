@@ -738,7 +738,6 @@ def validate_environment() -> dict[str, Any]:
         "github_token": os.getenv("GITHUB_TOKEN"),
         "model": os.getenv("LLM_MODEL", "anthropic/claude-sonnet-4-5-20250929"),
         "base_url": os.getenv("LLM_BASE_URL"),
-        "review_style": "standard",  # kept for config compat; no longer affects behavior
         "require_evidence": _get_bool_env("REQUIRE_EVIDENCE"),
         "pr_info": {
             "number": os.getenv("PR_NUMBER"),
@@ -880,7 +879,6 @@ def log_cost_summary(conversation: Conversation) -> None:
 def save_trace_context(
     pr_info: dict[str, Any],
     commit_id: str,
-    review_style: str,
     model: str,
 ) -> None:
     """Capture and store Laminar trace context for evaluation.
@@ -911,7 +909,6 @@ def save_trace_context(
                 "repo_name": pr_info["repo_name"],
                 "pr_url": pr_url,
                 "workflow_phase": "review",
-                "review_style": review_style,
                 "model": model,
             }
         )
@@ -922,7 +919,6 @@ def save_trace_context(
         "pr_number": pr_info["number"],
         "repo_name": pr_info["repo_name"],
         "commit_id": commit_id,
-        "review_style": review_style,
         "model": model,
     }
     with open("laminar_trace_info.json", "w") as f:
@@ -944,7 +940,6 @@ def main():
 
     config = validate_environment()
     pr_info = config["pr_info"]
-    review_style = config["review_style"]
     require_evidence = config["require_evidence"]
 
     logger.info(f"Reviewing PR #{pr_info['number']}: {pr_info['title']}")
@@ -980,7 +975,7 @@ def main():
         conversation = run_review(conversation, prompt)
 
         log_cost_summary(conversation)
-        save_trace_context(pr_info, commit_id, review_style, config["model"])
+        save_trace_context(pr_info, commit_id, config["model"])
 
         logger.info("PR review completed successfully")
 
