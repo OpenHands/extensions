@@ -1,13 +1,13 @@
 {
-    "name": "default",
+    "name": "OpenHands Extensions",
     "owner": {
         "name": "OpenHands",
         "email": "contact@all-hands.dev"
     },
     "metadata": {
-        "description": "Official OpenHands skills marketplace - reusable guidelines that customize agent behavior",
-        "version": "1.0.0",
-        "pluginRoot": "./skills"
+        "description": "Official skills and plugins for OpenHands \u2014 the open-source AI software engineer.",
+        "maintainer": "OpenHands",
+        "homepage": "https://github.com/OpenHands/extensions"
     },
     "plugins": [
         {
@@ -60,6 +60,19 @@
             ]
         },
         {
+            "name": "automation-creation",
+            "source": "./plugins/automation-creation",
+            "description": "Interactive slash command for creating OpenHands automations from a natural language prompt. Provides /automation:create for guided prompt-based automation setup.",
+            "category": "integration",
+            "keywords": [
+                "automation",
+                "cron",
+                "scheduling",
+                "openhands",
+                "slash-command"
+            ]
+        },
+        {
             "name": "azure-devops",
             "source": "./azure-devops",
             "description": "Interact with Azure DevOps repositories, pull requests, and APIs using the AZURE_DEVOPS_TOKEN environment variable. Use when working with code hosted on Azure DevOps or managing Azure DevOps resources.",
@@ -94,6 +107,20 @@
                 "bitbucket",
                 "git",
                 "pull-request"
+            ]
+        },
+        {
+            "name": "city-weather",
+            "source": "./plugins/city-weather",
+            "description": "Get current weather, time, and precipitation forecast for any city using the free Open-Meteo API. Provides slash command /city-weather:now <city>.",
+            "category": "utilities",
+            "keywords": [
+                "weather",
+                "time",
+                "forecast",
+                "temperature",
+                "precipitation",
+                "sample"
             ]
         },
         {
@@ -279,6 +306,32 @@
             ]
         },
         {
+            "name": "linear",
+            "source": "./linear",
+            "description": "Interact with Linear project management - query issues, update status, create tickets using the Linear GraphQL API.",
+            "category": "integration",
+            "keywords": [
+                "linear",
+                "ticket",
+                "issue",
+                "project-management",
+                "graphql"
+            ]
+        },
+        {
+            "name": "magic-test",
+            "source": "./plugins/magic-test",
+            "description": "A simple test plugin for verifying plugin loading. Triggers on magic words (alakazam, abracadabra) and returns a specific phrase to confirm plugins are working.",
+            "category": "testing",
+            "keywords": [
+                "test",
+                "magic",
+                "plugin",
+                "verification",
+                "sample"
+            ]
+        },
+        {
             "name": "notion",
             "source": "./notion",
             "description": "Create, search, and update Notion pages/databases using the Notion API. Use for documenting work, generating runbooks, and automating knowledge base updates.",
@@ -301,16 +354,16 @@
             ]
         },
         {
-            "name": "prd",
-            "source": "./prd",
-            "description": "Generate a Product Requirements Document (PRD) for a new feature through an interactive clarifying-question workflow. Use when planning a feature, starting a new project, or when asked to create a PRD.",
+            "name": "onboarding",
+            "source": "./plugins/onboarding",
+            "description": "Assess repository agent-readiness across five pillars, propose high-impact fixes, and generate repo-specific AGENTS.md files.",
             "category": "productivity",
             "keywords": [
-                "prd",
-                "requirements",
-                "planning",
-                "product",
-                "specification"
+                "onboarding",
+                "readiness",
+                "agents-md",
+                "agent-readiness",
+                "assessment"
             ]
         },
         {
@@ -342,15 +395,40 @@
             ]
         },
         {
-            "name": "readiness-report",
-            "source": "./readiness-report",
-            "description": "Assess repository readiness for autonomous AI development and generate prioritized recommendations.",
+            "name": "pr-review",
+            "source": "./plugins/pr-review",
+            "description": "Automated PR code review \u2014 analyzes diffs and posts inline review comments via the GitHub API.",
+            "category": "code-quality",
+            "keywords": [
+                "pr-review",
+                "code-review",
+                "github",
+                "automation"
+            ]
+        },
+        {
+            "name": "prd",
+            "source": "./prd",
+            "description": "Generate a Product Requirements Document (PRD) for a new feature through an interactive clarifying-question workflow. Use when planning a feature, starting a new project, or when asked to create a PRD.",
             "category": "productivity",
             "keywords": [
-                "readiness",
-                "report",
-                "repo",
-                "quality"
+                "prd",
+                "requirements",
+                "planning",
+                "product",
+                "specification"
+            ]
+        },
+        {
+            "name": "release-notes",
+            "source": "./plugins/release-notes",
+            "description": "Generate consistent, well-structured release notes from git history. Produces categorized changelog with breaking changes, features, fixes, and contributor attribution.",
+            "category": "productivity",
+            "keywords": [
+                "release-notes",
+                "changelog",
+                "git",
+                "semver"
             ]
         },
         {
@@ -448,56 +526,16 @@
             ]
         },
         {
-            "name": "linear",
-            "source": "./linear",
-            "description": "Interact with Linear project management - query issues, update status, create tickets using the Linear GraphQL API.",
-            "category": "integration",
+            "name": "vulnerability-remediation",
+            "source": "./plugins/vulnerability-remediation",
+            "description": "Automated security vulnerability scanning and AI-powered remediation. Scans repositories, skips when no issues found, and creates PRs with fixes.",
+            "category": "security",
             "keywords": [
-                "linear",
-                "ticket",
-                "issue",
-                "project-management",
-                "graphql"
-            ]
-        },
-        {
-            "name": "city-weather",
-            "source": "./plugins/city-weather",
-            "description": "Get current weather, time, and precipitation forecast for any city using the free Open-Meteo API. Provides slash command /city-weather:now <city>.",
-            "category": "utilities",
-            "keywords": [
-                "weather",
-                "time",
-                "forecast",
-                "temperature",
-                "precipitation",
-                "sample"
-            ]
-        },
-        {
-            "name": "magic-test",
-            "source": "./plugins/magic-test",
-            "description": "A simple test plugin for verifying plugin loading. Triggers on magic words (alakazam, abracadabra) and returns a specific phrase to confirm plugins are working.",
-            "category": "testing",
-            "keywords": [
-                "test",
-                "magic",
-                "plugin",
-                "verification",
-                "sample"
-            ]
-        },
-        {
-            "name": "automation-creation",
-            "source": "./plugins/automation-creation",
-            "description": "Interactive slash command for creating OpenHands automations from a natural language prompt. Provides /automation:create for guided prompt-based automation setup.",
-            "category": "integration",
-            "keywords": [
-                "automation",
-                "cron",
-                "scheduling",
-                "openhands",
-                "slash-command"
+                "security",
+                "vulnerability",
+                "remediation",
+                "scanning",
+                "automation"
             ]
         }
     ]

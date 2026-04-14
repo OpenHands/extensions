@@ -26,7 +26,7 @@ class TestDefaultMarketplace:
 
     def test_marketplace_loads_with_sdk(self):
         """Verify the default marketplace can be loaded using SDK's Marketplace model."""
-        marketplace_path = get_repo_root() / "marketplaces" / "default.json"
+        marketplace_path = get_repo_root() / "marketplaces" / "openhands-extensions.json"
         
         # Load using SDK's pydantic model
         import json
@@ -35,14 +35,14 @@ class TestDefaultMarketplace:
         
         marketplace = Marketplace.model_validate({**data, "path": str(get_repo_root())})
         
-        assert marketplace.name == "default"
+        assert marketplace.name == "OpenHands Extensions"
         assert marketplace.owner is not None
         assert marketplace.owner.name == "OpenHands"
         assert len(marketplace.plugins) > 0
 
     def test_all_plugin_entries_valid(self):
         """Verify all plugin entries can be validated as MarketplacePluginEntry."""
-        marketplace_path = get_repo_root() / "marketplaces" / "default.json"
+        marketplace_path = get_repo_root() / "marketplaces" / "openhands-extensions.json"
         
         import json
         with open(marketplace_path) as f:

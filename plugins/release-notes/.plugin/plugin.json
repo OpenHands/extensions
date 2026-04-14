@@ -1,0 +1,19 @@
+{
+  "name": "release-notes",
+  "version": "1.0.0",
+  "description": "Generate consistent, well-structured release notes from git history with categorized changelog, contributor attribution, and semver tag support.",
+  "author": {
+    "name": "OpenHands",
+    "email": "contact@all-hands.dev"
+  },
+  "homepage": "https://github.com/OpenHands/extensions",
+  "repository": "https://github.com/OpenHands/extensions",
+  "license": "MIT",
+  "keywords": [
+    "release-notes",
+    "changelog",
+    "git",
+    "semver",
+    "versioning"
+  ]
+}
