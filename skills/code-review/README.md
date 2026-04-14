@@ -2,7 +2,7 @@
 
 Rigorous code review focusing on data structures, simplicity, security, and pragmatism. Provides brutally honest, actionable feedback on pull requests or merge requests.
 
-This skill combines the previous `code-review` (standard) and `codereview-roasted` (Linus Torvalds-style) skills into a single unified review skill.
+This skill combines the previous `code-review` (standard) and `codereview-roasted` skills into a single unified review skill.
 
 ## Triggers
 
