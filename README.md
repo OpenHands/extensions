@@ -34,15 +34,30 @@ Browse available plugins in [`plugins/`](plugins/).
 <!-- BEGIN AUTO-GENERATED CATALOG -->
 This repository contains **2 marketplace(s)** with **47 extensions** (38 skills, 9 plugins).
 
+#### Quick start (Claude Code)
+
+1. Start Claude Code in your terminal:
+   ```
+   claude
+   ```
+2. Add this marketplace:
+   ```
+   /plugin marketplace add OpenHands/extensions
+   ```
+3. Browse and install the extensions you want (use the interactive UI to select from the catalog):
+   ```
+   /plugin install
+   ```
+4. Reload to activate:
+   ```
+   /reload-plugins
+   ```
+
 ### large-codebase
 
 OpenHands skills for interacting, improving, and refactoring large codebases
 
 **4 extensions** (2 skills, 2 plugins)
-
-```
-/plugin marketplace add OpenHands/extensions
-```
 
 | Name | Type | Description | Commands |
 |------|------|-------------|----------|
@@ -56,10 +71,6 @@ OpenHands skills for interacting, improving, and refactoring large codebases
 Official skills and plugins for OpenHands — the open-source AI software engineer.
 
 **43 extensions** (36 skills, 7 plugins)
-
-```
-/plugin marketplace add OpenHands/extensions
-```
 
 | Name | Type | Description | Commands |
 |------|------|-------------|----------|

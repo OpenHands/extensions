@@ -238,11 +238,6 @@ def _format_marketplace_section(mp: dict) -> list[str]:
         lines.append("")
     lines.append(f"**{len(plugins)} extensions** ({skill_count} skills, {plugin_count} plugins)")
     lines.append("")
-    lines.append("```")
-    lines.append(f"/plugin marketplace add OpenHands/extensions")
-    lines.append("```")
-    lines.append("")
-
     lines.append("| Name | Type | Description | Commands |")
     lines.append("|------|------|-------------|----------|")
     for p in sorted(plugins, key=lambda x: x["name"]):
@@ -280,6 +275,31 @@ def generate_catalog() -> str:
         f"with **{total} extensions** ({total_skills} skills, {total_plugins} plugins)."
     )
     lines.append("")
+
+    # Shared installation instructions
+    lines.append("#### Quick start (Claude Code)")
+    lines.append("")
+    lines.append("1. Start Claude Code in your terminal:")
+    lines.append("   ```")
+    lines.append("   claude")
+    lines.append("   ```")
+    lines.append("2. Add this marketplace:")
+    lines.append("   ```")
+    lines.append("   /plugin marketplace add OpenHands/extensions")
+    lines.append("   ```")
+    lines.append(
+        "3. Browse and install the extensions you want "
+        "(use the interactive UI to select from the catalog):"
+    )
+    lines.append("   ```")
+    lines.append("   /plugin install")
+    lines.append("   ```")
+    lines.append("4. Reload to activate:")
+    lines.append("   ```")
+    lines.append("   /reload-plugins")
+    lines.append("   ```")
+    lines.append("")
+
     for mp in mps:
         lines.extend(_format_marketplace_section(mp))
     return "\n".join(lines)
