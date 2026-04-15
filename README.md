@@ -32,7 +32,7 @@ Browse available plugins in [`plugins/`](plugins/).
 ## Extensions Catalog
 
 <!-- BEGIN AUTO-GENERATED CATALOG -->
-This repository contains **2 marketplace(s)** with **48 extensions** (39 skills, 9 plugins).
+This repository contains **2 marketplace(s)** with **47 extensions** (38 skills, 9 plugins).
 
 ### large-codebase
 
@@ -55,7 +55,7 @@ claude plugins add-marketplace https://github.com/OpenHands/extensions  # regist
 
 Official skills and plugins for OpenHands — the open-source AI software engineer.
 
-**44 extensions** (37 skills, 7 plugins)
+**43 extensions** (36 skills, 7 plugins)
 
 ```bash
 claude plugins add-marketplace https://github.com/OpenHands/extensions  # registers "openhands-extensions"
@@ -72,8 +72,7 @@ claude plugins add-marketplace https://github.com/OpenHands/extensions  # regist
 | babysit-pr | skill | Babysit a GitHub pull request by monitoring CI checks, workflow runs, review comments, and mergeability until it is r... | `/babysit-pr`, `/babysit` |
 | bitbucket | skill | Interact with Bitbucket repositories and pull requests using the BITBUCKET_TOKEN environment variable. Use when worki... | — |
 | city-weather | plugin | Get current weather, time, and precipitation forecast for any city using the free Open-Meteo API. Provides slash comm... | — |
-| code-review | skill | Structured code review covering style, readability, and security concerns with actionable feedback. Use when reviewin... | `/codereview` |
-| codereview-roasted | skill | Brutally honest code review in the style of Linus Torvalds, focusing on data structures, simplicity, and pragmatism. ... | `/codereview-roasted` |
+| code-review | skill | Rigorous code review focusing on data structures, simplicity, security, and pragmatism. Provides brutally honest, act... | `/codereview`, `/codereview-roasted` |
 | datadog | skill | Query and analyze Datadog logs, metrics, APM traces, and monitors using the Datadog API. Use when debugging productio... | — |
 | deno | skill | Common project operations using Deno (tasks, run/test/lint/fmt, and dependency management). | — |
 | discord | skill | Build and automate Discord integrations (bots, webhooks, slash commands, and REST API workflows). Use when the user m... | — |
