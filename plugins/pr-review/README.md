@@ -146,6 +146,28 @@ PR reviews are automatically triggered when:
 | `llm-api-key` | Yes | - | LLM API key |
 | `github-token` | Yes | - | GitHub token for API access |
 | `lmnr-api-key` | No | `''` | Laminar API key for observability |
+| `enable-uv-cache` | No | `'false'` | Enable setup-uv's GitHub Actions cache for Python deps. Default `false` for security (see [Caching and Security](#caching-and-security)). |
+
+## Caching and Security
+
+Python dependency caching is **disabled by default**. `uv run --with ...` re-downloads OpenHands SDK and its transitive deps on every run, which is slow but safe.
+
+**Why it's off by default:** Prompt injection can coerce the reviewer into executing arbitrary commands during the review. A compromised review run could write a malicious wheel into the shared GitHub Actions cache. Any later, higher-privilege workflow in the same repository that hits the same cache key would silently execute the attacker's code — a supply-chain pivot.
+
+**Enabling it is safe when:**
+- The runner is single-tenant (e.g. your own self-hosted runner, not shared with untrusted workflows).
+- You do not run other privileged workflows in the same repository that would consume setup-uv's cache.
+- You accept the residual risk in exchange for faster runs / lower disk writes.
+
+**Self-hosted runners:** Consider mounting a host-level uv cache volume (e.g. `/home/runner/.cache` as a Docker volume) instead of — or in addition to — this option. A local volume is faster than a round trip to GHA cache storage and does not cross any trust boundary.
+
+```yaml
+- uses: OpenHands/extensions/plugins/pr-review@main
+  with:
+    enable-uv-cache: true   # opt in on trusted self-hosted runners
+    llm-api-key: ${{ secrets.LLM_API_KEY }}
+    github-token: ${{ secrets.CORGI_BOT_GITHUB_PAT }}
+```
 
 ## A/B Testing Multiple Models
 
