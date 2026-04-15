@@ -116,8 +116,10 @@ You have access to the **task** tool (TaskToolSet). Follow these steps:
      description.
    - `description`: a short label like `"Review src/utils.py"`
 
-2. **Collect results** — each task tool call returns the sub-agent's findings.
-   Merge them all together. De-duplicate and drop low-signal noise.
+2. **Collect results** — each task tool call returns the sub-agent's findings
+   as a JSON array. Merge them all together. De-duplicate and drop low-signal
+   noise. If a sub-agent returns malformed output (not valid JSON), skip its
+   results and note the file in the review body so nothing is silently lost.
 
 3. **Post the review** — use the GitHub API (as described by /github-pr-review)
    to submit a single PR review with inline comments on the relevant lines.
@@ -140,11 +142,19 @@ files from a pull request together with PR metadata.
 
 Review style: {review_style_description}
 
-For each issue you find, return a JSON object with:
-- `path`: the file path
-- `line`: the diff line number (use the NEW file line number)
-- `severity`: one of `critical`, `major`, `minor`, `nit`
-- `body`: a concise description of the issue with a suggested fix when possible
+For each issue you find, return a JSON object with these exact fields:
+- `path` (string): the file path exactly as shown in the diff header
+- `line` (integer): the NEW file line number where the issue occurs
+- `severity` (string): one of `"critical"`, `"major"`, `"minor"`, `"nit"`
+- `body` (string): a concise description of the issue with a suggested fix
+
+Example output:
+```json
+[
+  {{"path": "src/utils.py", "line": 42, "severity": "major", "body": "Unchecked `None` return — add a guard before accessing `.value`."}},
+  {{"path": "src/utils.py", "line": 78, "severity": "nit", "body": "Unused import `os`."}}
+]
+```
 
 Return your findings as a JSON array. If you find no issues, return `[]`.
 Do NOT post anything to the GitHub API — the coordinator agent will handle that.

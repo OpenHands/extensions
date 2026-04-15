@@ -53,12 +53,18 @@ def _load_agent_script_module():
     lmnr.Laminar = _Laminar
     sys.modules["lmnr"] = lmnr
 
+    class _Stub:
+        """Generic stub that accepts any arguments."""
+        def __init__(self, *args, **kwargs):
+            for k, v in kwargs.items():
+                setattr(self, k, v)
+
     sdk = types.ModuleType("openhands.sdk")
-    sdk.LLM = object
-    sdk.Agent = object
-    sdk.AgentContext = object
-    sdk.Conversation = object
-    sdk.Tool = object
+    sdk.LLM = _Stub
+    sdk.Agent = _Stub
+    sdk.AgentContext = _Stub
+    sdk.Conversation = _Stub
+    sdk.Tool = _Stub
 
     class _Logger:
         def info(self, *args, **kwargs):
@@ -76,8 +82,13 @@ def _load_agent_script_module():
     sdk.get_logger = lambda name: _Logger()
     sys.modules["openhands.sdk"] = sdk
 
+    class _Skill:
+        def __init__(self, **kwargs):
+            for k, v in kwargs.items():
+                setattr(self, k, v)
+
     sdk_context = _ensure_package("openhands.sdk.context")
-    sdk_context.Skill = object
+    sdk_context.Skill = _Skill
     sys.modules["openhands.sdk.context"] = sdk_context
 
     context_skills = types.ModuleType("openhands.sdk.context.skills")
@@ -192,3 +203,19 @@ def test_format_thread_includes_rendered_suggestion_text_in_review_context():
     assert "- Do **NOT** approve the PR." in formatted
     assert "Dependabot ignores the freshness guardrail" in formatted
     assert "```suggestion" not in formatted
+
+
+def test_register_sub_agents_completes_without_error():
+    """Smoke test: _register_sub_agents() runs without raising."""
+    module = _load_agent_script_module()
+    # _register_sub_agents calls register_agent (stubbed as a no-op)
+    module._register_sub_agents()
+
+
+def test_create_file_reviewer_agent_factory_is_callable():
+    """Smoke test: _create_file_reviewer_agent accepts an LLM and is callable."""
+    module = _load_agent_script_module()
+    # The factory should be callable; with our stubs LLM is just `object`
+    result = module._create_file_reviewer_agent(object())
+    # Agent stub is `object`, so the factory should return *something*
+    assert result is not None
