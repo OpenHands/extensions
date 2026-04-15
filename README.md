@@ -95,7 +95,7 @@ claude plugins add-marketplace https://github.com/OpenHands/extensions  # regist
 | pdflatex | skill | Install and use pdflatex to compile LaTeX documents into PDFs on Linux. Use when generating academic papers, research... | — |
 | pr-review | plugin | Automated PR code review — analyzes diffs and posts inline review comments via the GitHub API. | — |
 | prd | skill | Generate a Product Requirements Document (PRD) for a new feature through an interactive clarifying-question workflow.... | `/prd` |
-| release-notes | plugin | Generate consistent, well-structured release notes from git history. Produces categorized changelog with breaking cha... | `/release-notes`, `/releasenotes` |
+| release-notes | plugin | Generate consistent, well-structured release notes from git history. Produces categorized changelog with breaking cha... | `/release-notes` |
 | releasenotes | skill | Generate formatted changelogs from git history since the last release tag. Use when preparing release notes that cate... | `/releasenotes` |
 | security | skill | Security best practices for secure coding, authentication, authorization, and data protection. Use when developing fe... | — |
 | skill-creator | skill | Guide for creating effective skills. This skill should be used when users want to create a new skill (or update an ex... | — |
