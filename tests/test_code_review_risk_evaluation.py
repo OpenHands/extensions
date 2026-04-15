@@ -1,4 +1,4 @@
-"""Test that risk/safety evaluation is a shared component used by both code review skills."""
+"""Test that risk/safety evaluation is integrated into the unified code review skill."""
 
 from pathlib import Path
 
@@ -11,10 +11,6 @@ def get_code_review_skill():
     return (get_repo_root() / "skills" / "code-review" / "SKILL.md").read_text()
 
 
-def get_roasted_skill():
-    return (get_repo_root() / "skills" / "codereview-roasted" / "SKILL.md").read_text()
-
-
 def get_risk_evaluation_reference():
     return (
         get_repo_root()
@@ -25,8 +21,8 @@ def get_risk_evaluation_reference():
     ).read_text()
 
 
-class TestSharedRiskEvaluationReference:
-    """Verify the shared risk-evaluation.md reference file is complete."""
+class TestRiskEvaluationReference:
+    """Verify the risk-evaluation.md reference file is complete."""
 
     def test_reference_file_exists(self):
         path = (
@@ -72,56 +68,27 @@ class TestSharedRiskEvaluationReference:
 
 
 class TestCodeReviewSkillReferencesRisk:
-    """Verify the code-review skill references the shared risk evaluation."""
+    """Verify the unified code-review skill references the risk evaluation."""
 
     def test_has_risk_evaluation_scenario(self):
         content = get_code_review_skill()
-        assert "5. Risk and Safety Evaluation" in content
+        assert "Risk and Safety Evaluation" in content
 
-    def test_references_shared_component(self):
+    def test_references_risk_evaluation_file(self):
         content = get_code_review_skill()
         assert "references/risk-evaluation.md" in content
 
-    def test_risk_section_appears_after_testing_section(self):
+    def test_risk_section_appears_after_dependency_section(self):
         content = get_code_review_skill()
-        testing_pos = content.index("4. Testing and Behavior Verification")
-        risk_pos = content.index("5. Risk and Safety Evaluation")
-        assert risk_pos > testing_pos
+        dep_pos = content.index("8. **Dependency Changes**")
+        risk_pos = content.index("9. **Risk and Safety Evaluation**")
+        assert risk_pos > dep_pos
 
     def test_always_include_risk_instruction(self):
         content = get_code_review_skill()
-        assert "Always include the Risk and Safety Evaluation" in content
+        assert "Always include the" in content
+        assert "Risk and Safety Evaluation" in content
 
     def test_has_risk_assessment_in_output_format(self):
         content = get_code_review_skill()
-        assert "Risk Assessment" in content
-
-
-class TestRoastedSkillReferencesRisk:
-    """Verify the codereview-roasted skill references the shared risk evaluation."""
-
-    def test_has_risk_evaluation_scenario(self):
-        content = get_roasted_skill()
-        assert "Risk and Safety Evaluation" in content
-
-    def test_references_local_symlink(self):
-        content = get_roasted_skill()
-        assert "references/risk-evaluation.md" in content
-
-    def test_symlink_exists_and_resolves(self):
-        symlink_path = (
-            get_repo_root()
-            / "skills"
-            / "codereview-roasted"
-            / "references"
-            / "risk-evaluation.md"
-        )
-        assert symlink_path.is_symlink(), "Expected a symlink"
-        assert symlink_path.resolve().exists(), "Symlink target does not exist"
-        # Verify it points to the code-review shared reference
-        target = symlink_path.resolve()
-        assert "code-review" in str(target) and "risk-evaluation.md" in str(target)
-
-    def test_has_risk_assessment_in_output_format(self):
-        content = get_roasted_skill()
         assert "RISK ASSESSMENT" in content

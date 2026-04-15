@@ -2,7 +2,12 @@
   "name": "pr-review",
   "version": "0.1.0",
   "description": "Automated PR code review — analyzes diffs and posts inline review comments via the GitHub API",
-  "author": "OpenHands",
+  "author": {
+    "name": "OpenHands",
+    "email": "contact@all-hands.dev"
+  },
+  "homepage": "https://github.com/OpenHands/extensions",
+  "repository": "https://github.com/OpenHands/extensions",
   "license": "MIT",
-  "repository": "https://github.com/OpenHands/extensions"
+  "keywords": ["pr-review", "code-review", "github", "automation"]
 }
