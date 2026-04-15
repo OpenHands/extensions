@@ -109,11 +109,6 @@ When a PR only changes GitHub Action versions in workflow files (`.github/workfl
 2. For EACH updated action, find a PR check/workflow that uses it (e.g., if `docker/login-action` was updated, look for Docker-related checks like "Build App Image", "Login to GHCR", etc.)
 3. Verify that ALL updated actions have at least one corresponding check that ran and succeeded
 
-**Outcome**:
-- ✅ If checks that use ALL updated actions ran and **succeeded**: Every updated action version works. Approve the PR.
-- ❌ If a check that uses ANY updated action **failed**: Investigate the failure - it may indicate compatibility issues with the new action version.
-- ⚠️ If ANY updated action has no corresponding check that ran: Comment "No PR check exercises this action - please trigger a workflow run" and submit review with REQUEST_CHANGES. Do not approve until all actions are verified.
-
 **Example**: A Dependabot PR bumps both `actions/upload-artifact` (v5→v7) and `actions/checkout` (v4→v6). You must verify that BOTH actions have successful checks - e.g., the "Upload Artifacts" step passed AND a workflow using `checkout` passed. If only one is verified, do not approve.
 
 **Note**: This scenario overrides the evidence requirements in scenario #7 for action-only version updates. Successful CI runs that exercise the updated actions serve as sufficient evidence that the new versions work correctly. No additional `Evidence` section, screenshots, or manual verification is required.
