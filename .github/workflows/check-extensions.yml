@@ -1,4 +1,4 @@
-name: Claude Code Compatibility
+name: Check Extensions
 
 on:
   pull_request:
@@ -7,7 +7,7 @@ on:
     branches: ["main", "master"]
 
 jobs:
-  validate:
+  validate-claude-code:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -23,3 +23,20 @@ jobs:
 
       - name: Validate marketplace manifest
         run: claude plugin validate .
+
+  sync-extensions:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install pyyaml
+
+      - name: Check extensions are in sync
+        run: python scripts/sync_extensions.py --check

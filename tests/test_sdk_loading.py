@@ -26,7 +26,7 @@ class TestDefaultMarketplace:
 
     def test_marketplace_loads_with_sdk(self):
         """Verify the default marketplace can be loaded using SDK's Marketplace model."""
-        marketplace_path = get_repo_root() / "marketplaces" / "default.json"
+        marketplace_path = get_repo_root() / "marketplaces" / "openhands-extensions.json"
         
         # Load using SDK's pydantic model
         import json
@@ -35,14 +35,14 @@ class TestDefaultMarketplace:
         
         marketplace = Marketplace.model_validate({**data, "path": str(get_repo_root())})
         
-        assert marketplace.name == "default"
+        assert marketplace.name == "openhands-extensions"
         assert marketplace.owner is not None
         assert marketplace.owner.name == "OpenHands"
         assert len(marketplace.plugins) > 0
 
     def test_all_plugin_entries_valid(self):
         """Verify all plugin entries can be validated as MarketplacePluginEntry."""
-        marketplace_path = get_repo_root() / "marketplaces" / "default.json"
+        marketplace_path = get_repo_root() / "marketplaces" / "openhands-extensions.json"
         
         import json
         with open(marketplace_path) as f:
@@ -59,6 +59,25 @@ class TestDefaultMarketplace:
                 errors.append(f"{plugin_data.get('name', 'unknown')}: {e}")
         
         assert len(errors) == 0, f"Plugin validation errors:\n" + "\n".join(errors)
+
+    def test_marketplace_source_paths_exist(self):
+        """Verify all source paths in the marketplace resolve to real directories."""
+        import json
+
+        marketplace_path = get_repo_root() / "marketplaces" / "openhands-extensions.json"
+        with open(marketplace_path) as f:
+            data = json.load(f)
+
+        root = get_repo_root()
+        missing = []
+        for entry in data["plugins"]:
+            src = entry["source"]
+            resolved = root / src
+            if not resolved.exists():
+                missing.append(f"{entry['name']}: {src} -> {resolved}")
+        assert len(missing) == 0, (
+            f"Source paths that don't exist on disk:\n" + "\n".join(missing)
+        )
 
     def test_marketplace_includes_all_skills(self):
         """Verify every skill directory is referenced in at least one marketplace."""

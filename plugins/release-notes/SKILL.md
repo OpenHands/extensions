@@ -3,7 +3,6 @@ name: release-notes
 description: Generate consistent, well-structured release notes from git history. Triggered on release tags following semver patterns (v*.*.*) to produce categorized changelog with breaking changes, features, fixes, and contributor attribution.
 triggers:
 - /release-notes
-- /releasenotes
 ---
 
 # Release Notes Generator Plugin

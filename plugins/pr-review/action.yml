@@ -20,7 +20,7 @@ inputs:
         required: false
         default: ''
     review-style:
-        description: "Review style: 'standard' (balanced review covering style, readability, and security) or 'roasted' (Linus Torvalds-style brutally honest feedback focusing on data structures, simplicity, and pragmatism)"
+        description: "[DEPRECATED] Previously chose between 'standard' and 'roasted' review styles. These have been merged into a single code-review skill. The input is kept for backward compatibility but no longer changes behavior. Will be removed in a future version."
         required: false
         default: roasted
     require-evidence:
