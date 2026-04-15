@@ -21,8 +21,24 @@ jobs:
       - name: Install Claude Code CLI
         run: npm install -g @anthropic-ai/claude-code
 
-      - name: Validate marketplace manifest
-        run: claude plugin validate .
+      - name: Validate all plugins with Claude Code
+        run: |
+          failed=0
+          for plugin_dir in plugins/*/; do
+            if [ -d "${plugin_dir}.plugin" ]; then
+              echo "Validating ${plugin_dir}..."
+              if ! claude plugin validate "${plugin_dir}"; then
+                echo "❌ Validation failed for ${plugin_dir}"
+                failed=1
+              else
+                echo "✅ ${plugin_dir} is valid"
+              fi
+            fi
+          done
+          if [ "$failed" -ne 0 ]; then
+            echo "::error::One or more plugins failed Claude Code validation"
+            exit 1
+          fi
 
   sync-extensions:
     runs-on: ubuntu-latest
