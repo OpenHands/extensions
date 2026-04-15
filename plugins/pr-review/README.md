@@ -161,14 +161,6 @@ Python dependency caching is **disabled by default**. `uv run --with ...` re-dow
 
 **Self-hosted runners:** Consider mounting a host-level uv cache volume (e.g. `/home/runner/.cache` as a Docker volume) instead of — or in addition to — this option. A local volume is faster than a round trip to GHA cache storage and does not cross any trust boundary.
 
-```yaml
-- uses: OpenHands/extensions/plugins/pr-review@main
-  with:
-    enable-uv-cache: true   # opt in on trusted self-hosted runners
-    llm-api-key: ${{ secrets.LLM_API_KEY }}
-    github-token: ${{ secrets.CORGI_BOT_GITHUB_PAT }}
-```
-
 ## A/B Testing Multiple Models
 
 Test different LLM models by providing a comma-separated list:
