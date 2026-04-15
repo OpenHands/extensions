@@ -20,9 +20,7 @@ Then configure the required secrets (see [Installation](#installation) below).
 
 - **Automated PR Reviews**: Triggered when PRs are opened, marked ready, or when a reviewer is requested
 - **Inline Code Comments**: Posts review comments directly on specific lines of code
-- **Two Review Styles**:
-  - `standard` - Balanced code review covering style, readability, and security
-  - `roasted` - Linus Torvalds-style brutally honest feedback focusing on data structures, simplicity, and pragmatism
+- **Unified Review Style**: Rigorous code review combining pragmatic engineering analysis with data structure and simplicity focus
 - **A/B Testing**: Support for testing multiple LLM models
 - **Review Context Awareness**: Considers previous reviews and unresolved threads
 - **Evidence Enforcement**: Optional check that PR descriptions include concrete end-to-end proof the code works, not just test output
@@ -35,7 +33,7 @@ plugins/pr-review/
 ├── README.md              # This file
 ├── action.yml             # Composite GitHub Action
 ├── skills/                # Symbolic links to review skills
-│   ├── codereview-roasted -> ../../../skills/codereview-roasted
+│   ├── code-review -> ../../../skills/code-review
 │   └── github-pr-review -> ../../../skills/github-pr-review
 ├── workflows/             # Example GitHub workflow files
 │   ├── pr-review-by-openhands.yml
@@ -86,8 +84,8 @@ Edit the workflow file to customize:
     # Optional: Custom LLM endpoint
     # llm-base-url: https://your-llm-proxy.example.com
     
-    # Review style: 'standard' or 'roasted'
-    review-style: roasted
+    # [DEPRECATED] review-style is no longer used; standard and roasted are merged
+    # review-style: roasted
 
     # Optional: require an Evidence section proving the code works end-to-end
     # require-evidence: 'true'
@@ -141,7 +139,7 @@ PR reviews are automatically triggered when:
 |-------|----------|---------|-------------|
 | `llm-model` | No | `anthropic/claude-sonnet-4-5-20250929` | LLM model(s), comma-separated for A/B testing |
 | `llm-base-url` | No | `''` | Custom LLM endpoint URL |
-| `review-style` | No | `roasted` | Review style: `standard` or `roasted` |
+| `review-style` | No | `roasted` | **[DEPRECATED]** Previously chose between `standard` and `roasted` review styles. Now ignored — the styles have been merged into a single unified skill. |
 | `require-evidence` | No | `'false'` | Require the reviewer to enforce an `Evidence` section in the PR description with end-to-end proof: screenshots/videos for frontend work, commands and runtime output for backend or scripts, and an agent conversation link when applicable. Test output alone does not qualify. |
 | `extensions-repo` | No | `OpenHands/extensions` | Extensions repository |
 | `extensions-version` | No | `main` | Git ref (tag, branch, or SHA) |
