@@ -32,7 +32,7 @@ Browse available plugins in [`plugins/`](plugins/).
 ## Extensions Catalog
 
 <!-- BEGIN AUTO-GENERATED CATALOG -->
-This repository contains **2 marketplace(s)** with **47 extensions** (38 skills, 9 plugins).
+This repository contains **2 marketplace(s)** with **46 extensions** (37 skills, 9 plugins).
 
 ### Quick Start
 
@@ -89,7 +89,7 @@ OpenHands skills for interacting, improving, and refactoring large codebases
 
 Official skills and plugins for OpenHands — the open-source AI software engineer.
 
-**43 extensions** (36 skills, 7 plugins)
+**42 extensions** (35 skills, 7 plugins)
 
 | Name | Type | Description | Commands |
 |------|------|-------------|----------|
@@ -126,7 +126,6 @@ Official skills and plugins for OpenHands — the open-source AI software engine
 | pr-review | plugin | Automated PR code review — analyzes diffs and posts inline review comments via the GitHub API. | — |
 | prd | skill | Generate a Product Requirements Document (PRD) for a new feature through an interactive clarifying-question workflow.... | `/prd` |
 | release-notes | plugin | Generate consistent, well-structured release notes from git history. Produces categorized changelog with breaking cha... | `/release-notes` |
-| releasenotes | skill | Generate formatted changelogs from git history since the last release tag. Use when preparing release notes that cate... | `/release-notes`, `/releasenotes` |
 | security | skill | Security best practices for secure coding, authentication, authorization, and data protection. Use when developing fe... | — |
 | skill-creator | skill | Guide for creating effective skills. This skill should be used when users want to create a new skill (or update an ex... | — |
 | ssh | skill | Establish and manage SSH connections to remote machines, including key generation, configuration, and file transfers.... | — |

@@ -390,9 +390,27 @@ def sync_coverage(*, check: bool) -> list[str]:
         for p in mp.get("plugins", []):
             all_sources.add(p.get("source", ""))
 
+    # Collect skill dirs that are symlink targets inside a plugin's skills/
+    # subdirectory — these are covered by the parent plugin entry.
+    symlink_targets: set[str] = set()
+    plugins_dir = REPO_ROOT / "plugins"
+    if plugins_dir.is_dir():
+        for plugin_dir in plugins_dir.iterdir():
+            skills_sub = plugin_dir / "skills"
+            if not skills_sub.is_dir():
+                continue
+            for entry in skills_sub.iterdir():
+                if entry.is_symlink():
+                    resolved = entry.resolve()
+                    try:
+                        rel = f"./{resolved.relative_to(REPO_ROOT)}"
+                        symlink_targets.add(rel)
+                    except ValueError:
+                        pass
+
     problems: list[str] = []
 
-    missing_from_mp = sorted(all_dirs - all_sources)
+    missing_from_mp = sorted(all_dirs - all_sources - symlink_targets)
     for d in missing_from_mp:
         problems.append(f"not in any marketplace: {d}")
 

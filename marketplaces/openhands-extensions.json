@@ -5,7 +5,7 @@
     "email": "contact@all-hands.dev"
   },
   "metadata": {
-    "description": "Official skills and plugins for OpenHands \u2014 the open-source AI software engineer.",
+    "description": "Official skills and plugins for OpenHands — the open-source AI software engineer.",
     "maintainer": "OpenHands",
     "homepage": "https://github.com/OpenHands/extensions"
   },
@@ -386,7 +386,7 @@
     {
       "name": "pr-review",
       "source": "./plugins/pr-review",
-      "description": "Automated PR code review \u2014 analyzes diffs and posts inline review comments via the GitHub API.",
+      "description": "Automated PR code review — analyzes diffs and posts inline review comments via the GitHub API.",
       "category": "code-quality",
       "keywords": [
         "pr-review",
@@ -418,18 +418,6 @@
         "changelog",
         "git",
         "semver"
-      ]
-    },
-    {
-      "name": "releasenotes",
-      "source": "./skills/release-notes",
-      "description": "Generate formatted changelogs from git history since the last release tag. Use when preparing release notes that categorize changes into breaking changes, features, fixes, and other sections.",
-      "category": "development",
-      "keywords": [
-        "release",
-        "changelog",
-        "git",
-        "release-notes"
       ]
     },
     {
@@ -531,7 +519,7 @@
     {
       "name": "verify",
       "source": "./skills/verify",
-      "description": "Orchestrate repo-level PR verification by polling CI checks, PR review, and QA workflows \u2014 then driving the fix/push/re-verify loop.",
+      "description": "Orchestrate repo-level PR verification by polling CI checks, PR review, and QA workflows — then driving the fix/push/re-verify loop.",
       "category": "productivity",
       "keywords": [
         "github",
