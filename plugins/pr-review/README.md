@@ -24,7 +24,7 @@ Then configure the required secrets (see [Installation](#installation) below).
 - **A/B Testing**: Support for testing multiple LLM models
 - **Review Context Awareness**: Considers previous reviews and unresolved threads
 - **Evidence Enforcement**: Optional check that PR descriptions include concrete end-to-end proof the code works, not just test output
-- **Sub-Agent Delegation** *(Experimental)*: Split large PR reviews across multiple sub-agents, one per file, then consolidate findings
+- **Sub-Agent Delegation** *(Experimental)*: Split large PR reviews across multiple sub-agents, one per file, then consolidate findings (see [Known Limitations](#known-limitations-sub-agent-delegation))
 - **Observability**: Optional Laminar integration for tracing and evaluation
 
 ## Plugin Contents
@@ -148,6 +148,17 @@ PR reviews are automatically triggered when:
 | `llm-api-key` | Yes | - | LLM API key |
 | `github-token` | Yes | - | GitHub token for API access |
 | `lmnr-api-key` | No | `''` | Laminar API key for observability |
+
+## Known Limitations: Sub-Agent Delegation
+
+The `use-sub-agents` feature is **experimental** and has the following known constraints:
+
+- **LLM-driven JSON parsing**: The coordinator agent relies on the LLM to parse and merge JSON responses from sub-agents. There is no code-level validation of sub-agent output, so malformed responses may cause incomplete reviews.
+- **Potential information loss during consolidation**: When merging findings from multiple sub-agents, the coordinator may lose or deduplicate findings imperfectly, especially for cross-file issues.
+- **No integration tests yet**: Current test coverage verifies prompt formatting only. End-to-end validation of the delegation flow requires manual workflow testing.
+- **Sub-agents have no tools**: File reviewer sub-agents analyse the diff in their context window only — they cannot run commands or query the GitHub API.
+
+These limitations are acceptable for an opt-in experimental feature and will be addressed as the feature matures.
 
 ## A/B Testing Multiple Models
 

@@ -98,8 +98,10 @@ def _load_agent_script_module():
 
     tools_delegate = types.ModuleType("openhands.tools.delegate")
     tools_delegate.DelegationVisualizer = object
-    tools_delegate.register_agent = lambda **kwargs: None
     sys.modules["openhands.tools.delegate"] = tools_delegate
+
+    # register_agent lives in openhands.sdk, not openhands.tools.delegate
+    sdk.register_agent = lambda **kwargs: None
 
     tools_task = types.ModuleType("openhands.tools.task")
 

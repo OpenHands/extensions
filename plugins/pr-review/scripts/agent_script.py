@@ -55,13 +55,21 @@ from pathlib import Path
 from typing import Any
 
 from lmnr import Laminar
-from openhands.sdk import LLM, Agent, AgentContext, Conversation, Tool, get_logger
+from openhands.sdk import (
+    LLM,
+    Agent,
+    AgentContext,
+    Conversation,
+    Tool,
+    get_logger,
+    register_agent,
+)
 from openhands.sdk.context import Skill
 from openhands.sdk.context.skills import load_project_skills
 from openhands.sdk.conversation import get_agent_final_response
 from openhands.sdk.git.utils import run_git_command
 from openhands.sdk.plugin import PluginSource
-from openhands.tools.delegate import DelegationVisualizer, register_agent
+from openhands.tools.delegate import DelegationVisualizer
 from openhands.tools.preset.default import get_default_condenser, get_default_tools
 from openhands.tools.task import TaskToolSet
 
