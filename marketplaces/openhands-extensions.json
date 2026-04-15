@@ -126,24 +126,13 @@
     {
       "name": "code-review",
       "source": "./skills/code-review",
-      "description": "Structured code review covering style, readability, and security concerns with actionable feedback. Use when reviewing pull requests or merge requests to identify issues and suggest improvements.",
+      "description": "Rigorous code review focusing on data structures, simplicity, security, and pragmatism. Provides brutally honest, actionable feedback on pull requests or merge requests. Use when reviewing code changes.",
       "category": "code-quality",
       "keywords": [
         "code-review",
         "quality",
         "security",
         "style"
-      ]
-    },
-    {
-      "name": "codereview-roasted",
-      "source": "./skills/codereview-roasted",
-      "description": "Brutally honest code review in the style of Linus Torvalds, focusing on data structures, simplicity, and pragmatism. Use when you want critical, no-nonsense feedback that prioritizes engineering fundamentals over style preferences.",
-      "category": "code-quality",
-      "keywords": [
-        "code-review",
-        "quality",
-        "linus-torvalds"
       ]
     },
     {
