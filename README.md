@@ -96,7 +96,7 @@ Official skills and plugins for OpenHands — the open-source AI software engine
 | pr-review | plugin | Automated PR code review — analyzes diffs and posts inline review comments via the GitHub API. | — |
 | prd | skill | Generate a Product Requirements Document (PRD) for a new feature through an interactive clarifying-question workflow.... | `/prd` |
 | release-notes | plugin | Generate consistent, well-structured release notes from git history. Produces categorized changelog with breaking cha... | `/release-notes` |
-| releasenotes | skill | Generate formatted changelogs from git history since the last release tag. Use when preparing release notes that cate... | `/releasenotes` |
+| release-notes | skill | Generate formatted changelogs from git history since the last release tag. Use when preparing release notes that cate... | `/release-notes`, `/releasenotes` |
 | security | skill | Security best practices for secure coding, authentication, authorization, and data protection. Use when developing fe... | — |
 | skill-creator | skill | Guide for creating effective skills. This skill should be used when users want to create a new skill (or update an ex... | — |
 | ssh | skill | Establish and manage SSH connections to remote machines, including key generation, configuration, and file transfers.... | — |
