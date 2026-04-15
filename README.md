@@ -34,17 +34,34 @@ Browse available plugins in [`plugins/`](plugins/).
 <!-- BEGIN AUTO-GENERATED CATALOG -->
 This repository contains **2 marketplace(s)** with **47 extensions** (38 skills, 9 plugins).
 
-#### Quick start (Claude Code)
+### Quick Start
 
-1. Start Claude Code in your terminal:
+**OpenHands CLI / GUI / Cloud** — these skills are loaded automatically. No setup needed.
+
+**OpenHands SDK** — enable public skills when creating your agent context:
+
+```python
+from openhands.sdk import AgentContext
+
+agent_context = AgentContext(load_public_skills=True)
+```
+
+Or load them explicitly with `load_public_skills()` from `openhands.sdk.context.skills`.
+
+<details>
+<summary><strong>Using Claude Code?</strong></summary>
+
+This repository is also a [Claude Code plugin marketplace](https://code.claude.com/docs/en/discover-plugins). To add it:
+
+1. Start Claude Code:
    ```
    claude
    ```
-2. Add this marketplace:
+2. Add the marketplace:
    ```
    /plugin marketplace add OpenHands/extensions
    ```
-3. Browse and install the extensions you want (use the interactive UI to select from the catalog):
+3. Install the plugins you want:
    ```
    /plugin install
    ```
@@ -52,6 +69,8 @@ This repository contains **2 marketplace(s)** with **47 extensions** (38 skills,
    ```
    /reload-plugins
    ```
+
+</details>
 
 ### large-codebase
 
@@ -107,7 +126,7 @@ Official skills and plugins for OpenHands — the open-source AI software engine
 | pr-review | plugin | Automated PR code review — analyzes diffs and posts inline review comments via the GitHub API. | — |
 | prd | skill | Generate a Product Requirements Document (PRD) for a new feature through an interactive clarifying-question workflow.... | `/prd` |
 | release-notes | plugin | Generate consistent, well-structured release notes from git history. Produces categorized changelog with breaking cha... | `/release-notes` |
-| release-notes | skill | Generate formatted changelogs from git history since the last release tag. Use when preparing release notes that cate... | `/release-notes`, `/releasenotes` |
+| releasenotes | skill | Generate formatted changelogs from git history since the last release tag. Use when preparing release notes that cate... | `/release-notes`, `/releasenotes` |
 | security | skill | Security best practices for secure coding, authentication, authorization, and data protection. Use when developing fe... | — |
 | skill-creator | skill | Guide for creating effective skills. This skill should be used when users want to create a new skill (or update an ex... | — |
 | ssh | skill | Establish and manage SSH connections to remote machines, including key generation, configuration, and file transfers.... | — |

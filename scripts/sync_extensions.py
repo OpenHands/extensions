@@ -276,21 +276,50 @@ def generate_catalog() -> str:
     )
     lines.append("")
 
-    # Shared installation instructions
-    lines.append("#### Quick start (Claude Code)")
+    # Quick Start section
+    lines.append("### Quick Start")
     lines.append("")
-    lines.append("1. Start Claude Code in your terminal:")
+    lines.append(
+        "**OpenHands CLI / GUI / Cloud** — these skills are loaded automatically. "
+        "No setup needed."
+    )
+    lines.append("")
+    lines.append(
+        "**OpenHands SDK** — enable public skills when creating your agent context:"
+    )
+    lines.append("")
+    lines.append("```python")
+    lines.append("from openhands.sdk import AgentContext")
+    lines.append("")
+    lines.append("agent_context = AgentContext(load_public_skills=True)")
+    lines.append("```")
+    lines.append("")
+    lines.append(
+        "Or load them explicitly with "
+        "`load_public_skills()` from `openhands.sdk.context.skills`."
+    )
+    lines.append("")
+
+    # Claude Code collapsible
+    lines.append("<details>")
+    lines.append("<summary><strong>Using Claude Code?</strong></summary>")
+    lines.append("")
+    lines.append(
+        "This repository is also a "
+        "[Claude Code plugin marketplace]"
+        "(https://code.claude.com/docs/en/discover-plugins). "
+        "To add it:"
+    )
+    lines.append("")
+    lines.append("1. Start Claude Code:")
     lines.append("   ```")
     lines.append("   claude")
     lines.append("   ```")
-    lines.append("2. Add this marketplace:")
+    lines.append("2. Add the marketplace:")
     lines.append("   ```")
     lines.append("   /plugin marketplace add OpenHands/extensions")
     lines.append("   ```")
-    lines.append(
-        "3. Browse and install the extensions you want "
-        "(use the interactive UI to select from the catalog):"
-    )
+    lines.append("3. Install the plugins you want:")
     lines.append("   ```")
     lines.append("   /plugin install")
     lines.append("   ```")
@@ -298,6 +327,8 @@ def generate_catalog() -> str:
     lines.append("   ```")
     lines.append("   /reload-plugins")
     lines.append("   ```")
+    lines.append("")
+    lines.append("</details>")
     lines.append("")
 
     for mp in mps:
