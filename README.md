@@ -40,8 +40,8 @@ OpenHands skills for interacting, improving, and refactoring large codebases
 
 **4 extensions** (2 skills, 2 plugins)
 
-```bash
-claude plugins add-marketplace https://github.com/OpenHands/extensions  # registers "large-codebase"
+```
+/plugin marketplace add OpenHands/extensions
 ```
 
 | Name | Type | Description | Commands |
@@ -57,8 +57,8 @@ Official skills and plugins for OpenHands — the open-source AI software engine
 
 **43 extensions** (36 skills, 7 plugins)
 
-```bash
-claude plugins add-marketplace https://github.com/OpenHands/extensions  # registers "openhands-extensions"
+```
+/plugin marketplace add OpenHands/extensions
 ```
 
 | Name | Type | Description | Commands |

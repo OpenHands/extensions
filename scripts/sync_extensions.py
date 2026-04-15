@@ -238,8 +238,8 @@ def _format_marketplace_section(mp: dict) -> list[str]:
         lines.append("")
     lines.append(f"**{len(plugins)} extensions** ({skill_count} skills, {plugin_count} plugins)")
     lines.append("")
-    lines.append("```bash")
-    lines.append(f"claude plugins add-marketplace https://github.com/OpenHands/extensions  # registers \"{mp_name}\"")
+    lines.append("```")
+    lines.append(f"/plugin marketplace add OpenHands/extensions")
     lines.append("```")
     lines.append("")
 
