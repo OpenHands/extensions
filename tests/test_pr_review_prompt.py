@@ -23,7 +23,7 @@ def _format_prompt(
 ) -> str:
     module = _load_prompt_module()
     return module.format_prompt(
-        skill_trigger="/codereview-roasted",
+        skill_trigger="/codereview",
         title="Add evidence enforcement",
         body="## Summary\nAdds stricter review guidance.",
         repo_name="OpenHands/extensions",
@@ -36,6 +36,25 @@ def _format_prompt(
         require_evidence=require_evidence,
         use_sub_agents=use_sub_agents,
     )
+
+
+def test_prompt_with_roasted_trigger():
+    """Verify the backward-compatibility trigger alias works."""
+    module = _load_prompt_module()
+    prompt = module.format_prompt(
+        skill_trigger="/codereview-roasted",
+        title="Test PR",
+        body="Test body",
+        repo_name="owner/repo",
+        base_branch="main",
+        head_branch="feature",
+        pr_number="1",
+        commit_id="abc123",
+        diff="test diff",
+        review_context="",
+        require_evidence=False,
+    )
+    assert "/codereview-roasted" in prompt
 
 
 def test_format_prompt_omits_evidence_requirements_by_default():

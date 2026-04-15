@@ -7,9 +7,7 @@ fine-grained review comments. The agent has full repository access and
 uses bash commands to analyze changes in context and post detailed review
 feedback directly via `gh` or the GitHub API.
 
-This example demonstrates how to use skills for code review:
-- `/codereview` - Standard code review skill
-- `/codereview-roasted` - Linus Torvalds style brutally honest review
+This example demonstrates how to use the `/codereview` skill for code review.
 
 The agent posts inline review comments on specific lines of code using
 the GitHub API, rather than posting one giant comment under the PR.
@@ -32,7 +30,6 @@ Environment Variables:
     PR_BASE_BRANCH: Base branch name (required)
     PR_HEAD_BRANCH: Head branch name (required)
     REPO_NAME: Repository name in format owner/repo (required)
-    REVIEW_STYLE: Review style ('standard' or 'roasted', default: 'standard')
     REQUIRE_EVIDENCE: Whether to require PR description evidence showing the code
         works ('true'/'false', default: 'false')
     USE_SUB_AGENTS: Enable sub-agent delegation for file-level reviews
@@ -733,17 +730,11 @@ def validate_environment() -> dict[str, Any]:
         logger.error(f"Missing required environment variables: {missing_vars}")
         sys.exit(1)
 
-    review_style = os.getenv("REVIEW_STYLE", "standard").lower()
-    if review_style not in ("standard", "roasted"):
-        logger.warning(f"Unknown REVIEW_STYLE '{review_style}', using 'standard'")
-        review_style = "standard"
-
     return {
         "api_key": os.getenv("LLM_API_KEY"),
         "github_token": os.getenv("GITHUB_TOKEN"),
         "model": os.getenv("LLM_MODEL", "anthropic/claude-sonnet-4-5-20250929"),
         "base_url": os.getenv("LLM_BASE_URL"),
-        "review_style": review_style,
         "require_evidence": _get_bool_env("REQUIRE_EVIDENCE"),
         "use_sub_agents": _get_bool_env("USE_SUB_AGENTS"),
         "pr_info": {
@@ -950,7 +941,6 @@ def log_cost_summary(conversation: Conversation) -> None:
 def save_trace_context(
     pr_info: dict[str, Any],
     commit_id: str,
-    review_style: str,
     model: str,
 ) -> None:
     """Capture and store Laminar trace context for evaluation.
@@ -981,7 +971,6 @@ def save_trace_context(
                 "repo_name": pr_info["repo_name"],
                 "pr_url": pr_url,
                 "workflow_phase": "review",
-                "review_style": review_style,
                 "model": model,
             }
         )
@@ -992,7 +981,6 @@ def save_trace_context(
         "pr_number": pr_info["number"],
         "repo_name": pr_info["repo_name"],
         "commit_id": commit_id,
-        "review_style": review_style,
         "model": model,
     }
     with open("laminar_trace_info.json", "w") as f:
@@ -1014,21 +1002,17 @@ def main():
 
     config = validate_environment()
     pr_info = config["pr_info"]
-    review_style = config["review_style"]
     require_evidence = config["require_evidence"]
     use_sub_agents = config["use_sub_agents"]
 
     logger.info(f"Reviewing PR #{pr_info['number']}: {pr_info['title']}")
-    logger.info(f"Review style: {review_style}")
     logger.info(f"Require PR evidence: {require_evidence}")
     logger.info(f"Sub-agent delegation: {use_sub_agents}")
 
     try:
         pr_diff, commit_id, review_context = fetch_pr_context(pr_info["number"])
 
-        skill_trigger = (
-            "/codereview" if review_style == "standard" else "/codereview-roasted"
-        )
+        skill_trigger = "/codereview"
         logger.info(f"Using skill trigger: {skill_trigger}")
 
         prompt = format_prompt(
@@ -1056,7 +1040,7 @@ def main():
         conversation = run_review(conversation, prompt)
 
         log_cost_summary(conversation)
-        save_trace_context(pr_info, commit_id, review_style, config["model"])
+        save_trace_context(pr_info, commit_id, config["model"])
 
         logger.info("PR review completed successfully")
 
