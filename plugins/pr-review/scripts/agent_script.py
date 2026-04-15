@@ -787,7 +787,8 @@ def _create_file_reviewer_agent(llm: LLM) -> Agent:
     expected output format.  It has no tools — the coordinator handles
     all GitHub API interaction.
     """
-    # review_style is read at registration time from the environment
+    # REVIEW_STYLE is deprecated for the main reviewer (styles are merged),
+    # but still used here to configure sub-agent tone. Defaults to "standard".
     review_style = os.getenv("REVIEW_STYLE", "standard").lower()
     skill_content = get_file_reviewer_skill_content(review_style)
 
@@ -800,7 +801,7 @@ def _create_file_reviewer_agent(llm: LLM) -> Agent:
     ]
     return Agent(
         llm=llm,
-        tools=[],  # sub-agents only analyse; coordinator posts the review
+        tools=[],  # sub-agents only analyze; coordinator posts the review
         agent_context=AgentContext(
             skills=skills,
             system_message_suffix=(
