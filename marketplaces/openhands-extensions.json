@@ -84,20 +84,7 @@
                 "pull-request"
             ]
         },
-        {
-            "name": "babysit-pr",
-            "source": "./skills/babysit-pr",
-            "description": "Babysit a GitHub pull request by monitoring CI checks, workflow runs, review comments, and mergeability until it is ready to merge.",
-            "category": "productivity",
-            "keywords": [
-                "github",
-                "pull-request",
-                "ci",
-                "actions",
-                "review",
-                "monitoring"
-            ]
-        },
+
         {
             "name": "bitbucket",
             "source": "./skills/bitbucket",
@@ -518,17 +505,17 @@
             ]
         },
         {
-            "name": "verify",
-            "source": "./skills/verify",
-            "description": "Orchestrate repo-level PR verification by polling CI checks, PR review, and QA workflows \u2014 then driving the fix/push/re-verify loop.",
+            "name": "iterate",
+            "source": "./skills/iterate",
+            "description": "Iterate on a GitHub pull request — drive it through CI, code review, and QA until merge-ready. Monitors state, fixes failures, addresses review feedback, retries flaky checks, and pushes fixes in one continuous loop.",
             "category": "productivity",
             "keywords": [
                 "github",
                 "ci",
                 "review",
                 "qa",
-                "verification",
-                "pull-request"
+                "pull-request",
+                "iterate"
             ]
         }
     ]

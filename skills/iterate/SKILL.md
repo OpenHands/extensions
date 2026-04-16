@@ -1,19 +1,22 @@
 ---
-name: verify
+name: iterate
 description: >-
-  Orchestrate repo-level verification of a PR by pushing changes, then polling
-  CI checks, PR review, and QA workflows until all pass — or until issues are
-  found that need fixing. The agent reads feedback, fixes code, pushes again,
-  and repeats. Uses only standard `gh` CLI commands that work on any GitHub repo.
+  Iterate on a GitHub pull request — drive it through CI, code review, and QA
+  until it is merge-ready. Poll verification layers with `gh` CLI, diagnose
+  and fix CI failures, address review feedback, retry flaky checks, push
+  fixes, and repeat. The agent is the orchestration loop.
 triggers:
-- /verify
+- /iterate
 ---
 
-# /verify — Repo-Level Verification via Polling
+# /iterate — Drive a PR to Merge-Ready
 
-Orchestrate the push → poll → fix → push loop for a pull request.
-You poll the repo's verifiers with `gh` CLI, read feedback, fix issues, and iterate.
-No scripts — you are the orchestration loop.
+Iterate on a pull request until it passes all verification layers.
+You push, poll, fix, and push again — the loop only ends when the PR is green
+or a blocker requires human help.
+
+No scripts — you are the orchestration loop. Uses only standard `gh` CLI
+commands that work on any GitHub repo.
 
 Requires: `gh` CLI authenticated with repo access, a PR branch.
 
@@ -40,7 +43,7 @@ that don't exist.
 2. Poll each present verification layer.
 3. Decide: all passed? fix needed? wait?
 4. If fix needed — fix, commit, push, re-request review from bots, go to 2.
-5. If waiting — sleep 30-60s, go to 2.
+5. If waiting — sleep per polling cadence, go to 2.
 6. If all present layers passed on the *current* SHA — mark PR ready, done.
 
 IMPORTANT: pushing a fix is NOT the end. After every fix+push you MUST
@@ -48,6 +51,9 @@ re-request review from the review bot (if present) and go back to step 2.
 The loop only ends when the verifiers pass on your latest SHA. Addressing
 feedback and pushing a commit is just one iteration — the bot needs to
 review the new code too.
+
+Do not stop to ask the user whether to continue polling; continue
+autonomously until a strict stop condition is met or the user interrupts.
 
 ## Step 1 — Push and ensure PR exists (as draft)
 
@@ -116,6 +122,10 @@ gh api "repos/{owner}/{repo}/pulls/{number}/comments" \
         | { path: .path, line: .line, body: .body[0:200] }'
 ```
 
+On a fresh iteration, existing pending review feedback should be checked
+immediately — not only comments that arrive after monitoring starts.
+Already-open review comments must not be missed.
+
 ## Step 4 — Poll QA report (if present)
 
 Skip this step if the repo has no QA bot.
@@ -144,8 +154,12 @@ repo, treat it as passing.
 - CI failed → fix code, or rerun if flaky (see below).
 - Review requested changes → read comments, fix, push.
 - QA failed/partial → read report, fix, push.
-- Anything still pending → sleep 30-60s, re-poll.
+- Anything still pending → sleep per polling cadence, re-poll.
 - PR closed/merged → stop.
+
+**Priority rule:** when both review feedback and flaky CI failures are present,
+prioritize review feedback first. A new commit will retrigger CI, so avoid
+rerunning flaky checks on the old SHA when you're about to push a review fix.
 
 After fixing, commit, push, AND re-request review:
 
@@ -165,20 +179,108 @@ SHA and all present layers pass.
 
 ## CI failure classification
 
-Branch-related (fix the code):
+Use `gh` commands to inspect failed runs before deciding to rerun:
+
+```bash
+gh run view <run-id> --json jobs,name,workflowName,conclusion,status,url,headSha
+gh run view <run-id> --log-failed
+```
+
+**Branch-related** (fix the code):
 - Compile/lint/typecheck failures in files you touched
 - Deterministic test failures in changed areas
 - Snapshot or static-analysis violations from your changes
+- Build config changes causing deterministic failures
 
-Flaky / unrelated (rerun the jobs):
+**Flaky / unrelated** (rerun the jobs):
 - Network/DNS/registry timeouts
 - Runner provisioning or startup failures
 - GitHub Actions infrastructure errors
 - Non-deterministic failures in code you didn't touch
+- Cloud/service rate limits or transient API outages
+
+If classification is ambiguous, perform one manual diagnosis attempt (inspect
+logs) before choosing rerun.
 
 Rerun: `gh run rerun <run-id> --failed`
 
 Retry budget: at most 3 reruns per SHA. After that, treat as real.
+
+Read `references/heuristics.md` for a concise decision tree.
+
+## Review comment handling
+
+The review polling in Step 3 surfaces feedback from trusted sources: human
+reviewers (OWNER/MEMBER/COLLABORATOR) and approved review bots (openhands,
+all-hands-bot, etc.). Ignore unrelated bot noise.
+
+Review items come from:
+- PR issue comments
+- Inline review comments
+- Review submissions (COMMENT / APPROVED / CHANGES_REQUESTED)
+
+When a comment is actionable and correct:
+1. Fix the code.
+2. Commit with `chore: address PR review feedback (#<n>)`.
+3. Push and continue the loop.
+
+When a comment is non-actionable, already addressed, or you disagree:
+continue the loop.
+
+If a review thread is already resolved in GitHub, ignore it unless new
+unresolved follow-up appears.
+
+### Requesting re-review
+
+If the PR is green but blocked on review approval and you've addressed all
+feedback, you can request another look — but only when the user explicitly
+asks, or after confirming with them (avoid spamming humans):
+
+1. Leave a brief PR comment summarizing what changed:
+   ```bash
+   gh pr comment <pr> --body "Addressed the requested changes in <sha>. Could you take another look?"
+   ```
+   Do NOT tag humans.
+
+2. Re-request reviewers via the GitHub API:
+   ```bash
+   gh api -X POST repos/{owner}/{repo}/pulls/{number}/requested_reviewers \
+     -f reviewers[]=<reviewer>
+   ```
+
+Prefer requesting review only once per new head SHA. If the API returns an
+error indicating reviewers are already requested, treat it as non-fatal.
+
+## Polling cadence
+
+- CI pending or failing: every 30–60 seconds.
+- CI green, waiting for review/QA: start at 60s, back off exponentially
+  (60s → 2m → 4m → 8m → 16m → 32m), cap at 1 hour.
+- Reset to 60s whenever anything changes (new SHA, check status, review
+  comment, mergeability change).
+- If CI stops being green (new commit, rerun, regression): return to 30–60s.
+- After pushing a fix: re-poll immediately.
+- If any poll shows the PR is merged or closed: stop immediately.
+
+## Stop conditions
+
+Stop **only** when:
+- All present verification layers passed on current SHA and PR is mergeable.
+- PR merged or closed (stop as soon as a poll confirms this).
+- Flaky retry budget exhausted (3 reruns per SHA).
+- Blocked on something requiring human input (infra outage, permissions,
+  ambiguity that cannot be resolved safely).
+
+**Not** a stop condition:
+- You pushed a fix. That's one iteration — keep going.
+- You addressed review comments. The bot still needs to review new code.
+- CI is green but review bot hasn't re-reviewed yet. Wait.
+- CI is still running/queued.
+- CI is green but mergeability is unknown/pending.
+- CI is green and mergeable, but waiting for possible new review comments
+  per the green-state cadence.
+- PR is green but blocked on review approval (`REVIEW_REQUIRED`); continue
+  polling and surface new review comments without asking for confirmation.
 
 ## When done — mark PR ready
 
@@ -191,37 +293,41 @@ gh pr ready
 
 Only do this at the very end, after the loop exits successfully.
 
-## Stop conditions
+## Git safety
 
-Stop ONLY when:
-- All present verification layers passed on the current SHA.
-- PR closed or merged (`gh pr view --json state --jq .state`).
-- Retry budget exhausted — CI still failing after 3 reruns of the same SHA.
-- Blocked on something requiring user input.
+- Work only on the PR head branch.
+- No destructive git commands.
+- Do not switch branches unless necessary to recover context.
+- Check for unrelated uncommitted changes before editing. If present, ask user.
+- After every fix, commit and push, then re-poll.
+- A push is not a terminal outcome; continue the monitoring loop.
 
-NOT a stop condition:
-- You pushed a fix commit. That's just one iteration — re-request review and keep going.
-- You replied to review comments. The bot still needs to review the new code.
-- CI is green but review bot hasn't re-reviewed your fix yet. Wait for it.
+Commit message defaults:
+- `fix: CI failure on PR #<n>`
+- `chore: address PR review feedback (#<n>)`
 
-Keep going when:
-- Checks still pending.
-- Bots haven't posted yet (few minutes after push).
-- Just pushed a fix and CI hasn't started.
+## Output
 
-## Polling cadence
+Provide concise progress updates during monitoring:
 
-- CI pending/failing: every 30-60s.
-- CI green: back off (60s, 2m, 4m), reset on any state change.
-- Just pushed a fix: re-poll immediately.
+- During long unchanged periods, avoid emitting a full update on every poll;
+  summarize only status changes plus occasional heartbeat updates.
+- Treat push confirmations, intermediate CI snapshots, and review-action
+  updates as progress updates only; do not emit the final summary unless a
+  strict stop condition is met.
+- When CI first transitions to all green for the current SHA, emit a one-time
+  celebratory update. Preferred style:
+  `🚀 CI is all green! 33/33 passed. Still watching for review.`
 
-## vs babysit-pr
-
-`/verify` is an active orchestrator — you write code, push, poll, fix, repeat.
-`/babysit-pr` is a passive monitor — watches someone else's PR via a Python script.
-Use `/verify` when you're the coding agent. Use `/babysit-pr` when you just need to watch.
+Final summary should include:
+- Final PR SHA
+- CI status summary
+- Mergeability / conflict status
+- Fixes pushed
+- Flaky retry cycles used
+- Remaining unresolved failures or review comments
 
 ## References
 
 - Verification signal details: `references/workflow-signals.md`
-- CI failure heuristics: same as `babysit-pr/references/heuristics.md`
+- CI/review heuristics and decision tree: `references/heuristics.md`
