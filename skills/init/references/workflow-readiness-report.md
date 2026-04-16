@@ -23,7 +23,8 @@ The scanner scripts live in this skill's `scripts/` directory. Set `SKILL_DIR`
 to the absolute path of the `skills/init` directory, then run:
 
 ```bash
-SKILL_DIR="$(dirname "$(dirname "$(readlink -f "$0")")")"  # or set manually
+# Portable (works on macOS and Linux):
+SKILL_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 for s in "$SKILL_DIR"/scripts/scan_*.sh; do bash "$s" /path/to/repo; echo; done
 ```
 
