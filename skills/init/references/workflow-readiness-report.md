@@ -19,8 +19,12 @@ See `criteria.md` in this directory for the full list with descriptions and evid
 
 ### Step 1: Run the scanner scripts
 
+The scanner scripts live in this skill's `scripts/` directory. Set `SKILL_DIR`
+to the absolute path of the `skills/init` directory, then run:
+
 ```bash
-for s in scripts/scan_*.sh; do bash "$s" /path/to/repo; echo; done
+SKILL_DIR="$(dirname "$(dirname "$(readlink -f "$0")")")"  # or set manually
+for s in "$SKILL_DIR"/scripts/scan_*.sh; do bash "$s" /path/to/repo; echo; done
 ```
 
 The scripts find files and patterns but do not evaluate quality. Many features

@@ -248,7 +248,7 @@
         {
             "name": "init",
             "source": "./skills/init",
-            "description": "Initialize and onboard a repository for AI-assisted development. Quick AGENTS.md scaffold, full OpenHands setup with bootstrap scripts and PR review, agent readiness assessment across 74 features, and improvement workflows.",
+            "description": "Scaffold an AGENTS.md contributor guide or run a full repository onboarding for AI-assisted development.",
             "category": "productivity",
             "keywords": [
                 "agents",
@@ -346,7 +346,20 @@
                 "packages"
             ]
         },
-
+        {
+            "name": "onboarding",
+            "source": "./skills/init",
+            "description": "DEPRECATED: Merged into the init skill. Use init instead for agent readiness assessment, AGENTS.md generation, and full OpenHands setup.",
+            "category": "productivity",
+            "keywords": [
+                "onboarding",
+                "readiness",
+                "agents-md",
+                "agent-readiness",
+                "assessment",
+                "deprecated"
+            ]
+        },
         {
             "name": "openhands-api",
             "source": "./skills/openhands-api",

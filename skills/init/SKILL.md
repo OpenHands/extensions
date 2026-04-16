@@ -41,5 +41,7 @@ file; read only the one you need.
 
 ## References
 
+All paths below are relative to this skill's directory (`skills/init/`):
+
 - Readiness criteria (74 features, 5 pillars): `references/criteria.md`
 - Scanner scripts for automated signal gathering: `scripts/scan_*.sh`
