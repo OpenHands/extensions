@@ -248,14 +248,17 @@
         {
             "name": "init",
             "source": "./skills/init",
-            "description": "Scaffold an AGENTS.md contributor guide for a repository or subdirectory.",
-            "category": "documentation",
+            "description": "Initialize and onboard a repository for AI-assisted development. Quick AGENTS.md scaffold, full OpenHands setup with bootstrap scripts and PR review, agent readiness assessment across 74 features, and improvement workflows.",
+            "category": "productivity",
             "keywords": [
                 "agents",
                 "agents-md",
-                "documentation",
-                "guidelines",
-                "init"
+                "init",
+                "onboarding",
+                "readiness",
+                "setup",
+                "agent-readiness",
+                "assessment"
             ]
         },
         {
@@ -343,19 +346,7 @@
                 "packages"
             ]
         },
-        {
-            "name": "onboarding",
-            "source": "./plugins/onboarding",
-            "description": "Assess repository agent-readiness across five pillars, propose high-impact fixes, and generate repo-specific AGENTS.md files.",
-            "category": "productivity",
-            "keywords": [
-                "onboarding",
-                "readiness",
-                "agents-md",
-                "agent-readiness",
-                "assessment"
-            ]
-        },
+
         {
             "name": "openhands-api",
             "source": "./skills/openhands-api",
