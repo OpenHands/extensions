@@ -7,6 +7,8 @@ description: >-
   fixes, and repeat. The agent is the orchestration loop.
 triggers:
 - /iterate
+- /verify
+- /babysit
 ---
 
 # /iterate — Drive a PR to Merge-Ready
