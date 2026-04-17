@@ -32,7 +32,7 @@ Browse available plugins in [`plugins/`](plugins/).
 ## Extensions Catalog
 
 <!-- BEGIN AUTO-GENERATED CATALOG -->
-This repository contains **2 marketplace(s)** with **46 extensions** (38 skills, 8 plugins).
+This repository contains **2 marketplace(s)** with **45 extensions** (37 skills, 8 plugins).
 
 ### Quick Start
 
@@ -89,7 +89,7 @@ OpenHands skills for interacting, improving, and refactoring large codebases
 
 Official skills and plugins for OpenHands — the open-source AI software engineer.
 
-**42 extensions** (36 skills, 6 plugins)
+**41 extensions** (35 skills, 6 plugins)
 
 | Name | Type | Description | Commands |
 |------|------|-------------|----------|
@@ -99,7 +99,6 @@ Official skills and plugins for OpenHands — the open-source AI software engine
 | automation | skill | Create and manage OpenHands automations - scheduled tasks that run in sandboxes. Use the prompt preset to create auto... | — |
 | automation-creation | plugin | Interactive slash command for creating OpenHands automations from a natural language prompt. Provides /automation:cre... | — |
 | azure-devops | skill | Interact with Azure DevOps repositories, pull requests, and APIs using the AZURE_DEVOPS_TOKEN environment variable. U... | — |
-| babysit-pr | skill | Babysit a GitHub pull request by monitoring CI checks, workflow runs, review comments, and mergeability until it is r... | `/babysit-pr`, `/babysit` |
 | bitbucket | skill | Interact with Bitbucket repositories and pull requests using the BITBUCKET_TOKEN environment variable. Use when worki... | — |
 | city-weather | plugin | Get current weather, time, and precipitation forecast for any city using the free Open-Meteo API. Provides slash comm... | — |
 | code-review | skill | Rigorous code review focusing on data structures, simplicity, security, pragmatism, and risk/safety evaluation. Provi... | `/codereview`, `/codereview-roasted` |
@@ -113,6 +112,7 @@ Official skills and plugins for OpenHands — the open-source AI software engine
 | github-pr-review | skill | Post structured PR reviews to GitHub with inline comments/suggestions in a single API call. | `/github-pr-review` |
 | gitlab | skill | Interact with GitLab repositories, merge requests, and APIs using the GITLAB_TOKEN environment variable. Use when wor... | — |
 | init | skill | Scaffold an AGENTS.md contributor guide or run a full repository onboarding for AI-assisted development. | `/init` |
+| iterate | skill | Iterate on a GitHub pull request — drive it through CI, code review, and QA until merge-ready. Monitors state, fixes ... | `/iterate`, `/verify`, `/babysit` |
 | jupyter | skill | Read, modify, execute, and convert Jupyter notebooks programmatically. Use when working with .ipynb files for data sc... | — |
 | kubernetes | skill | Set up and manage local Kubernetes clusters using KIND (Kubernetes IN Docker). Use when testing Kubernetes applicatio... | — |
 | learn-from-code-review | skill | Distill code review feedback from GitHub PRs into reusable skills and guidelines. Use when users ask to learn from co... | `/learn-from-reviews` |
@@ -133,7 +133,6 @@ Official skills and plugins for OpenHands — the open-source AI software engine
 | theme-factory | skill | Toolkit for styling artifacts with a theme. These artifacts can be slides, docs, reportings, HTML landing pages, etc.... | — |
 | uv | skill | Common project, dependency, and environment operations using uv. | — |
 | vercel | skill | Deploy and manage applications on Vercel, including preview deployments and deployment protection. | — |
-| verify | skill | Orchestrate repo-level PR verification by polling CI checks, PR review, and QA workflows — then driving the fix/push/... | `/verify` |
 | vulnerability-remediation | plugin | Automated security vulnerability scanning and AI-powered remediation. Scans repositories, skips when no issues found,... | — |
 <!-- END AUTO-GENERATED CATALOG -->
 
