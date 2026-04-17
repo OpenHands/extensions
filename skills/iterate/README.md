@@ -11,11 +11,13 @@ or a blocker requires human help.
 
 ## How it works
 
-1. **Snapshot** PR state using a watcher script (`scripts/gh_pr_watch.py`).
-2. **Evaluate** the recommended actions: fix CI failures, address review
-   feedback, retry flaky checks, or wait.
+1. **Snapshot** PR state using `gh` CLI commands (checks, reviews, mergeability).
+2. **Evaluate** what to do: fix CI failures, address review feedback, retry
+   flaky checks, or wait.
 3. **Fix and push** — then loop back to step 1.
 4. **Stop** when the PR is merge-ready, closed, or blocked.
+
+No scripts — the agent is the orchestration loop, using only standard `gh` CLI.
 
 ## Requirements
 
