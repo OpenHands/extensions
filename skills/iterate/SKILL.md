@@ -331,5 +331,5 @@ Final summary should include:
 
 ## References
 
-- Verification signal details: `references/workflow-signals.md`
+- Verification stack (layers, signals, retriggering): `references/verification.md`
 - CI/review heuristics and decision tree: `references/heuristics.md`
