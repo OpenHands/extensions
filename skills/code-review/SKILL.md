@@ -99,7 +99,17 @@ Require:
 8. **Dependency Changes**
 If dependency lock changes have downgraded a dependency, comment pointing that out to make sure it was intentional.
 
-9. **Risk and Safety Evaluation**
+9. **GitHub Actions Version Upgrades**
+When a PR updates GitHub Action versions in `.github/workflows/*.yml` files:
+- Check the upgraded action's release notes for **runner version requirements** (e.g., "requires Actions Runner v2.327.1 or later" for Node 24 runtime upgrades).
+- If a runner version requirement exists, **verify it from the PR's own CI logs** instead of asking the PR author to check manually. When you are already looking at the CI workflow job that ran the upgraded action to confirm it passed, also extract the runner version from that same job's logs:
+     `gh api "repos/{owner}/{repo}/actions/jobs/{job_id}/logs" 2>&1 | grep "Current runner version:"`
+     The runner version appears on the first line of every job log as: `Current runner version: '2.333.1'`
+- Compare the actual runner version against the requirement. In your review comment, **state the verified runner version** and whether it meets the requirement. For example:
+  > ✅ Runner version verified: GitHub-hosted runners used v2.333.1, which exceeds the v2.327.1 minimum required by docker/login-action v4 (Node 24 runtime).
+- If the CI workflow using the upgraded action has not run or has failed, note that the runner compatibility could not be verified from CI and flag it for manual confirmation.
+
+10. **Risk and Safety Evaluation**
 Read `references/risk-evaluation.md` for the full risk evaluation framework including risk levels (🟢 Low / 🟡 Medium / 🔴 High), risk factors, escalation guidance, and repo-specific risk rules.
 
 CRITICAL REVIEW OUTPUT FORMAT:
