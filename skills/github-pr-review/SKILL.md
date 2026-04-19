@@ -62,6 +62,12 @@ gh api -X POST repos/{owner}/{repo}/pulls/{pr_number}/reviews --input /tmp/revie
 | `side` | `RIGHT` for new/added lines, `LEFT` for deleted lines |
 | `body` | Comment text with priority label |
 
+### Choosing the `event` value
+
+- **`APPROVE`** — Use when the code is good and has no blocking issues (e.g., taste rating is 🟢 Good taste). You can still include non-blocking inline comments with an APPROVE event.
+- **`REQUEST_CHANGES`** — Use when there are critical or important issues that must be fixed before merging (🔴 Critical or 🟠 Important issues present).
+- **`COMMENT`** — Use when you have feedback but are not explicitly approving or requesting changes (e.g., taste rating is 🟡 Acceptable with non-blocking suggestions).
+
 ### Multi-Line Comments
 
 For comments spanning multiple lines, add `start_line` to specify the range:
@@ -146,4 +152,5 @@ curl -X POST \
 5. Mark pragmatic trade-offs as 🟢 **Acceptable** - don't block PRs for out-of-scope improvements
 6. Use suggestion syntax for concrete code changes
 7. Keep the review body brief (details go in inline comments)
-8. If no issues: post a short message
+8. If no issues: use `"event": "APPROVE"` and post a short message
+9. Match the `event` to the severity of findings (see "Choosing the `event` value")
