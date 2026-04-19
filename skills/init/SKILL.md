@@ -1,52 +1,61 @@
 ---
 name: init
-description: >-
-  Scaffold an AGENTS.md contributor guide or run a full repository onboarding
-  for AI-assisted development.
+description: Scaffold an AGENTS.md contributor guide for any repository.
 triggers:
 - /init
-- setup-openhands
-- setup-agents-md
-- agent-readiness-report
-- improve-agent-readiness
-- setup-pr-review
 ---
 
-# Repository Initialization & Onboarding
+# Initialize `AGENTS.md`
 
-> The deep AGENTS.md generation, readiness assessment, and full-setup workflows
-> originated from Calvin Smith's onboarding plugin.
+Use `/init` to quickly scaffold an `AGENTS.md` file (project guidelines for
+AI agents) for the current repository.
 
-## `/init` — Quick AGENTS.md Scaffold
+## Target path rules
 
-Use `/init` when you just need an `AGENTS.md` file fast.
+- `/init`: create `AGENTS.md` at the repository root.
+- `/init <path>`: create `AGENTS.md` scoped to `<path>`.
+  - If `<path>` is a directory, write `<path>/AGENTS.md`.
+  - If `<path>` ends with `.md`, treat it as the full output file path.
 
-- `/init`: create at repo root. `/init <path>`: create scoped to `<path>`.
-- Never overwrite silently — ask the user first.
+Never overwrite an existing file silently. If the target file already exists,
+ask the user whether to (a) keep it, (b) edit it, or (c) replace it.
 
-**Workflow:**
+## Workflow
 
-1. Skim repo structure, README, CONTRIBUTING, build files, CI configs.
-2. Write a 200–400 word `AGENTS.md` titled `# Repository Guidelines`.
-3. Sections: Project Structure, Build/Test/Dev Commands, Coding Style,
-   Testing Guidelines, Commit & PR Guidelines. Adapt as needed.
-4. Be specific to the repo. Prefer concrete commands and paths.
+1. **Inspect the repo to tailor the guide**
+   - Skim top-level structure (`ls`, `find -maxdepth 2`).
+   - Read the primary docs (`README*`, `CONTRIBUTING*`, `DEVELOPMENT*`, `Makefile`).
+   - Identify build tooling and common commands (`pyproject.toml`, `package.json`, CI configs).
+   - Locate tests and how they are run (`tests/`, workflow YAMLs, task runners).
 
-## Other Workflows
+2. **Write a concise `AGENTS.md`** using the spec below.
 
-For deeper onboarding, read the linked reference file:
+3. **Create the file** at the target location.
 
-| Trigger | What it does | Details |
-|---------|-------------|---------|
-| `setup-agents-md` | Deep AGENTS.md from real repo analysis | `references/workflow-setup-agents-md.md` |
-| `setup-openhands` | Full setup: AGENTS.md + bootstrap scripts + PR review | `references/workflow-setup-openhands.md` |
-| `agent-readiness-report` | 74-feature readiness assessment across 5 pillars | `references/workflow-readiness-report.md` |
-| `improve-agent-readiness` | Propose & implement highest-impact fixes | `references/workflow-improve-readiness.md` |
-| `setup-pr-review` | Add automated PR review workflow | `references/workflow-setup-pr-review.md` |
+## `AGENTS.md` spec
 
-## References
+- Title the document: `# Repository Guidelines`.
+- Use Markdown headings (`##`) to organize sections.
+- Keep it concise: **200–400 words**.
+- Keep explanations short, direct, and specific to the repo.
+- Prefer concrete examples (commands, directory paths, naming patterns).
 
-All paths are relative to this skill's directory (`skills/init/`):
+### Recommended sections (adapt as needed)
 
-- Readiness criteria (74 features, 5 pillars): `references/criteria.md`
-- Scanner scripts for automated signal gathering: `scripts/scan_*.sh`
+- Project Structure & Module Organization
+- Build, Test, and Development Commands
+- Coding Style & Naming Conventions
+- Testing Guidelines
+- Commit & Pull Request Guidelines
+- Optional: Security & Configuration Tips, Architecture Overview, Agent-specific instructions
+
+## Content guidelines
+
+- Only include information that's broadly useful for future tasks.
+- If the repo already contains nested `AGENTS.md` files, briefly mention that
+  more deeply nested files override broader ones within their directory tree.
+
+## See also
+
+For deeper onboarding workflows (readiness assessment, full setup, PR review
+automation), see the **onboarding** skill.

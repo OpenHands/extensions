@@ -20,7 +20,7 @@ See `criteria.md` in this directory for the full list with descriptions and evid
 ### Step 1: Run the scanner scripts
 
 The scanner scripts live in this skill's `scripts/` directory. Set `SKILL_DIR`
-to the absolute path of the `skills/init` directory, then run:
+to the absolute path of the `skills/onboarding` directory, then run:
 
 ```bash
 # Portable (works on macOS and Linux):

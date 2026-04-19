@@ -235,17 +235,12 @@
         {
             "name": "init",
             "source": "./skills/init",
-            "description": "Scaffold an AGENTS.md contributor guide or run a full repository onboarding for AI-assisted development.",
+            "description": "Scaffold an AGENTS.md contributor guide for any repository.",
             "category": "productivity",
             "keywords": [
                 "agents",
                 "agents-md",
-                "init",
-                "onboarding",
-                "readiness",
-                "setup",
-                "agent-readiness",
-                "assessment"
+                "init"
             ]
         },
         {
@@ -335,8 +330,8 @@
         },
         {
             "name": "onboarding",
-            "source": "./skills/init",
-            "description": "DEPRECATED: Merged into the init skill. Use init instead for agent readiness assessment, AGENTS.md generation, and full OpenHands setup.",
+            "source": "./skills/onboarding",
+            "description": "Full repository onboarding for AI agents — deep AGENTS.md generation, readiness assessment, and automated setup workflows.",
             "category": "productivity",
             "keywords": [
                 "onboarding",
@@ -344,7 +339,7 @@
                 "agents-md",
                 "agent-readiness",
                 "assessment",
-                "deprecated"
+                "setup"
             ]
         },
         {
