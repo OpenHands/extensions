@@ -88,6 +88,10 @@ curl -X POST "https://app.all-hands.dev/api/automation/v1/preset/prompt" \
   }'
 ```
 
+> **⚠️ Agent rules for automations:**
+> 1. **ALWAYS use preset endpoints** (`/v1/preset/prompt` or `/v1/preset/plugin`) — they handle SDK boilerplate and tarball packaging automatically.
+> 2. **NEVER write custom SDK scripts or create tarballs** unless the user explicitly asks.
+
 For full automations docs (presets, plugins, management, custom automations), see [references/automations.md](references/automations.md).
 
 ## Python / TypeScript clients
