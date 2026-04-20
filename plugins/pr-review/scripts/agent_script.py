@@ -788,10 +788,7 @@ def _create_file_reviewer_agent(llm: LLM) -> Agent:
     access so it can inspect surrounding code context in the PR repo,
     but the coordinator handles all GitHub API interaction.
     """
-    # REVIEW_STYLE is deprecated for the main reviewer (styles are merged),
-    # but still used here to configure sub-agent tone. Defaults to "standard".
-    review_style = os.getenv("REVIEW_STYLE", "standard").lower()
-    skill_content = get_file_reviewer_skill_content(review_style)
+    skill_content = get_file_reviewer_skill_content()
 
     skills = [
         Skill(

@@ -113,7 +113,8 @@ when the diff alone is not enough to judge an issue.
 
 ## Review Style
 
-{review_style_description}
+Be direct, pragmatic, and thorough. Focus on correctness, security,
+simplicity, and maintainability. Call out real problems; skip trivial noise.
 
 ## Output Format
 
@@ -221,24 +222,6 @@ def format_prompt(
     return prompt
 
 
-def get_file_reviewer_skill_content(review_style: str = "standard") -> str:
-    """Return the file_reviewer sub-agent skill content.
-
-    Args:
-        review_style: 'standard' or 'roasted'
-
-    Returns:
-        Formatted skill content string for the file_reviewer agent type
-    """
-    style_descriptions = {
-        "standard": (
-            "Balanced review covering correctness, style, readability, "
-            "and security. Be constructive."
-        ),
-        "roasted": (
-            "Linus Torvalds-style brutally honest review. Focus on data "
-            "structures, simplicity, and pragmatism. No hand-holding."
-        ),
-    }
-    description = style_descriptions.get(review_style, style_descriptions["standard"])
-    return FILE_REVIEWER_SKILL.format(review_style_description=description)
+def get_file_reviewer_skill_content() -> str:
+    """Return the file_reviewer sub-agent skill content."""
+    return FILE_REVIEWER_SKILL
