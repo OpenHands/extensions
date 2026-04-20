@@ -235,11 +235,13 @@
         {
             "name": "init",
             "source": "./skills/init",
-            "description": "Scaffold an AGENTS.md contributor guide for any repository.",
-            "category": "productivity",
+            "description": "Scaffold an AGENTS.md contributor guide for a repository or subdirectory.",
+            "category": "documentation",
             "keywords": [
                 "agents",
                 "agents-md",
+                "documentation",
+                "guidelines",
                 "init"
             ]
         },

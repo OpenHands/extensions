@@ -1,20 +1,12 @@
-# init
+# `/init` skill
 
-Scaffold a concise, repo-specific `AGENTS.md` contributor guide for any
-repository.
+This skill helps an agent generate an `AGENTS.md` file (a concise contributor/repo-guidelines doc for AI-assisted development).
 
-## Trigger
+## Usage
 
-- `/init` — create `AGENTS.md` at the repository root
-- `/init <path>` — create `AGENTS.md` scoped to a subdirectory
+- `/init` → create `AGENTS.md` at the repository root.
+- `/init <path>` → create `AGENTS.md` scoped to the given path:
+  - If `<path>` is a directory, the file is written to `<path>/AGENTS.md`.
+  - If `<path>` ends with `.md`, it is treated as the output file path.
 
-## What it does
-
-1. Inspects the repo (structure, README, build files, CI configs)
-2. Writes a 200–400 word `AGENTS.md` titled "Repository Guidelines"
-3. Creates the file, asking before overwriting
-
-## See also
-
-For deeper onboarding workflows (readiness assessment, full OpenHands setup,
-PR review automation), see the **onboarding** skill.
+The generated document follows a short, repo-specific template (structure, commands, style, testing, PR conventions) and avoids overwriting any existing `AGENTS.md` without confirmation.

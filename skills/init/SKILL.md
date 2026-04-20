@@ -1,14 +1,13 @@
 ---
 name: init
-description: Scaffold an AGENTS.md contributor guide for any repository.
+description: Create an AGENTS.md contributor guide for a repository (or a subdirectory) following a concise, repo-specific template. Use when the user runs /init.
 triggers:
 - /init
 ---
 
 # Initialize `AGENTS.md`
 
-Use `/init` to quickly scaffold an `AGENTS.md` file (project guidelines for
-AI agents) for the current repository.
+Use this skill when the user asks to scaffold an `AGENTS.md` file (project guidelines for AI agents) for the current repository.
 
 ## Target path rules
 
@@ -17,8 +16,7 @@ AI agents) for the current repository.
   - If `<path>` is a directory, write `<path>/AGENTS.md`.
   - If `<path>` ends with `.md`, treat it as the full output file path.
 
-Never overwrite an existing file silently. If the target file already exists,
-ask the user whether to (a) keep it, (b) edit it, or (c) replace it.
+Never overwrite an existing file silently. If the target file already exists, ask the user whether to (a) keep it, (b) edit it, or (c) replace it.
 
 ## Workflow
 
@@ -32,7 +30,7 @@ ask the user whether to (a) keep it, (b) edit it, or (c) replace it.
 
 3. **Create the file** at the target location.
 
-## `AGENTS.md` spec
+## `AGENTS.md` spec (inspired by Codex `/init`)
 
 - Title the document: `# Repository Guidelines`.
 - Use Markdown headings (`##`) to organize sections.
@@ -51,9 +49,8 @@ ask the user whether to (a) keep it, (b) edit it, or (c) replace it.
 
 ## Content guidelines
 
-- Only include information that's broadly useful for future tasks.
-- If the repo already contains nested `AGENTS.md` files, briefly mention that
-  more deeply nested files override broader ones within their directory tree.
+- Only include information that’s broadly useful for future tasks (avoid one-off issue details).
+- If the repo already contains nested `AGENTS.md` files, briefly mention that more deeply nested files override broader ones within their directory tree.
 
 ## See also
 

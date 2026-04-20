@@ -111,7 +111,7 @@ Official skills and plugins for OpenHands — the open-source AI software engine
 | github | skill | Interact with GitHub repositories, pull requests, issues, and workflows using the GITHUB_TOKEN environment variable a... | — |
 | github-pr-review | skill | Post structured PR reviews to GitHub with inline comments/suggestions in a single API call. | `/github-pr-review` |
 | gitlab | skill | Interact with GitLab repositories, merge requests, and APIs using the GITLAB_TOKEN environment variable. Use when wor... | — |
-| init | skill | Scaffold an AGENTS.md contributor guide for any repository. | `/init` |
+| init | skill | Scaffold an AGENTS.md contributor guide for a repository or subdirectory. | `/init` |
 | iterate | skill | Iterate on a GitHub pull request — drive it through CI, code review, and QA until merge-ready. Monitors state, fixes ... | `/iterate`, `/verify`, `/babysit` |
 | jupyter | skill | Read, modify, execute, and convert Jupyter notebooks programmatically. Use when working with .ipynb files for data sc... | — |
 | kubernetes | skill | Set up and manage local Kubernetes clusters using KIND (Kubernetes IN Docker). Use when testing Kubernetes applicatio... | — |
