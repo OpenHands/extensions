@@ -1,0 +1,13 @@
+{
+  "name": "openhands",
+  "version": "0.1.0",
+  "description": "Unified OpenHands plugin — interact with OpenHands Cloud via CLI or REST API. Send tasks, manage conversations, create automations, and delegate work to parallel agents.",
+  "author": {
+    "name": "OpenHands",
+    "email": "contact@all-hands.dev"
+  },
+  "homepage": "https://github.com/OpenHands/extensions",
+  "repository": "https://github.com/OpenHands/extensions",
+  "license": "MIT",
+  "keywords": ["openhands", "cloud", "api", "automation", "cli", "delegation"]
+}
