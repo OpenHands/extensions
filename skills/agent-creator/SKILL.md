@@ -36,10 +36,9 @@ descriptions do not work.
 ## Interview Rules
 
 - Ask ONE question at a time — never overwhelm the user.
-- Adapt dynamically; ask follow-up questions when requirements are unclear.e
+- Adapt dynamically; ask follow-up questions when requirements are unclear.
 - Prefer clarification over assumption, quality over speed.
-- **CRITICAL — NEVER SKIP QUESTIONS AND STEPS.** For every step ask explicitly.
-- If the user already answered a question, present your understanding and confirm:
+- **CRITICAL — NEVER SKIP QUESTIONS AND STEPS.** For every step ask explicitly. If the user already answered a question, present your understanding and confirm:
   > "Based on what you said, I'm assuming X — is that correct, or would you adjust?"
   Do NOT proceed until confirmed. Silent assumptions are a critical failure.
 
@@ -54,9 +53,6 @@ Extract ONLY these three sections — stop reading after "Directory Conventions"
 - **Agent File Format** — file structure and frontmatter example
 - **Frontmatter Fields** — full fields table with names, defaults, descriptions
 - **Directory Conventions** — project-level vs user-level save paths
-
-After reading, you MUST quote the exact `permission_mode` field definition
-before proceeding. Do NOT continue to Step 1 without showing this quote.
 
 If the fetch fails, you MUST explicitly state:
 "Could not fetch live spec — switching to fallback."
@@ -170,8 +166,7 @@ After saving:
 - **Wrong filename**:
   The filename MUST exactly match the `name` field.
 
-- **Wrong path**: Do not save to `.agents/skills/`. Correct path is
-  `.agents/agents/<n>.md`.
+- **Wrong path**: Do not save to `.agents/skills/`. Correct path is `.agents/agents/<name>.md`.
 
 - **Missing `<example>` tags**: Always include at least 2 in the description.
   The orchestrator needs them to decide when to delegate.

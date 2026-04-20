@@ -12,15 +12,21 @@ The frontmatter configures the agent. The Markdown body becomes the agent's syst
 
 | Field | Required | Default | Description |
 |---|---|---|---|
-| `name` | Yes | — | lowercase + hyphens, matches filename exactly |
-| `description` | No | `""` | Shown to orchestrator. Add `<example>` tags |
-| `tools` | No | `[]` | `file_editor`, `terminal`, `browser_tool_set` |
-| `model` | No | `inherit` | Use `inherit` unless specific model needed |
-| `permission_mode` | No | `None` | `always_confirm` / `never_confirm` / `confirm_risky` |
-| `skills` | No | `[]` | Skill names to load for this agent |
+| `name` | Yes | — | agent identifier,lowercase + hyphens, matches filename exactly |
+| `description` | No | `""` | What this agent does. Shown to orchestrator. Add `<example>` tags |
+| `tools` | No | `[]` | List of tools the agent can use (for example: `file_editor`, `terminal`, `browser_tool_set`, etc)|
+| `model` | No | `inherit` | LLM model profile to load and use for the subagent ("inherit" uses the parent agent’s model) |
+| `skills` | No | `[]` | List of skill names for this agent |
+| `max_iteration_per_run` | No | `None` | 	Maximum iterations per run. Must be strictly positive, or `None` for the default value.|
+| `color` | No | `None` | Rich color name (e.g., "blue", "green") used by visualizers to style this agent’s output in terminal panels |
 | `mcp_servers` | No | `None` | MCP server configs |
+| `hooks` | No | `None` | Hook configuration for lifecycle events |
+| `permission_mode` | No | `None` | `always_confirm` / `never_confirm` / `confirm_risky` |
+| `profile_store_dir` | No | `None` | Custom directory path for LLM profiles when using a named model|
 
 ## Directory Conventions
+
+Place agent files in these directories, scanned in priority order (first match wins):
 
 | Priority | Path | Scope |
 |---|---|---|
@@ -34,6 +40,18 @@ The frontmatter configures the agent. The Markdown body becomes the agent's syst
 - Place file directly in `agents/` — do NOT create subdirectories
 - `README.md` is automatically skipped by the loader
 - Project-level takes priority over user-level when names conflict
+
+## \<example> Tags
+
+Add \<example> tags inside the description to help the orchestrating agent know when to delegate to this agent:
+
+For example
+```markdown
+description: >
+  Writes and improves technical documentation.
+  <example>Write docs for this module</example>
+  <example>Improve the README</example>
+```
 
 ## Minimal Valid Example
 
