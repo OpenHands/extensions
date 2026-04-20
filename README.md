@@ -119,7 +119,7 @@ Official skills and plugins for OpenHands — the open-source AI software engine
 | notion | skill | Create, search, and update Notion pages/databases using the Notion API. Use for documenting work, generating runbooks... | — |
 | npm | skill | Handle npm package installation in non-interactive environments by piping confirmations. Use when installing Node.js ... | — |
 | onboarding | plugin | Assess repository agent-readiness across five pillars, propose high-impact fixes, and generate repo-specific AGENTS.m... | — |
-| openhands | plugin | Unified OpenHands plugin — interact with OpenHands Cloud via CLI or REST API. Send tasks, manage conversations, creat... | `/openhands-cloud` |
+| openhands | plugin | Unified OpenHands plugin — interact with OpenHands Cloud via CLI or REST API. Send tasks, manage conversations, creat... | `/openhands-cloud`, `/automation:create` |
 | pdflatex | skill | Install and use pdflatex to compile LaTeX documents into PDFs on Linux. Use when generating academic papers, research... | — |
 | pr-review | plugin | Automated PR code review — analyzes diffs and posts inline review comments via the GitHub API. | — |
 | prd | skill | Generate a Product Requirements Document (PRD) for a new feature through an interactive clarifying-question workflow.... | `/prd` |

@@ -55,7 +55,7 @@ fi
 # Step 3: Extract URL and open in browser
 echo "$OUTPUT"
 
-URL=$(echo "$OUTPUT" | grep -oE 'https?://[^ ]+' | head -1)
+URL=$(echo "$OUTPUT" | grep -oE 'https?://[^[:space:]]+' | head -1 | sed 's/[,;)]$//')
 
 if [ -n "$URL" ]; then
     echo ""

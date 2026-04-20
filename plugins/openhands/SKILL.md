@@ -17,6 +17,7 @@ triggers:
 - scheduled task
 - cron job
 - cron schedule
+- /automation:create
 ---
 
 # OpenHands — Cloud, API & Automations
