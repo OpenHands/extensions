@@ -19,7 +19,7 @@ def _load_prompt_module():
 
 
 def _format_prompt(
-    *, require_evidence: bool, use_sub_agents: str | bool = False
+    *, require_evidence: bool, use_sub_agents: bool = False
 ) -> str:
     module = _load_prompt_module()
     return module.format_prompt(
@@ -90,15 +90,18 @@ def test_format_prompt_uses_standard_prompt_by_default():
     assert "Analyze the changes and post your review" in prompt
 
 
-def test_format_prompt_uses_sub_agent_prompt_when_enabled():
+def test_format_prompt_uses_delegation_prompt_when_enabled():
     prompt = _format_prompt(require_evidence=False, use_sub_agents=True)
 
-    # Sub-agent prompt should mention coordination and delegation
-    assert "review coordinator" in prompt
+    # Delegation prompt should mention the delegation strategy
+    assert "Delegation Strategy" in prompt
     assert "task" in prompt.lower()
     assert "TaskToolSet" in prompt
     assert "file_reviewer" in prompt
-    # Sub-agent prompt should still include the PR info
+    # Should include smart-activation heuristics
+    assert "Delegate" in prompt
+    assert "Review directly" in prompt
+    # Should still include the PR info
     assert "Add evidence enforcement" in prompt
     assert "OpenHands/extensions" in prompt
     assert "abc123" in prompt
@@ -106,42 +109,11 @@ def test_format_prompt_uses_sub_agent_prompt_when_enabled():
     assert "diff --git a/file b/file" in prompt
 
 
-def test_sub_agent_prompt_includes_evidence_when_enabled():
+def test_delegation_prompt_includes_evidence_when_enabled():
     prompt = _format_prompt(require_evidence=True, use_sub_agents=True)
 
-    assert "review coordinator" in prompt
-    assert "## PR Description Evidence Requirement" in prompt
-
-
-def test_format_prompt_auto_mode_includes_delegation_strategy():
-    prompt = _format_prompt(require_evidence=False, use_sub_agents="auto")
-
-    # Auto prompt should include the delegation decision heuristic
-    assert "Delegation Strategy" in prompt
-    assert "Delegate" in prompt
-    assert "Review directly" in prompt
-    assert "file_reviewer" in prompt
-    # Should still include PR info and diff
-    assert "Add evidence enforcement" in prompt
-    assert "diff --git a/file b/file" in prompt
-    # Should NOT be the forced-coordinator prompt
-    assert "review coordinator" not in prompt
-
-
-def test_format_prompt_auto_mode_with_evidence():
-    prompt = _format_prompt(require_evidence=True, use_sub_agents="auto")
-
     assert "Delegation Strategy" in prompt
     assert "## PR Description Evidence Requirement" in prompt
-
-
-def test_format_prompt_string_true_behaves_like_bool_true():
-    """String 'true' should pick the same template as bool True."""
-    prompt_bool = _format_prompt(require_evidence=False, use_sub_agents=True)
-    prompt_str = _format_prompt(require_evidence=False, use_sub_agents="true")
-
-    assert "review coordinator" in prompt_bool
-    assert "review coordinator" in prompt_str
 
 
 def test_get_file_reviewer_skill_content_standard():

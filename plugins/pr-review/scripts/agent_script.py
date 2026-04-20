@@ -166,22 +166,6 @@ def _get_bool_env(name: str, default: bool = False) -> bool:
     return value.strip().lower() in {"1", "true", "yes", "on"}
 
 
-def _get_sub_agents_mode() -> str:
-    """Parse USE_SUB_AGENTS env var into a tri-state mode.
-
-    Returns:
-        ``"auto"``  – agent decides at runtime whether to delegate
-        ``"true"``  – force delegation (coordinator + file_reviewer sub-agents)
-        ``"false"`` – no delegation (single-agent review, the default)
-    """
-    value = os.getenv("USE_SUB_AGENTS", "false").strip().lower()
-    if value == "auto":
-        return "auto"
-    if value in {"1", "true", "yes", "on"}:
-        return "true"
-    return "false"
-
-
 def _call_github_api(
     url: str,
     method: str = "GET",
@@ -760,7 +744,7 @@ def validate_environment() -> dict[str, Any]:
         "model": os.getenv("LLM_MODEL", "anthropic/claude-sonnet-4-5-20250929"),
         "base_url": os.getenv("LLM_BASE_URL"),
         "require_evidence": _get_bool_env("REQUIRE_EVIDENCE"),
-        "use_sub_agents": _get_sub_agents_mode(),
+        "use_sub_agents": _get_bool_env("USE_SUB_AGENTS"),
         "pr_info": {
             "number": os.getenv("PR_NUMBER"),
             "title": os.getenv("PR_TITLE"),
@@ -896,15 +880,11 @@ def create_conversation(
 
     tools = get_default_tools(enable_browser=False)
 
-    sub_agents_mode = config.get("use_sub_agents", "false")
-    enable_delegation = sub_agents_mode in ("true", "auto")
-    if enable_delegation:
+    use_sub_agents = config.get("use_sub_agents", False)
+    if use_sub_agents:
         _register_sub_agents()
         tools.append(Tool(name=TaskToolSet.name))
-        logger.info(
-            f"Sub-agent delegation enabled (mode={sub_agents_mode}) "
-            "— TaskToolSet added"
-        )
+        logger.info("Sub-agent delegation enabled — TaskToolSet added")
 
     agent = Agent(
         llm=llm,
@@ -924,7 +904,7 @@ def create_conversation(
         "secrets": secrets,
         "plugins": [PluginSource(source=str(plugin_dir))],
     }
-    if enable_delegation:
+    if use_sub_agents:
         conversation_kwargs["visualizer"] = DelegationVisualizer(
             name="PR Review Coordinator"
         )
