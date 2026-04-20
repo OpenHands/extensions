@@ -1,6 +1,6 @@
 # PR Review Plugin
 
-Automated pull request review using OpenHands agents. This plugin provides GitHub workflows that automatically review PRs with detailed, inline code review comments.
+Automated pull request review using OpenHands agents. This plugin provides GitHub workflows that maintainers can trigger to review PRs with detailed, inline code review comments.
 
 ## Quick Start
 
@@ -18,7 +18,7 @@ Then configure the required secrets (see [Installation](#installation) below).
 
 ## Features
 
-- **Automated PR Reviews**: Triggered when PRs are opened, marked ready, or when a reviewer is requested
+- **Maintainer-Triggered PR Reviews**: Triggered when a maintainer requests the reviewer or adds the `review-this` label
 - **Inline Code Comments**: Posts review comments directly on specific lines of code
 - **Unified Review Style**: Rigorous code review combining pragmatic engineering analysis with data structure and simplicity focus
 - **A/B Testing**: Support for testing multiple LLM models
@@ -68,7 +68,7 @@ Add the following secrets in your repository settings (**Settings → Secrets an
 | `GITHUB_TOKEN` | Auto | Provided automatically by GitHub Actions |
 | `LMNR_SKILLS_API_KEY` | No | Laminar API key (org-level secret; mapped to `LMNR_PROJECT_API_KEY` env var in workflows) |
 
-**Note**: For repositories that need to post review comments from a bot account, use `ALLHANDS_BOT_GITHUB_PAT` instead of `GITHUB_TOKEN`.
+**Default**: The example workflow uses the ephemeral `${{ github.token }}`. If you need reviews to come from a dedicated bot account, replace it with a PAT such as `ALLHANDS_BOT_GITHUB_PAT`.
 
 ### 3. Customize the Workflow (Optional)
 
@@ -95,7 +95,7 @@ Edit the workflow file to customize:
     
     # Secrets
     llm-api-key: ${{ secrets.LLM_API_KEY }}
-    github-token: ${{ secrets.GITHUB_TOKEN }}
+    github-token: ${{ github.token }}
     
     # Optional: Enable Laminar observability
     # lmnr-api-key: ${{ secrets.LMNR_PROJECT_API_KEY }}
@@ -113,14 +113,12 @@ Create a `review-this` label for manual review triggers:
 
 ## Usage
 
-### Automatic Triggers
+### Triggers
 
-PR reviews are automatically triggered when:
+PR reviews run only after an explicit maintainer action:
 
-1. A new non-draft PR is opened (by non-first-time contributors)
-2. A draft PR is marked as ready for review
-3. The `review-this` label is added
-4. `openhands-agent` or `all-hands-bot` is requested as a reviewer
+1. The `review-this` label is added
+2. `openhands-agent` or `all-hands-bot` is requested as a reviewer
 
 ### Requesting a Review
 
@@ -271,7 +269,7 @@ Also update any `sdk-repo` and `sdk-version` inputs to `extensions-repo` and `ex
 ### Review Not Triggered
 
 1. Check that the workflow file is in `.github/workflows/`
-2. Verify the PR author association (first-time contributors need manual trigger)
+2. Verify that a maintainer added the `review-this` label or requested the reviewer
 3. Ensure secrets are configured correctly
 
 ### Review Comments Not Appearing
@@ -288,12 +286,11 @@ If you see rate limit errors:
 
 ## Security
 
-- Uses `pull_request_target` when you need secrets for fork PR reviews; apply strict maintainer-controlled triggers and checkout safeguards
+- Uses `pull_request_target` only for explicit maintainer-triggered reviews on fork PRs
+- Reviews the PR diff from the GitHub API while checking out the trusted base revision for workspace context
 - Keeps GitHub Actions caching disabled in privileged review workflows to avoid cache-poisoning pivots from prompt injection
+- Defaults to the ephemeral `${{ github.token }}`; switch to a PAT only if you need a dedicated bot identity
 - For lower-trust or comment-only smoke-test setups, prefer `pull_request` to reduce privilege by default
-- Only triggers for trusted contributors or when maintainers add labels/reviewers
-- PR code is checked out explicitly; secrets are not exposed to PR code
-- Credentials are not persisted during checkout
 
 ## Contributing
 

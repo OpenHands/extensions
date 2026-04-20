@@ -29,6 +29,7 @@ Environment Variables:
     PR_BODY: Pull request body (optional)
     PR_BASE_BRANCH: Base branch name (required)
     PR_HEAD_BRANCH: Head branch name (required)
+    PR_HEAD_SHA: Head commit SHA (optional; used for comment anchoring)
     REPO_NAME: Repository name in format owner/repo (required)
     REQUIRE_EVIDENCE: Whether to require PR description evidence showing the code
         works ('true'/'false', default: 'false')
@@ -685,8 +686,12 @@ def get_truncated_pr_diff() -> str:
 
 
 def get_head_commit_sha(repo_dir: Path | None = None) -> str:
-    """
-    Get the SHA of the HEAD commit.
+    """Get the commit SHA to anchor review comments on.
+
+    Prefer the PR head SHA from the workflow event when available. This keeps
+    inline comments attached to the untrusted PR revision even when the action
+    reviews the diff from a trusted base checkout. Fall back to the local HEAD
+    commit for compatibility with older workflows.
 
     Args:
         repo_dir: Path to the repository (defaults to cwd)
@@ -694,6 +699,10 @@ def get_head_commit_sha(repo_dir: Path | None = None) -> str:
     Returns:
         The commit SHA
     """
+    pr_head_sha = os.getenv("PR_HEAD_SHA")
+    if pr_head_sha:
+        return pr_head_sha
+
     if repo_dir is None:
         repo_dir = Path.cwd()
     return run_git_command(["git", "rev-parse", "HEAD"], repo_dir).strip()

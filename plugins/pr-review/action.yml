@@ -67,14 +67,17 @@ runs:
               ref: ${{ inputs.extensions-version }}
               path: extensions
 
-        - name: Checkout PR repository
+        # Security: use the trusted base revision for workspace context.
+        # The review prompt already includes the PR diff from the GitHub API,
+        # so we do not need to checkout untrusted PR code in this privileged workflow.
+        - name: Checkout target repository (trusted base)
           uses: actions/checkout@v4
           with:
-              repository: ${{ github.event.pull_request.head.repo.full_name }}
-              ref: ${{ github.event.pull_request.head.ref }}
+              repository: ${{ github.event.pull_request.base.repo.full_name }}
+              ref: ${{ github.event.pull_request.base.sha }}
               fetch-depth: 0
               persist-credentials: false
-              path: pr-repo
+              path: target-repo
               submodules: recursive
 
         - name: Set up Python
@@ -145,9 +148,10 @@ runs:
               PR_BODY: ${{ github.event.pull_request.body }}
               PR_BASE_BRANCH: ${{ github.event.pull_request.base.ref }}
               PR_HEAD_BRANCH: ${{ github.event.pull_request.head.ref }}
+              PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
               REPO_NAME: ${{ github.repository }}
           run: |
-              cd pr-repo
+              cd target-repo
               uv run --no-project --with openhands-sdk --with openhands-tools --with lmnr \
                 python ../extensions/plugins/pr-review/scripts/agent_script.py
 
@@ -159,6 +163,8 @@ runs:
               path: |
                   *.log
                   output/
+                  target-repo/*.log
+                  target-repo/output/
               retention-days: 7
 
         - name: Upload Laminar trace info for evaluation
@@ -166,6 +172,6 @@ runs:
           if: success()
           with:
               name: pr-review-trace-${{ github.event.pull_request.number }}
-              path: pr-repo/laminar_trace_info.json
+              path: target-repo/laminar_trace_info.json
               retention-days: 30
               if-no-files-found: ignore
