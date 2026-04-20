@@ -106,6 +106,7 @@ When editing or adding skills in this repo, follow these rules (and add new skil
 - The `code-review` and `codereview-roasted` skills have been merged into a single `code-review` skill. The `/codereview-roasted` trigger is kept as an alias for backward compatibility. The `review-style` action input is deprecated and ignored.
 - `plugins/pr-review` supports an optional `require-evidence` action input that tells the reviewer to require end-to-end proof in the PR description that the code works; test output alone is not sufficient evidence.
 - The corresponding `REQUIRE_EVIDENCE` env flag is consumed by `plugins/pr-review/scripts/agent_script.py` and injected into the review prompt via `plugins/pr-review/scripts/prompt.py`.
+- `plugins/pr-review` exposes an `enable-uv-cache` input (default `'false'`) that toggles `setup-uv`'s GitHub Actions cache. Default stays off because a prompt-injected reviewer could poison a shared cache that higher-privilege workflows later consume; opt in only on single-tenant self-hosted runners. The README's "Caching and Security" section documents the threat model and recommends a host-level uv cache volume as the preferred alternative for self-hosted setups.
 - GitHub review suggestions that only delete lines can look empty in `PullRequestReviewComment.body`; the rendered content is available via `bodyText`/`bodyHTML`, so review-context formatting should fall back there before treating a suggestion as empty.
 - Prompt coverage for this behavior lives in `tests/test_pr_review_prompt.py`.
 

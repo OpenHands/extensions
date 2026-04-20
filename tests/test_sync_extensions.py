@@ -7,7 +7,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "scripts"))
 from sync_extensions import (
-    CMD_HEADER,
+    CMD_MARKER,
     CommandSpec,
     REPO_ROOT,
     _entry_type,

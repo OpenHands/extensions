@@ -1,6 +1,6 @@
 ---
 name: code-review
-description: Rigorous code review focusing on data structures, simplicity, security, and pragmatism. Provides brutally honest, actionable feedback on pull requests or merge requests. Use when reviewing code changes.
+description: Rigorous code review focusing on data structures, simplicity, security, pragmatism, and risk/safety evaluation. Provides brutally honest, actionable feedback on pull requests or merge requests, including a risk assessment for every review. Use when reviewing code changes.
 triggers:
 - /codereview
 - /codereview-roasted
@@ -99,6 +99,9 @@ Require:
 8. **Dependency Changes**
 If dependency lock changes have downgraded a dependency, comment pointing that out to make sure it was intentional.
 
+9. **Risk and Safety Evaluation**
+Read `references/risk-evaluation.md` for the full risk evaluation framework including risk levels (🟢 Low / 🟡 Medium / 🔴 High), risk factors, escalation guidance, and repo-specific risk rules.
+
 CRITICAL REVIEW OUTPUT FORMAT:
 
 Start with a **Taste Rating**:
@@ -125,6 +128,13 @@ Then provide analysis (skip if 🟢):
 **[TESTING GAPS]** (If behavior changed, this is not optional)
 - [tests/test_feature.py, Line E] **Mocks Aren't Tests**: You're only asserting mocked calls. Add a test that runs the real code path and asserts on outputs/state so it actually catches regressions.
 - [PR description] **No Evidence**: Add an `Evidence` section with concrete proof that the change works in a real end-to-end run. Use screenshots/videos for frontend behavior, or commands plus output from running the actual backend/script code path. Test output alone is not enough. Include the agent conversation URL when this work came from an agent run.
+
+Always include the **Risk and Safety Evaluation** as the final section of your review, even when no other issues are found. Use this format:
+
+**[RISK ASSESSMENT]**
+- [Overall PR] ⚠️ Risk Assessment: 🟢 LOW / 🟡 MEDIUM / 🔴 HIGH
+Brief explanation of the risk classification and key factors considered.
+If HIGH: **Recommendation**: Do not auto-merge. Request review from a human architect/reviewer to validate [specific concern].
 
 
 **VERDICT:**
