@@ -77,7 +77,7 @@ from openhands.tools.task import TaskToolSet
 script_dir = Path(__file__).parent
 sys.path.insert(0, str(script_dir))
 
-from prompt import format_prompt, get_file_reviewer_skill_content  # noqa: E402
+from prompt import FILE_REVIEWER_SKILL, format_prompt  # noqa: E402
 
 logger = get_logger(__name__)
 
@@ -788,12 +788,10 @@ def _create_file_reviewer_agent(llm: LLM) -> Agent:
     access so it can inspect surrounding code context in the PR repo,
     but the coordinator handles all GitHub API interaction.
     """
-    skill_content = get_file_reviewer_skill_content()
-
     skills = [
         Skill(
             name="file_review_instructions",
-            content=skill_content,
+            content=FILE_REVIEWER_SKILL,
             trigger=None,
         ),
     ]

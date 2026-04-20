@@ -148,8 +148,7 @@ If you find no issues, return:
 []
 ```
 
-**Important**: Return ONLY the JSON array. Do NOT post anything to the GitHub
-API — the coordinator agent handles that.
+When you are done, call the `finish` tool with the JSON array as the message.
 """
 
 
@@ -220,8 +219,3 @@ def format_prompt(
         prompt += _DELEGATION_SUFFIX
 
     return prompt
-
-
-def get_file_reviewer_skill_content() -> str:
-    """Return the file_reviewer sub-agent skill content."""
-    return FILE_REVIEWER_SKILL

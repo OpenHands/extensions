@@ -112,12 +112,12 @@ def test_delegation_suffix_with_evidence():
     assert "## PR Description Evidence Requirement" in prompt
 
 
-def test_get_file_reviewer_skill_content():
+def test_file_reviewer_skill_content():
     module = _load_prompt_module()
-    content = module.get_file_reviewer_skill_content()
+    content = module.FILE_REVIEWER_SKILL
 
     assert "file-level code reviewer" in content
-    # Unified review style (no more standard/roasted split)
+    # Unified review style
     assert "pragmatic" in content
     # JSON schema documented
     assert "path" in content
@@ -128,5 +128,5 @@ def test_get_file_reviewer_skill_content():
     # Tool access documented
     assert "terminal" in content
     assert "file_editor" in content
-    # Must not touch GitHub API
-    assert "Do NOT post anything to the GitHub" in content
+    # Sub-agent returns results via finish tool
+    assert "finish" in content
