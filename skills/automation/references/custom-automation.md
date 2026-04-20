@@ -44,8 +44,16 @@ automation.tar.gz
 
 ### Upload the Tarball
 
+First, detect the API host from the environment:
+
 ```bash
-curl -X POST "https://app.all-hands.dev/api/automation/v1/uploads?name=my-automation&description=Weekly%20report%20generator" \
+OPENHANDS_HOST="${OH_ALLOW_CORS_ORIGINS_0:-https://app.all-hands.dev}"
+```
+
+Then upload:
+
+```bash
+curl -X POST "${OPENHANDS_HOST}/api/automation/v1/uploads?name=my-automation&description=Weekly%20report%20generator" \
   -H "Authorization: Bearer ${OPENHANDS_API_KEY}" \
   -H "Content-Type: application/gzip" \
   --data-binary @automation.tar.gz
@@ -79,7 +87,7 @@ curl -X POST "https://app.all-hands.dev/api/automation/v1/uploads?name=my-automa
 Once you have a tarball uploaded (or an external URL), create the automation:
 
 ```bash
-curl -X POST "https://app.all-hands.dev/api/automation/v1" \
+curl -X POST "${OPENHANDS_HOST}/api/automation/v1" \
   -H "Authorization: Bearer ${OPENHANDS_API_KEY}" \
   -H "Content-Type: application/json" \
   -d '{
@@ -142,21 +150,21 @@ curl -X POST "https://app.all-hands.dev/api/automation/v1" \
 ### List Automations
 
 ```bash
-curl "https://app.all-hands.dev/api/automation/v1?limit=20" \
+curl "${OPENHANDS_HOST}/api/automation/v1?limit=20" \
   -H "Authorization: Bearer ${OPENHANDS_API_KEY}"
 ```
 
 ### Get Automation Details
 
 ```bash
-curl "https://app.all-hands.dev/api/automation/v1/{automation_id}" \
+curl "${OPENHANDS_HOST}/api/automation/v1/{automation_id}" \
   -H "Authorization: Bearer ${OPENHANDS_API_KEY}"
 ```
 
 ### Update Automation
 
 ```bash
-curl -X PATCH "https://app.all-hands.dev/api/automation/v1/{automation_id}" \
+curl -X PATCH "${OPENHANDS_HOST}/api/automation/v1/{automation_id}" \
   -H "Authorization: Bearer ${OPENHANDS_API_KEY}" \
   -H "Content-Type: application/json" \
   -d '{"enabled": false}'
@@ -165,21 +173,21 @@ curl -X PATCH "https://app.all-hands.dev/api/automation/v1/{automation_id}" \
 ### Delete Automation
 
 ```bash
-curl -X DELETE "https://app.all-hands.dev/api/automation/v1/{automation_id}" \
+curl -X DELETE "${OPENHANDS_HOST}/api/automation/v1/{automation_id}" \
   -H "Authorization: Bearer ${OPENHANDS_API_KEY}"
 ```
 
 ### Manually Trigger a Run
 
 ```bash
-curl -X POST "https://app.all-hands.dev/api/automation/v1/{automation_id}/dispatch" \
+curl -X POST "${OPENHANDS_HOST}/api/automation/v1/{automation_id}/dispatch" \
   -H "Authorization: Bearer ${OPENHANDS_API_KEY}"
 ```
 
 ### List Automation Runs
 
 ```bash
-curl "https://app.all-hands.dev/api/automation/v1/{automation_id}/runs?limit=20" \
+curl "${OPENHANDS_HOST}/api/automation/v1/{automation_id}/runs?limit=20" \
   -H "Authorization: Bearer ${OPENHANDS_API_KEY}"
 ```
 
@@ -312,6 +320,9 @@ Your automation script receives these environment variables:
 ## Complete Example
 
 ```bash
+# 0. Detect the API host (do this first!)
+OPENHANDS_HOST="${OH_ALLOW_CORS_ORIGINS_0:-https://app.all-hands.dev}"
+
 # 1. Create your automation code
 mkdir my-automation && cd my-automation
 
@@ -359,7 +370,7 @@ tar -czf ../my-automation.tar.gz .
 
 # 3. Upload the tarball
 UPLOAD_RESPONSE=$(curl -s -X POST \
-  "https://app.all-hands.dev/api/automation/v1/uploads?name=my-automation" \
+  "${OPENHANDS_HOST}/api/automation/v1/uploads?name=my-automation" \
   -H "Authorization: Bearer ${OPENHANDS_API_KEY}" \
   -H "Content-Type: application/gzip" \
   --data-binary @my-automation.tar.gz)
@@ -367,7 +378,7 @@ UPLOAD_RESPONSE=$(curl -s -X POST \
 TARBALL_PATH=$(echo "$UPLOAD_RESPONSE" | jq -r '.tarball_path')
 
 # 4. Create the automation
-curl -X POST "https://app.all-hands.dev/api/automation/v1" \
+curl -X POST "${OPENHANDS_HOST}/api/automation/v1" \
   -H "Authorization: Bearer ${OPENHANDS_API_KEY}" \
   -H "Content-Type: application/json" \
   -d "{

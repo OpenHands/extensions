@@ -36,7 +36,18 @@ All requests require Bearer authentication:
 
 ## API Endpoints
 
-Production host: `app.all-hands.dev`
+### Determining the API Host
+
+**Before making API calls, detect the correct host from the environment:**
+
+```bash
+# The host is available in OH_ALLOW_CORS_ORIGINS_0 (includes https://)
+OPENHANDS_HOST="${OH_ALLOW_CORS_ORIGINS_0:-https://app.all-hands.dev}"
+```
+
+This automatically uses the correct host for the deployment environment (e.g., `https://staging.all-hands.dev` for staging, `https://app.all-hands.dev` for production).
+
+### Endpoints
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|
@@ -73,7 +84,7 @@ Use the **preset/prompt endpoint** for simple automations. Provide a natural lan
 #### Request
 
 ```bash
-curl -X POST "https://app.all-hands.dev/api/automation/v1/preset/prompt" \
+curl -X POST "${OPENHANDS_HOST}/api/automation/v1/preset/prompt" \
   -H "Authorization: Bearer ${OPENHANDS_API_KEY}" \
   -H "Content-Type: application/json" \
   -d '{
@@ -134,7 +145,7 @@ Common schedules: `0 9 * * *` (daily 9 AM), `0 9 * * 1-5` (weekdays 9 AM), `0 9 
 
 **Daily report:**
 ```bash
-curl -X POST "https://app.all-hands.dev/api/automation/v1/preset/prompt" \
+curl -X POST "${OPENHANDS_HOST}/api/automation/v1/preset/prompt" \
   -H "Authorization: Bearer ${OPENHANDS_API_KEY}" \
   -H "Content-Type: application/json" \
   -d '{
@@ -146,7 +157,7 @@ curl -X POST "https://app.all-hands.dev/api/automation/v1/preset/prompt" \
 
 **Weekly cleanup:**
 ```bash
-curl -X POST "https://app.all-hands.dev/api/automation/v1/preset/prompt" \
+curl -X POST "${OPENHANDS_HOST}/api/automation/v1/preset/prompt" \
   -H "Authorization: Bearer ${OPENHANDS_API_KEY}" \
   -H "Content-Type: application/json" \
   -d '{
@@ -175,7 +186,7 @@ Use the **preset/plugin endpoint** when you need to load one or more plugins tha
 #### Request
 
 ```bash
-curl -X POST "https://app.all-hands.dev/api/automation/v1/preset/plugin" \
+curl -X POST "${OPENHANDS_HOST}/api/automation/v1/preset/plugin" \
   -H "Authorization: Bearer ${OPENHANDS_API_KEY}" \
   -H "Content-Type: application/json" \
   -d '{
@@ -233,7 +244,7 @@ curl -X POST "https://app.all-hands.dev/api/automation/v1/preset/plugin" \
 
 **Single plugin with version:**
 ```bash
-curl -X POST "https://app.all-hands.dev/api/automation/v1/preset/plugin" \
+curl -X POST "${OPENHANDS_HOST}/api/automation/v1/preset/plugin" \
   -H "Authorization: Bearer ${OPENHANDS_API_KEY}" \
   -H "Content-Type: application/json" \
   -d '{
@@ -248,7 +259,7 @@ curl -X POST "https://app.all-hands.dev/api/automation/v1/preset/plugin" \
 
 **Multiple plugins:**
 ```bash
-curl -X POST "https://app.all-hands.dev/api/automation/v1/preset/plugin" \
+curl -X POST "${OPENHANDS_HOST}/api/automation/v1/preset/plugin" \
   -H "Authorization: Bearer ${OPENHANDS_API_KEY}" \
   -H "Content-Type: application/json" \
   -d '{
@@ -265,7 +276,7 @@ curl -X POST "https://app.all-hands.dev/api/automation/v1/preset/plugin" \
 
 **Monorepo plugin:**
 ```bash
-curl -X POST "https://app.all-hands.dev/api/automation/v1/preset/plugin" \
+curl -X POST "${OPENHANDS_HOST}/api/automation/v1/preset/plugin" \
   -H "Authorization: Bearer ${OPENHANDS_API_KEY}" \
   -H "Content-Type: application/json" \
   -d '{
@@ -285,7 +296,7 @@ curl -X POST "https://app.all-hands.dev/api/automation/v1/preset/plugin" \
 ### List Automations
 
 ```bash
-curl "https://app.all-hands.dev/api/automation/v1?limit=20" \
+curl "${OPENHANDS_HOST}/api/automation/v1?limit=20" \
   -H "Authorization: Bearer ${OPENHANDS_API_KEY}"
 ```
 
@@ -293,17 +304,17 @@ curl "https://app.all-hands.dev/api/automation/v1?limit=20" \
 
 ```bash
 # Get details
-curl "https://app.all-hands.dev/api/automation/v1/{automation_id}" \
+curl "${OPENHANDS_HOST}/api/automation/v1/{automation_id}" \
   -H "Authorization: Bearer ${OPENHANDS_API_KEY}"
 
 # Update (fields: name, trigger, enabled, timeout)
-curl -X PATCH "https://app.all-hands.dev/api/automation/v1/{automation_id}" \
+curl -X PATCH "${OPENHANDS_HOST}/api/automation/v1/{automation_id}" \
   -H "Authorization: Bearer ${OPENHANDS_API_KEY}" \
   -H "Content-Type: application/json" \
   -d '{"enabled": false}'
 
 # Delete
-curl -X DELETE "https://app.all-hands.dev/api/automation/v1/{automation_id}" \
+curl -X DELETE "${OPENHANDS_HOST}/api/automation/v1/{automation_id}" \
   -H "Authorization: Bearer ${OPENHANDS_API_KEY}"
 ```
 
@@ -311,11 +322,11 @@ curl -X DELETE "https://app.all-hands.dev/api/automation/v1/{automation_id}" \
 
 ```bash
 # Manually trigger a run
-curl -X POST "https://app.all-hands.dev/api/automation/v1/{automation_id}/dispatch" \
+curl -X POST "${OPENHANDS_HOST}/api/automation/v1/{automation_id}/dispatch" \
   -H "Authorization: Bearer ${OPENHANDS_API_KEY}"
 
 # List runs
-curl "https://app.all-hands.dev/api/automation/v1/{automation_id}/runs?limit=20" \
+curl "${OPENHANDS_HOST}/api/automation/v1/{automation_id}/runs?limit=20" \
   -H "Authorization: Bearer ${OPENHANDS_API_KEY}"
 ```
 
