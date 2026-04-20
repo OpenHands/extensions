@@ -806,15 +806,7 @@ def _create_file_reviewer_agent(llm: LLM) -> Agent:
             Tool(name="terminal"),
             Tool(name="file_editor"),
         ],
-        agent_context=AgentContext(
-            skills=skills,
-            system_message_suffix=(
-                "You are a file-level code reviewer sub-agent. "
-                "You can read files with the terminal (cat, grep) and "
-                "file_editor (view) to understand surrounding context. "
-                "Return findings as a JSON array. Do NOT call the GitHub API."
-            ),
-        ),
+        agent_context=AgentContext(skills=skills),
     )
 
 

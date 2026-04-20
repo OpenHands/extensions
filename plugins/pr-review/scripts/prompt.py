@@ -12,9 +12,9 @@ The template includes:
 - {commit_id} - The HEAD commit SHA
 - {review_context} - Previous review comments and thread resolution status
 
-When sub-agent delegation is enabled (``use_sub_agents=True``), the agent
-gets the TaskToolSet and decides at runtime whether to delegate based on
-diff size and complexity.
+When sub-agent delegation is enabled (``use_sub_agents=True``), a short
+delegation suffix is appended to the base prompt giving the agent the
+option to delegate file-level reviews via the TaskToolSet.
 """
 
 # Template for when there is review context available
@@ -79,76 +79,62 @@ Review the PR changes below and identify issues that need to be addressed.
 Analyze the changes and post your review using the GitHub API.
 """
 
-# Prompt used when sub-agent delegation is enabled (use_sub_agents=True).
-# The agent gets the TaskToolSet and decides at runtime whether to delegate
-# based on diff size and complexity.
-DELEGATION_PROMPT = """{skill_trigger}
-/github-pr-review
+# Appended to PROMPT when use_sub_agents=True.  Gives the main agent the
+# option to delegate via the TaskToolSet without duplicating the base prompt.
+_DELEGATION_SUFFIX = """
+## Sub-agent Delegation
 
-When posting a review, keep the review body brief unless your active review instructions require a longer structured format.
+You have access to the **task** tool for delegating file-level reviews to
+`file_reviewer` sub-agents. Use it when the diff is large — roughly 4+ files
+or 500+ changed lines. For smaller diffs, just review directly.
 
-Review the PR changes below and identify issues that need to be addressed.
-
-## Pull Request Information
-
-- **Title**: {title}
-- **Description**: {body}
-- **Repository**: {repo_name}
-- **Base Branch**: {base_branch}
-- **Head Branch**: {head_branch}
-- **PR Number**: {pr_number}
-- **Commit ID**: {commit_id}
-
-{review_context_section}{evidence_requirements_section}
-
-## Delegation Strategy
-
-You have access to the **task** tool (TaskToolSet) for delegating file-level
-reviews to `file_reviewer` sub-agents. **Decide whether to delegate based on
-the diff below:**
-
-- **Delegate** when the diff spans many files (roughly 4+) or is large
-  (roughly 500+ changed lines). Split by file or small groups of related files
-  and use `subagent_type: "file_reviewer"` for each chunk.
-- **Review directly** when the diff is small or touches only a few files —
-  delegation overhead is not worth it.
-
-If you delegate:
-1. Send each file/group to a sub-agent with the diff chunk and PR context.
-2. Collect and merge findings, de-duplicate, drop noise.
-3. Post a single consolidated review via the GitHub API.
-
-If you review directly:
-- Analyze the diff yourself and post the review as usual.
-
-## Git Diff
-
-```diff
-{diff}
-```
-
-Analyze the changes and post your review using the GitHub API.
+When delegating, split the diff by file (or small group of related files) and
+call the task tool with `subagent_type: "file_reviewer"`. Each sub-agent will
+return a JSON array of findings. Merge them, de-duplicate, drop noise, and
+post a single consolidated review via the GitHub API.
 """
 
-# System-level instruction injected into each file_reviewer sub-agent so it
-# knows its role, the review style, and the expected output format.
+# Skill content injected into each file_reviewer sub-agent.
+# Defines the review persona, available tools, and — most importantly — the
+# exact JSON schema the sub-agent must return.
 FILE_REVIEWER_SKILL = """\
-You are a **file-level code reviewer**. You will receive a diff for one or more
-files from a pull request together with PR metadata.
+You are a **file-level code reviewer** sub-agent.
 
-You have access to `terminal` and `file_editor` (read-only) so you can inspect
-the full source files for surrounding context — use `cat`, `grep`, or the
-file_editor `view` command when the diff alone is not enough to judge an issue.
+## Your Task
 
-Review style: {review_style_description}
+You will receive a diff for one or more files from a pull request.
+Review the changes and return structured findings.
 
-For each issue you find, return a JSON object with these exact fields:
-- `path` (string): the file path exactly as shown in the diff header
-- `line` (integer): the NEW file line number where the issue occurs
-- `severity` (string): one of `"critical"`, `"major"`, `"minor"`, `"nit"`
-- `body` (string): a concise description of the issue with a suggested fix
+## Tools
 
-Example output:
+You have `terminal` and `file_editor` so you can inspect the full source
+files for surrounding context — use `cat`, `grep`, or `file_editor view`
+when the diff alone is not enough to judge an issue.
+
+## Review Style
+
+{review_style_description}
+
+## Output Format
+
+Return a JSON array wrapped in a ```json fenced code block.
+Each element must have exactly these fields:
+
+| Field      | Type   | Description |
+|------------|--------|-------------|
+| `path`     | string | File path exactly as shown in the diff header (e.g. `src/utils.py`) |
+| `line`     | int    | Line number in the **new** file where the issue occurs |
+| `severity` | string | One of: `"critical"`, `"major"`, `"minor"`, `"nit"` |
+| `body`     | string | Concise description of the issue, including a suggested fix |
+
+### Severity guide
+- **critical** — bug, security vulnerability, or data loss
+- **major** — incorrect logic, missing error handling, performance issue
+- **minor** — style, readability, or minor correctness concern
+- **nit** — cosmetic or trivial preference
+
+### Example
+
 ```json
 [
   {{"path": "src/utils.py", "line": 42, "severity": "major", "body": "Unchecked `None` return — add a guard before accessing `.value`."}},
@@ -156,8 +142,13 @@ Example output:
 ]
 ```
 
-Return your findings as a JSON array. If you find no issues, return `[]`.
-Do NOT post anything to the GitHub API — the coordinator agent will handle that.
+If you find no issues, return:
+```json
+[]
+```
+
+**Important**: Return ONLY the JSON array. Do NOT post anything to the GitHub
+API — the coordinator agent handles that.
 """
 
 
@@ -210,9 +201,7 @@ def format_prompt(
         _EVIDENCE_REQUIREMENT_SECTION if require_evidence else ""
     )
 
-    template = DELEGATION_PROMPT if use_sub_agents else PROMPT
-
-    return template.format(
+    prompt = PROMPT.format(
         skill_trigger=skill_trigger,
         title=title,
         body=body,
@@ -225,6 +214,11 @@ def format_prompt(
         evidence_requirements_section=evidence_requirements_section,
         diff=diff,
     )
+
+    if use_sub_agents:
+        prompt += _DELEGATION_SUFFIX
+
+    return prompt
 
 
 def get_file_reviewer_skill_content(review_style: str = "standard") -> str:

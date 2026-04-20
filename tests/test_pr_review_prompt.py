@@ -90,29 +90,25 @@ def test_format_prompt_uses_standard_prompt_by_default():
     assert "Analyze the changes and post your review" in prompt
 
 
-def test_format_prompt_uses_delegation_prompt_when_enabled():
+def test_format_prompt_appends_delegation_suffix_when_enabled():
     prompt = _format_prompt(require_evidence=False, use_sub_agents=True)
 
-    # Delegation prompt should mention the delegation strategy
-    assert "Delegation Strategy" in prompt
-    assert "task" in prompt.lower()
-    assert "TaskToolSet" in prompt
-    assert "file_reviewer" in prompt
-    # Should include smart-activation heuristics
-    assert "Delegate" in prompt
-    assert "Review directly" in prompt
-    # Should still include the PR info
+    # Should still include the base prompt content
     assert "Add evidence enforcement" in prompt
     assert "OpenHands/extensions" in prompt
     assert "abc123" in prompt
-    # Should include the diff
     assert "diff --git a/file b/file" in prompt
+    assert "Analyze the changes and post your review" in prompt
+    # Delegation suffix appended
+    assert "Sub-agent Delegation" in prompt
+    assert "file_reviewer" in prompt
+    assert "task" in prompt.lower()
 
 
-def test_delegation_prompt_includes_evidence_when_enabled():
+def test_delegation_suffix_with_evidence():
     prompt = _format_prompt(require_evidence=True, use_sub_agents=True)
 
-    assert "Delegation Strategy" in prompt
+    assert "Sub-agent Delegation" in prompt
     assert "## PR Description Evidence Requirement" in prompt
 
 
@@ -122,10 +118,17 @@ def test_get_file_reviewer_skill_content_standard():
 
     assert "file-level code reviewer" in content
     assert "Balanced review" in content
-    assert "JSON array" in content
-    # Sub-agents now have tool access
+    # JSON schema documented
+    assert "path" in content
+    assert "line" in content
+    assert "severity" in content
+    assert "body" in content
+    assert "critical" in content
+    # Tool access documented
     assert "terminal" in content
     assert "file_editor" in content
+    # Must not touch GitHub API
+    assert "Do NOT post anything to the GitHub" in content
 
 
 def test_get_file_reviewer_skill_content_roasted():
@@ -134,4 +137,4 @@ def test_get_file_reviewer_skill_content_roasted():
 
     assert "file-level code reviewer" in content
     assert "Linus Torvalds" in content
-    assert "JSON array" in content
+    assert "severity" in content
