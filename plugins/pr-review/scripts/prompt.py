@@ -12,10 +12,11 @@ The template includes:
 - {commit_id} - The HEAD commit SHA
 - {review_context} - Previous review comments and thread resolution status
 
-When sub-agent delegation is enabled, the main agent acts as a coordinator
-that splits the diff by file and delegates individual file reviews to
-sub-agents via the TaskToolSet, then consolidates results and posts the
-final review.
+Sub-agent delegation modes (controlled by ``use_sub_agents``):
+- ``"false"`` (default): single-agent review, no delegation.
+- ``"true"``: force delegation — coordinator + file_reviewer sub-agents.
+- ``"auto"``: smart activation — agent gets the TaskToolSet and decides
+  at runtime whether to delegate based on diff size and complexity.
 """
 
 # Template for when there is review context available
@@ -134,11 +135,65 @@ The complete diff is provided below. Split it by file when delegating.
 ```
 """
 
+# Prompt for "auto" mode: the agent gets the TaskToolSet but decides itself
+# whether delegation is worthwhile based on diff size and complexity.
+AUTO_DELEGATION_PROMPT = """{skill_trigger}
+/github-pr-review
+
+When posting a review, keep the review body brief unless your active review instructions require a longer structured format.
+
+Review the PR changes below and identify issues that need to be addressed.
+
+## Pull Request Information
+
+- **Title**: {title}
+- **Description**: {body}
+- **Repository**: {repo_name}
+- **Base Branch**: {base_branch}
+- **Head Branch**: {head_branch}
+- **PR Number**: {pr_number}
+- **Commit ID**: {commit_id}
+
+{review_context_section}{evidence_requirements_section}
+
+## Delegation Strategy
+
+You have access to the **task** tool (TaskToolSet) for delegating file-level
+reviews to `file_reviewer` sub-agents. **Decide whether to delegate based on
+the diff below:**
+
+- **Delegate** when the diff spans many files (roughly 4+) or is large
+  (roughly 500+ changed lines). Split by file or small groups of related files
+  and use `subagent_type: "file_reviewer"` for each chunk.
+- **Review directly** when the diff is small or touches only a few files —
+  delegation overhead is not worth it.
+
+If you delegate:
+1. Send each file/group to a sub-agent with the diff chunk and PR context.
+2. Collect and merge findings, de-duplicate, drop noise.
+3. Post a single consolidated review via the GitHub API.
+
+If you review directly:
+- Analyze the diff yourself and post the review as usual.
+
+## Git Diff
+
+```diff
+{diff}
+```
+
+Analyze the changes and post your review using the GitHub API.
+"""
+
 # System-level instruction injected into each file_reviewer sub-agent so it
 # knows its role, the review style, and the expected output format.
 FILE_REVIEWER_SKILL = """\
 You are a **file-level code reviewer**. You will receive a diff for one or more
 files from a pull request together with PR metadata.
+
+You have access to `terminal` and `file_editor` (read-only) so you can inspect
+the full source files for surrounding context — use `cat`, `grep`, or the
+file_editor `view` command when the diff alone is not enough to judge an issue.
 
 Review style: {review_style_description}
 
@@ -173,7 +228,7 @@ def format_prompt(
     diff: str,
     review_context: str = "",
     require_evidence: bool = False,
-    use_sub_agents: bool = False,
+    use_sub_agents: str | bool = False,
 ) -> str:
     """Format the PR review prompt with all parameters.
 
@@ -191,9 +246,10 @@ def format_prompt(
                         the review context section is omitted from the prompt.
         require_evidence: Whether to instruct the reviewer to enforce PR description
                           evidence showing the code works.
-        use_sub_agents: When True, use the sub-agent coordinator prompt instead of
-                        the single-agent prompt. The coordinator will delegate
-                        file-level reviews to sub-agents and consolidate results.
+        use_sub_agents: Delegation mode — ``"true"`` forces delegation,
+                        ``"auto"`` lets the agent decide, ``"false"`` (or
+                        ``False``) disables delegation.  Accepts legacy
+                        ``bool`` for backward compatibility.
 
     Returns:
         Formatted prompt string
@@ -210,7 +266,14 @@ def format_prompt(
         _EVIDENCE_REQUIREMENT_SECTION if require_evidence else ""
     )
 
-    template = SUB_AGENT_PROMPT if use_sub_agents else PROMPT
+    # Normalise legacy bool to string mode
+    mode = str(use_sub_agents).lower()
+    if mode == "true":
+        template = SUB_AGENT_PROMPT
+    elif mode == "auto":
+        template = AUTO_DELEGATION_PROMPT
+    else:
+        template = PROMPT
 
     return template.format(
         skill_trigger=skill_trigger,

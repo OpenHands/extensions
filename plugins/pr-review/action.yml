@@ -28,7 +28,12 @@ inputs:
         required: false
         default: 'false'
     use-sub-agents:
-        description: "When true, enable sub-agent delegation for file-level reviews. The main agent acts as a coordinator that delegates per-file review work to file_reviewer sub-agents via the TaskToolSet, then consolidates findings into a single PR review. Experimental."
+        description: >
+            Controls sub-agent delegation for file-level reviews (experimental).
+            'false' (default): single-agent review, no delegation.
+            'true': force delegation — coordinator + file_reviewer sub-agents.
+            'auto': smart activation — agent gets the TaskToolSet and decides
+            at runtime whether to delegate based on diff size and complexity.
         required: false
         default: 'false'
     extensions-repo:
