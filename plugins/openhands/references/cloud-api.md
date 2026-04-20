@@ -1,4 +1,4 @@
-# OpenHands Cloud REST API (V1)
+# Cloud REST API Reference
 
 Full reference for the OpenHands Cloud V1 app server REST API.
 

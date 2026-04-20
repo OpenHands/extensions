@@ -1,6 +1,6 @@
-# Custom Automation Reference
+# Custom Automations Reference
 
-> **⚠️ Do NOT use this reference unless the user has explicitly requested a custom automation.** Always use the preset/prompt endpoint from the main SKILL.md first. If the preset approach cannot satisfy the requirement, explain the options to the user and let them decide.
+> **⚠️ Do NOT use this reference unless the user has explicitly requested a custom automation.** Always use the preset endpoints from the main SKILL.md first. If the preset approach cannot satisfy the requirement, explain the options to the user and let them decide.
 
 This file contains detailed documentation for creating custom automations with user-provided code, uploads, and entrypoints.
 

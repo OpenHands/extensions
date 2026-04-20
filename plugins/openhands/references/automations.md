@@ -1,4 +1,4 @@
-# OpenHands Automations
+# Automations API Reference
 
 Create and manage scheduled tasks that run in OpenHands Cloud sandboxes on a cron schedule.
 

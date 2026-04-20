@@ -116,10 +116,10 @@ api.close()
 
 | File | Contents |
 |---|---|
-| [references/cloud-api.md](references/cloud-api.md) | Full V1 Cloud API — endpoints, auth, delegation, events, debugging |
+| [references/cloud-api.md](references/cloud-api.md) | Cloud REST API — endpoints, auth, delegation, events, debugging |
 | [references/automations.md](references/automations.md) | Automations API — presets, CRUD, cron, plugin preset |
-| [references/custom-automation.md](references/custom-automation.md) | Custom SDK automations (advanced — tarball uploads, env vars) |
-| [references/TROUBLESHOOTING.md](references/TROUBLESHOOTING.md) | Common issues and solutions |
+| [references/custom-automation.md](references/custom-automation.md) | Custom automations — tarball uploads, SDK scripts, env vars |
+| [references/TROUBLESHOOTING.md](references/TROUBLESHOOTING.md) | Troubleshooting — common issues and solutions |
 | [scripts/run.sh](scripts/run.sh) | CLI wrapper — install, auth, send task, open URL |
 | [scripts/openhands_api.py](scripts/openhands_api.py) | Minimal Python client |
 | [scripts/openhands_api.ts](scripts/openhands_api.ts) | Minimal TypeScript client |

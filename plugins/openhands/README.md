@@ -55,10 +55,10 @@ plugins/openhands/
 │   ├── openhands_api.py              # Minimal Python API client
 │   └── openhands_api.ts              # Minimal TypeScript API client
 └── references/
-    ├── cloud-api.md                  # Full V1 Cloud API reference
+    ├── cloud-api.md                  # Cloud REST API reference
     ├── automations.md                # Automations API reference
-    ├── custom-automation.md          # Custom SDK automations (advanced)
-    ├── TROUBLESHOOTING.md            # Common issues and solutions
+    ├── custom-automation.md          # Custom automations reference (advanced)
+    ├── TROUBLESHOOTING.md            # Troubleshooting — common issues and solutions
     └── example_prompt.md             # Example prompt for starting conversations
 ```
 
