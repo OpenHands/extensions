@@ -42,6 +42,8 @@ skill-name/
 
 **Metadata Quality:** The `name` and `description` in YAML frontmatter determine when OpenHands will use the skill. Be specific about what the skill does and when to use it. Use the third-person (e.g. "This skill should be used when..." instead of "Use this skill when...").
 
+**Slash commands vs keyword triggers:** SKILL.md frontmatter supports an optional `triggers:` field for keyword-based activation (e.g., `triggers: [docker, container]`). For **slash commands** (e.g., `/codereview`, `/init`), prefer creating a `commands/command-name.md` file in the plugin's `commands/` directory instead of using slash triggers in SKILL.md. Slash triggers still work for backward compatibility but are deprecated in favor of the `commands/` approach. See the [Plugins guide](https://docs.openhands.dev/sdk/guides/plugins) for details.
+
 #### Bundled Resources (optional)
 
 ##### Scripts (`scripts/`)
