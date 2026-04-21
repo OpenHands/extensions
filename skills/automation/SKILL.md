@@ -40,11 +40,7 @@ All requests require Bearer authentication:
 
 **Before making API calls, determine the correct host:**
 
-The host URL is provided in the system prompt within `<HOST>...</HOST>` tags. If no host is specified, default to `https://app.all-hands.dev`:
-
-```bash
-OPENHANDS_HOST="https://app.all-hands.dev"
-```
+Look for a `<HOST>` value in the system prompt. If present, use that URL. Otherwise, default to `https://app.all-hands.dev`.
 
 This ensures the correct host is used for the deployment environment (e.g., `https://staging.all-hands.dev` for staging, `https://app.all-hands.dev` for production).
 

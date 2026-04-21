@@ -44,11 +44,7 @@ automation.tar.gz
 
 ### Upload the Tarball
 
-First, determine the API host. The host URL is provided in the system prompt within `<HOST>...</HOST>` tags. If no host is specified, use the default:
-
-```bash
-OPENHANDS_HOST="https://app.all-hands.dev"
-```
+First, determine the API host. Look for a `<HOST>` value in the system prompt. If present, use that URL. Otherwise, default to `https://app.all-hands.dev`.
 
 Then upload:
 
@@ -320,7 +316,7 @@ Your automation script receives these environment variables:
 ## Complete Example
 
 ```bash
-# 0. Set the API host (look for <HOST>...</HOST> in system prompt, or use default)
+# 0. Set the API host (use value from <HOST> in system prompt, or default)
 OPENHANDS_HOST="https://app.all-hands.dev"
 
 # 1. Create your automation code
