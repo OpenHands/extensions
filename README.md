@@ -32,7 +32,7 @@ Browse available plugins in [`plugins/`](plugins/).
 ## Extensions Catalog
 
 <!-- BEGIN AUTO-GENERATED CATALOG -->
-This repository contains **2 marketplace(s)** with **46 extensions** (37 skills, 9 plugins).
+This repository contains **2 marketplace(s)** with **47 extensions** (37 skills, 10 plugins).
 
 ### Quick Start
 
@@ -89,7 +89,7 @@ OpenHands skills for interacting, improving, and refactoring large codebases
 
 Official skills and plugins for OpenHands — the open-source AI software engineer.
 
-**42 extensions** (35 skills, 7 plugins)
+**43 extensions** (35 skills, 8 plugins)
 
 | Name | Type | Description | Commands |
 |------|------|-------------|----------|
@@ -97,7 +97,6 @@ Official skills and plugins for OpenHands — the open-source AI software engine
 | agent-creator | skill | Create file-based sub-agents as Markdown files — no Python code required. Guides the user through a structured interv... | `/agent-creator` |
 | agent-memory | skill | Persist and retrieve repository-specific knowledge using AGENTS.md files. Use when you want to save important informa... | `/remember` |
 | agent-sdk-builder | skill | Guided workflow for building custom AI agents using the OpenHands Software Agent SDK. Use when you want to create a n... | `/agent-builder` |
-| automation | skill | Create and manage OpenHands automations - scheduled tasks that run in sandboxes. Use the prompt preset to create auto... | — |
 | automation-creation | plugin | Interactive slash command for creating OpenHands automations from a natural language prompt. Provides /automation:cre... | — |
 | azure-devops | skill | Interact with Azure DevOps repositories, pull requests, and APIs using the AZURE_DEVOPS_TOKEN environment variable. U... | — |
 | bitbucket | skill | Interact with Bitbucket repositories and pull requests using the BITBUCKET_TOKEN environment variable. Use when worki... | — |
@@ -122,7 +121,9 @@ Official skills and plugins for OpenHands — the open-source AI software engine
 | notion | skill | Create, search, and update Notion pages/databases using the Notion API. Use for documenting work, generating runbooks... | — |
 | npm | skill | Handle npm package installation in non-interactive environments by piping confirmations. Use when installing Node.js ... | — |
 | onboarding | plugin | Assess repository agent-readiness across five pillars, propose high-impact fixes, and generate repo-specific AGENTS.m... | — |
+| openhands | plugin | Unified OpenHands plugin — bundles Cloud CLI, REST API (openhands-api), and Automations (openhands-automation) into a... | `/openhands-cloud` |
 | openhands-api | skill | Use the OpenHands Cloud REST API (V1) to create and manage app conversations, including multi-conversation delegation... | — |
+| openhands-automation | skill | Create and manage OpenHands automations - scheduled tasks that run in sandboxes. Use the prompt preset to create auto... | `/automation:create` |
 | pdflatex | skill | Install and use pdflatex to compile LaTeX documents into PDFs on Linux. Use when generating academic papers, research... | — |
 | pr-review | plugin | Automated PR code review — analyzes diffs and posts inline review comments via the GitHub API. | — |
 | prd | skill | Generate a Product Requirements Document (PRD) for a new feature through an interactive clarifying-question workflow.... | `/prd` |
