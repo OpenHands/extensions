@@ -39,14 +39,11 @@ All requests require Bearer authentication:
 
 ### Determining the API Host
 
-**Before making API calls, detect the correct host from the environment:**
+**Before making API calls, determine the correct host:**
 
-```bash
-# The host is available in OH_ALLOW_CORS_ORIGINS_0 (includes https://)
-OPENHANDS_HOST="${OH_ALLOW_CORS_ORIGINS_0:-https://app.all-hands.dev}"
-```
+Look for a `<HOST>` value in the system prompt. If present, use that URL. Otherwise, default to `https://app.all-hands.dev`.
 
-This automatically uses the correct host for the deployment environment (e.g., `https://staging.all-hands.dev` for staging, `https://app.all-hands.dev` for production).
+This ensures the correct host is used for the deployment environment (e.g., `https://staging.all-hands.dev` for staging, `https://app.all-hands.dev` for production).
 
 ### Endpoints
 
