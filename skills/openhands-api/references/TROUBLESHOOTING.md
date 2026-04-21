@@ -1,6 +1,6 @@
-# Troubleshooting
+# Troubleshooting / Common Issues
 
-Common issues and solutions when working with the OpenHands Cloud API and Automations.
+This file documents common issues encountered when working with the OpenHands Cloud API.
 
 ## 1. Direct ID lookup returns HTML instead of JSON
 

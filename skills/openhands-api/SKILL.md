@@ -1,10 +1,33 @@
-# Cloud REST API Reference
+---
+name: openhands-api
+description: Reference skill for the OpenHands Cloud REST API (V1), including how to start additional cloud conversations for fresh-context or delegated work. Use when you need to automate common OpenHands Cloud actions; don't use for general sandbox/dev tasks unrelated to the OpenHands API.
+triggers:
+- openhands-api
+- openhands-api-v1
+- openhands-cloud
+- openhands-cloud-api-v1
+- oh-api-v1
+- oh-cloud-api-v1
+---
 
-Full reference for the OpenHands Cloud V1 app server REST API.
+This skill documents the **OpenHands Cloud API** (V1) and provides small, easy-to-copy clients.
 
-- Defaults to `https://app.all-hands.dev`
-- Targets the V1 endpoints under `/api/v1/...`
-- Includes agent server endpoints (inside a sandbox) that use `X-Session-API-Key`
+It is intentionally focused on common OpenHands Cloud workflows:
+
+- Defaults to OpenHands Cloud (`https://app.all-hands.dev`).
+- Targets the **V1 app server REST API** under `/api/v1/...`.
+- Includes a few **agent server** endpoints (inside a sandbox) that use `X-Session-API-Key`.
+- Covers the **multi-conversation delegation pattern**: start separate Cloud conversations when you want fresh context windows or background work.
+
+## When to use this skill
+
+Use this skill when you need to:
+
+- start or inspect OpenHands Cloud conversations from code
+- monitor async startup via start-task polling
+- monitor execution status for long-running jobs
+- create separate Cloud conversations for parallel or background work
+- access sandbox agent-server endpoints once a conversation is running
 
 ## Auth
 
@@ -47,9 +70,12 @@ conversation_url = conv.get("conversation_url", "")
 agent_server_url = conversation_url.rsplit("/api/conversations", 1)[0]
 ```
 
+
 If those fields are not present on the conversation record, list/search sandboxes (`GET /api/v1/sandboxes/search`) and use the sandbox referenced by the conversation to locate the agent server URL + session key.
 
 ## Common V1 app server endpoints
+
+The following are the main endpoints implemented in the minimal client:
 
 - `GET /api/v1/users/me` — validate auth and inspect current account
 - `GET /api/v1/app-conversations/search?limit=...` — list recent conversations
@@ -148,12 +174,15 @@ api.close()
 - Before starting more, check recent conversations and count how many are still `execution_status == "running"`.
 - Batch specific conversation lookups with `GET /api/v1/app-conversations?ids=...` when you already know their ids.
 
+Example:
+
 ```python
 items = api.app_conversations_search(limit=50).get("items", [])
 running = [item for item in items if item.get("execution_status") == "running"]
 if len(running) >= 5:
     print("Wait for some delegated conversations to finish before starting more.")
 ```
+
 
 ### Start-task vs `app_conversation_id` (common pitfall)
 
@@ -182,6 +211,8 @@ These run against `agent_server_url` (not the app server):
 
 ### Counting events (recommended approach)
 
+If you need to know how many events a conversation has, you can:
+
 1. **App server count (fastest when working)**
    - `GET /api/v1/conversation/{app_conversation_id}/events/count`
 2. **Agent server count (reliable fallback)**
@@ -193,12 +224,18 @@ These run against `agent_server_url` (not the app server):
 Do **not** rely on the last event `id` to infer the total number of events.
 In the agent-server API, event IDs are UUIDs (not monotonically increasing integers).
 
+## Troubleshooting
+
+For common issues and solutions, see [TROUBLESHOOTING.md](references/TROUBLESHOOTING.md).
+
 ## Event structure (for debugging)
 
 Events returned by:
 
 - app server: `GET /api/v1/conversation/{id}/events/search`
 - agent server: `GET {agent_server_url}/api/conversations/{id}/events/search`
+
+…share the same high-level shape.
 
 Each event typically includes:
 
@@ -221,7 +258,34 @@ Linking tool calls:
 - `ActionEvent.tool_call_id` == `ObservationEvent.tool_call_id`
 - `ObservationEvent.action_id` == `ActionEvent.id`
 
-## Debugging one-liners
+Example (simplified):
+
+```json
+{
+  "id": "<action-event-uuid>",
+  "kind": "ActionEvent",
+  "source": "agent",
+  "tool_name": "terminal",
+  "tool_call_id": "toolu_...",
+  "action": {"command": "ls"}
+}
+```
+
+```json
+{
+  "id": "<observation-event-uuid>",
+  "kind": "ObservationEvent",
+  "source": "environment",
+  "tool_name": "terminal",
+  "tool_call_id": "toolu_...",
+  "action_id": "<action-event-uuid>",
+  "observation": {"exit_code": 0, "stdout": "..."}
+}
+```
+
+## Debugging one-liners (events)
+
+These assume you're querying the **app server** endpoint. For agent-server queries, swap the URL base + use `X-Session-API-Key`.
 
 ### Print a quick timeline
 
@@ -252,7 +316,7 @@ for i, e in enumerate(items):
 PY
 ```
 
-### Check tool-call matching
+### Check tool-call matching (unmatched actions / duplicate observations)
 
 ```bash
 curl -s "${BASE_URL:-https://app.all-hands.dev}/api/v1/conversation/${APP_CONVERSATION_ID}/events/search?limit=200" \
@@ -274,9 +338,51 @@ print("duplicate observation action_ids:", list(dups)[:20] if dups else "none")
 PY
 ```
 
+
+## Quick start (Python)
+
+```python
+# Copy `skills/openhands-api/scripts/openhands_api.py` into your project (e.g. as `openhands_api.py`),
+# then import it normally:
+from openhands_api import OpenHandsAPI
+
+api = OpenHandsAPI()  # prefers OPENHANDS_CLOUD_API_KEY
+
+me = api.users_me()
+print(me)
+
+recent = api.app_conversations_search(limit=5)
+print(recent)
+
+api.close()
+```
+
+## CLI examples
+
+Search conversations:
+
+```bash
+export OPENHANDS_CLOUD_API_KEY="..."
+python skills/openhands-api/scripts/openhands_api.py search-conversations --limit 5
+```
+
+Start a conversation from a prompt file:
+
+```bash
+python skills/openhands-api/scripts/openhands_api.py start-conversation \
+  --prompt-file skills/openhands-api/references/example_prompt.md \
+  --repo owner/repo \
+  --branch main
+```
+
 ## Notes for AI agents extending this client
 
 - Prefer `.../search` endpoints with a small `limit`.
 - Avoid loops that could generate many API calls.
 - Start conversations only when asked: it may create sandboxes and cost money.
 - For sandbox file operations and command execution, use the agent server endpoints with `X-Session-API-Key`.
+
+See also:
+- `skills/openhands-api/scripts/openhands_api.py`
+- The original inspiration client: `enyst/llm-playground` → `openhands-api-client-v1/scripts/cloud_api_v1.py`
+- Troubleshooting content and real-world usage feedback → `https://github.com/jpshackelford/.openhands/tree/main/skills/openhands-cloud-api`

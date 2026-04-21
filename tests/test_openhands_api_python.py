@@ -4,7 +4,7 @@ from pathlib import Path
 
 
 def _load_openhands_api_module():
-    skill_path = Path(__file__).parent.parent / "plugins" / "openhands" / "scripts" / "openhands_api.py"
+    skill_path = Path(__file__).parent.parent / "skills" / "openhands-api" / "scripts" / "openhands_api.py"
     spec = importlib.util.spec_from_file_location("openhands_api", skill_path)
     mod = importlib.util.module_from_spec(spec)
     sys.modules["openhands_api"] = mod
