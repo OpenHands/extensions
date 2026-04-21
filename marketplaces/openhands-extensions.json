@@ -11,6 +11,20 @@
     },
     "plugins": [
         {
+            "name": "agent-creator",
+            "source": "./skills/agent-creator",
+            "description": "Create file-based sub-agents as Markdown files — no Python code required. Guides the user through a structured interview and generates a ready-to-deploy .md agent file following the OpenHands SDK specification.",
+            "category": "development",
+            "keywords": [
+                "agent",
+                "sub-agent",
+                "file-based",
+                "markdown",
+                "no-code",
+                "create"
+            ]
+        },
+        {
             "name": "add-skill",
             "source": "./skills/add-skill",
             "description": "Add (import) an OpenHands skill from a GitHub repository into the current workspace.",
