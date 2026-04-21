@@ -32,7 +32,7 @@ Browse available plugins in [`plugins/`](plugins/).
 ## Extensions Catalog
 
 <!-- BEGIN AUTO-GENERATED CATALOG -->
-This repository contains **2 marketplace(s)** with **47 extensions** (37 skills, 10 plugins).
+This repository contains **2 marketplace(s)** with **46 extensions** (37 skills, 9 plugins).
 
 ### Quick Start
 
@@ -89,7 +89,7 @@ OpenHands skills for interacting, improving, and refactoring large codebases
 
 Official skills and plugins for OpenHands — the open-source AI software engineer.
 
-**43 extensions** (35 skills, 8 plugins)
+**42 extensions** (35 skills, 7 plugins)
 
 | Name | Type | Description | Commands |
 |------|------|-------------|----------|
@@ -97,7 +97,6 @@ Official skills and plugins for OpenHands — the open-source AI software engine
 | agent-creator | skill | Create file-based sub-agents as Markdown files — no Python code required. Guides the user through a structured interv... | `/agent-creator` |
 | agent-memory | skill | Persist and retrieve repository-specific knowledge using AGENTS.md files. Use when you want to save important informa... | `/remember` |
 | agent-sdk-builder | skill | Guided workflow for building custom AI agents using the OpenHands Software Agent SDK. Use when you want to create a n... | `/agent-builder` |
-| automation-creation | plugin | Interactive slash command for creating OpenHands automations from a natural language prompt. Provides /automation:cre... | — |
 | azure-devops | skill | Interact with Azure DevOps repositories, pull requests, and APIs using the AZURE_DEVOPS_TOKEN environment variable. U... | — |
 | bitbucket | skill | Interact with Bitbucket repositories and pull requests using the BITBUCKET_TOKEN environment variable. Use when worki... | — |
 | city-weather | plugin | Get current weather, time, and precipitation forecast for any city using the free Open-Meteo API. Provides slash comm... | — |

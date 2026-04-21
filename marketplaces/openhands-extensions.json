@@ -74,19 +74,6 @@
       ]
     },
     {
-      "name": "automation-creation",
-      "source": "./plugins/automation-creation",
-      "description": "Interactive slash command for creating OpenHands automations from a natural language prompt. Provides /automation:create for guided prompt-based automation setup.",
-      "category": "integration",
-      "keywords": [
-        "automation",
-        "cron",
-        "scheduling",
-        "openhands",
-        "slash-command"
-      ]
-    },
-    {
       "name": "azure-devops",
       "source": "./skills/azure-devops",
       "description": "Interact with Azure DevOps repositories, pull requests, and APIs using the AZURE_DEVOPS_TOKEN environment variable. Use when working with code hosted on Azure DevOps or managing Azure DevOps resources.",
