@@ -32,7 +32,7 @@ Browse available plugins in [`plugins/`](plugins/).
 ## Extensions Catalog
 
 <!-- BEGIN AUTO-GENERATED CATALOG -->
-This repository contains **2 marketplace(s)** with **46 extensions** (37 skills, 9 plugins).
+This repository contains **2 marketplace(s)** with **45 extensions** (36 skills, 9 plugins).
 
 ### Quick Start
 
@@ -89,7 +89,7 @@ OpenHands skills for interacting, improving, and refactoring large codebases
 
 Official skills and plugins for OpenHands — the open-source AI software engineer.
 
-**42 extensions** (35 skills, 7 plugins)
+**41 extensions** (34 skills, 7 plugins)
 
 | Name | Type | Description | Commands |
 |------|------|-------------|----------|
@@ -110,7 +110,6 @@ Official skills and plugins for OpenHands — the open-source AI software engine
 | github | skill | Interact with GitHub repositories, pull requests, issues, and workflows using the GITHUB_TOKEN environment variable a... | — |
 | github-pr-review | skill | Post structured PR reviews to GitHub with inline comments/suggestions in a single API call. | `/github-pr-review` |
 | gitlab | skill | Interact with GitLab repositories, merge requests, and APIs using the GITLAB_TOKEN environment variable. Use when wor... | — |
-| init | skill | Scaffold an AGENTS.md contributor guide for a repository or subdirectory. | `/init` |
 | iterate | skill | Iterate on a GitHub pull request — drive it through CI, code review, and QA until merge-ready. Monitors state, fixes ... | `/iterate`, `/verify`, `/babysit` |
 | jupyter | skill | Read, modify, execute, and convert Jupyter notebooks programmatically. Use when working with .ipynb files for data sc... | — |
 | kubernetes | skill | Set up and manage local Kubernetes clusters using KIND (Kubernetes IN Docker). Use when testing Kubernetes applicatio... | — |
