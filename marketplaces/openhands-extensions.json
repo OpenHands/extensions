@@ -61,8 +61,8 @@
             ]
         },
         {
-            "name": "automation",
-            "source": "./skills/automation",
+            "name": "openhands-automation",
+            "source": "./skills/openhands-automation",
             "description": "Create and manage OpenHands automations - scheduled tasks that run in sandboxes. Use the prompt preset to create automations from natural language, or manage existing automations.",
             "category": "integration",
             "keywords": [
@@ -71,19 +71,6 @@
                 "scheduled-task",
                 "sandbox",
                 "openhands"
-            ]
-        },
-        {
-            "name": "automation-creation",
-            "source": "./plugins/automation-creation",
-            "description": "Interactive slash command for creating OpenHands automations from a natural language prompt. Provides /automation:create for guided prompt-based automation setup.",
-            "category": "integration",
-            "keywords": [
-                "automation",
-                "cron",
-                "scheduling",
-                "openhands",
-                "slash-command"
             ]
         },
         {
@@ -98,7 +85,6 @@
                 "pull-request"
             ]
         },
-
         {
             "name": "bitbucket",
             "source": "./skills/bitbucket",
@@ -355,6 +341,19 @@
                 "agents-md",
                 "agent-readiness",
                 "assessment"
+            ]
+        },
+        {
+            "name": "openhands",
+            "source": "./plugins/openhands",
+            "description": "Unified OpenHands plugin \u2014 bundles Cloud CLI, REST API (openhands-api), and Automations (openhands-automation) into a single plugin.",
+            "category": "openhands",
+            "keywords": [
+                "openhands",
+                "cloud",
+                "api",
+                "automation",
+                "cli"
             ]
         },
         {

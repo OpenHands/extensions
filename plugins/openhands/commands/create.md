@@ -9,7 +9,7 @@ Guide the user through creating a new automation interactively.
 
 **API Base URL:** `https://app.all-hands.dev/api/automation/v1`
 
-**Full API Reference:** See [skills/automation/SKILL.md](../../../skills/automation/SKILL.md) for complete documentation.
+**Full API Reference:** See [skills/openhands-automation/SKILL.md](../../../skills/openhands-automation/SKILL.md) for complete documentation.
 
 > **⚠️ CRITICAL:** Always use the **preset/prompt endpoint** to create automations. Do NOT write custom SDK scripts or create tarballs unless the user explicitly requests it. If the prompt approach cannot meet the user's needs, explain the available options and let them choose.
 
@@ -52,4 +52,4 @@ curl -X POST "https://app.all-hands.dev/api/automation/v1/preset/prompt" \
 
 ### If the Preset Is Not Enough
 
-If the user needs custom dependencies, a non-Python entrypoint, or full control over the SDK code, explain the options and let them decide. If they choose a custom automation, refer to [references/custom-automation.md](../../../skills/automation/references/custom-automation.md) for the tarball upload and custom creation workflow.
+If the user needs custom dependencies, a non-Python entrypoint, or full control over the SDK code, explain the options and let them decide. If they choose a custom automation, refer to [references/custom-automation.md](../../../skills/openhands-automation/references/custom-automation.md) for the tarball upload and custom creation workflow.
