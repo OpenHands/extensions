@@ -32,7 +32,7 @@ Browse available plugins in [`plugins/`](plugins/).
 ## Extensions Catalog
 
 <!-- BEGIN AUTO-GENERATED CATALOG -->
-This repository contains **2 marketplace(s)** with **45 extensions** (36 skills, 9 plugins).
+This repository contains **3 marketplace(s)** with **47 extensions** (37 skills, 10 plugins).
 
 ### Quick Start
 
@@ -134,6 +134,17 @@ Official skills and plugins for OpenHands — the open-source AI software engine
 | uv | skill | Common project, dependency, and environment operations using uv. | — |
 | vercel | skill | Deploy and manage applications on Vercel, including preview deployments and deployment protection. | — |
 | vulnerability-remediation | plugin | Automated security vulnerability scanning and AI-powered remediation. Scans repositories, skips when no issues found,... | — |
+
+### openhands-verification-stack
+
+End-to-end verification bundle for OpenHands — onboard a repository for AI-agent readiness, then iterate on pull requests through CI, code review, and QA until merge-ready.
+
+**2 extensions** (1 skills, 1 plugins)
+
+| Name | Type | Description | Commands |
+|------|------|-------------|----------|
+| iterate | skill | Iterate on a GitHub pull request — drive it through CI, code review, and QA until merge-ready. Monitors state, fixes ... | `/iterate`, `/verify`, `/babysit` |
+| onboarding | plugin | Assess repository agent-readiness across five pillars, propose high-impact fixes, and generate repo-specific AGENTS.m... | — |
 <!-- END AUTO-GENERATED CATALOG -->
 
 ## Contributing

@@ -1,0 +1,41 @@
+{
+  "name": "openhands-verification-stack",
+  "owner": {
+    "name": "OpenHands",
+    "email": "contact@all-hands.dev"
+  },
+  "metadata": {
+    "description": "End-to-end verification bundle for OpenHands — onboard a repository for AI-agent readiness, then iterate on pull requests through CI, code review, and QA until merge-ready.",
+    "maintainer": "OpenHands",
+    "homepage": "https://github.com/OpenHands/extensions"
+  },
+  "plugins": [
+    {
+      "name": "onboarding",
+      "source": "./plugins/onboarding",
+      "description": "Assess repository agent-readiness across five pillars, propose high-impact fixes, and generate repo-specific AGENTS.md files.",
+      "category": "productivity",
+      "keywords": [
+        "onboarding",
+        "readiness",
+        "agents-md",
+        "agent-readiness",
+        "assessment"
+      ]
+    },
+    {
+      "name": "iterate",
+      "source": "./skills/iterate",
+      "description": "Iterate on a GitHub pull request — drive it through CI, code review, and QA until merge-ready. Monitors state, fixes failures, addresses review feedback, retries flaky checks, and pushes fixes in one continuous loop.",
+      "category": "productivity",
+      "keywords": [
+        "github",
+        "ci",
+        "review",
+        "qa",
+        "pull-request",
+        "iterate"
+      ]
+    }
+  ]
+}
