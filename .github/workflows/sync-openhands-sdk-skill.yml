@@ -1,0 +1,68 @@
+name: Sync openhands-sdk skill from docs
+
+on:
+  schedule:
+    # Run weekly on Tuesdays at 4 AM UTC (offset from docs repo's Monday sync)
+    - cron: '0 4 * * 2'
+  # Allow the docs repo to trigger this via repository_dispatch
+  repository_dispatch:
+    types: [sync-sdk-skill]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: sync-sdk-skill
+  cancel-in-progress: true
+
+jobs:
+  sync-sdk-skill:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout extensions repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run sync script
+        run: python scripts/sync_openhands_sdk_skill.py
+
+      - name: Check for changes
+        id: detect_changes
+        run: |
+          if [[ -n "$(git status --porcelain)" ]]; then
+            echo "changes=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "changes=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create Pull Request
+        if: steps.detect_changes.outputs.changes == 'true'
+        uses: peter-evans/create-pull-request@v7
+        with:
+          token: ${{ github.token }}
+          commit-message: "skills: sync openhands-sdk Additional Features from docs"
+          branch: sync-openhands-sdk-skill
+          branch-suffix: timestamp
+          delete-branch: true
+          title: "skills: sync openhands-sdk Additional Features from docs"
+          body: |
+            ## Summary
+
+            This PR updates the **Additional Features** table in `skills/openhands-sdk/SKILL.md`
+            based on the latest SDK guides listed in [`OpenHands/docs` llms.txt](https://raw.githubusercontent.com/OpenHands/docs/main/llms.txt).
+
+            ### What this does
+            - Adds newly published SDK guides to the reference table
+            - Removes guides that no longer exist in the docs
+            - Only updates the auto-synced table section — hand-curated content is untouched
+
+            ### Review checklist
+            - [ ] New guides look correct and titles are reasonable
+            - [ ] No important guides were accidentally excluded
+            - [ ] Consider promoting high-impact new guides to dedicated sections in SKILL.md
+
+            ---
+            _This PR was automatically created by the `sync-openhands-sdk-skill` workflow._
