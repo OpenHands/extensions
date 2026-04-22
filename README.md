@@ -32,7 +32,7 @@ Browse available plugins in [`plugins/`](plugins/).
 ## Extensions Catalog
 
 <!-- BEGIN AUTO-GENERATED CATALOG -->
-This repository contains **3 marketplace(s)** with **47 extensions** (37 skills, 10 plugins).
+This repository contains **3 marketplace(s)** with **49 extensions** (37 skills, 12 plugins).
 
 ### Quick Start
 
@@ -139,12 +139,14 @@ Official skills and plugins for OpenHands — the open-source AI software engine
 
 End-to-end verification bundle for OpenHands — onboard a repository for AI-agent readiness, then iterate on pull requests through CI, code review, and QA until merge-ready.
 
-**2 extensions** (1 skills, 1 plugins)
+**4 extensions** (1 skills, 3 plugins)
 
 | Name | Type | Description | Commands |
 |------|------|-------------|----------|
 | iterate | skill | Iterate on a GitHub pull request — drive it through CI, code review, and QA until merge-ready. Monitors state, fixes ... | `/iterate`, `/verify`, `/babysit` |
 | onboarding | plugin | Assess repository agent-readiness across five pillars, propose high-impact fixes, and generate repo-specific AGENTS.m... | — |
+| pr-review | plugin | Automated PR code review — analyzes diffs and posts inline review comments via the GitHub API. | — |
+| qa-changes | plugin | Validate pull request changes by actually running the code — setting up the environment, exercising changed behavior,... | — |
 <!-- END AUTO-GENERATED CATALOG -->
 
 ## Contributing

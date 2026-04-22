@@ -24,6 +24,31 @@
       ]
     },
     {
+      "name": "pr-review",
+      "source": "./plugins/pr-review",
+      "description": "Automated PR code review — analyzes diffs and posts inline review comments via the GitHub API.",
+      "category": "code-quality",
+      "keywords": [
+        "pr-review",
+        "code-review",
+        "github",
+        "automation"
+      ]
+    },
+    {
+      "name": "qa-changes",
+      "source": "./plugins/qa-changes",
+      "description": "Validate pull request changes by actually running the code — setting up the environment, exercising changed behavior, and posting a structured QA report.",
+      "category": "quality-assurance",
+      "keywords": [
+        "qa",
+        "testing",
+        "pull-request",
+        "validation",
+        "automation"
+      ]
+    },
+    {
       "name": "iterate",
       "source": "./skills/iterate",
       "description": "Iterate on a GitHub pull request — drive it through CI, code review, and QA until merge-ready. Monitors state, fixes failures, addresses review feedback, retries flaky checks, and pushes fixes in one continuous loop.",
