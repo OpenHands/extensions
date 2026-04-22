@@ -384,6 +384,19 @@
             ]
         },
         {
+            "name": "qa-changes",
+            "source": "./plugins/qa-changes",
+            "description": "Validate pull request changes by actually running the code — setting up the environment, exercising changed behavior, and posting a structured QA report.",
+            "category": "quality-assurance",
+            "keywords": [
+                "qa",
+                "testing",
+                "pull-request",
+                "validation",
+                "automation"
+            ]
+        },
+        {
             "name": "prd",
             "source": "./skills/prd",
             "description": "Generate a Product Requirements Document (PRD) for a new feature through an interactive clarifying-question workflow. Use when planning a feature, starting a new project, or when asked to create a PRD.",

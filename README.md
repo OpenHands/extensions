@@ -32,7 +32,7 @@ Browse available plugins in [`plugins/`](plugins/).
 ## Extensions Catalog
 
 <!-- BEGIN AUTO-GENERATED CATALOG -->
-This repository contains **2 marketplace(s)** with **45 extensions** (36 skills, 9 plugins).
+This repository contains **2 marketplace(s)** with **46 extensions** (36 skills, 10 plugins).
 
 ### Quick Start
 
@@ -89,7 +89,7 @@ OpenHands skills for interacting, improving, and refactoring large codebases
 
 Official skills and plugins for OpenHands — the open-source AI software engineer.
 
-**41 extensions** (34 skills, 7 plugins)
+**42 extensions** (34 skills, 8 plugins)
 
 | Name | Type | Description | Commands |
 |------|------|-------------|----------|
@@ -125,6 +125,7 @@ Official skills and plugins for OpenHands — the open-source AI software engine
 | pdflatex | skill | Install and use pdflatex to compile LaTeX documents into PDFs on Linux. Use when generating academic papers, research... | — |
 | pr-review | plugin | Automated PR code review — analyzes diffs and posts inline review comments via the GitHub API. | — |
 | prd | skill | Generate a Product Requirements Document (PRD) for a new feature through an interactive clarifying-question workflow.... | `/prd` |
+| qa-changes | plugin | Validate pull request changes by actually running the code — setting up the environment, exercising changed behavior,... | — |
 | release-notes | plugin | Generate consistent, well-structured release notes from git history. Produces categorized changelog with breaking cha... | `/release-notes` |
 | security | skill | Security best practices for secure coding, authentication, authorization, and data protection. Use when developing fe... | — |
 | skill-creator | skill | Guide for creating effective skills. This skill should be used when users want to create a new skill (or update an ex... | — |
