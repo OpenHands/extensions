@@ -12,16 +12,22 @@ This skill is activated by the following keywords:
 
 ## Details
 
-You need access to three environment variables to interact with the HappyFox API:
+The skill supports two environment variable prefixes. Use whichever matches your configuration:
 
+### Option 1: HFOX Prefix (supports custom domains)
+- `HFOX_API_KEY`: Your HappyFox API key
+- `HFOX_AUTH_CODE`: Your HappyFox auth code
+- `HFOX_BASE_URL`: Full base URL (e.g., `https://support.example.com` or `https://acme.happyfox.com`)
+
+### Option 2: HAPPYFOX Prefix (standard HappyFox domains)
 - `HAPPYFOX_API_KEY`: Your HappyFox API key
 - `HAPPYFOX_AUTH_CODE`: Your HappyFox auth code
-- `HAPPYFOX_SUBDOMAIN`: Your HappyFox account subdomain (e.g., `acme` for `acme.happyfox.com`)
+- `HAPPYFOX_SUBDOMAIN`: Your HappyFox subdomain (e.g., `acme` for `acme.happyfox.com`)
 
 <IMPORTANT>
 You can use `curl` with basic authentication to interact with HappyFox's REST API.
 ALWAYS use the HappyFox API for operations instead of a web browser.
-Before performing any HappyFox operations, verify the environment variables are available.
+Before performing any HappyFox operations, run the credential detection script to set up the unified `$HF_*` variables.
 </IMPORTANT>
 
 ## Features

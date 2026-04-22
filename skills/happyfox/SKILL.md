@@ -10,30 +10,66 @@ triggers:
 # HappyFox
 
 <IMPORTANT>
-Before performing any HappyFox operations, check if the required environment variables are set:
+Before performing any HappyFox operations, detect which environment variable prefix is configured and set up the credentials. The skill supports two prefixes: `HFOX_*` and `HAPPYFOX_*`.
+
+Run this detection script first:
 
 ```bash
-[ -n "$HAPPYFOX_API_KEY" ] && echo "HAPPYFOX_API_KEY is set" || echo "HAPPYFOX_API_KEY is NOT set"
-[ -n "$HAPPYFOX_AUTH_CODE" ] && echo "HAPPYFOX_AUTH_CODE is set" || echo "HAPPYFOX_AUTH_CODE is NOT set"
-[ -n "$HAPPYFOX_SUBDOMAIN" ] && echo "HAPPYFOX_SUBDOMAIN is set" || echo "HAPPYFOX_SUBDOMAIN is NOT set"
+# Detect and export HappyFox credentials
+if [ -n "$HFOX_API_KEY" ] && [ -n "$HFOX_AUTH_CODE" ]; then
+  export HF_API_KEY="$HFOX_API_KEY"
+  export HF_AUTH_CODE="$HFOX_AUTH_CODE"
+  export HF_BASE_URL="${HFOX_BASE_URL:-}"
+  echo "Using HFOX_* credentials"
+elif [ -n "$HAPPYFOX_API_KEY" ] && [ -n "$HAPPYFOX_AUTH_CODE" ]; then
+  export HF_API_KEY="$HAPPYFOX_API_KEY"
+  export HF_AUTH_CODE="$HAPPYFOX_AUTH_CODE"
+  export HF_BASE_URL="${HAPPYFOX_SUBDOMAIN:+$HF_BASE_URL}"
+  echo "Using HAPPYFOX_* credentials"
+else
+  echo "ERROR: No HappyFox credentials found!"
+  echo "Please set either:"
+  echo "  - HFOX_API_KEY, HFOX_AUTH_CODE, and HFOX_BASE_URL"
+  echo "  - HAPPYFOX_API_KEY, HAPPYFOX_AUTH_CODE, and HAPPYFOX_SUBDOMAIN"
+fi
+
+# Verify credentials are set
+[ -n "$HF_API_KEY" ] && echo "HF_API_KEY: configured" || echo "HF_API_KEY: NOT SET"
+[ -n "$HF_AUTH_CODE" ] && echo "HF_AUTH_CODE: configured" || echo "HF_AUTH_CODE: NOT SET"
+[ -n "$HF_BASE_URL" ] && echo "HF_BASE_URL: $HF_BASE_URL" || echo "HF_BASE_URL: NOT SET (will need to specify manually)"
 ```
 
-If any of these are missing, ask the user to provide them before proceeding.
+After running the detection, use `$HF_API_KEY`, `$HF_AUTH_CODE`, and `$HF_BASE_URL` in all API calls.
+
+If credentials are missing, ask the user to provide them before proceeding.
 </IMPORTANT>
+
+## Environment Variables
+
+The skill supports two naming conventions for environment variables:
+
+| Variable | HFOX Prefix | HAPPYFOX Prefix |
+|----------|-------------|-----------------|
+| API Key | `HFOX_API_KEY` | `HAPPYFOX_API_KEY` |
+| Auth Code | `HFOX_AUTH_CODE` | `HAPPYFOX_AUTH_CODE` |
+| Base URL / Subdomain | `HFOX_BASE_URL` (full URL) | `HAPPYFOX_SUBDOMAIN` (just subdomain) |
+
+**HFOX_BASE_URL** should be the full base URL (e.g., `https://support.example.com`)
+**HAPPYFOX_SUBDOMAIN** should be just the subdomain (e.g., `acme` for `acme.happyfox.com`)
 
 ## Authentication
 
 HappyFox uses HTTP Basic Authentication with the API key and auth code. All requests require:
-- API Key: `$HAPPYFOX_API_KEY`
-- Auth Code: `$HAPPYFOX_AUTH_CODE`
-- Subdomain: Your HappyFox account name (e.g., `acme` for `acme.happyfox.com`)
+- API Key: `$HF_API_KEY`
+- Auth Code: `$HF_AUTH_CODE`
+- Base URL: `$HF_BASE_URL` (e.g., `https://acme.happyfox.com` or custom domain like `https://support.example.com`)
 
-> **Note**: If your HappyFox account is hosted in EU, use `<subdomain>.happyfox.net` instead of `<subdomain>.happyfox.com`
+> **Note**: If your HappyFox account uses a custom domain (e.g., `support.example.com`), use `HFOX_BASE_URL` with the full URL. If using the standard HappyFox domain and hosted in EU, use `<subdomain>.happyfox.net` instead of `<subdomain>.happyfox.com`.
 
 ## API Base URL
 
 ```
-https://<subdomain>.happyfox.com/api/1.1/json/
+$HF_BASE_URL/api/1.1/json/
 ```
 
 ## Common Operations
@@ -41,52 +77,52 @@ https://<subdomain>.happyfox.com/api/1.1/json/
 ### List All Tickets
 
 ```bash
-curl -s -u "$HAPPYFOX_API_KEY:$HAPPYFOX_AUTH_CODE" \
-  "https://$HAPPYFOX_SUBDOMAIN.happyfox.com/api/1.1/json/tickets/" | jq
+curl -s -u "$HF_API_KEY:$HF_AUTH_CODE" \
+  "$HF_BASE_URL/api/1.1/json/tickets/" | jq
 ```
 
 ### Get Paginated Tickets
 
 ```bash
 # Get 50 tickets per page (max), page 1
-curl -s -u "$HAPPYFOX_API_KEY:$HAPPYFOX_AUTH_CODE" \
-  "https://$HAPPYFOX_SUBDOMAIN.happyfox.com/api/1.1/json/tickets/?size=50&page=1" | jq
+curl -s -u "$HF_API_KEY:$HF_AUTH_CODE" \
+  "$HF_BASE_URL/api/1.1/json/tickets/?size=50&page=1" | jq
 ```
 
 ### Get Ticket Details
 
 ```bash
 # Replace TICKET_NUMBER with the ticket number (e.g., 3)
-curl -s -u "$HAPPYFOX_API_KEY:$HAPPYFOX_AUTH_CODE" \
-  "https://$HAPPYFOX_SUBDOMAIN.happyfox.com/api/1.1/json/ticket/TICKET_NUMBER/" | jq
+curl -s -u "$HF_API_KEY:$HF_AUTH_CODE" \
+  "$HF_BASE_URL/api/1.1/json/ticket/TICKET_NUMBER/" | jq
 ```
 
 ### Search/Filter Tickets
 
 ```bash
 # Filter by status (pending tickets)
-curl -s -u "$HAPPYFOX_API_KEY:$HAPPYFOX_AUTH_CODE" \
-  "https://$HAPPYFOX_SUBDOMAIN.happyfox.com/api/1.1/json/tickets/?status=_pending" | jq
+curl -s -u "$HF_API_KEY:$HF_AUTH_CODE" \
+  "$HF_BASE_URL/api/1.1/json/tickets/?status=_pending" | jq
 
 # Filter by assignee
-curl -s -u "$HAPPYFOX_API_KEY:$HAPPYFOX_AUTH_CODE" \
-  "https://$HAPPYFOX_SUBDOMAIN.happyfox.com/api/1.1/json/tickets/?status=_all&q=assignee:john" | jq
+curl -s -u "$HF_API_KEY:$HF_AUTH_CODE" \
+  "$HF_BASE_URL/api/1.1/json/tickets/?status=_all&q=assignee:john" | jq
 
 # Filter by date created
-curl -s -u "$HAPPYFOX_API_KEY:$HAPPYFOX_AUTH_CODE" \
-  'https://$HAPPYFOX_SUBDOMAIN.happyfox.com/api/1.1/json/tickets/?status=_all&q=created-after:"2024/01/01"' | jq
+curl -s -u "$HF_API_KEY:$HF_AUTH_CODE" \
+  "$HF_BASE_URL/api/1.1/json/tickets/?status=_all&q=created-after:\"2024/01/01\"" | jq
 
 # Filter by contact email
-curl -s -u "$HAPPYFOX_API_KEY:$HAPPYFOX_AUTH_CODE" \
-  'https://$HAPPYFOX_SUBDOMAIN.happyfox.com/api/1.1/json/tickets/?status=_all&q=contact:"user@example.com"' | jq
+curl -s -u "$HF_API_KEY:$HF_AUTH_CODE" \
+  "$HF_BASE_URL/api/1.1/json/tickets/?status=_all&q=contact:\"user@example.com\"" | jq
 ```
 
 ### Create a Ticket
 
 ```bash
-curl -s -X POST -u "$HAPPYFOX_API_KEY:$HAPPYFOX_AUTH_CODE" \
+curl -s -X POST -u "$HF_API_KEY:$HF_AUTH_CODE" \
   -H "Content-Type: application/json" \
-  "https://$HAPPYFOX_SUBDOMAIN.happyfox.com/api/1.1/json/tickets/" \
+  "$HF_BASE_URL/api/1.1/json/tickets/" \
   -d '{
     "name": "John Doe",
     "email": "john@example.com",
@@ -115,9 +151,9 @@ curl -s -X POST -u "$HAPPYFOX_API_KEY:$HAPPYFOX_AUTH_CODE" \
 ### Add Staff Update (Reply)
 
 ```bash
-curl -s -X POST -u "$HAPPYFOX_API_KEY:$HAPPYFOX_AUTH_CODE" \
+curl -s -X POST -u "$HF_API_KEY:$HF_AUTH_CODE" \
   -H "Content-Type: application/json" \
-  "https://$HAPPYFOX_SUBDOMAIN.happyfox.com/api/1.1/json/ticket/TICKET_NUMBER/staff_update/" \
+  "$HF_BASE_URL/api/1.1/json/ticket/TICKET_NUMBER/staff_update/" \
   -d '{
     "staff": 1,
     "html": "<p>Thank you for contacting us. We are looking into this.</p>",
@@ -142,9 +178,9 @@ curl -s -X POST -u "$HAPPYFOX_API_KEY:$HAPPYFOX_AUTH_CODE" \
 ### Add Private Note
 
 ```bash
-curl -s -X POST -u "$HAPPYFOX_API_KEY:$HAPPYFOX_AUTH_CODE" \
+curl -s -X POST -u "$HF_API_KEY:$HF_AUTH_CODE" \
   -H "Content-Type: application/json" \
-  "https://$HAPPYFOX_SUBDOMAIN.happyfox.com/api/1.1/json/ticket/TICKET_NUMBER/staff_pvtnote/" \
+  "$HF_BASE_URL/api/1.1/json/ticket/TICKET_NUMBER/staff_pvtnote/" \
   -d '{
     "staff": 1,
     "html": "<p>Internal note: Customer is a VIP.</p>",
@@ -160,9 +196,9 @@ curl -s -X POST -u "$HAPPYFOX_API_KEY:$HAPPYFOX_AUTH_CODE" \
 ### Update Ticket Properties Only
 
 ```bash
-curl -s -X POST -u "$HAPPYFOX_API_KEY:$HAPPYFOX_AUTH_CODE" \
+curl -s -X POST -u "$HF_API_KEY:$HF_AUTH_CODE" \
   -H "Content-Type: application/json" \
-  "https://$HAPPYFOX_SUBDOMAIN.happyfox.com/api/1.1/json/ticket/TICKET_NUMBER/staff_update/" \
+  "$HF_BASE_URL/api/1.1/json/ticket/TICKET_NUMBER/staff_update/" \
   -d '{
     "staff": 1,
     "status": 4,
@@ -174,9 +210,9 @@ curl -s -X POST -u "$HAPPYFOX_API_KEY:$HAPPYFOX_AUTH_CODE" \
 ### Update Ticket Tags
 
 ```bash
-curl -s -X POST -u "$HAPPYFOX_API_KEY:$HAPPYFOX_AUTH_CODE" \
+curl -s -X POST -u "$HF_API_KEY:$HF_AUTH_CODE" \
   -H "Content-Type: application/json" \
-  "https://$HAPPYFOX_SUBDOMAIN.happyfox.com/api/1.1/json/ticket/TICKET_NUMBER/update_tags/" \
+  "$HF_BASE_URL/api/1.1/json/ticket/TICKET_NUMBER/update_tags/" \
   -d '{
     "add": "urgent, escalated",
     "remove": "pending-review",
@@ -187,9 +223,9 @@ curl -s -X POST -u "$HAPPYFOX_API_KEY:$HAPPYFOX_AUTH_CODE" \
 ### Move Ticket to Another Category
 
 ```bash
-curl -s -X POST -u "$HAPPYFOX_API_KEY:$HAPPYFOX_AUTH_CODE" \
+curl -s -X POST -u "$HF_API_KEY:$HF_AUTH_CODE" \
   -H "Content-Type: application/json" \
-  "https://$HAPPYFOX_SUBDOMAIN.happyfox.com/api/1.1/json/ticket/TICKET_NUMBER/move/" \
+  "$HF_BASE_URL/api/1.1/json/ticket/TICKET_NUMBER/move/" \
   -d '{
     "staff_id": 1,
     "target_category_id": 2,
@@ -201,9 +237,9 @@ curl -s -X POST -u "$HAPPYFOX_API_KEY:$HAPPYFOX_AUTH_CODE" \
 ### Delete Ticket
 
 ```bash
-curl -s -X POST -u "$HAPPYFOX_API_KEY:$HAPPYFOX_AUTH_CODE" \
+curl -s -X POST -u "$HF_API_KEY:$HF_AUTH_CODE" \
   -H "Content-Type: application/json" \
-  "https://$HAPPYFOX_SUBDOMAIN.happyfox.com/api/1.1/json/ticket/TICKET_NUMBER/delete/" \
+  "$HF_BASE_URL/api/1.1/json/ticket/TICKET_NUMBER/delete/" \
   -d '{
     "staff_id": 1
   }' | jq
@@ -214,43 +250,43 @@ curl -s -X POST -u "$HAPPYFOX_API_KEY:$HAPPYFOX_AUTH_CODE" \
 ### List Categories
 
 ```bash
-curl -s -u "$HAPPYFOX_API_KEY:$HAPPYFOX_AUTH_CODE" \
-  "https://$HAPPYFOX_SUBDOMAIN.happyfox.com/api/1.1/json/categories/" | jq
+curl -s -u "$HF_API_KEY:$HF_AUTH_CODE" \
+  "$HF_BASE_URL/api/1.1/json/categories/" | jq
 ```
 
 ### List Staff/Agents
 
 ```bash
-curl -s -u "$HAPPYFOX_API_KEY:$HAPPYFOX_AUTH_CODE" \
-  "https://$HAPPYFOX_SUBDOMAIN.happyfox.com/api/1.1/json/staff/" | jq
+curl -s -u "$HF_API_KEY:$HF_AUTH_CODE" \
+  "$HF_BASE_URL/api/1.1/json/staff/" | jq
 ```
 
 ### List Statuses
 
 ```bash
-curl -s -u "$HAPPYFOX_API_KEY:$HAPPYFOX_AUTH_CODE" \
-  "https://$HAPPYFOX_SUBDOMAIN.happyfox.com/api/1.1/json/statuses/" | jq
+curl -s -u "$HF_API_KEY:$HF_AUTH_CODE" \
+  "$HF_BASE_URL/api/1.1/json/statuses/" | jq
 ```
 
 ### List Priorities
 
 ```bash
-curl -s -u "$HAPPYFOX_API_KEY:$HAPPYFOX_AUTH_CODE" \
-  "https://$HAPPYFOX_SUBDOMAIN.happyfox.com/api/1.1/json/priorities/" | jq
+curl -s -u "$HF_API_KEY:$HF_AUTH_CODE" \
+  "$HF_BASE_URL/api/1.1/json/priorities/" | jq
 ```
 
 ### List Ticket Custom Fields
 
 ```bash
-curl -s -u "$HAPPYFOX_API_KEY:$HAPPYFOX_AUTH_CODE" \
-  "https://$HAPPYFOX_SUBDOMAIN.happyfox.com/api/1.1/json/ticket_custom_fields/" | jq
+curl -s -u "$HF_API_KEY:$HF_AUTH_CODE" \
+  "$HF_BASE_URL/api/1.1/json/ticket_custom_fields/" | jq
 ```
 
 ### List Contact Custom Fields
 
 ```bash
-curl -s -u "$HAPPYFOX_API_KEY:$HAPPYFOX_AUTH_CODE" \
-  "https://$HAPPYFOX_SUBDOMAIN.happyfox.com/api/1.1/json/user_custom_fields/" | jq
+curl -s -u "$HF_API_KEY:$HF_AUTH_CODE" \
+  "$HF_BASE_URL/api/1.1/json/user_custom_fields/" | jq
 ```
 
 ## Working with Custom Fields
@@ -270,9 +306,9 @@ Get the ID from the custom fields list endpoints.
 
 **Example with custom fields:**
 ```bash
-curl -s -X POST -u "$HAPPYFOX_API_KEY:$HAPPYFOX_AUTH_CODE" \
+curl -s -X POST -u "$HF_API_KEY:$HF_AUTH_CODE" \
   -H "Content-Type: application/json" \
-  "https://$HAPPYFOX_SUBDOMAIN.happyfox.com/api/1.1/json/tickets/" \
+  "$HF_BASE_URL/api/1.1/json/tickets/" \
   -d '{
     "name": "Jane Smith",
     "email": "jane@example.com",
@@ -309,8 +345,8 @@ curl -s -X POST -u "$HAPPYFOX_API_KEY:$HAPPYFOX_AUTH_CODE" \
 
 **Example:**
 ```bash
-curl -s -u "$HAPPYFOX_API_KEY:$HAPPYFOX_AUTH_CODE" \
-  "https://$HAPPYFOX_SUBDOMAIN.happyfox.com/api/1.1/json/tickets/?sort=priorityd" | jq
+curl -s -u "$HF_API_KEY:$HF_AUTH_CODE" \
+  "$HF_BASE_URL/api/1.1/json/tickets/?sort=priorityd" | jq
 ```
 
 ## End-to-End Workflow: Create and Update a Ticket
@@ -319,24 +355,24 @@ curl -s -u "$HAPPYFOX_API_KEY:$HAPPYFOX_AUTH_CODE" \
 
 ```bash
 # Get category ID
-curl -s -u "$HAPPYFOX_API_KEY:$HAPPYFOX_AUTH_CODE" \
-  "https://$HAPPYFOX_SUBDOMAIN.happyfox.com/api/1.1/json/categories/" | jq '.[0]'
+curl -s -u "$HF_API_KEY:$HF_AUTH_CODE" \
+  "$HF_BASE_URL/api/1.1/json/categories/" | jq '.[0]'
 
 # Get staff ID for assignment
-curl -s -u "$HAPPYFOX_API_KEY:$HAPPYFOX_AUTH_CODE" \
-  "https://$HAPPYFOX_SUBDOMAIN.happyfox.com/api/1.1/json/staff/" | jq '.[0]'
+curl -s -u "$HF_API_KEY:$HF_AUTH_CODE" \
+  "$HF_BASE_URL/api/1.1/json/staff/" | jq '.[0]'
 
 # Get status IDs
-curl -s -u "$HAPPYFOX_API_KEY:$HAPPYFOX_AUTH_CODE" \
-  "https://$HAPPYFOX_SUBDOMAIN.happyfox.com/api/1.1/json/statuses/" | jq
+curl -s -u "$HF_API_KEY:$HF_AUTH_CODE" \
+  "$HF_BASE_URL/api/1.1/json/statuses/" | jq
 ```
 
 ### Step 2: Create the ticket
 
 ```bash
-curl -s -X POST -u "$HAPPYFOX_API_KEY:$HAPPYFOX_AUTH_CODE" \
+curl -s -X POST -u "$HF_API_KEY:$HF_AUTH_CODE" \
   -H "Content-Type: application/json" \
-  "https://$HAPPYFOX_SUBDOMAIN.happyfox.com/api/1.1/json/tickets/" \
+  "$HF_BASE_URL/api/1.1/json/tickets/" \
   -d '{
     "name": "Customer Name",
     "email": "customer@example.com",
@@ -352,9 +388,9 @@ curl -s -X POST -u "$HAPPYFOX_API_KEY:$HAPPYFOX_AUTH_CODE" \
 ### Step 3: Add a reply and update status
 
 ```bash
-curl -s -X POST -u "$HAPPYFOX_API_KEY:$HAPPYFOX_AUTH_CODE" \
+curl -s -X POST -u "$HF_API_KEY:$HF_AUTH_CODE" \
   -H "Content-Type: application/json" \
-  "https://$HAPPYFOX_SUBDOMAIN.happyfox.com/api/1.1/json/ticket/TICKET_NUMBER/staff_update/" \
+  "$HF_BASE_URL/api/1.1/json/ticket/TICKET_NUMBER/staff_update/" \
   -d '{
     "staff": 1,
     "html": "<p>Issue has been resolved. Please let us know if you need anything else.</p>",
