@@ -20,9 +20,7 @@ Then configure the required secrets (see [Installation](#installation) below).
 
 - **Automated PR Reviews**: Triggered when PRs are opened, marked ready, or when a reviewer is requested
 - **Inline Code Comments**: Posts review comments directly on specific lines of code
-- **Two Review Styles**:
-  - `standard` - Balanced code review covering style, readability, and security
-  - `roasted` - Linus Torvalds-style brutally honest feedback focusing on data structures, simplicity, and pragmatism
+- **Unified Review Style**: Rigorous code review combining pragmatic engineering analysis with data structure and simplicity focus
 - **A/B Testing**: Support for testing multiple LLM models
 - **Review Context Awareness**: Considers previous reviews and unresolved threads
 - **Evidence Enforcement**: Optional check that PR descriptions include concrete end-to-end proof the code works, not just test output
@@ -35,7 +33,7 @@ plugins/pr-review/
 ├── README.md              # This file
 ├── action.yml             # Composite GitHub Action
 ├── skills/                # Symbolic links to review skills
-│   ├── codereview-roasted -> ../../../skills/codereview-roasted
+│   ├── code-review -> ../../../skills/code-review
 │   └── github-pr-review -> ../../../skills/github-pr-review
 ├── workflows/             # Example GitHub workflow files
 │   ├── pr-review-by-openhands.yml
@@ -86,8 +84,8 @@ Edit the workflow file to customize:
     # Optional: Custom LLM endpoint
     # llm-base-url: https://your-llm-proxy.example.com
     
-    # Review style: 'standard' or 'roasted'
-    review-style: roasted
+    # [DEPRECATED] review-style is no longer used; standard and roasted are merged
+    # review-style: roasted
 
     # Optional: require an Evidence section proving the code works end-to-end
     # require-evidence: 'true'
@@ -141,13 +139,27 @@ PR reviews are automatically triggered when:
 |-------|----------|---------|-------------|
 | `llm-model` | No | `anthropic/claude-sonnet-4-5-20250929` | LLM model(s), comma-separated for A/B testing |
 | `llm-base-url` | No | `''` | Custom LLM endpoint URL |
-| `review-style` | No | `roasted` | Review style: `standard` or `roasted` |
+| `review-style` | No | `roasted` | **[DEPRECATED]** Previously chose between `standard` and `roasted` review styles. Now ignored — the styles have been merged into a single unified skill. |
 | `require-evidence` | No | `'false'` | Require the reviewer to enforce an `Evidence` section in the PR description with end-to-end proof: screenshots/videos for frontend work, commands and runtime output for backend or scripts, and an agent conversation link when applicable. Test output alone does not qualify. |
 | `extensions-repo` | No | `OpenHands/extensions` | Extensions repository |
 | `extensions-version` | No | `main` | Git ref (tag, branch, or SHA) |
 | `llm-api-key` | Yes | - | LLM API key |
 | `github-token` | Yes | - | GitHub token for API access |
 | `lmnr-api-key` | No | `''` | Laminar API key for observability |
+| `enable-uv-cache` | No | `'false'` | Enable setup-uv's GitHub Actions cache for Python deps. Default `false` for security (see [Caching and Security](#caching-and-security)). |
+
+## Caching and Security
+
+Python dependency caching is **disabled by default**. `uv run --with ...` re-downloads OpenHands SDK and its transitive deps on every run, which is slow but safe.
+
+**Why it's off by default:** Prompt injection can coerce the reviewer into executing arbitrary commands during the review. A compromised review run could write a malicious wheel into the shared GitHub Actions cache. Any later, higher-privilege workflow in the same repository that hits the same cache key would silently execute the attacker's code — a supply-chain pivot.
+
+**Enabling it is safe when:**
+- The runner is single-tenant (e.g. your own self-hosted runner, not shared with untrusted workflows).
+- You do not run other privileged workflows in the same repository that would consume setup-uv's cache.
+- You accept the residual risk in exchange for faster runs / lower disk writes.
+
+**Self-hosted runners:** Consider mounting a host-level uv cache volume (e.g. `/home/runner/.cache` as a Docker volume) instead of — or in addition to — this option. A local volume is faster than a round trip to GHA cache storage and does not cross any trust boundary.
 
 ## A/B Testing Multiple Models
 
@@ -277,6 +289,7 @@ If you see rate limit errors:
 ## Security
 
 - Uses `pull_request_target` when you need secrets for fork PR reviews; apply strict maintainer-controlled triggers and checkout safeguards
+- Keeps GitHub Actions caching disabled in privileged review workflows to avoid cache-poisoning pivots from prompt injection
 - For lower-trust or comment-only smoke-test setups, prefer `pull_request` to reduce privilege by default
 - Only triggers for trusted contributors or when maintainers add labels/reviewers
 - PR code is checked out explicitly; secrets are not exposed to PR code

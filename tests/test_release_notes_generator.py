@@ -981,7 +981,7 @@ class TestPluginStructure:
             / "plugins"
             / "release-notes"
             / "skills"
-            / "releasenotes"
+            / "release-notes"
         )
         assert symlink.exists()
 

@@ -20,7 +20,7 @@ inputs:
         required: false
         default: ''
     review-style:
-        description: "Review style: 'standard' (balanced review covering style, readability, and security) or 'roasted' (Linus Torvalds-style brutally honest feedback focusing on data structures, simplicity, and pragmatism)"
+        description: "[DEPRECATED] Previously chose between 'standard' and 'roasted' review styles. These have been merged into a single code-review skill. The input is kept for backward compatibility but no longer changes behavior. Will be removed in a future version."
         required: false
         default: roasted
     require-evidence:
@@ -45,6 +45,17 @@ inputs:
         description: Laminar API key for observability (optional)
         required: false
         default: ''
+    enable-uv-cache:
+        description: >
+            Enable setup-uv's GitHub Actions cache for Python dependencies.
+            Default is 'false' for security: shared caches can become a pivot
+            into more privileged workflows (prompt-injected reviewer could
+            write a malicious wheel into cache; subsequent higher-privilege
+            workflow hits poisoned cache). Only opt in when you control the
+            runner environment (e.g. self-hosted, single-tenant) and accept
+            the trade-off.
+        required: false
+        default: 'false'
 
 runs:
     using: composite
@@ -71,10 +82,14 @@ runs:
           with:
               python-version: '3.12'
 
+        # Security: caching is disabled by default. Prompt injection can coerce
+        # the reviewer into running commands, and shared caches can become a
+        # pivot into more privileged workflows. Opt in via `enable-uv-cache`
+        # only when the runner is single-tenant / self-hosted.
         - name: Install uv
           uses: astral-sh/setup-uv@v6
           with:
-              enable-cache: true
+              enable-cache: ${{ inputs.enable-uv-cache }}
 
         - name: Install GitHub CLI
           shell: bash

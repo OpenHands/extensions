@@ -3,7 +3,7 @@ PR Review Prompt Template
 
 This module contains the prompt template used by the OpenHands agent
 for conducting pull request reviews. The template uses skill triggers:
-- {skill_trigger} will be replaced with '/codereview' or '/codereview-roasted'
+- {skill_trigger} will be replaced with '/codereview'
 - /github-pr-review provides instructions for posting review comments via GitHub API
 
 The template includes:
@@ -92,7 +92,7 @@ def format_prompt(
     """Format the PR review prompt with all parameters.
 
     Args:
-        skill_trigger: The skill trigger (e.g., '/codereview' or '/codereview-roasted')
+        skill_trigger: The skill trigger (e.g., '/codereview')
         title: PR title
         body: PR description
         repo_name: Repository name (owner/repo)
