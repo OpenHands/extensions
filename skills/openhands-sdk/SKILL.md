@@ -588,49 +588,22 @@ See: <https://docs.openhands.dev/sdk/guides/llm-streaming>, and other guides und
 
 ## Additional Features
 
-<!-- BEGIN AUTO-SYNCED ADDITIONAL FEATURES -->
 | Feature | Guide |
 |---|---|
-| ACP Agent | <https://docs.openhands.dev/sdk/guides/agent-acp> |
-| API-based Sandbox | <https://docs.openhands.dev/sdk/guides/agent-server/api-sandbox> |
-| Apptainer Sandbox | <https://docs.openhands.dev/sdk/guides/agent-server/apptainer-sandbox> |
-| Ask Agent Questions | <https://docs.openhands.dev/sdk/guides/convo-ask-agent> |
-| Assign Reviews | <https://docs.openhands.dev/sdk/guides/github-workflows/assign-reviews> |
-| Browser Session Recording | <https://docs.openhands.dev/sdk/guides/browser-session-recording> |
-| Browser Use | <https://docs.openhands.dev/sdk/guides/agent-browser-use> |
-| Conversation with Async | <https://docs.openhands.dev/sdk/guides/convo-async> |
-| Creating Custom Agent | <https://docs.openhands.dev/sdk/guides/agent-custom> |
-| Critic (Experimental) | <https://docs.openhands.dev/sdk/guides/critic> |
-| Custom Tools with Remote Agent Server | <https://docs.openhands.dev/sdk/guides/agent-server/custom-tools> |
-| Custom Visualizer | <https://docs.openhands.dev/sdk/guides/convo-custom-visualizer> |
-| Docker Sandbox | <https://docs.openhands.dev/sdk/guides/agent-server/docker-sandbox> |
-| Exception Handling | <https://docs.openhands.dev/sdk/guides/llm-error-handling> |
-| File-Based Agents | <https://docs.openhands.dev/sdk/guides/agent-file-based> |
-| GPT-5 Preset (ApplyPatchTool) | <https://docs.openhands.dev/sdk/guides/llm-gpt5-preset> |
-| Hello World | <https://docs.openhands.dev/sdk/guides/hello-world> |
-| Hooks | <https://docs.openhands.dev/sdk/guides/hooks> |
-| Image Input | <https://docs.openhands.dev/sdk/guides/llm-image-input> |
-| Interactive Terminal | <https://docs.openhands.dev/sdk/guides/agent-interactive-terminal> |
-| Iterative Refinement | <https://docs.openhands.dev/sdk/guides/iterative-refinement> |
-| LLM Fallback Strategy | <https://docs.openhands.dev/sdk/guides/llm-fallback> |
-| LLM Profile Store | <https://docs.openhands.dev/sdk/guides/llm-profile-store> |
-| LLM Registry | <https://docs.openhands.dev/sdk/guides/llm-registry> |
-| LLM Subscriptions | <https://docs.openhands.dev/sdk/guides/llm-subscriptions> |
-| Local Agent Server | <https://docs.openhands.dev/sdk/guides/agent-server/local-server> |
-| Model Routing | <https://docs.openhands.dev/sdk/guides/llm-routing> |
-| OpenHands Cloud Workspace | <https://docs.openhands.dev/sdk/guides/agent-server/cloud-workspace> |
-| PR Review | <https://docs.openhands.dev/sdk/guides/github-workflows/pr-review> |
-| Parallel Tool Execution | <https://docs.openhands.dev/sdk/guides/parallel-tool-execution> |
-| Pause and Resume | <https://docs.openhands.dev/sdk/guides/convo-pause-and-resume> |
+| Parallel tool execution | <https://docs.openhands.dev/sdk/guides/parallel-tool-execution> |
+| Task tool set (synchronous sub-agents) | <https://docs.openhands.dev/sdk/guides/task-tool-set> |
+| Iterative refinement | <https://docs.openhands.dev/sdk/guides/iterative-refinement> |
 | Plugins | <https://docs.openhands.dev/sdk/guides/plugins> |
-| Reasoning | <https://docs.openhands.dev/sdk/guides/llm-reasoning> |
-| Secret Registry | <https://docs.openhands.dev/sdk/guides/secrets> |
-| Send Message While Running | <https://docs.openhands.dev/sdk/guides/convo-send-message-while-running> |
-| Stuck Detector | <https://docs.openhands.dev/sdk/guides/agent-stuck-detector> |
-| TODO Management | <https://docs.openhands.dev/sdk/guides/github-workflows/todo-management> |
-| Task Tool Set | <https://docs.openhands.dev/sdk/guides/task-tool-set> |
-| Theory of Mind (TOM) Agent | <https://docs.openhands.dev/sdk/guides/agent-tom-agent> |
-<!-- END AUTO-SYNCED ADDITIONAL FEATURES -->
+| Secret registry | <https://docs.openhands.dev/sdk/guides/secrets> |
+| Hooks (lifecycle) | <https://docs.openhands.dev/sdk/guides/hooks> |
+| Pause and resume | <https://docs.openhands.dev/sdk/guides/convo-pause-and-resume> |
+| Async conversations | <https://docs.openhands.dev/sdk/guides/convo-async> |
+| Custom agent creation | <https://docs.openhands.dev/sdk/guides/agent-custom> |
+| File-based agents (Markdown) | <https://docs.openhands.dev/sdk/guides/agent-file-based> |
+| GitHub workflows | <https://docs.openhands.dev/sdk/guides/github-workflows/todo-management> |
+| Browser use | <https://docs.openhands.dev/sdk/guides/agent-browser-use> |
+| Stuck detector | <https://docs.openhands.dev/sdk/guides/agent-stuck-detector> |
+| GPT-5 preset (ApplyPatchTool) | <https://docs.openhands.dev/sdk/guides/llm-gpt5-preset> |
 
 ---
 
