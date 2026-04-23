@@ -1,0 +1,20 @@
+{
+  "name": "openhands-sdk",
+  "version": "1.0.0",
+  "description": "Reference skill for the OpenHands Software Agent SDK \u2014 build AI agents with custom tools, LLM configuration, conversations, sub-agent delegation, MCP integration, security, and persistence.",
+  "author": {
+    "name": "OpenHands",
+    "email": "contact@all-hands.dev"
+  },
+  "homepage": "https://github.com/OpenHands/extensions",
+  "repository": "https://github.com/OpenHands/extensions",
+  "license": "MIT",
+  "keywords": [
+    "sdk",
+    "agent",
+    "openhands",
+    "tools",
+    "llm",
+    "conversation"
+  ]
+}

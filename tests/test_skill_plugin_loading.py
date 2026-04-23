@@ -1,9 +1,8 @@
-"""Test that skills with commands/ can be loaded as plugins.
+"""Test that skills listed in marketplaces can be loaded as Codex/Claude plugins.
 
-Skills listed in the marketplace that have a commands/ directory need a
-.plugin/plugin.json manifest and vendor symlinks so that Codex and Claude
-Code can discover and load them.  This test ensures that those skills are
-properly configured.
+Every marketplace entry that references a ``skills/`` directory needs a
+``.plugin/plugin.json`` manifest and vendor symlinks (``.codex-plugin``,
+``.claude-plugin``) so that Codex and Claude Code can discover and load them.
 
 Regression test for: https://github.com/OpenHands/extensions/issues/201
 """
@@ -17,20 +16,10 @@ import pytest
 REPO_ROOT = Path(__file__).parent.parent
 SKILLS_DIR = REPO_ROOT / "skills"
 PLUGINS_DIR = REPO_ROOT / "plugins"
+MARKETPLACES_DIR = REPO_ROOT / "marketplaces"
 
 REQUIRED_MANIFEST_FIELDS = ["name", "description", "author", "version"]
 VENDOR_SYMLINKS = [".claude-plugin", ".codex-plugin"]
-
-
-def _skills_with_commands():
-    """Yield skill directory paths that contain a commands/ subdirectory."""
-    if not SKILLS_DIR.is_dir():
-        return
-    for skill_dir in sorted(SKILLS_DIR.iterdir()):
-        if not skill_dir.is_dir() or skill_dir.name.startswith("."):
-            continue
-        if (skill_dir / "commands").is_dir() and (skill_dir / ".plugin" / "plugin.json").exists():
-            yield skill_dir
 
 
 def _all_dirs_with_plugin_manifest():
@@ -46,36 +35,83 @@ def _all_dirs_with_plugin_manifest():
                 yield entry_dir
 
 
-class TestIteratePluginLoading:
-    """Verify the iterate skill can be loaded as a plugin (issue #201)."""
+def _marketplace_skill_entries():
+    """Yield (skill_name, source_path) for every marketplace entry under skills/."""
+    for mp_file in sorted(MARKETPLACES_DIR.glob("*.json")):
+        with open(mp_file) as f:
+            data = json.load(f)
+        for p in data.get("plugins", []):
+            src = p["source"]
+            if src.startswith("./skills/"):
+                yield p["name"], REPO_ROOT / src.lstrip("./")
 
-    def test_iterate_has_plugin_manifest(self):
-        """The iterate skill must have .plugin/plugin.json."""
-        manifest = SKILLS_DIR / "iterate" / ".plugin" / "plugin.json"
-        assert manifest.exists(), (
-            "skills/iterate/.plugin/plugin.json is missing — "
-            "Codex and Claude Code require this manifest to load the plugin."
+
+class TestAllMarketplaceSkillsHaveManifests:
+    """Every skill listed in a marketplace must have a plugin manifest for Codex."""
+
+    def test_all_marketplace_skills_have_plugin_json(self):
+        """Every marketplace skill entry must have .plugin/plugin.json."""
+        missing = []
+        for name, path in _marketplace_skill_entries():
+            manifest = path / ".plugin" / "plugin.json"
+            if not manifest.exists():
+                missing.append(name)
+        assert not missing, (
+            f"Skills missing .plugin/plugin.json (Codex can't load them): "
+            f"{', '.join(missing)}"
         )
 
-    def test_iterate_manifest_is_valid(self):
-        """The iterate manifest must have all required fields."""
-        manifest = SKILLS_DIR / "iterate" / ".plugin" / "plugin.json"
-        data = json.loads(manifest.read_text())
-        for field in REQUIRED_MANIFEST_FIELDS:
-            assert field in data, f"iterate plugin.json missing '{field}'"
-        assert data["name"] == "iterate"
-        assert isinstance(data["author"], dict), "author must be an object"
-        assert "name" in data["author"], "author must have a 'name' field"
+    def test_all_marketplace_skills_have_vendor_symlinks(self):
+        """Every marketplace skill with a manifest must have vendor symlinks."""
+        problems = []
+        for name, path in _marketplace_skill_entries():
+            if not (path / ".plugin" / "plugin.json").exists():
+                continue
+            for vendor in VENDOR_SYMLINKS:
+                link = path / vendor
+                if not link.is_symlink():
+                    problems.append(f"{name}/{vendor}")
+        assert not problems, (
+            f"Missing vendor symlinks: {', '.join(problems)}"
+        )
 
-    def test_iterate_has_vendor_symlinks(self):
-        """The iterate skill must have .claude-plugin and .codex-plugin symlinks."""
-        iterate_dir = SKILLS_DIR / "iterate"
-        for vendor in VENDOR_SYMLINKS:
-            link = iterate_dir / vendor
-            assert link.is_symlink(), f"skills/iterate/{vendor} must be a symlink"
-            assert link.resolve() == (iterate_dir / ".plugin").resolve(), (
-                f"skills/iterate/{vendor} must point to .plugin"
-            )
+    def test_all_manifests_have_required_fields(self):
+        """Every skill manifest must have name, description, author, version."""
+        problems = []
+        for name, path in _marketplace_skill_entries():
+            manifest = path / ".plugin" / "plugin.json"
+            if not manifest.exists():
+                continue
+            data = json.loads(manifest.read_text())
+            for field in REQUIRED_MANIFEST_FIELDS:
+                if field not in data:
+                    problems.append(f"{name}: missing '{field}'")
+            author = data.get("author")
+            if not isinstance(author, dict):
+                problems.append(f"{name}: 'author' must be an object")
+            elif "name" not in author:
+                problems.append(f"{name}: author missing 'name'")
+        assert not problems, (
+            f"Manifest validation errors:\n" + "\n".join(problems)
+        )
+
+    def test_manifest_name_matches_directory(self):
+        """The 'name' in plugin.json must match the directory name."""
+        problems = []
+        for name, path in _marketplace_skill_entries():
+            manifest = path / ".plugin" / "plugin.json"
+            if not manifest.exists():
+                continue
+            data = json.loads(manifest.read_text())
+            if data.get("name") != path.name:
+                problems.append(f"{name}: manifest name '{data.get('name')}' != dir '{path.name}'")
+        assert not problems, (
+            f"Name mismatches:\n" + "\n".join(problems)
+        )
+
+
+class TestIteratePluginLoading:
+    """Verify the iterate skill can be loaded as a plugin (issue #201)."""
 
     def test_iterate_loads_as_sdk_plugin(self):
         """The iterate skill must load via Plugin.load() without error."""

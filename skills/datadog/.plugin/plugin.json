@@ -1,0 +1,19 @@
+{
+  "name": "datadog",
+  "version": "1.0.0",
+  "description": "Query and analyze Datadog logs, metrics, APM traces, and monitors using the Datadog API. Use when debugging production issues, monitoring application performance, or investigating alerts.",
+  "author": {
+    "name": "OpenHands",
+    "email": "contact@all-hands.dev"
+  },
+  "homepage": "https://github.com/OpenHands/extensions",
+  "repository": "https://github.com/OpenHands/extensions",
+  "license": "MIT",
+  "keywords": [
+    "datadog",
+    "monitoring",
+    "logs",
+    "metrics",
+    "apm"
+  ]
+}
