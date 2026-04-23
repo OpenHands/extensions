@@ -1,6 +1,6 @@
 # OpenHands Plugin
 
-Unified plugin that bundles all OpenHands Cloud capabilities — CLI, REST API, and Automations.
+Unified plugin that bundles all OpenHands capabilities — CLI, REST API, Automations, and Software Agent SDK.
 
 ## What's included
 
@@ -9,6 +9,7 @@ Unified plugin that bundles all OpenHands Cloud capabilities — CLI, REST API, 
 | **CLI integration** | `scripts/run.sh` | Send tasks to Cloud via `openhands cloud` with automatic install and auth |
 | **Cloud REST API (V1)** | `skills/openhands-api` | Start/inspect conversations, delegate parallel work, access sandboxes |
 | **Automations API** | `skills/openhands-automation` | Create and manage scheduled cron tasks (prompt and plugin presets) |
+| **Software Agent SDK** | `skills/openhands-sdk` | Build agents with the Python SDK — custom tools, LLMs, conversations, delegation |
 
 ## Quick start
 
@@ -38,7 +39,8 @@ plugins/openhands/
 │   └── run.sh                        # CLI wrapper (install, auth, send, open)
 └── skills/
     ├── openhands-api -> skills/openhands-api         # Cloud REST API skill
-    └── openhands-automation -> skills/openhands-automation  # Automations skill
+    ├── openhands-automation -> skills/openhands-automation  # Automations skill
+    └── openhands-sdk -> skills/openhands-sdk         # Software Agent SDK skill
 ```
 
 ## Bundled skills
@@ -47,3 +49,4 @@ The individual skills are also usable standalone:
 
 - **`skills/openhands-api`** — Cloud REST API, Python/TypeScript clients, event debugging
 - **`skills/openhands-automation`** — Automations presets, CRUD, cron scheduling
+- **`skills/openhands-sdk`** — Software Agent SDK: building agents, custom tools, LLM config, sub-agents, MCP, security
