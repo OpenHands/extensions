@@ -138,6 +138,7 @@ Then provide analysis (skip if 🟢):
 
 **[STYLE NOTES]** (Skip most of these - only mention if it genuinely hurts maintainability)
 - Generally skip style comments. Linters exist for a reason.
+- Do NOT post comments for code that is acceptable or fine. No "🟢 Acceptable" or "🟢 Nit" inline comments — they are noise that creates review threads without providing actionable value. If code is good, just don't comment on it.
 
 **[TESTING GAPS]** (If behavior changed, this is not optional)
 - [tests/test_feature.py, Line E] **Mocks Aren't Tests**: You're only asserting mocked calls. Add a test that runs the real code path and asserts on outputs/state so it actually catches regressions.
