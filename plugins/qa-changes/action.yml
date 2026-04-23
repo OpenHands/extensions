@@ -75,7 +75,7 @@ runs:
     - name: Install uv
       uses: astral-sh/setup-uv@v6
       with:
-        enable-cache: true
+        enable-cache: false
 
     - name: Install system dependencies
       shell: bash
