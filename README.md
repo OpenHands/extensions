@@ -32,7 +32,7 @@ Browse available plugins in [`plugins/`](plugins/).
 ## Extensions Catalog
 
 <!-- BEGIN AUTO-GENERATED CATALOG -->
-This repository contains **2 marketplace(s)** with **46 extensions** (36 skills, 10 plugins).
+This repository contains **2 marketplace(s)** with **47 extensions** (37 skills, 10 plugins).
 
 ### Quick Start
 
@@ -89,7 +89,7 @@ OpenHands skills for interacting, improving, and refactoring large codebases
 
 Official skills and plugins for OpenHands — the open-source AI software engineer.
 
-**42 extensions** (34 skills, 8 plugins)
+**43 extensions** (35 skills, 8 plugins)
 
 | Name | Type | Description | Commands |
 |------|------|-------------|----------|
@@ -122,6 +122,7 @@ Official skills and plugins for OpenHands — the open-source AI software engine
 | openhands | plugin | Unified OpenHands plugin — bundles Cloud CLI, REST API (openhands-api), and Automations (openhands-automation) into a... | `/openhands-cloud` |
 | openhands-api | skill | Use the OpenHands Cloud REST API (V1) to create and manage app conversations, including multi-conversation delegation... | — |
 | openhands-automation | skill | Create and manage OpenHands automations - scheduled tasks that run in sandboxes. Use the prompt preset to create auto... | `/automation:create` |
+| openhands-sdk | skill | Reference skill for the OpenHands Software Agent SDK — build AI agents with custom tools, LLM configuration, conversa... | `/sdk` |
 | pdflatex | skill | Install and use pdflatex to compile LaTeX documents into PDFs on Linux. Use when generating academic papers, research... | — |
 | pr-review | plugin | Automated PR code review — analyzes diffs and posts inline review comments via the GitHub API. | — |
 | prd | skill | Generate a Product Requirements Document (PRD) for a new feature through an interactive clarifying-question workflow.... | `/prd` |

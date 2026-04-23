@@ -1,7 +1,7 @@
 {
   "name": "openhands",
   "version": "0.1.0",
-  "description": "Unified OpenHands plugin — bundles Cloud CLI, REST API, and Automations skills into a single plugin.",
+  "description": "Unified OpenHands plugin — bundles Cloud CLI, REST API, Automations, and Software Agent SDK skills into a single plugin.",
   "author": {
     "name": "OpenHands",
     "email": "contact@all-hands.dev"
@@ -9,5 +9,5 @@
   "homepage": "https://github.com/OpenHands/extensions",
   "repository": "https://github.com/OpenHands/extensions",
   "license": "MIT",
-  "keywords": ["openhands", "cloud", "api", "automation", "cli", "delegation"]
+  "keywords": ["openhands", "cloud", "api", "automation", "cli", "delegation", "sdk", "agent"]
 }

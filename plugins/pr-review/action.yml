@@ -94,8 +94,17 @@ runs:
         - name: Install GitHub CLI
           shell: bash
           run: |
-              sudo apt-get update
-              sudo apt-get install -y gh
+              # `gh` is preinstalled on all GitHub-hosted Ubuntu runners, so the
+              # apt path only runs on self-hosted runners that lack it. This
+              # avoids a ~10s `apt-get update` on every review on hosted runners,
+              # and also avoids spurious failures when an apt mirror is flaky.
+              if command -v gh >/dev/null 2>&1; then
+                  echo "gh already installed: $(gh --version | head -n1)"
+              else
+                  echo "gh not found, installing via apt..."
+                  sudo apt-get update
+                  sudo apt-get install -y gh
+              fi
 
         - name: Check required configuration and select model
           id: select-model
@@ -133,6 +142,7 @@ runs:
         - name: Run PR review
           shell: bash
           env:
+              UV_PYTHON_PREFERENCE: only-system
               LLM_MODEL: ${{ steps.select-model.outputs.selected_model }}
               LLM_BASE_URL: ${{ inputs.llm-base-url }}
               REVIEW_STYLE: ${{ inputs.review-style }}
