@@ -17,16 +17,35 @@ PROMPT = """/qa-changes
 /github-pr-review
 
 QA the PR changes below. Follow the /qa-changes methodology: understand the
-change, set up the environment, check CI and run additional tests, exercise
-the changed behavior as a real user would, and post a structured QA report
-**as a code review** using the /github-pr-review skill.
+change, set up the environment, and **exercise the changed behavior as a real
+user would**. Post a structured QA report **as a code review** using the
+/github-pr-review skill.
 
 **Your #1 job is to answer: does this PR achieve what it set out to do?**
-"Tests pass" is not an answer. Read the PR description to understand the
-author's goal — it might be fixing a bug, adding a feature, refactoring
-code, improving performance, or something else entirely. Then verify the
-changes actually deliver on that goal. State your conclusion explicitly
-in the report with specific evidence.
+Read the PR description to understand the author's goal — it might be fixing
+a bug, adding a feature, refactoring code, improving performance, or something
+else entirely. Then **actually run the software** to verify the changes deliver
+on that goal. State your conclusion explicitly in the report with specific
+evidence from running the code.
+
+## What you must NOT do
+
+- **Do NOT run the test suite** (`pytest`, `npm test`, `cargo test`, etc.).
+  Running tests is CI's job. Do not report test results.
+- **Do NOT analyze code by reading files** and commenting on style, structure,
+  logic, or patterns. That is code review's job (the /code-review skill).
+- **Do NOT run linters, formatters, type checkers, or pre-commit hooks.**
+  That is CI's job.
+
+## What you MUST do
+
+- **Run the actual software.** Start servers, run CLI commands, make HTTP
+  requests, open browsers, import and call functions — whatever a real user
+  would do to verify the change works.
+- **Reproduce bugs and verify fixes** end-to-end with before/after evidence.
+- **Test user-facing behavior** that automated tests cannot or do not cover.
+- **Answer whether the PR achieves its stated goal** with specific evidence
+  from exercising the software.
 
 ## Pull Request Information
 
@@ -71,13 +90,15 @@ Use `event: "COMMENT"` for the review. Bundle everything into one API call
 via `gh api -X POST repos/{repo_name}/pulls/{pr_number}/reviews --input /tmp/review.json`.
 
 Important:
-- Run the ACTUAL code. Do not just read the diff and speculate.
+- **Run the ACTUAL software.** Do not just read the diff and speculate. Do not
+  just run the test suite. Actually use the software as a human would.
 - The bar is high: if it is a UI change, use a real browser. If it is a CLI
-  change, run the actual CLI. Do not settle for "tests pass."
-- Check CI status first. Do not re-run tests that CI already runs. Focus on
-  functional verification CI cannot do.
+  change, run the actual CLI. If it is an API change, make real HTTP requests.
+- Note CI status (pass/fail) but do not re-run any tests. Focus entirely on
+  functional verification that CI cannot do.
 - **Always explicitly answer whether the PR achieves its stated goal.** This
-  is the most important part of the report. Provide specific evidence.
+  is the most important part of the report. Provide specific evidence from
+  running the code, not from reading it.
 - **Show your work as a before/after narrative inside the `<details>` block.**
   For each verification, follow these steps:
   1. Reproduce the problem or establish the baseline (without the fix) — run
@@ -89,14 +110,10 @@ Important:
      and its output.
   5. Interpret the new result: explain what it means (e.g., "The error is
      gone, confirming the fix works").
-  This before/after evidence is what makes the report convincing. A reviewer
-  should be able to expand the collapsible and see the full reproduce → fix
-  → verify cycle.
-- **Keep the report compact.** Put all evidence (command output, code snippets,
-  logs) inside `<details>` collapsible blocks. The top-level review body
-  should be short: verdict, one-sentence summary, status table, issues.
-- Do not repeat the same information in the summary, the table, and the
-  details section. Each should add something new.
+  This before/after evidence is what makes the report convincing.
+- **Keep the report compact.** Put all evidence inside `<details>` collapsible
+  blocks. The top-level review body should be short: verdict, one-sentence
+  summary, status table, issues.
 - If setup fails, report the failure and stop.
 - If a verification approach fails after three attempts, switch approaches.
   If two different approaches fail, give up and report honestly what could

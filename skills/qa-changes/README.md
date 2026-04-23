@@ -1,6 +1,6 @@
 # qa-changes
 
-Skill that provides a structured QA methodology for validating pull request changes. The agent actually runs the code — setting up the environment, executing tests, exercising changed behavior — rather than just reading the diff.
+Skill that provides a structured QA methodology for validating pull request changes. The agent actually runs the software — setting up the environment and exercising changed behavior as a real user would — rather than running the test suite (CI's job) or analyzing code (code review's job).
 
 See the [qa-changes plugin](../../plugins/qa-changes/) for the GitHub Actions integration that automates this on every PR.
 

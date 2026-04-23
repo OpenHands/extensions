@@ -41,22 +41,32 @@ Bootstrap the repository so the project builds and runs successfully.
 1. **Read the repo's bootstrap instructions.** Check `AGENTS.md`, `README.md`, `Makefile`, `package.json`, `pyproject.toml`, `Cargo.toml`, or equivalent. Always prefer the project's own documented setup commands.
 2. **Install dependencies.** Use the project's dependency manager (`uv sync`, `npm install`, `pip install -r requirements.txt`, `bundle install`, `cargo build`, etc.).
 3. **Build the project** if a build step is required (compile, transpile, bundle).
-4. **Check CI status.** Look at the PR's CI checks. If CI runs the test suite and it passes, note that and do not re-run the same tests. If CI is failing, note which checks fail — these may be pre-existing or caused by the PR.
-5. **Run tests CI does not cover.** If the repo has tests or checks that CI does not run (e.g., snapshot tests, integration tests, manual test scripts, linting configurations not in CI), run those. Only run additional tests that add value beyond what CI already validates.
+4. **Note CI status.** Glance at the PR's CI checks and note whether they pass or fail. Do NOT re-run the test suite yourself — that is CI's job, not yours. Your job starts in Phase 3.
 
 If setup fails, report the failure with the exact error output and stop.
 
 ### Phase 3: Exercise the Changed Behavior
 
-This is the most important phase. Go beyond the test suite and verify the change *actually works* the way the PR claims. The standard is high — test as a real user would.
+This is the most important phase. **Actually use the software** the way a real user would to verify the change works as the PR claims. This is what distinguishes QA from CI (which runs tests) and code review (which reads code).
+
+**Do NOT:**
+- Run the test suite (`pytest`, `npm test`, `cargo test`, etc.) — that is CI's job.
+- Analyze code by reading files and commenting on style, structure, or logic — that is code review's job.
+- Run linters, formatters, type checkers, or pre-commit hooks — that is CI's job.
+
+**DO:**
+- Run the actual application, CLI, or server and interact with it as a user would.
+- Make real HTTP requests, run real commands, open real browser pages.
+- Reproduce bugs and verify fixes end-to-end.
+- Test user-facing behavior that automated tests cannot or do not cover.
 
 **Start by verifying the PR achieves its stated goal.** Use the hypothesis from Phase 1. For example:
-- If the PR claims to "consolidate duplicated fetch logic", verify that the duplication is actually eliminated — check that the old duplicated code is removed and the new shared code is used by all callers.
 - If the PR claims to "fix crash when X is empty", reproduce the crash scenario and confirm it no longer occurs.
 - If the PR claims to "add support for Y", actually use Y end-to-end and confirm it works.
 - If the PR claims to "add a new dashboard page", navigate to the page and verify it renders and functions correctly.
+- If the PR claims to "add a new CLI flag", run the CLI with that flag and verify the output.
 
-"Tests pass" is not sufficient. Tests might pass even if the PR only partially delivers on its goal, or if the tests don't cover the claimed changes at all.
+"Tests pass" is not a QA finding. The question is: does the software actually do what the PR says it does?
 
 **For frontend / UI changes:**
 - Start the development server.
@@ -128,7 +138,7 @@ Post a structured report as a PR review using the GitHub API. **Keep the report 
 
 {Direct answer: Yes / Partially / No.}
 {2-3 sentences explaining WHY, referencing specific evidence from
-the diff and testing. For bug fixes: is the bug actually fixed?
+exercising the software. For bug fixes: is the bug actually fixed?
 For features: does the new capability work end-to-end? For refactors:
 is the restructuring achieved without changing behavior? Be specific
 about what the goal was and whether the changes deliver on it.}
@@ -136,7 +146,7 @@ about what the goal was and whether the changes deliver on it.}
 | Phase | Result |
 |-------|--------|
 | Environment Setup | {emoji} {one-line status} |
-| CI & Tests | {emoji} {one-line status, e.g. "659/659 pass, 18 new"} |
+| CI Status | {emoji} {one-line note from CI checks, e.g. "all green" or "2 checks failing"} |
 | Functional Verification | {emoji} {one-line status} |
 
 <details><summary>Functional Verification</summary>
@@ -205,13 +215,14 @@ was verified.}
 
 ## Key Principles
 
-- **Answer the core question first: does this PR achieve its stated goal?** This is the primary deliverable. Tests passing, code compiling, and linting clean are necessary but not sufficient. Explicitly state whether the changes deliver on what the PR description promises — whether that is a bug fix, a new feature, a refactor, or anything else.
+- **Answer the core question first: does this PR achieve its stated goal?** This is the primary deliverable. Explicitly state whether the changes deliver on what the PR description promises — whether that is a bug fix, a new feature, a refactor, or anything else.
 - **Fail fast.** If setup fails, stop and report. Do not spend tokens on later phases with a broken environment.
-- **Run the code.** Static analysis and diff reading are not QA. Execute the actual changed code paths.
-- **Set a high bar.** If the change affects a UI, open it in a real browser. If it affects a CLI, run the CLI. Do not settle for "tests pass."
+- **Run the code, not the tests.** Execute the actual software — start servers, run CLI commands, make HTTP requests, open browsers. Do not run `pytest`, `npm test`, or equivalent test suites. That is CI's job.
+- **Do not analyze code.** Reading files and commenting on style, structure, or logic is code review's job. Your job is to exercise behavior, not read source files.
+- **Set a high bar.** If the change affects a UI, open it in a real browser. If it affects a CLI, run the actual CLI with real inputs. If it affects an API, make real HTTP requests.
 - **Test what the PR claims.** The PR description is the specification. Verify the claim, not hypothetical scenarios.
-- **Lean on CI for tests.** Do not re-run what CI already runs. Focus effort on functional verification that CI cannot do.
+- **Leave CI to CI.** Do not re-run tests, linters, formatters, or type checkers. Note CI status, then focus entirely on functional verification that CI cannot do.
 - **Report evidence, not opinions.** Include exact commands, outputs, and error messages — inside collapsible blocks.
 - **Keep it scannable.** The report is for busy reviewers. Verdict and summary up top, evidence collapsed below. Do not repeat information across sections.
 - **Give up gracefully.** If a verification approach does not work after three materially different attempts, switch approaches. If two different approaches fail, give up and report honestly. Suggest `AGENTS.md` improvements.
-- **Respect the project's conventions.** Use the project's own tools, test runners, and build commands.
+- **Respect the project's conventions.** Use the project's own tools and build commands for setup.

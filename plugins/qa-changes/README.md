@@ -1,6 +1,6 @@
 # QA Changes Plugin
 
-Automated pull request QA validation using OpenHands agents. Unlike the [PR Review plugin](../pr-review/) which reads diffs and posts code review comments, this plugin **actually runs the code** — setting up the environment, executing the test suite, exercising changed behavior, and posting a structured QA report.
+Automated pull request QA validation using OpenHands agents. Unlike the [PR Review plugin](../pr-review/) which reads diffs and posts code review comments, this plugin **actually runs the software** — setting up the environment, exercising changed behavior as a real user would, and posting a structured QA report. It does not re-run the test suite (that's CI's job) or analyze code style/logic (that's code review's job).
 
 ## Quick Start
 
@@ -18,9 +18,9 @@ Then configure the required secrets (see [Installation](#installation) below).
 The QA agent follows a four-phase methodology:
 
 1. **Understand** — Reads the PR diff, title, and description. Classifies changes and identifies entry points (CLI commands, API endpoints, UI pages).
-2. **Setup** — Bootstraps the repo: installs dependencies, builds the project. Checks CI status and only runs tests CI does not cover.
-3. **Exercise** — The core phase. Actually uses the software the way a human would: spins up servers, opens browsers, runs CLI commands, makes HTTP requests. The bar is high — "tests pass" is not enough.
-4. **Report** — Posts a structured QA report as a PR comment with evidence (commands, outputs, screenshots) and a verdict.
+2. **Setup** — Bootstraps the repo: installs dependencies, builds the project. Notes CI status but does not re-run tests.
+3. **Exercise** — The core phase. Actually uses the software the way a human would: spins up servers, opens browsers, runs CLI commands, makes HTTP requests. Focuses on functional verification that CI and code review cannot do.
+4. **Report** — Posts a structured QA report as a PR review with evidence (commands, outputs, screenshots) and a verdict.
 
 The agent knows when to give up: if a verification approach fails after three materially different attempts, it switches to a different approach. If two fundamentally different approaches fail, it reports honestly what could not be verified and suggests `AGENTS.md` guidance for future runs.
 
@@ -115,8 +115,8 @@ The agent posts a PR comment with this structure:
 ### Environment Setup
 [Build/install results]
 
-### CI & Test Status
-[CI check results, any additional tests run beyond CI]
+### CI Status
+[Note whether CI checks pass or fail — do not re-run tests]
 
 ### Functional Verification
 [Commands run, outputs observed, screenshots, behavior verified]
@@ -155,9 +155,9 @@ triggers:
 - `make install` to install dependencies
 - `make build` to build the project
 
-## Test Commands
-- `make test` for unit tests
-- `make test-integration` for integration tests
+## How to Run the App
+- `make serve` to start the dev server on port 8080
+- `python -m myapp --help` for CLI usage
 
 ## Key Behaviors to Verify
 - [List critical user flows]

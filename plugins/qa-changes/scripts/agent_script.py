@@ -3,15 +3,16 @@
 QA Changes Agent
 
 This script runs an OpenHands agent to QA a pull request by actually
-setting up the environment, running the test suite, exercising the
-changed behavior, and posting a structured report as a PR comment.
+setting up the environment, exercising the changed behavior as a real
+user would, and posting a structured report as a PR review.
 
 Unlike the pr-review agent which reads the diff and posts inline code
-review comments, the QA agent *executes* the code to verify the change
-works as described.
+review comments, the QA agent *runs the actual software* to verify the
+change works as described. It does not re-run the test suite (CI's job)
+or analyze code style/logic (code review's job).
 
 The agent uses the /qa-changes skill for its methodology and posts
-results as a PR comment via `gh pr comment`.
+results as a GitHub code review.
 
 Environment Variables:
     LLM_API_KEY: API key for the LLM (required)
@@ -290,7 +291,7 @@ def run_qa(
 ) -> Conversation:
     """Execute the QA validation."""
     logger.info("Starting QA validation...")
-    logger.info("Agent will set up environment, run tests, and exercise changes")
+    logger.info("Agent will set up environment and exercise changed behavior")
 
     conversation.send_message(prompt)
     conversation.run()
