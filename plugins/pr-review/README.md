@@ -24,6 +24,7 @@ Then configure the required secrets (see [Installation](#installation) below).
 - **A/B Testing**: Support for testing multiple LLM models
 - **Review Context Awareness**: Considers previous reviews and unresolved threads
 - **Evidence Enforcement**: Optional check that PR descriptions include concrete end-to-end proof the code works, not just test output
+- **Sub-Agent Delegation** *(Experimental)*: Split large PR reviews across multiple sub-agents, one per file, then consolidate findings (see [Known Limitations](#known-limitations-sub-agent-delegation))
 - **Observability**: Optional Laminar integration for tracing and evaluation
 
 ## Plugin Contents
@@ -141,6 +142,7 @@ PR reviews are automatically triggered when:
 | `llm-base-url` | No | `''` | Custom LLM endpoint URL |
 | `review-style` | No | `roasted` | **[DEPRECATED]** Previously chose between `standard` and `roasted` review styles. Now ignored — the styles have been merged into a single unified skill. |
 | `require-evidence` | No | `'false'` | Require the reviewer to enforce an `Evidence` section in the PR description with end-to-end proof: screenshots/videos for frontend work, commands and runtime output for backend or scripts, and an agent conversation link when applicable. Test output alone does not qualify. |
+| `use-sub-agents` | No | `'false'` | **(Experimental)** Enable sub-agent delegation for file-level reviews. The main agent acts as a coordinator that delegates per-file review work to `file_reviewer` sub-agents via the SDK TaskToolSet, then consolidates findings into a single PR review. Useful for large PRs with many changed files. |
 | `extensions-repo` | No | `OpenHands/extensions` | Extensions repository |
 | `extensions-version` | No | `main` | Git ref (tag, branch, or SHA) |
 | `llm-api-key` | Yes | - | LLM API key |
@@ -160,6 +162,17 @@ Python dependency caching is **disabled by default**. `uv run --with ...` re-dow
 - You accept the residual risk in exchange for faster runs / lower disk writes.
 
 **Self-hosted runners:** Consider mounting a host-level uv cache volume (e.g. `/home/runner/.cache` as a Docker volume) instead of — or in addition to — this option. A local volume is faster than a round trip to GHA cache storage and does not cross any trust boundary.
+
+## Known Limitations: Sub-Agent Delegation
+
+The `use-sub-agents` feature is **experimental** and has the following known constraints:
+
+- **LLM-driven JSON parsing**: The coordinator agent relies on the LLM to parse and merge JSON responses from sub-agents. There is no code-level validation of sub-agent output, so malformed responses may cause incomplete reviews.
+- **Potential information loss during consolidation**: When merging findings from multiple sub-agents, the coordinator may lose or deduplicate findings imperfectly, especially for cross-file issues.
+- **No integration tests yet**: Current test coverage verifies prompt formatting only. End-to-end validation of the delegation flow requires manual workflow testing.
+- **Sub-agents have read-only tools**: File reviewer sub-agents have access to `terminal` and `file_editor` for inspecting full source files and surrounding context, but they cannot query the GitHub API or post reviews — only the coordinator handles GitHub interaction.
+
+These limitations are acceptable for an opt-in experimental feature and will be addressed as the feature matures.
 
 ## A/B Testing Multiple Models
 

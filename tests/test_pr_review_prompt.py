@@ -18,7 +18,9 @@ def _load_prompt_module():
     return module
 
 
-def _format_prompt(*, require_evidence: bool) -> str:
+def _format_prompt(
+    *, require_evidence: bool, use_sub_agents: bool = False
+) -> str:
     module = _load_prompt_module()
     return module.format_prompt(
         skill_trigger="/codereview",
@@ -32,6 +34,7 @@ def _format_prompt(*, require_evidence: bool) -> str:
         diff="diff --git a/file b/file",
         review_context="",
         require_evidence=require_evidence,
+        use_sub_agents=use_sub_agents,
     )
 
 
@@ -71,3 +74,59 @@ def test_format_prompt_includes_evidence_requirements_when_enabled():
     assert "real code path end-to-end" in prompt
     assert "unit test output" in prompt
     assert "https://app.all-hands.dev/conversations/{conversation_id}" in prompt
+
+
+# --- Sub-agent delegation prompt tests ---
+
+
+def test_format_prompt_uses_standard_prompt_by_default():
+    prompt = _format_prompt(require_evidence=False, use_sub_agents=False)
+
+    # Standard prompt should NOT mention delegation or sub-agents
+    assert "review coordinator" not in prompt
+    assert "TaskToolSet" not in prompt
+    assert "file_reviewer" not in prompt
+    # Standard prompt should contain the normal review instruction
+    assert "Analyze the changes and post your review" in prompt
+
+
+def test_format_prompt_appends_delegation_suffix_when_enabled():
+    prompt = _format_prompt(require_evidence=False, use_sub_agents=True)
+
+    # Should still include the base prompt content
+    assert "Add evidence enforcement" in prompt
+    assert "OpenHands/extensions" in prompt
+    assert "abc123" in prompt
+    assert "diff --git a/file b/file" in prompt
+    assert "Analyze the changes and post your review" in prompt
+    # Delegation suffix appended
+    assert "Sub-agent Delegation" in prompt
+    assert "file_reviewer" in prompt
+    assert "task" in prompt.lower()
+
+
+def test_delegation_suffix_with_evidence():
+    prompt = _format_prompt(require_evidence=True, use_sub_agents=True)
+
+    assert "Sub-agent Delegation" in prompt
+    assert "## PR Description Evidence Requirement" in prompt
+
+
+def test_file_reviewer_skill_content():
+    module = _load_prompt_module()
+    content = module.FILE_REVIEWER_SKILL
+
+    assert "file-level code reviewer" in content
+    # Unified review style
+    assert "pragmatic" in content
+    # JSON schema documented
+    assert "path" in content
+    assert "line" in content
+    assert "severity" in content
+    assert "body" in content
+    assert "critical" in content
+    # Tool access documented
+    assert "terminal" in content
+    assert "file_editor" in content
+    # Sub-agent returns results via finish tool
+    assert "finish" in content
