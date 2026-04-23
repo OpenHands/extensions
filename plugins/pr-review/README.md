@@ -163,16 +163,35 @@ Python dependency caching is **disabled by default**. `uv run --with ...` re-dow
 
 **Self-hosted runners:** Consider mounting a host-level uv cache volume (e.g. `/home/runner/.cache` as a Docker volume) instead of — or in addition to — this option. A local volume is faster than a round trip to GHA cache storage and does not cross any trust boundary.
 
+## Migration: Sub-Agent Delegation Now Enabled by Default
+
+As of this release, `use-sub-agents` defaults to `'true'`. Previously it defaulted to `'false'`.
+
+**What changed:** The main review agent now acts as a coordinator that delegates per-file review work to `file_reviewer` sub-agents via the SDK TaskToolSet, then consolidates findings into a single PR review. This improves review depth for large PRs.
+
+**How to restore the previous behavior:** Set `use-sub-agents: 'false'` in your workflow:
+
+```yaml
+- uses: OpenHands/extensions/plugins/pr-review@main
+  with:
+      use-sub-agents: 'false'
+      # ... other inputs
+```
+
+**Behavioral differences to expect:**
+- Reviews may take slightly longer due to sub-agent coordination overhead
+- File-level analysis is more thorough, especially on large multi-file PRs
+- The coordinator merges findings from sub-agents, which may surface more issues
+
 ## Known Limitations: Sub-Agent Delegation
 
 The `use-sub-agents` feature has the following known constraints:
 
 - **LLM-driven JSON parsing**: The coordinator agent relies on the LLM to parse and merge JSON responses from sub-agents. There is no code-level validation of sub-agent output, so malformed responses may cause incomplete reviews.
 - **Potential information loss during consolidation**: When merging findings from multiple sub-agents, the coordinator may lose or deduplicate findings imperfectly, especially for cross-file issues.
-- **No integration tests yet**: Current test coverage verifies prompt formatting only. End-to-end validation of the delegation flow requires manual workflow testing.
 - **Sub-agents have read-only tools**: File reviewer sub-agents have access to `terminal` and `file_editor` for inspecting full source files and surrounding context, but they cannot query the GitHub API or post reviews — only the coordinator handles GitHub interaction.
 
-These limitations will be addressed as the feature matures. To opt out, set `use-sub-agents: 'false'` in your workflow.
+To opt out, set `use-sub-agents: 'false'` in your workflow.
 
 ## A/B Testing Multiple Models
 
