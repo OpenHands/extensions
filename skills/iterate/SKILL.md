@@ -223,10 +223,10 @@ Review items come from:
 
 When a comment is actionable and correct:
 1. Fix the code.
-2. Reply to the review thread explaining what you changed (be specific).
-3. Resolve the thread.
-4. Commit with `chore: address PR review feedback (#<n>)`.
-5. Push and continue the loop.
+2. Commit with `chore: address PR review feedback (#<n>)`.
+3. Push and continue the loop.
+4. Reply to the review thread referencing the commit SHA.
+5. Resolve the thread.
 
 When a comment is non-actionable, already addressed, or you disagree:
 reply briefly explaining why, then resolve the thread. Do not leave
