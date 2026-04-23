@@ -29,9 +29,10 @@ inputs:
         default: 'false'
     use-sub-agents:
         description: >
-            Enable sub-agent delegation for file-level reviews (experimental).
+            Enable sub-agent delegation for file-level reviews.
             When true, the agent gets the TaskToolSet and decides at runtime
             whether to delegate based on diff size and complexity.
+            Set to 'false' to restore the previous single-agent behavior.
         required: false
         default: 'true'
     extensions-repo:
