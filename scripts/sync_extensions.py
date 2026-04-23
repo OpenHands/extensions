@@ -434,33 +434,45 @@ def sync_coverage(*, check: bool) -> list[str]:
 VENDOR_SYMLINKS = [".claude-plugin", ".codex-plugin"]  # add new vendors here
 
 
-def sync_symlinks(*, check: bool) -> list[str]:
-    """Ensure every plugin with .plugin/ also has vendor symlinks."""
+def _check_vendor_symlinks(directory: Path, check: bool) -> list[str]:
+    """Check/fix vendor symlinks for a single directory with .plugin/."""
     problems: list[str] = []
-    plugins_dir = REPO_ROOT / "plugins"
-    if not plugins_dir.is_dir():
+    canon = directory / ".plugin"
+    if not canon.is_dir():
         return problems
-    for plugin_dir in sorted(plugins_dir.iterdir()):
-        if not plugin_dir.is_dir() or plugin_dir.name.startswith("."):
-            continue
-        canon = plugin_dir / ".plugin"
-        if not canon.is_dir():
-            continue
-        for vendor in VENDOR_SYMLINKS:
-            link = plugin_dir / vendor
-            if link.is_symlink():
-                target = link.resolve()
-                if target == canon.resolve():
-                    continue
-                problems.append(f"wrong target: {link.relative_to(REPO_ROOT)} → {link.readlink()}")
-            elif link.exists():
-                problems.append(f"not a symlink: {link.relative_to(REPO_ROOT)}")
+    for vendor in VENDOR_SYMLINKS:
+        link = directory / vendor
+        if link.is_symlink():
+            target = link.resolve()
+            if target == canon.resolve():
                 continue
-            else:
-                problems.append(f"missing: {link.relative_to(REPO_ROOT)}")
-            if not check:
-                link.unlink(missing_ok=True)
-                link.symlink_to(".plugin")
+            problems.append(f"wrong target: {link.relative_to(REPO_ROOT)} → {link.readlink()}")
+        elif link.exists():
+            problems.append(f"not a symlink: {link.relative_to(REPO_ROOT)}")
+            continue
+        else:
+            problems.append(f"missing: {link.relative_to(REPO_ROOT)}")
+        if not check:
+            link.unlink(missing_ok=True)
+            link.symlink_to(".plugin")
+    return problems
+
+
+def sync_symlinks(*, check: bool) -> list[str]:
+    """Ensure every directory with .plugin/ also has vendor symlinks.
+
+    Scans both plugins/ and skills/ directories.  Skills that ship a
+    ``.plugin/`` manifest (e.g. those with ``commands/``) need vendor
+    symlinks so that Codex and Claude Code can discover them.
+    """
+    problems: list[str] = []
+    for base in SKILL_DIRS:
+        if not base.is_dir():
+            continue
+        for entry_dir in sorted(base.iterdir()):
+            if not entry_dir.is_dir() or entry_dir.name.startswith("."):
+                continue
+            problems.extend(_check_vendor_symlinks(entry_dir, check))
     return problems
 
 
