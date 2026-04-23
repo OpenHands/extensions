@@ -22,11 +22,16 @@ jobs:
         #   2. A draft PR is converted to ready for review, OR
         #   3. 'qa-this' label is added, OR
         #   4. openhands-agent is requested as a reviewer
-        if: |
-            (github.event.action == 'opened' && github.event.pull_request.draft == false && github.event.pull_request.author_association != 'FIRST_TIME_CONTRIBUTOR' && github.event.pull_request.author_association != 'NONE') ||
-            (github.event.action == 'ready_for_review' && github.event.pull_request.author_association != 'FIRST_TIME_CONTRIBUTOR' && github.event.pull_request.author_association != 'NONE') ||
-            github.event.label.name == 'qa-this' ||
-            github.event.requested_reviewer.login == 'openhands-agent'
+        if: >
+            (github.event.action == 'opened'
+            && github.event.pull_request.draft == false
+            && github.event.pull_request.author_association != 'FIRST_TIME_CONTRIBUTOR'
+            && github.event.pull_request.author_association != 'NONE')
+            || (github.event.action == 'ready_for_review'
+            && github.event.pull_request.author_association != 'FIRST_TIME_CONTRIBUTOR'
+            && github.event.pull_request.author_association != 'NONE')
+            || github.event.label.name == 'qa-this'
+            || github.event.requested_reviewer.login == 'openhands-agent'
         concurrency:
             group: qa-changes-${{ github.event.pull_request.number }}
             cancel-in-progress: true

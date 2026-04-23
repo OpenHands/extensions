@@ -206,6 +206,7 @@ was verified.}
 ## Key Principles
 
 - **Answer the core question first: does this PR achieve its stated goal?** This is the primary deliverable. Tests passing, code compiling, and linting clean are necessary but not sufficient. Explicitly state whether the changes deliver on what the PR description promises — whether that is a bug fix, a new feature, a refactor, or anything else.
+- **Fail fast.** If setup fails, stop and report. Do not spend tokens on later phases with a broken environment.
 - **Run the code.** Static analysis and diff reading are not QA. Execute the actual changed code paths.
 - **Set a high bar.** If the change affects a UI, open it in a real browser. If it affects a CLI, run the CLI. Do not settle for "tests pass."
 - **Test what the PR claims.** The PR description is the specification. Verify the claim, not hypothetical scenarios.
@@ -213,5 +214,4 @@ was verified.}
 - **Report evidence, not opinions.** Include exact commands, outputs, and error messages — inside collapsible blocks.
 - **Keep it scannable.** The report is for busy reviewers. Verdict and summary up top, evidence collapsed below. Do not repeat information across sections.
 - **Give up gracefully.** If a verification approach does not work after three materially different attempts, switch approaches. If two different approaches fail, give up and report honestly. Suggest `AGENTS.md` improvements.
-- **Fail fast.** If setup fails, stop and report. Do not spend tokens on later phases with a broken environment.
 - **Respect the project's conventions.** Use the project's own tools, test runners, and build commands.

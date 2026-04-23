@@ -97,12 +97,16 @@ def _call_github_api(
     except urllib.error.HTTPError as e:
         details = (e.read() or b"").decode("utf-8", errors="replace").strip()
         raise RuntimeError(
-            f"GitHub API request failed: HTTP {e.code} {e.reason}. {details}"
+            f"GitHub API request to {url} failed: HTTP {e.code} {e.reason}. {details}"
         ) from e
     except urllib.error.URLError as e:
-        raise RuntimeError(f"GitHub API request failed: {e.reason}") from e
+        raise RuntimeError(
+            f"GitHub API request to {url} failed: {e.reason}"
+        ) from e
     except json.JSONDecodeError as e:
-        raise RuntimeError(f"GitHub API returned invalid JSON: {e}") from e
+        raise RuntimeError(
+            f"GitHub API response from {url} returned invalid JSON: {e}"
+        ) from e
 
 
 def get_pr_diff(pr_number: str) -> str:

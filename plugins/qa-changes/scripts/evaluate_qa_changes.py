@@ -212,6 +212,11 @@ def fetch_pr_data(repo: str, pr_number: str) -> dict:
     }
 
 
+SCORE_QA_POSTED = 0.3  # Agent produced at least one QA report
+SCORE_RESPONSE_MAX = 0.2  # Humans engaged with the report (scaled by ratio)
+SCORE_PR_MERGED = 0.3  # PR was ultimately merged
+
+
 def calculate_engagement_score(
     qa_comments: list[dict],
     human_responses: list[dict],
@@ -219,20 +224,19 @@ def calculate_engagement_score(
 ) -> float:
     """Calculate engagement score based on interaction metrics.
 
-    Components:
-    - QA report posted: agent produced at least one QA report (0-0.3)
-    - Response ratio: humans responded to QA comments (0-0.2)
-    - Completion bonus: PR was merged (0.3)
-    Max score: 0.8
+    Components (max total 0.8):
+    - QA report posted: SCORE_QA_POSTED (0.3)
+    - Response ratio: up to SCORE_RESPONSE_MAX (0.2)
+    - Completion bonus: SCORE_PR_MERGED (0.3)
     """
     score = 0.0
     if qa_comments:
-        score += 0.3  # Agent successfully posted a QA report
+        score += SCORE_QA_POSTED
         if human_responses:
             engagement_ratio = min(len(human_responses) / len(qa_comments), 1.0)
-            score += engagement_ratio * 0.2
+            score += engagement_ratio * SCORE_RESPONSE_MAX
     if pr_merged:
-        score += 0.3
+        score += SCORE_PR_MERGED
     return score
 
 
