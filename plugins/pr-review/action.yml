@@ -142,6 +142,7 @@ runs:
         - name: Run PR review
           shell: bash
           env:
+              UV_PYTHON_PREFERENCE: only-system
               LLM_MODEL: ${{ steps.select-model.outputs.selected_model }}
               LLM_BASE_URL: ${{ inputs.llm-base-url }}
               REVIEW_STYLE: ${{ inputs.review-style }}
