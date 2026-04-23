@@ -185,7 +185,7 @@ As of this release, `use-sub-agents` defaults to `'true'`. Previously it default
 
 ## Known Limitations: Sub-Agent Delegation
 
-The `use-sub-agents` feature has the following known constraints:
+The following are known constraints of the sub-agent delegation feature. These are acceptable tradeoffs for the improved review depth it provides, and none result in data loss or security risk — in the worst case a review may be less thorough than expected, which the single-agent fallback (`use-sub-agents: 'false'`) addresses.
 
 - **LLM-driven JSON parsing**: The coordinator agent relies on the LLM to parse and merge JSON responses from sub-agents. There is no code-level validation of sub-agent output, so malformed responses may cause incomplete reviews.
 - **Potential information loss during consolidation**: When merging findings from multiple sub-agents, the coordinator may lose or deduplicate findings imperfectly, especially for cross-file issues.
