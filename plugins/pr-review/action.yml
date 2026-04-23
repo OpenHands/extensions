@@ -149,10 +149,11 @@ runs:
         - name: Run PR review
           shell: bash
           env:
-              # Pin uv to the exact Python installed by setup-python so it
-              # ignores any .python-version in the PR repo checkout (which
-              # could be older *or* newer than 3.12).
+              # Pin uv to the Python installed by setup-python and block
+              # managed downloads so the PR repo's .python-version (older
+              # *or* newer than 3.12) cannot override the interpreter.
               UV_PYTHON: '3.12'
+              UV_PYTHON_PREFERENCE: only-system
               LLM_MODEL: ${{ steps.select-model.outputs.selected_model }}
               LLM_BASE_URL: ${{ inputs.llm-base-url }}
               REVIEW_STYLE: ${{ inputs.review-style }}
