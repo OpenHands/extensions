@@ -69,10 +69,10 @@ make build
 |---|---|---|
 | **openhands.sdk** | Core agent framework — Agent, LLM, Conversation, Tool system, Events, Workspace base classes, Skills, Condenser, Security | Always (required) |
 | **openhands.tools** | Pre-built tools — BashTool, FileEditorTool, GrepTool, TaskTrackerTool, DelegateTool, etc. | Optional — provides common tools |
-| **openhands.workspace** | Extended workspace implementations — DockerWorkspace, RemoteAPIWorkspace | Optional — for sandboxed/production deployments |
+| **openhands.workspace** | Extended workspace implementations — DockerWorkspace, APIRemoteWorkspace, OpenHandsCloudWorkspace | Optional — for sandboxed/production deployments |
 | **openhands.agent_server** | FastAPI HTTP/WebSocket server for remote agent execution | Optional — for multi-user/production deployments |
 
-**Key design:** Same agent code works across all deployment modes — just swap the workspace type (`LocalWorkspace` → `DockerWorkspace` → `RemoteAPIWorkspace`).
+**Key design:** Same agent code works across all deployment modes — just swap the workspace type (`LocalWorkspace` → `DockerWorkspace` → `RemoteWorkspace` / `APIRemoteWorkspace` / `OpenHandsCloudWorkspace`).
 
 ---
 
@@ -534,7 +534,7 @@ See: <https://docs.openhands.dev/sdk/guides/observability>
 
 ## Remote Agent Server
 
-Deploy agents to Docker containers or remote servers:
+Deploy agents to Docker containers, a runtime API, OpenHands Cloud, or an already-running agent server:
 
 ```python
 # Docker workspace — agent runs in an isolated container
@@ -543,12 +543,37 @@ from openhands.workspace import DockerWorkspace
 workspace = DockerWorkspace()
 conversation = Conversation(agent=agent, workspace=workspace)
 
-# Remote API workspace — connect to a hosted agent server
-from openhands.workspace import RemoteAPIWorkspace
+# Direct agent-server connection — connect to an already-running remote agent server
+from openhands.sdk.workspace import RemoteWorkspace
 
-workspace = RemoteAPIWorkspace(url="https://my-server.example.com")
+workspace = RemoteWorkspace(
+    host="https://agent-server.example.com",
+    working_dir="/workspace",
+    api_key="session-api-key",  # optional if the server does not require auth
+)
+conversation = Conversation(agent=agent, workspace=workspace)
+
+# Runtime API workspace — provision/attach to a remote runtime via Runtime API
+from openhands.workspace import APIRemoteWorkspace
+
+workspace = APIRemoteWorkspace(
+    runtime_api_url="https://runtime.eval.all-hands.dev",
+    runtime_api_key="runtime-api-key",
+    server_image="ghcr.io/openhands/agent-server:latest-python",
+)
+conversation = Conversation(agent=agent, workspace=workspace)
+
+# OpenHands Cloud workspace — provision a sandbox through OpenHands Cloud
+from openhands.workspace import OpenHandsCloudWorkspace
+
+workspace = OpenHandsCloudWorkspace(
+    cloud_api_url="https://app.all-hands.dev",
+    cloud_api_key="openhands-cloud-api-key",
+)
 conversation = Conversation(agent=agent, workspace=workspace)
 ```
+
+Use `RemoteWorkspace` when you already have an agent-server URL. Use `APIRemoteWorkspace` or `OpenHandsCloudWorkspace` when the SDK should provision the remote environment for you.
 
 See: <https://docs.openhands.dev/sdk/guides/agent-server/overview>
 
