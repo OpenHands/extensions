@@ -45,6 +45,17 @@ inputs:
         description: Laminar API key for observability (optional)
         required: false
         default: ''
+    enable-uv-cache:
+        description: >
+            Enable setup-uv's GitHub Actions cache for Python dependencies.
+            Default is 'false' for security: shared caches can become a pivot
+            into more privileged workflows (prompt-injected reviewer could
+            write a malicious wheel into cache; subsequent higher-privilege
+            workflow hits poisoned cache). Only opt in when you control the
+            runner environment (e.g. self-hosted, single-tenant) and accept
+            the trade-off.
+        required: false
+        default: 'false'
 
 runs:
     using: composite
@@ -71,19 +82,29 @@ runs:
           with:
               python-version: '3.12'
 
-        # Security: keep GitHub Actions caching disabled in this workflow.
-        # Prompt injection can coerce the reviewer into running commands, and
-        # shared caches can become a pivot into more privileged workflows.
+        # Security: caching is disabled by default. Prompt injection can coerce
+        # the reviewer into running commands, and shared caches can become a
+        # pivot into more privileged workflows. Opt in via `enable-uv-cache`
+        # only when the runner is single-tenant / self-hosted.
         - name: Install uv
           uses: astral-sh/setup-uv@v6
           with:
-              enable-cache: false
+              enable-cache: ${{ inputs.enable-uv-cache }}
 
         - name: Install GitHub CLI
           shell: bash
           run: |
-              sudo apt-get update
-              sudo apt-get install -y gh
+              # `gh` is preinstalled on all GitHub-hosted Ubuntu runners, so the
+              # apt path only runs on self-hosted runners that lack it. This
+              # avoids a ~10s `apt-get update` on every review on hosted runners,
+              # and also avoids spurious failures when an apt mirror is flaky.
+              if command -v gh >/dev/null 2>&1; then
+                  echo "gh already installed: $(gh --version | head -n1)"
+              else
+                  echo "gh not found, installing via apt..."
+                  sudo apt-get update
+                  sudo apt-get install -y gh
+              fi
 
         - name: Check required configuration and select model
           id: select-model
@@ -121,6 +142,7 @@ runs:
         - name: Run PR review
           shell: bash
           env:
+              UV_PYTHON_PREFERENCE: only-system
               LLM_MODEL: ${{ steps.select-model.outputs.selected_model }}
               LLM_BASE_URL: ${{ inputs.llm-base-url }}
               REVIEW_STYLE: ${{ inputs.review-style }}
