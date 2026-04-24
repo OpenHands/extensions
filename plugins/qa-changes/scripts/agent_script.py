@@ -43,7 +43,7 @@ from openhands.sdk import LLM, Agent, AgentContext, Conversation, get_logger
 from openhands.sdk.context.skills import load_project_skills
 from openhands.sdk.conversation import get_agent_final_response
 from openhands.sdk.git.utils import run_git_command
-from openhands.sdk.plugin import Plugin
+from openhands.sdk.plugin import PluginSource
 from openhands.tools.preset.default import get_default_condenser, get_default_tools
 
 # Add the script directory to Python path so we can import prompt.py
@@ -170,22 +170,10 @@ def validate_environment() -> dict[str, Any]:
     }
 
 
-def load_qa_plugin() -> Plugin | None:
-    """Load the qa-changes plugin from the extensions directory.
-
-    The plugin is located relative to this script at ../../ (the plugin root).
-    """
+def get_qa_plugin_source() -> PluginSource:
+    """Return a PluginSource pointing at the qa-changes plugin directory."""
     plugin_dir = script_dir.parent  # plugins/qa-changes/
-    try:
-        plugin = Plugin.load(str(plugin_dir))
-        logger.info(
-            f"Loaded plugin '{plugin.name}' with "
-            f"{len(plugin.skills)} skill(s)"
-        )
-        return plugin
-    except Exception as e:
-        logger.warning(f"Failed to load qa-changes plugin: {e}")
-        return None
+    return PluginSource(source=str(plugin_dir))
 
 
 class BudgetExceeded(RuntimeError):
@@ -231,9 +219,7 @@ def create_agent_and_conversation(
         llm_config["base_url"] = config["base_url"]
 
     llm = LLM(**llm_config)
-
-    # Load the qa-changes plugin
-    plugin = load_qa_plugin()
+    plugin_source = get_qa_plugin_source()
 
     # Load project-specific skills from the workspace
     cwd = os.getcwd()
@@ -243,19 +229,14 @@ def create_agent_and_conversation(
         f"{[s.name for s in project_skills]}"
     )
 
-    # Combine plugin skills with project skills
-    all_skills = list(plugin.skills) if plugin else []
-    all_skills.extend(project_skills)
-
     agent_context = AgentContext(
         load_public_skills=True,
-        skills=all_skills,
+        skills=project_skills,
     )
 
     agent = Agent(
         llm=llm,
         tools=get_default_tools(enable_browser=True),
-        mcp_config=(plugin.mcp_config or {}) if plugin else {},
         agent_context=agent_context,
         system_prompt_kwargs={"cli_mode": True},
         condenser=get_default_condenser(
@@ -276,7 +257,7 @@ def create_agent_and_conversation(
         agent=agent,
         workspace=cwd,
         secrets=secrets,
-        hook_config=plugin.hooks if plugin else None,
+        plugins=[plugin_source],
         max_iteration_per_run=max_iterations,
         callbacks=[budget_callback],
     )
