@@ -125,6 +125,26 @@ This mode is intended for manual experiments or persistent self-hosted runners. 
     openhands-sdk-package: 'openhands-sdk @ git+https://github.com/OpenHands/software-agent-sdk.git@feat/openai-device-code-login#subdirectory=openhands-sdk'
 ```
 
+#### Experimental: ACP review backend
+
+Use `review-agent-mode: acp` to run the reviewer through an ACP-compatible
+agent server such as Codex ACP. In this mode, OpenHands still loads review
+skills and plugin prompt context, but the ACP server owns model access and tool
+execution. Sub-agent delegation is disabled in ACP mode.
+
+```yaml
+- name: Run PR Review
+  uses: OpenHands/extensions/plugins/pr-review@main
+  with:
+    review-agent-mode: acp
+    acp-command: npx -y @zed-industries/codex-acp@0.11.1
+    llm-model: gpt-5.5
+    github-token: ${{ secrets.GITHUB_TOKEN }}
+
+    # Temporary direct-reference example for unreleased SDK changes.
+    openhands-sdk-package: 'openhands-sdk @ git+https://github.com/OpenHands/software-agent-sdk.git@feat/acp-skill-prompt-adapter#subdirectory=openhands-sdk'
+```
+
 ### 4. Create the Review Label (Optional)
 
 Create a `review-this` label for manual review triggers:
@@ -161,7 +181,10 @@ PR reviews are automatically triggered when:
 
 | Input | Required | Default | Description |
 |-------|----------|---------|-------------|
-| `llm-model` | No | `anthropic/claude-sonnet-4-5-20250929` | LLM model(s), comma-separated for A/B testing |
+| `review-agent-mode` | No | `openhands` | Review backend: `openhands` for the standard SDK Agent or `acp` for an ACP-compatible agent server |
+| `llm-model` | No | `anthropic/claude-sonnet-4-5-20250929` | LLM model(s), comma-separated for A/B testing. In ACP mode this is passed to the ACP server when supported. |
+| `acp-command` | No | `npx -y @zed-industries/codex-acp@0.11.1` | Command used to start the ACP server when `review-agent-mode` is `acp` |
+| `acp-prompt-timeout` | No | `'1800'` | Timeout in seconds for one ACP prompt turn |
 | `llm-base-url` | No | `''` | Custom LLM endpoint URL |
 | `llm-auth-mode` | No | `api-key` | LLM authentication mode: `api-key` or `subscription` |
 | `llm-subscription-auth-method` | No | `device_code` | OpenAI subscription login method: `device_code` for remote/headless runners, or `browser` for local callback OAuth |

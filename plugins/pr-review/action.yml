@@ -8,13 +8,31 @@ branding:
     color: blue
 
 inputs:
+    review-agent-mode:
+        description: >
+            Review agent backend. Use 'openhands' for the standard OpenHands
+            SDK Agent, or 'acp' to run an ACP-compatible agent server such as
+            Codex ACP.
+        required: false
+        default: openhands
     llm-model:
         description: >
-            LLM model to use for the review. Can be a comma-separated list for A/B testing
-            - one model will be randomly selected per review.
+            LLM model to use for the review. In ACP mode this is passed to the
+            ACP server when supported. Can be a comma-separated list for A/B
+            testing - one model will be randomly selected per review.
             Example: 'model-a' or 'model-a,model-b,model-c'
         required: false
         default: anthropic/claude-sonnet-4-5-20250929
+    acp-command:
+        description: >
+            Command used to start the ACP server when review-agent-mode is
+            'acp'. The value is shell-split before execution.
+        required: false
+        default: npx -y @zed-industries/codex-acp@0.11.1
+    acp-prompt-timeout:
+        description: Timeout in seconds for one ACP prompt turn.
+        required: false
+        default: '1800'
     llm-base-url:
         description: LLM base URL (optional, for custom LLM endpoints)
         required: false
@@ -33,6 +51,12 @@ inputs:
             OAuth flow.
         required: false
         default: device_code
+    llm-subscription-instructions:
+        description: >
+            Instructions passed to the ChatGPT Codex subscription backend.
+            Some subscription models require this field.
+        required: false
+        default: You are a meticulous pull request review agent.
     openhands-sdk-package:
         description: >
             Package spec passed to uv for openhands-sdk. Keep the default for
@@ -139,16 +163,22 @@ runs:
           id: select-model
           shell: bash
           env:
+              REVIEW_AGENT_MODE: ${{ inputs.review-agent-mode }}
               LLM_AUTH_MODE: ${{ inputs.llm-auth-mode }}
               LLM_API_KEY: ${{ inputs.llm-api-key }}
               GITHUB_TOKEN: ${{ inputs.github-token }}
           run: |
+              if [ "$REVIEW_AGENT_MODE" != "openhands" ] && [ "$REVIEW_AGENT_MODE" != "acp" ]; then
+                echo "Error: review-agent-mode must be 'openhands' or 'acp'."
+                exit 1
+              fi
+
               if [ "$LLM_AUTH_MODE" != "api-key" ] && [ "$LLM_AUTH_MODE" != "subscription" ]; then
                 echo "Error: llm-auth-mode must be 'api-key' or 'subscription'."
                 exit 1
               fi
 
-              if [ "$LLM_AUTH_MODE" = "api-key" ] && [ -z "$LLM_API_KEY" ]; then
+              if [ "$REVIEW_AGENT_MODE" = "openhands" ] && [ "$LLM_AUTH_MODE" = "api-key" ] && [ -z "$LLM_API_KEY" ]; then
                 echo "Error: llm-api-key is required."
                 exit 1
               fi
@@ -168,9 +198,13 @@ runs:
               echo "PR Title: ${{ github.event.pull_request.title }}"
               echo "Repository: ${{ github.repository }}"
               echo "Extensions Version: ${{ inputs.extensions-version }}"
+              echo "Review agent mode: $REVIEW_AGENT_MODE"
               echo "LLM auth mode: $LLM_AUTH_MODE"
               echo "Available models: $MODELS_LIST"
               echo "Selected LLM model: $SELECTED_MODEL"
+              if [ "$REVIEW_AGENT_MODE" = "acp" ]; then
+                echo "ACP command: ${{ inputs.acp-command }}"
+              fi
               if [ -n "${{ inputs.llm-base-url }}" ]; then
                 echo "LLM base URL: ${{ inputs.llm-base-url }}"
               fi
@@ -183,10 +217,14 @@ runs:
               # could be older *or* newer than 3.12).
               UV_PYTHON: '3.12'
               OPENHANDS_SDK_PACKAGE: ${{ inputs.openhands-sdk-package }}
+              REVIEW_AGENT_MODE: ${{ inputs.review-agent-mode }}
+              ACP_COMMAND: ${{ inputs.acp-command }}
+              ACP_PROMPT_TIMEOUT: ${{ inputs.acp-prompt-timeout }}
               LLM_AUTH_MODE: ${{ inputs.llm-auth-mode }}
               LLM_MODEL: ${{ steps.select-model.outputs.selected_model }}
               LLM_BASE_URL: ${{ inputs.llm-base-url }}
               LLM_SUBSCRIPTION_AUTH_METHOD: ${{ inputs.llm-subscription-auth-method }}
+              LLM_SUBSCRIPTION_INSTRUCTIONS: ${{ inputs.llm-subscription-instructions }}
               REVIEW_STYLE: ${{ inputs.review-style }}
               REQUIRE_EVIDENCE: ${{ inputs.require-evidence }}
               USE_SUB_AGENTS: ${{ inputs.use-sub-agents }}
