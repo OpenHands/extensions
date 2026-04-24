@@ -137,7 +137,7 @@ execution. Sub-agent delegation is disabled in ACP mode.
   uses: OpenHands/extensions/plugins/pr-review@main
   with:
     review-agent-mode: acp
-    acp-command: npx -y @zed-industries/codex-acp@0.11.1
+    acp-command: npx -y @zed-industries/codex-acp@0.12.0
     codex-cli-package: '@openai/codex@0.124.0'
     llm-model: gpt-5.5
     github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -184,7 +184,7 @@ PR reviews are automatically triggered when:
 |-------|----------|---------|-------------|
 | `review-agent-mode` | No | `openhands` | Review backend: `openhands` for the standard SDK Agent or `acp` for an ACP-compatible agent server |
 | `llm-model` | No | `anthropic/claude-sonnet-4-5-20250929` | LLM model(s), comma-separated for A/B testing. In ACP mode this is passed to the ACP server when supported. |
-| `acp-command` | No | `npx -y @zed-industries/codex-acp@0.11.1` | Command used to start the ACP server when `review-agent-mode` is `acp` |
+| `acp-command` | No | `npx -y @zed-industries/codex-acp@0.12.0` | Command used to start the ACP server when `review-agent-mode` is `acp` |
 | `acp-prompt-timeout` | No | `'1800'` | Timeout in seconds for one ACP prompt turn |
 | `codex-cli-package` | No | `@openai/codex@0.124.0` | npm package spec for the Codex CLI installed before running Codex ACP. Set to an empty string to skip installation. |
 | `llm-base-url` | No | `''` | Custom LLM endpoint URL |

@@ -28,7 +28,7 @@ inputs:
             Command used to start the ACP server when review-agent-mode is
             'acp'. The value is shell-split before execution.
         required: false
-        default: npx -y @zed-industries/codex-acp@0.11.1
+        default: npx -y @zed-industries/codex-acp@0.12.0
     acp-prompt-timeout:
         description: Timeout in seconds for one ACP prompt turn.
         required: false

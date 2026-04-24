@@ -786,7 +786,7 @@ def validate_environment() -> dict[str, Any]:
     return {
         "review_agent_mode": review_agent_mode,
         "acp_command": os.getenv(
-            "ACP_COMMAND", "npx -y @zed-industries/codex-acp@0.11.1"
+            "ACP_COMMAND", "npx -y @zed-industries/codex-acp@0.12.0"
         ),
         "acp_prompt_timeout": acp_prompt_timeout,
         "auth_mode": auth_mode,
