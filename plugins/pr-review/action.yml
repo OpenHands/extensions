@@ -169,6 +169,9 @@ runs:
           if: ${{ inputs.review-agent-mode == 'acp' && inputs.codex-cli-package != '' }}
           shell: bash
           run: |
+              npm config set prefix "$HOME/.npm-global"
+              echo "$HOME/.npm-global/bin" >> "$GITHUB_PATH"
+              export PATH="$HOME/.npm-global/bin:$PATH"
               npm install -g "${{ inputs.codex-cli-package }}"
               codex --version
 
