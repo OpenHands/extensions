@@ -1,6 +1,6 @@
 # Code Reuse Review
 
-A detailed reference for analyzing code reuse opportunities in recently modified code. Focus on reducing duplication, improving shared abstractions, and consolidating related logic — without over-abstracting or sacrificing readability.
+A detailed reference for analyzing code reuse opportunities in recently modified code. Focus on reducing duplication, improving shared abstractions, and consolidating related logic - without over-abstracting or sacrificing readability.
 
 ## Core Principles
 
@@ -26,7 +26,7 @@ A detailed reference for analyzing code reuse opportunities in recently modified
 
 ### Consolidation Opportunities
 
-- Multiple functions that do slight variations of the same task — candidates for a single parameterized function
+- Multiple functions that do slight variations of the same task - candidates for a single parameterized function
 - Related helper functions scattered across modules that belong in a shared utility module
 - Inline lambdas or closures duplicated across components
 
@@ -50,7 +50,7 @@ A detailed reference for analyzing code reuse opportunities in recently modified
 For each reuse finding, provide:
 
 ```
-**[REUSE]** [file:line] — Brief description
+**[REUSE]** [file:line] - Brief description
   Duplicated in: [other-file:line], [another-file:line]
   Suggestion: Extract to `shared/utils.ts#functionName` (or appropriate module)
   Impact: Reduces maintenance surface, single source of truth for [logic description]

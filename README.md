@@ -101,7 +101,7 @@ Official skills and plugins for OpenHands — the open-source AI software engine
 | bitbucket | skill | Interact with Bitbucket repositories and pull requests using the BITBUCKET_TOKEN environment variable. Use when worki... | — |
 | city-weather | plugin | Get current weather, time, and precipitation forecast for any city using the free Open-Meteo API. Provides slash comm... | — |
 | code-review | skill | Rigorous code review focusing on data structures, simplicity, security, pragmatism, and risk/safety evaluation. Provi... | `/codereview`, `/codereview-roasted` |
-| code-simplifier | skill | Simplifies and refines code across three dimensions — code reuse, code quality, and efficiency — while preserving all... | — |
+| code-simplifier | skill | Simplifies and refines code across three dimensions - code reuse, code quality, and efficiency - while preserving all... | — |
 | datadog | skill | Query and analyze Datadog logs, metrics, APM traces, and monitors using the Datadog API. Use when debugging productio... | — |
 | deno | skill | Common project operations using Deno (tasks, run/test/lint/fmt, and dependency management). | — |
 | discord | skill | Build and automate Discord integrations (bots, webhooks, slash commands, and REST API workflows). Use when the user m... | — |

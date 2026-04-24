@@ -1,6 +1,6 @@
 # Efficiency Review
 
-A detailed reference for evaluating performance, resource usage, and algorithmic efficiency in recently modified code. Focus on real, measurable inefficiencies — not premature optimization or micro-benchmarks that do not matter at the project's scale.
+A detailed reference for evaluating performance, resource usage, and algorithmic efficiency in recently modified code. Focus on real, measurable inefficiencies - not premature optimization or micro-benchmarks that do not matter at the project's scale.
 
 ## Core Principles
 
@@ -63,7 +63,7 @@ A detailed reference for evaluating performance, resource usage, and algorithmic
 For each efficiency finding, provide:
 
 ```
-**[EFFICIENCY]** [file:line] — Brief description
+**[EFFICIENCY]** [file:line] - Brief description
   Issue: [What is inefficient and at what scale it matters]
   Suggestion: [Concrete fix with expected complexity improvement]
   Impact: HIGH (user-facing latency/cost) | MEDIUM (noticeable at scale) | LOW (minor, worth noting)

@@ -1,12 +1,12 @@
 # Code Quality Review
 
-A detailed reference for evaluating code clarity, consistency, and maintainability in recently modified code. Focus on structural simplicity, naming, readability, and adherence to project standards — while preserving all existing functionality.
+A detailed reference for evaluating code clarity, consistency, and maintainability in recently modified code. Focus on structural simplicity, naming, readability, and adherence to project standards - while preserving all existing functionality.
 
 ## Core Principles
 
 1. **Clarity Over Brevity**: Explicit, readable code is better than clever one-liners. Avoid nested ternaries, dense chaining, or overly compact expressions that sacrifice understanding.
 2. **Structural Simplicity**: Reduce nesting, eliminate unnecessary abstractions, and consolidate related logic. If a function needs more than three levels of indentation, redesign it.
-3. **Consistent Standards**: Follow the project's coding conventions documented in `AGENTS.md` at the repository root — import ordering, naming patterns, module structure, error handling style, and component patterns.
+3. **Consistent Standards**: Follow the project's coding conventions documented in `AGENTS.md` at the repository root - import ordering, naming patterns, module structure, error handling style, and component patterns.
 4. **Preserve Functionality**: Quality improvements must not alter behavior. All outputs, side effects, and edge-case handling remain unchanged.
 
 ## What to Look For
@@ -24,7 +24,7 @@ A detailed reference for evaluating code clarity, consistency, and maintainabili
 - Functions with more than three levels of indentation
 - Long functions doing multiple unrelated things (violating single responsibility)
 - Complex conditional chains that could be simplified with early returns, guard clauses, or lookup tables
-- Nested ternary operators — always prefer `if/else` or `switch` for multiple conditions
+- Nested ternary operators - always prefer `if/else` or `switch` for multiple conditions
 - Deeply nested callbacks or promise chains that could be flattened
 
 ### Redundancy and Dead Code
@@ -68,7 +68,7 @@ A detailed reference for evaluating code clarity, consistency, and maintainabili
 For each quality finding, provide:
 
 ```
-**[QUALITY]** [file:line] — Brief description
+**[QUALITY]** [file:line] - Brief description
   Issue: [What is wrong and why it matters]
   Suggestion: [Concrete, actionable improvement]
   Severity: CRITICAL | IMPROVEMENT | MINOR
