@@ -42,6 +42,13 @@ evidence from running the code.
 - **Run the actual software.** Start servers, run CLI commands, make HTTP
   requests, open browsers, import and call functions — whatever a real user
   would do to verify the change works.
+- **Actually attempt real execution first.** Running `--help`, `--dry-run`, or
+  `--version` is NOT functional verification — it only proves the CLI parses
+  arguments correctly. Always attempt to run the software with real inputs and
+  real operations first. If that fails because of missing credentials, external
+  services, or environment constraints, report the failure honestly (what you
+  tried, what was missing, and what could not be verified as a result). Do not
+  fall back to `--help` output and present it as evidence the software works.
 - **Reproduce bugs and verify fixes** end-to-end with before/after evidence.
 - **Test user-facing behavior** that automated tests cannot or do not cover.
 - **Answer whether the PR achieves its stated goal** with specific evidence

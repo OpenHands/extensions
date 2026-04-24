@@ -57,6 +57,7 @@ This is the most important phase. **Actually use the software** the way a real u
 **DO:**
 - Run the actual application, CLI, or server and interact with it as a user would.
 - Make real HTTP requests, run real commands, open real browser pages.
+- Always attempt real execution first. Running `--help`, `--dry-run`, or `--version` is NOT functional verification — it only proves argument parsing works. If real execution fails due to missing credentials, external services, or environment constraints, report what you tried and what could not be verified. Do not substitute `--help` output for evidence the software works.
 - Reproduce bugs and verify fixes end-to-end.
 - Test user-facing behavior that automated tests cannot or do not cover.
 
