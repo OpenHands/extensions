@@ -2,6 +2,8 @@ import importlib.util
 import sys
 from pathlib import Path
 
+import yaml
+
 
 def _load_prompt_module():
     script_path = (
@@ -130,3 +132,31 @@ def test_file_reviewer_skill_content():
     assert "file_editor" in content
     # Sub-agent returns results via finish tool
     assert "finish" in content
+
+
+# --- action.yml default tests (issue #208) ---
+
+
+def _load_action_yml() -> dict:
+    action_path = (
+        Path(__file__).parent.parent
+        / "plugins"
+        / "pr-review"
+        / "action.yml"
+    )
+    return yaml.safe_load(action_path.read_text())
+
+
+def test_use_sub_agents_defaults_to_false():
+    """Ensure use-sub-agents defaults to 'false' in action.yml.
+
+    Sub-agent delegation currently causes the parent agent's context to
+    balloon with intermediate trace data, leading to ~15 min timeouts
+    with no review posted (issue #208). The default must stay 'false'
+    until the underlying SDK issue is resolved.
+    """
+    action = _load_action_yml()
+    default = action["inputs"]["use-sub-agents"]["default"]
+    assert default == "false", (
+        f"use-sub-agents default should be 'false' (see #208), got {default!r}"
+    )
