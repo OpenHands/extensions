@@ -33,6 +33,12 @@ inputs:
         description: Timeout in seconds for one ACP prompt turn.
         required: false
         default: '1800'
+    codex-cli-package:
+        description: >
+            npm package spec for the Codex CLI installed before running Codex
+            ACP. Set to an empty string to skip installation.
+        required: false
+        default: '@openai/codex@0.124.0'
     llm-base-url:
         description: LLM base URL (optional, for custom LLM endpoints)
         required: false
@@ -158,6 +164,13 @@ runs:
                   sudo apt-get update
                   sudo apt-get install -y gh
               fi
+
+        - name: Install Codex CLI for Codex ACP
+          if: ${{ inputs.review-agent-mode == 'acp' && inputs.codex-cli-package != '' }}
+          shell: bash
+          run: |
+              npm install -g "${{ inputs.codex-cli-package }}"
+              codex --version
 
         - name: Check required configuration and select model
           id: select-model
