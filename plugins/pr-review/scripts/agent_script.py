@@ -905,7 +905,10 @@ def create_conversation(
         f"{[s.name for s in project_skills]}"
     )
 
-    agent_context = AgentContext(skills=project_skills)
+    agent_context = AgentContext(
+        load_public_skills=True,
+        skills=project_skills,
+    )
 
     plugin_dir = script_dir.parent  # plugins/pr-review/
 
