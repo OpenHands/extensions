@@ -17,7 +17,12 @@ Analyze recently modified code and suggest refinements that improve clarity, con
 
 ### Identify the Scope
 
-Focus on code that has been recently modified or touched in the current session unless explicitly instructed to review a broader scope. Use `git diff` or the file list from the current PR/MR to determine the changed files.
+By default, focus on recently modified code. Use `git diff` or the file list from the current PR/MR to determine the changed files. When the user specifies a different scope, follow their instruction:
+
+- **Specific files**: "simplify `src/auth.py`" - review only the named files
+- **Directory**: "simplify the `utils/` folder" - review all files in that directory
+- **Full repo**: "simplify the whole project" - review the entire codebase
+- **PR/MR**: "simplify this PR" - review only files changed in the current PR/MR
 
 ### Sub-Agent Delegation (Preferred)
 
