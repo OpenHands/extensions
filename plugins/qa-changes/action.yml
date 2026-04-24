@@ -50,7 +50,31 @@ inputs:
 runs:
   using: composite
   steps:
+    - name: Preflight fork/secrets guard
+      id: preflight
+      shell: bash
+      env:
+        IS_FORK_PR: ${{ github.event.pull_request.head.repo.full_name != github.repository }}
+        LLM_API_KEY: ${{ inputs.llm-api-key }}
+      run: |
+        if [ "$IS_FORK_PR" = "true" ] && [ -z "$LLM_API_KEY" ]; then
+          echo "::notice title=Skipping QA Changes for fork PR::This workflow runs in pull_request context, so fork PRs do not receive repository secrets such as LLM_API_KEY. Skipping automated QA instead of failing. A maintainer can run QA locally or via a separate trusted workflow."
+          {
+            echo "## QA Changes skipped"
+            echo
+            echo "This PR comes from a fork, and pull_request workflows do not receive repository secrets such as LLM_API_KEY."
+            echo "Skipping automated QA instead of failing."
+            echo
+            echo "A maintainer can run QA locally or via a separate trusted workflow if needed."
+          } >> "$GITHUB_STEP_SUMMARY"
+          echo "skip=true" >> "$GITHUB_OUTPUT"
+          exit 0
+        fi
+
+        echo "skip=false" >> "$GITHUB_OUTPUT"
+
     - name: Checkout extensions repository
+      if: steps.preflight.outputs.skip != 'true'
       uses: actions/checkout@v4
       with:
         repository: ${{ inputs.extensions-repo }}
@@ -58,6 +82,7 @@ runs:
         path: extensions
 
     - name: Checkout PR repository
+      if: steps.preflight.outputs.skip != 'true'
       uses: actions/checkout@v4
       with:
         repository: ${{ github.event.pull_request.head.repo.full_name }}
@@ -68,16 +93,19 @@ runs:
         submodules: recursive
 
     - name: Set up Python
+      if: steps.preflight.outputs.skip != 'true'
       uses: actions/setup-python@v5
       with:
         python-version: '3.12'
 
     - name: Install uv
+      if: steps.preflight.outputs.skip != 'true'
       uses: astral-sh/setup-uv@v6
       with:
         enable-cache: false
 
     - name: Install system dependencies
+      if: steps.preflight.outputs.skip != 'true'
       shell: bash
       run: |
         sudo apt-get update
@@ -86,6 +114,7 @@ runs:
         sudo apt-get install -y gh tmux
 
     - name: Check required configuration
+      if: steps.preflight.outputs.skip != 'true'
       shell: bash
       env:
         LLM_API_KEY: ${{ inputs.llm-api-key }}
@@ -106,6 +135,7 @@ runs:
         echo "LLM model: ${{ inputs.llm-model }}"
 
     - name: Run QA validation
+      if: steps.preflight.outputs.skip != 'true'
       shell: bash
       env:
         LLM_MODEL: ${{ inputs.llm-model }}
@@ -133,7 +163,7 @@ runs:
 
     - name: Upload logs as artifact
       uses: actions/upload-artifact@v4
-      if: always()
+      if: always() && steps.preflight.outputs.skip != 'true'
       with:
         name: openhands-qa-changes-logs
         path: |
@@ -143,7 +173,7 @@ runs:
 
     - name: Upload Laminar trace info for evaluation
       uses: actions/upload-artifact@v4
-      if: success()
+      if: success() && steps.preflight.outputs.skip != 'true'
       with:
         name: qa-changes-trace-${{ github.event.pull_request.number }}
         path: pr-repo/laminar_trace_info.json

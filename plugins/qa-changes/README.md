@@ -172,7 +172,7 @@ Add setup and test commands to `AGENTS.md` at your repository root. The agent re
 
 The workflow uses `pull_request` (not `pull_request_target`) so that fork PRs do **not** get access to the base repository's secrets. Since the QA agent *executes* code from the PR (unlike a code-review agent which only reads diffs), using `pull_request_target` would allow untrusted fork code to run with the repo's `GITHUB_TOKEN` and `LLM_API_KEY`.
 
-The trade-off is that fork PRs won't have access to repository secrets and the QA workflow won't run for them. Maintainers can run QA locally or set up a separate trusted workflow for those cases.
+The trade-off is that fork PRs won't have access to repository secrets. In the example `pull_request` workflow, the action now detects that case and exits successfully with a clear skip notice instead of failing. Maintainers can run QA locally or set up a separate trusted workflow for those cases.
 
 **Note**: The `FIRST_TIME_CONTRIBUTOR` and `NONE` author associations are excluded from automatic triggers as an additional safety layer.
 
