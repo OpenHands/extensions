@@ -19,6 +19,27 @@ inputs:
         description: LLM base URL (optional, for custom LLM endpoints)
         required: false
         default: ''
+    llm-auth-mode:
+        description: >
+            Authentication mode for the LLM. Use 'api-key' for the existing
+            API-key/LiteLLM path, or 'subscription' for ChatGPT subscription
+            login via the OpenHands SDK.
+        required: false
+        default: api-key
+    llm-subscription-auth-method:
+        description: >
+            OpenAI subscription login method. 'device_code' is intended for
+            remote/headless runners; 'browser' uses the SDK's local callback
+            OAuth flow.
+        required: false
+        default: device_code
+    openhands-sdk-package:
+        description: >
+            Package spec passed to uv for openhands-sdk. Keep the default for
+            released SDKs, or provide a direct-reference package spec to test
+            unreleased SDK changes.
+        required: false
+        default: openhands-sdk
     review-style:
         description: "[DEPRECATED] Previously chose between 'standard' and 'roasted' review styles. These have been merged into a single code-review skill. The input is kept for backward compatibility but no longer changes behavior. Will be removed in a future version."
         required: false
@@ -44,8 +65,8 @@ inputs:
         required: false
         default: main
     llm-api-key:
-        description: LLM API key (required)
-        required: true
+        description: LLM API key (required when llm-auth-mode is 'api-key')
+        required: false
     github-token:
         description: GitHub token for API access (required)
         required: true
@@ -118,10 +139,16 @@ runs:
           id: select-model
           shell: bash
           env:
+              LLM_AUTH_MODE: ${{ inputs.llm-auth-mode }}
               LLM_API_KEY: ${{ inputs.llm-api-key }}
               GITHUB_TOKEN: ${{ inputs.github-token }}
           run: |
-              if [ -z "$LLM_API_KEY" ]; then
+              if [ "$LLM_AUTH_MODE" != "api-key" ] && [ "$LLM_AUTH_MODE" != "subscription" ]; then
+                echo "Error: llm-auth-mode must be 'api-key' or 'subscription'."
+                exit 1
+              fi
+
+              if [ "$LLM_AUTH_MODE" = "api-key" ] && [ -z "$LLM_API_KEY" ]; then
                 echo "Error: llm-api-key is required."
                 exit 1
               fi
@@ -141,6 +168,7 @@ runs:
               echo "PR Title: ${{ github.event.pull_request.title }}"
               echo "Repository: ${{ github.repository }}"
               echo "Extensions Version: ${{ inputs.extensions-version }}"
+              echo "LLM auth mode: $LLM_AUTH_MODE"
               echo "Available models: $MODELS_LIST"
               echo "Selected LLM model: $SELECTED_MODEL"
               if [ -n "${{ inputs.llm-base-url }}" ]; then
@@ -154,8 +182,11 @@ runs:
               # ignores any .python-version in the PR repo checkout (which
               # could be older *or* newer than 3.12).
               UV_PYTHON: '3.12'
+              OPENHANDS_SDK_PACKAGE: ${{ inputs.openhands-sdk-package }}
+              LLM_AUTH_MODE: ${{ inputs.llm-auth-mode }}
               LLM_MODEL: ${{ steps.select-model.outputs.selected_model }}
               LLM_BASE_URL: ${{ inputs.llm-base-url }}
+              LLM_SUBSCRIPTION_AUTH_METHOD: ${{ inputs.llm-subscription-auth-method }}
               REVIEW_STYLE: ${{ inputs.review-style }}
               REQUIRE_EVIDENCE: ${{ inputs.require-evidence }}
               USE_SUB_AGENTS: ${{ inputs.use-sub-agents }}
@@ -170,7 +201,7 @@ runs:
               REPO_NAME: ${{ github.repository }}
           run: |
               cd pr-repo
-              uv run --no-project --with openhands-sdk --with openhands-tools --with lmnr \
+              uv run --no-project --with "$OPENHANDS_SDK_PACKAGE" --with openhands-tools --with lmnr \
                 python ../extensions/plugins/pr-review/scripts/agent_script.py
 
         - name: Upload logs as artifact
