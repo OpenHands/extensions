@@ -1,10 +1,6 @@
 ---
 name: code-simplifier
 description: Simplifies and refines code for clarity, consistency, and maintainability while preserving all functionality. Analyzes recently modified code across three dimensions - code reuse, code quality, and efficiency - and provides actionable improvement suggestions. This skill should be used when the user asks to "simplify code", "refine code", "clean up code", "improve code quality", or requests a simplification review of recent changes.
-triggers:
-  - simplify
-  - refine
-  - cleanup
 ---
 
 # Code Simplifier
