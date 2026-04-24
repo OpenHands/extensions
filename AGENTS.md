@@ -93,6 +93,10 @@ When editing or adding skills in this repo, follow these rules (and add new skil
 - Agent-driven plugins (for example `plugins/pr-review` and `plugins/release-notes`) use `uv run --with openhands-sdk --with openhands-tools ...` and require an `LLM_API_KEY` in addition to `GITHUB_TOKEN`.
 - For OpenHands Cloud API guidance, automations, and CLI integration, use `plugins/openhands`. It is the canonical unified OpenHands plugin covering the V1 Cloud API, Automations API, and CLI. The individual skills (`skills/openhands-api`, `skills/openhands-automation`) are also available standalone.
 - When reviewing or editing `skills/openhands-sdk`, validate copy-paste imports against the released packages with `uv run --with openhands-tools --with openhands-workspace --with openhands-agent-server python ...`. In the current released workspace package, the exported remote workspace classes are `APIRemoteWorkspace` / `OpenHandsCloudWorkspace`; `RemoteAPIWorkspace` is not available.
+- For agent-driven plugin scripts, prefer `from openhands.sdk.plugin import PluginSource` and pass `plugins=[PluginSource(source=...)]` into `Conversation`. In the current released SDK (`openhands-sdk` 1.18.x), `Plugin` is not exported from `openhands.sdk.plugin`, so direct `Plugin.load(...)` imports can break CI.
+- `plugins/qa-changes/action.yml` now has a preflight guard for fork PRs in `pull_request` context: if the PR comes from a fork and `LLM_API_KEY` is unavailable (normal for forks), the action exits successfully with a clear skip notice instead of failing.
+
+
 - `plugins/release-notes` now has a standalone validator at `plugins/release-notes/scripts/validate_release_notes.py`; it rebuilds the deterministic tag-range context, fails if a change bullet omits explicit PR/commit refs or matching author handles, and enforces full PR/author coverage by appending a compact `### 🔎 Small Fixes/Internal Changes` appendix grouped by author when the agent omits lower-signal items. New contributor detection in `generate_release_notes.py` should use merged PR history for human authors (excluding bots) rather than commit-author lookup.
 
 
