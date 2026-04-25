@@ -76,10 +76,10 @@ from openhands.sdk import (
     register_agent,
 )
 from openhands.sdk.context import Skill
-from openhands.sdk.context.skills import load_project_skills
 from openhands.sdk.conversation import get_agent_final_response
 from openhands.sdk.git.utils import run_git_command
 from openhands.sdk.plugin import PluginSource
+from openhands.sdk.skills import load_project_skills
 from openhands.tools.delegate import DelegationVisualizer
 from openhands.tools.preset.default import get_default_condenser, get_default_tools
 from openhands.tools.task import TaskToolSet
@@ -909,6 +909,10 @@ def create_conversation(
         load_public_skills=True,
         skills=project_skills,
     )
+    # AgentContext expands public skills eagerly. Conversation/plugin wiring may
+    # validate or copy the context again; keep the loaded skills but avoid a
+    # second public-skill fetch and duplicate-skill warnings.
+    agent_context.load_public_skills = False
 
     plugin_dir = script_dir.parent  # plugins/pr-review/
 
