@@ -873,15 +873,21 @@ def create_conversation(
         tools.append(Tool(name=TaskToolSet.name))
         logger.info("Sub-agent delegation enabled — TaskToolSet added")
 
-    agent = Agent(
-        llm=llm,
-        tools=tools,
-        agent_context=agent_context,
-        system_prompt_kwargs={"cli_mode": True},
-        condenser=get_default_condenser(
+    agent_kwargs: dict[str, Any] = {
+        "llm": llm,
+        "tools": tools,
+        "agent_context": agent_context,
+        "system_prompt_kwargs": {"cli_mode": True},
+        "condenser": get_default_condenser(
             llm=llm.model_copy(update={"usage_id": "condenser"})
         ),
-    )
+    }
+    if use_sub_agents:
+        # Enable parallel tool execution so the coordinator can launch
+        # multiple file_reviewer sub-agents concurrently via TaskToolSet.
+        agent_kwargs["tool_concurrency_limit"] = 4
+
+    agent = Agent(**agent_kwargs)
 
     # The plugin directory is the parent of the scripts/ directory
     plugin_dir = script_dir.parent  # plugins/pr-review/
