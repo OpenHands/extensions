@@ -61,6 +61,21 @@
             ]
         },
         {
+            "name": "code-simplifier",
+            "source": "./skills/code-simplifier",
+            "description": "Simplifies and refines code across three dimensions - code reuse, code quality, and efficiency - while preserving all functionality. Analyzes recently modified code and provides actionable improvement suggestions.",
+            "category": "development",
+            "keywords": [
+                "simplify",
+                "refine",
+                "cleanup",
+                "code-quality",
+                "reuse",
+                "efficiency",
+                "refactor"
+            ]
+        },
+        {
             "name": "openhands-automation",
             "source": "./skills/openhands-automation",
             "description": "Create and manage OpenHands automations - scheduled tasks that run in sandboxes. Use the prompt preset to create automations from natural language, or manage existing automations.",
