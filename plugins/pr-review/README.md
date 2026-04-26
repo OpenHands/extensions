@@ -118,17 +118,21 @@ Create a `review-this` label for manual review triggers:
 
 PR reviews are automatically triggered when:
 
-1. A new non-draft PR is opened (by non-first-time contributors)
-2. A draft PR is marked as ready for review
-3. The `review-this` label is added
-4. `openhands-agent` or `all-hands-bot` is requested as a reviewer
+1. A new non-draft PR is opened from a branch in the same repository
+2. A draft PR from the same repository is marked as ready for review
+3. The `review-this` label is added to a same-repository PR
+4. `openhands-agent` or `all-hands-bot` is requested as a reviewer on a same-repository PR
 
 ### Requesting a Review
 
-**Option 1: Request as Reviewer (Recommended)**
+Only users with the repository permissions GitHub requires for labeling PRs or requesting reviewers can trigger a manual review.
+
+In this workflow, the **triggering user** is `github.actor`: the account that performed the action that started the run (for example, the person who added the `review-this` label or requested the reviewer) — not necessarily the PR author.
+
+**Option 1: Request as Reviewer**
 1. Open the PR
 2. Click **Reviewers** in the sidebar
-3. Select `openhands-agent` as a reviewer
+3. Select `openhands-agent` or `all-hands-bot` as a reviewer
 
 **Option 2: Add Label**
 1. Open the PR
@@ -283,7 +287,7 @@ Also update any `sdk-repo` and `sdk-version` inputs to `extensions-repo` and `ex
 ### Review Not Triggered
 
 1. Check that the workflow file is in `.github/workflows/`
-2. Verify the PR author association (first-time contributors need manual trigger)
+2. Verify that the PR comes from a branch in the same repository; fork PRs are skipped in this `pull_request` configuration
 3. Ensure secrets are configured correctly
 
 ### Review Comments Not Appearing
@@ -300,12 +304,12 @@ If you see rate limit errors:
 
 ## Security
 
-- Uses `pull_request_target` when you need secrets for fork PR reviews; apply strict maintainer-controlled triggers and checkout safeguards
-- Keeps GitHub Actions caching disabled in privileged review workflows to avoid cache-poisoning pivots from prompt injection
-- For lower-trust or comment-only smoke-test setups, prefer `pull_request` to reduce privilege by default
-- Only triggers for trusted contributors or when maintainers add labels/reviewers
-- PR code is checked out explicitly; secrets are not exposed to PR code
-- Credentials are not persisted during checkout
+- This example uses `pull_request` to reduce privilege by default while the trigger path is hardened.
+- If you need secrets for fork PR reviews later, use `pull_request_target` only with strict maintainer-controlled triggers and checkout safeguards.
+- Automatic reviews only run for same-repository PRs; fork PRs are skipped to avoid secret-backed execution from untrusted code.
+- Keeps GitHub Actions caching disabled in privileged review workflows to avoid cache-poisoning pivots from prompt injection.
+- PR code is checked out explicitly; secrets are not exposed to PR code.
+- Credentials are not persisted during checkout.
 
 ## Contributing
 
@@ -314,4 +318,3 @@ See the main [extensions repository](https://github.com/OpenHands/extensions) fo
 ## License
 
 This plugin is part of the OpenHands extensions repository. See [LICENSE](../../LICENSE) for details.
-
