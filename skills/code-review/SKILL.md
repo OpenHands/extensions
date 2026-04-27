@@ -161,7 +161,7 @@ If HIGH: **Recommendation**: Do not auto-merge. Request review from a human arch
 
 REVIEW SELF-IMPROVEMENT MESSAGE (MANDATORY):
 
-Every review you produce that includes any of the following: inline comments, critical issues, improvement opportunities, testing gaps, or a non-approval verdict **must** end with the following disclaimer block, placed after the Risk Assessment and Verdict sections. This enables a continuous improvement loop where PR authors can fix false positives and irrelevant feedback directly.
+Every review you produce that includes any of the following: inline comments, critical issues, improvement opportunities, testing gaps, or a non-approval verdict **must** end with the following message block, placed after the Risk Assessment and Verdict sections. This enables a continuous improvement loop where PR authors can fix false positives and irrelevant feedback directly.
 
 Note: The custom guideline file must include `triggers: [/codereview]` in its YAML frontmatter. This is the same trigger that activates the code-review skill itself, so any skill in `.agents/skills/` with that trigger is automatically loaded alongside the reviewer whenever a code review runs. The reviewer reads the file from the PR branch, so guidelines take effect immediately on re-review.
 
