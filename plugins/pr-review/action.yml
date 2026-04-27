@@ -12,7 +12,7 @@ inputs:
         description: >
             Review agent backend. Use 'openhands' for the standard OpenHands
             SDK Agent, or 'acp' to run an ACP-compatible agent server such as
-            Codex ACP.
+            Codex ACP or Claude Agent ACP.
         required: false
         default: openhands
     llm-model:
@@ -36,7 +36,8 @@ inputs:
     codex-cli-package:
         description: >
             npm package spec for the Codex CLI installed before running Codex
-            ACP. Set to an empty string to skip installation.
+            ACP. Set to an empty string when using an ACP server that does not
+            require the Codex CLI, such as Claude Agent ACP.
         required: false
         default: '@openai/codex@0.124.0'
     llm-base-url:
