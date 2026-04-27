@@ -159,9 +159,9 @@ If HIGH: **Recommendation**: Do not auto-merge. Request review from a human arch
 **KEY INSIGHT:**
 [One sentence summary of the most important architectural observation]
 
-REVIEW SELF-IMPROVEMENT DISCLAIMER (MANDATORY):
+REVIEW SELF-IMPROVEMENT MESSAGE (MANDATORY):
 
-Every review you produce **must** end with the following disclaimer block, placed after the Risk Assessment and Verdict sections. This enables a continuous improvement loop where PR authors can fix false positives and irrelevant feedback directly:
+Every review you produce **must** end with the following message, placed after the Risk Assessment and Verdict sections. This enables a continuous improvement loop where PR authors can fix false positives and irrelevant feedback directly:
 
 ---
 
