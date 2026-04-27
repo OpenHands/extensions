@@ -173,7 +173,7 @@ Note: The custom guideline file must include `triggers: [/codereview]` in its YA
 > 2. Re-request a review - the reviewer reads guidelines from the PR branch, so your changes take effect immediately.
 > 3. When your PR is merged, the guideline file goes through normal code review by repository maintainers.
 >
-> [Learn more about customizing code review](https://docs.openhands.dev/openhands/usage/use-cases/code-review#customization)
+> **Resolve with AI?** Comment `@openhands /iterate` on this PR, or install the [iterate skill](https://github.com/OpenHands/extensions/tree/main/skills/iterate) in your own agent and run `/iterate`.
 
 ---
 
