@@ -59,6 +59,13 @@ def _load_agent_script_module():
             for k, v in kwargs.items():
                 setattr(self, k, v)
 
+        def model_copy(self, update=None):
+            copied = _Stub(**self.__dict__)
+            if update:
+                for k, v in update.items():
+                    setattr(copied, k, v)
+            return copied
+
     sdk = types.ModuleType("openhands.sdk")
     sdk.LLM = _Stub
     sdk.Agent = _Stub
@@ -91,9 +98,10 @@ def _load_agent_script_module():
     sdk_context.Skill = _Skill
     sys.modules["openhands.sdk.context"] = sdk_context
 
-    context_skills = types.ModuleType("openhands.sdk.context.skills")
-    context_skills.load_project_skills = lambda cwd: []
-    sys.modules["openhands.sdk.context.skills"] = context_skills
+    sdk_skills = types.ModuleType("openhands.sdk.skills")
+    sdk_skills.load_project_skills = lambda cwd: []
+    sdk_skills.load_skills_from_dir = lambda path: ({}, {}, {})
+    sys.modules["openhands.sdk.skills"] = sdk_skills
 
     conversation = types.ModuleType("openhands.sdk.conversation")
     conversation.get_agent_final_response = lambda events: ""
@@ -104,7 +112,7 @@ def _load_agent_script_module():
     sys.modules["openhands.sdk.git.utils"] = git_utils
 
     sdk_plugin = types.ModuleType("openhands.sdk.plugin")
-    sdk_plugin.PluginSource = object
+    sdk_plugin.PluginSource = _Stub
     sys.modules["openhands.sdk.plugin"] = sdk_plugin
 
     tools_delegate = types.ModuleType("openhands.tools.delegate")
@@ -219,3 +227,50 @@ def test_create_file_reviewer_agent_factory_is_callable():
     result = module._create_file_reviewer_agent(object())
     # Agent stub is `object`, so the factory should return *something*
     assert result is not None
+
+
+def test_create_conversation_keeps_public_skills_without_reloading(tmp_path, monkeypatch):
+    """AgentContext should keep eager-loaded public skills but not reload them
+    when Conversation/plugin setup validates or copies the context."""
+    module = _load_agent_script_module()
+    monkeypatch.chdir(tmp_path)
+
+    config = {
+        "review_agent_mode": "openhands",
+        "auth_mode": "api-key",
+        "model": "test-model",
+        "api_key": "test-key",
+        "base_url": "",
+        "use_sub_agents": False,
+    }
+
+    conversation = module.create_conversation(config, secrets={})
+
+    assert conversation.agent.agent_context.load_public_skills is False
+
+
+def test_load_review_project_skills_includes_top_level_skills(tmp_path, monkeypatch):
+    """PR review keeps loading repo-level AgentSkills after SDK project loading
+    stopped scanning top-level skills/."""
+    module = _load_agent_script_module()
+    top_level_skills = tmp_path / "skills"
+    top_level_skills.mkdir()
+
+    base_skill = module.Skill(name="claude", content="Base repo guidance")
+    review_skill = module.Skill(
+        name="custom-codereview-guide",
+        content="Review in Chinese",
+        is_agentskills_format=True,
+    )
+    duplicate = module.Skill(name="claude", content="Duplicate")
+
+    monkeypatch.setattr(module, "load_project_skills", lambda cwd: [base_skill])
+    monkeypatch.setattr(
+        module,
+        "load_skills_from_dir",
+        lambda path: ({}, {"claude": duplicate}, {"custom-codereview-guide": review_skill}),
+    )
+
+    skills = module._load_review_project_skills(str(tmp_path))
+
+    assert [skill.name for skill in skills] == ["claude", "custom-codereview-guide"]

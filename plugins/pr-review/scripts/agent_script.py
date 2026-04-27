@@ -20,9 +20,19 @@ The agent also considers previous review context including:
 Designed for use with GitHub Actions workflows triggered by PR labels.
 
 Environment Variables:
-    LLM_API_KEY: API key for the LLM (required)
+    REVIEW_AGENT_MODE: Review agent backend, either 'openhands' or 'acp'
+        (default: 'openhands')
+    ACP_COMMAND: Command used to start the ACP server when REVIEW_AGENT_MODE='acp'
+    ACP_PROMPT_TIMEOUT: Timeout in seconds for one ACP prompt turn
+    LLM_AUTH_MODE: LLM auth mode, either 'api-key' or 'subscription'
+        (default: 'api-key')
+    LLM_API_KEY: API key for the LLM (required when LLM_AUTH_MODE='api-key')
     LLM_MODEL: Language model to use (default: anthropic/claude-sonnet-4-5-20250929)
     LLM_BASE_URL: Optional base URL for LLM API
+    LLM_SUBSCRIPTION_AUTH_METHOD: OpenAI subscription auth method, either
+        'device_code' or 'browser' (default: 'device_code')
+    LLM_SUBSCRIPTION_INSTRUCTIONS: Instructions for the ChatGPT Codex
+        subscription backend
     GITHUB_TOKEN: GitHub token for API access (required)
     PR_NUMBER: Pull request number (required)
     PR_TITLE: Pull request title (required)
@@ -46,6 +56,7 @@ from __future__ import annotations
 
 import json
 import os
+import shlex
 import sys
 import time
 import urllib.error
@@ -65,10 +76,10 @@ from openhands.sdk import (
     register_agent,
 )
 from openhands.sdk.context import Skill
-from openhands.sdk.context.skills import load_project_skills
 from openhands.sdk.conversation import get_agent_final_response
 from openhands.sdk.git.utils import run_git_command
 from openhands.sdk.plugin import PluginSource
+from openhands.sdk.skills import load_project_skills, load_skills_from_dir
 from openhands.tools.delegate import DelegationVisualizer
 from openhands.tools.preset.default import get_default_condenser, get_default_tools
 from openhands.tools.task import TaskToolSet
@@ -725,7 +736,6 @@ def validate_environment() -> dict[str, Any]:
         SystemExit if required variables are missing
     """
     required_vars = [
-        "LLM_API_KEY",
         "GITHUB_TOKEN",
         "PR_NUMBER",
         "PR_TITLE",
@@ -738,13 +748,59 @@ def validate_environment() -> dict[str, Any]:
         logger.error(f"Missing required environment variables: {missing_vars}")
         sys.exit(1)
 
+    review_agent_mode = os.getenv("REVIEW_AGENT_MODE", "openhands")
+    if review_agent_mode not in ("openhands", "acp"):
+        logger.error("REVIEW_AGENT_MODE must be 'openhands' or 'acp'")
+        sys.exit(1)
+
+    auth_mode = os.getenv("LLM_AUTH_MODE", "api-key")
+    if auth_mode not in ("api-key", "subscription"):
+        logger.error("LLM_AUTH_MODE must be 'api-key' or 'subscription'")
+        sys.exit(1)
+
+    api_key = os.getenv("LLM_API_KEY")
+    if review_agent_mode == "openhands" and auth_mode == "api-key" and not api_key:
+        logger.error("LLM_API_KEY is required when LLM_AUTH_MODE is 'api-key'")
+        sys.exit(1)
+
+    subscription_auth_method = os.getenv(
+        "LLM_SUBSCRIPTION_AUTH_METHOD", "device_code"
+    )
+    if subscription_auth_method not in ("browser", "device_code"):
+        logger.error(
+            "LLM_SUBSCRIPTION_AUTH_METHOD must be 'browser' or 'device_code'"
+        )
+        sys.exit(1)
+
+    use_sub_agents = _get_bool_env("USE_SUB_AGENTS")
+    if review_agent_mode == "acp" and use_sub_agents:
+        logger.info("Sub-agent delegation is disabled in ACP mode")
+        use_sub_agents = False
+
+    try:
+        acp_prompt_timeout = float(os.getenv("ACP_PROMPT_TIMEOUT", "1800"))
+    except ValueError:
+        logger.error("ACP_PROMPT_TIMEOUT must be a number")
+        sys.exit(1)
+
     return {
-        "api_key": os.getenv("LLM_API_KEY"),
+        "review_agent_mode": review_agent_mode,
+        "acp_command": os.getenv(
+            "ACP_COMMAND", "npx -y @zed-industries/codex-acp@0.12.0"
+        ),
+        "acp_prompt_timeout": acp_prompt_timeout,
+        "auth_mode": auth_mode,
+        "api_key": api_key,
         "github_token": os.getenv("GITHUB_TOKEN"),
         "model": os.getenv("LLM_MODEL", "anthropic/claude-sonnet-4-5-20250929"),
         "base_url": os.getenv("LLM_BASE_URL"),
+        "subscription_auth_method": subscription_auth_method,
+        "subscription_instructions": os.getenv(
+            "LLM_SUBSCRIPTION_INSTRUCTIONS",
+            "You are a meticulous pull request review agent.",
+        ),
         "require_evidence": _get_bool_env("REQUIRE_EVIDENCE"),
-        "use_sub_agents": _get_bool_env("USE_SUB_AGENTS"),
+        "use_sub_agents": use_sub_agents,
         "pr_info": {
             "number": os.getenv("PR_NUMBER"),
             "title": os.getenv("PR_TITLE"),
@@ -821,6 +877,29 @@ def _register_sub_agents() -> None:
     )
 
 
+def _load_review_project_skills(cwd: str) -> list[Skill]:
+    """Load repo guidance plus top-level AgentSkills used by review workflows."""
+    project_skills = load_project_skills(cwd)
+    seen_names = {skill.name for skill in project_skills}
+
+    top_level_skills_dir = Path(cwd) / "skills"
+    if top_level_skills_dir.exists():
+        loaded_skill_groups = load_skills_from_dir(top_level_skills_dir)
+        for skills_by_name in loaded_skill_groups:
+            for name, skill in skills_by_name.items():
+                if name in seen_names:
+                    logger.warning(
+                        "Skipping duplicate top-level project skill '%s' from %s",
+                        name,
+                        top_level_skills_dir,
+                    )
+                    continue
+                project_skills.append(skill)
+                seen_names.add(name)
+
+    return project_skills
+
+
 def create_conversation(
     config: dict[str, Any],
     secrets: dict[str, str],
@@ -841,20 +920,9 @@ def create_conversation(
     Returns:
         Configured Conversation instance
     """
-    llm_config: dict[str, Any] = {
-        "model": config["model"],
-        "api_key": config["api_key"],
-        "usage_id": "pr_review_agent",
-        "drop_params": True,
-    }
-    if config["base_url"]:
-        llm_config["base_url"] = config["base_url"]
-
-    llm = LLM(**llm_config)
-
     # Load project-specific skills from the workspace
     cwd = os.getcwd()
-    project_skills = load_project_skills(cwd)
+    project_skills = _load_review_project_skills(cwd)
     logger.info(
         f"Loaded {len(project_skills)} project skills: "
         f"{[s.name for s in project_skills]}"
@@ -864,6 +932,61 @@ def create_conversation(
         load_public_skills=True,
         skills=project_skills,
     )
+    # AgentContext expands public skills eagerly. Conversation/plugin wiring may
+    # validate or copy the context again; keep the loaded skills but avoid a
+    # second public-skill fetch and duplicate-skill warnings.
+    agent_context.load_public_skills = False
+
+    plugin_dir = script_dir.parent  # plugins/pr-review/
+
+    if config["review_agent_mode"] == "acp":
+        from openhands.sdk.agent import ACPAgent
+
+        acp_command = shlex.split(config["acp_command"])
+        if not acp_command:
+            raise ValueError("ACP_COMMAND must not be empty")
+        logger.info(
+            "Using ACP review agent with command: %s",
+            " ".join(shlex.quote(part) for part in acp_command),
+        )
+        agent = ACPAgent(
+            acp_command=acp_command,
+            acp_model=config["model"],
+            acp_prompt_timeout=config["acp_prompt_timeout"],
+            agent_context=agent_context,
+        )
+        return Conversation(
+            agent=agent,
+            workspace=cwd,
+            secrets=secrets,
+            plugins=[PluginSource(source=str(plugin_dir))],
+        )
+
+    if config["auth_mode"] == "subscription":
+        logger.info(
+            "Using OpenAI subscription auth with "
+            f"{config['subscription_auth_method']} login"
+        )
+        llm = LLM.subscription_login(
+            vendor="openai",
+            model=config["model"],
+            auth_method=config["subscription_auth_method"],
+            skip_consent=True,
+            usage_id="pr_review_agent",
+            drop_params=True,
+            instructions=config["subscription_instructions"],
+        )
+    else:
+        llm_config: dict[str, Any] = {
+            "model": config["model"],
+            "api_key": config["api_key"],
+            "usage_id": "pr_review_agent",
+            "drop_params": True,
+        }
+        if config["base_url"]:
+            llm_config["base_url"] = config["base_url"]
+
+        llm = LLM(**llm_config)
 
     tools = get_default_tools(enable_browser=False)
 
@@ -890,8 +1013,6 @@ def create_conversation(
         **concurrency_kwargs,
     )
 
-    # The plugin directory is the parent of the scripts/ directory
-    plugin_dir = script_dir.parent  # plugins/pr-review/
     conversation_kwargs: dict[str, Any] = {
         "agent": agent,
         "workspace": cwd,
@@ -1017,6 +1138,7 @@ def main():
     logger.info(f"Reviewing PR #{pr_info['number']}: {pr_info['title']}")
     logger.info(f"Require PR evidence: {require_evidence}")
     logger.info(f"Sub-agent delegation: {use_sub_agents}")
+    logger.info(f"Review agent mode: {config['review_agent_mode']}")
 
     try:
         pr_diff, commit_id, review_context = fetch_pr_context(pr_info["number"])
