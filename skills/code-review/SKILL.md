@@ -174,6 +174,11 @@ Note: The custom guideline file must include `triggers: [/codereview]` in its YA
 > 3. When your PR is merged, the guideline file goes through normal code review by repository maintainers.
 >
 > [Learn more about customizing code review](https://docs.openhands.dev/openhands/usage/use-cases/code-review#customization)
+>
+> **Resolve comments with AI?** You can use a coding agent to automatically address review feedback and iterate until the PR is approved:
+>
+> - **Using [OpenHands](https://github.com/apps/openhands):** Comment `@openhands /iterate` on the PR to have OpenHands address all review comments, fix CI failures, and loop until the PR is merge-ready. [Learn more about the /iterate command](https://github.com/OpenHands/extensions/tree/main/skills/iterate).
+> - **Using other coding agents:** Install the [OpenHands extensions](https://github.com/OpenHands/extensions) into your agent's workspace by adding the `iterate` skill to `.agents/skills/` ([instructions](https://docs.openhands.dev/overview/skills)), then use the `/iterate` command to drive the PR to completion.
 
 ---
 
