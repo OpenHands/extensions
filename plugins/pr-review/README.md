@@ -128,9 +128,9 @@ This mode is intended for manual experiments or persistent self-hosted runners. 
 #### Experimental: ACP review backend
 
 Use `review-agent-mode: acp` to run the reviewer through an ACP-compatible
-agent server such as Codex ACP. In this mode, OpenHands still loads review
-skills and plugin prompt context, but the ACP server owns model access and tool
-execution. Sub-agent delegation is disabled in ACP mode.
+agent server such as Codex ACP or Claude Agent ACP. In this mode, OpenHands
+still loads review skills and plugin prompt context, but the ACP server owns
+model access and tool execution. Sub-agent delegation is disabled in ACP mode.
 
 ```yaml
 - name: Run PR Review
@@ -140,6 +140,24 @@ execution. Sub-agent delegation is disabled in ACP mode.
     acp-command: npx -y @zed-industries/codex-acp@0.12.0
     codex-cli-package: '@openai/codex@0.124.0'
     llm-model: gpt-5.5
+    github-token: ${{ secrets.GITHUB_TOKEN }}
+
+    # Temporary direct-reference example for unreleased SDK changes.
+    openhands-sdk-package: 'openhands-sdk @ git+https://github.com/OpenHands/software-agent-sdk.git@feat/acp-skill-prompt-adapter#subdirectory=openhands-sdk'
+```
+
+For Claude Agent ACP, run the workflow on a runner where Claude Code is already
+authenticated. Do not commit Claude credentials; provide them through the
+runner's normal secret/bootstrap mechanism.
+
+```yaml
+- name: Run PR Review
+  uses: OpenHands/extensions/plugins/pr-review@main
+  with:
+    review-agent-mode: acp
+    acp-command: npx -y @agentclientprotocol/claude-agent-acp
+    codex-cli-package: ''
+    llm-model: sonnet
     github-token: ${{ secrets.GITHUB_TOKEN }}
 
     # Temporary direct-reference example for unreleased SDK changes.
@@ -184,9 +202,9 @@ PR reviews are automatically triggered when:
 |-------|----------|---------|-------------|
 | `review-agent-mode` | No | `openhands` | Review backend: `openhands` for the standard SDK Agent or `acp` for an ACP-compatible agent server |
 | `llm-model` | No | `anthropic/claude-sonnet-4-5-20250929` | LLM model(s), comma-separated for A/B testing. In ACP mode this is passed to the ACP server when supported. |
-| `acp-command` | No | `npx -y @zed-industries/codex-acp@0.12.0` | Command used to start the ACP server when `review-agent-mode` is `acp` |
+| `acp-command` | No | `npx -y @zed-industries/codex-acp@0.12.0` | Command used to start the ACP server when `review-agent-mode` is `acp`, for example `npx -y @agentclientprotocol/claude-agent-acp` |
 | `acp-prompt-timeout` | No | `'1800'` | Timeout in seconds for one ACP prompt turn |
-| `codex-cli-package` | No | `@openai/codex@0.124.0` | npm package spec for the Codex CLI installed before running Codex ACP. Set to an empty string to skip installation. |
+| `codex-cli-package` | No | `@openai/codex@0.124.0` | npm package spec for the Codex CLI installed before running Codex ACP. Set to an empty string when using an ACP server that does not require the Codex CLI, such as Claude Agent ACP. |
 | `llm-base-url` | No | `''` | Custom LLM endpoint URL |
 | `llm-auth-mode` | No | `api-key` | LLM authentication mode: `api-key` or `subscription` |
 | `llm-subscription-auth-method` | No | `device_code` | OpenAI subscription login method: `device_code` for remote/headless runners, or `browser` for local callback OAuth |
