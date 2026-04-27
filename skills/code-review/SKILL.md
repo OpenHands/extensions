@@ -167,18 +167,9 @@ Note: The custom guideline file must include `triggers: [/codereview]` in its YA
 
 ---
 
-> **Improve this review?** If any feedback above seems incorrect or irrelevant to this repository, you can teach the reviewer to do better:
+> **Improve this review?** Edit (or create) `.agents/skills/custom-codereview-guide.md` on your branch to add repo-specific context, then re-request a review. [How to customize](https://docs.openhands.dev/openhands/usage/use-cases/code-review#customization)
 >
-> 1. Add a `.agents/skills/custom-codereview-guide.md` file to your branch (or edit it if one already exists) with the `/codereview` trigger and the context the reviewer is missing (e.g., "Security concerns about X do not apply here because Y"). See the [customization docs](https://docs.openhands.dev/openhands/usage/use-cases/code-review#customization) for the required frontmatter format.
-> 2. Re-request a review - the reviewer reads guidelines from the PR branch, so your changes take effect immediately.
-> 3. When your PR is merged, the guideline file goes through normal code review by repository maintainers.
->
-> [Learn more about customizing code review](https://docs.openhands.dev/openhands/usage/use-cases/code-review#customization)
->
-> **Resolve comments with AI?** You can use a coding agent to automatically address review feedback and iterate until the PR is approved:
->
-> - **Using [OpenHands](https://github.com/apps/openhands):** Comment `@openhands /iterate` on the PR to have OpenHands address all review comments, fix CI failures, and loop until the PR is merge-ready. [Learn more about the /iterate command](https://github.com/OpenHands/extensions/tree/main/skills/iterate).
-> - **Using other coding agents:** Install the [OpenHands extensions](https://github.com/OpenHands/extensions) into your agent's workspace by adding the `iterate` skill to `.agents/skills/` ([instructions](https://docs.openhands.dev/overview/skills)), then use the `/iterate` command to drive the PR to completion.
+> **Resolve with AI?** Comment `@openhands /iterate` on this PR, or install the [iterate skill](https://github.com/OpenHands/extensions/tree/main/skills/iterate) in your own agent and run `/iterate`.
 
 ---
 
