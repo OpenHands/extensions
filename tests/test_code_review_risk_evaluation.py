@@ -67,6 +67,38 @@ class TestRiskEvaluationReference:
         assert "Risk Assessment" in content
 
 
+class TestGitHubActionsRunnerVerification:
+    """Verify the GitHub Actions runner verification section is complete."""
+
+    def test_has_github_actions_section(self):
+        content = get_code_review_skill()
+        assert "GitHub Actions Version Upgrades" in content
+
+    def test_section_appears_after_dependency_before_risk(self):
+        content = get_code_review_skill()
+        dep_pos = content.index("8. **Dependency Changes**")
+        actions_pos = content.index("9. **GitHub Actions Version Upgrades**")
+        risk_pos = content.index("10. **Risk and Safety Evaluation**")
+        assert dep_pos < actions_pos < risk_pos
+
+    def test_instructs_to_verify_from_ci_logs(self):
+        content = get_code_review_skill()
+        assert "verify it from the PR's own CI logs" in content
+
+    def test_includes_api_commands(self):
+        content = get_code_review_skill()
+        assert "gh api" in content
+        assert "Current runner version" in content
+
+    def test_includes_example_output(self):
+        content = get_code_review_skill()
+        assert "Runner version verified" in content
+
+    def test_handles_unavailable_ci(self):
+        content = get_code_review_skill()
+        assert "could not be verified" in content
+
+
 class TestCodeReviewSkillReferencesRisk:
     """Verify the unified code-review skill references the risk evaluation."""
 
@@ -81,7 +113,7 @@ class TestCodeReviewSkillReferencesRisk:
     def test_risk_section_appears_after_dependency_section(self):
         content = get_code_review_skill()
         dep_pos = content.index("8. **Dependency Changes**")
-        risk_pos = content.index("9. **Risk and Safety Evaluation**")
+        risk_pos = content.index("10. **Risk and Safety Evaluation**")
         assert risk_pos > dep_pos
 
     def test_always_include_risk_instruction(self):
