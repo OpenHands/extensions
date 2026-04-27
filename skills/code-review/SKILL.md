@@ -161,7 +161,7 @@ If HIGH: **Recommendation**: Do not auto-merge. Request review from a human arch
 
 REVIEW SELF-IMPROVEMENT MESSAGE (MANDATORY):
 
-Every review you produce **must** end with the following message, placed after the Risk Assessment and Verdict sections. This enables a continuous improvement loop where PR authors can fix false positives and irrelevant feedback directly:
+Every review you produce that includes feedback or findings **must** end with the following disclaimer block, placed after the Risk Assessment and Verdict sections. This enables a continuous improvement loop where PR authors can fix false positives and irrelevant feedback directly:
 
 ---
 
@@ -169,7 +169,7 @@ Every review you produce **must** end with the following message, placed after t
 >
 > 1. Add a `.agents/skills/custom-codereview-guide.md` file to your repo (or edit it if one already exists) with context the reviewer is missing (e.g., "Security concerns about X do not apply here because Y").
 > 2. Re-request a review - the bot will pick up the updated guidelines automatically.
-> 3. The guideline change goes through normal code review when the PR is merged.
+> 3. Open a PR with the guideline change - it will go through normal code review by repository maintainers before being merged.
 >
 > [Learn more about customizing code review](https://docs.openhands.dev/openhands/usage/use-cases/code-review#customization)
 
