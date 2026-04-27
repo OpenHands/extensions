@@ -97,6 +97,8 @@ curl -s -u "$HF_API_KEY:$HF_AUTH_CODE" \
   "$HF_BASE_URL/api/1.1/json/ticket/TICKET_NUMBER/" | jq
 ```
 
+**Note on attachments:** Attachment URLs in the response are signed S3 URLs with expiration times (typically ~15 minutes). If you need to download attachments, do so immediately after fetching ticket details. If URLs have expired, re-fetch the ticket to get fresh signed URLs.
+
 ### Search/Filter Tickets
 
 ```bash
@@ -167,7 +169,7 @@ curl -s -X POST -u "$HF_API_KEY:$HF_AUTH_CODE" \
 
 **Optional fields:**
 - `html` or `plaintext`: Reply content
-- `update_customer`: `true`/`false` - send notification to contact
+- `update_customer`: `true`/`false` - send email notification to contact
 - `status`: Status ID to change ticket status
 - `priority`: Priority ID to change priority
 - `assignee`: Agent ID to reassign (use `null` for unassigned)
@@ -175,7 +177,15 @@ curl -s -X POST -u "$HF_API_KEY:$HF_AUTH_CODE" \
 - `cc`, `bcc`: Comma-separated email addresses
 - `tags`: Comma-separated tags
 
+**Important:** Setting `update_customer: false` only prevents email notification - the reply is still visible to the customer in the support portal. To create a truly private note invisible to customers, use the `/staff_pvtnote/` endpoint instead.
+
 ### Add Private Note
+
+<IMPORTANT>
+To create a private/internal note that is NOT visible to customers, you MUST use the `/staff_pvtnote/` endpoint.
+Do NOT use `/staff_update/` with `visible_only_staff` or `private` parameters - these do NOT create private notes.
+The `/staff_update/` endpoint always creates customer-visible replies regardless of parameters.
+</IMPORTANT>
 
 ```bash
 curl -s -X POST -u "$HF_API_KEY:$HF_AUTH_CODE" \
@@ -183,15 +193,19 @@ curl -s -X POST -u "$HF_API_KEY:$HF_AUTH_CODE" \
   "$HF_BASE_URL/api/1.1/json/ticket/TICKET_NUMBER/staff_pvtnote/" \
   -d '{
     "staff": 1,
-    "html": "<p>Internal note: Customer is a VIP.</p>",
-    "alert": "s"
+    "text": "Internal note: Customer is a VIP."
   }' | jq
 ```
 
-**Alert options:**
-- `s`: Alert all ticket subscribers
-- `c`: Alert all agents in ticket's category
-- Agent ID: Alert specific agent
+**Optional fields:**
+- `text` or `html`: Note content (use `text` for plain text, `html` for formatted)
+- `alert`: Who to notify about this private note
+  - `s`: Alert all ticket subscribers
+  - `c`: Alert all agents in ticket's category
+  - Agent ID (integer): Alert specific agent
+
+**Identifying private notes in responses:**
+When fetching ticket details, private notes have `"message_type": "p"` in the updates array, while regular staff replies have `"message_type": null`.
 
 ### Update Ticket Properties Only
 
