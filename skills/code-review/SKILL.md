@@ -161,15 +161,17 @@ If HIGH: **Recommendation**: Do not auto-merge. Request review from a human arch
 
 REVIEW SELF-IMPROVEMENT MESSAGE (MANDATORY):
 
-Every review you produce that includes feedback or findings **must** end with the following disclaimer block, placed after the Risk Assessment and Verdict sections. This enables a continuous improvement loop where PR authors can fix false positives and irrelevant feedback directly:
+Every review you produce that includes feedback or findings **must** end with the following disclaimer block, placed after the Risk Assessment and Verdict sections. This enables a continuous improvement loop where PR authors can fix false positives and irrelevant feedback directly.
+
+Note: The `.agents/skills/` directory is auto-discovered by OpenHands as always-on context. Any `.md` file placed there is loaded into the reviewer's context at the start of every review. The reviewer reads this file from the PR branch, so guidelines take effect immediately on re-review.
 
 ---
 
 > **Improve this review?** If any feedback above seems incorrect or irrelevant to this repository, you can teach the reviewer to do better:
 >
-> 1. Add a `.agents/skills/custom-codereview-guide.md` file to your repo (or edit it if one already exists) with context the reviewer is missing (e.g., "Security concerns about X do not apply here because Y").
-> 2. Re-request a review - the bot will pick up the updated guidelines automatically.
-> 3. Open a PR with the guideline change - it will go through normal code review by repository maintainers before being merged.
+> 1. Add a `.agents/skills/custom-codereview-guide.md` file to your branch (or edit it if one already exists) with context the reviewer is missing (e.g., "Security concerns about X do not apply here because Y"). This file is auto-loaded as always-on context from `.agents/skills/`.
+> 2. Re-request a review - the reviewer reads guidelines from the PR branch, so your changes take effect immediately.
+> 3. When your PR is merged, the guideline file goes through normal code review by repository maintainers.
 >
 > [Learn more about customizing code review](https://docs.openhands.dev/openhands/usage/use-cases/code-review#customization)
 
