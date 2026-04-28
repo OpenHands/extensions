@@ -20,5 +20,8 @@ env/
 # OS
 .DS_Store
 Thumbs.db
-.agents/
+.agents/*
+!.agents/skills/
+.agents/skills/*
+!.agents/skills/custom-codereview-guide.md
 uv.lock
