@@ -114,9 +114,6 @@ TaskToolSet, agent registration, and tool routing that ACP servers do not expose
 consistently.
 
 ```yaml
-- name: Install ACP server
-  run: ./scripts/install-your-acp-server
-
 - name: Run PR Review
   uses: OpenHands/extensions/plugins/pr-review@main
   with:
@@ -155,16 +152,11 @@ run untrusted pull request code.
     printf '%s' "$CODEX_AUTH_JSON_B64" | base64 -d > "$HOME/.codex/auth.json"
     chmod 600 "$HOME/.codex/auth.json"
 
-- name: Install Codex ACP
-  run: |
-    npm install -g @openai/codex@0.124.0 @zed-industries/codex-acp@0.12.0
-    codex --version
-
 - name: Run PR Review
   uses: OpenHands/extensions/plugins/pr-review@main
   with:
     review-agent-mode: acp
-    acp-command: codex-acp
+    acp-command: npx -y @zed-industries/codex-acp@0.12.0
     llm-model: gpt-5.5
     github-token: ${{ secrets.GITHUB_TOKEN }}
 
@@ -211,7 +203,7 @@ PR reviews are automatically triggered when:
 |-------|----------|---------|-------------|
 | `review-agent-mode` | No | `openhands` | Review backend: `openhands` for the standard SDK Agent or `acp` for an ACP-compatible agent server |
 | `llm-model` | No | `anthropic/claude-sonnet-4-5-20250929` | LLM model(s), comma-separated for A/B testing. In ACP mode this is passed to the ACP server when supported. |
-| `acp-command` | Yes for `acp` mode | `''` | Command used to start the ACP server. The command must already be available in the runner environment. Examples: `codex-acp`, `claude-agent-acp`, `npx -y @agentclientprotocol/claude-agent-acp`. |
+| `acp-command` | Yes for `acp` mode | `''` | Command used to start the ACP server. The command must already be available in the runner environment or be runnable through a package manager. Examples: `npx -y @zed-industries/codex-acp@0.12.0`, `codex-acp`, `claude-agent-acp`, `npx -y @agentclientprotocol/claude-agent-acp`. |
 | `acp-prompt-timeout` | No | `'1800'` | Timeout in seconds for one ACP prompt turn |
 | `llm-base-url` | No | `''` | Custom LLM endpoint URL |
 | `review-style` | No | `roasted` | **[DEPRECATED]** Previously chose between `standard` and `roasted` review styles. Now ignored — the styles have been merged into a single unified skill. |

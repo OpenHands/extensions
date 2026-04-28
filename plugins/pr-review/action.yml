@@ -25,9 +25,11 @@ inputs:
     acp-command:
         description: >
             Command used to start the ACP server when review-agent-mode is
-            'acp'. The command must already be available in the runner
-            environment and the value is shell-split before execution.
-            Examples: 'codex-acp', 'claude-agent-acp', or 'npx -y
+            'acp'. The command must be available in the runner environment
+            or runnable through a package manager. The value is shell-split
+            before execution.
+            Examples: 'npx -y @zed-industries/codex-acp@0.12.0',
+            'codex-acp', 'claude-agent-acp', or 'npx -y
             @agentclientprotocol/claude-agent-acp'.
         required: false
         default: ''
