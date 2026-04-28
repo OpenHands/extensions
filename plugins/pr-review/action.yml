@@ -44,26 +44,6 @@ inputs:
         description: LLM base URL (optional, for custom LLM endpoints)
         required: false
         default: ''
-    llm-auth-mode:
-        description: >
-            Authentication mode for the LLM. Use 'api-key' for the existing
-            API-key/LiteLLM path, or 'subscription' for ChatGPT subscription
-            login via the OpenHands SDK.
-        required: false
-        default: api-key
-    llm-subscription-auth-method:
-        description: >
-            OpenAI subscription login method. 'device_code' is intended for
-            remote/headless runners; 'browser' uses the SDK's local callback
-            OAuth flow.
-        required: false
-        default: device_code
-    llm-subscription-instructions:
-        description: >
-            Instructions passed to the ChatGPT Codex subscription backend.
-            Some subscription models require this field.
-        required: false
-        default: You are a meticulous pull request review agent.
     openhands-sdk-package:
         description: >
             Package spec passed to uv for openhands-sdk. Keep the default for
@@ -97,7 +77,9 @@ inputs:
         required: false
         default: main
     llm-api-key:
-        description: LLM API key (required when llm-auth-mode is 'api-key')
+        description: >
+            LLM API key. Required when review-agent-mode is 'openhands'.
+            Ignored in ACP mode because the ACP server owns authentication.
         required: false
     github-token:
         description: GitHub token for API access (required)
@@ -182,7 +164,6 @@ runs:
           shell: bash
           env:
               REVIEW_AGENT_MODE: ${{ inputs.review-agent-mode }}
-              LLM_AUTH_MODE: ${{ inputs.llm-auth-mode }}
               LLM_API_KEY: ${{ inputs.llm-api-key }}
               GITHUB_TOKEN: ${{ inputs.github-token }}
           run: |
@@ -191,13 +172,8 @@ runs:
                 exit 1
               fi
 
-              if [ "$LLM_AUTH_MODE" != "api-key" ] && [ "$LLM_AUTH_MODE" != "subscription" ]; then
-                echo "Error: llm-auth-mode must be 'api-key' or 'subscription'."
-                exit 1
-              fi
-
-              if [ "$REVIEW_AGENT_MODE" = "openhands" ] && [ "$LLM_AUTH_MODE" = "api-key" ] && [ -z "$LLM_API_KEY" ]; then
-                echo "Error: llm-api-key is required."
+              if [ "$REVIEW_AGENT_MODE" = "openhands" ] && [ -z "$LLM_API_KEY" ]; then
+                echo "Error: llm-api-key is required when review-agent-mode is 'openhands'."
                 exit 1
               fi
 
@@ -217,7 +193,6 @@ runs:
               echo "Repository: ${{ github.repository }}"
               echo "Extensions Version: ${{ inputs.extensions-version }}"
               echo "Review agent mode: $REVIEW_AGENT_MODE"
-              echo "LLM auth mode: $LLM_AUTH_MODE"
               echo "Available models: $MODELS_LIST"
               echo "Selected LLM model: $SELECTED_MODEL"
               if [ "$REVIEW_AGENT_MODE" = "acp" ]; then
@@ -238,11 +213,8 @@ runs:
               REVIEW_AGENT_MODE: ${{ inputs.review-agent-mode }}
               ACP_COMMAND: ${{ inputs.acp-command }}
               ACP_PROMPT_TIMEOUT: ${{ inputs.acp-prompt-timeout }}
-              LLM_AUTH_MODE: ${{ inputs.llm-auth-mode }}
               LLM_MODEL: ${{ steps.select-model.outputs.selected_model }}
               LLM_BASE_URL: ${{ inputs.llm-base-url }}
-              LLM_SUBSCRIPTION_AUTH_METHOD: ${{ inputs.llm-subscription-auth-method }}
-              LLM_SUBSCRIPTION_INSTRUCTIONS: ${{ inputs.llm-subscription-instructions }}
               REVIEW_STYLE: ${{ inputs.review-style }}
               REQUIRE_EVIDENCE: ${{ inputs.require-evidence }}
               USE_SUB_AGENTS: ${{ inputs.use-sub-agents }}

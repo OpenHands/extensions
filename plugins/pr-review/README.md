@@ -82,9 +82,6 @@ Edit the workflow file to customize:
     # LLM model(s) - comma-separated for A/B testing
     llm-model: anthropic/claude-sonnet-4-5-20250929
 
-    # Default: API-key/LiteLLM auth
-    # llm-auth-mode: api-key
-    
     # Optional: Custom LLM endpoint
     # llm-base-url: https://your-llm-proxy.example.com
     
@@ -105,28 +102,14 @@ Edit the workflow file to customize:
     # lmnr-api-key: ${{ secrets.LMNR_PROJECT_API_KEY }}
 ```
 
-#### Experimental: ChatGPT subscription with device-code login
-
-Use `llm-auth-mode: subscription` to authenticate through the OpenHands SDK's ChatGPT subscription support instead of an API key. Device-code login prints a URL and one-time code in the GitHub Actions log, then polls for up to 15 minutes while a human completes sign-in in a browser.
-
-This mode is intended for manual experiments or persistent self-hosted runners. GitHub-hosted runners are ephemeral, so the first run requires human sign-in and any cached OAuth credentials are lost after the job ends.
-
-```yaml
-- name: Run PR Review
-  uses: OpenHands/extensions/plugins/pr-review@main
-  with:
-    llm-auth-mode: subscription
-    llm-subscription-auth-method: device_code
-    llm-model: gpt-5.2-codex
-    github-token: ${{ secrets.GITHUB_TOKEN }}
-```
-
 #### Experimental: ACP review backend
 
 Use `review-agent-mode: acp` to run the reviewer through an ACP-compatible
 agent server such as Codex ACP or Claude Agent ACP. In this mode, OpenHands
-still loads review skills and plugin prompt context, but the ACP server owns
-model access and tool execution. Sub-agent delegation is disabled in ACP mode.
+skills and plugin prompt context, but the ACP server owns model access,
+authentication, and tool execution. Configure ACP authentication in the runner
+environment before invoking this action. Sub-agent delegation is disabled in ACP
+mode.
 
 ```yaml
 - name: Run PR Review
@@ -206,15 +189,13 @@ PR reviews are automatically triggered when:
 | `acp-prompt-timeout` | No | `'1800'` | Timeout in seconds for one ACP prompt turn |
 | `codex-cli-package` | No | `@openai/codex@0.124.0` | npm package spec for the Codex CLI installed before running Codex ACP. Set to an empty string when using an ACP server that does not require the Codex CLI, such as Claude Agent ACP. |
 | `llm-base-url` | No | `''` | Custom LLM endpoint URL |
-| `llm-auth-mode` | No | `api-key` | LLM authentication mode: `api-key` or `subscription` |
-| `llm-subscription-auth-method` | No | `device_code` | OpenAI subscription login method: `device_code` for remote/headless runners, or `browser` for local callback OAuth |
 | `openhands-sdk-package` | No | `openhands-sdk` | Package spec passed to `uv --with`; override only when pinning a specific SDK build for testing or rollout control |
 | `review-style` | No | `roasted` | **[DEPRECATED]** Previously chose between `standard` and `roasted` review styles. Now ignored — the styles have been merged into a single unified skill. |
 | `require-evidence` | No | `'false'` | Require the reviewer to enforce an `Evidence` section in the PR description with end-to-end proof: screenshots/videos for frontend work, commands and runtime output for backend or scripts, and an agent conversation link when applicable. Test output alone does not qualify. |
 | `use-sub-agents` | No | `'false'` | Enable sub-agent delegation for file-level reviews. The main agent acts as a coordinator that delegates per-file review work to `file_reviewer` sub-agents via the SDK TaskToolSet, then consolidates findings into a single PR review. Useful for large PRs with many changed files. **Disabled by default** due to high token costs and potential timeouts (see [#208](https://github.com/OpenHands/extensions/issues/208)). Set to `'true'` to opt in. |
 | `extensions-repo` | No | `OpenHands/extensions` | Extensions repository |
 | `extensions-version` | No | `main` | Git ref (tag, branch, or SHA) |
-| `llm-api-key` | Yes for `api-key` mode | - | LLM API key |
+| `llm-api-key` | Yes for `openhands` mode | - | LLM API key for the OpenHands agent. Ignored in ACP mode. |
 | `github-token` | Yes | - | GitHub token for API access |
 | `lmnr-api-key` | No | `''` | Laminar API key for observability |
 | `enable-uv-cache` | No | `'false'` | Enable setup-uv's GitHub Actions cache for Python deps. Default `false` for security (see [Caching and Security](#caching-and-security)). |

@@ -237,7 +237,6 @@ def test_create_conversation_keeps_public_skills_without_reloading(tmp_path, mon
 
     config = {
         "review_agent_mode": "openhands",
-        "auth_mode": "api-key",
         "model": "test-model",
         "api_key": "test-key",
         "base_url": "",
