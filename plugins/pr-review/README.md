@@ -126,7 +126,18 @@ consistently.
     github-token: ${{ secrets.GITHUB_TOKEN }}
 ```
 
-Codex ACP example for a runner that stores Codex auth in a GitHub secret:
+Codex ACP example for a runner that stores Codex auth in a GitHub secret.
+Create `CODEX_AUTH_JSON_B64` from a machine where `codex login` has already
+completed successfully:
+
+```bash
+base64 -w 0 "$HOME/.codex/auth.json"
+```
+
+Store the printed value as the repository or organization secret
+`CODEX_AUTH_JSON_B64`. This secret contains your Codex authentication material;
+limit it to trusted self-hosted runners and avoid exposing it to workflows that
+run untrusted pull request code.
 
 ```yaml
 - name: Restore Codex auth
