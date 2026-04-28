@@ -1,0 +1,18 @@
+{
+  "name": "add-javadoc",
+  "version": "1.0.0",
+  "description": "Add comprehensive JavaDoc documentation to Java classes and methods. Use when documenting Java code, adding API documentation, or improving code documentation.",
+  "author": {
+    "name": "OpenHands",
+    "email": "contact@all-hands.dev"
+  },
+  "homepage": "https://github.com/OpenHands/extensions",
+  "repository": "https://github.com/OpenHands/extensions",
+  "license": "MIT",
+  "keywords": [
+    "javadoc",
+    "java",
+    "documentation",
+    "api-docs"
+  ]
+}

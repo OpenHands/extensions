@@ -1,0 +1,18 @@
+{
+  "name": "add-skill",
+  "version": "1.0.0",
+  "description": "Add (import) an OpenHands skill from a GitHub repository into the current workspace.",
+  "author": {
+    "name": "OpenHands",
+    "email": "contact@all-hands.dev"
+  },
+  "homepage": "https://github.com/OpenHands/extensions",
+  "repository": "https://github.com/OpenHands/extensions",
+  "license": "MIT",
+  "keywords": [
+    "skill",
+    "import",
+    "github",
+    "sparse-checkout"
+  ]
+}

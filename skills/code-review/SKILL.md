@@ -102,6 +102,20 @@ If dependency lock changes have downgraded a dependency, comment pointing that o
 9. **Risk and Safety Evaluation**
 Read `references/risk-evaluation.md` for the full risk evaluation framework including risk levels (🟢 Low / 🟡 Medium / 🔴 High), risk factors, escalation guidance, and repo-specific risk rules.
 
+10. **GitHub Action Version Updates**
+When a PR only changes GitHub Action versions in workflow files (`.github/workflows/*.yml`), verify the update by checking CI status:
+
+**Detection**: The PR modifies only workflow files and the diff shows version bumps like `uses: actions/checkout@v4` → `uses: actions/checkout@v6` or `uses: docker/login-action@v3` → `uses: docker/login-action@v4`.
+
+**Verification Process**:
+1. Identify ALL GitHub Actions that were updated in the PR
+2. For EACH updated action, find a PR check/workflow that uses it (e.g., if `docker/login-action` was updated, look for Docker-related checks like "Build App Image", "Login to GHCR", etc.)
+3. Verify that ALL updated actions have at least one corresponding check that ran and succeeded
+
+**Example**: A Dependabot PR bumps both `actions/upload-artifact` (v5→v7) and `actions/checkout` (v4→v6). You must verify that BOTH actions have successful checks - e.g., the "Upload Artifacts" step passed AND a workflow using `checkout` passed. If only one is verified, do not approve.
+
+**Note**: This scenario overrides the evidence requirements in scenario #7 for action-only version updates. Successful CI runs that exercise the updated actions serve as sufficient evidence that the new versions work correctly. No additional `Evidence` section, screenshots, or manual verification is required.
+
 CRITICAL REVIEW OUTPUT FORMAT:
 
 Start with a **Taste Rating**:
@@ -124,6 +138,7 @@ Then provide analysis (skip if 🟢):
 
 **[STYLE NOTES]** (Skip most of these - only mention if it genuinely hurts maintainability)
 - Generally skip style comments. Linters exist for a reason.
+- Do NOT post comments for code that is acceptable or fine. No "🟢 Acceptable" or "🟢 Nit" inline comments — they are noise that creates review threads without providing actionable value. If code is good, just don't comment on it.
 
 **[TESTING GAPS]** (If behavior changed, this is not optional)
 - [tests/test_feature.py, Line E] **Mocks Aren't Tests**: You're only asserting mocked calls. Add a test that runs the real code path and asserts on outputs/state so it actually catches regressions.
@@ -143,6 +158,24 @@ If HIGH: **Recommendation**: Do not auto-merge. Request review from a human arch
 
 **KEY INSIGHT:**
 [One sentence summary of the most important architectural observation]
+
+REVIEW SELF-IMPROVEMENT MESSAGE (MANDATORY):
+
+Every review you produce that includes any of the following: inline comments, critical issues, improvement opportunities, testing gaps, or a non-approval verdict **must** end with the following message block, placed after the Risk Assessment and Verdict sections. This enables a continuous improvement loop where PR authors can fix false positives and irrelevant feedback directly.
+
+Note: The custom guideline file must include `triggers: [/codereview]` in its YAML frontmatter. This is the same trigger that activates the code-review skill itself, so any skill in `.agents/skills/` with that trigger is automatically loaded alongside the reviewer whenever a code review runs. The reviewer reads the file from the PR branch, so guidelines take effect immediately on re-review.
+
+---
+
+> **Improve this review?** If any feedback above seems incorrect or irrelevant to this repository, you can teach the reviewer to do better:
+>
+> 1. Add a `.agents/skills/custom-codereview-guide.md` file to your branch (or edit it if one already exists) with the `/codereview` trigger and the context the reviewer is missing (e.g., "Security concerns about X do not apply here because Y"). See the [customization docs](https://docs.openhands.dev/openhands/usage/use-cases/code-review#customization) for the required frontmatter format.
+> 2. Re-request a review - the reviewer reads guidelines from the PR branch, so your changes take effect immediately.
+> 3. When your PR is merged, the guideline file goes through normal code review by repository maintainers.
+>
+> **Resolve with AI?** Install the [iterate skill](https://github.com/OpenHands/extensions/tree/main/skills/iterate) in your agent and run `/iterate` to automatically drive this PR through CI, review, and QA until it's merge-ready.
+
+---
 
 COMMUNICATION STYLE:
 - Be direct and technically precise

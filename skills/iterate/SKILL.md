@@ -225,12 +225,73 @@ When a comment is actionable and correct:
 1. Fix the code.
 2. Commit with `chore: address PR review feedback (#<n>)`.
 3. Push and continue the loop.
+4. Reply to the review thread referencing the commit SHA.
+5. Resolve the thread.
 
 When a comment is non-actionable, already addressed, or you disagree:
-continue the loop.
+reply briefly explaining why, then resolve the thread. Do not leave
+threads dangling without a response.
 
 If a review thread is already resolved in GitHub, ignore it unless new
 unresolved follow-up appears.
+
+### Replying to and resolving review threads
+
+Every inline review comment creates a thread. After addressing a comment
+(or deciding it's non-actionable), you must:
+
+1. **Reply** to the thread so the reviewer can see how you addressed it:
+
+   ```bash
+   gh api "repos/{owner}/{repo}/pulls/{number}/comments" \
+     -F "body=Fixed — <describe what you changed>" \
+     -F "in_reply_to=<comment_database_id>"
+   ```
+
+   Use `-F` (not `-f`) for `in_reply_to` so it is sent as a number.
+
+2. **Resolve** the thread via GraphQL:
+
+   ```bash
+   gh api graphql \
+     -f query='mutation($id: ID!) {
+       resolveReviewThread(input: { threadId: $id }) {
+         thread { isResolved }
+       }
+     }' \
+     -f id="<thread_node_id>"
+   ```
+
+To discover unresolved threads and their IDs:
+
+```bash
+gh api graphql -f query='
+query($owner: String!, $repo: String!, $pr: Int!) {
+  repository(owner: $owner, name: $repo) {
+    pullRequest(number: $pr) {
+      reviewThreads(last: 100) {
+        nodes {
+          id
+          isResolved
+          path
+          line
+          comments(first: 1) {
+            nodes { databaseId author { login } body }
+          }
+        }
+      }
+    }
+  }
+}' -f owner="{owner}" -f repo="{repo}" -F pr="{number}" \
+  --jq '.data.repository.pullRequest.reviewThreads.nodes[]
+        | select(.isResolved == false)'
+```
+
+**Rules:**
+- Reply to every thread, even nits. A brief "Done" or "Kept as-is because…" is fine.
+- Resolve threads you have addressed. Do not leave resolved-in-code threads
+  showing as unresolved in the GitHub UI.
+- Before marking the PR ready, verify zero unresolved threads remain.
 
 ### Requesting re-review
 
@@ -286,8 +347,10 @@ Stop **only** when:
 
 ## When done — mark PR ready
 
-Once all present verification layers pass on the current SHA, convert the
-draft PR to ready for review:
+Once all present verification layers pass on the current SHA:
+
+1. Verify all review threads are resolved (zero unresolved remaining).
+2. Convert the draft PR to ready for review:
 
 ```bash
 gh pr ready
@@ -327,6 +390,7 @@ Final summary should include:
 - Mergeability / conflict status
 - Fixes pushed
 - Flaky retry cycles used
+- Review threads resolved (count)
 - Remaining unresolved failures or review comments
 
 ## References
