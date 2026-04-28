@@ -164,15 +164,15 @@ PR reviews are automatically triggered when:
 |-------|----------|---------|-------------|
 | `review-agent-mode` | No | `openhands` | Review backend: `openhands` for the standard SDK Agent or `acp` for an ACP-compatible agent server |
 | `llm-model` | No | `anthropic/claude-sonnet-4-5-20250929` | LLM model(s), comma-separated for A/B testing. In ACP mode this is passed to the ACP server when supported. |
-| `acp-command` | Yes for `acp` mode | `''` | Command used to start the ACP server. The command must already be available in the runner environment. |
+| `acp-command` | Yes for `acp` mode | `''` | Command used to start the ACP server. The command must already be available in the runner environment. Examples: `codex-acp`, `claude-agent-acp`, `npx -y @agentclientprotocol/claude-agent-acp`. |
 | `acp-prompt-timeout` | No | `'1800'` | Timeout in seconds for one ACP prompt turn |
 | `llm-base-url` | No | `''` | Custom LLM endpoint URL |
-| `openhands-sdk-package` | No | `openhands-sdk` | Package spec passed to `uv --with`; override only when pinning a specific SDK build for testing or rollout control |
 | `review-style` | No | `roasted` | **[DEPRECATED]** Previously chose between `standard` and `roasted` review styles. Now ignored — the styles have been merged into a single unified skill. |
 | `require-evidence` | No | `'false'` | Require the reviewer to enforce an `Evidence` section in the PR description with end-to-end proof: screenshots/videos for frontend work, commands and runtime output for backend or scripts, and an agent conversation link when applicable. Test output alone does not qualify. |
 | `use-sub-agents` | No | `'false'` | Enable sub-agent delegation for file-level reviews in `openhands` mode. The main agent acts as a coordinator that delegates per-file review work to `file_reviewer` sub-agents via the SDK TaskToolSet, then consolidates findings into a single PR review. Useful for large PRs with many changed files. **Disabled by default** due to high token costs and potential timeouts (see [#208](https://github.com/OpenHands/extensions/issues/208)). Set to `'true'` to opt in. Ignored in ACP mode. |
 | `extensions-repo` | No | `OpenHands/extensions` | Extensions repository |
 | `extensions-version` | No | `main` | Git ref (tag, branch, or SHA) |
+| `openhands-sdk-package` | No | `openhands-sdk` | Package spec passed to `uv --with`; override only when pinning a specific SDK build for testing or rollout control |
 | `llm-api-key` | Yes for `openhands` mode | - | LLM API key for the OpenHands agent. Ignored in ACP mode. |
 | `github-token` | Yes | - | GitHub token for API access |
 | `lmnr-api-key` | No | `''` | Laminar API key for observability |

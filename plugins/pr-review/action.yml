@@ -27,6 +27,8 @@ inputs:
             Command used to start the ACP server when review-agent-mode is
             'acp'. The command must already be available in the runner
             environment and the value is shell-split before execution.
+            Examples: 'codex-acp', 'claude-agent-acp', or 'npx -y
+            @agentclientprotocol/claude-agent-acp'.
         required: false
         default: ''
     acp-prompt-timeout:
@@ -37,13 +39,6 @@ inputs:
         description: LLM base URL (optional, for custom LLM endpoints)
         required: false
         default: ''
-    openhands-sdk-package:
-        description: >
-            Package spec passed to uv for openhands-sdk. Keep the default for
-            normal use, or override it to pin a specific SDK build for testing
-            or rollout control.
-        required: false
-        default: openhands-sdk
     review-style:
         description: "[DEPRECATED] Previously chose between 'standard' and 'roasted' review styles. These have been merged into a single code-review skill. The input is kept for backward compatibility but no longer changes behavior. Will be removed in a future version."
         required: false
@@ -69,6 +64,13 @@ inputs:
         description: Git ref to use for extensions (tag, branch, or commit SHA, e.g., v1.0.0, main, or abc1234)
         required: false
         default: main
+    openhands-sdk-package:
+        description: >
+            Package spec passed to uv for openhands-sdk. Keep the default for
+            normal use, or override it to pin a specific SDK build for testing
+            or rollout control.
+        required: false
+        default: openhands-sdk
     llm-api-key:
         description: >
             LLM API key. Required when review-agent-mode is 'openhands'.
