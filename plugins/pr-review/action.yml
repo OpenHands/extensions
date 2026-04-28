@@ -66,8 +66,8 @@ inputs:
     openhands-sdk-package:
         description: >
             Package spec passed to uv for openhands-sdk. Keep the default for
-            released SDKs, or provide a direct-reference package spec to test
-            unreleased SDK changes.
+            normal use, or override it to pin a specific SDK build for testing
+            or rollout control.
         required: false
         default: openhands-sdk
     review-style:
