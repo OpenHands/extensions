@@ -772,9 +772,7 @@ def validate_environment() -> dict[str, Any]:
 
     return {
         "review_agent_mode": review_agent_mode,
-        "acp_command": os.getenv(
-            "ACP_COMMAND", "npx -y @zed-industries/codex-acp@0.12.0"
-        ),
+        "acp_command": os.getenv("ACP_COMMAND", ""),
         "acp_prompt_timeout": acp_prompt_timeout,
         "api_key": api_key,
         "github_token": os.getenv("GITHUB_TOKEN"),

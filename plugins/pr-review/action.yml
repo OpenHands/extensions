@@ -11,8 +11,7 @@ inputs:
     review-agent-mode:
         description: >
             Review agent backend. Use 'openhands' for the standard OpenHands
-            SDK Agent, or 'acp' to run an ACP-compatible agent server such as
-            Codex ACP.
+            SDK Agent, or 'acp' to run an ACP-compatible agent server.
         required: false
         default: openhands
     llm-model:
@@ -26,19 +25,14 @@ inputs:
     acp-command:
         description: >
             Command used to start the ACP server when review-agent-mode is
-            'acp'. The value is shell-split before execution.
+            'acp'. The command must already be available in the runner
+            environment and the value is shell-split before execution.
         required: false
-        default: npx -y @zed-industries/codex-acp@0.12.0
+        default: ''
     acp-prompt-timeout:
         description: Timeout in seconds for one ACP prompt turn.
         required: false
         default: '1800'
-    codex-cli-package:
-        description: >
-            npm package spec for the Codex CLI installed before running Codex
-            ACP. Set to an empty string to skip installation.
-        required: false
-        default: '@openai/codex@0.124.0'
     llm-base-url:
         description: LLM base URL (optional, for custom LLM endpoints)
         required: false
@@ -148,21 +142,12 @@ runs:
                   sudo apt-get install -y gh
               fi
 
-        - name: Install Codex CLI for Codex ACP
-          if: ${{ inputs.review-agent-mode == 'acp' && inputs.codex-cli-package != '' }}
-          shell: bash
-          run: |
-              npm config set prefix "$HOME/.npm-global"
-              echo "$HOME/.npm-global/bin" >> "$GITHUB_PATH"
-              export PATH="$HOME/.npm-global/bin:$PATH"
-              npm install -g "${{ inputs.codex-cli-package }}"
-              codex --version
-
         - name: Check required configuration and select model
           id: select-model
           shell: bash
           env:
               REVIEW_AGENT_MODE: ${{ inputs.review-agent-mode }}
+              ACP_COMMAND: ${{ inputs.acp-command }}
               LLM_API_KEY: ${{ inputs.llm-api-key }}
               GITHUB_TOKEN: ${{ inputs.github-token }}
           run: |
@@ -173,6 +158,11 @@ runs:
 
               if [ "$REVIEW_AGENT_MODE" = "openhands" ] && [ -z "$LLM_API_KEY" ]; then
                 echo "Error: llm-api-key is required when review-agent-mode is 'openhands'."
+                exit 1
+              fi
+
+              if [ "$REVIEW_AGENT_MODE" = "acp" ] && [ -z "$ACP_COMMAND" ]; then
+                echo "Error: acp-command is required when review-agent-mode is 'acp'."
                 exit 1
               fi
 

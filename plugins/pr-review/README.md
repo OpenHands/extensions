@@ -105,22 +105,24 @@ Edit the workflow file to customize:
 #### Experimental: ACP review backend
 
 Use `review-agent-mode: acp` to run the reviewer through an ACP-compatible
-agent server such as Codex ACP. In this mode, OpenHands still loads review
-skills and plugin prompt context, but the ACP server owns model access,
-authentication, and tool execution. Configure ACP authentication in the runner
+agent server. In this mode, OpenHands still loads review skills and plugin
+prompt context, but the ACP server owns model access, authentication, and tool
+execution. Install the ACP CLI and configure its authentication in the runner
 environment before invoking this action. Sub-agent delegation is disabled in ACP
 mode because delegation depends on OpenHands agent runtime details such as
 TaskToolSet, agent registration, and tool routing that ACP servers do not expose
 consistently.
 
 ```yaml
+- name: Install ACP server
+  run: ./scripts/install-your-acp-server
+
 - name: Run PR Review
   uses: OpenHands/extensions/plugins/pr-review@main
   with:
     review-agent-mode: acp
-    acp-command: npx -y @zed-industries/codex-acp@0.12.0
-    codex-cli-package: '@openai/codex@0.124.0'
-    llm-model: gpt-5.5
+    acp-command: your-acp-server
+    llm-model: your-acp-model
     github-token: ${{ secrets.GITHUB_TOKEN }}
 ```
 
@@ -162,9 +164,8 @@ PR reviews are automatically triggered when:
 |-------|----------|---------|-------------|
 | `review-agent-mode` | No | `openhands` | Review backend: `openhands` for the standard SDK Agent or `acp` for an ACP-compatible agent server |
 | `llm-model` | No | `anthropic/claude-sonnet-4-5-20250929` | LLM model(s), comma-separated for A/B testing. In ACP mode this is passed to the ACP server when supported. |
-| `acp-command` | No | `npx -y @zed-industries/codex-acp@0.12.0` | Command used to start the ACP server when `review-agent-mode` is `acp` |
+| `acp-command` | Yes for `acp` mode | `''` | Command used to start the ACP server. The command must already be available in the runner environment. |
 | `acp-prompt-timeout` | No | `'1800'` | Timeout in seconds for one ACP prompt turn |
-| `codex-cli-package` | No | `@openai/codex@0.124.0` | npm package spec for the Codex CLI installed before running Codex ACP. Set to an empty string to skip installation. |
 | `llm-base-url` | No | `''` | Custom LLM endpoint URL |
 | `openhands-sdk-package` | No | `openhands-sdk` | Package spec passed to `uv --with`; override only when pinning a specific SDK build for testing or rollout control |
 | `review-style` | No | `roasted` | **[DEPRECATED]** Previously chose between `standard` and `roasted` review styles. Now ignored — the styles have been merged into a single unified skill. |
