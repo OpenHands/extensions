@@ -126,6 +126,22 @@ consistently.
     github-token: ${{ secrets.GITHUB_TOKEN }}
 ```
 
+Codex ACP example for a runner that already has ChatGPT/Codex authentication
+configured:
+
+```yaml
+- name: Install Codex ACP
+  run: npm install -g @zed-industries/codex-acp@0.12.0
+
+- name: Run PR Review
+  uses: OpenHands/extensions/plugins/pr-review@main
+  with:
+    review-agent-mode: acp
+    acp-command: codex-acp
+    llm-model: gpt-5.5
+    github-token: ${{ secrets.GITHUB_TOKEN }}
+```
+
 ### 4. Create the Review Label (Optional)
 
 Create a `review-this` label for manual review triggers:
@@ -165,6 +181,7 @@ PR reviews are automatically triggered when:
 | `review-agent-mode` | No | `openhands` | Review backend: `openhands` for the standard SDK Agent or `acp` for an ACP-compatible agent server |
 | `llm-model` | No | `anthropic/claude-sonnet-4-5-20250929` | LLM model(s), comma-separated for A/B testing. In ACP mode this is passed to the ACP server when supported. |
 | `acp-command` | Yes for `acp` mode | `''` | Command used to start the ACP server. The command must already be available in the runner environment. Examples: `codex-acp`, `claude-agent-acp`, `npx -y @agentclientprotocol/claude-agent-acp`. |
+| `acp-prompt-timeout` | No | `'1800'` | Timeout in seconds for one ACP prompt turn |
 | `llm-base-url` | No | `''` | Custom LLM endpoint URL |
 | `review-style` | No | `roasted` | **[DEPRECATED]** Previously chose between `standard` and `roasted` review styles. Now ignored — the styles have been merged into a single unified skill. |
 | `require-evidence` | No | `'false'` | Require the reviewer to enforce an `Evidence` section in the PR description with end-to-end proof: screenshots/videos for frontend work, commands and runtime output for backend or scripts, and an agent conversation link when applicable. Test output alone does not qualify. |
