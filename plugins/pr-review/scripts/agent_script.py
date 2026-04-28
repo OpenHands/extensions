@@ -73,7 +73,7 @@ from openhands.sdk.context import Skill
 from openhands.sdk.conversation import get_agent_final_response
 from openhands.sdk.git.utils import run_git_command
 from openhands.sdk.plugin import PluginSource
-from openhands.sdk.skills import load_project_skills, load_skills_from_dir
+from openhands.sdk.skills import load_project_skills
 from openhands.tools.delegate import DelegationVisualizer
 from openhands.tools.preset.default import get_default_condenser, get_default_tools
 from openhands.tools.task import TaskToolSet
@@ -756,7 +756,12 @@ def validate_environment() -> dict[str, Any]:
 
     use_sub_agents = _get_bool_env("USE_SUB_AGENTS")
     if review_agent_mode == "acp" and use_sub_agents:
-        logger.info("Sub-agent delegation is disabled in ACP mode")
+        logger.info(
+            "Sub-agent delegation is disabled in ACP mode because delegation "
+            "depends on OpenHands agent runtime details such as TaskToolSet, "
+            "agent registration, and tool routing that ACP servers do not "
+            "expose consistently."
+        )
         use_sub_agents = False
 
     try:
@@ -853,29 +858,6 @@ def _register_sub_agents() -> None:
     )
 
 
-def _load_review_project_skills(cwd: str) -> list[Skill]:
-    """Load repo guidance plus top-level AgentSkills used by review workflows."""
-    project_skills = load_project_skills(cwd)
-    seen_names = {skill.name for skill in project_skills}
-
-    top_level_skills_dir = Path(cwd) / "skills"
-    if top_level_skills_dir.exists():
-        loaded_skill_groups = load_skills_from_dir(top_level_skills_dir)
-        for skills_by_name in loaded_skill_groups:
-            for name, skill in skills_by_name.items():
-                if name in seen_names:
-                    logger.warning(
-                        "Skipping duplicate top-level project skill '%s' from %s",
-                        name,
-                        top_level_skills_dir,
-                    )
-                    continue
-                project_skills.append(skill)
-                seen_names.add(name)
-
-    return project_skills
-
-
 def create_conversation(
     config: dict[str, Any],
     secrets: dict[str, str],
@@ -898,7 +880,7 @@ def create_conversation(
     """
     # Load project-specific skills from the workspace
     cwd = os.getcwd()
-    project_skills = _load_review_project_skills(cwd)
+    project_skills = load_project_skills(cwd)
     logger.info(
         f"Loaded {len(project_skills)} project skills: "
         f"{[s.name for s in project_skills]}"

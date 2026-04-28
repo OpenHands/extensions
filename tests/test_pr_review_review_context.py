@@ -100,7 +100,6 @@ def _load_agent_script_module():
 
     sdk_skills = types.ModuleType("openhands.sdk.skills")
     sdk_skills.load_project_skills = lambda cwd: []
-    sdk_skills.load_skills_from_dir = lambda path: ({}, {}, {})
     sys.modules["openhands.sdk.skills"] = sdk_skills
 
     conversation = types.ModuleType("openhands.sdk.conversation")
@@ -248,28 +247,26 @@ def test_create_conversation_keeps_public_skills_without_reloading(tmp_path, mon
     assert conversation.agent.agent_context.load_public_skills is False
 
 
-def test_load_review_project_skills_includes_top_level_skills(tmp_path, monkeypatch):
-    """PR review keeps loading repo-level AgentSkills after SDK project loading
-    stopped scanning top-level skills/."""
+def test_create_conversation_uses_sdk_project_skill_loader(tmp_path, monkeypatch):
+    """PR review delegates project skill discovery to the SDK."""
     module = _load_agent_script_module()
-    top_level_skills = tmp_path / "skills"
-    top_level_skills.mkdir()
+    monkeypatch.chdir(tmp_path)
 
-    base_skill = module.Skill(name="claude", content="Base repo guidance")
-    review_skill = module.Skill(
+    project_skill = module.Skill(
         name="custom-codereview-guide",
         content="Review in Chinese",
         is_agentskills_format=True,
     )
-    duplicate = module.Skill(name="claude", content="Duplicate")
+    monkeypatch.setattr(module, "load_project_skills", lambda cwd: [project_skill])
 
-    monkeypatch.setattr(module, "load_project_skills", lambda cwd: [base_skill])
-    monkeypatch.setattr(
-        module,
-        "load_skills_from_dir",
-        lambda path: ({}, {"claude": duplicate}, {"custom-codereview-guide": review_skill}),
-    )
+    config = {
+        "review_agent_mode": "openhands",
+        "model": "test-model",
+        "api_key": "test-key",
+        "base_url": "",
+        "use_sub_agents": False,
+    }
 
-    skills = module._load_review_project_skills(str(tmp_path))
+    conversation = module.create_conversation(config, secrets={})
 
-    assert [skill.name for skill in skills] == ["claude", "custom-codereview-guide"]
+    assert conversation.agent.agent_context.skills == [project_skill]

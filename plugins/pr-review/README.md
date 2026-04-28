@@ -109,7 +109,9 @@ agent server such as Codex ACP. In this mode, OpenHands still loads review
 skills and plugin prompt context, but the ACP server owns model access,
 authentication, and tool execution. Configure ACP authentication in the runner
 environment before invoking this action. Sub-agent delegation is disabled in ACP
-mode.
+mode because delegation depends on OpenHands agent runtime details such as
+TaskToolSet, agent registration, and tool routing that ACP servers do not expose
+consistently.
 
 ```yaml
 - name: Run PR Review
@@ -167,7 +169,7 @@ PR reviews are automatically triggered when:
 | `openhands-sdk-package` | No | `openhands-sdk` | Package spec passed to `uv --with`; override only when pinning a specific SDK build for testing or rollout control |
 | `review-style` | No | `roasted` | **[DEPRECATED]** Previously chose between `standard` and `roasted` review styles. Now ignored — the styles have been merged into a single unified skill. |
 | `require-evidence` | No | `'false'` | Require the reviewer to enforce an `Evidence` section in the PR description with end-to-end proof: screenshots/videos for frontend work, commands and runtime output for backend or scripts, and an agent conversation link when applicable. Test output alone does not qualify. |
-| `use-sub-agents` | No | `'false'` | Enable sub-agent delegation for file-level reviews. The main agent acts as a coordinator that delegates per-file review work to `file_reviewer` sub-agents via the SDK TaskToolSet, then consolidates findings into a single PR review. Useful for large PRs with many changed files. **Disabled by default** due to high token costs and potential timeouts (see [#208](https://github.com/OpenHands/extensions/issues/208)). Set to `'true'` to opt in. |
+| `use-sub-agents` | No | `'false'` | Enable sub-agent delegation for file-level reviews in `openhands` mode. The main agent acts as a coordinator that delegates per-file review work to `file_reviewer` sub-agents via the SDK TaskToolSet, then consolidates findings into a single PR review. Useful for large PRs with many changed files. **Disabled by default** due to high token costs and potential timeouts (see [#208](https://github.com/OpenHands/extensions/issues/208)). Set to `'true'` to opt in. Ignored in ACP mode. |
 | `extensions-repo` | No | `OpenHands/extensions` | Extensions repository |
 | `extensions-version` | No | `main` | Git ref (tag, branch, or SHA) |
 | `llm-api-key` | Yes for `openhands` mode | - | LLM API key for the OpenHands agent. Ignored in ACP mode. |
