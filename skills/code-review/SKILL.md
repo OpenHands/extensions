@@ -99,10 +99,16 @@ Require:
 8. **Dependency Changes**
 If dependency lock changes have downgraded a dependency, comment pointing that out to make sure it was intentional.
 
-9. **Risk and Safety Evaluation**
+9. **SDK Documentation Placement**
+If a PR adds or modifies OpenHands SDK-specific documentation (API guides, SDK usage examples, SDK feature descriptions) in a repo that is NOT the official docs repo (`OpenHands/docs`), flag it:
+- The canonical source of truth for SDK documentation is <https://docs.openhands.dev/sdk> and its `llms.txt` index.
+- SDK skills (e.g., `skills/openhands-sdk`) auto-sync from the docs site. Adding SDK docs here creates drift.
+- **Push back**: ask the submitter to contribute SDK documentation changes to [OpenHands/docs](https://github.com/OpenHands/docs) instead. The sync mechanism will pull updates automatically.
+
+10. **Risk and Safety Evaluation**
 Read `references/risk-evaluation.md` for the full risk evaluation framework including risk levels (🟢 Low / 🟡 Medium / 🔴 High), risk factors, escalation guidance, and repo-specific risk rules.
 
-10. **GitHub Action Version Updates**
+11. **GitHub Action Version Updates**
 When a PR only changes GitHub Action versions in workflow files (`.github/workflows/*.yml`), verify the update by checking CI status:
 
 **Detection**: The PR modifies only workflow files and the diff shows version bumps like `uses: actions/checkout@v4` → `uses: actions/checkout@v6` or `uses: docker/login-action@v3` → `uses: docker/login-action@v4`.

@@ -103,6 +103,13 @@ When editing or adding skills in this repo, follow these rules (and add new skil
 - `scripts/sync_extensions.py` keeps generated artifacts in sync: Claude Code command files, README catalog section, coverage checks, and vendor symlinks. Run `python scripts/sync_extensions.py --check` (or just push — CI runs it) to verify everything is consistent. Run without `--check` to auto-fix.
 - The sync script uses PyYAML to parse SKILL.md frontmatter. If you add a skill with a slash trigger (e.g., `triggers: ["/mycommand"]`), the script auto-generates `commands/mycommand.md`. **Note:** Slash triggers in SKILL.md frontmatter are deprecated — prefer adding a `commands/command-name.md` file to the plugin's `commands/` directory instead. Keyword triggers (non-slash) remain the recommended way to activate skills by topic.
 
+## OpenHands SDK documentation policy
+
+- **Do NOT add SDK-specific or SDK-related documentation to this repo.** The canonical source of truth for SDK documentation is the [OpenHands docs site](https://docs.openhands.dev/sdk) and its structured index at <https://docs.openhands.dev/llms.txt>.
+- The `skills/openhands-sdk/SKILL.md` is **auto-synced** from the docs site via `scripts/sync_openhands_sdk_skill.py`. The "Additional Features" table is generated from `llms.txt` between `<!-- BEGIN/END AUTO-SYNCED ADDITIONAL FEATURES -->` markers.
+- If a PR adds or modifies SDK-specific documentation in this repo, **push back**: ask the submitter to contribute those changes to [OpenHands/docs](https://github.com/OpenHands/docs) instead. The sync mechanism will automatically pull the updates into the SDK skill here.
+- The long-term goal is for the SDK skill to link directly to `llms.txt` as the single source of truth, minimizing hand-curated SDK content in this repo.
+
 ## PR review plugin notes
 
 - The `code-review` and `codereview-roasted` skills have been merged into a single `code-review` skill. The `/codereview-roasted` trigger is kept as an alias for backward compatibility. The `review-style` action input is deprecated and ignored.
