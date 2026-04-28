@@ -126,12 +126,21 @@ consistently.
     github-token: ${{ secrets.GITHUB_TOKEN }}
 ```
 
-Codex ACP example for a runner that already has ChatGPT/Codex authentication
-configured:
+Codex ACP example for a runner that stores Codex auth in a GitHub secret:
 
 ```yaml
+- name: Restore Codex auth
+  env:
+    CODEX_AUTH_JSON_B64: ${{ secrets.CODEX_AUTH_JSON_B64 }}
+  run: |
+    mkdir -p "$HOME/.codex"
+    printf '%s' "$CODEX_AUTH_JSON_B64" | base64 -d > "$HOME/.codex/auth.json"
+    chmod 600 "$HOME/.codex/auth.json"
+
 - name: Install Codex ACP
-  run: npm install -g @zed-industries/codex-acp@0.12.0
+  run: |
+    npm install -g @openai/codex@0.124.0 @zed-industries/codex-acp@0.12.0
+    codex --version
 
 - name: Run PR Review
   uses: OpenHands/extensions/plugins/pr-review@main
@@ -140,6 +149,10 @@ configured:
     acp-command: codex-acp
     llm-model: gpt-5.5
     github-token: ${{ secrets.GITHUB_TOKEN }}
+
+- name: Cleanup Codex auth
+  if: always()
+  run: rm -f "$HOME/.codex/auth.json"
 ```
 
 ### 4. Create the Review Label (Optional)
