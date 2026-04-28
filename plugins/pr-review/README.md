@@ -141,20 +141,27 @@ model access and tool execution. Sub-agent delegation is disabled in ACP mode.
 
 For Claude Agent ACP, run the workflow on a runner where Claude Code is already
 authenticated. Do not commit Claude credentials; provide them through the
-runner's normal secret/bootstrap mechanism.
+runner's normal secret/bootstrap mechanism. Install the ACP adapter before the
+review action and start the already-installed binary; this avoids doing package
+installation inside the long-running ACP subprocess.
 
 ```yaml
+- name: Install Claude Agent ACP
+  run: |
+    npm config set prefix "$HOME/.npm-global"
+    echo "$HOME/.npm-global/bin" >> "$GITHUB_PATH"
+    export PATH="$HOME/.npm-global/bin:$PATH"
+    npm install -g @agentclientprotocol/claude-agent-acp@0.31.1
+    claude-agent-acp --cli --version
+
 - name: Run PR Review
   uses: OpenHands/extensions/plugins/pr-review@main
   with:
     review-agent-mode: acp
-    acp-command: npx -y @agentclientprotocol/claude-agent-acp
+    acp-command: claude-agent-acp
     codex-cli-package: ''
     llm-model: sonnet
     github-token: ${{ secrets.GITHUB_TOKEN }}
-
-    # Temporary direct-reference example for unreleased SDK changes.
-    openhands-sdk-package: 'openhands-sdk @ git+https://github.com/OpenHands/software-agent-sdk.git@feat/acp-skill-prompt-adapter#subdirectory=openhands-sdk'
 ```
 
 ### 4. Create the Review Label (Optional)
@@ -195,7 +202,7 @@ PR reviews are automatically triggered when:
 |-------|----------|---------|-------------|
 | `review-agent-mode` | No | `openhands` | Review backend: `openhands` for the standard SDK Agent or `acp` for an ACP-compatible agent server |
 | `llm-model` | No | `anthropic/claude-sonnet-4-5-20250929` | LLM model(s), comma-separated for A/B testing. In ACP mode this is passed to the ACP server when supported. |
-| `acp-command` | No | `npx -y @zed-industries/codex-acp@0.12.0` | Command used to start the ACP server when `review-agent-mode` is `acp`, for example `npx -y @agentclientprotocol/claude-agent-acp` |
+| `acp-command` | No | `npx -y @zed-industries/codex-acp@0.12.0` | Command used to start the ACP server when `review-agent-mode` is `acp`; for Claude Agent ACP, preinstall the adapter and use `claude-agent-acp` |
 | `acp-prompt-timeout` | No | `'1800'` | Timeout in seconds for one ACP prompt turn |
 | `codex-cli-package` | No | `@openai/codex@0.124.0` | npm package spec for the Codex CLI installed before running Codex ACP. Set to an empty string when using an ACP server that does not require the Codex CLI, such as Claude Agent ACP. |
 | `llm-base-url` | No | `''` | Custom LLM endpoint URL |
