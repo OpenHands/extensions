@@ -23,7 +23,6 @@ Environment Variables:
     REVIEW_AGENT_MODE: Review agent backend, either 'openhands' or 'acp'
         (default: 'openhands')
     ACP_COMMAND: Command used to start the ACP server when REVIEW_AGENT_MODE='acp'
-    ACP_PROMPT_TIMEOUT: Timeout in seconds for one ACP prompt turn
     LLM_API_KEY: API key for the LLM (required for OpenHands agent mode)
     LLM_MODEL: Language model to use (default: anthropic/claude-sonnet-4-5-20250929)
     LLM_BASE_URL: Optional base URL for LLM API
@@ -95,6 +94,10 @@ MAX_REVIEW_CONTEXT = 30000
 
 # Maximum time (seconds) for GraphQL pagination to prevent hanging on slow APIs
 MAX_PAGINATION_TIME = 120
+
+# Timeout for one ACP prompt turn. This is intentionally internal so the action
+# does not grow ACP-specific timeout configuration.
+ACP_PROMPT_TIMEOUT_SECONDS = 1800.0
 
 # GraphQL queries as module-level constants for reusability and testability
 REVIEWS_QUERY = """
@@ -764,16 +767,10 @@ def validate_environment() -> dict[str, Any]:
         )
         use_sub_agents = False
 
-    try:
-        acp_prompt_timeout = float(os.getenv("ACP_PROMPT_TIMEOUT", "1800"))
-    except ValueError:
-        logger.error("ACP_PROMPT_TIMEOUT must be a number")
-        sys.exit(1)
-
     return {
         "review_agent_mode": review_agent_mode,
         "acp_command": os.getenv("ACP_COMMAND", ""),
-        "acp_prompt_timeout": acp_prompt_timeout,
+        "acp_prompt_timeout": ACP_PROMPT_TIMEOUT_SECONDS,
         "api_key": api_key,
         "github_token": os.getenv("GITHUB_TOKEN"),
         "model": os.getenv("LLM_MODEL", "anthropic/claude-sonnet-4-5-20250929"),

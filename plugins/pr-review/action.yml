@@ -31,10 +31,6 @@ inputs:
             @agentclientprotocol/claude-agent-acp'.
         required: false
         default: ''
-    acp-prompt-timeout:
-        description: Timeout in seconds for one ACP prompt turn.
-        required: false
-        default: '1800'
     llm-base-url:
         description: LLM base URL (optional, for custom LLM endpoints)
         required: false
@@ -203,7 +199,6 @@ runs:
               OPENHANDS_SDK_PACKAGE: ${{ inputs.openhands-sdk-package }}
               REVIEW_AGENT_MODE: ${{ inputs.review-agent-mode }}
               ACP_COMMAND: ${{ inputs.acp-command }}
-              ACP_PROMPT_TIMEOUT: ${{ inputs.acp-prompt-timeout }}
               LLM_MODEL: ${{ steps.select-model.outputs.selected_model }}
               LLM_BASE_URL: ${{ inputs.llm-base-url }}
               REVIEW_STYLE: ${{ inputs.review-style }}
