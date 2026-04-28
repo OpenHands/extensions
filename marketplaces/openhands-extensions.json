@@ -91,7 +91,7 @@
         {
             "name": "openhands-sdk",
             "source": "./skills/openhands-sdk",
-            "description": "Reference skill for the OpenHands Software Agent SDK — build AI agents with custom tools, LLM configuration, conversations, sub-agent delegation, MCP integration, security, and persistence.",
+            "description": "Reference skill for the OpenHands Software Agent SDK - build AI agents with custom tools, LLM configuration, conversations, sub-agent delegation, MCP integration, security, and persistence.",
             "category": "development",
             "keywords": [
                 "sdk",
