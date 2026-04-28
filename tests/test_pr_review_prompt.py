@@ -2,6 +2,8 @@ import importlib.util
 import sys
 from pathlib import Path
 
+import yaml
+
 
 def _load_prompt_module():
     script_path = (
@@ -130,3 +132,21 @@ def test_file_reviewer_skill_content():
     assert "file_editor" in content
     # Sub-agent returns results via finish tool
     assert "finish" in content
+
+
+# --- action.yml default guard ---
+
+
+def test_use_sub_agents_defaults_to_false():
+    """Guard: use-sub-agents must default to 'false' until cost issues are resolved (#208)."""
+    action_yml = (
+        Path(__file__).parent.parent / "plugins" / "pr-review" / "action.yml"
+    )
+    with open(action_yml) as f:
+        action = yaml.safe_load(f)
+
+    default = action["inputs"]["use-sub-agents"]["default"]
+    assert default == "false", (
+        f"use-sub-agents default should be 'false' (got {default!r}). "
+        "See https://github.com/OpenHands/extensions/issues/208"
+    )

@@ -86,6 +86,7 @@ When editing or adding skills in this repo, follow these rules (and add new skil
 
 ## Repository conventions
 
+- **Punctuation style**: Use plain hyphens (`-`) instead of em dashes (`—` / `\u2014`) in skill descriptions, SKILL.md content, and marketplace JSON entries.
 - Keep formatting consistent across skills.
 - If you change a skill’s behavior or scope, update its `README.md` (if present) accordingly.
 - If you change top-level documentation, ensure links still resolve.

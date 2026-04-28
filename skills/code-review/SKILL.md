@@ -159,6 +159,24 @@ If HIGH: **Recommendation**: Do not auto-merge. Request review from a human arch
 **KEY INSIGHT:**
 [One sentence summary of the most important architectural observation]
 
+REVIEW SELF-IMPROVEMENT MESSAGE (MANDATORY):
+
+Every review you produce that includes any of the following: inline comments, critical issues, improvement opportunities, testing gaps, or a non-approval verdict **must** end with the following message block, placed after the Risk Assessment and Verdict sections. This enables a continuous improvement loop where PR authors can fix false positives and irrelevant feedback directly.
+
+Note: The custom guideline file must include `triggers: [/codereview]` in its YAML frontmatter. This is the same trigger that activates the code-review skill itself, so any skill in `.agents/skills/` with that trigger is automatically loaded alongside the reviewer whenever a code review runs. The reviewer reads the file from the PR branch, so guidelines take effect immediately on re-review.
+
+---
+
+> **Improve this review?** If any feedback above seems incorrect or irrelevant to this repository, you can teach the reviewer to do better:
+>
+> 1. Add a `.agents/skills/custom-codereview-guide.md` file to your branch (or edit it if one already exists) with the `/codereview` trigger and the context the reviewer is missing (e.g., "Security concerns about X do not apply here because Y"). See the [customization docs](https://docs.openhands.dev/openhands/usage/use-cases/code-review#customization) for the required frontmatter format.
+> 2. Re-request a review - the reviewer reads guidelines from the PR branch, so your changes take effect immediately.
+> 3. When your PR is merged, the guideline file goes through normal code review by repository maintainers.
+>
+> **Resolve with AI?** Comment `@openhands /iterate` on this PR, or install the [iterate skill](https://github.com/OpenHands/extensions/tree/main/skills/iterate) in your own agent and run `/iterate`.
+
+---
+
 COMMUNICATION STYLE:
 - Be direct and technically precise
 - Focus on engineering fundamentals, not personal preferences

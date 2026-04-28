@@ -119,10 +119,6 @@ This mode is intended for manual experiments or persistent self-hosted runners. 
     llm-subscription-auth-method: device_code
     llm-model: gpt-5.2-codex
     github-token: ${{ secrets.GITHUB_TOKEN }}
-
-    # Temporary direct-reference example for unreleased SDK changes.
-    # Remove this after the OpenHands SDK release includes device-code login.
-    openhands-sdk-package: 'openhands-sdk @ git+https://github.com/OpenHands/software-agent-sdk.git@feat/openai-device-code-login#subdirectory=openhands-sdk'
 ```
 
 #### Experimental: ACP review backend
@@ -141,9 +137,6 @@ model access and tool execution. Sub-agent delegation is disabled in ACP mode.
     codex-cli-package: '@openai/codex@0.124.0'
     llm-model: gpt-5.5
     github-token: ${{ secrets.GITHUB_TOKEN }}
-
-    # Temporary direct-reference example for unreleased SDK changes.
-    openhands-sdk-package: 'openhands-sdk @ git+https://github.com/OpenHands/software-agent-sdk.git@feat/acp-skill-prompt-adapter#subdirectory=openhands-sdk'
 ```
 
 For Claude Agent ACP, run the workflow on a runner where Claude Code is already
@@ -208,10 +201,10 @@ PR reviews are automatically triggered when:
 | `llm-base-url` | No | `''` | Custom LLM endpoint URL |
 | `llm-auth-mode` | No | `api-key` | LLM authentication mode: `api-key` or `subscription` |
 | `llm-subscription-auth-method` | No | `device_code` | OpenAI subscription login method: `device_code` for remote/headless runners, or `browser` for local callback OAuth |
-| `openhands-sdk-package` | No | `openhands-sdk` | Package spec passed to `uv --with`; use a direct-reference package spec to test unreleased SDK changes |
+| `openhands-sdk-package` | No | `openhands-sdk` | Package spec passed to `uv --with`; override only when pinning a specific SDK build for testing or rollout control |
 | `review-style` | No | `roasted` | **[DEPRECATED]** Previously chose between `standard` and `roasted` review styles. Now ignored — the styles have been merged into a single unified skill. |
 | `require-evidence` | No | `'false'` | Require the reviewer to enforce an `Evidence` section in the PR description with end-to-end proof: screenshots/videos for frontend work, commands and runtime output for backend or scripts, and an agent conversation link when applicable. Test output alone does not qualify. |
-| `use-sub-agents` | No | `'true'` | Enable sub-agent delegation for file-level reviews. The main agent acts as a coordinator that delegates per-file review work to `file_reviewer` sub-agents via the SDK TaskToolSet, then consolidates findings into a single PR review. Useful for large PRs with many changed files. To restore the previous single-agent behavior, set to `'false'`. |
+| `use-sub-agents` | No | `'false'` | Enable sub-agent delegation for file-level reviews. The main agent acts as a coordinator that delegates per-file review work to `file_reviewer` sub-agents via the SDK TaskToolSet, then consolidates findings into a single PR review. Useful for large PRs with many changed files. **Disabled by default** due to high token costs and potential timeouts (see [#208](https://github.com/OpenHands/extensions/issues/208)). Set to `'true'` to opt in. |
 | `extensions-repo` | No | `OpenHands/extensions` | Extensions repository |
 | `extensions-version` | No | `main` | Git ref (tag, branch, or SHA) |
 | `llm-api-key` | Yes for `api-key` mode | - | LLM API key |
