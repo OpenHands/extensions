@@ -890,10 +890,6 @@ def create_conversation(
         load_public_skills=True,
         skills=project_skills,
     )
-    # AgentContext expands public skills eagerly. Conversation/plugin wiring may
-    # validate or copy the context again; keep the loaded skills but avoid a
-    # second public-skill fetch and duplicate-skill warnings.
-    agent_context.load_public_skills = False
 
     plugin_dir = script_dir.parent  # plugins/pr-review/
 

@@ -228,25 +228,6 @@ def test_create_file_reviewer_agent_factory_is_callable():
     assert result is not None
 
 
-def test_create_conversation_keeps_public_skills_without_reloading(tmp_path, monkeypatch):
-    """AgentContext should keep eager-loaded public skills but not reload them
-    when Conversation/plugin setup validates or copies the context."""
-    module = _load_agent_script_module()
-    monkeypatch.chdir(tmp_path)
-
-    config = {
-        "review_agent_mode": "openhands",
-        "model": "test-model",
-        "api_key": "test-key",
-        "base_url": "",
-        "use_sub_agents": False,
-    }
-
-    conversation = module.create_conversation(config, secrets={})
-
-    assert conversation.agent.agent_context.load_public_skills is False
-
-
 def test_create_conversation_uses_sdk_project_skill_loader(tmp_path, monkeypatch):
     """PR review delegates project skill discovery to the SDK."""
     module = _load_agent_script_module()
