@@ -127,8 +127,15 @@ consistently.
 ```
 
 Codex ACP example for a runner that stores Codex auth in a GitHub secret.
-Create `CODEX_AUTH_JSON_B64` from a machine where `codex login` has already
-completed successfully:
+Create `CODEX_AUTH_JSON_B64` from a trusted machine where the Codex CLI is
+installed, then complete device-code login:
+
+```bash
+codex login --device-auth
+codex login status
+```
+
+After login succeeds, encode the generated auth file:
 
 ```bash
 base64 -w 0 "$HOME/.codex/auth.json"
