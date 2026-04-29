@@ -20,56 +20,26 @@ Bundle ALL comments into a **single review API call**. Do not post comments indi
 
 ## Posting a Review
 
-Use the GitHub CLI (`gh`) with a JSON input file. The `GITHUB_TOKEN` is automatically available.
-
-**Important**: Always use `--input` with a JSON file instead of `-F` flags. This avoids shell quoting issues with special characters in comment bodies (quotes, backticks, newlines, etc.) and eliminates the need for complex heredoc scripts.
-
-### Step 1: Create a JSON file
+Use the GitHub CLI (`gh`). The `GITHUB_TOKEN` is automatically available.
 
 ```bash
-cat > /tmp/review.json << 'EOF'
-{
-  "commit_id": "{commit_sha}",
-  "event": "COMMENT",
-  "body": "Brief 1-3 sentence summary.",
-  "comments": [
-    {
-      "path": "path/to/file.py",
-      "line": 42,
-      "side": "RIGHT",
-      "body": "🟠 Important: Your comment here."
-    },
-    {
-      "path": "another/file.js",
-      "line": 15,
-      "side": "RIGHT",
-      "body": "🟡 Suggestion: Another comment."
-    }
-  ]
-}
-EOF
+gh api \
+  -X POST \
+  repos/{owner}/{repo}/pulls/{pr_number}/reviews \
+  -f commit_id='{commit_sha}' \
+  -f event='COMMENT' \
+  -f body='Brief 1-3 sentence summary.' \
+  -f comments[][path]='path/to/file.py' \
+  -F comments[][line]=42 \
+  -f comments[][side]='RIGHT' \
+  -f comments[][body]='🟠 Important: Your comment here.' \
+  -f comments[][path]='another/file.js' \
+  -F comments[][line]=15 \
+  -f comments[][side]='RIGHT' \
+  -f comments[][body]='🟡 Suggestion: Another comment.'
 ```
 
-### Step 2: Post the review
-
-```bash
-gh api -X POST repos/{owner}/{repo}/pulls/{pr_number}/reviews --input /tmp/review.json
-```
-
-### Step 3: Confirm completion with a PR issue comment
-
-After the review API call succeeds, always post a short issue comment on the PR conversation confirming that the review was completed. Pull requests are also issues in the GitHub API, so use the issues comments endpoint.
-
-```bash
-gh api -X POST repos/{owner}/{repo}/issues/{pr_number}/comments \
-  -f body='Completed OpenHands review: submitted a {COMMENT|APPROVE|REQUEST_CHANGES} review on commit {commit_sha}.'
-```
-
-**Mandatory:** Do not finish without both:
-1. creating the PR review object, and
-2. posting the completion comment on the PR issue.
-
-If either API call fails, treat the review as incomplete and continue until it succeeds or surface the failure clearly instead of silently succeeding.
+**Mandatory:** Always submit a PR review object before finishing. If you found no actionable issues, post a short `APPROVE` review rather than ending silently without posting a review.
 
 ### Parameters
 
@@ -169,13 +139,9 @@ curl -X POST \
 
 ## Summary
 
-1. Analyze the code and identify important issues (minimize nits)
-2. Write review data to a JSON file (e.g., `/tmp/review.json`)
-3. Post **ONE** review using `gh api --input /tmp/review.json`
-4. Post a short PR issue comment confirming the review was completed
-5. Use priority labels (🔴🟠🟡) on every comment
-6. Do NOT post comments for code that is acceptable — only comment when action is needed
-7. Use suggestion syntax for concrete code changes
-8. Keep the review body brief (details go in inline comments)
-9. If no issues: post a short approval message with no inline comments
-10. Do not finish unless both the review object and completion comment were created successfully
+1. Analyze the code and identify issues
+2. Post **ONE** review with all inline comments bundled
+3. Use priority labels (🔴🟠🟡🟢) on every comment
+4. Use suggestion syntax for concrete code changes
+5. Keep the review body brief (details go in inline comments)
+6. If no issues: post a short approval message
