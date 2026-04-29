@@ -72,6 +72,23 @@ This repository is also a [Claude Code plugin marketplace](https://code.claude.c
 
 </details>
 
+<details>
+<summary><strong>Using Codex?</strong></summary>
+
+This repository is also available as a [Codex plugin marketplace](https://codex.openai.com). To add it:
+
+1. Add the marketplace:
+   ```
+   codex plugin marketplace add https://github.com/OpenHands/extensions
+   ```
+2. Browse installed extensions by running Codex and typing `/plugins`:
+   ```
+   codex
+   ```
+   Then type `/plugins` in the interactive session to see what's available.
+
+</details>
+
 ### large-codebase
 
 OpenHands skills for interacting, improving, and refactoring large codebases
