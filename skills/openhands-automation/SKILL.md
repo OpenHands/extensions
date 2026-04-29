@@ -132,6 +132,7 @@ curl -X POST "${OPENHANDS_HOST}/api/automation/v1/preset/prompt" \
 | `prompt` | Yes | Natural language instructions (1-50,000 characters) |
 | `trigger` | Yes | Trigger configuration — either `cron` or `event` (see below) |
 | `timeout` | No | Max execution time in seconds (default: system maximum) |
+| `repos` | No | Repositories to clone (see [Repository Cloning](#repository-cloning)) |
 
 **Cron Trigger Fields:**
 
@@ -567,6 +568,7 @@ curl -X POST "${OPENHANDS_HOST}/api/automation/v1/preset/plugin" \
 | `prompt` | Yes | Instructions for the automation (1-50,000 characters) |
 | `trigger` | Yes | Trigger configuration — either `cron` or `event` (same as Prompt Preset) |
 | `timeout` | No | Max execution time in seconds (default: system maximum) |
+| `repos` | No | Repositories to clone (see [Repository Cloning](#repository-cloning)) |
 
 #### Plugin Source Formats
 
@@ -635,6 +637,68 @@ curl -X POST "${OPENHANDS_HOST}/api/automation/v1/preset/plugin" \
     ],
     "prompt": "Check all files against the company style guide",
     "trigger": {"type": "cron", "schedule": "0 8 * * 1", "timezone": "America/Los_Angeles"}
+  }'
+```
+
+---
+
+## Repository Cloning
+
+Both presets support an optional `repos` field to clone repositories into the sandbox before execution. Cloned repos have their skills (AGENTS.md, `.agents/skills/`) automatically loaded.
+
+### Repo Source Formats
+
+| Format | Example | Description |
+|--------|---------|-------------|
+| Full URL | `"https://github.com/owner/repo"` | Provider auto-detected |
+| Full URL + ref | `{"url": "https://github.com/owner/repo", "ref": "main"}` | With branch/tag/SHA |
+| Short URL | `{"url": "owner/repo", "provider": "github"}` | Requires `provider` field |
+
+**Supported providers:** `github`, `gitlab`, `bitbucket`
+
+> **Note:** Short URLs (`owner/repo`) require an explicit `provider` field. Full URLs auto-detect the provider.
+
+### Examples
+
+**Single repo (full URL):**
+```json
+{
+  "repos": ["https://github.com/OpenHands/openhands-cli"]
+}
+```
+
+**Multiple repos with refs:**
+```json
+{
+  "repos": [
+    {"url": "https://github.com/owner/repo1", "ref": "main"},
+    {"url": "https://gitlab.com/owner/repo2", "ref": "v1.0.0"}
+  ]
+}
+```
+
+**Short URL with provider:**
+```json
+{
+  "repos": [
+    {"url": "owner/repo", "provider": "github", "ref": "main"}
+  ]
+}
+```
+
+### Complete Automation Example
+
+```bash
+curl -X POST "${OPENHANDS_HOST}/api/automation/v1/preset/prompt" \
+  -H "Authorization: Bearer ${OPENHANDS_API_KEY}" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Analyze Codebase",
+    "prompt": "Analyze the openhands-cli codebase and generate a summary report",
+    "trigger": {"type": "cron", "schedule": "0 9 * * 1"},
+    "repos": [
+      {"url": "https://github.com/OpenHands/openhands-cli", "ref": "main"}
+    ]
   }'
 ```
 
