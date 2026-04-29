@@ -1,18 +1,24 @@
 ---
 name: openhands-automation
-description: This skill should be used when the user asks to "create an automation", "schedule a task", "set up a cron job", or mentions automations, scheduled tasks, or cron scheduling in OpenHands Cloud.
+description: This skill should be used when the user asks to "create an automation", "schedule a task", "set up a cron job", "webhook integration", "event-triggered automation", or mentions automations, scheduled tasks, cron scheduling, or webhook events in OpenHands Cloud.
 triggers:
 - automation
 - automations
 - scheduled task
 - cron job
 - cron schedule
+- webhook
+- webhooks
+- event trigger
+- github event
+- pull request automation
+- issue automation
 - /automation:create
 ---
 
 # OpenHands Automations
 
-Create and manage scheduled tasks that run in OpenHands Cloud sandboxes on a cron schedule.
+Create and manage automations that run in OpenHands Cloud sandboxes — triggered by cron schedules or webhook events (GitHub, custom services).
 
 > **⚠️ CRITICAL — Agent behavior rules:**
 >
@@ -45,7 +51,7 @@ Look for a `<HOST>` value in the system prompt. If present, use that URL. Otherw
 
 This ensures the correct host is used for the deployment environment (e.g., `https://staging.all-hands.dev` for staging, `https://app.all-hands.dev` for production).
 
-### Endpoints
+### Automation Endpoints
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|
@@ -57,6 +63,28 @@ This ensures the correct host is used for the deployment environment (e.g., `htt
 | `/api/automation/v1/{id}` | DELETE | Delete automation |
 | `/api/automation/v1/{id}/dispatch` | POST | Trigger a run manually |
 | `/api/automation/v1/{id}/runs` | GET | List automation runs |
+
+### Custom Webhook Endpoints
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/automation/v1/webhooks` | POST | Register a custom webhook source |
+| `/api/automation/v1/webhooks` | GET | List all custom webhooks |
+| `/api/automation/v1/webhooks/{id}` | GET | Get webhook details |
+| `/api/automation/v1/webhooks/{id}` | PATCH | Update webhook settings |
+| `/api/automation/v1/webhooks/{id}` | DELETE | Delete a webhook |
+| `/api/automation/v1/webhooks/{id}/rotate-secret` | POST | Rotate signing secret |
+
+---
+
+## Trigger Types
+
+Automations support two trigger types:
+
+| Trigger Type | Use Case |
+|--------------|----------|
+| **Cron** | Run on a schedule (daily, weekly, hourly, etc.) |
+| **Event** | Run when a webhook event occurs (GitHub PR opened, issue commented, etc.) |
 
 ---
 
@@ -102,11 +130,26 @@ curl -X POST "${OPENHANDS_HOST}/api/automation/v1/preset/prompt" \
 |-------|----------|-------------|
 | `name` | Yes | Name of the automation (1-500 characters) |
 | `prompt` | Yes | Natural language instructions (1-50,000 characters) |
-| `trigger.type` | Yes | Must be `"cron"` |
-| `trigger.schedule` | Yes | Cron expression (5 fields: min hour day month weekday) |
-| `trigger.timezone` | No | IANA timezone (default: `"UTC"`) |
+| `trigger` | Yes | Trigger configuration — either `cron` or `event` (see below) |
 | `timeout` | No | Max execution time in seconds (default: system maximum) |
 | `repos` | No | Repositories to clone (see [Repository Cloning](#repository-cloning)) |
+
+**Cron Trigger Fields:**
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `trigger.type` | Yes | `"cron"` |
+| `trigger.schedule` | Yes | Cron expression (5 fields: min hour day month weekday) |
+| `trigger.timezone` | No | IANA timezone (default: `"UTC"`) |
+
+**Event Trigger Fields:**
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `trigger.type` | Yes | `"event"` |
+| `trigger.source` | Yes | Event source: `"github"` or custom webhook source name |
+| `trigger.on` | Yes | Event key pattern(s) to match (see Event Keys below) |
+| `trigger.filter` | No | JMESPath expression for payload filtering (see Filter Expressions below) |
 
 #### Prompt Tips
 
@@ -169,6 +212,316 @@ curl -X POST "${OPENHANDS_HOST}/api/automation/v1/preset/prompt" \
 
 ---
 
+## Event-Triggered Automations (Webhooks)
+
+Event-triggered automations run when a webhook event occurs — like a GitHub PR being opened, an issue receiving a comment, or a custom service sending a notification.
+
+### Built-in Integrations
+
+**GitHub** is a built-in integration — no webhook registration needed. Just create automations with `"source": "github"`.
+
+### GitHub Event Keys
+
+Events use the format `{event_type}.{action}` or just `{event_type}` (for events without actions like `push`).
+
+| Event Type | Event Keys | Description |
+|------------|------------|-------------|
+| `pull_request` | `pull_request.opened`, `pull_request.closed`, `pull_request.synchronize`, `pull_request.labeled`, `pull_request.unlabeled`, `pull_request.reopened`, `pull_request.edited`, `pull_request.ready_for_review` | PR activity |
+| `issues` | `issues.opened`, `issues.closed`, `issues.reopened`, `issues.labeled`, `issues.unlabeled`, `issues.edited`, `issues.assigned` | Issue activity |
+| `issue_comment` | `issue_comment.created`, `issue_comment.edited`, `issue_comment.deleted` | Comments on issues/PRs |
+| `push` | `push` | Code pushed to a branch |
+| `release` | `release.published`, `release.created`, `release.released`, `release.prereleased` | Release activity |
+| `pull_request_review` | `pull_request_review.submitted`, `pull_request_review.edited`, `pull_request_review.dismissed` | PR review activity |
+
+**Wildcards:** Use `*` to match any action — e.g., `pull_request.*` matches all PR events.
+
+**Multiple patterns:** The `on` field can be a string or array — e.g., `["push", "pull_request.opened"]`.
+
+### Filter Expressions (JMESPath)
+
+Filters let you match events based on payload content using JMESPath expressions.
+
+#### Available Functions
+
+| Function | Description | Example |
+|----------|-------------|---------|
+| `glob(str, pattern)` | Wildcard pattern matching | `glob(repository.full_name, 'myorg/*')` |
+| `icontains(str, substr)` | Case-insensitive substring | `icontains(comment.body, '@openhands')` |
+| `contains(array, value)` | Array contains value | `contains(pull_request.labels[].name, 'bug')` |
+| `regex(str, pattern)` | Regular expression match | `regex(ref, '^refs/tags/v\\d+')` |
+| `starts_with(str, prefix)` | String starts with | `starts_with(ref, 'refs/heads/')` |
+| `ends_with(str, suffix)` | String ends with | `ends_with(ref, '/main')` |
+| `lower(str)` / `upper(str)` | Case conversion | `lower(sender.login) == 'admin'` |
+
+#### Boolean Operators
+
+- `&&` — AND
+- `||` — OR  
+- `!` — NOT
+
+#### Filter Examples
+
+```javascript
+// Exact match on label name
+"contains(pull_request.labels[].name, 'openhands')"
+
+// Case-insensitive mention in comment
+"icontains(comment.body, '@openhands')"
+
+// Match specific repository
+"repository.full_name == 'myorg/myrepo'"
+
+// Match any repo in an org
+"glob(repository.full_name, 'myorg/*')"
+
+// PR with 'bug' label in any org repo
+"glob(repository.full_name, 'myorg/*') && contains(pull_request.labels[].name, 'bug')"
+
+// Push to main or release branches
+"glob(ref, 'refs/heads/main') || glob(ref, 'refs/heads/release/*')"
+
+// Issue opened by a specific user
+"sender.login == 'dependabot[bot]'"
+
+// Not a draft PR
+"!pull_request.draft"
+```
+
+---
+
+### Event-Triggered Examples
+
+#### GitHub: Respond to @openhands mentions in comments
+
+```bash
+curl -X POST "${OPENHANDS_HOST}/api/automation/v1/preset/prompt" \
+  -H "Authorization: Bearer ${OPENHANDS_API_KEY}" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "OpenHands Mention Responder",
+    "prompt": "Analyze the issue or PR context and provide a helpful response to the user'\''s question. The comment body and context are available in the event payload.",
+    "trigger": {
+      "type": "event",
+      "source": "github",
+      "on": "issue_comment.created",
+      "filter": "icontains(comment.body, '\''@openhands'\'')"
+    },
+    "timeout": 300
+  }'
+```
+
+#### GitHub: Auto-review PRs with the "openhands" label
+
+```bash
+curl -X POST "${OPENHANDS_HOST}/api/automation/v1/preset/prompt" \
+  -H "Authorization: Bearer ${OPENHANDS_API_KEY}" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Auto Review PRs",
+    "prompt": "Review this pull request for code quality, potential bugs, and best practices. Provide constructive feedback.",
+    "trigger": {
+      "type": "event",
+      "source": "github",
+      "on": "pull_request.labeled",
+      "filter": "contains(pull_request.labels[].name, '\''openhands'\'')"
+    }
+  }'
+```
+
+#### GitHub: Run tests on push to main
+
+```bash
+curl -X POST "${OPENHANDS_HOST}/api/automation/v1/preset/prompt" \
+  -H "Authorization: Bearer ${OPENHANDS_API_KEY}" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Run Tests on Main",
+    "prompt": "Clone the repository and run the test suite. Report any failures.",
+    "trigger": {
+      "type": "event",
+      "source": "github",
+      "on": "push",
+      "filter": "ref == '\''refs/heads/main'\''"
+    }
+  }'
+```
+
+#### GitHub: Triage new issues in specific repos
+
+```bash
+curl -X POST "${OPENHANDS_HOST}/api/automation/v1/preset/prompt" \
+  -H "Authorization: Bearer ${OPENHANDS_API_KEY}" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Issue Triage Bot",
+    "prompt": "Analyze this new issue and suggest appropriate labels. If it looks like a bug, try to identify the root cause.",
+    "trigger": {
+      "type": "event",
+      "source": "github",
+      "on": "issues.opened",
+      "filter": "glob(repository.full_name, '\''myorg/*'\'')"
+    }
+  }'
+```
+
+#### GitHub: Respond to multiple event types
+
+```bash
+curl -X POST "${OPENHANDS_HOST}/api/automation/v1/preset/prompt" \
+  -H "Authorization: Bearer ${OPENHANDS_API_KEY}" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "PR Activity Bot",
+    "prompt": "Process the PR event and take appropriate action based on the event type.",
+    "trigger": {
+      "type": "event",
+      "source": "github",
+      "on": ["pull_request.opened", "pull_request.synchronize", "pull_request.ready_for_review"]
+    }
+  }'
+```
+
+---
+
+## Custom Webhooks
+
+For services other than GitHub (Linear, Stripe, Slack, etc.), register a custom webhook first.
+
+> **Agent behavior:**
+> - **Always provide the curl request** to the user — do not attempt to register webhooks yourself.
+> - **Ask the user:** "Do you have a webhook signing secret from [service], or should the system generate one?"
+>   - If they have one → include `webhook_secret` in the request
+>   - If not → omit it; the response will contain a generated secret they must configure in their service
+
+### Register a Custom Webhook
+
+```bash
+curl -X POST "${OPENHANDS_HOST}/api/automation/v1/webhooks" \
+  -H "Authorization: Bearer ${OPENHANDS_API_KEY}" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Linear Issues",
+    "source": "linear",
+    "event_key_expr": "type",
+    "signature_header": "Linear-Signature",
+    "webhook_secret": "your-linear-webhook-secret"
+  }'
+```
+
+#### Webhook Fields
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `name` | Yes | Human-readable name for the webhook |
+| `source` | Yes | Unique source identifier (lowercase, alphanumeric with hyphens, 1-50 chars) |
+| `event_key_expr` | No | JMESPath expression to extract event type from payload (default: `"type"`) |
+| `signature_header` | No | HTTP header containing HMAC signature (default: `"X-Signature-256"`) |
+| `webhook_secret` | No | Signing secret — provide your own (from the external service) or let the system generate one |
+
+#### Response
+
+```json
+{
+  "id": "550e8400-e29b-41d4-a716-446655440000",
+  "webhook_url": "https://app.all-hands.dev/v1/events/{org_id}/linear",
+  "source": "linear",
+  "enabled": true
+}
+```
+
+**Note:** When you provide your own `webhook_secret`, it won't be echoed back in the response. If you don't provide one, the system generates a secret and returns it once — store it securely.
+
+### Manage Custom Webhooks
+
+```bash
+# List all webhooks
+curl "${OPENHANDS_HOST}/api/automation/v1/webhooks" \
+  -H "Authorization: Bearer ${OPENHANDS_API_KEY}"
+
+# Update a webhook
+curl -X PATCH "${OPENHANDS_HOST}/api/automation/v1/webhooks/{webhook_id}" \
+  -H "Authorization: Bearer ${OPENHANDS_API_KEY}" \
+  -H "Content-Type: application/json" \
+  -d '{"enabled": false}'
+
+# Rotate the signing secret
+curl -X POST "${OPENHANDS_HOST}/api/automation/v1/webhooks/{webhook_id}/rotate-secret" \
+  -H "Authorization: Bearer ${OPENHANDS_API_KEY}"
+
+# Delete a webhook
+curl -X DELETE "${OPENHANDS_HOST}/api/automation/v1/webhooks/{webhook_id}" \
+  -H "Authorization: Bearer ${OPENHANDS_API_KEY}"
+```
+
+### Custom Webhook Example: Linear
+
+Linear sends webhooks with:
+- Signature header: `Linear-Signature`
+- Event type in payload: `type` field (e.g., `Issue`, `Comment`, `Project`)
+- Action in payload: `action` field (e.g., `create`, `update`, `remove`)
+
+```bash
+# 1. Register the Linear webhook
+#    - Get your webhook signing secret from Linear's webhook settings
+#    - Use "Linear-Signature" as the signature header
+#    - Use "type" to extract the event type from the payload
+curl -X POST "${OPENHANDS_HOST}/api/automation/v1/webhooks" \
+  -H "Authorization: Bearer ${OPENHANDS_API_KEY}" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Linear Issues",
+    "source": "linear",
+    "event_key_expr": "type",
+    "signature_header": "Linear-Signature",
+    "webhook_secret": "lin_wh_xxxxxxxxxxxxx"
+  }'
+
+# Response includes webhook_url — configure this in Linear:
+# Settings → API → Webhooks → New webhook → paste the webhook_url
+
+# 2. Create an automation for new Linear issues
+curl -X POST "${OPENHANDS_HOST}/api/automation/v1/preset/prompt" \
+  -H "Authorization: Bearer ${OPENHANDS_API_KEY}" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Triage New Linear Issues",
+    "prompt": "A new issue was created in Linear. Analyze the issue title and description, suggest appropriate labels, and add a comment with initial triage notes.",
+    "trigger": {
+      "type": "event",
+      "source": "linear",
+      "on": "Issue",
+      "filter": "action == '\''create'\''"
+    }
+  }'
+
+# 3. Create an automation for high-priority issue updates
+curl -X POST "${OPENHANDS_HOST}/api/automation/v1/preset/prompt" \
+  -H "Authorization: Bearer ${OPENHANDS_API_KEY}" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "High Priority Issue Alert",
+    "prompt": "A high-priority issue was updated. Review the changes and notify the team if action is needed.",
+    "trigger": {
+      "type": "event",
+      "source": "linear",
+      "on": "Issue",
+      "filter": "action == '\''update'\'' && data.priority == `1`"
+    }
+  }'
+```
+
+### Common Signature Headers by Service
+
+| Service | Signature Header | Event Key Expression |
+|---------|-----------------|---------------------|
+| Linear | `Linear-Signature` | `type` |
+| Stripe | `Stripe-Signature` | `type` |
+| Slack | `X-Slack-Signature` | `type` |
+| Twilio | `X-Twilio-Signature` | `type` |
+| Generic | `X-Signature-256` | `type` |
+
+---
+
 ### Plugin Preset
 
 Use the **preset/plugin endpoint** when you need to load one or more plugins that provide extended capabilities like skills, MCP configurations, hooks, and commands.
@@ -213,9 +566,7 @@ curl -X POST "${OPENHANDS_HOST}/api/automation/v1/preset/plugin" \
 | `plugins[].ref` | No | Git ref: branch, tag, or commit SHA |
 | `plugins[].repo_path` | No | Subdirectory path for monorepos |
 | `prompt` | Yes | Instructions for the automation (1-50,000 characters) |
-| `trigger.type` | Yes | Must be `"cron"` |
-| `trigger.schedule` | Yes | Cron expression (5 fields: min hour day month weekday) |
-| `trigger.timezone` | No | IANA timezone (default: `"UTC"`) |
+| `trigger` | Yes | Trigger configuration — either `cron` or `event` (same as Prompt Preset) |
 | `timeout` | No | Max execution time in seconds (default: system maximum) |
 | `repos` | No | Repositories to clone (see [Repository Cloning](#repository-cloning)) |
 

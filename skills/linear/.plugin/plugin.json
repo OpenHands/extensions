@@ -1,0 +1,19 @@
+{
+  "name": "linear",
+  "version": "1.0.0",
+  "description": "Interact with Linear project management - query issues, update status, create tickets using the Linear GraphQL API.",
+  "author": {
+    "name": "OpenHands",
+    "email": "contact@all-hands.dev"
+  },
+  "homepage": "https://github.com/OpenHands/extensions",
+  "repository": "https://github.com/OpenHands/extensions",
+  "license": "MIT",
+  "keywords": [
+    "linear",
+    "ticket",
+    "issue",
+    "project-management",
+    "graphql"
+  ]
+}

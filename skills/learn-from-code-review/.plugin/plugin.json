@@ -1,0 +1,19 @@
+{
+  "name": "learn-from-code-review",
+  "version": "1.0.0",
+  "description": "Distill code review feedback from GitHub PRs into reusable skills and guidelines. Use when users ask to learn from code reviews, extract review patterns, or generate coding standards from historica...",
+  "author": {
+    "name": "OpenHands",
+    "email": "contact@all-hands.dev"
+  },
+  "homepage": "https://github.com/OpenHands/extensions",
+  "repository": "https://github.com/OpenHands/extensions",
+  "license": "MIT",
+  "keywords": [
+    "code-review",
+    "learning",
+    "skills",
+    "guidelines",
+    "pr-feedback"
+  ]
+}

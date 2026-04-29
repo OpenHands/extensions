@@ -1,0 +1,16 @@
+{
+  "name": "flarglebargle",
+  "version": "1.0.0",
+  "description": "A test skill that responds to the magic word 'flarglebargle' with a compliment. Use for testing skill activation and trigger functionality.",
+  "author": {
+    "name": "OpenHands",
+    "email": "contact@all-hands.dev"
+  },
+  "homepage": "https://github.com/OpenHands/extensions",
+  "repository": "https://github.com/OpenHands/extensions",
+  "license": "MIT",
+  "keywords": [
+    "test",
+    "demo"
+  ]
+}
