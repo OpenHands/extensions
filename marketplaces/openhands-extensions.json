@@ -202,7 +202,7 @@
         },
         {
             "name": "figma",
-            "source": "./figma",
+            "source": "./skills/figma",
             "description": "Access Figma designs using the Figma MCP server. Read design files, extract components, get design tokens, and inspect layer properties.",
             "category": "design",
             "keywords": [
