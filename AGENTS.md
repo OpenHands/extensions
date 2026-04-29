@@ -105,7 +105,8 @@ When editing or adding skills in this repo, follow these rules (and add new skil
 ## OpenHands SDK documentation policy
 
 - **Do NOT add SDK-specific or SDK-related documentation to this repo.** The canonical source of truth for SDK documentation is the [OpenHands docs site](https://docs.openhands.dev/sdk) and its structured index at <https://docs.openhands.dev/llms.txt>.
-- The `skills/openhands-sdk/SKILL.md` is a **thin pointer** to the docs site. It contains only a quick-start snippet and a table of key resource links. All detailed SDK content (guides, API references, code examples) lives in `OpenHands/docs`.
+- The `skills/openhands-sdk/SKILL.md` is **auto-generated** by `scripts/sync_openhands_sdk_skill.py`. It pulls class names, guides, examples, and the hello-world snippet directly from the docs site and the SDK repo. **Do not edit SKILL.md by hand** - run the script to regenerate it.
+- CI runs `python scripts/sync_openhands_sdk_skill.py --check` on every PR. If the skill is out of date, regenerate it with `python scripts/sync_openhands_sdk_skill.py`.
 - If a PR adds or modifies SDK-specific documentation in this repo, **push back**: ask the submitter to contribute those changes to [OpenHands/docs](https://github.com/OpenHands/docs) instead.
 
 ## PR review plugin notes

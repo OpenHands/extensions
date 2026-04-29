@@ -56,3 +56,17 @@ jobs:
 
       - name: Check extensions are in sync
         run: python scripts/sync_extensions.py --check
+
+  sync-sdk-skill:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Check SDK skill is up to date
+        run: python scripts/sync_openhands_sdk_skill.py --check
