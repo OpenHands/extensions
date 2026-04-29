@@ -93,7 +93,6 @@ When editing or adding skills in this repo, follow these rules (and add new skil
 - For Python test runs, prefer `uv sync --group test` followed by `uv run pytest -q`; the full suite depends on `openhands-sdk`, which is not available in the base environment.
 - Agent-driven plugins (for example `plugins/pr-review` and `plugins/release-notes`) use `uv run --with openhands-sdk --with openhands-tools ...` and require an `LLM_API_KEY` in addition to `GITHUB_TOKEN`.
 - For OpenHands Cloud API guidance, automations, and CLI integration, use `plugins/openhands`. It is the canonical unified OpenHands plugin covering the V1 Cloud API, Automations API, and CLI. The individual skills (`skills/openhands-api`, `skills/openhands-automation`) are also available standalone.
-- When reviewing or editing `skills/openhands-sdk`, validate copy-paste imports against the released packages with `uv run --with openhands-tools --with openhands-workspace --with openhands-agent-server python ...`. In the current released workspace package, the exported remote workspace classes are `APIRemoteWorkspace` / `OpenHandsCloudWorkspace`; `RemoteAPIWorkspace` is not available.
 - `plugins/release-notes` now has a standalone validator at `plugins/release-notes/scripts/validate_release_notes.py`; it rebuilds the deterministic tag-range context, fails if a change bullet omits explicit PR/commit refs or matching author handles, and enforces full PR/author coverage by appending a compact `### 🔎 Small Fixes/Internal Changes` appendix grouped by author when the agent omits lower-signal items. New contributor detection in `generate_release_notes.py` should use merged PR history for human authors (excluding bots) rather than commit-author lookup.
 
 
@@ -102,6 +101,13 @@ When editing or adding skills in this repo, follow these rules (and add new skil
 - The test suite expects **every directory under `skills/`** to be listed in a marketplace. If you add a new skill (or rebase onto a main branch that added skills), update the appropriate marketplace file or CI will fail with `Skills missing from marketplace: [...]`.
 - `scripts/sync_extensions.py` keeps generated artifacts in sync: Claude Code command files, README catalog section, coverage checks, and vendor symlinks. Run `python scripts/sync_extensions.py --check` (or just push — CI runs it) to verify everything is consistent. Run without `--check` to auto-fix.
 - The sync script uses PyYAML to parse SKILL.md frontmatter. If you add a skill with a slash trigger (e.g., `triggers: ["/mycommand"]`), the script auto-generates `commands/mycommand.md`. **Note:** Slash triggers in SKILL.md frontmatter are deprecated — prefer adding a `commands/command-name.md` file to the plugin's `commands/` directory instead. Keyword triggers (non-slash) remain the recommended way to activate skills by topic.
+
+## OpenHands SDK documentation policy
+
+- **Do NOT add SDK-specific or SDK-related documentation to this repo.** The canonical source of truth for SDK documentation is the [OpenHands docs site](https://docs.openhands.dev/sdk) and its structured index at <https://docs.openhands.dev/llms.txt>.
+- The `skills/openhands-sdk/SKILL.md` is **auto-generated** by `scripts/sync_openhands_sdk_skill.py`. It pulls class names, guides, examples, and the hello-world snippet directly from the docs site and the SDK repo. **Do not edit SKILL.md by hand** - run the script to regenerate it.
+- CI runs `python scripts/sync_openhands_sdk_skill.py --check` on every PR. If the skill is out of date, regenerate it with `python scripts/sync_openhands_sdk_skill.py`.
+- If a PR adds or modifies SDK-specific documentation in this repo, **push back**: ask the submitter to contribute those changes to [OpenHands/docs](https://github.com/OpenHands/docs) instead.
 
 ## PR review plugin notes
 
