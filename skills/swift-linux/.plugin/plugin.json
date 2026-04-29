@@ -1,0 +1,17 @@
+{
+  "name": "swift-linux",
+  "version": "1.0.0",
+  "description": "Install and configure Swift programming language on Debian Linux for server-side development. Use when building Swift applications on Linux or setting up a Swift development environment.",
+  "author": {
+    "name": "OpenHands",
+    "email": "contact@all-hands.dev"
+  },
+  "homepage": "https://github.com/OpenHands/extensions",
+  "repository": "https://github.com/OpenHands/extensions",
+  "license": "MIT",
+  "keywords": [
+    "swift",
+    "linux",
+    "server-side"
+  ]
+}

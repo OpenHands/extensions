@@ -1,0 +1,19 @@
+{
+  "name": "prd",
+  "version": "1.0.0",
+  "description": "Generate a Product Requirements Document (PRD) for a new feature through an interactive clarifying-question workflow. Use when planning a feature, starting a new project, or when asked to create a ...",
+  "author": {
+    "name": "OpenHands",
+    "email": "contact@all-hands.dev"
+  },
+  "homepage": "https://github.com/OpenHands/extensions",
+  "repository": "https://github.com/OpenHands/extensions",
+  "license": "MIT",
+  "keywords": [
+    "prd",
+    "requirements",
+    "planning",
+    "product",
+    "specification"
+  ]
+}

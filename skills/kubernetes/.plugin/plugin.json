@@ -1,0 +1,18 @@
+{
+  "name": "kubernetes",
+  "version": "1.0.0",
+  "description": "Set up and manage local Kubernetes clusters using KIND (Kubernetes IN Docker). Use when testing Kubernetes applications locally or developing cloud-native workloads.",
+  "author": {
+    "name": "OpenHands",
+    "email": "contact@all-hands.dev"
+  },
+  "homepage": "https://github.com/OpenHands/extensions",
+  "repository": "https://github.com/OpenHands/extensions",
+  "license": "MIT",
+  "keywords": [
+    "kubernetes",
+    "k8s",
+    "kind",
+    "cloud-native"
+  ]
+}

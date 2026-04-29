@@ -7,9 +7,7 @@ fine-grained review comments. The agent has full repository access and
 uses bash commands to analyze changes in context and post detailed review
 feedback directly via `gh` or the GitHub API.
 
-This example demonstrates how to use skills for code review:
-- `/codereview` - Standard code review skill
-- `/codereview-roasted` - Linus Torvalds style brutally honest review
+This example demonstrates how to use the `/codereview` skill for code review.
 
 The agent posts inline review comments on specific lines of code using
 the GitHub API, rather than posting one giant comment under the PR.
@@ -32,7 +30,13 @@ Environment Variables:
     PR_BASE_BRANCH: Base branch name (required)
     PR_HEAD_BRANCH: Head branch name (required)
     REPO_NAME: Repository name in format owner/repo (required)
-    REVIEW_STYLE: Review style ('standard' or 'roasted', default: 'standard')
+    REQUIRE_EVIDENCE: Whether to require PR description evidence showing the code
+        works ('true'/'false', default: 'false')
+    USE_SUB_AGENTS: Enable sub-agent delegation for file-level reviews
+        ('true'/'false', default: 'false'). When enabled, the main agent acts
+        as a coordinator that delegates per-file review work to
+        file_reviewer sub-agents via the TaskToolSet, then consolidates
+        findings into a single GitHub PR review.
 
 For setup instructions, usage examples, and GitHub Actions integration,
 see README.md in this directory.
@@ -51,17 +55,29 @@ from pathlib import Path
 from typing import Any
 
 from lmnr import Laminar
-from openhands.sdk import LLM, Agent, AgentContext, Conversation, get_logger
+from openhands.sdk import (
+    LLM,
+    Agent,
+    AgentContext,
+    Conversation,
+    Tool,
+    get_logger,
+    register_agent,
+)
+from openhands.sdk.context import Skill
 from openhands.sdk.context.skills import load_project_skills
 from openhands.sdk.conversation import get_agent_final_response
 from openhands.sdk.git.utils import run_git_command
+from openhands.sdk.plugin import PluginSource
+from openhands.tools.delegate import DelegationVisualizer
 from openhands.tools.preset.default import get_default_condenser, get_default_tools
+from openhands.tools.task import TaskToolSet
 
 # Add the script directory to Python path so we can import prompt.py
 script_dir = Path(__file__).parent
 sys.path.insert(0, str(script_dir))
 
-from prompt import format_prompt  # noqa: E402
+from prompt import FILE_REVIEWER_SKILL, format_prompt  # noqa: E402
 
 logger = get_logger(__name__)
 
@@ -124,6 +140,7 @@ query($owner: String!, $repo: String!, $pr_number: Int!, $cursor: String) {
                             id
                             author { login }
                             body
+                            bodyText
                             createdAt
                         }
                     }
@@ -140,6 +157,13 @@ def _get_required_env(name: str) -> str:
     if not value:
         raise ValueError(f"{name} environment variable is required")
     return value
+
+
+def _get_bool_env(name: str, default: bool = False) -> bool:
+    value = os.getenv(name)
+    if value is None:
+        return default
+    return value.strip().lower() in {"1", "true", "yes", "on"}
 
 
 def _call_github_api(
@@ -492,6 +516,53 @@ def format_review_context(
     return "\n".join(sections)
 
 
+def _is_empty_suggestion_block(body: str) -> bool:
+    """Return True when a suggestion fence contains no visible replacement text."""
+    lines = body.splitlines()
+    return (
+        len(lines) >= 2
+        and lines[0].strip() == "```suggestion"
+        and lines[-1].strip() == "```"
+        and all(not line.strip() for line in lines[1:-1])
+    )
+
+
+def _normalize_review_comment_text(text: str) -> str:
+    """Normalize GitHub review comment text for prompt readability."""
+    normalized_lines = [line.rstrip() for line in text.splitlines()]
+    cleaned_lines: list[str] = []
+    previous_blank = False
+
+    for line in normalized_lines:
+        is_blank = not line.strip()
+        if is_blank:
+            if previous_blank:
+                continue
+            cleaned_lines.append("")
+        else:
+            cleaned_lines.append(line)
+        previous_blank = is_blank
+
+    return "\n".join(cleaned_lines).strip()
+
+
+def _get_review_comment_body(comment: dict[str, Any]) -> str:
+    """Get the best available comment text for review context.
+
+    GitHub stores deletion-only suggestions as an empty ```suggestion``` block in
+    `body`, but exposes the rendered suggestion content in `bodyText`/`bodyHTML`.
+    Prefer the original markdown when it contains real text, and fall back to the
+    normalized plain-text rendering when the raw body would look empty to the agent.
+    """
+    body = _normalize_review_comment_text(comment.get("body") or "")
+    body_text = _normalize_review_comment_text(comment.get("bodyText") or "")
+
+    if not body or _is_empty_suggestion_block(body):
+        return body_text or body
+
+    return body
+
+
 def _format_thread(thread: dict[str, Any]) -> list[str]:
     """Format a single review thread.
 
@@ -524,7 +595,7 @@ def _format_thread(thread: dict[str, Any]) -> list[str]:
     for comment in comments:
         author_data = comment.get("author") or {}
         author = author_data.get("login", "unknown")
-        body = (comment.get("body") or "").strip()
+        body = _get_review_comment_body(comment)
 
         if body:
             # Truncate individual comments if too long
@@ -644,7 +715,7 @@ def get_head_commit_sha(repo_dir: Path | None = None) -> str:
     return run_git_command(["git", "rev-parse", "HEAD"], repo_dir).strip()
 
 
-def validate_environment() -> dict[str, str]:
+def validate_environment() -> dict[str, Any]:
     """Validate required environment variables and return config.
 
     Returns:
@@ -667,17 +738,13 @@ def validate_environment() -> dict[str, str]:
         logger.error(f"Missing required environment variables: {missing_vars}")
         sys.exit(1)
 
-    review_style = os.getenv("REVIEW_STYLE", "standard").lower()
-    if review_style not in ("standard", "roasted"):
-        logger.warning(f"Unknown REVIEW_STYLE '{review_style}', using 'standard'")
-        review_style = "standard"
-
     return {
         "api_key": os.getenv("LLM_API_KEY"),
         "github_token": os.getenv("GITHUB_TOKEN"),
         "model": os.getenv("LLM_MODEL", "anthropic/claude-sonnet-4-5-20250929"),
         "base_url": os.getenv("LLM_BASE_URL"),
-        "review_style": review_style,
+        "require_evidence": _get_bool_env("REQUIRE_EVIDENCE"),
+        "use_sub_agents": _get_bool_env("USE_SUB_AGENTS"),
         "pr_info": {
             "number": os.getenv("PR_NUMBER"),
             "title": os.getenv("PR_TITLE"),
@@ -713,16 +780,68 @@ def fetch_pr_context(pr_number: str) -> tuple[str, str, str]:
     return pr_diff, commit_id, review_context
 
 
-def create_agent(config: dict[str, Any]) -> Agent:
-    """Create and configure the review agent.
+def _create_file_reviewer_agent(llm: LLM) -> Agent:
+    """Factory for file_reviewer sub-agents used during delegation.
+
+    Each sub-agent receives a skill that defines its review persona and
+    expected output format.  It has read-only terminal and file_editor
+    access so it can inspect surrounding code context in the PR repo,
+    but the coordinator handles all GitHub API interaction.
+    """
+    skills = [
+        Skill(
+            name="file_review_instructions",
+            content=FILE_REVIEWER_SKILL,
+            trigger=None,
+        ),
+    ]
+    return Agent(
+        llm=llm,
+        tools=[
+            Tool(name="terminal"),
+            Tool(name="file_editor"),
+        ],
+        agent_context=AgentContext(skills=skills),
+    )
+
+
+def _register_sub_agents() -> None:
+    """Register the file_reviewer agent type.
+
+    TaskToolSet auto-registers on import, so no explicit
+    ``register_tool()`` call is needed.
+    """
+    register_agent(
+        name="file_reviewer",
+        factory_func=_create_file_reviewer_agent,
+        description=(
+            "Reviews one or more files from a PR diff and returns structured "
+            "findings as a JSON array."
+        ),
+    )
+
+
+def create_conversation(
+    config: dict[str, Any],
+    secrets: dict[str, str],
+) -> Conversation:
+    """Create the review conversation with the plugin loaded.
+
+    The pr-review plugin is passed to Conversation via PluginSource, which
+    handles wiring skills, MCP config, and hooks automatically.
+    Project-specific skills from the workspace are loaded separately.
+
+    When ``config["use_sub_agents"]`` is True the coordinator agent is
+    given the TaskToolSet so it can delegate to file_reviewer sub-agents.
 
     Args:
         config: Configuration dictionary from validate_environment()
+        secrets: Secrets to mask in output
 
     Returns:
-        Configured Agent instance
+        Configured Conversation instance
     """
-    llm_config = {
+    llm_config: dict[str, Any] = {
         "model": config["model"],
         "api_key": config["api_key"],
         "usage_id": "pr_review_agent",
@@ -733,6 +852,7 @@ def create_agent(config: dict[str, Any]) -> Agent:
 
     llm = LLM(**llm_config)
 
+    # Load project-specific skills from the workspace
     cwd = os.getcwd()
     project_skills = load_project_skills(cwd)
     logger.info(
@@ -745,39 +865,60 @@ def create_agent(config: dict[str, Any]) -> Agent:
         skills=project_skills,
     )
 
-    return Agent(
+    tools = get_default_tools(enable_browser=False)
+
+    use_sub_agents = config.get("use_sub_agents", False)
+    if use_sub_agents:
+        _register_sub_agents()
+        tools.append(Tool(name=TaskToolSet.name))
+        logger.info("Sub-agent delegation enabled — TaskToolSet added")
+
+    # When sub-agents are enabled, allow the coordinator to launch
+    # multiple file_reviewer sub-agents concurrently via TaskToolSet.
+    concurrency_kwargs: dict[str, int] = {}
+    if use_sub_agents:
+        concurrency_kwargs["tool_concurrency_limit"] = 4
+
+    agent = Agent(
         llm=llm,
-        tools=get_default_tools(enable_browser=False),
+        tools=tools,
         agent_context=agent_context,
         system_prompt_kwargs={"cli_mode": True},
         condenser=get_default_condenser(
             llm=llm.model_copy(update={"usage_id": "condenser"})
         ),
+        **concurrency_kwargs,
     )
+
+    # The plugin directory is the parent of the scripts/ directory
+    plugin_dir = script_dir.parent  # plugins/pr-review/
+    conversation_kwargs: dict[str, Any] = {
+        "agent": agent,
+        "workspace": cwd,
+        "secrets": secrets,
+        "plugins": [PluginSource(source=str(plugin_dir))],
+    }
+    if use_sub_agents:
+        conversation_kwargs["visualizer"] = DelegationVisualizer(
+            name="PR Review Coordinator"
+        )
+
+    return Conversation(**conversation_kwargs)
 
 
 def run_review(
-    agent: Agent,
+    conversation: Conversation,
     prompt: str,
-    secrets: dict[str, str],
 ) -> Conversation:
     """Execute the PR review.
 
     Args:
-        agent: Configured Agent instance
+        conversation: Configured Conversation instance
         prompt: Review prompt
-        secrets: Secrets to mask in output
 
     Returns:
         Completed Conversation
     """
-    cwd = os.getcwd()
-    conversation = Conversation(
-        agent=agent,
-        workspace=cwd,
-        secrets=secrets,
-    )
-
     logger.info("Starting PR review analysis...")
     logger.info("Agent will post inline review comments directly via GitHub API")
 
@@ -809,7 +950,6 @@ def log_cost_summary(conversation: Conversation) -> None:
 def save_trace_context(
     pr_info: dict[str, Any],
     commit_id: str,
-    review_style: str,
     model: str,
 ) -> None:
     """Capture and store Laminar trace context for evaluation.
@@ -840,7 +980,6 @@ def save_trace_context(
                 "repo_name": pr_info["repo_name"],
                 "pr_url": pr_url,
                 "workflow_phase": "review",
-                "review_style": review_style,
                 "model": model,
             }
         )
@@ -851,7 +990,6 @@ def save_trace_context(
         "pr_number": pr_info["number"],
         "repo_name": pr_info["repo_name"],
         "commit_id": commit_id,
-        "review_style": review_style,
         "model": model,
     }
     with open("laminar_trace_info.json", "w") as f:
@@ -873,17 +1011,17 @@ def main():
 
     config = validate_environment()
     pr_info = config["pr_info"]
-    review_style = config["review_style"]
+    require_evidence = config["require_evidence"]
+    use_sub_agents = config["use_sub_agents"]
 
     logger.info(f"Reviewing PR #{pr_info['number']}: {pr_info['title']}")
-    logger.info(f"Review style: {review_style}")
+    logger.info(f"Require PR evidence: {require_evidence}")
+    logger.info(f"Sub-agent delegation: {use_sub_agents}")
 
     try:
         pr_diff, commit_id, review_context = fetch_pr_context(pr_info["number"])
 
-        skill_trigger = (
-            "/codereview" if review_style == "standard" else "/codereview-roasted"
-        )
+        skill_trigger = "/codereview"
         logger.info(f"Using skill trigger: {skill_trigger}")
 
         prompt = format_prompt(
@@ -897,9 +1035,9 @@ def main():
             commit_id=commit_id,
             diff=pr_diff,
             review_context=review_context,
+            require_evidence=require_evidence,
+            use_sub_agents=use_sub_agents,
         )
-
-        agent = create_agent(config)
 
         secrets = {}
         if config["api_key"]:
@@ -907,10 +1045,11 @@ def main():
         if config["github_token"]:
             secrets["GITHUB_TOKEN"] = config["github_token"]
 
-        conversation = run_review(agent, prompt, secrets)
+        conversation = create_conversation(config, secrets)
+        conversation = run_review(conversation, prompt)
 
         log_cost_summary(conversation)
-        save_trace_context(pr_info, commit_id, review_style, config["model"])
+        save_trace_context(pr_info, commit_id, config["model"])
 
         logger.info("PR review completed successfully")
 
