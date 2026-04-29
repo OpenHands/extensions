@@ -12,8 +12,22 @@ Key concepts:
 - **App server** endpoints use Bearer auth (`Authorization: Bearer <OPENHANDS_CLOUD_API_KEY>`).
 - **Agent server** endpoints are served by the sandbox runtime and use session auth (`X-Session-API-Key`).
 
-If you need deeper, up-to-date definitions, check the OpenHands main repository for the latest server route implementations. In that repo, the V1 app server routes typically live under:
+## Official docs
 
-- `openhands/app_server/routes/`
+- https://docs.openhands.dev/openhands/usage/cloud/cloud-api
+- https://docs.openhands.dev/openhands/usage/api/v1
 
-(The legacy V0 API routes live under `openhands/server/routes/`.)
+## Implementation source of truth
+
+If you need deeper, up-to-date definitions, prefer the current app-server implementation in `OpenHands/OpenHands`:
+
+- `openhands/app_server/v1_router.py`
+- `openhands/app_server/app_conversation/app_conversation_router.py`
+- `openhands/app_server/app_conversation/app_conversation_models.py`
+
+For the authored docs source, see `OpenHands/docs`:
+
+- `openhands/usage/cloud/cloud-api.mdx`
+- `openhands/usage/api/v1.mdx`
+
+(The legacy V0 API routes still live under `openhands/server/routes/`, but new integrations should use V1.)
