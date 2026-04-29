@@ -149,7 +149,9 @@ print("All done!")
 
 ## Examples
 
-Source: [`examples/01_standalone_sdk/`](https://github.com/OpenHands/software-agent-sdk/blob/main/examples/01_standalone_sdk)
+Source: [`examples/`](https://github.com/OpenHands/software-agent-sdk/tree/main/examples)
+
+### [Standalone SDK](https://github.com/OpenHands/software-agent-sdk/tree/main/examples/01_standalone_sdk)
 
 - [`01_hello_world.py`](https://github.com/OpenHands/software-agent-sdk/blob/main/examples/01_standalone_sdk/01_hello_world.py) - Hello World
 - [`02_custom_tools.py`](https://github.com/OpenHands/software-agent-sdk/blob/main/examples/01_standalone_sdk/02_custom_tools.py) - Custom Tools
@@ -183,19 +185,54 @@ Source: [`examples/01_standalone_sdk/`](https://github.com/OpenHands/software-ag
 - [`30_tom_agent.py`](https://github.com/OpenHands/software-agent-sdk/blob/main/examples/01_standalone_sdk/30_tom_agent.py) - Tom Agent
 - [`31_iterative_refinement.py`](https://github.com/OpenHands/software-agent-sdk/blob/main/examples/01_standalone_sdk/31_iterative_refinement.py) - Iterative Refinement
 - [`32_configurable_security_policy.py`](https://github.com/OpenHands/software-agent-sdk/blob/main/examples/01_standalone_sdk/32_configurable_security_policy.py) - Configurable Security Policy
-- [`33_hooks`](https://github.com/OpenHands/software-agent-sdk/blob/main/examples/01_standalone_sdk/33_hooks) - Hooks
+- [`33_hooks`](https://github.com/OpenHands/software-agent-sdk/tree/main/examples/01_standalone_sdk/33_hooks) - Hooks
 - [`34_critic_example.py`](https://github.com/OpenHands/software-agent-sdk/blob/main/examples/01_standalone_sdk/34_critic_example.py) - Critic Example
 - [`35_subscription_login.py`](https://github.com/OpenHands/software-agent-sdk/blob/main/examples/01_standalone_sdk/35_subscription_login.py) - Subscription Login
 - [`36_event_json_to_openai_messages.py`](https://github.com/OpenHands/software-agent-sdk/blob/main/examples/01_standalone_sdk/36_event_json_to_openai_messages.py) - Event Json To Openai Messages
-- [`37_llm_profile_store`](https://github.com/OpenHands/software-agent-sdk/blob/main/examples/01_standalone_sdk/37_llm_profile_store) - Llm Profile Store
+- [`37_llm_profile_store`](https://github.com/OpenHands/software-agent-sdk/tree/main/examples/01_standalone_sdk/37_llm_profile_store) - Llm Profile Store
 - [`38_browser_session_recording.py`](https://github.com/OpenHands/software-agent-sdk/blob/main/examples/01_standalone_sdk/38_browser_session_recording.py) - Browser Session Recording
 - [`39_llm_fallback.py`](https://github.com/OpenHands/software-agent-sdk/blob/main/examples/01_standalone_sdk/39_llm_fallback.py) - Llm Fallback
 - [`40_acp_agent_example.py`](https://github.com/OpenHands/software-agent-sdk/blob/main/examples/01_standalone_sdk/40_acp_agent_example.py) - Acp Agent Example
 - [`41_task_tool_set.py`](https://github.com/OpenHands/software-agent-sdk/blob/main/examples/01_standalone_sdk/41_task_tool_set.py) - Task Tool Set
 - [`42_file_based_subagents.py`](https://github.com/OpenHands/software-agent-sdk/blob/main/examples/01_standalone_sdk/42_file_based_subagents.py) - File Based Subagents
-- [`43_mixed_marketplace_skills`](https://github.com/OpenHands/software-agent-sdk/blob/main/examples/01_standalone_sdk/43_mixed_marketplace_skills) - Mixed Marketplace Skills
+- [`43_mixed_marketplace_skills`](https://github.com/OpenHands/software-agent-sdk/tree/main/examples/01_standalone_sdk/43_mixed_marketplace_skills) - Mixed Marketplace Skills
 - [`44_model_switching_in_convo.py`](https://github.com/OpenHands/software-agent-sdk/blob/main/examples/01_standalone_sdk/44_model_switching_in_convo.py) - Model Switching In Convo
 - [`45_parallel_tool_execution.py`](https://github.com/OpenHands/software-agent-sdk/blob/main/examples/01_standalone_sdk/45_parallel_tool_execution.py) - Parallel Tool Execution
 - [`46_agent_settings.py`](https://github.com/OpenHands/software-agent-sdk/blob/main/examples/01_standalone_sdk/46_agent_settings.py) - Agent Settings
 - [`47_defense_in_depth_security.py`](https://github.com/OpenHands/software-agent-sdk/blob/main/examples/01_standalone_sdk/47_defense_in_depth_security.py) - Defense In Depth Security
 - [`48_conversation_fork.py`](https://github.com/OpenHands/software-agent-sdk/blob/main/examples/01_standalone_sdk/48_conversation_fork.py) - Conversation Fork
+
+### [Remote Agent Server](https://github.com/OpenHands/software-agent-sdk/tree/main/examples/02_remote_agent_server)
+
+- [`01_convo_with_local_agent_server.py`](https://github.com/OpenHands/software-agent-sdk/blob/main/examples/02_remote_agent_server/01_convo_with_local_agent_server.py) - Convo With Local Agent Server
+- [`02_convo_with_docker_sandboxed_server.py`](https://github.com/OpenHands/software-agent-sdk/blob/main/examples/02_remote_agent_server/02_convo_with_docker_sandboxed_server.py) - Convo With Docker Sandboxed Server
+- [`03_browser_use_with_docker_sandboxed_server.py`](https://github.com/OpenHands/software-agent-sdk/blob/main/examples/02_remote_agent_server/03_browser_use_with_docker_sandboxed_server.py) - Browser Use With Docker Sandboxed Server
+- [`04_convo_with_api_sandboxed_server.py`](https://github.com/OpenHands/software-agent-sdk/blob/main/examples/02_remote_agent_server/04_convo_with_api_sandboxed_server.py) - Convo With Api Sandboxed Server
+- [`05_vscode_with_docker_sandboxed_server.py`](https://github.com/OpenHands/software-agent-sdk/blob/main/examples/02_remote_agent_server/05_vscode_with_docker_sandboxed_server.py) - Vscode With Docker Sandboxed Server
+- [`06_custom_tool`](https://github.com/OpenHands/software-agent-sdk/tree/main/examples/02_remote_agent_server/06_custom_tool) - Custom Tool
+- [`07_convo_with_cloud_workspace.py`](https://github.com/OpenHands/software-agent-sdk/blob/main/examples/02_remote_agent_server/07_convo_with_cloud_workspace.py) - Convo With Cloud Workspace
+- [`08_convo_with_apptainer_sandboxed_server.py`](https://github.com/OpenHands/software-agent-sdk/blob/main/examples/02_remote_agent_server/08_convo_with_apptainer_sandboxed_server.py) - Convo With Apptainer Sandboxed Server
+- [`09_acp_agent_with_remote_runtime.py`](https://github.com/OpenHands/software-agent-sdk/blob/main/examples/02_remote_agent_server/09_acp_agent_with_remote_runtime.py) - Acp Agent With Remote Runtime
+- [`10_cloud_workspace_share_credentials.py`](https://github.com/OpenHands/software-agent-sdk/blob/main/examples/02_remote_agent_server/10_cloud_workspace_share_credentials.py) - Cloud Workspace Share Credentials
+- [`11_conversation_fork.py`](https://github.com/OpenHands/software-agent-sdk/blob/main/examples/02_remote_agent_server/11_conversation_fork.py) - Conversation Fork
+- [`hook_scripts`](https://github.com/OpenHands/software-agent-sdk/tree/main/examples/02_remote_agent_server/hook_scripts) - Hook Scripts
+
+### [GitHub Workflows](https://github.com/OpenHands/software-agent-sdk/tree/main/examples/03_github_workflows)
+
+- [`01_basic_action`](https://github.com/OpenHands/software-agent-sdk/tree/main/examples/03_github_workflows/01_basic_action) - Basic Action
+- [`02_pr_review`](https://github.com/OpenHands/software-agent-sdk/tree/main/examples/03_github_workflows/02_pr_review) - Pr Review
+- [`03_todo_management`](https://github.com/OpenHands/software-agent-sdk/tree/main/examples/03_github_workflows/03_todo_management) - Todo Management
+- [`04_datadog_debugging`](https://github.com/OpenHands/software-agent-sdk/tree/main/examples/03_github_workflows/04_datadog_debugging) - Datadog Debugging
+- [`05_posthog_debugging`](https://github.com/OpenHands/software-agent-sdk/tree/main/examples/03_github_workflows/05_posthog_debugging) - Posthog Debugging
+
+### [LLM-Specific Tools](https://github.com/OpenHands/software-agent-sdk/tree/main/examples/04_llm_specific_tools)
+
+- [`01_gpt5_apply_patch_preset.py`](https://github.com/OpenHands/software-agent-sdk/blob/main/examples/04_llm_specific_tools/01_gpt5_apply_patch_preset.py) - Gpt5 Apply Patch Preset
+- [`02_gemini_file_tools.py`](https://github.com/OpenHands/software-agent-sdk/blob/main/examples/04_llm_specific_tools/02_gemini_file_tools.py) - Gemini File Tools
+
+### [Skills & Plugins](https://github.com/OpenHands/software-agent-sdk/tree/main/examples/05_skills_and_plugins)
+
+- [`01_loading_agentskills`](https://github.com/OpenHands/software-agent-sdk/tree/main/examples/05_skills_and_plugins/01_loading_agentskills) - Loading Agentskills
+- [`02_loading_plugins`](https://github.com/OpenHands/software-agent-sdk/tree/main/examples/05_skills_and_plugins/02_loading_plugins) - Loading Plugins
+- [`03_managing_installed_skills`](https://github.com/OpenHands/software-agent-sdk/tree/main/examples/05_skills_and_plugins/03_managing_installed_skills) - Managing Installed Skills
+

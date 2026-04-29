@@ -27,18 +27,29 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 SKILL_PATH = REPO_ROOT / "skills" / "openhands-sdk" / "SKILL.md"
 
 LLMS_TXT_URL = "https://docs.openhands.dev/llms.txt"
-EXAMPLES_API_URL = (
+EXAMPLES_ROOT_API_URL = (
     "https://api.github.com/repos/OpenHands/software-agent-sdk"
-    "/contents/examples/01_standalone_sdk"
+    "/contents/examples"
 )
 HELLO_WORLD_RAW_URL = (
     "https://raw.githubusercontent.com/OpenHands/software-agent-sdk"
     "/main/examples/01_standalone_sdk/01_hello_world.py"
 )
-EXAMPLES_BASE_URL = (
-    "https://github.com/OpenHands/software-agent-sdk"
-    "/blob/main/examples/01_standalone_sdk"
+EXAMPLES_BROWSE_ROOT = (
+    "https://github.com/OpenHands/software-agent-sdk/blob/main/examples"
 )
+EXAMPLES_TREE_ROOT = (
+    "https://github.com/OpenHands/software-agent-sdk/tree/main/examples"
+)
+
+# Human-readable names for example categories (directory name -> display name).
+EXAMPLE_CATEGORY_NAMES: dict[str, str] = {
+    "01_standalone_sdk": "Standalone SDK",
+    "02_remote_agent_server": "Remote Agent Server",
+    "03_github_workflows": "GitHub Workflows",
+    "04_llm_specific_tools": "LLM-Specific Tools",
+    "05_skills_and_plugins": "Skills & Plugins",
+}
 
 # ---------- frontmatter (static) ----------
 
@@ -96,9 +107,30 @@ def fetch_llms_txt() -> str:
     return _fetch(LLMS_TXT_URL)
 
 
-def fetch_examples_listing() -> list[dict]:
-    raw = _fetch(EXAMPLES_API_URL, accept="application/vnd.github.v3+json")
-    return json.loads(raw)
+def fetch_examples_all() -> dict[str, list[dict]]:
+    """Fetch the top-level examples dirs, then each category's contents.
+
+    Returns ``{dir_name: [file_entries]}`` ordered by directory name.
+    """
+    raw = _fetch(EXAMPLES_ROOT_API_URL, accept="application/vnd.github.v3+json")
+    top_level = json.loads(raw)
+    categories: dict[str, list[dict]] = {}
+    for item in sorted(top_level, key=lambda x: x["name"]):
+        if item["type"] != "dir":
+            continue
+        dir_name = item["name"]
+        url = f"{EXAMPLES_ROOT_API_URL}/{dir_name}"
+        try:
+            contents = json.loads(
+                _fetch(url, accept="application/vnd.github.v3+json")
+            )
+            categories[dir_name] = contents
+        except Exception:
+            print(
+                f"WARNING: Could not fetch examples/{dir_name}, skipping",
+                file=sys.stderr,
+            )
+    return categories
 
 
 def fetch_hello_world() -> str:
@@ -265,20 +297,43 @@ def build_guides_table(guides: list[dict]) -> str:
     return "\n".join(lines)
 
 
-def build_examples_table(listing: list[dict]) -> str:
-    """Build an examples table from the GitHub API listing."""
-    rows = []
-    for item in sorted(listing, key=lambda x: x["name"]):
-        name = item["name"]
-        # Convert filename to readable title: 01_hello_world.py -> Hello World
-        base = name.removesuffix(".py")
-        # Strip numeric prefix like "01_"
-        base = re.sub(r"^\d+_", "", base)
-        title = base.replace("_", " ").title()
-        # Build link
-        url = f"{EXAMPLES_BASE_URL}/{name}"
-        rows.append(f"- [`{name}`]({url}) - {title}")
-    return "\n".join(rows)
+def _pretty_name(filename: str) -> str:
+    """Convert ``01_hello_world.py`` to ``Hello World``."""
+    base = filename.removesuffix(".py")
+    base = re.sub(r"^\d+_", "", base)
+    return base.replace("_", " ").title()
+
+
+def _example_link(dir_name: str, item: dict) -> str:
+    """Build a browse link; use /tree/ for dirs, /blob/ for files."""
+    name = item["name"]
+    if item.get("type") == "dir":
+        return f"{EXAMPLES_TREE_ROOT}/{dir_name}/{name}"
+    return f"{EXAMPLES_BROWSE_ROOT}/{dir_name}/{name}"
+
+
+def build_examples_section(categories: dict[str, list[dict]]) -> str:
+    """Build the full examples section with sub-headings per category."""
+    lines: list[str] = [
+        f"Source: [`examples/`]({EXAMPLES_TREE_ROOT})",
+        "",
+    ]
+    for dir_name, items in categories.items():
+        heading = EXAMPLE_CATEGORY_NAMES.get(dir_name, _pretty_name(dir_name))
+        tree_url = f"{EXAMPLES_TREE_ROOT}/{dir_name}"
+        lines.append(f"### [{heading}]({tree_url})")
+        lines.append("")
+        # Filter out non-example entries (e.g. hook_scripts helper dirs)
+        for item in sorted(items, key=lambda x: x["name"]):
+            name = item["name"]
+            # Skip hidden helper directories that aren't standalone examples
+            if name.startswith(".") or name == "__pycache__":
+                continue
+            url = _example_link(dir_name, item)
+            title = _pretty_name(name)
+            lines.append(f"- [`{name}`]({url}) - {title}")
+        lines.append("")
+    return "\n".join(lines)
 
 
 def build_hello_world_snippet(source: str) -> str:
@@ -290,7 +345,7 @@ def build_hello_world_snippet(source: str) -> str:
 
 def generate_skill_md(
     llms_txt: str,
-    examples_listing: list[dict],
+    examples_categories: dict[str, list[dict]],
     hello_world_source: str,
 ) -> str:
     """Generate the full SKILL.md content."""
@@ -300,7 +355,7 @@ def generate_skill_md(
     core_classes = build_core_classes_table(arch_pages, api_refs)
     api_ref_list = build_api_reference_list(api_refs)
     guides_section = build_guides_table(guides)
-    examples = build_examples_table(examples_listing)
+    examples = build_examples_section(examples_categories)
     hello_world = build_hello_world_snippet(hello_world_source)
 
     return f"""{FRONTMATTER}
@@ -333,8 +388,6 @@ Install: `pip install openhands-sdk openhands-tools`
 
 ## Examples
 
-Source: [`examples/01_standalone_sdk/`]({EXAMPLES_BASE_URL})
-
 {examples}
 """
 
@@ -354,15 +407,15 @@ def main() -> int:
     print("Fetching llms.txt ...", file=sys.stderr)
     llms_txt = fetch_llms_txt()
 
-    print("Fetching examples listing ...", file=sys.stderr)
+    print("Fetching examples ...", file=sys.stderr)
     try:
-        examples_listing = fetch_examples_listing()
+        examples_categories = fetch_examples_all()
     except Exception:
         print(
-            "WARNING: Could not fetch examples listing, using empty list",
+            "WARNING: Could not fetch examples listing, using empty dict",
             file=sys.stderr,
         )
-        examples_listing = []
+        examples_categories = {}
 
     print("Fetching hello world example ...", file=sys.stderr)
     try:
@@ -384,7 +437,7 @@ def main() -> int:
             conversation.send_message("Hello!")
             conversation.run()""")
 
-    generated = generate_skill_md(llms_txt, examples_listing, hello_world_source)
+    generated = generate_skill_md(llms_txt, examples_categories, hello_world_source)
 
     if args.check:
         if not SKILL_PATH.exists():
