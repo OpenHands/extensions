@@ -335,6 +335,36 @@ def generate_catalog() -> str:
     lines.append("</details>")
     lines.append("")
 
+    # Codex collapsible
+    lines.append("<details>")
+    lines.append("<summary><strong>Using Codex?</strong></summary>")
+    lines.append("")
+    lines.append(
+        "This repository is also available as a "
+        "[Codex plugin marketplace]"
+        "(https://codex.openai.com). "
+        "To add it:"
+    )
+    lines.append("")
+    lines.append("1. Add the marketplace:")
+    lines.append("   ```")
+    lines.append(
+        "   codex plugin marketplace add https://github.com/OpenHands/extensions"
+    )
+    lines.append("   ```")
+    lines.append(
+        "2. Browse installed extensions by running Codex and typing `/plugins`:"
+    )
+    lines.append("   ```")
+    lines.append("   codex")
+    lines.append("   ```")
+    lines.append(
+        "   Then type `/plugins` in the interactive session to see what's available."
+    )
+    lines.append("")
+    lines.append("</details>")
+    lines.append("")
+
     for mp in mps:
         lines.extend(_format_marketplace_section(mp))
     return "\n".join(lines)
