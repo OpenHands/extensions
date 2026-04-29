@@ -1,0 +1,18 @@
+{
+  "name": "agent-memory",
+  "version": "1.0.0",
+  "description": "Persist and retrieve repository-specific knowledge using AGENTS.md files. Use when you want to save important information about a codebase (build commands, code style, workflows) for future sessions.",
+  "author": {
+    "name": "OpenHands",
+    "email": "contact@all-hands.dev"
+  },
+  "homepage": "https://github.com/OpenHands/extensions",
+  "repository": "https://github.com/OpenHands/extensions",
+  "license": "MIT",
+  "keywords": [
+    "memory",
+    "knowledge",
+    "persistence",
+    "agents"
+  ]
+}
