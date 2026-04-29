@@ -36,3 +36,13 @@ If `app_conversation_id` is missing from the initial response, fetch it via:
 - `GET /api/v1/app-conversations/start-tasks?ids=<start_task_id>`
 
 (If you accidentally use a start-task id with `/download`, you’ll get `404 Not Found`.)
+
+## Source of truth
+
+This skill is aligned against:
+
+- `OpenHands/docs/openhands/usage/cloud/cloud-api.mdx`
+- `OpenHands/docs/openhands/usage/api/v1.mdx`
+- `OpenHands/OpenHands/openhands/app_server/v1_router.py`
+- `OpenHands/OpenHands/openhands/app_server/app_conversation/app_conversation_router.py`
+- `OpenHands/OpenHands/openhands/app_server/app_conversation/app_conversation_models.py`

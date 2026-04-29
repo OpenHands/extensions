@@ -1,0 +1,18 @@
+{
+  "name": "ssh",
+  "version": "1.0.0",
+  "description": "Establish and manage SSH connections to remote machines, including key generation, configuration, and file transfers. Use when connecting to remote servers, executing remote commands, or transferri...",
+  "author": {
+    "name": "OpenHands",
+    "email": "contact@all-hands.dev"
+  },
+  "homepage": "https://github.com/OpenHands/extensions",
+  "repository": "https://github.com/OpenHands/extensions",
+  "license": "MIT",
+  "keywords": [
+    "ssh",
+    "remote",
+    "scp",
+    "server"
+  ]
+}

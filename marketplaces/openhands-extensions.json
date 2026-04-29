@@ -5,7 +5,7 @@
         "email": "contact@all-hands.dev"
     },
     "metadata": {
-        "description": "Official skills and plugins for OpenHands \u2014 the open-source AI software engineer.",
+        "description": "Official skills and plugins for OpenHands — the open-source AI software engineer.",
         "maintainer": "OpenHands",
         "homepage": "https://github.com/OpenHands/extensions"
     },
@@ -61,6 +61,21 @@
             ]
         },
         {
+            "name": "code-simplifier",
+            "source": "./skills/code-simplifier",
+            "description": "Simplifies and refines code across three dimensions - code reuse, code quality, and efficiency - while preserving all functionality. Analyzes recently modified code and provides actionable improvement suggestions.",
+            "category": "development",
+            "keywords": [
+                "simplify",
+                "refine",
+                "cleanup",
+                "code-quality",
+                "reuse",
+                "efficiency",
+                "refactor"
+            ]
+        },
+        {
             "name": "openhands-automation",
             "source": "./skills/openhands-automation",
             "description": "Create and manage OpenHands automations - scheduled tasks that run in sandboxes. Use the prompt preset to create automations from natural language, or manage existing automations.",
@@ -71,6 +86,20 @@
                 "scheduled-task",
                 "sandbox",
                 "openhands"
+            ]
+        },
+        {
+            "name": "openhands-sdk",
+            "source": "./skills/openhands-sdk",
+            "description": "Reference skill for the OpenHands Software Agent SDK — build AI agents with custom tools, LLM configuration, conversations, sub-agent delegation, MCP integration, security, and persistence.",
+            "category": "development",
+            "keywords": [
+                "sdk",
+                "agent",
+                "openhands",
+                "tools",
+                "llm",
+                "conversation"
             ]
         },
         {
@@ -333,7 +362,7 @@
         {
             "name": "openhands",
             "source": "./plugins/openhands",
-            "description": "Unified OpenHands plugin \u2014 bundles Cloud CLI, REST API (openhands-api), and Automations (openhands-automation) into a single plugin.",
+            "description": "Unified OpenHands plugin — bundles Cloud CLI, REST API (openhands-api), and Automations (openhands-automation) into a single plugin.",
             "category": "openhands",
             "keywords": [
                 "openhands",
@@ -374,7 +403,7 @@
         {
             "name": "pr-review",
             "source": "./plugins/pr-review",
-            "description": "Automated PR code review \u2014 analyzes diffs and posts inline review comments via the GitHub API.",
+            "description": "Automated PR code review — analyzes diffs and posts inline review comments via the GitHub API.",
             "category": "code-quality",
             "keywords": [
                 "pr-review",

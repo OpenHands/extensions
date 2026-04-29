@@ -87,9 +87,8 @@ Start each comment with a priority label. **Minimize nits** - leave minor style 
 | 🔴 **Critical** | Must fix: security vulnerabilities, bugs, data loss risks |
 | 🟠 **Important** | Should fix: logic errors, performance issues, missing error handling |
 | 🟡 **Suggestion** | Worth considering: significant improvements to clarity or maintainability |
-| 🟢 **Nit** | Optional: minor style preferences (use sparingly) |
-| 🟢 **Acceptable** | Pragmatic choice: acknowledged trade-off that is reasonable given constraints or out of scope for this PR |
 
+**Do NOT post 🟢 Nit or 🟢 Acceptable comments.** If code is fine, simply don't comment on it. Inline comments that say "this looks good" or "acceptable trade-off" are noise — they create review threads that must be resolved without providing actionable value.
 
 **Example:**
 ```
@@ -142,8 +141,8 @@ curl -X POST \
 1. Analyze the code and identify important issues (minimize nits)
 2. Write review data to a JSON file (e.g., `/tmp/review.json`)
 3. Post **ONE** review using `gh api --input /tmp/review.json`
-4. Use priority labels (🔴🟠🟡🟢) on every comment
-5. Mark pragmatic trade-offs as 🟢 **Acceptable** - don't block PRs for out-of-scope improvements
+4. Use priority labels (🔴🟠🟡) on every comment
+5. Do NOT post comments for code that is acceptable — only comment when action is needed
 6. Use suggestion syntax for concrete code changes
 7. Keep the review body brief (details go in inline comments)
-8. If no issues: post a short message
+8. If no issues: post a short approval message with no inline comments
