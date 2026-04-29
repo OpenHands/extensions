@@ -29,12 +29,7 @@ They live under `plugins/`, **one directory per plugin**:
 
 Browse available plugins in [`plugins/`](plugins/).
 
-## Extensions Catalog
-
-<!-- BEGIN AUTO-GENERATED CATALOG -->
-This repository contains **2 marketplace(s)** with **47 extensions** (38 skills, 9 plugins).
-
-### Quick Start
+## Quick Start
 
 **OpenHands CLI / GUI / Cloud** — these skills are loaded automatically. No setup needed.
 
@@ -88,6 +83,11 @@ This repository is also available as a [Codex plugin marketplace](https://codex.
    Then type `/plugins` in the interactive session to see what's available.
 
 </details>
+
+## Extensions Catalog
+
+<!-- BEGIN AUTO-GENERATED CATALOG -->
+This repository contains **2 marketplace(s)** with **47 extensions** (38 skills, 9 plugins).
 
 ### large-codebase
 
