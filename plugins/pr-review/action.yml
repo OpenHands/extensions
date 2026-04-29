@@ -148,6 +148,35 @@ runs:
                 echo "LLM base URL: ${{ inputs.llm-base-url }}"
               fi
 
+        - name: Preflight review permission smoke test
+          shell: bash
+          env:
+              GITHUB_TOKEN: ${{ inputs.github-token }}
+          run: |
+              if ! REVIEW_ID="$(
+                gh api \
+                  -X POST \
+                  repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/reviews \
+                  -f body='Preflight review permission smoke test. This pending review will be deleted immediately.' \
+                  --jq '.id'
+              )"; then
+                echo "Failed to create pending review during preflight smoke test"
+                echo "The GITHUB_TOKEN lacks 'pull_requests: write' permission."
+                echo "Add 'permissions: { pull-requests: write }' to your workflow job."
+                exit 1
+              fi
+
+              if [ -z "$REVIEW_ID" ]; then
+                echo "Preflight smoke test returned an empty review id"
+                exit 1
+              fi
+
+              if ! gh api \
+                -X DELETE \
+                repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/reviews/${REVIEW_ID}; then
+                echo "Warning: Failed to delete preflight review (ID: ${REVIEW_ID}). This is cosmetic and won't affect the workflow."
+              fi
+
         - name: Run PR review
           shell: bash
           env:
