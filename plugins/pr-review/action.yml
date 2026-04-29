@@ -161,6 +161,8 @@ runs:
                   --jq '.id'
               )"; then
                 echo "Failed to create pending review during preflight smoke test"
+                echo "The GITHUB_TOKEN lacks 'pull_requests: write' permission."
+                echo "Add 'permissions: { pull-requests: write }' to your workflow job."
                 exit 1
               fi
 
@@ -169,9 +171,11 @@ runs:
                 exit 1
               fi
 
-              gh api \
+              if ! gh api \
                 -X DELETE \
-                repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/reviews/${REVIEW_ID}
+                repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/reviews/${REVIEW_ID}; then
+                echo "Warning: Failed to delete preflight review (ID: ${REVIEW_ID}). This is cosmetic and won't affect the workflow."
+              fi
 
         - name: Run PR review
           shell: bash
