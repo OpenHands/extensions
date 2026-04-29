@@ -39,7 +39,24 @@ gh api \
   -f comments[][body]='🟡 Suggestion: Another comment.'
 ```
 
-**Mandatory:** Always submit a PR review object before finishing. If you found no actionable issues, post a short `APPROVE` review rather than ending silently without posting a review.
+### Confirm completion with a PR issue comment
+
+After the review API call succeeds, post a short issue comment on the PR conversation confirming that the review finished. This gives the PR timeline a durable marker that the review was actually submitted on a specific commit, which is useful when an agent analyzed the PR but might otherwise fail before leaving visible proof that the review API call succeeded.
+
+```bash
+gh api -X POST repos/{owner}/{repo}/issues/{pr_number}/comments \
+  -f body='Completed OpenHands review: submitted a COMMENT review on commit {commit_sha}.'
+```
+
+Replace `COMMENT` with the same value you sent in the review request's `event` field (`COMMENT`, `APPROVE`, or `REQUEST_CHANGES`). Replace `{commit_sha}` with the same SHA you used for `commit_id`.
+
+**Mandatory:** The review is only complete after both API calls succeed:
+1. create the PR review object, and
+2. post the completion comment on the PR issue.
+
+If you found no actionable issues, post a short `APPROVE` review and a matching completion comment rather than ending silently without posting a review.
+
+If the review API call fails, do not post the completion comment. If the review succeeds but the completion comment fails, tell the user that the review was submitted but completion reporting failed, include the review event and commit SHA in that response, and keep trying or ask for help instead of claiming success.
 
 ### Parameters
 
@@ -141,7 +158,9 @@ curl -X POST \
 
 1. Analyze the code and identify issues
 2. Post **ONE** review with all inline comments bundled
-3. Use priority labels (🔴🟠🟡🟢) on every comment
-4. Use suggestion syntax for concrete code changes
-5. Keep the review body brief (details go in inline comments)
-6. If no issues: post a short approval message
+3. Post a short PR issue comment confirming the review was submitted on the same event and commit SHA
+4. Use priority labels (🔴🟠🟡) on every comment
+5. Use suggestion syntax for concrete code changes
+6. Keep the review body brief (details go in inline comments)
+7. If no issues: post a short approval message, then post the matching completion comment
+8. Do not finish unless both the review object and completion comment were created successfully
