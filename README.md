@@ -33,7 +33,10 @@ Browse available plugins in [`plugins/`](plugins/).
 
 **OpenHands CLI / GUI / Cloud** — these skills are loaded automatically. No setup needed.
 
-**OpenHands SDK** — enable public skills when creating your agent context:
+<details>
+<summary><strong>Using the OpenHands SDK?</strong></summary>
+
+Enable public skills when creating your agent context:
 
 ```python
 from openhands.sdk import AgentContext
@@ -42,6 +45,8 @@ agent_context = AgentContext(load_public_skills=True)
 ```
 
 Or load them explicitly with `load_public_skills()` from `openhands.sdk.context.skills`.
+
+</details>
 
 <details>
 <summary><strong>Using Claude Code?</strong></summary>
