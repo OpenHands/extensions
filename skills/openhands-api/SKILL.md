@@ -19,16 +19,6 @@ It is intentionally focused on common OpenHands Cloud workflows:
 - Includes a few **agent server** endpoints (inside a sandbox) that use `X-Session-API-Key`.
 - Covers the **multi-conversation delegation pattern**: start separate Cloud conversations when you want fresh context windows or background work.
 
-## Source of truth
-
-This skill is aligned against the current V1 docs and implementation:
-
-- `OpenHands/docs/openhands/usage/cloud/cloud-api.mdx`
-- `OpenHands/docs/openhands/usage/api/v1.mdx`
-- `OpenHands/OpenHands/openhands/app_server/v1_router.py`
-- `OpenHands/OpenHands/openhands/app_server/app_conversation/app_conversation_router.py`
-- `OpenHands/OpenHands/openhands/app_server/app_conversation/app_conversation_models.py`
-
 ## When to use this skill
 
 Use this skill when you need to:
@@ -396,3 +386,14 @@ See also:
 - `skills/openhands-api/scripts/openhands_api.py`
 - The original inspiration client: `enyst/llm-playground` → `openhands-api-client-v1/scripts/cloud_api_v1.py`
 - Troubleshooting content and real-world usage feedback → `https://github.com/jpshackelford/.openhands/tree/main/skills/openhands-cloud-api`
+
+## Source of truth
+
+This skill is aligned against the current V1 docs and implementation:
+
+- `OpenHands/docs/openhands/usage/cloud/cloud-api.mdx`
+- `OpenHands/docs/openhands/usage/api/v1.mdx`
+- `OpenHands/OpenHands/openhands/app_server/v1_router.py`
+- `OpenHands/OpenHands/openhands/app_server/app_conversation/app_conversation_router.py`
+- `OpenHands/OpenHands/openhands/app_server/app_conversation/app_conversation_models.py`
+
