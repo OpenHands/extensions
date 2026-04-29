@@ -1,0 +1,13 @@
+{
+  "name": "debug-jenkins-ci",
+  "version": "1.0.0",
+  "description": "Automate Jenkins CI/CD debugging by fetching logs, identifying root causes, and suggesting fixes.",
+  "author": {
+    "name": "OpenHands",
+    "email": "contact@all-hands.dev"
+  },
+  "homepage": "https://github.com/OpenHands/extensions",
+  "repository": "https://github.com/OpenHands/extensions",
+  "license": "MIT",
+  "keywords": ["jenkins", "ci", "pipeline", "debugging", "automation"]
+}

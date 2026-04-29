@@ -32,7 +32,7 @@ Browse available plugins in [`plugins/`](plugins/).
 ## Extensions Catalog
 
 <!-- BEGIN AUTO-GENERATED CATALOG -->
-This repository contains **2 marketplace(s)** with **47 extensions** (38 skills, 9 plugins).
+This repository contains **2 marketplace(s)** with **49 extensions** (40 skills, 9 plugins).
 
 ### Quick Start
 
@@ -89,7 +89,7 @@ OpenHands skills for interacting, improving, and refactoring large codebases
 
 Official skills and plugins for OpenHands — the open-source AI software engineer.
 
-**43 extensions** (36 skills, 7 plugins)
+**45 extensions** (38 skills, 7 plugins)
 
 | Name | Type | Description | Commands |
 |------|------|-------------|----------|
@@ -103,6 +103,8 @@ Official skills and plugins for OpenHands — the open-source AI software engine
 | code-review | skill | Rigorous code review focusing on data structures, simplicity, security, pragmatism, and risk/safety evaluation. Provi... | `/codereview`, `/codereview-roasted` |
 | code-simplifier | skill | Simplifies and refines code across three dimensions - code reuse, code quality, and efficiency - while preserving all... | `/simplify` |
 | datadog | skill | Query and analyze Datadog logs, metrics, APM traces, and monitors using the Datadog API. Use when debugging productio... | — |
+| debug-github-ci | skill | Debug GitHub Actions CI failures by fetching logs, identifying root causes, and suggesting fixes. | `/debug-github-ci` |
+| debug-jenkins-ci | skill | Debug Jenkins CI/CD pipeline failures by fetching logs, identifying root causes, and suggesting fixes. | `/debug-jenkins-ci` |
 | deno | skill | Common project operations using Deno (tasks, run/test/lint/fmt, and dependency management). | — |
 | discord | skill | Build and automate Discord integrations (bots, webhooks, slash commands, and REST API workflows). Use when the user m... | — |
 | docker | skill | Run Docker commands within a container environment, including starting the Docker daemon and managing containers. Use... | — |

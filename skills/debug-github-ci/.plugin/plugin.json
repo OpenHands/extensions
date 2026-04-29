@@ -1,0 +1,13 @@
+{
+  "name": "debug-github-ci",
+  "version": "1.0.0",
+  "description": "Debug GitHub Actions CI failures by fetching logs, identifying root causes, and suggesting fixes.",
+  "author": {
+    "name": "OpenHands",
+    "email": "contact@all-hands.dev"
+  },
+  "homepage": "https://github.com/OpenHands/extensions",
+  "repository": "https://github.com/OpenHands/extensions",
+  "license": "MIT",
+  "keywords": ["github", "ci", "actions", "debugging", "workflow"]
+}

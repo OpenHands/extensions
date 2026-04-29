@@ -11,6 +11,7 @@ import pytest
 # Add the plugin scripts directory to the path
 plugin_dir = Path(__file__).parent.parent / "plugins" / "release-notes" / "scripts"
 sys.path.insert(0, str(plugin_dir))
+sys.modules.pop("prompt", None)
 
 from generate_release_notes import (
     CATEGORIES,
