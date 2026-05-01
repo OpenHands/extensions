@@ -1,0 +1,20 @@
+{
+  "name": "test-improvement-workflow",
+  "version": "1.0.0",
+  "description": "Systematic workflow for improving test suite quality using Dave Farley's 8 properties. Orchestrates companion skills into a complete audit-prioritize-validate-implement cycle.",
+  "author": {
+    "name": "OpenHands",
+    "email": "contact@all-hands.dev"
+  },
+  "homepage": "https://github.com/OpenHands/extensions",
+  "repository": "https://github.com/OpenHands/extensions",
+  "license": "MIT",
+  "keywords": [
+    "testing",
+    "test-quality",
+    "tdd",
+    "refactoring",
+    "dave-farley",
+    "workflow"
+  ]
+}
