@@ -15,11 +15,6 @@ metadata:
   openhands:
     requires:
       bins: ["grep", "pytest"]
-    dependencies:
-      - test-design-reviewer
-      - tdd
-      - refactoring
-      - testing
 ---
 
 # Test Improvement Workflow
@@ -28,11 +23,29 @@ A systematic workflow for improving test suite quality using Dave Farley's 8 pro
 
 ## Prerequisites
 
-Ensure these skills are available in the workspace:
-- `test-design-reviewer` - For auditing test quality using Dave Farley's framework
-- `tdd` - For RED-GREEN-MUTATE-KILL MUTANTS-REFACTOR cycle
-- `refactoring` - For safe, behavior-preserving code improvements
-- `testing` - For behavior-driven testing patterns and edge case documentation
+This skill orchestrates four external skills authored by Paul Hammond. Install them from [citypaul/.dotfiles](https://github.com/citypaul/.dotfiles/tree/main/claude/.claude/skills) before using this workflow.
+
+### Installation
+
+For each skill below, download the `SKILL.md` from the linked path and save it under your Claude skills directory (e.g. `~/.claude/skills/<skill-name>/SKILL.md`):
+
+| Skill | Source path | Purpose |
+|-------|-------------|---------|
+| `test-design-reviewer` | `claude/.claude/skills/test-design-reviewer/` | Audit test quality using Dave Farley's 8 properties |
+| `tdd` | `claude/.claude/skills/tdd/` | RED-GREEN-MUTATE-KILL MUTANTS-REFACTOR cycle |
+| `refactoring` | `claude/.claude/skills/refactoring/` | Safe, behavior-preserving code improvements |
+| `testing` | `claude/.claude/skills/testing/` | Behavior-driven testing patterns and edge case documentation |
+
+Or clone the whole dotfiles repo and symlink/copy the four skill directories:
+
+```bash
+git clone https://github.com/citypaul/.dotfiles.git /tmp/citypaul-dotfiles
+for skill in test-design-reviewer tdd refactoring testing; do
+  cp -r /tmp/citypaul-dotfiles/claude/.claude/skills/$skill ~/.claude/skills/
+done
+```
+
+> **Note**: This skill will not function correctly if the four prerequisite skills above are missing.
 
 ## Workflow Overview
 
