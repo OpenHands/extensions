@@ -24,7 +24,7 @@ metadata:
 
 # Test Improvement Workflow
 
-A systematic workflow for improving test suite quality using Dave Farley's 8 properties of good tests. Orchestrates Paul Hammond's `test-design-reviewer`, `tdd`, `testing`, and `refactoring` skills into a complete improvement cycle. See See https://github.com/citypaul/.dotfiles/tree/main/claude/.claude/skills for the individual skills.
+A systematic workflow for improving test suite quality using Dave Farley's 8 properties of good tests. Orchestrates Paul Hammond's `test-design-reviewer`, `tdd`, `testing`, and `refactoring` skills into a complete improvement cycle. See https://github.com/citypaul/.dotfiles/tree/main/claude/.claude/skills for the individual skills.
 
 ## Prerequisites
 
