@@ -1,7 +1,7 @@
 ---
 name: test-improvement-workflow
 description: >
-  Orchestrates test-design-reviewer, tdd, testing, and refactoring skills into a
+  Orchestrates Paul Hammond's test-design-reviewer, tdd, testing, and refactoring skills into a
   systematic workflow for improving test suite quality using Dave Farley's 8 properties.
   Use when asked to "improve test quality", "refactor tests", or "audit tests and fix them".
 triggers:
