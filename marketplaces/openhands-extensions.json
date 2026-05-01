@@ -550,7 +550,7 @@
         {
             "name": "test-improvement-workflow",
             "source": "./skills/test-improvement-workflow",
-            "description": "Systematic workflow for improving test suite quality using Dave Farley's 8 properties. Orchestrates test-design-reviewer, tdd, testing, and refactoring skills into a complete audit-prioritize-validate-implement cycle.",
+            "description": "Systematic workflow for improving test suite quality using Dave Farley's 8 properties. Orchestrates Paul Hammond's test-design-reviewer, tdd, testing, and refactoring skills into a complete audit-prioritize-validate-implement cycle.",
             "category": "testing",
             "keywords": [
                 "testing",
