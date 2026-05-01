@@ -99,7 +99,9 @@ When editing or adding skills in this repo, follow these rules (and add new skil
 ## CI / validation gotchas
 
 - The test suite expects **every directory under `skills/`** to be listed in a marketplace. If you add a new skill (or rebase onto a main branch that added skills), update the appropriate marketplace file or CI will fail with `Skills missing from marketplace: [...]`.
+- New marketplace skills also need `README.md` and `.plugin/plugin.json`; otherwise `tests/test_skills_have_readme.py` and `tests/test_skill_plugin_loading.py` will fail.
 - `scripts/sync_extensions.py` keeps generated artifacts in sync: Claude Code command files, README catalog section, coverage checks, and vendor symlinks. Run `python scripts/sync_extensions.py --check` (or just push — CI runs it) to verify everything is consistent. Run without `--check` to auto-fix.
+- After adding `.plugin/plugin.json` for a skill, re-run `scripts/sync_extensions.py` so the expected `.claude-plugin` and `.codex-plugin` symlinks are created.
 - The sync script uses PyYAML to parse SKILL.md frontmatter. If you add a skill with a slash trigger (e.g., `triggers: ["/mycommand"]`), the script auto-generates `commands/mycommand.md`. **Note:** Slash triggers in SKILL.md frontmatter are deprecated — prefer adding a `commands/command-name.md` file to the plugin's `commands/` directory instead. Keyword triggers (non-slash) remain the recommended way to activate skills by topic.
 
 ## OpenHands SDK documentation policy
