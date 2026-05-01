@@ -1,7 +1,7 @@
 {
-  "name": "test-improvement-workflow",
+  "name": "test-validation-checklist",
   "version": "1.0.0",
-  "description": "Concise orchestrator for auditing, prioritizing, validating, and implementing test-suite improvements using Dave Farley's 8 properties.",
+  "description": "Checklist for validating proposed test-suite improvements against the real code before implementation.",
   "author": {
     "name": "OpenHands",
     "email": "contact@all-hands.dev"
@@ -11,9 +11,9 @@
   "license": "MIT",
   "keywords": [
     "testing",
-    "test-quality",
-    "workflow",
-    "dave-farley",
-    "audit"
+    "validation",
+    "audit",
+    "checklist",
+    "verification"
   ]
 }

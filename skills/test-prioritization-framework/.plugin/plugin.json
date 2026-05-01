@@ -1,7 +1,7 @@
 {
-  "name": "test-improvement-workflow",
+  "name": "test-prioritization-framework",
   "version": "1.0.0",
-  "description": "Concise orchestrator for auditing, prioritizing, validating, and implementing test-suite improvements using Dave Farley's 8 properties.",
+  "description": "Reliability-first framework for consolidating and prioritizing test audit findings into CRITICAL, HIGH, and MEDIUM work.",
   "author": {
     "name": "OpenHands",
     "email": "contact@all-hands.dev"
@@ -11,9 +11,9 @@
   "license": "MIT",
   "keywords": [
     "testing",
+    "prioritization",
     "test-quality",
-    "workflow",
-    "dave-farley",
-    "audit"
+    "audit",
+    "reliability"
   ]
 }

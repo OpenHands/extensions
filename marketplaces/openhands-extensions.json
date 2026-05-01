@@ -5,7 +5,7 @@
         "email": "contact@all-hands.dev"
     },
     "metadata": {
-        "description": "Official skills and plugins for OpenHands — the open-source AI software engineer.",
+        "description": "Official skills and plugins for OpenHands \u2014 the open-source AI software engineer.",
         "maintainer": "OpenHands",
         "homepage": "https://github.com/OpenHands/extensions"
     },
@@ -13,7 +13,7 @@
         {
             "name": "agent-creator",
             "source": "./skills/agent-creator",
-            "description": "Create file-based sub-agents as Markdown files — no Python code required. Guides the user through a structured interview and generates a ready-to-deploy .md agent file following the OpenHands SDK specification.",
+            "description": "Create file-based sub-agents as Markdown files \u2014 no Python code required. Guides the user through a structured interview and generates a ready-to-deploy .md agent file following the OpenHands SDK specification.",
             "category": "development",
             "keywords": [
                 "agent",
@@ -362,7 +362,7 @@
         {
             "name": "openhands",
             "source": "./plugins/openhands",
-            "description": "Unified OpenHands plugin — bundles Cloud CLI, REST API (openhands-api), and Automations (openhands-automation) into a single plugin.",
+            "description": "Unified OpenHands plugin \u2014 bundles Cloud CLI, REST API (openhands-api), and Automations (openhands-automation) into a single plugin.",
             "category": "openhands",
             "keywords": [
                 "openhands",
@@ -403,7 +403,7 @@
         {
             "name": "pr-review",
             "source": "./plugins/pr-review",
-            "description": "Automated PR code review — analyzes diffs and posts inline review comments via the GitHub API.",
+            "description": "Automated PR code review \u2014 analyzes diffs and posts inline review comments via the GitHub API.",
             "category": "code-quality",
             "keywords": [
                 "pr-review",
@@ -536,7 +536,7 @@
         {
             "name": "iterate",
             "source": "./skills/iterate",
-            "description": "Iterate on a GitHub pull request — drive it through CI, code review, and QA until merge-ready. Monitors state, fixes failures, addresses review feedback, retries flaky checks, and pushes fixes in one continuous loop.",
+            "description": "Iterate on a GitHub pull request \u2014 drive it through CI, code review, and QA until merge-ready. Monitors state, fixes failures, addresses review feedback, retries flaky checks, and pushes fixes in one continuous loop.",
             "category": "productivity",
             "keywords": [
                 "github",
@@ -550,15 +550,53 @@
         {
             "name": "test-improvement-workflow",
             "source": "./skills/test-improvement-workflow",
-            "description": "Systematic workflow for improving test suite quality using Dave Farley's 8 properties. Orchestrates Paul Hammond's test-design-reviewer, tdd, testing, and refactoring skills into a complete audit-prioritize-validate-implement cycle.",
+            "description": "Concise orchestrator for auditing, prioritizing, validating, and implementing test-suite improvements using Dave Farley's 8 properties.",
             "category": "testing",
             "keywords": [
                 "testing",
                 "test-quality",
-                "tdd",
-                "refactoring",
+                "workflow",
                 "dave-farley",
                 "audit"
+            ]
+        },
+        {
+            "name": "test-prioritization-framework",
+            "source": "./skills/test-prioritization-framework",
+            "description": "Reliability-first framework for consolidating and prioritizing test audit findings into CRITICAL, HIGH, and MEDIUM work.",
+            "category": "testing",
+            "keywords": [
+                "testing",
+                "prioritization",
+                "test-quality",
+                "audit",
+                "reliability"
+            ]
+        },
+        {
+            "name": "test-validation-checklist",
+            "source": "./skills/test-validation-checklist",
+            "description": "Checklist for validating proposed test-suite improvements against the real code before implementation.",
+            "category": "testing",
+            "keywords": [
+                "testing",
+                "validation",
+                "audit",
+                "checklist",
+                "verification"
+            ]
+        },
+        {
+            "name": "test-improvement-patterns",
+            "source": "./skills/test-improvement-patterns",
+            "description": "Common execution patterns for implementing validated test-suite improvements with safe refactoring and TDD loops.",
+            "category": "testing",
+            "keywords": [
+                "testing",
+                "patterns",
+                "refactoring",
+                "tdd",
+                "test-quality"
             ]
         }
     ]

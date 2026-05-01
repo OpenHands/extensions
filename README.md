@@ -32,7 +32,7 @@ Browse available plugins in [`plugins/`](plugins/).
 ## Extensions Catalog
 
 <!-- BEGIN AUTO-GENERATED CATALOG -->
-This repository contains **2 marketplace(s)** with **48 extensions** (39 skills, 9 plugins).
+This repository contains **2 marketplace(s)** with **51 extensions** (42 skills, 9 plugins).
 
 ### Quick Start
 
@@ -89,7 +89,7 @@ OpenHands skills for interacting, improving, and refactoring large codebases
 
 Official skills and plugins for OpenHands — the open-source AI software engineer.
 
-**44 extensions** (37 skills, 7 plugins)
+**47 extensions** (40 skills, 7 plugins)
 
 | Name | Type | Description | Commands |
 |------|------|-------------|----------|
@@ -132,7 +132,10 @@ Official skills and plugins for OpenHands — the open-source AI software engine
 | skill-creator | skill | Guide for creating effective skills. This skill should be used when users want to create a new skill (or update an ex... | — |
 | ssh | skill | Establish and manage SSH connections to remote machines, including key generation, configuration, and file transfers.... | — |
 | swift-linux | skill | Install and configure Swift programming language on Debian Linux for server-side development. Use when building Swift... | — |
-| test-improvement-workflow | skill | Systematic workflow for improving test suite quality using Dave Farley's 8 properties. Orchestrates Paul Hammond's te... | — |
+| test-improvement-patterns | skill | Common execution patterns for implementing validated test-suite improvements with safe refactoring and TDD loops. | — |
+| test-improvement-workflow | skill | Concise orchestrator for auditing, prioritizing, validating, and implementing test-suite improvements using Dave Farl... | — |
+| test-prioritization-framework | skill | Reliability-first framework for consolidating and prioritizing test audit findings into CRITICAL, HIGH, and MEDIUM work. | — |
+| test-validation-checklist | skill | Checklist for validating proposed test-suite improvements against the real code before implementation. | — |
 | theme-factory | skill | Toolkit for styling artifacts with a theme. These artifacts can be slides, docs, reportings, HTML landing pages, etc.... | — |
 | uv | skill | Common project, dependency, and environment operations using uv. | — |
 | vercel | skill | Deploy and manage applications on Vercel, including preview deployments and deployment protection. | — |

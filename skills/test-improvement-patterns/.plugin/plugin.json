@@ -1,7 +1,7 @@
 {
-  "name": "test-improvement-workflow",
+  "name": "test-improvement-patterns",
   "version": "1.0.0",
-  "description": "Concise orchestrator for auditing, prioritizing, validating, and implementing test-suite improvements using Dave Farley's 8 properties.",
+  "description": "Common execution patterns for implementing validated test-suite improvements with safe refactoring and TDD loops.",
   "author": {
     "name": "OpenHands",
     "email": "contact@all-hands.dev"
@@ -11,9 +11,9 @@
   "license": "MIT",
   "keywords": [
     "testing",
-    "test-quality",
-    "workflow",
-    "dave-farley",
-    "audit"
+    "patterns",
+    "refactoring",
+    "tdd",
+    "test-quality"
   ]
 }

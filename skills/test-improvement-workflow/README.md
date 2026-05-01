@@ -1,37 +1,32 @@
 # Test Improvement Workflow
 
-Systematic workflow for improving test suite quality using Dave Farley's 8 properties. It orchestrates companion skills into a complete audit-prioritize-validate-implement cycle.
+Concise orchestrator for improving test suites end to end. It coordinates an audit, reliability-first prioritization, validation against real code, implementation planning, and a fresh re-audit.
 
 ## What it does
 
 This skill guides an agent through a 7-step process:
 
 1. Audit the existing tests
-2. Prioritize issues by reliability and impact
-3. Present a consolidated improvement plan
-4. Validate that each proposed fix matches a real code issue
-5. Assign the right companion skill to each task
+2. Consolidate and prioritize findings
+3. Present a user-facing improvement table
+4. Validate that each suggestion matches a real code issue
+5. Plan implementation tasks
 6. Execute improvements in phases
 7. Re-audit in a new conversation
 
-## Companion skills
+## Related skills
 
-This workflow expects these skills to be available:
+This orchestrator points to three local reference skills:
+
+- `test-prioritization-framework`
+- `test-validation-checklist`
+- `test-improvement-patterns`
+
+It also expects Paul Hammond's external companion skills:
 
 - `test-design-reviewer`
 - `tdd`
 - `refactoring`
 - `testing`
 
-## Triggers
-
-This skill is activated by keywords such as:
-
-- `test improvement workflow`
-- `improve test quality`
-- `refactor tests`
-- `audit tests and fix them`
-
-## Details
-
-See [SKILL.md](./SKILL.md) for the full workflow, prioritization framework, validation rules, and execution guidance.
+See [SKILL.md](./SKILL.md) for the workflow and dependency details.
