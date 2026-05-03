@@ -8,13 +8,35 @@ branding:
     color: blue
 
 inputs:
+    agent-kind:
+        description: >
+            Review agent backend. Use 'openhands' for the standard OpenHands
+            SDK Agent, or 'acp' to run an ACP-compatible agent server.
+        required: false
+        default: openhands
     llm-model:
         description: >
-            LLM model to use for the review. Can be a comma-separated list for A/B testing
-            - one model will be randomly selected per review.
+            LLM model to use for the review. In ACP mode this is passed to the
+            ACP server when supported. Can be a comma-separated list for A/B
+            testing - one model will be randomly selected per review.
             Example: 'model-a' or 'model-a,model-b,model-c'
         required: false
         default: anthropic/claude-sonnet-4-5-20250929
+    acp-command:
+        description: >
+            Command used to start the ACP server when agent-kind is
+            'acp'. The command must be available in the runner environment
+            or runnable through a package manager. The value is shell-split
+            before execution.
+            Examples: 'npx -y @zed-industries/codex-acp@0.12.0',
+            'codex-acp', 'claude-agent-acp', or 'npx -y
+            @agentclientprotocol/claude-agent-acp'.
+        required: false
+        default: ''
+    acp-prompt-timeout:
+        description: Timeout in seconds for one ACP prompt turn.
+        required: false
+        default: '1800'
     llm-base-url:
         description: LLM base URL (optional, for custom LLM endpoints)
         required: false
@@ -44,9 +66,18 @@ inputs:
         description: Git ref to use for extensions (tag, branch, or commit SHA, e.g., v1.0.0, main, or abc1234)
         required: false
         default: main
+    openhands-sdk-package:
+        description: >
+            Package spec passed to uv for openhands-sdk. Keep the default for
+            normal use, or override it to pin a specific SDK build for testing
+            or rollout control.
+        required: false
+        default: openhands-sdk
     llm-api-key:
-        description: LLM API key (required)
-        required: true
+        description: >
+            LLM API key. Required when agent-kind is 'openhands'.
+            Ignored in ACP mode because the ACP server owns authentication.
+        required: false
     github-token:
         description: GitHub token for API access (required)
         required: true
@@ -119,11 +150,23 @@ runs:
           id: select-model
           shell: bash
           env:
+              AGENT_KIND: ${{ inputs.agent-kind }}
+              ACP_COMMAND: ${{ inputs.acp-command }}
               LLM_API_KEY: ${{ inputs.llm-api-key }}
               GITHUB_TOKEN: ${{ inputs.github-token }}
           run: |
-              if [ -z "$LLM_API_KEY" ]; then
-                echo "Error: llm-api-key is required."
+              if [ "$AGENT_KIND" != "openhands" ] && [ "$AGENT_KIND" != "acp" ]; then
+                echo "Error: agent-kind must be 'openhands' or 'acp'."
+                exit 1
+              fi
+
+              if [ "$AGENT_KIND" = "openhands" ] && [ -z "$LLM_API_KEY" ]; then
+                echo "Error: llm-api-key is required when agent-kind is 'openhands'."
+                exit 1
+              fi
+
+              if [ "$AGENT_KIND" = "acp" ] && [ -z "$ACP_COMMAND" ]; then
+                echo "Error: acp-command is required when agent-kind is 'acp'."
                 exit 1
               fi
 
@@ -142,8 +185,12 @@ runs:
               echo "PR Title: ${{ github.event.pull_request.title }}"
               echo "Repository: ${{ github.repository }}"
               echo "Extensions Version: ${{ inputs.extensions-version }}"
+              echo "Agent kind: $AGENT_KIND"
               echo "Available models: $MODELS_LIST"
               echo "Selected LLM model: $SELECTED_MODEL"
+              if [ "$AGENT_KIND" = "acp" ]; then
+                echo "ACP command: ${{ inputs.acp-command }}"
+              fi
               if [ -n "${{ inputs.llm-base-url }}" ]; then
                 echo "LLM base URL: ${{ inputs.llm-base-url }}"
               fi
@@ -184,6 +231,10 @@ runs:
               # ignores any .python-version in the PR repo checkout (which
               # could be older *or* newer than 3.12).
               UV_PYTHON: '3.12'
+              OPENHANDS_SDK_PACKAGE: ${{ inputs.openhands-sdk-package }}
+              AGENT_KIND: ${{ inputs.agent-kind }}
+              ACP_COMMAND: ${{ inputs.acp-command }}
+              ACP_PROMPT_TIMEOUT: ${{ inputs.acp-prompt-timeout }}
               LLM_MODEL: ${{ steps.select-model.outputs.selected_model }}
               LLM_BASE_URL: ${{ inputs.llm-base-url }}
               REVIEW_STYLE: ${{ inputs.review-style }}
@@ -200,7 +251,7 @@ runs:
               REPO_NAME: ${{ github.repository }}
           run: |
               cd pr-repo
-              uv run --no-project --with openhands-sdk --with openhands-tools --with lmnr \
+              uv run --no-project --with "$OPENHANDS_SDK_PACKAGE" --with openhands-tools --with lmnr \
                 python ../extensions/plugins/pr-review/scripts/agent_script.py
 
         - name: Upload logs as artifact

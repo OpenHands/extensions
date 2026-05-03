@@ -20,7 +20,11 @@ The agent also considers previous review context including:
 Designed for use with GitHub Actions workflows triggered by PR labels.
 
 Environment Variables:
-    LLM_API_KEY: API key for the LLM (required)
+    AGENT_KIND: Review agent backend, either 'openhands' or 'acp'
+        (default: 'openhands')
+    ACP_COMMAND: Command used to start the ACP server when AGENT_KIND='acp'
+    ACP_PROMPT_TIMEOUT: Timeout in seconds for one ACP prompt turn
+    LLM_API_KEY: API key for the LLM (required for OpenHands agent kind)
     LLM_MODEL: Language model to use (default: anthropic/claude-sonnet-4-5-20250929)
     LLM_BASE_URL: Optional base URL for LLM API
     GITHUB_TOKEN: GitHub token for API access (required)
@@ -46,6 +50,7 @@ from __future__ import annotations
 
 import json
 import os
+import shlex
 import sys
 import time
 import urllib.error
@@ -65,10 +70,10 @@ from openhands.sdk import (
     register_agent,
 )
 from openhands.sdk.context import Skill
-from openhands.sdk.context.skills import load_project_skills
 from openhands.sdk.conversation import get_agent_final_response
 from openhands.sdk.git.utils import run_git_command
 from openhands.sdk.plugin import PluginSource
+from openhands.sdk.skills import load_project_skills
 from openhands.tools.delegate import DelegationVisualizer
 from openhands.tools.preset.default import get_default_condenser, get_default_tools
 from openhands.tools.task import TaskToolSet
@@ -90,6 +95,8 @@ MAX_REVIEW_CONTEXT = 30000
 
 # Maximum time (seconds) for GraphQL pagination to prevent hanging on slow APIs
 MAX_PAGINATION_TIME = 120
+
+DEFAULT_ACP_PROMPT_TIMEOUT_SECONDS = 1800.0
 
 # GraphQL queries as module-level constants for reusability and testability
 REVIEWS_QUERY = """
@@ -725,7 +732,6 @@ def validate_environment() -> dict[str, Any]:
         SystemExit if required variables are missing
     """
     required_vars = [
-        "LLM_API_KEY",
         "GITHUB_TOKEN",
         "PR_NUMBER",
         "PR_TITLE",
@@ -738,13 +744,46 @@ def validate_environment() -> dict[str, Any]:
         logger.error(f"Missing required environment variables: {missing_vars}")
         sys.exit(1)
 
+    agent_kind = os.getenv("AGENT_KIND", "openhands")
+    if agent_kind not in ("openhands", "acp"):
+        logger.error("AGENT_KIND must be 'openhands' or 'acp'")
+        sys.exit(1)
+
+    api_key = os.getenv("LLM_API_KEY")
+    if agent_kind == "openhands" and not api_key:
+        logger.error(
+            "LLM_API_KEY is required when AGENT_KIND is 'openhands'"
+        )
+        sys.exit(1)
+
+    use_sub_agents = _get_bool_env("USE_SUB_AGENTS")
+    if agent_kind == "acp" and use_sub_agents:
+        logger.info(
+            "Sub-agent delegation is disabled in ACP mode because delegation "
+            "depends on OpenHands agent runtime details such as TaskToolSet, "
+            "agent registration, and tool routing that ACP servers do not "
+            "expose consistently."
+        )
+        use_sub_agents = False
+
+    try:
+        acp_prompt_timeout = float(
+            os.getenv("ACP_PROMPT_TIMEOUT", str(DEFAULT_ACP_PROMPT_TIMEOUT_SECONDS))
+        )
+    except ValueError:
+        logger.error("ACP_PROMPT_TIMEOUT must be a number")
+        sys.exit(1)
+
     return {
-        "api_key": os.getenv("LLM_API_KEY"),
+        "agent_kind": agent_kind,
+        "acp_command": os.getenv("ACP_COMMAND", ""),
+        "acp_prompt_timeout": acp_prompt_timeout,
+        "api_key": api_key,
         "github_token": os.getenv("GITHUB_TOKEN"),
         "model": os.getenv("LLM_MODEL", "anthropic/claude-sonnet-4-5-20250929"),
         "base_url": os.getenv("LLM_BASE_URL"),
         "require_evidence": _get_bool_env("REQUIRE_EVIDENCE"),
-        "use_sub_agents": _get_bool_env("USE_SUB_AGENTS"),
+        "use_sub_agents": use_sub_agents,
         "pr_info": {
             "number": os.getenv("PR_NUMBER"),
             "title": os.getenv("PR_TITLE"),
@@ -841,17 +880,6 @@ def create_conversation(
     Returns:
         Configured Conversation instance
     """
-    llm_config: dict[str, Any] = {
-        "model": config["model"],
-        "api_key": config["api_key"],
-        "usage_id": "pr_review_agent",
-        "drop_params": True,
-    }
-    if config["base_url"]:
-        llm_config["base_url"] = config["base_url"]
-
-    llm = LLM(**llm_config)
-
     # Load project-specific skills from the workspace
     cwd = os.getcwd()
     project_skills = load_project_skills(cwd)
@@ -864,6 +892,42 @@ def create_conversation(
         load_public_skills=True,
         skills=project_skills,
     )
+
+    plugin_dir = script_dir.parent  # plugins/pr-review/
+
+    if config["agent_kind"] == "acp":
+        from openhands.sdk.agent import ACPAgent
+
+        acp_command = shlex.split(config["acp_command"])
+        if not acp_command:
+            raise ValueError("ACP_COMMAND must not be empty")
+        logger.info(
+            "Using ACP review agent with command: %s",
+            " ".join(shlex.quote(part) for part in acp_command),
+        )
+        agent = ACPAgent(
+            acp_command=acp_command,
+            acp_model=config["model"],
+            acp_prompt_timeout=config["acp_prompt_timeout"],
+            agent_context=agent_context,
+        )
+        return Conversation(
+            agent=agent,
+            workspace=cwd,
+            secrets=secrets,
+            plugins=[PluginSource(source=str(plugin_dir))],
+        )
+
+    llm_config: dict[str, Any] = {
+        "model": config["model"],
+        "api_key": config["api_key"],
+        "usage_id": "pr_review_agent",
+        "drop_params": True,
+    }
+    if config["base_url"]:
+        llm_config["base_url"] = config["base_url"]
+
+    llm = LLM(**llm_config)
 
     tools = get_default_tools(enable_browser=False)
 
@@ -890,8 +954,6 @@ def create_conversation(
         **concurrency_kwargs,
     )
 
-    # The plugin directory is the parent of the scripts/ directory
-    plugin_dir = script_dir.parent  # plugins/pr-review/
     conversation_kwargs: dict[str, Any] = {
         "agent": agent,
         "workspace": cwd,
@@ -1017,6 +1079,7 @@ def main():
     logger.info(f"Reviewing PR #{pr_info['number']}: {pr_info['title']}")
     logger.info(f"Require PR evidence: {require_evidence}")
     logger.info(f"Sub-agent delegation: {use_sub_agents}")
+    logger.info(f"Agent kind: {config['agent_kind']}")
 
     try:
         pr_diff, commit_id, review_context = fetch_pr_context(pr_info["number"])
