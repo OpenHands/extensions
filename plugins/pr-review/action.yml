@@ -8,7 +8,7 @@ branding:
     color: blue
 
 inputs:
-    review-agent-mode:
+    review-agent-kind:
         description: >
             Review agent backend. Use 'openhands' for the standard OpenHands
             SDK Agent, or 'acp' to run an ACP-compatible agent server.
@@ -24,7 +24,7 @@ inputs:
         default: anthropic/claude-sonnet-4-5-20250929
     acp-command:
         description: >
-            Command used to start the ACP server when review-agent-mode is
+            Command used to start the ACP server when review-agent-kind is
             'acp'. The command must be available in the runner environment
             or runnable through a package manager. The value is shell-split
             before execution.
@@ -75,7 +75,7 @@ inputs:
         default: openhands-sdk
     llm-api-key:
         description: >
-            LLM API key. Required when review-agent-mode is 'openhands'.
+            LLM API key. Required when review-agent-kind is 'openhands'.
             Ignored in ACP mode because the ACP server owns authentication.
         required: false
     github-token:
@@ -150,23 +150,23 @@ runs:
           id: select-model
           shell: bash
           env:
-              REVIEW_AGENT_MODE: ${{ inputs.review-agent-mode }}
+              REVIEW_AGENT_KIND: ${{ inputs.review-agent-kind }}
               ACP_COMMAND: ${{ inputs.acp-command }}
               LLM_API_KEY: ${{ inputs.llm-api-key }}
               GITHUB_TOKEN: ${{ inputs.github-token }}
           run: |
-              if [ "$REVIEW_AGENT_MODE" != "openhands" ] && [ "$REVIEW_AGENT_MODE" != "acp" ]; then
-                echo "Error: review-agent-mode must be 'openhands' or 'acp'."
+              if [ "$REVIEW_AGENT_KIND" != "openhands" ] && [ "$REVIEW_AGENT_KIND" != "acp" ]; then
+                echo "Error: review-agent-kind must be 'openhands' or 'acp'."
                 exit 1
               fi
 
-              if [ "$REVIEW_AGENT_MODE" = "openhands" ] && [ -z "$LLM_API_KEY" ]; then
-                echo "Error: llm-api-key is required when review-agent-mode is 'openhands'."
+              if [ "$REVIEW_AGENT_KIND" = "openhands" ] && [ -z "$LLM_API_KEY" ]; then
+                echo "Error: llm-api-key is required when review-agent-kind is 'openhands'."
                 exit 1
               fi
 
-              if [ "$REVIEW_AGENT_MODE" = "acp" ] && [ -z "$ACP_COMMAND" ]; then
-                echo "Error: acp-command is required when review-agent-mode is 'acp'."
+              if [ "$REVIEW_AGENT_KIND" = "acp" ] && [ -z "$ACP_COMMAND" ]; then
+                echo "Error: acp-command is required when review-agent-kind is 'acp'."
                 exit 1
               fi
 
@@ -185,10 +185,10 @@ runs:
               echo "PR Title: ${{ github.event.pull_request.title }}"
               echo "Repository: ${{ github.repository }}"
               echo "Extensions Version: ${{ inputs.extensions-version }}"
-              echo "Review agent mode: $REVIEW_AGENT_MODE"
+              echo "Review agent kind: $REVIEW_AGENT_KIND"
               echo "Available models: $MODELS_LIST"
               echo "Selected LLM model: $SELECTED_MODEL"
-              if [ "$REVIEW_AGENT_MODE" = "acp" ]; then
+              if [ "$REVIEW_AGENT_KIND" = "acp" ]; then
                 echo "ACP command: ${{ inputs.acp-command }}"
               fi
               if [ -n "${{ inputs.llm-base-url }}" ]; then
@@ -203,7 +203,7 @@ runs:
               # could be older *or* newer than 3.12).
               UV_PYTHON: '3.12'
               OPENHANDS_SDK_PACKAGE: ${{ inputs.openhands-sdk-package }}
-              REVIEW_AGENT_MODE: ${{ inputs.review-agent-mode }}
+              REVIEW_AGENT_KIND: ${{ inputs.review-agent-kind }}
               ACP_COMMAND: ${{ inputs.acp-command }}
               ACP_PROMPT_TIMEOUT: ${{ inputs.acp-prompt-timeout }}
               LLM_MODEL: ${{ steps.select-model.outputs.selected_model }}

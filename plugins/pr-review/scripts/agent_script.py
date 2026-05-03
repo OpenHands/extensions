@@ -20,11 +20,11 @@ The agent also considers previous review context including:
 Designed for use with GitHub Actions workflows triggered by PR labels.
 
 Environment Variables:
-    REVIEW_AGENT_MODE: Review agent backend, either 'openhands' or 'acp'
+    REVIEW_AGENT_KIND: Review agent backend, either 'openhands' or 'acp'
         (default: 'openhands')
-    ACP_COMMAND: Command used to start the ACP server when REVIEW_AGENT_MODE='acp'
+    ACP_COMMAND: Command used to start the ACP server when REVIEW_AGENT_KIND='acp'
     ACP_PROMPT_TIMEOUT: Timeout in seconds for one ACP prompt turn
-    LLM_API_KEY: API key for the LLM (required for OpenHands agent mode)
+    LLM_API_KEY: API key for the LLM (required for OpenHands agent kind)
     LLM_MODEL: Language model to use (default: anthropic/claude-sonnet-4-5-20250929)
     LLM_BASE_URL: Optional base URL for LLM API
     GITHUB_TOKEN: GitHub token for API access (required)
@@ -744,20 +744,20 @@ def validate_environment() -> dict[str, Any]:
         logger.error(f"Missing required environment variables: {missing_vars}")
         sys.exit(1)
 
-    review_agent_mode = os.getenv("REVIEW_AGENT_MODE", "openhands")
-    if review_agent_mode not in ("openhands", "acp"):
-        logger.error("REVIEW_AGENT_MODE must be 'openhands' or 'acp'")
+    review_agent_kind = os.getenv("REVIEW_AGENT_KIND", "openhands")
+    if review_agent_kind not in ("openhands", "acp"):
+        logger.error("REVIEW_AGENT_KIND must be 'openhands' or 'acp'")
         sys.exit(1)
 
     api_key = os.getenv("LLM_API_KEY")
-    if review_agent_mode == "openhands" and not api_key:
+    if review_agent_kind == "openhands" and not api_key:
         logger.error(
-            "LLM_API_KEY is required when REVIEW_AGENT_MODE is 'openhands'"
+            "LLM_API_KEY is required when REVIEW_AGENT_KIND is 'openhands'"
         )
         sys.exit(1)
 
     use_sub_agents = _get_bool_env("USE_SUB_AGENTS")
-    if review_agent_mode == "acp" and use_sub_agents:
+    if review_agent_kind == "acp" and use_sub_agents:
         logger.info(
             "Sub-agent delegation is disabled in ACP mode because delegation "
             "depends on OpenHands agent runtime details such as TaskToolSet, "
@@ -775,7 +775,7 @@ def validate_environment() -> dict[str, Any]:
         sys.exit(1)
 
     return {
-        "review_agent_mode": review_agent_mode,
+        "review_agent_kind": review_agent_kind,
         "acp_command": os.getenv("ACP_COMMAND", ""),
         "acp_prompt_timeout": acp_prompt_timeout,
         "api_key": api_key,
@@ -895,7 +895,7 @@ def create_conversation(
 
     plugin_dir = script_dir.parent  # plugins/pr-review/
 
-    if config["review_agent_mode"] == "acp":
+    if config["review_agent_kind"] == "acp":
         from openhands.sdk.agent import ACPAgent
 
         acp_command = shlex.split(config["acp_command"])
@@ -1079,7 +1079,7 @@ def main():
     logger.info(f"Reviewing PR #{pr_info['number']}: {pr_info['title']}")
     logger.info(f"Require PR evidence: {require_evidence}")
     logger.info(f"Sub-agent delegation: {use_sub_agents}")
-    logger.info(f"Review agent mode: {config['review_agent_mode']}")
+    logger.info(f"Review agent kind: {config['review_agent_kind']}")
 
     try:
         pr_diff, commit_id, review_context = fetch_pr_context(pr_info["number"])
