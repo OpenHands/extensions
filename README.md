@@ -29,16 +29,14 @@ They live under `plugins/`, **one directory per plugin**:
 
 Browse available plugins in [`plugins/`](plugins/).
 
-## Extensions Catalog
-
-<!-- BEGIN AUTO-GENERATED CATALOG -->
-This repository contains **2 marketplace(s)** with **47 extensions** (38 skills, 9 plugins).
-
-### Quick Start
+## Quick Start
 
 **OpenHands CLI / GUI / Cloud** — these skills are loaded automatically. No setup needed.
 
-**OpenHands SDK** — enable public skills when creating your agent context:
+<details>
+<summary><strong>Using the OpenHands SDK?</strong></summary>
+
+Enable public skills when creating your agent context:
 
 ```python
 from openhands.sdk import AgentContext
@@ -47,6 +45,8 @@ agent_context = AgentContext(load_public_skills=True)
 ```
 
 Or load them explicitly with `load_public_skills()` from `openhands.sdk.context.skills`.
+
+</details>
 
 <details>
 <summary><strong>Using Claude Code?</strong></summary>
@@ -71,6 +71,28 @@ This repository is also a [Claude Code plugin marketplace](https://code.claude.c
    ```
 
 </details>
+
+<details>
+<summary><strong>Using Codex?</strong></summary>
+
+This repository is also available as a [Codex plugin marketplace](https://developers.openai.com/codex/plugins). To add it:
+
+1. Add the marketplace:
+   ```
+   codex plugin marketplace add https://github.com/OpenHands/extensions
+   ```
+2. Browse installed extensions by running Codex and typing `/plugins`:
+   ```
+   codex
+   ```
+   Then type `/plugins` in the interactive session to see what's available.
+
+</details>
+
+## Extensions Catalog
+
+<!-- BEGIN AUTO-GENERATED CATALOG -->
+This repository contains **2 marketplace(s)** with **47 extensions** (38 skills, 9 plugins).
 
 ### large-codebase
 
