@@ -228,6 +228,31 @@ def test_create_file_reviewer_agent_factory_is_callable():
     assert result is not None
 
 
+def test_get_truncated_pr_diff_falls_back_to_local_git(monkeypatch):
+    """Large PRs can exceed GitHub's rendered diff API limit."""
+    module = _load_agent_script_module()
+
+    monkeypatch.setenv("PR_NUMBER", "123")
+    monkeypatch.setenv("PR_BASE_BRANCH", "main")
+
+    def _raise_diff_limit(pr_number):
+        raise RuntimeError("GitHub diff API request failed: HTTP 406 Not Acceptable")
+
+    calls = []
+
+    def _run_git_command(command, repo_dir):
+        calls.append(command)
+        return "diff --git a/file.py b/file.py\n"
+
+    monkeypatch.setattr(module, "get_pr_diff_via_github_api", _raise_diff_limit)
+    monkeypatch.setattr(module, "run_git_command", _run_git_command)
+
+    assert module.get_truncated_pr_diff() == "diff --git a/file.py b/file.py\n"
+    assert calls == [
+        ["git", "diff", "--no-ext-diff", "--no-color", "origin/main...HEAD"]
+    ]
+
+
 def test_create_conversation_uses_sdk_project_skill_loader(tmp_path, monkeypatch):
     """PR review delegates project skill discovery to the SDK."""
     module = _load_agent_script_module()

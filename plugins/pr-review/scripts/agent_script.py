@@ -685,6 +685,23 @@ def get_pr_diff_via_github_api(pr_number: str) -> str:
     return data.decode("utf-8", errors="replace")
 
 
+def get_pr_diff_via_local_git(repo_dir: Path | None = None) -> str:
+    """Fetch the PR diff from the local checkout.
+
+    This is a fallback for GitHub diff API limits, most commonly the 300-file
+    cap on rendered pull request diffs.
+    """
+    if repo_dir is None:
+        repo_dir = Path.cwd()
+
+    base_branch = _get_required_env("PR_BASE_BRANCH")
+    base_ref = f"origin/{base_branch}"
+    return run_git_command(
+        ["git", "diff", "--no-ext-diff", "--no-color", f"{base_ref}...HEAD"],
+        repo_dir,
+    )
+
+
 def truncate_text(diff_text: str, max_total: int = MAX_TOTAL_DIFF) -> str:
     if len(diff_text) <= max_total:
         return diff_text
@@ -700,10 +717,15 @@ def get_truncated_pr_diff() -> str:
     """Get the PR diff with truncation.
 
     This uses GitHub as the source of truth so the review matches the PR's
-    "Files changed" view.
+    "Files changed" view. If GitHub refuses to render the diff because the PR
+    is too large, fall back to the local checkout.
     """
     pr_number = _get_required_env("PR_NUMBER")
-    diff_text = get_pr_diff_via_github_api(pr_number)
+    try:
+        diff_text = get_pr_diff_via_github_api(pr_number)
+    except RuntimeError as e:
+        logger.warning(f"Falling back to local git diff: {e}")
+        diff_text = get_pr_diff_via_local_git()
     return truncate_text(diff_text)
 
 
