@@ -104,7 +104,7 @@ Edit the workflow file to customize:
 
 #### Experimental: ACP review backend
 
-Use `review-agent-kind: acp` to run the reviewer through an ACP-compatible
+Use `agent-kind: acp` to run the reviewer through an ACP-compatible
 agent server. In this mode, OpenHands still loads review skills and plugin
 prompt context, but the ACP server owns model access, authentication, and tool
 execution. Install the ACP CLI and configure its authentication in the runner
@@ -117,7 +117,7 @@ consistently.
 - name: Run PR Review
   uses: OpenHands/extensions/plugins/pr-review@main
   with:
-    review-agent-kind: acp
+    agent-kind: acp
     acp-command: your-acp-server
     llm-model: your-acp-model
     github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -163,7 +163,7 @@ run untrusted pull request code.
 - name: Run PR Review
   uses: OpenHands/extensions/plugins/pr-review@main
   with:
-    review-agent-kind: acp
+    agent-kind: acp
     acp-command: npx -y @zed-industries/codex-acp@0.12.0
     llm-model: gpt-5.5
     github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -209,7 +209,7 @@ PR reviews are automatically triggered when:
 
 | Input | Required | Default | Description |
 |-------|----------|---------|-------------|
-| `review-agent-kind` | No | `openhands` | Review backend: `openhands` for the standard SDK Agent or `acp` for an ACP-compatible agent server |
+| `agent-kind` | No | `openhands` | Review backend: `openhands` for the standard SDK Agent or `acp` for an ACP-compatible agent server |
 | `llm-model` | No | `anthropic/claude-sonnet-4-5-20250929` | LLM model(s), comma-separated for A/B testing. In ACP mode this is passed to the ACP server when supported. |
 | `acp-command` | Yes for `acp` mode | `''` | Command used to start the ACP server. The command must already be available in the runner environment or be runnable through a package manager. Examples: `npx -y @zed-industries/codex-acp@0.12.0`, `codex-acp`, `claude-agent-acp`, `npx -y @agentclientprotocol/claude-agent-acp`. |
 | `acp-prompt-timeout` | No | `'1800'` | Timeout in seconds for one ACP prompt turn |

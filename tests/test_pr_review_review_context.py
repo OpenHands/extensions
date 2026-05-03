@@ -241,7 +241,7 @@ def test_create_conversation_uses_sdk_project_skill_loader(tmp_path, monkeypatch
     monkeypatch.setattr(module, "load_project_skills", lambda cwd: [project_skill])
 
     config = {
-        "review_agent_kind": "openhands",
+        "agent_kind": "openhands",
         "model": "test-model",
         "api_key": "test-key",
         "base_url": "",
