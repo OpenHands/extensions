@@ -75,7 +75,7 @@ This repository is also a [Claude Code plugin marketplace](https://code.claude.c
 <details>
 <summary><strong>Using Codex?</strong></summary>
 
-This repository is also available as a [Codex plugin marketplace](https://codex.openai.com). To add it:
+This repository is also available as a [Codex plugin marketplace](https://developers.openai.com/codex/plugins). To add it:
 
 1. Add the marketplace:
    ```
