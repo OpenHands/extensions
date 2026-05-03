@@ -125,7 +125,7 @@ consistently.
 
 **Authentication.** ACP servers typically support two authentication methods.
 The simplest is API key authentication: store your provider API key as a
-repository secret (e.g. `OPENAI_API_KEY`) and pass it to the ACP server as an
+repository secret (e.g. `OPENAI_API_KEY` or `ANTHROPIC_API_KEY`) and pass it to the ACP server as an
 environment variable in the workflow step. Most ACP servers will pick up the
 standard provider key automatically. Alternatively, subscription-based tools
 such as Codex support device-code login, which lets you use a ChatGPT
