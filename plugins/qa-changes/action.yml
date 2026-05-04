@@ -1,0 +1,181 @@
+---
+name: OpenHands QA Changes
+description: Automated QA validation of PR changes using OpenHands agent
+author: OpenHands
+
+branding:
+  icon: check-circle
+  color: green
+
+inputs:
+  llm-model:
+    description: LLM model to use for QA validation.
+    required: false
+    default: anthropic/claude-sonnet-4-5-20250929
+  llm-base-url:
+    description: LLM base URL (optional, for custom LLM endpoints)
+    required: false
+    default: ''
+  extensions-repo:
+    description: GitHub repository for extensions (owner/repo)
+    required: false
+    default: OpenHands/extensions
+  extensions-version:
+    description: Git ref to use for extensions (tag, branch, or commit SHA)
+    required: false
+    default: main
+  max-budget:
+    description: Maximum LLM cost in dollars. The agent stops when this budget is exceeded.
+    required: false
+    default: '10.0'
+  timeout-minutes:
+    description: Maximum wall-clock time in minutes for the QA job.
+    required: false
+    default: '30'
+  max-iterations:
+    description: Maximum number of agent iterations (each iteration is one LLM call + action).
+    required: false
+    default: '500'
+  llm-api-key:
+    description: LLM API key (required)
+    required: true
+  github-token:
+    description: GitHub token for API access (required)
+    required: true
+  lmnr-api-key:
+    description: Laminar API key for observability (optional)
+    required: false
+    default: ''
+
+runs:
+  using: composite
+  steps:
+    - name: Preflight fork/secrets guard
+      id: preflight
+      shell: bash
+      env:
+        IS_FORK_PR: ${{ github.event.pull_request.head.repo.full_name != github.repository }}
+        LLM_API_KEY: ${{ inputs.llm-api-key }}
+      run: |
+        if [ "$IS_FORK_PR" = "true" ] && [ -z "$LLM_API_KEY" ]; then
+          echo "::notice title=Skipping QA Changes for fork PR::This workflow runs in pull_request context, so fork PRs do not receive repository secrets such as LLM_API_KEY. Skipping automated QA instead of failing. A maintainer can run QA locally or via a separate trusted workflow."
+          {
+            echo "## QA Changes skipped"
+            echo
+            echo "This PR comes from a fork, and pull_request workflows do not receive repository secrets such as LLM_API_KEY."
+            echo "Skipping automated QA instead of failing."
+            echo
+            echo "A maintainer can run QA locally or via a separate trusted workflow if needed."
+          } >> "$GITHUB_STEP_SUMMARY"
+          echo "skip=true" >> "$GITHUB_OUTPUT"
+          exit 0
+        fi
+
+        echo "skip=false" >> "$GITHUB_OUTPUT"
+
+    - name: Checkout extensions repository
+      if: steps.preflight.outputs.skip != 'true'
+      uses: actions/checkout@v4
+      with:
+        repository: ${{ inputs.extensions-repo }}
+        ref: ${{ inputs.extensions-version }}
+        path: extensions
+
+    - name: Checkout PR repository
+      if: steps.preflight.outputs.skip != 'true'
+      uses: actions/checkout@v4
+      with:
+        repository: ${{ github.event.pull_request.head.repo.full_name }}
+        ref: ${{ github.event.pull_request.head.ref }}
+        fetch-depth: 0
+        persist-credentials: false
+        path: pr-repo
+        submodules: recursive
+
+    - name: Set up Python
+      if: steps.preflight.outputs.skip != 'true'
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.12'
+
+    - name: Install uv
+      if: steps.preflight.outputs.skip != 'true'
+      uses: astral-sh/setup-uv@v6
+      with:
+        enable-cache: false
+
+    - name: Install system dependencies
+      if: steps.preflight.outputs.skip != 'true'
+      shell: bash
+      run: |
+        sudo apt-get update
+        # gh: GitHub CLI for posting QA reports
+        # tmux: required by the OpenHands agent runtime
+        sudo apt-get install -y gh tmux
+
+    - name: Check required configuration
+      if: steps.preflight.outputs.skip != 'true'
+      shell: bash
+      env:
+        LLM_API_KEY: ${{ inputs.llm-api-key }}
+        GITHUB_TOKEN: ${{ inputs.github-token }}
+      run: |
+        if [ -z "$LLM_API_KEY" ]; then
+          echo "Error: llm-api-key is required."
+          exit 1
+        fi
+        if [ -z "$GITHUB_TOKEN" ]; then
+          echo "Error: github-token is required."
+          exit 1
+        fi
+
+        echo "PR Number: ${{ github.event.pull_request.number }}"
+        echo "PR Title: ${{ github.event.pull_request.title }}"
+        echo "Repository: ${{ github.repository }}"
+        echo "LLM model: ${{ inputs.llm-model }}"
+
+    - name: Run QA validation
+      if: steps.preflight.outputs.skip != 'true'
+      shell: bash
+      env:
+        LLM_MODEL: ${{ inputs.llm-model }}
+        LLM_BASE_URL: ${{ inputs.llm-base-url }}
+        LLM_API_KEY: ${{ inputs.llm-api-key }}
+        GITHUB_TOKEN: ${{ inputs.github-token }}
+        LMNR_PROJECT_API_KEY: ${{ inputs.lmnr-api-key }}
+        MAX_BUDGET: ${{ inputs.max-budget }}
+        MAX_ITERATIONS: ${{ inputs.max-iterations }}
+        TIMEOUT_MINUTES: ${{ inputs.timeout-minutes }}
+        PR_NUMBER: ${{ github.event.pull_request.number }}
+        PR_TITLE: ${{ github.event.pull_request.title }}
+        PR_BODY: ${{ github.event.pull_request.body }}
+        PR_BASE_BRANCH: ${{ github.event.pull_request.base.ref }}
+        PR_HEAD_BRANCH: ${{ github.event.pull_request.head.ref }}
+        REPO_NAME: ${{ github.repository }}
+      run: |
+        cd pr-repo
+        # timeout-minutes is not supported on composite action steps,
+        # so we enforce the time limit via the coreutils timeout command.
+        TIMEOUT_SECONDS=$((TIMEOUT_MINUTES * 60))
+        timeout "${TIMEOUT_SECONDS}" \
+          uv run --no-project --with openhands-sdk --with openhands-tools --with lmnr \
+            python ../extensions/plugins/qa-changes/scripts/agent_script.py
+
+    - name: Upload logs as artifact
+      uses: actions/upload-artifact@v4
+      if: always() && steps.preflight.outputs.skip != 'true'
+      with:
+        name: openhands-qa-changes-logs
+        path: |
+          *.log
+          output/
+        retention-days: 7
+
+    - name: Upload Laminar trace info for evaluation
+      uses: actions/upload-artifact@v4
+      if: success() && steps.preflight.outputs.skip != 'true'
+      with:
+        name: qa-changes-trace-${{ github.event.pull_request.number }}
+        path: pr-repo/laminar_trace_info.json
+        retention-days: 30
+        if-no-files-found: ignore
