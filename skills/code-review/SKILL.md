@@ -101,12 +101,21 @@ If dependency lock changes have downgraded a dependency, comment pointing that o
 
 When a PR adds a new dependency or bumps an existing one, review the upstream release for supply chain risk. Real-world incidents (e.g., LiteLLM 1.82.7-1.82.8 in March 2026, PyTorch Lightning 2.6.2-2.6.3 in April 2026) show that trusted packages can be hijacked through compromised CI/CD pipelines, stolen publishing credentials, or poisoned build artifacts - with malicious code present only in the published package, not in the source repository.
 
-Check for:
-- **Release note and changelog gaps**: If the upstream project has no release notes, an empty changelog, or the version was published without a corresponding tagged commit in the source repo, flag it. Legitimate releases almost always have a matching source tag.
-- **Yanked or retracted versions**: If the version being upgraded to has been yanked from the package registry, or if there are skipped/missing versions in the sequence (e.g., jumping from 1.82.6 to 1.82.9 because 1.82.7 and 1.82.8 were removed), investigate why.
-- **Brand-new releases with no adoption signal**: Upgrading to a version published within the last 24-48 hours carries higher risk. Supply chain attacks often target freshly published versions before the community can detect them. Note this risk when the upgrade targets a very recent release.
-- **Source-to-package divergence**: If the diff in the published package does not match what the upstream source repo shows for that version, this is a strong indicator of tampering. Comment if the PR author has not verified provenance.
-- **Unusual install-time behavior**: Watch for new post-install scripts, `.pth` files, or import-time side effects introduced by the dependency update. These are common payload delivery mechanisms in supply chain attacks.
+**Apply full scrutiny** (all checks below) when:
+- Adding a dependency not previously used in this project
+- Upgrading a package that is less than 6 months old or has low weekly downloads (<10k on PyPI / <1k on npm)
+- The dependency includes native code, install hooks, or system-level access
+
+**Apply standard scrutiny** (check for downgrades, yanked versions, and release notes only) when:
+- Upgrading widely-used, established packages (e.g., pytest, requests, react, lodash)
+- Minor or patch version bumps with clear changelogs and matching source tags
+
+Supply chain checklist:
+- **Release note and changelog gaps**: Verify a source tag exists for the version. Check `https://github.com/<org>/<repo>/releases/tag/v<version>` or run `gh release view v<version> --repo <org>/<repo>`. If there is no tag, no release notes, or an empty changelog, flag it - legitimate releases almost always have a matching source tag.
+- **Yanked or retracted versions**: Check if the target version or nearby versions have been yanked. For PyPI: `pip index versions <package>` (yanked versions are marked). For npm: check the registry page at `https://www.npmjs.com/package/<package>/v/<version>` or run `npm view <package> time` to see all publication dates. Skipped or missing versions in the sequence (e.g., jumping from 1.82.6 to 1.82.9) are a red flag - investigate why.
+- **Brand-new releases with no adoption signal**: Check when the version was published. For PyPI: visit `https://pypi.org/project/<package>/<version>/` and check the "Released" date. For npm: run `npm view <package>@<version> time`. If published within the last 48 hours, note the elevated risk. Consider adoption signals such as: download counts visible on the registry page, discussion or announcements in the project's issue tracker or release notes, mentions in security monitoring feeds (e.g., Snyk, Socket, OSV), or endorsements from maintainers in community channels.
+- **Source-to-package divergence**: If other signals raise concern, compare the published artifact against the source. For PyPI: download the sdist/wheel from `https://pypi.org/project/<package>/<version>/#files`, extract it, and diff against the tagged source (`git clone --branch v<version> --depth 1 <repo-url>`). For npm: run `npm pack <package>@<version>`, extract with `tar -xzf`, and compare. Divergence between published package and source is a strong indicator of tampering.
+- **Unusual install-time behavior**: Watch for new post-install scripts, `.pth` files, or import-time side effects introduced by the dependency update. For npm: check for `preinstall`/`postinstall` scripts in the package's `package.json`. For Python: look for `setup.py` with code execution or `.pth` files in the distribution. These are common payload delivery mechanisms in supply chain attacks.
 - **Cascading dependency risk**: A compromised upstream tool (e.g., a CI/CD scanner or build plugin) can be used to steal publishing credentials for downstream packages. When reviewing dependency updates, consider whether the upstream project's own dependencies have had recent security incidents.
 
 If any of these signals are present, escalate the dependency update to 🔴 High Risk in the Risk Assessment and recommend the PR author verify the release provenance before merging.
