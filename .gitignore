@@ -20,7 +20,10 @@ env/
 # OS
 .DS_Store
 Thumbs.db
-.agents/
+.agents/*
+!.agents/skills/
+.agents/skills/*
+!.agents/skills/custom-codereview-guide.md
 
 # uv lock file (no application code in this repo)
 uv.lock

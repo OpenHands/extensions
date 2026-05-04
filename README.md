@@ -32,45 +32,7 @@ Browse available plugins in [`plugins/`](plugins/).
 ## Extensions Catalog
 
 <!-- BEGIN AUTO-GENERATED CATALOG -->
-This repository contains **2 marketplace(s)** with **47 extensions** (37 skills, 10 plugins).
-
-### Quick Start
-
-**OpenHands CLI / GUI / Cloud** — these skills are loaded automatically. No setup needed.
-
-**OpenHands SDK** — enable public skills when creating your agent context:
-
-```python
-from openhands.sdk import AgentContext
-
-agent_context = AgentContext(load_public_skills=True)
-```
-
-Or load them explicitly with `load_public_skills()` from `openhands.sdk.context.skills`.
-
-<details>
-<summary><strong>Using Claude Code?</strong></summary>
-
-This repository is also a [Claude Code plugin marketplace](https://code.claude.com/docs/en/discover-plugins). To add it:
-
-1. Start Claude Code:
-   ```
-   claude
-   ```
-2. Add the marketplace:
-   ```
-   /plugin marketplace add OpenHands/extensions
-   ```
-3. Install the plugins you want:
-   ```
-   /plugin install
-   ```
-4. Reload to activate:
-   ```
-   /reload-plugins
-   ```
-
-</details>
+This repository contains **2 marketplace(s)** with **48 extensions** (38 skills, 10 plugins).
 
 ### large-codebase
 
@@ -89,7 +51,7 @@ OpenHands skills for interacting, improving, and refactoring large codebases
 
 Official skills and plugins for OpenHands — the open-source AI software engineer.
 
-**43 extensions** (35 skills, 8 plugins)
+**44 extensions** (36 skills, 8 plugins)
 
 | Name | Type | Description | Commands |
 |------|------|-------------|----------|
@@ -101,6 +63,7 @@ Official skills and plugins for OpenHands — the open-source AI software engine
 | bitbucket | skill | Interact with Bitbucket repositories and pull requests using the BITBUCKET_TOKEN environment variable. Use when worki... | — |
 | city-weather | plugin | Get current weather, time, and precipitation forecast for any city using the free Open-Meteo API. Provides slash comm... | — |
 | code-review | skill | Rigorous code review focusing on data structures, simplicity, security, pragmatism, and risk/safety evaluation. Provi... | `/codereview`, `/codereview-roasted` |
+| code-simplifier | skill | Simplifies and refines code across three dimensions - code reuse, code quality, and efficiency - while preserving all... | `/simplify` |
 | datadog | skill | Query and analyze Datadog logs, metrics, APM traces, and monitors using the Datadog API. Use when debugging productio... | — |
 | deno | skill | Common project operations using Deno (tasks, run/test/lint/fmt, and dependency management). | — |
 | discord | skill | Build and automate Discord integrations (bots, webhooks, slash commands, and REST API workflows). Use when the user m... | — |
@@ -122,7 +85,7 @@ Official skills and plugins for OpenHands — the open-source AI software engine
 | openhands | plugin | Unified OpenHands plugin — bundles Cloud CLI, REST API (openhands-api), and Automations (openhands-automation) into a... | `/openhands-cloud` |
 | openhands-api | skill | Use the OpenHands Cloud REST API (V1) to create and manage app conversations, including multi-conversation delegation... | — |
 | openhands-automation | skill | Create and manage OpenHands automations - scheduled tasks that run in sandboxes. Use the prompt preset to create auto... | `/automation:create` |
-| openhands-sdk | skill | Reference skill for the OpenHands Software Agent SDK — build AI agents with custom tools, LLM configuration, conversa... | `/sdk` |
+| openhands-sdk | skill | Reference skill for the OpenHands Software Agent SDK - build AI agents with custom tools, LLM configuration, conversa... | `/sdk` |
 | pdflatex | skill | Install and use pdflatex to compile LaTeX documents into PDFs on Linux. Use when generating academic papers, research... | — |
 | pr-review | plugin | Automated PR code review — analyzes diffs and posts inline review comments via the GitHub API. | — |
 | prd | skill | Generate a Product Requirements Document (PRD) for a new feature through an interactive clarifying-question workflow.... | `/prd` |

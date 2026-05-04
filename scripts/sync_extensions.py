@@ -280,61 +280,6 @@ def generate_catalog() -> str:
     )
     lines.append("")
 
-    # Quick Start section
-    lines.append("### Quick Start")
-    lines.append("")
-    lines.append(
-        "**OpenHands CLI / GUI / Cloud** — these skills are loaded automatically. "
-        "No setup needed."
-    )
-    lines.append("")
-    lines.append(
-        "**OpenHands SDK** — enable public skills when creating your agent context:"
-    )
-    lines.append("")
-    lines.append("```python")
-    lines.append("from openhands.sdk import AgentContext")
-    lines.append("")
-    lines.append("agent_context = AgentContext(load_public_skills=True)")
-    lines.append("```")
-    lines.append("")
-    lines.append(
-        "Or load them explicitly with "
-        "`load_public_skills()` from `openhands.sdk.context.skills`."
-    )
-    lines.append("")
-
-    # Claude Code collapsible
-    lines.append("<details>")
-    lines.append("<summary><strong>Using Claude Code?</strong></summary>")
-    lines.append("")
-    lines.append(
-        "This repository is also a "
-        "[Claude Code plugin marketplace]"
-        "(https://code.claude.com/docs/en/discover-plugins). "
-        "To add it:"
-    )
-    lines.append("")
-    lines.append("1. Start Claude Code:")
-    lines.append("   ```")
-    lines.append("   claude")
-    lines.append("   ```")
-    lines.append("2. Add the marketplace:")
-    lines.append("   ```")
-    lines.append("   /plugin marketplace add OpenHands/extensions")
-    lines.append("   ```")
-    lines.append("3. Install the plugins you want:")
-    lines.append("   ```")
-    lines.append("   /plugin install")
-    lines.append("   ```")
-    lines.append("4. Reload to activate:")
-    lines.append("   ```")
-    lines.append("   /reload-plugins")
-    lines.append("   ```")
-    lines.append("")
-    lines.append("</details>")
-    lines.append("")
-
     for mp in mps:
         lines.extend(_format_marketplace_section(mp))
     return "\n".join(lines)
@@ -434,33 +379,45 @@ def sync_coverage(*, check: bool) -> list[str]:
 VENDOR_SYMLINKS = [".claude-plugin", ".codex-plugin"]  # add new vendors here
 
 
-def sync_symlinks(*, check: bool) -> list[str]:
-    """Ensure every plugin with .plugin/ also has vendor symlinks."""
+def _check_vendor_symlinks(directory: Path, check: bool) -> list[str]:
+    """Check/fix vendor symlinks for a single directory with .plugin/."""
     problems: list[str] = []
-    plugins_dir = REPO_ROOT / "plugins"
-    if not plugins_dir.is_dir():
+    canon = directory / ".plugin"
+    if not canon.is_dir():
         return problems
-    for plugin_dir in sorted(plugins_dir.iterdir()):
-        if not plugin_dir.is_dir() or plugin_dir.name.startswith("."):
-            continue
-        canon = plugin_dir / ".plugin"
-        if not canon.is_dir():
-            continue
-        for vendor in VENDOR_SYMLINKS:
-            link = plugin_dir / vendor
-            if link.is_symlink():
-                target = link.resolve()
-                if target == canon.resolve():
-                    continue
-                problems.append(f"wrong target: {link.relative_to(REPO_ROOT)} → {link.readlink()}")
-            elif link.exists():
-                problems.append(f"not a symlink: {link.relative_to(REPO_ROOT)}")
+    for vendor in VENDOR_SYMLINKS:
+        link = directory / vendor
+        if link.is_symlink():
+            target = link.resolve()
+            if target == canon.resolve():
                 continue
-            else:
-                problems.append(f"missing: {link.relative_to(REPO_ROOT)}")
-            if not check:
-                link.unlink(missing_ok=True)
-                link.symlink_to(".plugin")
+            problems.append(f"wrong target: {link.relative_to(REPO_ROOT)} → {link.readlink()}")
+        elif link.exists():
+            problems.append(f"not a symlink: {link.relative_to(REPO_ROOT)}")
+            continue
+        else:
+            problems.append(f"missing: {link.relative_to(REPO_ROOT)}")
+        if not check:
+            link.unlink(missing_ok=True)
+            link.symlink_to(".plugin")
+    return problems
+
+
+def sync_symlinks(*, check: bool) -> list[str]:
+    """Ensure every directory with .plugin/ also has vendor symlinks.
+
+    Scans both plugins/ and skills/ directories.  Skills that ship a
+    ``.plugin/`` manifest (e.g. those with ``commands/``) need vendor
+    symlinks so that Codex and Claude Code can discover them.
+    """
+    problems: list[str] = []
+    for base in SKILL_DIRS:
+        if not base.is_dir():
+            continue
+        for entry_dir in sorted(base.iterdir()):
+            if not entry_dir.is_dir() or entry_dir.name.startswith("."):
+                continue
+            problems.extend(_check_vendor_symlinks(entry_dir, check))
     return problems
 
 

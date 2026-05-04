@@ -24,6 +24,7 @@ Then configure the required secrets (see [Installation](#installation) below).
 - **A/B Testing**: Support for testing multiple LLM models
 - **Review Context Awareness**: Considers previous reviews and unresolved threads
 - **Evidence Enforcement**: Optional check that PR descriptions include concrete end-to-end proof the code works, not just test output
+- **Sub-Agent Delegation**: Split large PR reviews across multiple sub-agents, one per file, then consolidate findings (see [Known Limitations](#known-limitations-sub-agent-delegation))
 - **Observability**: Optional Laminar integration for tracing and evaluation
 
 ## Plugin Contents
@@ -64,7 +65,7 @@ Add the following secrets in your repository settings (**Settings → Secrets an
 
 | Secret | Required | Description |
 |--------|----------|-------------|
-| `LLM_API_KEY` | Yes | API key for your LLM provider |
+| `LLM_API_KEY` | Yes for `api-key` mode | API key for your LLM provider |
 | `GITHUB_TOKEN` | Auto | Provided automatically by GitHub Actions |
 | `LMNR_SKILLS_API_KEY` | No | Laminar API key (org-level secret; mapped to `LMNR_PROJECT_API_KEY` env var in workflows) |
 
@@ -80,7 +81,7 @@ Edit the workflow file to customize:
   with:
     # LLM model(s) - comma-separated for A/B testing
     llm-model: anthropic/claude-sonnet-4-5-20250929
-    
+
     # Optional: Custom LLM endpoint
     # llm-base-url: https://your-llm-proxy.example.com
     
@@ -99,6 +100,77 @@ Edit the workflow file to customize:
     
     # Optional: Enable Laminar observability
     # lmnr-api-key: ${{ secrets.LMNR_PROJECT_API_KEY }}
+```
+
+#### Experimental: ACP review backend
+
+Use `agent-kind: acp` to run the reviewer through an ACP-compatible
+agent server. In this mode, OpenHands still loads review skills and plugin
+prompt context, but the ACP server owns model access, authentication, and tool
+execution. Install the ACP CLI and configure its authentication in the runner
+environment before invoking this action. Sub-agent delegation is disabled in ACP
+mode because delegation depends on OpenHands agent runtime details such as
+TaskToolSet, agent registration, and tool routing that ACP servers do not expose
+consistently.
+
+```yaml
+- name: Run PR Review
+  uses: OpenHands/extensions/plugins/pr-review@main
+  with:
+    agent-kind: acp
+    acp-command: your-acp-server
+    llm-model: your-acp-model
+    github-token: ${{ secrets.GITHUB_TOKEN }}
+```
+
+**Authentication.** ACP servers typically support two authentication methods.
+The simplest is API key authentication: store your provider API key as a
+repository secret (e.g. `OPENAI_API_KEY` or `ANTHROPIC_API_KEY`) and pass it to the ACP server as an
+environment variable in the workflow step. Most ACP servers will pick up the
+standard provider key automatically. Alternatively, subscription-based tools
+such as Codex support device-code login, which lets you use a ChatGPT
+Plus/Pro subscription without a separate API key - see the example below.
+
+Codex ACP example for a runner that stores Codex auth in a GitHub secret.
+Create `CODEX_AUTH_JSON_B64` from a trusted machine where the Codex CLI is
+installed, then complete device-code login:
+
+```bash
+codex login --device-auth
+codex login status
+```
+
+After login succeeds, encode the generated auth file:
+
+```bash
+base64 -w 0 "$HOME/.codex/auth.json"
+```
+
+Store the printed value as the repository or organization secret
+`CODEX_AUTH_JSON_B64`. This secret contains your Codex authentication material;
+limit it to trusted self-hosted runners and avoid exposing it to workflows that
+run untrusted pull request code.
+
+```yaml
+- name: Restore Codex auth
+  env:
+    CODEX_AUTH_JSON_B64: ${{ secrets.CODEX_AUTH_JSON_B64 }}
+  run: |
+    mkdir -p "$HOME/.codex"
+    printf '%s' "$CODEX_AUTH_JSON_B64" | base64 -d > "$HOME/.codex/auth.json"
+    chmod 600 "$HOME/.codex/auth.json"
+
+- name: Run PR Review
+  uses: OpenHands/extensions/plugins/pr-review@main
+  with:
+    agent-kind: acp
+    acp-command: npx -y @zed-industries/codex-acp@0.12.0
+    llm-model: gpt-5.5
+    github-token: ${{ secrets.GITHUB_TOKEN }}
+
+- name: Cleanup Codex auth
+  if: always()
+  run: rm -f "$HOME/.codex/auth.json"
 ```
 
 ### 4. Create the Review Label (Optional)
@@ -137,13 +209,18 @@ PR reviews are automatically triggered when:
 
 | Input | Required | Default | Description |
 |-------|----------|---------|-------------|
-| `llm-model` | No | `anthropic/claude-sonnet-4-5-20250929` | LLM model(s), comma-separated for A/B testing |
+| `agent-kind` | No | `openhands` | Review backend: `openhands` for the standard SDK Agent or `acp` for an ACP-compatible agent server |
+| `llm-model` | No | `anthropic/claude-sonnet-4-5-20250929` | LLM model(s), comma-separated for A/B testing. In ACP mode this is passed to the ACP server when supported. |
+| `acp-command` | Yes for `acp` mode | `''` | Command used to start the ACP server. The command must already be available in the runner environment or be runnable through a package manager. Examples: `npx -y @zed-industries/codex-acp@0.12.0`, `codex-acp`, `claude-agent-acp`, `npx -y @agentclientprotocol/claude-agent-acp`. |
+| `acp-prompt-timeout` | No | `'1800'` | Timeout in seconds for one ACP prompt turn |
 | `llm-base-url` | No | `''` | Custom LLM endpoint URL |
 | `review-style` | No | `roasted` | **[DEPRECATED]** Previously chose between `standard` and `roasted` review styles. Now ignored — the styles have been merged into a single unified skill. |
 | `require-evidence` | No | `'false'` | Require the reviewer to enforce an `Evidence` section in the PR description with end-to-end proof: screenshots/videos for frontend work, commands and runtime output for backend or scripts, and an agent conversation link when applicable. Test output alone does not qualify. |
+| `use-sub-agents` | No | `'false'` | Enable sub-agent delegation for file-level reviews in `openhands` mode. The main agent acts as a coordinator that delegates per-file review work to `file_reviewer` sub-agents via the SDK TaskToolSet, then consolidates findings into a single PR review. Useful for large PRs with many changed files. **Disabled by default** due to high token costs and potential timeouts (see [#208](https://github.com/OpenHands/extensions/issues/208)). Set to `'true'` to opt in. Ignored in ACP mode. |
 | `extensions-repo` | No | `OpenHands/extensions` | Extensions repository |
 | `extensions-version` | No | `main` | Git ref (tag, branch, or SHA) |
-| `llm-api-key` | Yes | - | LLM API key |
+| `openhands-sdk-package` | No | `openhands-sdk` | Package spec passed to `uv --with`; override only when pinning a specific SDK build for testing or rollout control |
+| `llm-api-key` | Yes for `openhands` mode | - | LLM API key for the OpenHands agent. Ignored in ACP mode. |
 | `github-token` | Yes | - | GitHub token for API access |
 | `lmnr-api-key` | No | `''` | Laminar API key for observability |
 | `enable-uv-cache` | No | `'false'` | Enable setup-uv's GitHub Actions cache for Python deps. Default `false` for security (see [Caching and Security](#caching-and-security)). |
@@ -160,6 +237,16 @@ Python dependency caching is **disabled by default**. `uv run --with ...` re-dow
 - You accept the residual risk in exchange for faster runs / lower disk writes.
 
 **Self-hosted runners:** Consider mounting a host-level uv cache volume (e.g. `/home/runner/.cache` as a Docker volume) instead of — or in addition to — this option. A local volume is faster than a round trip to GHA cache storage and does not cross any trust boundary.
+
+## Known Limitations: Sub-Agent Delegation
+
+The following are known constraints of the sub-agent delegation feature. These are acceptable tradeoffs for the improved review depth it provides, and none pose a security risk — in the worst case a review may be less thorough than expected, which the single-agent fallback (`use-sub-agents: 'false'`) addresses.
+
+- **LLM-driven JSON parsing**: The coordinator agent relies on the LLM to parse and merge JSON responses from sub-agents. There is no code-level validation of sub-agent output, so malformed responses may cause incomplete reviews.
+- **Potential information loss during consolidation**: When merging findings from multiple sub-agents, the coordinator may lose or deduplicate findings imperfectly, especially for cross-file issues.
+- **Sub-agents have read-only tools**: File reviewer sub-agents have access to `terminal` and `file_editor` for inspecting full source files and surrounding context, but they cannot query the GitHub API or post reviews — only the coordinator handles GitHub interaction.
+
+To opt out, set `use-sub-agents: 'false'` in your workflow.
 
 ## A/B Testing Multiple Models
 
@@ -302,4 +389,3 @@ See the main [extensions repository](https://github.com/OpenHands/extensions) fo
 ## License
 
 This plugin is part of the OpenHands extensions repository. See [LICENSE](../../LICENSE) for details.
-
