@@ -103,7 +103,7 @@ When a PR adds a new dependency or bumps an existing one, review the upstream re
 
 **Apply full scrutiny** (all checks below) when:
 - Adding a dependency not previously used in this project
-- Upgrading a package that is less than 6 months old or has low weekly downloads (<10k on PyPI / <1k on npm)
+- Upgrading a package that was first published less than 6 months ago or has low weekly downloads (<10k on PyPI / <1k on npm)
 - The dependency includes native code, install hooks, or system-level access
 
 **Apply standard scrutiny** (limited checks) when:
@@ -117,7 +117,7 @@ Supply chain checklist:
 - **Brand-new releases with no adoption signal**: Check when the version was published. For PyPI: visit `https://pypi.org/project/<package>/<version>/` and check the "Released" date. For npm: run `npm view <package>@<version> time`. If published within the last 48 hours and the package is under full scrutiny (or other risk signals are present), flag it as elevated risk. Adoption signals include: download counts visible on the registry page, discussion or announcements in the project's issue tracker, mentions in security monitoring feeds (e.g., Snyk, Socket, OSV), or endorsements from maintainers in community channels.
 - **Source-to-package divergence**: If other signals raise concern, compare the published artifact against the source. For PyPI: download the sdist/wheel from `https://pypi.org/project/<package>/<version>/#files`, extract it, and diff against the tagged source (`git clone --branch v<version> --depth 1 <repo-url>`). For npm: run `npm pack <package>@<version>`, extract with `tar -xzf <package>-<version>.tgz`, clone source, and compare with `diff -r package/ <repo-clone>/` (focus on source files, ignore build artifacts). Divergence is a strong indicator of tampering. Request that the PR author verify and document provenance.
 - **Unusual install-time behavior**: Watch for new post-install scripts, `.pth` files, or import-time side effects introduced by the dependency update. For npm: check for `preinstall`/`postinstall` scripts in the package's `package.json`. For Python: look for `setup.py` with code execution or `.pth` files in the distribution. These are common payload delivery mechanisms in supply chain attacks.
-- **Cascading dependency risk**: If other signals raise concern about a dependency, check whether its own upstream dependencies have active advisories. Search `https://osv.dev/list?q=<package>` or `https://security.snyk.io/package/pip/<package>` (or `/npm/<package>`) for known vulnerabilities. A compromised upstream tool (e.g., a CI/CD scanner or build plugin) can be used to steal publishing credentials for downstream packages.
+- **Cascading dependency risk**: If other signals raise concern about a dependency, check whether that dependency's own upstream dependencies have active advisories. For each upstream dependency, search `https://osv.dev/list?q=<upstream-dep-name>` or `https://security.snyk.io/package/pip/<upstream-dep-name>` (or `/npm/<upstream-dep-name>`) for known vulnerabilities. A compromised upstream tool (e.g., a CI/CD scanner or build plugin) can be used to steal publishing credentials for downstream packages.
 
 Escalate to 🔴 High Risk if any high-severity signal is present: yanked/retracted versions, source-to-package divergence, or new install-time behavior (post-install scripts, `.pth` files). For medium-severity signals (brand-new release with no adoption signal, missing release notes), escalate only when combined with other risk factors or when the package is under full scrutiny. For dependencies under standard scrutiny, brand-new publication alone is not sufficient to escalate - established packages with frequent release cycles routinely publish new versions.
 
@@ -152,7 +152,7 @@ Then provide analysis (skip if 🟢):
 - [src/handler.py, Line Y] **Complexity**: >3 levels of nesting - redesign required
 - [src/api.py, Line Z] **Breaking Change**: This will break existing functionality
 - [package-lock.json, Line X] **Dependency Downgrade**: library-name downgraded from 2.1.0 to 1.9.5 - was this intentional? Check for breaking changes or security implications.
-- [requirements.txt, Line X] **Supply Chain Risk**: library-name bumped to 3.2.0 which was published <24 hours ago with no release notes or matching source tag. Verify release provenance before merging - recent supply chain attacks (LiteLLM, PyTorch Lightning) followed this exact pattern.
+- [requirements.txt, Line X] **Supply Chain Risk**: library-name bumped to 3.2.0 which was published <48 hours ago with no release notes or matching source tag. Verify release provenance before merging - recent supply chain attacks (LiteLLM, PyTorch Lightning) followed this exact pattern.
 
 **[IMPROVEMENT OPPORTUNITIES]** (Should fix - violates good taste)
 - [src/utils.py, Line A] **Special Case**: Can be eliminated with better design
