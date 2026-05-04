@@ -12,6 +12,7 @@ Evaluate risk based on these factors:
 - **Security sensitivity**: Does it touch authentication, authorization, cryptography, secrets handling, or permission logic?
 - **Infrastructure dependencies**: Does it introduce new external services, databases, message queues, or third-party integrations?
 - **Blast radius**: Is the change isolated to a single module, or does it affect widely imported shared code, public APIs, or core system behavior?
+- **Supply chain exposure**: Does the change add or upgrade dependencies? If so, has the upstream release been verified against its source repo? Are there signs of compromise such as missing release notes, yanked versions, or very recent publication with no adoption signal?
 - **Core system impact**: Does it modify agent orchestration, LLM prompt construction, data pipeline logic, or other foundational system behavior?
 
 ## Escalation Guidance

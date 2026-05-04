@@ -99,6 +99,18 @@ Require:
 8. **Dependency Changes**
 If dependency lock changes have downgraded a dependency, comment pointing that out to make sure it was intentional.
 
+When a PR adds a new dependency or bumps an existing one, review the upstream release for supply chain risk. Real-world incidents (e.g., LiteLLM 1.82.7-1.82.8 in March 2026, PyTorch Lightning 2.6.2-2.6.3 in April 2026) show that trusted packages can be hijacked through compromised CI/CD pipelines, stolen publishing credentials, or poisoned build artifacts - with malicious code present only in the published package, not in the source repository.
+
+Check for:
+- **Release note and changelog gaps**: If the upstream project has no release notes, an empty changelog, or the version was published without a corresponding tagged commit in the source repo, flag it. Legitimate releases almost always have a matching source tag.
+- **Yanked or retracted versions**: If the version being upgraded to has been yanked from the package registry, or if there are skipped/missing versions in the sequence (e.g., jumping from 1.82.6 to 1.82.9 because 1.82.7 and 1.82.8 were removed), investigate why.
+- **Brand-new releases with no adoption signal**: Upgrading to a version published within the last 24-48 hours carries higher risk. Supply chain attacks often target freshly published versions before the community can detect them. Note this risk when the upgrade targets a very recent release.
+- **Source-to-package divergence**: If the diff in the published package does not match what the upstream source repo shows for that version, this is a strong indicator of tampering. Comment if the PR author has not verified provenance.
+- **Unusual install-time behavior**: Watch for new post-install scripts, `.pth` files, or import-time side effects introduced by the dependency update. These are common payload delivery mechanisms in supply chain attacks.
+- **Cascading dependency risk**: A compromised upstream tool (e.g., a CI/CD scanner or build plugin) can be used to steal publishing credentials for downstream packages. When reviewing dependency updates, consider whether the upstream project's own dependencies have had recent security incidents.
+
+If any of these signals are present, escalate the dependency update to 🔴 High Risk in the Risk Assessment and recommend the PR author verify the release provenance before merging.
+
 9. **Risk and Safety Evaluation**
 Read `references/risk-evaluation.md` for the full risk evaluation framework including risk levels (🟢 Low / 🟡 Medium / 🔴 High), risk factors, escalation guidance, and repo-specific risk rules.
 
@@ -130,6 +142,7 @@ Then provide analysis (skip if 🟢):
 - [src/handler.py, Line Y] **Complexity**: >3 levels of nesting - redesign required
 - [src/api.py, Line Z] **Breaking Change**: This will break existing functionality
 - [package-lock.json, Line X] **Dependency Downgrade**: library-name downgraded from 2.1.0 to 1.9.5 - was this intentional? Check for breaking changes or security implications.
+- [requirements.txt, Line X] **Supply Chain Risk**: library-name bumped to 3.2.0 which was published <24 hours ago with no release notes or matching source tag. Verify release provenance before merging - recent supply chain attacks (LiteLLM, PyTorch Lightning) followed this exact pattern.
 
 **[IMPROVEMENT OPPORTUNITIES]** (Should fix - violates good taste)
 - [src/utils.py, Line A] **Special Case**: Can be eliminated with better design
