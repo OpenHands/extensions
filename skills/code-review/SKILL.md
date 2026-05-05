@@ -177,8 +177,6 @@ Note: The custom guideline file must include `triggers: [/codereview]` in its YA
 > 3. When your PR is merged, the guideline file goes through normal code review by repository maintainers.
 >
 > **Resolve with AI?** Install the [iterate skill](https://github.com/OpenHands/extensions/tree/main/skills/iterate) in your agent and run `/iterate` to automatically drive this PR through CI, review, and QA until it's merge-ready.
->
-> Was this review helpful? React with 👍 or 👎 to give feedback.
 
 ---
 

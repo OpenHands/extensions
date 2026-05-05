@@ -79,6 +79,13 @@ Review the PR changes below and identify issues that need to be addressed.
 Analyze the changes and post your review using the GitHub API.
 """
 
+# Always appended to the review body so users can give quick feedback.
+_FEEDBACK_FOOTER = """
+Append this line at the end of your review body, after all other content:
+
+> Was this review helpful? React with 👍 or 👎 to give feedback.
+"""
+
 # Appended to PROMPT when use_sub_agents=True.  Gives the main agent the
 # option to delegate via the TaskToolSet without duplicating the base prompt.
 _DELEGATION_SUFFIX = """
@@ -217,5 +224,7 @@ def format_prompt(
 
     if use_sub_agents:
         prompt += _DELEGATION_SUFFIX
+
+    prompt += _FEEDBACK_FOOTER
 
     return prompt
