@@ -58,6 +58,13 @@ inputs:
             (see issue #208). Set to 'true' to opt in.
         required: false
         default: 'false'
+    load-public-skills:
+        description: >
+            Load the public skills repository into the review agent context.
+            Disable this to keep PR review prompts limited to project skills
+            and the pr-review plugin skills.
+        required: false
+        default: 'true'
     extensions-repo:
         description: GitHub repository for extensions (owner/repo)
         required: false
@@ -240,6 +247,7 @@ runs:
               REVIEW_STYLE: ${{ inputs.review-style }}
               REQUIRE_EVIDENCE: ${{ inputs.require-evidence }}
               USE_SUB_AGENTS: ${{ inputs.use-sub-agents }}
+              LOAD_PUBLIC_SKILLS: ${{ inputs.load-public-skills }}
               LLM_API_KEY: ${{ inputs.llm-api-key }}
               GITHUB_TOKEN: ${{ inputs.github-token }}
               LMNR_PROJECT_API_KEY: ${{ inputs.lmnr-api-key }}

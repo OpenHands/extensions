@@ -41,6 +41,8 @@ Environment Variables:
         as a coordinator that delegates per-file review work to
         file_reviewer sub-agents via the TaskToolSet, then consolidates
         findings into a single GitHub PR review.
+    LOAD_PUBLIC_SKILLS: Whether to load the public skills repository
+        ('true'/'false', default: 'true')
 
 For setup instructions, usage examples, and GitHub Actions integration,
 see README.md in this directory.
@@ -784,6 +786,7 @@ def validate_environment() -> dict[str, Any]:
         "base_url": os.getenv("LLM_BASE_URL"),
         "require_evidence": _get_bool_env("REQUIRE_EVIDENCE"),
         "use_sub_agents": use_sub_agents,
+        "load_public_skills": _get_bool_env("LOAD_PUBLIC_SKILLS", default=True),
         "pr_info": {
             "number": os.getenv("PR_NUMBER"),
             "title": os.getenv("PR_TITLE"),
@@ -887,9 +890,11 @@ def create_conversation(
         f"Loaded {len(project_skills)} project skills: "
         f"{[s.name for s in project_skills]}"
     )
+    load_public_skills = config.get("load_public_skills", True)
+    logger.info("Load public skills: %s", load_public_skills)
 
     agent_context = AgentContext(
-        load_public_skills=True,
+        load_public_skills=load_public_skills,
         skills=project_skills,
     )
 
