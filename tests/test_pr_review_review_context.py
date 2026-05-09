@@ -59,6 +59,13 @@ def _load_agent_script_module():
             for k, v in kwargs.items():
                 setattr(self, k, v)
 
+        def model_copy(self, update=None):
+            copied = _Stub(**self.__dict__)
+            if update:
+                for k, v in update.items():
+                    setattr(copied, k, v)
+            return copied
+
     sdk = types.ModuleType("openhands.sdk")
     sdk.LLM = _Stub
     sdk.Agent = _Stub
@@ -91,9 +98,9 @@ def _load_agent_script_module():
     sdk_context.Skill = _Skill
     sys.modules["openhands.sdk.context"] = sdk_context
 
-    context_skills = types.ModuleType("openhands.sdk.context.skills")
-    context_skills.load_project_skills = lambda cwd: []
-    sys.modules["openhands.sdk.context.skills"] = context_skills
+    sdk_skills = types.ModuleType("openhands.sdk.skills")
+    sdk_skills.load_project_skills = lambda cwd: []
+    sys.modules["openhands.sdk.skills"] = sdk_skills
 
     conversation = types.ModuleType("openhands.sdk.conversation")
     conversation.get_agent_final_response = lambda events: ""
@@ -104,7 +111,7 @@ def _load_agent_script_module():
     sys.modules["openhands.sdk.git.utils"] = git_utils
 
     sdk_plugin = types.ModuleType("openhands.sdk.plugin")
-    sdk_plugin.PluginSource = object
+    sdk_plugin.PluginSource = _Stub
     sys.modules["openhands.sdk.plugin"] = sdk_plugin
 
     tools_delegate = types.ModuleType("openhands.tools.delegate")
@@ -219,3 +226,28 @@ def test_create_file_reviewer_agent_factory_is_callable():
     result = module._create_file_reviewer_agent(object())
     # Agent stub is `object`, so the factory should return *something*
     assert result is not None
+
+
+def test_create_conversation_uses_sdk_project_skill_loader(tmp_path, monkeypatch):
+    """PR review delegates project skill discovery to the SDK."""
+    module = _load_agent_script_module()
+    monkeypatch.chdir(tmp_path)
+
+    project_skill = module.Skill(
+        name="custom-codereview-guide",
+        content="Review in Chinese",
+        is_agentskills_format=True,
+    )
+    monkeypatch.setattr(module, "load_project_skills", lambda cwd: [project_skill])
+
+    config = {
+        "agent_kind": "openhands",
+        "model": "test-model",
+        "api_key": "test-key",
+        "base_url": "",
+        "use_sub_agents": False,
+    }
+
+    conversation = module.create_conversation(config, secrets={})
+
+    assert conversation.agent.agent_context.skills == [project_skill]

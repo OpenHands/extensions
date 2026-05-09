@@ -99,6 +99,8 @@ Require:
 8. **Dependency Changes**
 If dependency lock changes have downgraded a dependency, comment pointing that out to make sure it was intentional.
 
+When a PR adds a new dependency or bumps an existing one, review the upstream release for supply chain risk. Read `references/supply-chain-security.md` for the full verification checklist including risk-based scrutiny tiers, concrete commands for checking release provenance, and escalation guidance.
+
 9. **Risk and Safety Evaluation**
 Read `references/risk-evaluation.md` for the full risk evaluation framework including risk levels (🟢 Low / 🟡 Medium / 🔴 High), risk factors, escalation guidance, and repo-specific risk rules.
 
@@ -130,6 +132,7 @@ Then provide analysis (skip if 🟢):
 - [src/handler.py, Line Y] **Complexity**: >3 levels of nesting - redesign required
 - [src/api.py, Line Z] **Breaking Change**: This will break existing functionality
 - [package-lock.json, Line X] **Dependency Downgrade**: library-name downgraded from 2.1.0 to 1.9.5 - was this intentional? Check for breaking changes or security implications.
+- [requirements.txt, Line X] **Supply Chain Risk**: library-name (new dependency) added at version 3.2.0 which was published <48 hours ago with no release notes or matching source tag. Verify release provenance before merging - recent supply chain attacks (LiteLLM, PyTorch Lightning) followed this exact pattern.
 
 **[IMPROVEMENT OPPORTUNITIES]** (Should fix - violates good taste)
 - [src/utils.py, Line A] **Special Case**: Can be eliminated with better design

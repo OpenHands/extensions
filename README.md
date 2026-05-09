@@ -32,45 +32,7 @@ Browse available plugins in [`plugins/`](plugins/).
 ## Extensions Catalog
 
 <!-- BEGIN AUTO-GENERATED CATALOG -->
-This repository contains **2 marketplace(s)** with **51 extensions** (42 skills, 9 plugins).
-
-### Quick Start
-
-**OpenHands CLI / GUI / Cloud** — these skills are loaded automatically. No setup needed.
-
-**OpenHands SDK** — enable public skills when creating your agent context:
-
-```python
-from openhands.sdk import AgentContext
-
-agent_context = AgentContext(load_public_skills=True)
-```
-
-Or load them explicitly with `load_public_skills()` from `openhands.sdk.context.skills`.
-
-<details>
-<summary><strong>Using Claude Code?</strong></summary>
-
-This repository is also a [Claude Code plugin marketplace](https://code.claude.com/docs/en/discover-plugins). To add it:
-
-1. Start Claude Code:
-   ```
-   claude
-   ```
-2. Add the marketplace:
-   ```
-   /plugin marketplace add OpenHands/extensions
-   ```
-3. Install the plugins you want:
-   ```
-   /plugin install
-   ```
-4. Reload to activate:
-   ```
-   /reload-plugins
-   ```
-
-</details>
+This repository contains **2 marketplace(s)** with **52 extensions** (42 skills, 10 plugins).
 
 ### large-codebase
 
@@ -89,7 +51,7 @@ OpenHands skills for interacting, improving, and refactoring large codebases
 
 Official skills and plugins for OpenHands - the open-source AI software engineer.
 
-**47 extensions** (40 skills, 7 plugins)
+**48 extensions** (40 skills, 8 plugins)
 
 | Name | Type | Description | Commands |
 |------|------|-------------|----------|
@@ -127,6 +89,7 @@ Official skills and plugins for OpenHands - the open-source AI software engineer
 | pdflatex | skill | Install and use pdflatex to compile LaTeX documents into PDFs on Linux. Use when generating academic papers, research... | — |
 | pr-review | plugin | Automated PR code review - analyzes diffs and posts inline review comments via the GitHub API. | — |
 | prd | skill | Generate a Product Requirements Document (PRD) for a new feature through an interactive clarifying-question workflow.... | `/prd` |
+| qa-changes | plugin | Validate pull request changes by actually running the code — setting up the environment, exercising changed behavior,... | — |
 | release-notes | plugin | Generate consistent, well-structured release notes from git history. Produces categorized changelog with breaking cha... | `/release-notes` |
 | security | skill | Security best practices for secure coding, authentication, authorization, and data protection. Use when developing fe... | — |
 | skill-creator | skill | Guide for creating effective skills. This skill should be used when users want to create a new skill (or update an ex... | — |
