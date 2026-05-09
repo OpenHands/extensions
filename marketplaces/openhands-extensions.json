@@ -611,6 +611,19 @@
                 "tdd",
                 "test-quality"
             ]
+        },
+        {
+            "name": "test-improvement",
+            "source": "./plugins/test-improvement",
+            "description": "Bundle the test-improvement workflow, prioritization, validation, and execution-pattern skills into one installable plugin.",
+            "category": "testing",
+            "keywords": [
+                "testing",
+                "test-improvement",
+                "quality",
+                "pytest",
+                "refactor"
+            ]
         }
     ]
 }

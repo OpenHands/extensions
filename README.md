@@ -32,7 +32,7 @@ Browse available plugins in [`plugins/`](plugins/).
 ## Extensions Catalog
 
 <!-- BEGIN AUTO-GENERATED CATALOG -->
-This repository contains **2 marketplace(s)** with **52 extensions** (42 skills, 10 plugins).
+This repository contains **2 marketplace(s)** with **53 extensions** (42 skills, 11 plugins).
 
 ### large-codebase
 
@@ -51,7 +51,7 @@ OpenHands skills for interacting, improving, and refactoring large codebases
 
 Official skills and plugins for OpenHands - the open-source AI software engineer.
 
-**48 extensions** (40 skills, 8 plugins)
+**49 extensions** (40 skills, 9 plugins)
 
 | Name | Type | Description | Commands |
 |------|------|-------------|----------|
@@ -95,6 +95,7 @@ Official skills and plugins for OpenHands - the open-source AI software engineer
 | skill-creator | skill | Guide for creating effective skills. This skill should be used when users want to create a new skill (or update an ex... | — |
 | ssh | skill | Establish and manage SSH connections to remote machines, including key generation, configuration, and file transfers.... | — |
 | swift-linux | skill | Install and configure Swift programming language on Debian Linux for server-side development. Use when building Swift... | — |
+| test-improvement | plugin | Bundle the test-improvement workflow, prioritization, validation, and execution-pattern skills into one installable p... | — |
 | test-improvement-patterns | skill | Common execution patterns for implementing validated test-suite improvements with safe refactoring and TDD loops. | — |
 | test-improvement-workflow | skill | Concise orchestrator for auditing, prioritizing, validating, and implementing test-suite improvements using Dave Farl... | — |
 | test-prioritization-framework | skill | Reliability-first framework for consolidating and prioritizing test audit findings into CRITICAL, HIGH, and MEDIUM work. | — |
