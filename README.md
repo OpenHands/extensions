@@ -32,7 +32,7 @@ Browse available plugins in [`plugins/`](plugins/).
 ## Extensions Catalog
 
 <!-- BEGIN AUTO-GENERATED CATALOG -->
-This repository contains **2 marketplace(s)** with **48 extensions** (38 skills, 10 plugins).
+This repository contains **2 marketplace(s)** with **53 extensions** (42 skills, 11 plugins).
 
 ### large-codebase
 
@@ -49,14 +49,14 @@ OpenHands skills for interacting, improving, and refactoring large codebases
 
 ### openhands-extensions
 
-Official skills and plugins for OpenHands — the open-source AI software engineer.
+Official skills and plugins for OpenHands - the open-source AI software engineer.
 
-**44 extensions** (36 skills, 8 plugins)
+**49 extensions** (40 skills, 9 plugins)
 
 | Name | Type | Description | Commands |
 |------|------|-------------|----------|
 | add-skill | skill | Add (import) an OpenHands skill from a GitHub repository into the current workspace. | — |
-| agent-creator | skill | Create file-based sub-agents as Markdown files — no Python code required. Guides the user through a structured interv... | `/agent-creator` |
+| agent-creator | skill | Create file-based sub-agents as Markdown files - no Python code required. Guides the user through a structured interv... | `/agent-creator` |
 | agent-memory | skill | Persist and retrieve repository-specific knowledge using AGENTS.md files. Use when you want to save important informa... | `/remember` |
 | agent-sdk-builder | skill | Guided workflow for building custom AI agents using the OpenHands Software Agent SDK. Use when you want to create a n... | `/agent-builder` |
 | azure-devops | skill | Interact with Azure DevOps repositories, pull requests, and APIs using the AZURE_DEVOPS_TOKEN environment variable. U... | — |
@@ -73,7 +73,7 @@ Official skills and plugins for OpenHands — the open-source AI software engine
 | github | skill | Interact with GitHub repositories, pull requests, issues, and workflows using the GITHUB_TOKEN environment variable a... | — |
 | github-pr-review | skill | Post structured PR reviews to GitHub with inline comments/suggestions in a single API call. | `/github-pr-review` |
 | gitlab | skill | Interact with GitLab repositories, merge requests, and APIs using the GITLAB_TOKEN environment variable. Use when wor... | — |
-| iterate | skill | Iterate on a GitHub pull request — drive it through CI, code review, and QA until merge-ready. Monitors state, fixes ... | `/iterate`, `/verify`, `/babysit` |
+| iterate | skill | Iterate on a GitHub pull request - drive it through CI, code review, and QA until merge-ready. Monitors state, fixes ... | `/iterate`, `/verify`, `/babysit` |
 | jupyter | skill | Read, modify, execute, and convert Jupyter notebooks programmatically. Use when working with .ipynb files for data sc... | — |
 | kubernetes | skill | Set up and manage local Kubernetes clusters using KIND (Kubernetes IN Docker). Use when testing Kubernetes applicatio... | — |
 | learn-from-code-review | skill | Distill code review feedback from GitHub PRs into reusable skills and guidelines. Use when users ask to learn from co... | `/learn-from-reviews` |
@@ -82,12 +82,12 @@ Official skills and plugins for OpenHands — the open-source AI software engine
 | notion | skill | Create, search, and update Notion pages/databases using the Notion API. Use for documenting work, generating runbooks... | — |
 | npm | skill | Handle npm package installation in non-interactive environments by piping confirmations. Use when installing Node.js ... | — |
 | onboarding | plugin | Assess repository agent-readiness across five pillars, propose high-impact fixes, and generate repo-specific AGENTS.m... | — |
-| openhands | plugin | Unified OpenHands plugin — bundles Cloud CLI, REST API (openhands-api), and Automations (openhands-automation) into a... | `/openhands-cloud` |
+| openhands | plugin | Unified OpenHands plugin - bundles Cloud CLI, REST API (openhands-api), and Automations (openhands-automation) into a... | `/openhands-cloud` |
 | openhands-api | skill | Use the OpenHands Cloud REST API (V1) to create and manage app conversations, including multi-conversation delegation... | — |
 | openhands-automation | skill | Create and manage OpenHands automations - scheduled tasks that run in sandboxes. Use the prompt preset to create auto... | `/automation:create` |
 | openhands-sdk | skill | Reference skill for the OpenHands Software Agent SDK - build AI agents with custom tools, LLM configuration, conversa... | `/sdk` |
 | pdflatex | skill | Install and use pdflatex to compile LaTeX documents into PDFs on Linux. Use when generating academic papers, research... | — |
-| pr-review | plugin | Automated PR code review — analyzes diffs and posts inline review comments via the GitHub API. | — |
+| pr-review | plugin | Automated PR code review - analyzes diffs and posts inline review comments via the GitHub API. | — |
 | prd | skill | Generate a Product Requirements Document (PRD) for a new feature through an interactive clarifying-question workflow.... | `/prd` |
 | qa-changes | plugin | Validate pull request changes by actually running the code — setting up the environment, exercising changed behavior,... | — |
 | release-notes | plugin | Generate consistent, well-structured release notes from git history. Produces categorized changelog with breaking cha... | `/release-notes` |
@@ -95,6 +95,11 @@ Official skills and plugins for OpenHands — the open-source AI software engine
 | skill-creator | skill | Guide for creating effective skills. This skill should be used when users want to create a new skill (or update an ex... | — |
 | ssh | skill | Establish and manage SSH connections to remote machines, including key generation, configuration, and file transfers.... | — |
 | swift-linux | skill | Install and configure Swift programming language on Debian Linux for server-side development. Use when building Swift... | — |
+| test-improvement | plugin | Bundle the test-improvement workflow, prioritization, validation, and execution-pattern skills into one installable p... | — |
+| test-improvement-patterns | skill | Common execution patterns for implementing validated test-suite improvements with safe refactoring and TDD loops. | — |
+| test-improvement-workflow | skill | Concise orchestrator for auditing, prioritizing, validating, and implementing test-suite improvements using Dave Farl... | — |
+| test-prioritization-framework | skill | Reliability-first framework for consolidating and prioritizing test audit findings into CRITICAL, HIGH, and MEDIUM work. | — |
+| test-validation-checklist | skill | Checklist for validating proposed test-suite improvements against the real code before implementation. | — |
 | theme-factory | skill | Toolkit for styling artifacts with a theme. These artifacts can be slides, docs, reportings, HTML landing pages, etc.... | — |
 | uv | skill | Common project, dependency, and environment operations using uv. | — |
 | vercel | skill | Deploy and manage applications on Vercel, including preview deployments and deployment protection. | — |
