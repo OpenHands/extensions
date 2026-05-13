@@ -26,7 +26,7 @@ from pathlib import Path
 from typing import Any
 
 from openhands.sdk import LLM, Agent, AgentContext, Conversation, get_logger
-from openhands.sdk.context.skills import load_project_skills
+from openhands.sdk.skills import load_project_skills
 from openhands.sdk.conversation import get_agent_final_response
 from openhands.tools.preset.default import get_default_condenser, get_default_tools
 

@@ -3,8 +3,8 @@
 from pathlib import Path
 
 import pytest
-from openhands.sdk.context.skills import Skill
-from openhands.sdk.plugin import Marketplace, MarketplacePluginEntry
+from openhands.sdk.skills import Skill
+from openhands.sdk.marketplace import Marketplace, MarketplacePluginEntry
 
 
 def get_repo_root():

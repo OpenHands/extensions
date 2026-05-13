@@ -40,7 +40,7 @@ from typing import Any
 
 from lmnr import Laminar
 from openhands.sdk import LLM, Agent, AgentContext, Conversation, get_logger
-from openhands.sdk.context.skills import load_project_skills
+from openhands.sdk.skills import load_project_skills
 from openhands.sdk.conversation import get_agent_final_response
 from openhands.sdk.git.utils import run_git_command
 from openhands.sdk.plugin import PluginSource
