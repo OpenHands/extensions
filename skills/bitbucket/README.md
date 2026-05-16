@@ -20,7 +20,7 @@ ALWAYS use the Bitbucket API for operations instead of a web browser.
 ALWAYS use the `create_bitbucket_pr` tool to open a pull request
 </IMPORTANT>
 
-Only rewrite the Bitbucket remote if a push actually fails with authentication errors and the user has asked you to push. Do not proactively rewrite `origin`. OpenHands OSS commonly stores `BITBUCKET_TOKEN` in the same unencoded `user:token` form used by commands such as `curl --user "$BITBUCKET_TOKEN" ...`, so keep it in that form unless you truly need to embed it in a Git remote URL.
+Only rewrite the Bitbucket remote if a push actually fails with authentication errors and the user has asked you to push. Do not proactively rewrite `origin`. OpenHands commonly stores `BITBUCKET_TOKEN` in the same unencoded `user:token` form used by commands such as `curl --user "$BITBUCKET_TOKEN" ...`, so keep it in that form unless you truly need to embed it in a Git remote URL.
 
 If you need a non-interactive HTTPS remote URL, split `BITBUCKET_TOKEN` on the first `:` and URL-encode each part before calling `git remote set-url`. This avoids breaking usernames or emails that contain reserved URL characters such as `@`:
 
