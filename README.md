@@ -32,7 +32,7 @@ Browse available plugins in [`plugins/`](plugins/).
 ## Extensions Catalog
 
 <!-- BEGIN AUTO-GENERATED CATALOG -->
-This repository contains **2 marketplace(s)** with **48 extensions** (38 skills, 10 plugins).
+This repository contains **2 marketplace(s)** with **49 extensions** (39 skills, 10 plugins).
 
 ### large-codebase
 
@@ -51,7 +51,7 @@ OpenHands skills for interacting, improving, and refactoring large codebases
 
 Official skills and plugins for OpenHands — the open-source AI software engineer.
 
-**44 extensions** (36 skills, 8 plugins)
+**45 extensions** (37 skills, 8 plugins)
 
 | Name | Type | Description | Commands |
 |------|------|-------------|----------|
@@ -71,6 +71,7 @@ Official skills and plugins for OpenHands — the open-source AI software engine
 | flarglebargle | skill | A test skill that responds to the magic word 'flarglebargle' with a compliment. Use for testing skill activation and ... | — |
 | frontend-design | skill | Create distinctive, production-grade frontend interfaces with high design quality. Use this skill when the user asks ... | — |
 | github | skill | Interact with GitHub repositories, pull requests, issues, and workflows using the GITHUB_TOKEN environment variable a... | — |
+| github-event-poller | skill | Create an OpenHands automation that polls a GitHub repository on a cron schedule for new events (issues, PRs, release... | — |
 | github-pr-review | skill | Post structured PR reviews to GitHub with inline comments/suggestions in a single API call. | `/github-pr-review` |
 | gitlab | skill | Interact with GitLab repositories, merge requests, and APIs using the GITLAB_TOKEN environment variable. Use when wor... | — |
 | iterate | skill | Iterate on a GitHub pull request — drive it through CI, code review, and QA until merge-ready. Monitors state, fixes ... | `/iterate`, `/verify`, `/babysit` |

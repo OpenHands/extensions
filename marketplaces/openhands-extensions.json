@@ -559,6 +559,20 @@
                 "pull-request",
                 "iterate"
             ]
+        },
+        {
+            "name": "github-event-poller",
+            "source": "./skills/github-event-poller",
+            "description": "Create an OpenHands automation that polls a GitHub repository on a cron schedule for new events (issues, PRs, releases, comments, push, etc.) and runs user-defined handler instructions. Prefers a configured GitHub MCP server in the sandbox, falls back to a GITHUB_TOKEN environment variable.",
+            "category": "integration",
+            "keywords": [
+                "github",
+                "automation",
+                "cron",
+                "polling",
+                "events",
+                "monitoring"
+            ]
         }
     ]
 }
