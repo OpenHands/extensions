@@ -1,0 +1,70 @@
+[
+  {
+    "id": "github-pr-reviewer",
+    "name": "GitHub PR review copilot",
+    "category": "Code review",
+    "description": "Watch pull requests, inspect the diff, and leave a concise review with risks and suggested follow-ups.",
+    "requiredMcpIds": [
+      "github"
+    ],
+    "popularityRank": 100,
+    "estimatedSetupMinutes": 4,
+    "prompt": "Create an automation that reviews GitHub pull requests when they are opened or updated. Use the GitHub MCP to inspect the PR diff, changed files, tests, and existing discussion. Post a short review that highlights correctness risks, security issues, missing tests, and concrete next steps. Ask me for the repositories, filters, review tone, and whether comments should be posted automatically or drafted first.",
+    "exampleImplementation": "Trigger: github.pull_request.opened and github.pull_request.synchronize\nRequired MCP: GitHub\n\n1. Read repository, pull_request, and sender from the event payload.\n2. Fetch the PR diff and related comments through the GitHub MCP.\n3. Run a review rubric focused on bugs, security, tests, and maintainability.\n4. TODO: decide whether to publish inline comments, a summary comment, or a draft artifact.\n5. Post or save the review with links back to the exact files and lines."
+  },
+  {
+    "id": "slack-standup-digest",
+    "name": "Slack standup digest",
+    "category": "Team updates",
+    "description": "Summarize yesterday\u2019s Slack activity into an async standup note with blockers, decisions, and owners.",
+    "requiredMcpIds": [
+      "slack"
+    ],
+    "popularityRank": 94,
+    "estimatedSetupMinutes": 5,
+    "prompt": "Create an automation that generates an async standup digest from Slack. Use the Slack MCP to search selected channels since the previous workday, group updates by project, call out blockers and decisions, and draft a message for a target channel. Ask me which channels to watch, what time to run, what timezone to use, and whether the digest should post automatically or wait for approval.",
+    "exampleImplementation": "Trigger: cron, weekday mornings\nRequired MCP: Slack\n\n1. Search configured channels for messages since the last digest window.\n2. Cluster updates into shipped work, active work, blockers, and decisions.\n3. TODO: choose a safe allowlist for channels and whether DMs are excluded.\n4. Draft a Slack message with owners, links, and unanswered questions.\n5. Optionally post to the configured standup channel."
+  },
+  {
+    "id": "linear-triage-assistant",
+    "name": "Linear issue triage assistant",
+    "category": "Project management",
+    "description": "Classify new Linear issues, suggest labels, find duplicates, and ask clarifying questions.",
+    "requiredMcpIds": [
+      "linear"
+    ],
+    "popularityRank": 90,
+    "estimatedSetupMinutes": 3,
+    "prompt": "Create an automation that triages new Linear issues. Use the Linear MCP to inspect the issue title, description, team, customer, priority, and recent related issues. Suggest labels, priority, likely owner, duplicates, and a clarifying comment. Ask me which teams/projects to include and whether updates should be applied directly or presented for approval.",
+    "exampleImplementation": "Trigger: linear Issue create\nRequired MCP: Linear\n\n1. Load the new issue, team context, project, labels, and recent similar issues.\n2. Score priority and classify the request as bug, feature, support, or chore.\n3. TODO: map local team labels and priority conventions.\n4. Add a triage comment with rationale and suggested next actions.\n5. Optionally update labels, priority, and assignee."
+  },
+  {
+    "id": "research-brief-writer",
+    "name": "Research brief writer",
+    "category": "Research",
+    "description": "Monitor a topic, gather sources from the web, and publish a short brief for your team.",
+    "requiredMcpIds": [
+      "tavily",
+      "notion"
+    ],
+    "popularityRank": 84,
+    "estimatedSetupMinutes": 7,
+    "prompt": "Create an automation that writes a recurring research brief. Use Tavily MCP for web research and Notion MCP to publish the final brief. Ask me for the topic, source quality rules, cadence, Notion destination, citation style, and any competitors or keywords to track.",
+    "exampleImplementation": "Trigger: cron, weekly or daily\nRequired MCPs: Tavily, Notion\n\n1. Run focused Tavily searches for configured topics and competitors.\n2. Deduplicate sources and rank them by freshness and authority.\n3. TODO: confirm citation format and destination Notion database schema.\n4. Write an executive summary, implications, and recommended actions.\n5. Create or update a Notion page with citations and source links."
+  },
+  {
+    "id": "incident-retrospective-drafter",
+    "name": "Incident retrospective drafter",
+    "category": "Reliability",
+    "description": "Collect incident chatter and issue updates, then draft a timeline and follow-up checklist.",
+    "requiredMcpIds": [
+      "slack",
+      "linear",
+      "notion"
+    ],
+    "popularityRank": 78,
+    "estimatedSetupMinutes": 8,
+    "prompt": "Create an automation that drafts incident retrospectives. Use Slack MCP to gather incident-channel messages, Linear MCP to collect linked tickets and follow-ups, and Notion MCP to publish a retrospective draft. Ask me how incidents are identified, which channels and Linear teams to inspect, and the desired retrospective template.",
+    "exampleImplementation": "Trigger: manual, cron, or incident label added\nRequired MCPs: Slack, Linear, Notion\n\n1. Gather incident messages, timestamps, and linked issue references.\n2. Pull Linear follow-up tickets, owners, and status.\n3. TODO: define the incident identifier format and approved Notion template.\n4. Build a timeline, impact summary, root-cause hypotheses, and action items.\n5. Publish a draft retrospective and notify the incident owner."
+  }
+]

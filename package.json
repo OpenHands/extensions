@@ -1,0 +1,37 @@
+{
+  "name": "@openhands/extensions",
+  "version": "0.0.0",
+  "description": "Public OpenHands extension catalogs for skills, plugins, MCPs, and automation templates.",
+  "license": "MIT",
+  "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/OpenHands/extensions"
+  },
+  "files": [
+    "automations",
+    "mcps",
+    "LICENSE",
+    "README.md"
+  ],
+  "exports": {
+    ".": {
+      "types": "./index.d.ts",
+      "import": "./index.js",
+      "default": "./index.js"
+    },
+    "./automations": {
+      "types": "./automations/index.d.ts",
+      "import": "./automations/index.js",
+      "default": "./automations/index.js"
+    },
+    "./automations/catalog.json": "./automations/catalog.json",
+    "./mcps": {
+      "types": "./mcps/index.d.ts",
+      "import": "./mcps/index.js",
+      "default": "./mcps/index.js"
+    },
+    "./mcps/catalog.json": "./mcps/catalog.json",
+    "./package.json": "./package.json"
+  }
+}
