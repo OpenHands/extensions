@@ -8,6 +8,9 @@
     "type": "git",
     "url": "https://github.com/OpenHands/extensions"
   },
+  "engines": {
+    "node": ">=18.20.0"
+  },
   "peerDependencies": {
     "lucide-react": ">=0.400.0",
     "react": ">=18.0.0",
