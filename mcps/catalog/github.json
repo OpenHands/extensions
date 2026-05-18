@@ -1,0 +1,33 @@
+{
+  "id": "github",
+  "name": "GitHub",
+  "description": "Search code, manage issues and pull requests, and inspect repos via the GitHub API.",
+  "docsUrl": "https://github.com/modelcontextprotocol/servers/tree/main/src/github",
+  "iconBg": "var(--oh-surface)",
+  "keywords": [
+    "git",
+    "pr",
+    "repo",
+    "issues",
+    "code"
+  ],
+  "popularityRank": 100,
+  "template": {
+    "kind": "stdio",
+    "serverName": "github",
+    "command": "npx",
+    "args": [
+      "-y",
+      "@modelcontextprotocol/server-github"
+    ],
+    "envFields": [
+      {
+        "key": "GITHUB_PERSONAL_ACCESS_TOKEN",
+        "label": "Personal access token",
+        "type": "password",
+        "placeholder": "github_pat_...",
+        "required": true
+      }
+    ]
+  }
+}

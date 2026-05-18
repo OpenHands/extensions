@@ -1,0 +1,34 @@
+{
+  "id": "git",
+  "name": "Git",
+  "description": "Local git repository operations: log, diff, blame, status, and more.",
+  "docsUrl": "https://github.com/modelcontextprotocol/servers/tree/main/src/git",
+  "iconBg": "#F1502F",
+  "availability": "local",
+  "keywords": [
+    "version control",
+    "log",
+    "diff",
+    "blame"
+  ],
+  "installHint": "Runs the official Python server via uvx — no setup beyond the path.",
+  "template": {
+    "kind": "stdio",
+    "serverName": "git",
+    "command": "uvx",
+    "args": [
+      "mcp-server-git",
+      "--repository"
+    ],
+    "argFields": [
+      {
+        "key": "repo_path",
+        "label": "Repository path",
+        "type": "text",
+        "placeholder": "/Users/me/code/my-repo",
+        "required": true,
+        "helperText": "Appended as --repository <path>."
+      }
+    ]
+  }
+}

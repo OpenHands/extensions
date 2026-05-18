@@ -1,0 +1,30 @@
+{
+  "id": "exa",
+  "name": "Exa",
+  "description": "Neural web search with semantic ranking, content extraction, and similar-page lookup.",
+  "docsUrl": "https://docs.exa.ai/reference/exa-mcp",
+  "iconBg": "var(--oh-surface)",
+  "keywords": [
+    "search",
+    "web",
+    "research",
+    "neural"
+  ],
+  "template": {
+    "kind": "stdio",
+    "serverName": "exa",
+    "command": "npx",
+    "args": [
+      "-y",
+      "exa-mcp-server"
+    ],
+    "envFields": [
+      {
+        "key": "EXA_API_KEY",
+        "label": "Exa API key",
+        "type": "password",
+        "required": true
+      }
+    ]
+  }
+}

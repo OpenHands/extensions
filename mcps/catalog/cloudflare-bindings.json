@@ -1,0 +1,20 @@
+{
+  "id": "cloudflare-bindings",
+  "name": "Cloudflare Workers Bindings",
+  "description": "Inspect and manage KV, D1, R2, and Durable Object bindings on your Cloudflare account.",
+  "docsUrl": "https://developers.cloudflare.com/agents/model-context-protocol/",
+  "iconBg": "#F38020",
+  "keywords": [
+    "cloudflare",
+    "workers",
+    "kv",
+    "d1",
+    "r2",
+    "durable objects"
+  ],
+  "template": {
+    "kind": "sse",
+    "url": "https://bindings.mcp.cloudflare.com/sse",
+    "apiKeyOptional": true
+  }
+}

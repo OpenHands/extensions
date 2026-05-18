@@ -1,0 +1,23 @@
+{
+  "id": "playwright",
+  "name": "Playwright",
+  "description": "Headless-browser automation backed by Microsoft Playwright.",
+  "docsUrl": "https://github.com/microsoft/playwright-mcp",
+  "iconBg": "#2EAD33",
+  "keywords": [
+    "browser",
+    "automation",
+    "e2e",
+    "testing",
+    "scrape"
+  ],
+  "template": {
+    "kind": "stdio",
+    "serverName": "playwright",
+    "command": "npx",
+    "args": [
+      "-y",
+      "@playwright/mcp"
+    ]
+  }
+}

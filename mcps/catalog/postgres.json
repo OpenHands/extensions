@@ -1,0 +1,32 @@
+{
+  "id": "postgres",
+  "name": "Postgres",
+  "description": "Read-only SQL queries and schema introspection against any Postgres database.",
+  "docsUrl": "https://github.com/modelcontextprotocol/servers/tree/main/src/postgres",
+  "iconBg": "#336791",
+  "availability": "local",
+  "keywords": [
+    "sql",
+    "database",
+    "postgresql"
+  ],
+  "template": {
+    "kind": "stdio",
+    "serverName": "postgres",
+    "command": "npx",
+    "args": [
+      "-y",
+      "@modelcontextprotocol/server-postgres"
+    ],
+    "argFields": [
+      {
+        "key": "connection_string",
+        "label": "Connection string",
+        "type": "password",
+        "placeholder": "postgresql://user:pass@host:5432/dbname",
+        "required": true,
+        "helperText": "Passed to the server as a single positional argument."
+      }
+    ]
+  }
+}

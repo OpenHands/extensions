@@ -1,0 +1,13 @@
+{
+  "id": "slack-standup-digest",
+  "name": "Slack standup digest",
+  "category": "Team updates",
+  "description": "Summarize yesterday’s Slack activity into an async standup note with blockers, decisions, and owners.",
+  "requiredMcpIds": [
+    "slack"
+  ],
+  "popularityRank": 94,
+  "estimatedSetupMinutes": 5,
+  "prompt": "Create an automation that generates an async standup digest from Slack. Use the Slack MCP to search selected channels since the previous workday, group updates by project, call out blockers and decisions, and draft a message for a target channel. Ask me which channels to watch, what time to run, what timezone to use, and whether the digest should post automatically or wait for approval.",
+  "exampleImplementation": "Trigger: cron, weekday mornings\nRequired MCP: Slack\n\n1. Search configured channels for messages since the last digest window.\n2. Cluster updates into shipped work, active work, blockers, and decisions.\n3. TODO: choose a safe allowlist for channels and whether DMs are excluded.\n4. Draft a Slack message with owners, links, and unanswered questions.\n5. Optionally post to the configured standup channel."
+}

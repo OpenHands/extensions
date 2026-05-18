@@ -1,0 +1,14 @@
+{
+  "id": "research-brief-writer",
+  "name": "Research brief writer",
+  "category": "Research",
+  "description": "Monitor a topic, gather sources from the web, and publish a short brief for your team.",
+  "requiredMcpIds": [
+    "tavily",
+    "notion"
+  ],
+  "popularityRank": 84,
+  "estimatedSetupMinutes": 7,
+  "prompt": "Create an automation that writes a recurring research brief. Use Tavily MCP for web research and Notion MCP to publish the final brief. Ask me for the topic, source quality rules, cadence, Notion destination, citation style, and any competitors or keywords to track.",
+  "exampleImplementation": "Trigger: cron, weekly or daily\nRequired MCPs: Tavily, Notion\n\n1. Run focused Tavily searches for configured topics and competitors.\n2. Deduplicate sources and rank them by freshness and authority.\n3. TODO: confirm citation format and destination Notion database schema.\n4. Write an executive summary, implications, and recommended actions.\n5. Create or update a Notion page with citations and source links."
+}

@@ -1,0 +1,29 @@
+{
+  "id": "everart",
+  "name": "EverArt",
+  "description": "Generate AI images via EverArt's image models.",
+  "docsUrl": "https://github.com/modelcontextprotocol/servers/tree/main/src/everart",
+  "iconBg": "#EC4899",
+  "keywords": [
+    "image",
+    "ai",
+    "generation"
+  ],
+  "template": {
+    "kind": "stdio",
+    "serverName": "everart",
+    "command": "npx",
+    "args": [
+      "-y",
+      "@modelcontextprotocol/server-everart"
+    ],
+    "envFields": [
+      {
+        "key": "EVERART_API_KEY",
+        "label": "EverArt API key",
+        "type": "password",
+        "required": true
+      }
+    ]
+  }
+}

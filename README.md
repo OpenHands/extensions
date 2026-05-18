@@ -29,6 +29,24 @@ They live under `plugins/`, **one directory per plugin**:
 
 Browse available plugins in [`plugins/`](plugins/).
 
+### NPM Package
+
+This repository also publishes catalog data through the `@openhands/extensions` package. It requires Node.js 18.20.0 or newer because the catalog entry points import JSON modules with import attributes.
+
+```js
+import { AUTOMATION_CATALOG, MCP_CATALOG } from "@openhands/extensions";
+import { MCP_CATALOG as MCP_MARKETPLACE } from "@openhands/extensions/mcps";
+import { AUTOMATION_CATALOG as RECOMMENDED_AUTOMATIONS } from "@openhands/extensions/automations";
+```
+
+React logo components are isolated behind a separate export so data-only consumers do not need React peer dependencies:
+
+```js
+import { MCP_LOGOS } from "@openhands/extensions/mcps/logos";
+```
+
+See [`mcps/README.md`](mcps/README.md) and [`automations/README.md`](automations/README.md) for catalog-specific details.
+
 ## Extensions Catalog
 
 <!-- BEGIN AUTO-GENERATED CATALOG -->

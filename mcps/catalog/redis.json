@@ -1,0 +1,32 @@
+{
+  "id": "redis",
+  "name": "Redis",
+  "description": "Get, set, scan, and inspect data on a Redis or Redis-compatible instance.",
+  "docsUrl": "https://github.com/modelcontextprotocol/servers/tree/main/src/redis",
+  "iconBg": "#DC382D",
+  "availability": "local",
+  "keywords": [
+    "cache",
+    "kv",
+    "database"
+  ],
+  "template": {
+    "kind": "stdio",
+    "serverName": "redis",
+    "command": "npx",
+    "args": [
+      "-y",
+      "@modelcontextprotocol/server-redis"
+    ],
+    "argFields": [
+      {
+        "key": "redis_url",
+        "label": "Redis URL",
+        "type": "password",
+        "placeholder": "redis://localhost:6379",
+        "required": true,
+        "helperText": "Passed as a single positional argument."
+      }
+    ]
+  }
+}

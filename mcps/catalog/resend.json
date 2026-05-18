@@ -1,0 +1,36 @@
+{
+  "id": "resend",
+  "name": "Resend",
+  "description": "Send transactional and marketing emails via the Resend API.",
+  "docsUrl": "https://resend.com/docs/send-with-mcp",
+  "iconBg": "var(--oh-surface-deep)",
+  "keywords": [
+    "email",
+    "transactional",
+    "smtp"
+  ],
+  "template": {
+    "kind": "stdio",
+    "serverName": "resend",
+    "command": "npx",
+    "args": [
+      "-y",
+      "mcp-send-email"
+    ],
+    "envFields": [
+      {
+        "key": "RESEND_API_KEY",
+        "label": "Resend API key",
+        "type": "password",
+        "required": true
+      },
+      {
+        "key": "SENDER_EMAIL_ADDRESS",
+        "label": "From address",
+        "type": "text",
+        "placeholder": "you@example.com",
+        "required": true
+      }
+    ]
+  }
+}

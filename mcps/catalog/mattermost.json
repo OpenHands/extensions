@@ -1,0 +1,37 @@
+{
+  "id": "mattermost",
+  "name": "Mattermost",
+  "description": "Post and read messages in self-hosted Mattermost workspaces.",
+  "docsUrl": "https://github.com/EvilFreelancer/mattermost-mcp-server",
+  "iconBg": "#0058CC",
+  "keywords": [
+    "chat",
+    "messaging",
+    "team",
+    "open source"
+  ],
+  "template": {
+    "kind": "stdio",
+    "serverName": "mattermost",
+    "command": "npx",
+    "args": [
+      "-y",
+      "mattermost-mcp-server"
+    ],
+    "envFields": [
+      {
+        "key": "MATTERMOST_URL",
+        "label": "Server URL",
+        "type": "text",
+        "placeholder": "https://mattermost.example.com",
+        "required": true
+      },
+      {
+        "key": "MATTERMOST_TOKEN",
+        "label": "Personal access token",
+        "type": "password",
+        "required": true
+      }
+    ]
+  }
+}

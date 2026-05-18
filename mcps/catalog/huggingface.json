@@ -1,0 +1,20 @@
+{
+  "id": "huggingface",
+  "name": "Hugging Face",
+  "description": "Search models, datasets, and Spaces on the Hugging Face Hub from your agent.",
+  "docsUrl": "https://huggingface.co/docs/hub/en/mcp",
+  "iconBg": "#FFD21E",
+  "iconColor": "#000000",
+  "keywords": [
+    "ml",
+    "models",
+    "datasets",
+    "ai",
+    "hub"
+  ],
+  "template": {
+    "kind": "shttp",
+    "url": "https://huggingface.co/mcp",
+    "apiKeyOptional": true
+  }
+}

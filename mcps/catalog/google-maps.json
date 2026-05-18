@@ -1,0 +1,30 @@
+{
+  "id": "google-maps",
+  "name": "Google Maps",
+  "description": "Geocoding, directions, places search, and distance matrix lookups.",
+  "docsUrl": "https://github.com/modelcontextprotocol/servers/tree/main/src/google-maps",
+  "iconBg": "#4285F4",
+  "keywords": [
+    "maps",
+    "geocode",
+    "directions",
+    "places"
+  ],
+  "template": {
+    "kind": "stdio",
+    "serverName": "google_maps",
+    "command": "npx",
+    "args": [
+      "-y",
+      "@modelcontextprotocol/server-google-maps"
+    ],
+    "envFields": [
+      {
+        "key": "GOOGLE_MAPS_API_KEY",
+        "label": "Google Maps API key",
+        "type": "password",
+        "required": true
+      }
+    ]
+  }
+}

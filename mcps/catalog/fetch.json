@@ -1,0 +1,21 @@
+{
+  "id": "fetch",
+  "name": "Fetch",
+  "description": "Plain HTTP fetcher: download a URL and convert HTML to readable markdown.",
+  "docsUrl": "https://github.com/modelcontextprotocol/servers/tree/main/src/fetch",
+  "iconBg": "var(--oh-interactive-hover)",
+  "keywords": [
+    "http",
+    "web",
+    "url",
+    "scrape"
+  ],
+  "template": {
+    "kind": "stdio",
+    "serverName": "fetch",
+    "command": "uvx",
+    "args": [
+      "mcp-server-fetch"
+    ]
+  }
+}

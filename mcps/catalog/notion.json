@@ -1,0 +1,33 @@
+{
+  "id": "notion",
+  "name": "Notion",
+  "description": "Read and edit Notion pages, databases, and blocks via Notion's MCP server.",
+  "docsUrl": "https://developers.notion.com/docs/mcp",
+  "iconBg": "#FFFFFF",
+  "iconColor": "#000000",
+  "keywords": [
+    "docs",
+    "notes",
+    "wiki",
+    "knowledge base"
+  ],
+  "popularityRank": 82,
+  "template": {
+    "kind": "stdio",
+    "serverName": "notion",
+    "command": "npx",
+    "args": [
+      "-y",
+      "@notionhq/notion-mcp-server"
+    ],
+    "envFields": [
+      {
+        "key": "NOTION_API_KEY",
+        "label": "Internal integration token",
+        "type": "password",
+        "placeholder": "ntn_...",
+        "required": true
+      }
+    ]
+  }
+}

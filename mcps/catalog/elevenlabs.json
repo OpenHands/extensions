@@ -1,0 +1,29 @@
+{
+  "id": "elevenlabs",
+  "name": "ElevenLabs",
+  "description": "Generate speech, clone voices, and transcribe audio via ElevenLabs.",
+  "docsUrl": "https://elevenlabs.io/docs/api-reference/mcp",
+  "iconBg": "var(--oh-color-base)",
+  "keywords": [
+    "tts",
+    "speech",
+    "voice",
+    "audio"
+  ],
+  "template": {
+    "kind": "stdio",
+    "serverName": "elevenlabs",
+    "command": "uvx",
+    "args": [
+      "elevenlabs-mcp"
+    ],
+    "envFields": [
+      {
+        "key": "ELEVENLABS_API_KEY",
+        "label": "ElevenLabs API key",
+        "type": "password",
+        "required": true
+      }
+    ]
+  }
+}

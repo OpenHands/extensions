@@ -1,0 +1,22 @@
+{
+  "id": "puppeteer",
+  "name": "Puppeteer",
+  "description": "Headless Chrome via Puppeteer — navigate, screenshot, and scrape pages.",
+  "docsUrl": "https://github.com/modelcontextprotocol/servers/tree/main/src/puppeteer",
+  "iconBg": "#40B5A4",
+  "keywords": [
+    "browser",
+    "automation",
+    "scrape",
+    "chrome"
+  ],
+  "template": {
+    "kind": "stdio",
+    "serverName": "puppeteer",
+    "command": "npx",
+    "args": [
+      "-y",
+      "@modelcontextprotocol/server-puppeteer"
+    ]
+  }
+}

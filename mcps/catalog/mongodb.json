@@ -1,0 +1,30 @@
+{
+  "id": "mongodb",
+  "name": "MongoDB",
+  "description": "Query MongoDB collections, inspect schemas, and run aggregation pipelines.",
+  "docsUrl": "https://www.mongodb.com/docs/mcp-server/",
+  "iconBg": "#00684A",
+  "keywords": [
+    "database",
+    "nosql",
+    "atlas"
+  ],
+  "template": {
+    "kind": "stdio",
+    "serverName": "mongodb",
+    "command": "npx",
+    "args": [
+      "-y",
+      "mongodb-mcp-server"
+    ],
+    "envFields": [
+      {
+        "key": "MDB_MCP_CONNECTION_STRING",
+        "label": "MongoDB connection string",
+        "type": "password",
+        "placeholder": "mongodb+srv://user:pass@cluster.mongodb.net",
+        "required": true
+      }
+    ]
+  }
+}

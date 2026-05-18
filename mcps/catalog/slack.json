@@ -1,0 +1,40 @@
+{
+  "id": "slack",
+  "name": "Slack",
+  "description": "Read channels, post messages, and search workspace history from your agent.",
+  "docsUrl": "https://github.com/modelcontextprotocol/servers/tree/main/src/slack",
+  "iconBg": "#4A154B",
+  "keywords": [
+    "chat",
+    "messaging",
+    "team"
+  ],
+  "popularityRank": 95,
+  "installHint": "Create a Slack app with the required scopes, then paste its bot token below.",
+  "template": {
+    "kind": "stdio",
+    "serverName": "slack",
+    "command": "npx",
+    "args": [
+      "-y",
+      "@modelcontextprotocol/server-slack"
+    ],
+    "envFields": [
+      {
+        "key": "SLACK_BOT_TOKEN",
+        "label": "Bot token",
+        "type": "password",
+        "placeholder": "xoxb-...",
+        "required": true
+      },
+      {
+        "key": "SLACK_TEAM_ID",
+        "label": "Team / Workspace ID",
+        "type": "text",
+        "placeholder": "T01234567",
+        "helperText": "Find this in Slack under Workspace settings → About this workspace.",
+        "required": true
+      }
+    ]
+  }
+}

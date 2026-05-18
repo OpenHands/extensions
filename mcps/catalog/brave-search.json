@@ -1,0 +1,28 @@
+{
+  "id": "brave-search",
+  "name": "Brave Search",
+  "description": "Privacy-first web and local search using the Brave Search API.",
+  "docsUrl": "https://github.com/modelcontextprotocol/servers/tree/main/src/brave-search",
+  "iconBg": "#FB542B",
+  "keywords": [
+    "search",
+    "web"
+  ],
+  "template": {
+    "kind": "stdio",
+    "serverName": "brave_search",
+    "command": "npx",
+    "args": [
+      "-y",
+      "@modelcontextprotocol/server-brave-search"
+    ],
+    "envFields": [
+      {
+        "key": "BRAVE_API_KEY",
+        "label": "Brave API key",
+        "type": "password",
+        "required": true
+      }
+    ]
+  }
+}

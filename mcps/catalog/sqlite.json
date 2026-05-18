@@ -1,0 +1,32 @@
+{
+  "id": "sqlite",
+  "name": "SQLite",
+  "description": "Open a SQLite database file and run queries, schema dumps, and explorations.",
+  "docsUrl": "https://github.com/modelcontextprotocol/servers/tree/main/src/sqlite",
+  "iconBg": "#003B57",
+  "availability": "local",
+  "keywords": [
+    "database",
+    "sql",
+    "local"
+  ],
+  "template": {
+    "kind": "stdio",
+    "serverName": "sqlite",
+    "command": "uvx",
+    "args": [
+      "mcp-server-sqlite",
+      "--db-path"
+    ],
+    "argFields": [
+      {
+        "key": "db_path",
+        "label": "Database file path",
+        "type": "text",
+        "placeholder": "/Users/me/my.db",
+        "required": true,
+        "helperText": "Appended as --db-path <path>."
+      }
+    ]
+  }
+}

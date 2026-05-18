@@ -1,0 +1,38 @@
+{
+  "id": "gitlab",
+  "name": "GitLab",
+  "description": "Search projects, browse merge requests, and update issues on GitLab.",
+  "docsUrl": "https://github.com/modelcontextprotocol/servers/tree/main/src/gitlab",
+  "iconBg": "#FC6D26",
+  "keywords": [
+    "git",
+    "mr",
+    "repo",
+    "issues",
+    "code"
+  ],
+  "template": {
+    "kind": "stdio",
+    "serverName": "gitlab",
+    "command": "npx",
+    "args": [
+      "-y",
+      "@modelcontextprotocol/server-gitlab"
+    ],
+    "envFields": [
+      {
+        "key": "GITLAB_PERSONAL_ACCESS_TOKEN",
+        "label": "Personal access token",
+        "type": "password",
+        "required": true
+      },
+      {
+        "key": "GITLAB_API_URL",
+        "label": "API URL (optional)",
+        "type": "text",
+        "placeholder": "https://gitlab.example.com/api/v4",
+        "helperText": "Leave blank to use gitlab.com."
+      }
+    ]
+  }
+}

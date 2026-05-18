@@ -1,0 +1,33 @@
+{
+  "id": "filesystem",
+  "name": "Filesystem",
+  "description": "Give the agent secure, scoped filesystem access outside the workspace.",
+  "docsUrl": "https://github.com/modelcontextprotocol/servers/tree/main/src/filesystem",
+  "iconBg": "var(--oh-interactive-hover)",
+  "availability": "local",
+  "keywords": [
+    "files",
+    "local",
+    "disk"
+  ],
+  "installHint": "Each path is exposed read/write. Add as many as you need, separated by spaces.",
+  "template": {
+    "kind": "stdio",
+    "serverName": "filesystem",
+    "command": "npx",
+    "args": [
+      "-y",
+      "@modelcontextprotocol/server-filesystem"
+    ],
+    "argFields": [
+      {
+        "key": "paths",
+        "label": "Paths (space separated)",
+        "type": "text",
+        "placeholder": "/Users/me/Documents /Users/me/Projects",
+        "required": true,
+        "helperText": "Each whitespace-separated token is appended as its own argument."
+      }
+    ]
+  }
+}

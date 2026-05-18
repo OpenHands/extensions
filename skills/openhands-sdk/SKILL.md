@@ -34,7 +34,7 @@ from openhands.tools.terminal import TerminalTool
 
 
 llm = LLM(
-    model=os.getenv("LLM_MODEL", "anthropic/claude-sonnet-4-5-20250929"),
+    model=os.getenv("LLM_MODEL", "gpt-5.5"),
     api_key=os.getenv("LLM_API_KEY"),
     base_url=os.getenv("LLM_BASE_URL", None),
 )
@@ -204,6 +204,7 @@ Source: [`examples/`](https://github.com/OpenHands/software-agent-sdk/tree/main/
 - [`12_settings_and_secrets_api.py`](https://github.com/OpenHands/software-agent-sdk/blob/main/examples/02_remote_agent_server/12_settings_and_secrets_api.py)
 - [`13_workspace_get_llm.py`](https://github.com/OpenHands/software-agent-sdk/blob/main/examples/02_remote_agent_server/13_workspace_get_llm.py)
 - [`hook_scripts`](https://github.com/OpenHands/software-agent-sdk/tree/main/examples/02_remote_agent_server/hook_scripts)
+- [`scripts`](https://github.com/OpenHands/software-agent-sdk/tree/main/examples/02_remote_agent_server/scripts)
 
 ### [`03_github_workflows/`](https://github.com/OpenHands/software-agent-sdk/tree/main/examples/03_github_workflows)
 
