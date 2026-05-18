@@ -36,6 +36,11 @@
       "import": "./mcps/index.js",
       "default": "./mcps/index.js"
     },
+    "./mcps/logos": {
+      "types": "./mcps/logos.d.ts",
+      "import": "./mcps/logos.js",
+      "default": "./mcps/logos.js"
+    },
     "./mcps/catalog/*.json": "./mcps/catalog/*.json",
     "./package.json": "./package.json"
   }

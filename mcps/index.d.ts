@@ -1,5 +1,3 @@
-import type { ReactNode } from "react";
-
 export type MarketplaceFieldType = "text" | "password";
 
 export interface MarketplaceField {
@@ -46,7 +44,4 @@ export interface McpCatalogEntry {
 }
 
 export const MCP_CATALOG: McpCatalogEntry[];
-export const MCP_FALLBACK_LOGO: ReactNode;
-export const MCP_LOGOS: Record<string, ReactNode>;
-export const MCP_LOGO_IDS: Set<string>;
 export default MCP_CATALOG;
