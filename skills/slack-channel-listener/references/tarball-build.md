@@ -99,7 +99,7 @@ curl -sS -X POST "${OPENHANDS_HOST}/api/automation/v1" \
   -H "Content-Type: application/json" \
   -d "{
     \"name\": \"Slack poll listener (#${CHANNEL_NAME})\",
-    \"trigger\": {\"type\": \"cron\", \"schedule\": \"*/2 * * * *\"},
+    \"trigger\": {\"type\": \"cron\", \"schedule\": \"* * * * *\"},
     \"tarball_path\": \"${tarball_path}\",
     \"entrypoint\": \"python agent_poll.py\",
     \"setup_script_path\": \"setup.sh\",

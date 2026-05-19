@@ -31,8 +31,9 @@ OpenHands Automations API.
 | `scripts/slack_client.py` | Thin wrappers over the Slack Web API: history, replies, postMessage, reactions, permalinks, user resolution. |
 | `scripts/prompt.py` | Turns a Slack event payload (or polled message) plus optional thread/channel context into the initial agent prompt. |
 | `scripts/agent_event.py` | Entrypoint for **push-mode** automations. Reads the Slack event from `AUTOMATION_EVENT_PAYLOAD`, runs the agent, posts the result back. |
-| `scripts/agent_poll.py` | Entrypoint for **poll-mode** automations. Scans matching messages since the last marker, runs the agent for each, posts the result back. |
-| `scripts/config.py` | Loads automation-level config (trigger phrases, channel scope, context options, reply behaviour) from environment variables. |
+| `scripts/agent_poll.py` | Entrypoint for **poll-mode** automations. Scans matching messages since the configured lookback, claims each via the state store, runs the agent, posts the result back. |
+| `scripts/state.py` | SQLite-backed `processed_messages` store at `$SLACK_STATE_DIR/slack-listener.sqlite3`. Used by poll-mode for idempotent claim/done/failed bookkeeping across cron runs. |
+| `scripts/config.py` | Loads automation-level config (trigger phrases, channel scope, context options, reply behaviour, state directory) from environment variables. |
 
 ## Configuration (environment variables read at runtime)
 
@@ -53,7 +54,8 @@ it creates the automation; users should not edit them by hand.
 | `SLACK_ACK_REACTION` | no (default `eyes`) | Reaction emoji posted when work starts (used by `thread+reaction`). |
 | `SLACK_DONE_REACTION` | no (default `white_check_mark`) | Reaction emoji posted on success. |
 | `SLACK_FAIL_REACTION` | no (default `warning`) | Reaction emoji posted on failure. |
-| `SLACK_POLL_LOOKBACK_MINUTES` | no (default `15`) | Poll mode only: how far back to search when no `ack` reaction is found. |
+| `SLACK_POLL_LOOKBACK_MINUTES` | no (default `15`) | Poll mode only: how far back the cron run scans for matching messages on each tick. Set comfortably above your cron interval. |
+| `SLACK_STATE_DIR` | no (default `/automation/storage/state`) | Poll mode only: directory holding `slack-listener.sqlite3`. Must survive across automation runs. If the path isn't writable, the script falls back to a tempdir and logs a warning (state will not persist). |
 
 ## How "post on idle" works
 

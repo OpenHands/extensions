@@ -1,12 +1,21 @@
 """Poll-mode entrypoint: cron-triggered scan for new matching messages.
 
 Designed for environments where the Slack Events API cannot reach the
-automation backend (developer laptops, corporate firewalls). Uses message
-reactions as persistent state: a message is "claimed" by adding the
-`ack_reaction` before processing and "completed" by adding the
-`done_reaction` (or `fail_reaction` on error). Already-claimed messages are
-skipped on subsequent runs, so this is safe to run more frequently than the
-agent itself takes to finish.
+automation backend (developer laptops, corporate firewalls). The script
+uses a small SQLite database at `$SLACK_STATE_DIR/slack-listener.sqlite3`
+to remember which messages it has already processed, so it can run as
+frequently as every minute without double-firing.
+
+Lifecycle per matching message:
+
+1. Read the message from `conversations.history` / `search.messages`.
+2. `state.claim(channel, ts)` - atomic INSERT OR IGNORE. If another
+   concurrent runner won the race, skip.
+3. (Optional) leave a `👀` reaction so humans can see something is in
+   flight - controlled by `SLACK_REPLY_MODE=thread+reaction`.
+4. Run the agent, post the threaded reply.
+5. `state.mark_done(...)` on success, `state.mark_failed(...)` on
+   exception. (Optional) leave a `✅` / `⚠️` reaction.
 """
 from __future__ import annotations
 
@@ -21,6 +30,7 @@ from agent_event import _final_assistant_text  # reuse the extraction logic
 from config import Config
 from prompt import Trigger, build_prompt
 from slack_client import SlackClient
+from state import Store
 
 log = logging.getLogger("slack_reply.poll")
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
@@ -29,45 +39,45 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name
 def main() -> int:
     cfg = Config.from_env()
     slack = SlackClient(cfg.bot_token)
-    self_id = (slack.auth_test() or {}).get("user_id", "")
-    if not self_id:
-        log.error("auth.test did not return a user_id; cannot use reaction-based state")
-        return 1
 
     oldest = _oldest_ts(cfg)
     candidates = _collect_candidates(cfg, slack, oldest)
-    log.info("found %d candidate message(s) older=%s", len(candidates), oldest)
+    log.info("found %d candidate message(s) since ts=%s", len(candidates), oldest)
 
     exit_code = 0
-    for trigger in candidates:
-        if slack.has_reaction_from_self(trigger.channel, trigger.ts, cfg.ack_reaction, self_id):
-            log.info("skipping %s/%s - already acknowledged", trigger.channel, trigger.ts)
-            continue
-        if slack.has_reaction_from_self(trigger.channel, trigger.ts, cfg.done_reaction, self_id):
-            log.info("skipping %s/%s - already completed", trigger.channel, trigger.ts)
-            continue
-
-        # Claim the message before doing any work. If another runner also
-        # tries to claim it, Slack returns `already_reacted` which we treat
-        # as a no-op - the loser will still see the reaction on its next
-        # `has_reaction_from_self` check.
-        slack.add_reaction(trigger.channel, trigger.ts, cfg.ack_reaction)
-
-        try:
-            _run_agent_and_reply(cfg, slack, trigger)
-            slack.add_reaction(trigger.channel, trigger.ts, cfg.done_reaction)
-        except Exception:  # noqa: BLE001
-            log.exception("agent run failed for %s/%s", trigger.channel, trigger.ts)
-            slack.add_reaction(trigger.channel, trigger.ts, cfg.fail_reaction)
-            if cfg.reply_mode != "none":
-                slack.post_thread_reply(
-                    trigger.channel,
-                    trigger.reply_thread_ts,
-                    ":warning: I hit an error while working on this. "
-                    "Check the automation run logs for details.\n"
-                    f"```{traceback.format_exc(limit=2)}```",
+    with Store() as store:
+        log.info("state dir: %s", store.path.parent)
+        for trigger in candidates:
+            if not store.claim(trigger.channel, trigger.ts):
+                existing = store.status_of(trigger.channel, trigger.ts)
+                log.info(
+                    "skipping %s/%s - already %s",
+                    trigger.channel, trigger.ts, existing or "claimed",
                 )
-            exit_code = 1
+                continue
+
+            if cfg.reply_mode == "thread+reaction":
+                slack.add_reaction(trigger.channel, trigger.ts, cfg.ack_reaction)
+
+            try:
+                _run_agent_and_reply(cfg, slack, trigger)
+                store.mark_done(trigger.channel, trigger.ts)
+                if cfg.reply_mode == "thread+reaction":
+                    slack.add_reaction(trigger.channel, trigger.ts, cfg.done_reaction)
+            except Exception as e:  # noqa: BLE001
+                log.exception("agent run failed for %s/%s", trigger.channel, trigger.ts)
+                store.mark_failed(trigger.channel, trigger.ts, repr(e))
+                if cfg.reply_mode == "thread+reaction":
+                    slack.add_reaction(trigger.channel, trigger.ts, cfg.fail_reaction)
+                if cfg.reply_mode != "none":
+                    slack.post_thread_reply(
+                        trigger.channel,
+                        trigger.reply_thread_ts,
+                        ":warning: I hit an error while working on this. "
+                        "Check the automation run logs for details.\n"
+                        f"```{traceback.format_exc(limit=2)}```",
+                    )
+                exit_code = 1
 
     return exit_code
 
