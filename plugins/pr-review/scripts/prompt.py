@@ -56,6 +56,8 @@ PROMPT = """{skill_trigger}
 
 When posting a review, keep the review body brief unless your active review instructions require a longer structured format.
 
+For dependency update PRs, do **NOT** approve a target version that was published less than 7 days ago.
+
 Review the PR changes below and identify issues that need to be addressed.
 
 ## Pull Request Information
