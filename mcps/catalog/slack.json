@@ -2,7 +2,7 @@
   "id": "slack",
   "name": "Slack",
   "description": "Read channels, post messages, and search workspace history from your agent.",
-  "docsUrl": "https://github.com/modelcontextprotocol/servers/tree/main/src/slack",
+  "docsUrl": "https://github.com/zencoderai/slack-mcp-server",
   "iconBg": "#4A154B",
   "keywords": [
     "chat",
@@ -17,7 +17,7 @@
     "command": "npx",
     "args": [
       "-y",
-      "@modelcontextprotocol/server-slack"
+      "@zencoderai/slack-mcp-server"
     ],
     "envFields": [
       {
