@@ -65,6 +65,13 @@ inputs:
             and the pr-review plugin skills.
         required: false
         default: 'true'
+    collect-feedback:
+        description: >
+            Post a short PR comment after the automated review asking
+            maintainers to rate the review with thumbs up/down reactions.
+            This does not change the review prompt or model output.
+        required: false
+        default: 'true'
     extensions-repo:
         description: GitHub repository for extensions (owner/repo)
         required: false
@@ -261,6 +268,39 @@ runs:
               cd pr-repo
               uv run --no-project --with "$OPENHANDS_SDK_PACKAGE" --with openhands-tools --with lmnr \
                 python ../extensions/plugins/pr-review/scripts/agent_script.py
+
+        - name: Post PR review feedback prompt
+          if: success() && inputs.collect-feedback == 'true'
+          shell: bash
+          env:
+              GITHUB_TOKEN: ${{ inputs.github-token }}
+              REPO_NAME: ${{ github.repository }}
+              PR_NUMBER: ${{ github.event.pull_request.number }}
+              RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          run: |
+              REVIEW_URL="$(gh api "repos/${REPO_NAME}/pulls/${PR_NUMBER}/reviews" --jq '.[-1].html_url // ""' 2>/dev/null || true)"
+              REVIEW_LINK="${REVIEW_URL:-the automated review above}"
+
+              BODY="$(printf '%s\n\n%s\n\n%s\n%s\n\n%s\n' \
+                '## OpenHands PR review feedback' \
+                'Was this automated review useful? React to this comment with 👍 or 👎 so we can analyze review quality.' \
+                "- Review: ${REVIEW_LINK}" \
+                "- Workflow run: ${RUN_URL}" \
+                '<!-- openhands-pr-review-feedback -->')"
+
+              if ! COMMENT_ID="$(
+                gh api \
+                  -X POST \
+                  "repos/${REPO_NAME}/issues/${PR_NUMBER}/comments" \
+                  -f body="$BODY" \
+                  --jq '.id'
+              )"; then
+                echo "Warning: failed to post PR review feedback prompt."
+                echo "If using GITHUB_TOKEN, add 'permissions: { issues: write }' to the workflow job."
+                exit 0
+              fi
+
+              echo "Posted PR review feedback prompt: ${COMMENT_ID}"
 
         - name: Upload logs as artifact
           uses: actions/upload-artifact@v4

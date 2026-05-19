@@ -37,6 +37,8 @@ from lmnr import Laminar, LaminarClient
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 logger = logging.getLogger(__name__)
 
+FEEDBACK_COMMENT_MARKER = "<!-- openhands-pr-review-feedback -->"
+
 
 def _get_required_env(name: str) -> str:
     """Get a required environment variable or raise an error."""
@@ -60,9 +62,12 @@ def _get_agent_usernames() -> set[str]:
     """Get the set of agent usernames to identify agent comments.
 
     Configurable via AGENT_USERNAMES environment variable (comma-separated).
-    Defaults to 'openhands-agent,all-hands-bot'.
+    Defaults to 'openhands-agent,all-hands-bot,github-actions[bot]'.
     """
-    usernames = os.getenv("AGENT_USERNAMES", "openhands-agent,all-hands-bot")
+    usernames = os.getenv(
+        "AGENT_USERNAMES",
+        "openhands-agent,all-hands-bot,github-actions[bot]",
+    )
     return set(name.strip() for name in usernames.split(",") if name.strip())
 
 
@@ -231,6 +236,33 @@ def extract_human_responses(
     return human_responses
 
 
+def extract_review_feedback(issue_comments: list[dict]) -> list[dict]:
+    """Extract thumbs-up/down feedback from OpenHands feedback comments."""
+    agent_users = _get_agent_usernames()
+    feedback = []
+
+    for comment in issue_comments:
+        if FEEDBACK_COMMENT_MARKER not in (comment.get("body") or ""):
+            continue
+        if comment.get("user", {}).get("login") not in agent_users:
+            continue
+
+        reactions = comment.get("reactions") or {}
+        thumbs_up = reactions.get("+1", 0) or 0
+        thumbs_down = reactions.get("-1", 0) or 0
+        feedback.append(
+            {
+                "comment_id": comment.get("id"),
+                "created_at": comment.get("created_at"),
+                "thumbs_up": thumbs_up,
+                "thumbs_down": thumbs_down,
+                "total": thumbs_up + thumbs_down,
+            }
+        )
+
+    return feedback
+
+
 def truncate_text(text: str, max_chars: int = 50000) -> str:
     """Truncate text to stay within reasonable API payload limits.
 
@@ -298,9 +330,11 @@ def fetch_pr_data(repo: str, pr_number: str) -> dict:
 
     agent_comments = extract_agent_comments(review_comments, issue_comments, reviews)
     human_responses = extract_human_responses(review_comments, issue_comments)
+    review_feedback = extract_review_feedback(issue_comments)
 
     logger.info(f"Agent made {len(agent_comments)} comments")
     logger.info(f"Humans made {len(human_responses)} responses")
+    logger.info(f"Found {len(review_feedback)} review feedback prompts")
 
     return {
         "review_comments": review_comments,
@@ -310,6 +344,7 @@ def fetch_pr_data(repo: str, pr_number: str) -> dict:
         "pr_info": pr_info,
         "agent_comments": agent_comments,
         "human_responses": human_responses,
+        "review_feedback": review_feedback,
     }
 
 
@@ -372,6 +407,7 @@ def create_evaluation_span(
         "original_trace_id": trace_info.get("trace_id"),
         "agent_comments": pr_data["agent_comments"],
         "human_responses": pr_data["human_responses"],
+        "review_feedback": pr_data["review_feedback"],
         "final_diff": truncate_text(pr_data["final_diff"]),
         "total_review_comments": len(pr_data["review_comments"]),
         "total_issue_comments": len(pr_data["issue_comments"]),
@@ -398,6 +434,7 @@ def create_evaluation_span(
             "merged": pr_merged,
             "agent_comments_count": len(pr_data["agent_comments"]),
             "human_responses_count": len(pr_data["human_responses"]),
+            "review_feedback": pr_data["review_feedback"],
             "diff_length": len(pr_data["final_diff"]),
         }
         logger.info(f"Evaluation summary: {json.dumps(summary)}")
@@ -439,6 +476,7 @@ def main(trace_file_path: str | None = None):
     original_trace_id = trace_info.get("trace_id")
     agent_comments = pr_data["agent_comments"]
     human_responses = pr_data["human_responses"]
+    review_feedback = pr_data["review_feedback"]
 
     # Score engagement on the original trace for immediate feedback
     if original_trace_id:
@@ -456,6 +494,7 @@ def main(trace_file_path: str | None = None):
                     "agent_comments": len(agent_comments),
                     "human_responses": len(human_responses),
                     "pr_merged": pr_merged,
+                    "review_feedback": review_feedback,
                     "score_type": "engagement",
                 },
             )
@@ -476,6 +515,10 @@ def main(trace_file_path: str | None = None):
     print(f"Merged: {pr_merged}")
     print(f"Agent Comments: {len(agent_comments)}")
     print(f"Human Responses: {len(human_responses)}")
+    if review_feedback:
+        thumbs_up = sum(item["thumbs_up"] for item in review_feedback)
+        thumbs_down = sum(item["thumbs_down"] for item in review_feedback)
+        print(f"Review Feedback: 👍 {thumbs_up} / 👎 {thumbs_down}")
     if original_trace_id:
         print(f"Original Review Trace: {original_trace_id}")
     if eval_trace_id:
