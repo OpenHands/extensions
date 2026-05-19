@@ -83,7 +83,7 @@ curl -X POST "${OPENHANDS_HOST}/api/automation/v1" \
       \"filter\": \"event.channel == '${CHANNEL_ID}' && (icontains(event.text, '${PHRASE1}') || icontains(event.text, '${PHRASE2}')) && !event.bot_id\"
     },
     \"tarball_path\": \"${TARBALL_PATH}\",
-    \"entrypoint\": \"python agent_event.py\",
+    \"entrypoint\": \"bash run.sh agent_event.py\",
     \"setup_script_path\": \"setup.sh\",
     \"timeout\": 600,
     \"env\": {

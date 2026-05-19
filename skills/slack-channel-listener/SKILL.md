@@ -104,8 +104,8 @@ tarball.
 Build a custom-automation tarball that contains the contents of
 `plugins/slack-reply/scripts/`. The entrypoint is:
 
-- Push mode: `python agent_event.py`, setup `setup.sh`, trigger `event`.
-- Poll mode: `python agent_poll.py`, setup `setup.sh`, trigger `cron`.
+- Push mode: `bash run.sh agent_event.py`, setup `setup.sh`, trigger `event`.
+- Poll mode: `bash run.sh agent_poll.py`, setup `setup.sh`, trigger `cron`.
 
 See `references/tarball-build.md` for the full step-by-step (fetch the
 plugin from this repo, tar it up, upload, then create the automation).

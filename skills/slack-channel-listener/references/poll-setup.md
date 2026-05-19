@@ -81,7 +81,7 @@ curl -X POST "${OPENHANDS_HOST}/api/automation/v1" \
       \"timezone\": \"UTC\"
     },
     \"tarball_path\": \"${TARBALL_PATH}\",
-    \"entrypoint\": \"python agent_poll.py\",
+    \"entrypoint\": \"bash run.sh agent_poll.py\",
     \"setup_script_path\": \"setup.sh\",
     \"enable_kv_store\": true,
     \"timeout\": 600,

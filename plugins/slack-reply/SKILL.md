@@ -27,7 +27,8 @@ OpenHands Automations API.
 
 | File | Purpose |
 |---|---|
-| `scripts/setup.sh` | Installs `uv`, the OpenHands SDK, and `slack_sdk` in the automation sandbox. |
+| `scripts/setup.sh` | Installs `uv`, creates a venv at `$HOME/.venvs/slack-listener`, and installs the OpenHands SDK + `slack_sdk` into that venv. Avoids the system Python because the automation sandbox runs as an unprivileged user and `/usr/local/lib/pythonX.Y/site-packages` is root-owned. |
+| `scripts/run.sh` | Entrypoint wrapper. Invoked as `bash run.sh agent_event.py` (push) or `bash run.sh agent_poll.py` (poll); execs the venv's python on the named script. |
 | `scripts/slack_client.py` | Thin wrappers over the Slack Web API: history, replies, postMessage, reactions, permalinks, user resolution. |
 | `scripts/prompt.py` | Turns a Slack event payload (or polled message) plus optional thread/channel context into the initial agent prompt. |
 | `scripts/agent_event.py` | Entrypoint for **push-mode** automations. Reads the Slack event from `AUTOMATION_EVENT_PAYLOAD`, runs the agent, posts the result back. |

@@ -42,7 +42,8 @@ the `setup.sh` script alongside it. Flatten:
 stage=$(mktemp -d)
 cp plugins/slack-reply/scripts/*.py "$stage/"
 cp plugins/slack-reply/scripts/setup.sh "$stage/"
-chmod +x "$stage/setup.sh"
+cp plugins/slack-reply/scripts/run.sh "$stage/"
+chmod +x "$stage/setup.sh" "$stage/run.sh"
 
 # Sanity check
 ( cd "$stage" && python3 -m py_compile ./*.py )
@@ -51,6 +52,14 @@ chmod +x "$stage/setup.sh"
 tar -czf slack-listener.tar.gz -C "$stage" .
 ls -lh slack-listener.tar.gz   # must be < 1 MB
 ```
+
+`setup.sh` creates a dedicated virtualenv at `$HOME/.venvs/slack-listener`
+and installs `openhands-sdk`, `openhands-workspace`, `openhands-tools`,
+and `slack_sdk` into it. The companion `run.sh` invokes that venv's
+python on the right entrypoint script. The system Python is never
+written to - this is required because the automation sandbox runs as an
+unprivileged user and `/usr/local/lib/pythonX.Y/site-packages` is
+root-owned.
 
 ## 3. Upload
 
@@ -84,7 +93,7 @@ curl -sS -X POST "${OPENHANDS_HOST}/api/automation/v1" \
       \"filter\": \"event.channel == '${CHANNEL_ID}' && icontains(event.text, '${PHRASE}') && !event.bot_id\"
     },
     \"tarball_path\": \"${tarball_path}\",
-    \"entrypoint\": \"python agent_event.py\",
+    \"entrypoint\": \"bash run.sh agent_event.py\",
     \"setup_script_path\": \"setup.sh\",
     \"timeout\": 600,
     \"env\": { ... }
@@ -101,7 +110,7 @@ curl -sS -X POST "${OPENHANDS_HOST}/api/automation/v1" \
     \"name\": \"Slack poll listener (#${CHANNEL_NAME})\",
     \"trigger\": {\"type\": \"cron\", \"schedule\": \"* * * * *\"},
     \"tarball_path\": \"${tarball_path}\",
-    \"entrypoint\": \"python agent_poll.py\",
+    \"entrypoint\": \"bash run.sh agent_poll.py\",
     \"setup_script_path\": \"setup.sh\",
     \"enable_kv_store\": true,
     \"timeout\": 600,
