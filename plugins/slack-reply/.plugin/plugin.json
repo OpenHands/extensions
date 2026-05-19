@@ -1,0 +1,13 @@
+{
+  "name": "slack-reply",
+  "version": "0.1.0",
+  "description": "Custom-automation building blocks for Slack-triggered OpenHands conversations: prompt assembly from Slack events, Slack API helpers, and an on-finish threaded reply.",
+  "author": {
+    "name": "OpenHands",
+    "email": "contact@all-hands.dev"
+  },
+  "homepage": "https://github.com/OpenHands/extensions",
+  "repository": "https://github.com/OpenHands/extensions",
+  "license": "MIT",
+  "keywords": ["slack", "automation", "reply", "thread", "webhook", "poll"]
+}
