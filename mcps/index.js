@@ -12,7 +12,6 @@ import cloudflare_bindings from "./catalog/cloudflare-bindings.json" with { type
 import cloudflare_observability from "./catalog/cloudflare-observability.json" with { type: "json" };
 import huggingface from "./catalog/huggingface.json" with { type: "json" };
 import deepwiki from "./catalog/deepwiki.json" with { type: "json" };
-import gitlab from "./catalog/gitlab.json" with { type: "json" };
 import git from "./catalog/git.json" with { type: "json" };
 import brave_search from "./catalog/brave-search.json" with { type: "json" };
 import exa from "./catalog/exa.json" with { type: "json" };
@@ -21,14 +20,10 @@ import apify from "./catalog/apify.json" with { type: "json" };
 import fetch from "./catalog/fetch.json" with { type: "json" };
 import browser_mcp from "./catalog/browser-mcp.json" with { type: "json" };
 import playwright from "./catalog/playwright.json" with { type: "json" };
-import puppeteer from "./catalog/puppeteer.json" with { type: "json" };
-import google_maps from "./catalog/google-maps.json" with { type: "json" };
-import postgres from "./catalog/postgres.json" with { type: "json" };
 import supabase from "./catalog/supabase.json" with { type: "json" };
 import neon from "./catalog/neon.json" with { type: "json" };
 import mongodb from "./catalog/mongodb.json" with { type: "json" };
 import redis from "./catalog/redis.json" with { type: "json" };
-import sqlite from "./catalog/sqlite.json" with { type: "json" };
 import filesystem from "./catalog/filesystem.json" with { type: "json" };
 import memory from "./catalog/memory.json" with { type: "json" };
 import sequential_thinking from "./catalog/sequential-thinking.json" with { type: "json" };
@@ -59,7 +54,6 @@ export const MCP_CATALOG = [
   cloudflare_observability,
   huggingface,
   deepwiki,
-  gitlab,
   git,
   brave_search,
   exa,
@@ -68,14 +62,10 @@ export const MCP_CATALOG = [
   fetch,
   browser_mcp,
   playwright,
-  puppeteer,
-  google_maps,
-  postgres,
   supabase,
   neon,
   mongodb,
   redis,
-  sqlite,
   filesystem,
   memory,
   sequential_thinking,
