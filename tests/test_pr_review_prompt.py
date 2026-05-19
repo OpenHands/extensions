@@ -92,6 +92,13 @@ def test_format_prompt_uses_standard_prompt_by_default():
     assert "Analyze the changes and post your review" in prompt
 
 
+def test_format_prompt_includes_dependency_age_guard():
+    prompt = _format_prompt(require_evidence=False)
+
+    assert "published less than 7 days ago" in prompt
+    assert "do **NOT** approve" in prompt
+
+
 def test_format_prompt_appends_delegation_suffix_when_enabled():
     prompt = _format_prompt(require_evidence=False, use_sub_agents=True)
 

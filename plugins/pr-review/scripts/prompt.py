@@ -56,6 +56,8 @@ PROMPT = """{skill_trigger}
 
 When posting a review, keep the review body brief unless your active review instructions require a longer structured format.
 
+If the PR adds or updates dependencies, do **NOT** approve it when any target version was published less than 7 days ago. Use the active code-review skill's supply-chain checklist before approving older dependency updates.
+
 Review the PR changes below and identify issues that need to be addressed.
 
 ## Pull Request Information
