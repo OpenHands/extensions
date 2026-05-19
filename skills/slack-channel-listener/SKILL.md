@@ -81,11 +81,13 @@ You will need:
 
 - A Slack **bot token** (`xoxb-...`) with scopes:
   - `chat:write` - to post the reply.
-  - `reactions:read`, `reactions:write` - to mark progress (and, in poll
-    mode, for the reaction-based state machine).
   - `channels:history` - to read public channel messages.
   - `groups:history` - if monitoring private channels.
   - `users:read` - if `resolve_user_ids` is enabled (default on).
+  - `reactions:write` - **only** if `reply_mode=thread+reaction` (which
+    decorates the triggering message with 👀 / ✅ for visual feedback).
+    Not required for the default `thread` mode - state is persisted via
+    the platform KV store (or SQLite fallback), not reactions.
 - For push mode: a Slack **signing secret** and a Slack app with Event
   Subscriptions enabled. Walkthrough: `references/push-setup.md`.
 - For poll mode with `scope=all-accessible`: a Slack **user token**

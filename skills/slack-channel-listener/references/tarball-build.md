@@ -103,6 +103,7 @@ curl -sS -X POST "${OPENHANDS_HOST}/api/automation/v1" \
     \"tarball_path\": \"${tarball_path}\",
     \"entrypoint\": \"python agent_poll.py\",
     \"setup_script_path\": \"setup.sh\",
+    \"enable_kv_store\": true,
     \"timeout\": 600,
     \"env\": { ... }
   }"

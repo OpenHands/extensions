@@ -30,7 +30,7 @@ from agent_event import _final_assistant_text  # reuse the extraction logic
 from config import Config
 from prompt import Trigger, build_prompt
 from slack_client import SlackClient
-from state import Store
+from state import get_store
 
 log = logging.getLogger("slack_reply.poll")
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
@@ -45,8 +45,22 @@ def main() -> int:
     log.info("found %d candidate message(s) since ts=%s", len(candidates), oldest)
 
     exit_code = 0
-    with Store() as store:
-        log.info("state dir: %s", store.path.parent)
+    with get_store() as store:
+        # Drop entries older than twice the lookback window. Bounds the
+        # KVApiStore document size (which is capped at 64 KB) and keeps
+        # SQLite tidy. Anything older than 2x lookback can't possibly be
+        # rediscovered by a future poll so we lose nothing.
+        prune_cutoff = (
+            datetime.now(tz=timezone.utc)
+            - timedelta(minutes=cfg.poll_lookback_minutes * 2)
+        ).isoformat(timespec="seconds")
+        try:
+            removed = store.prune_older_than(prune_cutoff)
+            if removed:
+                log.info("pruned %d state entries older than %s", removed, prune_cutoff)
+        except Exception:  # noqa: BLE001
+            log.warning("state prune failed; continuing", exc_info=True)
+
         for trigger in candidates:
             if not store.claim(trigger.channel, trigger.ts):
                 existing = store.status_of(trigger.channel, trigger.ts)

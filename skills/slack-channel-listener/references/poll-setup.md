@@ -7,27 +7,43 @@ automation runs on a schedule and polls Slack via outbound HTTPS.
 
 ## How it stays correct across runs
 
-The script uses a **small SQLite database** as the source of truth for
-"have I already processed this message?". For each matching message it
-finds:
+The script uses a small state store - `state.Store` in
+`plugins/slack-reply` - to remember which `(channel, ts)` pairs it has
+already handled. Two backends are bundled and the script picks one
+automatically:
 
-1. `state.claim(channel, ts)` does an `INSERT OR IGNORE` into
-   `processed_messages`. If a row already exists, this call returns
-   `False` and the message is skipped - either another concurrent runner
-   has it in flight or a previous run completed it.
+1. **Platform KV store** (preferred). When `AUTOMATION_KV_TOKEN` is
+   injected by the dispatcher (which happens iff the automation was
+   created with `enable_kv_store: true` and the runtime ships
+   [OpenHands/automation#69](https://github.com/OpenHands/automation/pull/69)),
+   state lives in the platform's per-automation KV store. One JSON
+   document holds the whole set; mutations use optimistic concurrency
+   (`?if_version=N`) with jittered exponential backoff on 409. No mounted
+   filesystem state, encrypted at rest, free on Cloud and self-hosted.
+2. **SQLite fallback**. When the KV token isn't present, state is
+   persisted in `$SLACK_STATE_DIR/slack-listener.sqlite3` (default
+   `$SLACK_STATE_DIR = /automation/storage/state`). The directory must
+   survive across automation runs. If the path is missing or not writable
+   the script falls back further to a tempdir and logs a warning - state
+   will be lost between sandbox restarts in that mode and the script will
+   re-process recent messages.
+
+Either way, the script's claim/run/finish flow is the same:
+
+1. `store.claim(channel, ts)` atomically records the message as
+   `claimed`. If another concurrent runner already claimed it, or a
+   previous run completed it, `claim()` returns `False` and the message
+   is skipped.
 2. Run the agent.
-3. On success, `state.mark_done(...)` updates the row's `status` to
-   `done` and stamps `finished_at`. On exception,
-   `state.mark_failed(channel, ts, error)` records the error.
+3. On success, `store.mark_done(...)`. On exception, `store.mark_failed(
+   channel, ts, error)`.
 
-The database lives at `$SLACK_STATE_DIR/slack-listener.sqlite3`
-(default `$SLACK_STATE_DIR = /automation/storage/state`). This directory
-must survive across automation runs - point it at whatever persistent
-mount your runtime provides. If the path is missing or not writable the
-script falls back to a tempdir and logs a warning; this is acceptable
-for first-run dogfooding, but state will be lost between sandbox
-restarts in that mode (the script will re-process recent messages and
-double-reply).
+At the start of each run the script also calls
+`store.prune_older_than(...)` to drop entries older than twice the
+lookback window. This bounds the KV document size (the platform caps
+state at 64 KB per automation) and keeps the SQLite file from growing
+without bound. Anything older than `2 x SLACK_POLL_LOOKBACK_MINUTES`
+cannot be rediscovered by a future poll, so pruning loses nothing.
 
 Reactions are still available as **opt-in visual UX** via
 `SLACK_REPLY_MODE=thread+reaction` - they leave a 👀 on start and a ✅
@@ -67,6 +83,7 @@ curl -X POST "${OPENHANDS_HOST}/api/automation/v1" \
     \"tarball_path\": \"${TARBALL_PATH}\",
     \"entrypoint\": \"python agent_poll.py\",
     \"setup_script_path\": \"setup.sh\",
+    \"enable_kv_store\": true,
     \"timeout\": 600,
     \"env\": {
       \"SLACK_BOT_TOKEN\": \"xoxb-...\",
@@ -106,12 +123,29 @@ up. To force a backfill, temporarily increase
 `SLACK_POLL_LOOKBACK_MINUTES` (PATCH the automation), dispatch a manual
 run, then revert.
 
-## Inspecting the state database
+## Inspecting state
 
-The SQLite file is plain on disk; you can `sqlite3
-$SLACK_STATE_DIR/slack-listener.sqlite3 'SELECT * FROM processed_messages
-ORDER BY claimed_at DESC LIMIT 20'` to see recent processing history,
-including any failures and their stored error messages.
+**KV backend.** Use the platform KV API directly:
+
+```bash
+curl -H "Authorization: Bearer $AUTOMATION_KV_TOKEN" \
+  "$AUTOMATION_API_URL/v1/kv/slack_listener_state?meta=true" | jq .
+```
+
+You'll get the entire `{<channel>:<ts>: {status, claimed_at, finished_at,
+error}}` document plus the current `$version`.
+
+**SQLite backend.** The file is plain on disk:
+
+```bash
+sqlite3 $SLACK_STATE_DIR/slack-listener.sqlite3 \
+  'SELECT * FROM processed_messages ORDER BY claimed_at DESC LIMIT 20'
+```
+
+In either case the script logs which backend it selected at the start of
+each run (`state backend: KVApiStore (...)` or `state backend:
+SQLiteStore (...)`) so it's unambiguous which view is authoritative for a
+given automation.
 
 ## Disambiguating from push mode
 
