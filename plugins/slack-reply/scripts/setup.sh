@@ -15,7 +15,15 @@ fi
 
 VENV="${SLACK_LISTENER_VENV:-$HOME/.venvs/slack-listener}"
 mkdir -p "$(dirname "$VENV")"
-uv venv "$VENV"
+
+# Idempotent: the automation sandbox is reused across runs (cron ticks
+# share state), and `uv venv` errors out if the target already exists.
+# Only create the venv if it isn't already there; the install step
+# below is itself idempotent (uv pip install is a no-op when versions
+# match) and will pull in any upgrades on subsequent runs.
+if [ ! -x "$VENV/bin/python" ]; then
+  uv venv "$VENV"
+fi
 
 uv pip install --python "$VENV/bin/python" -q \
   openhands-sdk \
