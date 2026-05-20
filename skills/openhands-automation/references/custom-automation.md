@@ -326,7 +326,11 @@ mkdir my-automation && cd my-automation
 cat > setup.sh << 'EOF'
 #!/bin/bash
 set -e
-pip install -q openhands-sdk openhands-workspace openhands-tools
+uv venv .venv --quiet
+uv pip install --quiet \
+  openhands-sdk \
+  openhands-workspace \
+  openhands-tools
 EOF
 chmod +x setup.sh
 
@@ -381,7 +385,7 @@ curl -X POST "${OPENHANDS_HOST}/api/automation/v1" \
     \"name\": \"Weekly Report Generator\",
     \"trigger\": {\"type\": \"cron\", \"schedule\": \"0 9 * * 1\", \"timezone\": \"UTC\"},
     \"tarball_path\": \"$TARBALL_PATH\",
-    \"entrypoint\": \"python main.py\",
+    \"entrypoint\": \".venv/bin/python main.py\",
     \"setup_script_path\": \"setup.sh\",
     \"timeout\": 300
   }"
