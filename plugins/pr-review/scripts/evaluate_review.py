@@ -39,6 +39,35 @@ logger = logging.getLogger(__name__)
 
 FEEDBACK_COMMENT_MARKER = "<!-- openhands-pr-review-feedback -->"
 
+REVIEWS_QUERY = """
+query($owner: String!, $repo: String!, $pr_number: Int!, $cursor: String) {
+  repository(owner: $owner, name: $repo) {
+    pullRequest(number: $pr_number) {
+      reviews(first: 100, after: $cursor) {
+        pageInfo {
+          hasNextPage
+          endCursor
+        }
+        nodes {
+          id
+          body
+          state
+          submittedAt
+          author { login }
+          reactionGroups {
+            content
+            users {
+              totalCount
+            }
+          }
+        }
+      }
+    }
+  }
+}
+"""
+
+
 
 def _get_required_env(name: str) -> str:
     """Get a required environment variable or raise an error."""
@@ -106,16 +135,95 @@ def fetch_pr_issue_comments(repo: str, pr_number: str) -> list[dict]:
         return []
 
 
-def fetch_pr_reviews(repo: str, pr_number: str) -> list[dict]:
-    """Fetch all reviews on a PR (approve, request changes, comment)."""
-    url = f"https://api.github.com/repos/{repo}/pulls/{pr_number}/reviews"
-    request = urllib.request.Request(url, headers=_get_github_headers())
+def _call_github_graphql(query: str, variables: dict) -> dict:
+    """Execute a GitHub GraphQL query and return the `data` payload."""
+    request = urllib.request.Request(
+        "https://api.github.com/graphql",
+        headers=_get_github_headers(),
+        method="POST",
+        data=json.dumps({"query": query, "variables": variables}).encode("utf-8"),
+    )
+    request.add_header("Content-Type", "application/json")
     try:
         with urllib.request.urlopen(request, timeout=60) as response:
-            return json.loads(response.read().decode("utf-8"))
+            payload = json.loads(response.read().decode("utf-8"))
     except urllib.error.HTTPError as e:
-        _handle_github_api_error(e, "fetch reviews")
-        return []
+        _handle_github_api_error(e, "fetch GraphQL data")
+        return {}
+
+    if payload.get("errors"):
+        logger.error("GitHub GraphQL returned errors: %s", payload["errors"])
+        return {}
+
+    return payload.get("data") or {}
+
+
+def _normalize_review_reactions(reaction_groups: list[dict] | None) -> dict[str, int]:
+    """Map GraphQL reaction groups to GitHub-style thumbs-up/down counters."""
+    thumbs_up = 0
+    thumbs_down = 0
+
+    for group in reaction_groups or []:
+        total_count = ((group.get("users") or {}).get("totalCount")) or 0
+        content = group.get("content")
+        if content == "THUMBS_UP":
+            thumbs_up = total_count
+        elif content == "THUMBS_DOWN":
+            thumbs_down = total_count
+
+    return {
+        "+1": thumbs_up,
+        "-1": thumbs_down,
+        "total_count": thumbs_up + thumbs_down,
+    }
+
+
+def fetch_pr_reviews(repo: str, pr_number: str) -> list[dict]:
+    """Fetch all reviews on a PR, including thumbs-up/down reaction counts."""
+    owner, repo_name = repo.split("/", 1)
+    reviews = []
+    cursor = None
+
+    while True:
+        data = _call_github_graphql(
+            REVIEWS_QUERY,
+            {
+                "owner": owner,
+                "repo": repo_name,
+                "pr_number": int(pr_number),
+                "cursor": cursor,
+            },
+        )
+        reviews_data = (
+            data.get("repository", {})
+            .get("pullRequest", {})
+            .get("reviews", {})
+        )
+        nodes = reviews_data.get("nodes") or []
+
+        for review in nodes:
+            author = review.get("author") or {}
+            reviews.append(
+                {
+                    "id": review.get("id"),
+                    "user": {"login": author.get("login")},
+                    "body": review.get("body") or "",
+                    "state": review.get("state"),
+                    "submitted_at": review.get("submittedAt"),
+                    "reactions": _normalize_review_reactions(
+                        review.get("reactionGroups")
+                    ),
+                }
+            )
+
+        page_info = reviews_data.get("pageInfo") or {}
+        if not page_info.get("hasNextPage"):
+            break
+        cursor = page_info.get("endCursor")
+        if not cursor:
+            break
+
+    return reviews
 
 
 def fetch_pr_diff(repo: str, pr_number: str) -> str:
@@ -236,12 +344,14 @@ def extract_human_responses(
     return human_responses
 
 
-def extract_review_feedback(issue_comments: list[dict]) -> list[dict]:
-    """Extract thumbs-up/down feedback from OpenHands feedback comments."""
+def extract_review_feedback(
+    issue_comments: list[dict], reviews: list[dict] | None = None
+) -> list[dict]:
+    """Extract thumbs-up/down feedback from review bodies or legacy comments."""
     agent_users = _get_agent_usernames()
     feedback = []
 
-    for comment in issue_comments:
+    for comment in [*issue_comments, *(reviews or [])]:
         if FEEDBACK_COMMENT_MARKER not in (comment.get("body") or ""):
             continue
         if comment.get("user", {}).get("login") not in agent_users:
@@ -253,7 +363,8 @@ def extract_review_feedback(issue_comments: list[dict]) -> list[dict]:
         feedback.append(
             {
                 "comment_id": comment.get("id"),
-                "created_at": comment.get("created_at"),
+                "created_at": comment.get("created_at")
+                or comment.get("submitted_at"),
                 "thumbs_up": thumbs_up,
                 "thumbs_down": thumbs_down,
                 "total": thumbs_up + thumbs_down,
@@ -330,7 +441,7 @@ def fetch_pr_data(repo: str, pr_number: str) -> dict:
 
     agent_comments = extract_agent_comments(review_comments, issue_comments, reviews)
     human_responses = extract_human_responses(review_comments, issue_comments)
-    review_feedback = extract_review_feedback(issue_comments)
+    review_feedback = extract_review_feedback(issue_comments, reviews)
 
     logger.info(f"Agent made {len(agent_comments)} comments")
     logger.info(f"Humans made {len(human_responses)} responses")
