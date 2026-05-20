@@ -232,9 +232,9 @@ from openhands.sdk import Conversation
 from openhands.tools.preset.default import get_default_agent
 from openhands.workspace import OpenHandsCloudWorkspace
 
-# Environment variables are automatically injected by the dispatcher
-api_key = os.environ["OPENHANDS_API_KEY"]
-api_url = os.environ["OPENHANDS_CLOUD_API_URL"]
+# The API key and server URL each have two names depending on the deployment.
+api_key = os.environ.get("SESSION_API_KEY") or os.environ.get("OH_SESSION_API_KEYS_0", "")
+api_url = os.environ.get("RUNTIME_URL") or os.environ.get("OH_INTERNAL_SERVER_URL", "")
 
 # Use OpenHandsCloudWorkspace to connect to your OpenHands Cloud account
 with OpenHandsCloudWorkspace(
@@ -290,13 +290,13 @@ The `OpenHandsCloudWorkspace` also has a `keep_alive` parameter, but in `local_a
 
 Your automation script receives these environment variables:
 
-| Variable | Description |
-|----------|-------------|
-| `OPENHANDS_API_KEY` | API key for OpenHands services |
-| `OPENHANDS_CLOUD_API_URL` | Base URL for the OpenHands Cloud API |
-| `AUTOMATION_EVENT_PAYLOAD` | JSON with trigger info, automation ID, and name |
-| `SANDBOX_ID` | The sandbox ID where the automation is running |
-| `SESSION_API_KEY` | Session API key for sandbox operations |
+| Variable | Cloud alias | Description |
+|----------|-------------|-------------|
+| `OH_SESSION_API_KEYS_0` | `SESSION_API_KEY` | Session API key for sandbox-scoped settings calls |
+| `OH_INTERNAL_SERVER_URL` | `RUNTIME_URL` | Internal server URL — used as `cloud_api_url` for the workspace |
+| `AUTOMATION_EVENT_PAYLOAD` | — | JSON with trigger info, automation ID, and name |
+
+> **Note:** `OH_*` names are used in local/dev deployments; `SESSION_API_KEY` and `RUNTIME_URL` are used in cloud deployments. Always read both with `.get()` — see the code examples above.
 
 **Note:** The automation framework automatically handles run completion callbacks.
 
@@ -347,8 +347,8 @@ from openhands.workspace import OpenHandsCloudWorkspace
 payload = json.loads(os.environ.get('AUTOMATION_EVENT_PAYLOAD', '{}'))
 print(f"Running: {payload.get('automation_name')}")
 
-api_key = os.environ["OPENHANDS_API_KEY"]
-api_url = os.environ["OPENHANDS_CLOUD_API_URL"]
+api_key = os.environ.get("SESSION_API_KEY") or os.environ.get("OH_SESSION_API_KEYS_0", "")
+api_url = os.environ.get("RUNTIME_URL") or os.environ.get("OH_INTERNAL_SERVER_URL", "")
 
 with OpenHandsCloudWorkspace(
     local_agent_server_mode=True,
