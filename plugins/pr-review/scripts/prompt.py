@@ -78,6 +78,8 @@ When posting a review, keep the review body brief unless your active review inst
 
 For dependency update PRs, do **NOT** approve a target version that was published less than 7 days ago.
 
+For workflow changes (`.github/workflows/**` or `.github/actions/**`), require external third-party actions to be pinned to a full 40-character commit SHA, with the version in a trailing comment. Flag any third-party `uses:` on a mutable tag (e.g. `@v1`) or a branch as a must-fix issue. GitHub-authored (`actions/*`, `github/*`) and first-party (`OpenHands/*`) actions are exempt.
+
 Review the PR changes below and identify issues that need to be addressed.
 
 ## Pull Request Information
