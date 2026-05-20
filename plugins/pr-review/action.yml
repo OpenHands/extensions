@@ -167,6 +167,12 @@ runs:
               ACP_COMMAND: ${{ inputs.acp-command }}
               LLM_API_KEY: ${{ inputs.llm-api-key }}
               GITHUB_TOKEN: ${{ inputs.github-token }}
+              LLM_MODEL_INPUT: ${{ inputs.llm-model }}
+              LLM_BASE_URL: ${{ inputs.llm-base-url }}
+              PR_NUMBER: ${{ github.event.pull_request.number }}
+              PR_TITLE: ${{ github.event.pull_request.title }}
+              REPOSITORY: ${{ github.repository }}
+              EXTENSIONS_VERSION: ${{ inputs.extensions-version }}
           run: |
               if [ "$AGENT_KIND" != "openhands" ] && [ "$AGENT_KIND" != "acp" ]; then
                 echo "Error: agent-kind must be 'openhands' or 'acp'."
@@ -189,34 +195,36 @@ runs:
               fi
 
               # Select one model randomly from the comma-separated list
-              MODELS_LIST="${{ inputs.llm-model }}"
+              MODELS_LIST="$LLM_MODEL_INPUT"
               IFS=',' read -ra MODELS <<< "$MODELS_LIST"
               SELECTED_MODEL="${MODELS[$RANDOM % ${#MODELS[@]}]}"
-              echo "selected_model=$SELECTED_MODEL" >> $GITHUB_OUTPUT
+              printf 'selected_model=%s\n' "$SELECTED_MODEL" >> "$GITHUB_OUTPUT"
 
-              echo "PR Number: ${{ github.event.pull_request.number }}"
-              echo "PR Title: ${{ github.event.pull_request.title }}"
-              echo "Repository: ${{ github.repository }}"
-              echo "Extensions Version: ${{ inputs.extensions-version }}"
-              echo "Agent kind: $AGENT_KIND"
-              echo "Available models: $MODELS_LIST"
-              echo "Selected LLM model: $SELECTED_MODEL"
+              printf 'PR Number: %s\n' "$PR_NUMBER"
+              printf 'PR Title: %s\n' "$PR_TITLE"
+              printf 'Repository: %s\n' "$REPOSITORY"
+              printf 'Extensions Version: %s\n' "$EXTENSIONS_VERSION"
+              printf 'Agent kind: %s\n' "$AGENT_KIND"
+              printf 'Available models: %s\n' "$MODELS_LIST"
+              printf 'Selected LLM model: %s\n' "$SELECTED_MODEL"
               if [ "$AGENT_KIND" = "acp" ]; then
-                echo "ACP command: ${{ inputs.acp-command }}"
+                printf 'ACP command: %s\n' "$ACP_COMMAND"
               fi
-              if [ -n "${{ inputs.llm-base-url }}" ]; then
-                echo "LLM base URL: ${{ inputs.llm-base-url }}"
+              if [ -n "$LLM_BASE_URL" ]; then
+                printf 'LLM base URL: %s\n' "$LLM_BASE_URL"
               fi
 
         - name: Preflight review permission smoke test
           shell: bash
           env:
               GITHUB_TOKEN: ${{ inputs.github-token }}
+              PR_NUMBER: ${{ github.event.pull_request.number }}
+              REPOSITORY: ${{ github.repository }}
           run: |
               if ! REVIEW_ID="$(
                 gh api \
                   -X POST \
-                  repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/reviews \
+                  "repos/${REPOSITORY}/pulls/${PR_NUMBER}/reviews" \
                   -f body='Preflight review permission smoke test. This pending review will be deleted immediately.' \
                   --jq '.id'
               )"; then
@@ -233,7 +241,7 @@ runs:
 
               if ! gh api \
                 -X DELETE \
-                repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/reviews/${REVIEW_ID}; then
+                "repos/${REPOSITORY}/pulls/${PR_NUMBER}/reviews/${REVIEW_ID}"; then
                 echo "Warning: Failed to delete preflight review (ID: ${REVIEW_ID}). This is cosmetic and won't affect the workflow."
               fi
 
