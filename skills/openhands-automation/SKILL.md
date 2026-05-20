@@ -50,7 +50,6 @@ All requests require Bearer authentication:
 
 Look for a `<HOST>` value in the system prompt. If present, use that URL. Otherwise, default to `https://app.all-hands.dev`.
 
-This ensures the correct host is used for the deployment environment (e.g., `https://staging.all-hands.dev` for staging, `https://app.all-hands.dev` for production).
 
 ### Automation Endpoints
 
