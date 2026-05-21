@@ -203,12 +203,12 @@ curl "${OPENHANDS_HOST}/api/automation/v1/{automation_id}/runs?limit=20" \
 
 When a run is triggered, the automation service uploads your tarball to the agent server, which unpacks it, runs `setup.sh` to install dependencies, then executes your entrypoint. Your script therefore runs **inside the agent server** — not in a separate process.
 
-The agent server exposes an HTTP API (at `OH_INTERNAL_SERVER_URL`) for managing conversations. A **conversation** is an AI agent interaction that can use tools: bash commands, file editing, web browsing, and so on. Your script uses the SDK's `RemoteWorkspace` (pointing to `OH_INTERNAL_SERVER_URL`) to start, monitor, and stop conversations running in that same agent server.
+The agent server exposes an HTTP API (at `AGENT_SERVER_URL`) for managing conversations. A **conversation** is an AI agent interaction that can use tools: bash commands, file editing, web browsing, and so on. Your script uses the SDK's `OpenHandsCloudWorkspace` (pointing to `AGENT_SERVER_URL`) to start, monitor, and stop conversations running in that same agent server.
 
 Key points:
 - **Your script and its conversations share the same agent server.** There is no network hop to a remote service.
 - **Conversations are asynchronous.** You can fire one and continue, fire several concurrently, or start none at all (e.g. if your script fetches external data and decides no action is needed).
-- **The completion callback** is sent by `RemoteWorkspace.__exit__` when the `with` block exits, telling the automation service the run is done. For async patterns, defer exiting until the conversation is in the desired state.
+- **The completion callback** is sent by `OpenHandsCloudWorkspace.__exit__` when the `with` block exits, telling the automation service the run is done. For async patterns, defer exiting until the conversation is in the desired state.
 - **LLM config and secrets** are fetched from the agent server (`workspace.get_llm()`, `workspace.get_secrets()`), so your script does not need to supply its own credentials.
 
 **SDK Documentation:** https://docs.openhands.dev/sdk
@@ -236,20 +236,20 @@ uv pip install -q openhands-sdk openhands-workspace openhands-tools
 import os
 
 from openhands.sdk import Conversation
-from openhands.sdk.workspace import RemoteWorkspace
 from openhands.tools.preset.default import get_default_agent
+from openhands.workspace import OpenHandsCloudWorkspace
 
-# OH_INTERNAL_SERVER_URL points to the agent server this script is running inside.
+# AGENT_SERVER_URL is set by the automation service for the agent server URL.
 # SESSION_API_KEY / OH_SESSION_API_KEYS_0 authenticate against that server.
 api_key = os.environ.get("SESSION_API_KEY") or os.environ.get("OH_SESSION_API_KEYS_0", "")
-host = os.environ.get("OH_INTERNAL_SERVER_URL", "http://localhost:60000")
+api_url = os.environ.get("AGENT_SERVER_URL", "")
 
-# RemoteWorkspace connects back to the agent server to manage conversations.
+# OpenHandsCloudWorkspace connects back to the agent server to manage conversations.
 # __exit__ sends the completion callback to the automation service.
-with RemoteWorkspace(
-    host=host,
-    api_key=api_key,
-    working_dir="/workspace",
+with OpenHandsCloudWorkspace(
+    local_agent_server_mode=True,
+    cloud_api_url=api_url,
+    cloud_api_key=api_key,
 ) as workspace:
     # LLM config and secrets come from the agent server's persisted settings —
     # no credentials need to be embedded in the script.
@@ -267,7 +267,7 @@ with RemoteWorkspace(
     conversation.send_message("Your automation prompt here")
     conversation.run()
     conversation.close()
-# RemoteWorkspace.__exit__ fires the completion callback here.
+# OpenHandsCloudWorkspace.__exit__ fires the completion callback here.
 ```
 
 ### Conversation Persistence
@@ -313,7 +313,7 @@ if not alerts:
     print("No alerts — nothing to do.")
 else:
     # Only now do we spin up an agent conversation
-    with RemoteWorkspace(host=host, api_key=api_key, working_dir="/workspace") as workspace:
+    with OpenHandsCloudWorkspace(local_agent_server_mode=True, cloud_api_url=api_url, cloud_api_key=api_key) as workspace:
         llm = workspace.get_llm()
         agent = get_default_agent(llm=llm, cli_mode=True)
         conversation = Conversation(agent=agent, workspace=workspace)
@@ -332,7 +332,7 @@ Start a conversation without blocking, do other work, then poll until the conver
 import time
 from openhands.sdk.conversation.state import ConversationExecutionStatus
 
-with RemoteWorkspace(host=host, api_key=api_key, working_dir="/workspace") as workspace:
+with OpenHandsCloudWorkspace(local_agent_server_mode=True, cloud_api_url=api_url, cloud_api_key=api_key) as workspace:
     llm = workspace.get_llm()
     agent = get_default_agent(llm=llm, cli_mode=True)
     conversation = Conversation(agent=agent, workspace=workspace)
@@ -378,18 +378,18 @@ stop_hook = HookConfig(
     ]
 )
 
-with RemoteWorkspace(host=host, api_key=api_key, working_dir="/workspace") as workspace:
+with OpenHandsCloudWorkspace(local_agent_server_mode=True, cloud_api_url=api_url, cloud_api_key=api_key) as workspace:
     llm = workspace.get_llm()
     agent = get_default_agent(llm=llm, cli_mode=True)
     conversation = Conversation(agent=agent, workspace=workspace, hook_config=stop_hook)
     conversation.send_message("Do some long-running work")
     # Don't call run() — the conversation runs asynchronously.
     # When the agent stops, the stop hook will fire the callback.
-# RemoteWorkspace.__exit__ also fires a callback here (on script exit).
+# OpenHandsCloudWorkspace.__exit__ also fires a callback here (on script exit).
 # The automation service should handle receiving two callbacks for the same run.
 ```
 
-> **Note:** When using the stop hook pattern, the automation service receives two completion callbacks — one from `RemoteWorkspace.__exit__` when the script exits, and one from the stop hook when the conversation finishes. Ensure your automation service handles duplicate callbacks gracefully.
+> **Note:** When using the stop hook pattern, the automation service receives two completion callbacks — one from `OpenHandsCloudWorkspace.__exit__` when the script exits, and one from the stop hook when the conversation finishes. Ensure your automation service handles duplicate callbacks gracefully.
 
 ---
 
@@ -399,14 +399,14 @@ The automation service injects these environment variables into every run:
 
 | Variable | Alt name | Description |
 |----------|----------|-------------|
-| `OH_INTERNAL_SERVER_URL` | — | URL of the agent server the script is running inside. Use as `host` for `RemoteWorkspace` (fallback: `http://localhost:60000`) |
-| `OH_SESSION_API_KEYS_0` | `SESSION_API_KEY` | Session API key for authenticating with the agent server. Use as `api_key` for `RemoteWorkspace` |
+| `AGENT_SERVER_URL` | — | URL of the agent server the script is running inside. Use as `cloud_api_url` for `OpenHandsCloudWorkspace` |
+| `OH_SESSION_API_KEYS_0` | `SESSION_API_KEY` | Session API key for authenticating with the agent server. Use as `cloud_api_key` for `OpenHandsCloudWorkspace` |
 | `AUTOMATION_EVENT_PAYLOAD` | — | JSON object with trigger context: `automation_id`, `automation_name`, `trigger` type, and (for webhook runs) the raw event payload |
-| `AUTOMATION_CALLBACK_URL` | — | URL that `RemoteWorkspace.__exit__` POSTs to, marking the run complete. Also available to stop hooks for deferred callbacks |
+| `AUTOMATION_CALLBACK_URL` | — | URL that `OpenHandsCloudWorkspace.__exit__` POSTs to, marking the run complete. Also available to stop hooks for deferred callbacks |
 | `AUTOMATION_CALLBACK_API_KEY` | — | Bearer token for authenticating the completion callback POST |
 | `AUTOMATION_RUN_ID` | — | Unique ID for this run, included in the completion callback payload |
 
-> **Note:** `OH_*` variable names are used in local/dev deployments; the plain aliases (`SESSION_API_KEY`) are used in cloud deployments. Always read both with `.get()` — see the code examples above.
+> **Note:** The session API key has two names depending on the deployment: `SESSION_API_KEY` (cloud) and `OH_SESSION_API_KEYS_0` (local/dev). Always read both with `.get()` — see the code examples above.
 
 ---
 
@@ -449,19 +449,19 @@ import os
 import json
 
 from openhands.sdk import Conversation
-from openhands.sdk.workspace import RemoteWorkspace
 from openhands.tools.preset.default import get_default_agent
+from openhands.workspace import OpenHandsCloudWorkspace
 
 payload = json.loads(os.environ.get('AUTOMATION_EVENT_PAYLOAD', '{}'))
 print(f"Running: {payload.get('automation_name')}")
 
 api_key = os.environ.get("SESSION_API_KEY") or os.environ.get("OH_SESSION_API_KEYS_0", "")
-host = os.environ.get("OH_INTERNAL_SERVER_URL", "http://localhost:60000")
+api_url = os.environ.get("AGENT_SERVER_URL", "")
 
-with RemoteWorkspace(
-    host=host,
-    api_key=api_key,
-    working_dir="/workspace",
+with OpenHandsCloudWorkspace(
+    local_agent_server_mode=True,
+    cloud_api_url=api_url,
+    cloud_api_key=api_key,
 ) as workspace:
     llm = workspace.get_llm()
     agent = get_default_agent(llm=llm, cli_mode=True)

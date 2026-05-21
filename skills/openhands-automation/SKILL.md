@@ -27,8 +27,8 @@ Two components work together to run automations:
 **Automation Service** (API at `OPENHANDS_HOST/api/automation/v1`)
 Manages the *when*: holds automation definitions, schedules cron-triggered runs, dispatches webhook-triggered runs, and receives completion callbacks to mark runs as done. This is the API you call to create, update, and manage automations.
 
-**Agent Server** (reachable at `OH_INTERNAL_SERVER_URL` inside a run)
-Manages the *what*: the runtime environment where automation scripts execute and where conversations (AI agent interactions with tools, bash, file editing, etc.) run. When a run is triggered, the automation service uploads the automation's tarball to the agent server, which unpacks and runs the entrypoint script. The script runs inside the agent server and connects back to it using `OH_INTERNAL_SERVER_URL` and a session API key to start, monitor, and stop conversations.
+**Agent Server** (reachable at `AGENT_SERVER_URL` inside a run)
+Manages the *what*: the runtime environment where automation scripts execute and where conversations (AI agent interactions with tools, bash, file editing, etc.) run. When a run is triggered, the automation service uploads the automation's tarball to the agent server, which unpacks and runs the entrypoint script. The script runs inside the agent server and connects back to it using `AGENT_SERVER_URL` and a session API key to start, monitor, and stop conversations.
 
 The agent server typically runs inside a **sandbox** (a Docker or Kubernetes container). Some deployments use sandboxless mode, where the agent server runs directly on a host.
 
