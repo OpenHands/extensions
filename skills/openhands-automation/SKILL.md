@@ -38,13 +38,13 @@ The agent server typically runs inside a **sandbox** (a Docker or Kubernetes con
 > 1. **For LLM-appropriate work, default to preset endpoints.** They handle all SDK boilerplate, tarball packaging, and upload automatically:
 >    - **Prompt preset** (`POST /v1/preset/prompt`) — for tasks expressed as a natural language prompt that benefit from agent reasoning
 >    - **Plugin preset** (`POST /v1/preset/plugin`) — when plugins with skills, MCP configs, or commands are needed
-> 2. **Do not silently create custom SDK scripts.** Do not generate Python SDK code, `setup.sh` files, or tarball uploads without user consent. But *do* proactively recommend the custom path (per rule 0) when the task is deterministic or high-frequency — surface the option and let the user choose.
+> 2. **Do not silently create custom scripts.** Do not generate Python code, `setup.sh` files, or tarball uploads without user consent. But *do* proactively recommend the custom path (per rule 0) when the task is deterministic or high-frequency — surface the option and let the user choose.
 > 3. **If neither preset is the right fit**, do NOT silently fall back to custom automation. Instead, explain the available options to the user:
 >    - **Prompt preset** — natural language prompt execution (LLM-driven)
 >    - **Plugin preset** — load plugins with extended capabilities (skills, MCP, hooks, commands)
->    - **Custom SDK script** — full control over code, no LLM required; point them to `references/custom-automation.md`
+>    - **Custom script** — full control over code, with or without LLM; point them to `references/custom-automation.md`
 >    - Let the user choose which approach to use.
-> 4. **Only create custom SDK scripts after the user agrees to that path.** Refer to `references/custom-automation.md` for the full reference.
+> 4. **Only create custom scripts after the user agrees to that path.** Refer to `references/custom-automation.md` for the full reference.
 
 ## Authentication
 
@@ -775,8 +775,8 @@ Pick based on **what the task needs**, not just **what is technically possible**
 |----------|-------------|
 | Reasoning, summarization, triage, code review, or open-ended tool use | **Prompt Preset** |
 | Needs plugin commands / skills / MCP configs / hooks | **Plugin Preset** |
-| **Deterministic task** (fixed data + scheduled action, e.g. healthcheck, templated notification, rotating from a known list) — especially if it runs frequently | **Custom SDK script** (no LLM) — see `references/custom-automation.md` |
-| Custom Python dependencies, non-Python entrypoint, multi-file project structure, direct SDK lifecycle control | **Custom Automation** (see below) |
+| **Deterministic task** (fixed data + scheduled action, e.g. healthcheck, Slack notification, rotating from a known list) — especially if it runs frequently | **Custom script, no LLM** — see `references/custom-automation.md#deterministic-script-no-llm` |
+| Custom Python dependencies, multi-file project, or direct SDK lifecycle control | **Custom script with SDK** — see `references/custom-automation.md#sdk-based-scripts` |
 
 The **prompt preset** is the right default for genuinely agent-shaped work — anything that benefits from reasoning over context, calling tools dynamically, or producing a non-templated output. Use the **plugin preset** when you need extended capabilities from plugins (skills, MCP configurations, hooks, commands).
 
@@ -786,4 +786,4 @@ The **prompt preset** is the right default for genuinely agent-shaped work — a
 
 ## Reference Files
 
-- **`references/custom-automation.md`** — Detailed guide for custom automations: tarball uploads, SDK code structure, environment variables, validation rules, and complete examples. Consult this whenever you need to evaluate or recommend the custom path (including for deterministic / cost-sensitive tasks per rule 0). Only *implement* a custom automation after the user agrees to that path.
+- **`references/custom-automation.md`** — Detailed guide for custom automations: tarball uploads, code structure (SDK and no-LLM), environment variables, validation rules, and complete examples. Consult this whenever you need to evaluate or recommend the custom path (including for deterministic / cost-sensitive tasks per rule 0). Only *implement* a custom automation after the user agrees to that path.

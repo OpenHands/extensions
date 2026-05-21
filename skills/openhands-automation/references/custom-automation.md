@@ -15,8 +15,11 @@ This file contains detailed documentation for creating custom automations with u
 2. [Creating Custom Automations](#creating-an-automation)
 3. [Managing Automations](#managing-automations)
 4. [Writing Automation Code](#writing-automation-code)
+   - [SDK-based Scripts](#sdk-based-scripts) — AI agent conversations
+   - [Deterministic Script (No LLM)](#deterministic-script-no-llm) — pure Python stdlib
 5. [Environment Variables](#environment-variables)
 6. [Validation Rules](#validation-rules)
+7. [Complete Examples](#complete-examples)
 
 ---
 
@@ -34,13 +37,10 @@ tar -czf automation.tar.gz -C /path/to/your/code .
 
 ```
 automation.tar.gz
-├── main.py           # Your entrypoint script (uses SDK)
-├── setup.sh          # Setup script (REQUIRED: installs uv + SDK)
-├── pyproject.toml    # Optional: for uv/poetry dependency management
+├── main.py           # Your entrypoint script
+├── setup.sh          # Optional: install dependencies before entrypoint runs
 └── requirements.txt  # Optional: additional dependencies
 ```
-
-**Note:** The `setup.sh` script is critical - it must install `uv` and the OpenHands SDK packages before your entrypoint runs.
 
 ### Validate Before Packaging
 
@@ -52,6 +52,7 @@ bash -n setup.sh                 # validates shell syntax without executing
 ```
 
 Fix any errors reported before proceeding to the next step.
+
 
 ### Upload the Tarball
 
@@ -220,13 +221,13 @@ Key points:
 - **Your script and its conversations share the same agent server.** There is no network hop to a remote service.
 - **Conversations are asynchronous.** You can fire one and continue, fire several concurrently, or start none at all (e.g. if your script fetches external data and decides no action is needed).
 - **The completion callback** is sent by `OpenHandsCloudWorkspace.__exit__` when the `with` block exits, telling the automation service the run is done. For async patterns, defer exiting until the conversation is in the desired state.
-- **LLM config and secrets** are fetched from the agent server (`workspace.get_llm()`, `workspace.get_secrets()`), so your script does not need to supply its own credentials.
+- **Secrets** stored in the agent server are accessed via its REST API: `GET {AGENT_SERVER_URL}/api/settings/secrets/{name}` with `X-Session-API-Key: {SESSION_API_KEY}`. SDK scripts can also call `workspace.get_llm()` to get the configured LLM.
 
 **SDK Documentation:** https://docs.openhands.dev/sdk
 
-### Required Dependencies
+### SDK-based Scripts
 
-Your automation must install the OpenHands SDK packages. Use a `setup.sh` script:
+For scripts that start AI agent conversations, install the SDK packages in `setup.sh`:
 
 ```bash
 #!/bin/bash
@@ -262,19 +263,9 @@ with OpenHandsCloudWorkspace(
     cloud_api_url=api_url,
     cloud_api_key=api_key,
 ) as workspace:
-    # LLM config and secrets come from the agent server's persisted settings —
-    # no credentials need to be embedded in the script.
     llm = workspace.get_llm()
-    secrets = workspace.get_secrets()
-
-    # Start a conversation (AI agent with tool access) in the agent server.
     agent = get_default_agent(llm=llm, cli_mode=True)
     conversation = Conversation(agent=agent, workspace=workspace)
-
-    if secrets:
-        conversation.update_secrets(secrets)
-
-    # Run the conversation synchronously and wait for it to finish.
     conversation.send_message("Your automation prompt here")
     conversation.run()
     conversation.close()
@@ -404,20 +395,64 @@ with OpenHandsCloudWorkspace(local_agent_server_mode=True, cloud_api_url=api_url
 
 ---
 
+### Deterministic Script (No LLM)
+
+For tasks that don't need AI reasoning — sending a Slack message, calling an API, rotating from a fixed list — skip the SDK entirely. Use pure Python stdlib with `python3 main.py` as the entrypoint and no `setup.sh`.
+
+**Accessing secrets** — custom secrets are not injected into the subprocess environment automatically. Fetch them via the agent server's REST API:
+
+```python
+import os, urllib.request
+
+def get_secret(name: str) -> str:
+    url = os.environ.get("AGENT_SERVER_URL", "").rstrip("/")
+    key = os.environ.get("SESSION_API_KEY") or os.environ.get("OH_SESSION_API_KEYS_0", "")
+    req = urllib.request.Request(
+        f"{url}/api/settings/secrets/{name}",
+        headers={"X-Session-API-Key": key},
+    )
+    with urllib.request.urlopen(req) as r:
+        return r.read().decode().strip()
+```
+
+**Firing the callback** — without the SDK, POST to `AUTOMATION_CALLBACK_URL` before exiting. If you never fire the callback the run stays `RUNNING` until the watchdog marks it `FAILED`.
+
+```python
+import json, os, urllib.request
+
+def fire_callback(status: str = "COMPLETED", error: str | None = None) -> None:
+    url = os.environ.get("AUTOMATION_CALLBACK_URL", "")
+    if not url:
+        return
+    body = {"status": status, "run_id": os.environ.get("AUTOMATION_RUN_ID", "")}
+    if error:
+        body["error"] = error
+    req = urllib.request.Request(url, data=json.dumps(body).encode(), headers={
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {os.environ.get('AUTOMATION_CALLBACK_API_KEY', '')}",
+    })
+    try:
+        urllib.request.urlopen(req)
+    except Exception as e:
+        print(f"Callback error (non-fatal): {e}")
+```
+
+---
+
 ## Environment Variables
 
 The automation service injects these environment variables into every run:
 
 | Variable | Alt name | Description |
 |----------|----------|-------------|
-| `AGENT_SERVER_URL` | — | URL of the agent server the script is running inside. Use as `cloud_api_url` for `OpenHandsCloudWorkspace` |
-| `OH_SESSION_API_KEYS_0` | `SESSION_API_KEY` | Session API key for authenticating with the agent server. Use as `cloud_api_key` for `OpenHandsCloudWorkspace` |
-| `AUTOMATION_EVENT_PAYLOAD` | — | JSON object with trigger context: `automation_id`, `automation_name`, `trigger` type, and (for webhook runs) the raw event payload |
-| `AUTOMATION_CALLBACK_URL` | — | URL that `OpenHandsCloudWorkspace.__exit__` POSTs to, marking the run complete. Also available to stop hooks for deferred callbacks |
-| `AUTOMATION_CALLBACK_API_KEY` | — | Bearer token for authenticating the completion callback POST |
-| `AUTOMATION_RUN_ID` | — | Unique ID for this run, included in the completion callback payload |
+| `AGENT_SERVER_URL` | — | Agent server URL. Used as `cloud_api_url` for `OpenHandsCloudWorkspace`, and as the base URL for secret lookups |
+| `OH_SESSION_API_KEYS_0` | `SESSION_API_KEY` | Session API key. Used as `cloud_api_key` for `OpenHandsCloudWorkspace`, and as `X-Session-API-Key` for REST API calls |
+| `AUTOMATION_CALLBACK_URL` | — | POST here to mark the run complete (done automatically by `OpenHandsCloudWorkspace.__exit__`, or manually in no-LLM scripts) |
+| `AUTOMATION_CALLBACK_API_KEY` | — | Bearer token for the completion callback POST |
+| `AUTOMATION_RUN_ID` | — | Run ID to include in the completion callback payload |
+| `AUTOMATION_EVENT_PAYLOAD` | — | JSON with trigger context: `automation_id`, `automation_name`, `trigger` type, and (for webhook runs) the raw event payload |
 
-> **Note:** The session API key has two names depending on the deployment: `SESSION_API_KEY` (cloud) and `OH_SESSION_API_KEYS_0` (local/dev). Always read both with `.get()` — see the code examples above.
+> **Note:** The session API key has two names: `SESSION_API_KEY` (cloud) and `OH_SESSION_API_KEYS_0` (local/dev). Always read both — see the code examples above.
 
 ---
 
@@ -432,7 +467,76 @@ The automation service injects these environment variables into every run:
 
 ---
 
-## Complete Example
+## Complete Examples
+
+### No LLM (deterministic)
+
+```bash
+OPENHANDS_HOST="https://app.all-hands.dev"
+mkdir my-automation && cd my-automation
+
+cat > main.py << 'PYEOF'
+"""Post a random quote to Slack — no LLM, no SDK."""
+import json, os, random, sys, urllib.request
+
+QUOTES = ["Stay hungry, stay foolish.", "Done is better than perfect."]
+CHANNEL = "C12345678"
+
+def get_secret(name):
+    url = os.environ.get("AGENT_SERVER_URL", "").rstrip("/")
+    key = os.environ.get("SESSION_API_KEY") or os.environ.get("OH_SESSION_API_KEYS_0", "")
+    req = urllib.request.Request(f"{url}/api/settings/secrets/{name}",
+        headers={"X-Session-API-Key": key})
+    with urllib.request.urlopen(req) as r:
+        return r.read().decode().strip()
+
+def fire_callback(status="COMPLETED", error=None):
+    url = os.environ.get("AUTOMATION_CALLBACK_URL", "")
+    if not url: return
+    body = {"status": status, "run_id": os.environ.get("AUTOMATION_RUN_ID", "")}
+    if error: body["error"] = error
+    req = urllib.request.Request(url, data=json.dumps(body).encode(), headers={
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {os.environ.get('AUTOMATION_CALLBACK_API_KEY', '')}",
+    })
+    try: urllib.request.urlopen(req)
+    except Exception as e: print(f"Callback error: {e}")
+
+try:
+    token = get_secret("SLACK_BOT_TOKEN")
+    msg = random.choice(QUOTES)
+    req = urllib.request.Request("https://slack.com/api/chat.postMessage",
+        data=json.dumps({"channel": CHANNEL, "text": msg}).encode(),
+        headers={"Content-Type": "application/json", "Authorization": f"Bearer {token}"})
+    result = json.loads(urllib.request.urlopen(req).read())
+    if not result.get("ok"): raise RuntimeError(result.get("error"))
+    print(f"Posted: {msg}")
+    fire_callback("COMPLETED")
+except Exception as e:
+    print(f"ERROR: {e}", file=sys.stderr)
+    fire_callback("FAILED", str(e))
+    sys.exit(1)
+PYEOF
+
+tar -czf ../my-automation.tar.gz .
+
+TARBALL_PATH=$(curl -s -X POST "${OPENHANDS_HOST}/api/automation/v1/uploads?name=my-automation" \
+  -H "Authorization: Bearer ${OPENHANDS_API_KEY}" \
+  -H "Content-Type: application/gzip" \
+  --data-binary @../my-automation.tar.gz | jq -r '.tarball_path')
+
+curl -X POST "${OPENHANDS_HOST}/api/automation/v1" \
+  -H "Authorization: Bearer ${OPENHANDS_API_KEY}" \
+  -H "Content-Type: application/json" \
+  -d "{
+    \"name\": \"Daily Quote\",
+    \"trigger\": {\"type\": \"cron\", \"schedule\": \"0 9 * * *\", \"timezone\": \"UTC\"},
+    \"tarball_path\": \"$TARBALL_PATH\",
+    \"entrypoint\": \"python3 main.py\"
+  }"
+```
+
+### SDK Script (AI conversations)
 
 ```bash
 # 0. Set the API host (use value from <HOST> in system prompt, or default)
@@ -527,3 +631,14 @@ The upload limit is 1MB. Reduce your tarball size by:
 1. Check if the automation is enabled (`enabled: true`)
 2. Verify the cron schedule is correct
 3. Check for validation errors in the response
+
+### Run fails instantly with `error_detail: null`
+The script sent `fire_callback("FAILED")` immediately — before doing meaningful work. Common causes:
+- A required secret was empty: the `get_secret()` call failed or returned nothing
+- A missing/wrong `AGENT_SERVER_URL` or `SESSION_API_KEY`
+- An import error in the entrypoint
+
+Add `"error": str(exc)` to your `fire_callback("FAILED", ...)` call so `error_detail` is populated.
+
+### Run stays `RUNNING` indefinitely, then fails
+The completion callback was never fired. Every code path in your script must call `fire_callback()` — including exception handlers.
