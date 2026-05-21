@@ -322,25 +322,74 @@ else:
         conversation.close()
 ```
 
-#### Pattern 3: Fire and continue (asynchronous)
+#### Pattern 3: Wait for conversation completion (polling)
 
-Start one or more conversations without blocking, then do other work. The completion callback fires when the `with` block exits — **not** when the conversations finish. Use this only when you don't need to wait for conversation results.
+Start a conversation without blocking, do other work, then poll until the conversation reaches a terminal state before exiting. The callback fires only after the conversation is done.
+
+`ConversationExecutionStatus.is_terminal()` returns `True` for `FINISHED`, `ERROR`, and `STUCK`. Call `refresh_from_server()` before checking status — `execution_status` uses a cached value and won't update automatically.
 
 ```python
+import time
+from openhands.sdk.conversation.state import ConversationExecutionStatus
+
 with RemoteWorkspace(host=host, api_key=api_key, working_dir="/workspace") as workspace:
     llm = workspace.get_llm()
     agent = get_default_agent(llm=llm, cli_mode=True)
+    conversation = Conversation(agent=agent, workspace=workspace)
+    conversation.send_message("Run a long analysis task")
+    # Conversation is now running asynchronously in the agent server.
 
-    # Start conversations without blocking
-    conv1 = Conversation(agent=agent, workspace=workspace)
-    conv1.send_message("Run the weekly security scan on repo-A")
+    # Do other work here while conversation runs...
 
-    conv2 = Conversation(agent=agent, workspace=workspace)
-    conv2.send_message("Run the weekly security scan on repo-B")
+    # Wait until the conversation reaches a terminal state.
+    while True:
+        time.sleep(5)
+        conversation.refresh_from_server()
+        if conversation.execution_status.is_terminal():
+            break
 
-    # Exit immediately — conversations continue running in the agent server.
-    # The completion callback fires now (run marked done before conversations finish).
+    conversation.close()
+# Callback fires here — after the conversation has finished.
 ```
+
+#### Pattern 4: Deferred callback via stop hook
+
+For cases where the automation script needs to exit while a conversation is still running, use a `stop` hook to fire the completion callback from within the agent server when the conversation finishes.
+
+The `stop` hook runs a shell command when the agent stops. The agent server's environment includes `AUTOMATION_CALLBACK_URL`, `AUTOMATION_CALLBACK_API_KEY`, and `AUTOMATION_RUN_ID`, so the hook can call the automation service directly.
+
+```python
+from openhands.sdk.hooks import HookConfig, HookDefinition, HookMatcher
+
+# Shell command that fires the completion callback when the agent stops.
+# Runs inside the agent server — env vars are available at hook execution time.
+stop_hook = HookConfig(
+    stop=[
+        HookMatcher(hooks=[
+            HookDefinition(
+                command=(
+                    'curl -sf -X POST "$AUTOMATION_CALLBACK_URL" '
+                    '-H "Authorization: Bearer $AUTOMATION_CALLBACK_API_KEY" '
+                    '-H "Content-Type: application/json" '
+                    '-d \'{"status":"COMPLETED","run_id":"$AUTOMATION_RUN_ID"}\' || true'
+                )
+            )
+        ])
+    ]
+)
+
+with RemoteWorkspace(host=host, api_key=api_key, working_dir="/workspace") as workspace:
+    llm = workspace.get_llm()
+    agent = get_default_agent(llm=llm, cli_mode=True)
+    conversation = Conversation(agent=agent, workspace=workspace, hook_config=stop_hook)
+    conversation.send_message("Do some long-running work")
+    # Don't call run() — the conversation runs asynchronously.
+    # When the agent stops, the stop hook will fire the callback.
+# RemoteWorkspace.__exit__ also fires a callback here (on script exit).
+# The automation service should handle receiving two callbacks for the same run.
+```
+
+> **Note:** When using the stop hook pattern, the automation service receives two completion callbacks — one from `RemoteWorkspace.__exit__` when the script exits, and one from the stop hook when the conversation finishes. Ensure your automation service handles duplicate callbacks gracefully.
 
 ---
 
@@ -353,7 +402,8 @@ The automation service injects these environment variables into every run:
 | `OH_INTERNAL_SERVER_URL` | — | URL of the agent server the script is running inside. Use as `host` for `RemoteWorkspace` (fallback: `http://localhost:60000`) |
 | `OH_SESSION_API_KEYS_0` | `SESSION_API_KEY` | Session API key for authenticating with the agent server. Use as `api_key` for `RemoteWorkspace` |
 | `AUTOMATION_EVENT_PAYLOAD` | — | JSON object with trigger context: `automation_id`, `automation_name`, `trigger` type, and (for webhook runs) the raw event payload |
-| `AUTOMATION_CALLBACK_URL` | — | URL that `RemoteWorkspace.__exit__` POSTs to, marking the run complete. Set automatically — do not call manually unless you bypass `RemoteWorkspace` |
+| `AUTOMATION_CALLBACK_URL` | — | URL that `RemoteWorkspace.__exit__` POSTs to, marking the run complete. Also available to stop hooks for deferred callbacks |
+| `AUTOMATION_CALLBACK_API_KEY` | — | Bearer token for authenticating the completion callback POST |
 | `AUTOMATION_RUN_ID` | — | Unique ID for this run, included in the completion callback payload |
 
 > **Note:** `OH_*` variable names are used in local/dev deployments; the plain aliases (`SESSION_API_KEY`) are used in cloud deployments. Always read both with `.get()` — see the code examples above.
