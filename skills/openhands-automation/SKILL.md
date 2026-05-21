@@ -18,7 +18,19 @@ triggers:
 
 # OpenHands Automations
 
-Create and manage automations that run in OpenHands Cloud sandboxes — triggered by cron schedules or webhook events (GitHub, custom services).
+Create and manage automations that run inside an OpenHands agent server — triggered by cron schedules or webhook events (GitHub, custom services).
+
+## Architecture
+
+Two components work together to run automations:
+
+**Automation Service** (API at `OPENHANDS_HOST/api/automation/v1`)
+Manages the *when*: holds automation definitions, schedules cron-triggered runs, dispatches webhook-triggered runs, and receives completion callbacks to mark runs as done. This is the API you call to create, update, and manage automations.
+
+**Agent Server** (reachable at `OH_INTERNAL_SERVER_URL` inside a run)
+Manages the *what*: the runtime environment where automation scripts execute and where conversations (AI agent interactions with tools, bash, file editing, etc.) run. When a run is triggered, the automation service uploads the automation's tarball to the agent server, which unpacks and runs the entrypoint script. The script runs inside the agent server and connects back to it using `OH_INTERNAL_SERVER_URL` and a session API key to start, monitor, and stop conversations.
+
+The agent server typically runs inside a **sandbox** (a Docker or Kubernetes container). Some deployments use sandboxless mode, where the agent server runs directly on a host.
 
 > **⚠️ CRITICAL — Agent behavior rules:**
 >
@@ -104,8 +116,8 @@ Use the **preset/prompt endpoint** for simple automations. Provide a natural lan
 #### How It Works
 
 1. Send a prompt describing the task (e.g., "Generate a weekly status report")
-2. The service generates SDK boilerplate that connects to the user's OpenHands Cloud account, fetches their LLM config, secrets, and MCP server configuration, creates an AI agent conversation with the prompt, and reports completion
-3. The service packages the code into a tarball, uploads it, and creates the automation
+2. The automation service generates a Python script that: fetches LLM config and secrets from the agent server, starts an AI agent conversation with your prompt, and sends a completion callback when done
+3. The script is packaged as a tarball and the automation is registered; on each trigger, the automation service uploads the tarball to the agent server, which unpacks and runs the script inside its environment
 
 #### Request
 
@@ -747,9 +759,11 @@ Run status values: `PENDING` (waiting for dispatch), `RUNNING` (in progress), `C
 
 ---
 
-## Sandbox Lifecycle
+## Run Lifecycle
 
-After a run completes, the sandbox is **kept alive** by default — users can view the conversation history in the OpenHands UI and continue interacting. The sandbox persists until it times out or is manually deleted.
+When a run completes, the automation service receives a callback and marks the run done. Any conversations started during the run remain accessible in the OpenHands UI — users can view the history and continue interacting. The agent server persists until it times out or is manually deleted.
+
+The automation script itself controls when the callback fires (signalling completion). For simple synchronous scripts this happens naturally on exit. For scripts that start asynchronous conversations, the callback should be deferred until the conversation reaches an idle state (see `references/custom-automation.md` for patterns).
 
 ---
 

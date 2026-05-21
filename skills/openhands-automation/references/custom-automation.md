@@ -199,10 +199,17 @@ curl "${OPENHANDS_HOST}/api/automation/v1/{automation_id}/runs?limit=20" \
 
 ## Writing Automation Code
 
-Automations run inside OpenHands Cloud sandboxes and use the **Software Agent SDK** to:
-- Create and run AI agent conversations
-- Access your configured LLM settings
-- Use your stored secrets
+### How Execution Works
+
+When a run is triggered, the automation service uploads your tarball to the agent server, which unpacks it, runs `setup.sh` to install dependencies, then executes your entrypoint. Your script therefore runs **inside the agent server** — not in a separate process.
+
+The agent server exposes an HTTP API (at `OH_INTERNAL_SERVER_URL`) for managing conversations. A **conversation** is an AI agent interaction that can use tools: bash commands, file editing, web browsing, and so on. Your script uses the SDK's `RemoteWorkspace` (pointing to `OH_INTERNAL_SERVER_URL`) to start, monitor, and stop conversations running in that same agent server.
+
+Key points:
+- **Your script and its conversations share the same agent server.** There is no network hop to a remote service.
+- **Conversations are asynchronous.** You can fire one and continue, fire several concurrently, or start none at all (e.g. if your script fetches external data and decides no action is needed).
+- **The completion callback** is sent by `RemoteWorkspace.__exit__` when the `with` block exits, telling the automation service the run is done. For async patterns, defer exiting until the conversation is in the desired state.
+- **LLM config and secrets** are fetched from the agent server (`workspace.get_llm()`, `workspace.get_secrets()`), so your script does not need to supply its own credentials.
 
 **SDK Documentation:** https://docs.openhands.dev/sdk
 
@@ -232,73 +239,124 @@ from openhands.sdk import Conversation
 from openhands.sdk.workspace import RemoteWorkspace
 from openhands.tools.preset.default import get_default_agent
 
-# Session API key and agent server URL are injected by the automation runtime.
+# OH_INTERNAL_SERVER_URL points to the agent server this script is running inside.
+# SESSION_API_KEY / OH_SESSION_API_KEYS_0 authenticate against that server.
 api_key = os.environ.get("SESSION_API_KEY") or os.environ.get("OH_SESSION_API_KEYS_0", "")
 host = os.environ.get("OH_INTERNAL_SERVER_URL", "http://localhost:60000")
 
-# Use RemoteWorkspace to connect to the sandbox's local agent server
+# RemoteWorkspace connects back to the agent server to manage conversations.
+# __exit__ sends the completion callback to the automation service.
 with RemoteWorkspace(
     host=host,
     api_key=api_key,
     working_dir="/workspace",
 ) as workspace:
-    # Get your configured LLM from the agent server's persisted settings
+    # LLM config and secrets come from the agent server's persisted settings —
+    # no credentials need to be embedded in the script.
     llm = workspace.get_llm()
-    
-    # Optionally get your stored secrets
     secrets = workspace.get_secrets()
-    
-    # Create an agent and conversation
+
+    # Start a conversation (AI agent with tool access) in the agent server.
     agent = get_default_agent(llm=llm, cli_mode=True)
     conversation = Conversation(agent=agent, workspace=workspace)
-    
-    # Inject secrets if available
+
     if secrets:
         conversation.update_secrets(secrets)
-    
-    # Send a prompt and run the conversation
+
+    # Run the conversation synchronously and wait for it to finish.
     conversation.send_message("Your automation prompt here")
     conversation.run()
     conversation.close()
+# RemoteWorkspace.__exit__ fires the completion callback here.
 ```
 
-### Sandbox Lifecycle & Conversation Persistence
+### Conversation Persistence
 
-By default, the sandbox is **kept alive** after the automation run completes. This means:
-- Users can view the conversation history in the OpenHands UI after the run
-- Users can "continue" or "log into" the conversation to interact further
-- The sandbox and its state persist until it times out or is manually deleted
-
-The `Conversation` constructor accepts a `delete_on_close` parameter that controls whether the conversation resources are cleaned up when `close()` is called:
+Conversations started during a run remain accessible in the OpenHands UI after the run completes — users can view the history and continue interacting. By default, `Conversation` does not delete the conversation on close:
 
 ```python
-# Default: delete_on_close=False for remote conversations (sandbox kept alive)
+# Default: conversation persists after close (users can view/continue it)
 conversation = Conversation(agent=agent, workspace=workspace)
 
-# Explicitly keep the conversation alive (same as default for remote)
+# Explicitly persist (same as default)
 conversation = Conversation(agent=agent, workspace=workspace, delete_on_close=False)
 
-# Clean up conversation resources on close (sandbox still persists)
+# Delete conversation resources on close
 conversation = Conversation(agent=agent, workspace=workspace, delete_on_close=True)
 ```
 
-Sandbox lifecycle in automations is managed entirely by the automation service — not the workspace. The automation service defaults to keeping sandboxes alive.
+The agent server itself persists until it times out or is manually deleted; this is managed by the automation service, not by the workspace.
+
+### Conversation Patterns
+
+#### Pattern 1: Synchronous (run and wait)
+
+The simplest pattern — start a conversation, block until it finishes, then exit (firing the callback).
+
+```python
+conversation.send_message("Analyze the latest deployment logs and summarise any errors")
+conversation.run()   # blocks until the agent finishes or times out
+conversation.close()
+```
+
+#### Pattern 2: Conditional (fetch data first, then decide)
+
+A common pattern where the script queries an external source and only starts a conversation if needed.
+
+```python
+import httpx
+
+response = httpx.get("https://api.example.com/alerts", headers={"Authorization": f"Bearer {token}"})
+alerts = response.json().get("alerts", [])
+
+if not alerts:
+    print("No alerts — nothing to do.")
+else:
+    # Only now do we spin up an agent conversation
+    with RemoteWorkspace(host=host, api_key=api_key, working_dir="/workspace") as workspace:
+        llm = workspace.get_llm()
+        agent = get_default_agent(llm=llm, cli_mode=True)
+        conversation = Conversation(agent=agent, workspace=workspace)
+        conversation.send_message(f"Investigate these alerts and open GitHub issues: {alerts}")
+        conversation.run()
+        conversation.close()
+```
+
+#### Pattern 3: Fire and continue (asynchronous)
+
+Start one or more conversations without blocking, then do other work. The completion callback fires when the `with` block exits — **not** when the conversations finish. Use this only when you don't need to wait for conversation results.
+
+```python
+with RemoteWorkspace(host=host, api_key=api_key, working_dir="/workspace") as workspace:
+    llm = workspace.get_llm()
+    agent = get_default_agent(llm=llm, cli_mode=True)
+
+    # Start conversations without blocking
+    conv1 = Conversation(agent=agent, workspace=workspace)
+    conv1.send_message("Run the weekly security scan on repo-A")
+
+    conv2 = Conversation(agent=agent, workspace=workspace)
+    conv2.send_message("Run the weekly security scan on repo-B")
+
+    # Exit immediately — conversations continue running in the agent server.
+    # The completion callback fires now (run marked done before conversations finish).
+```
 
 ---
 
 ## Environment Variables
 
-Your automation script receives these environment variables:
+The automation service injects these environment variables into every run:
 
-| Variable | Cloud alias | Description |
-|----------|-------------|-------------|
-| `OH_SESSION_API_KEYS_0` | `SESSION_API_KEY` | Session API key — passed as `api_key` to `RemoteWorkspace` |
-| `OH_INTERNAL_SERVER_URL` | — | Agent server URL — passed as `host` to `RemoteWorkspace` (fallback: `http://localhost:60000`) |
-| `AUTOMATION_EVENT_PAYLOAD` | — | JSON with trigger info, automation ID, and name |
+| Variable | Alt name | Description |
+|----------|----------|-------------|
+| `OH_INTERNAL_SERVER_URL` | — | URL of the agent server the script is running inside. Use as `host` for `RemoteWorkspace` (fallback: `http://localhost:60000`) |
+| `OH_SESSION_API_KEYS_0` | `SESSION_API_KEY` | Session API key for authenticating with the agent server. Use as `api_key` for `RemoteWorkspace` |
+| `AUTOMATION_EVENT_PAYLOAD` | — | JSON object with trigger context: `automation_id`, `automation_name`, `trigger` type, and (for webhook runs) the raw event payload |
+| `AUTOMATION_CALLBACK_URL` | — | URL that `RemoteWorkspace.__exit__` POSTs to, marking the run complete. Set automatically — do not call manually unless you bypass `RemoteWorkspace` |
+| `AUTOMATION_RUN_ID` | — | Unique ID for this run, included in the completion callback payload |
 
-> **Note:** `OH_SESSION_API_KEYS_0` is used in local/dev deployments; `SESSION_API_KEY` is used in cloud deployments. Always read both with `.get()` — see the code examples above.
-
-**Note:** The automation framework automatically handles run completion callbacks.
+> **Note:** `OH_*` variable names are used in local/dev deployments; the plain aliases (`SESSION_API_KEY`) are used in cloud deployments. Always read both with `.get()` — see the code examples above.
 
 ---
 
