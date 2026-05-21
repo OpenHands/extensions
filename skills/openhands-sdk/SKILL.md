@@ -187,6 +187,7 @@ Source: [`examples/`](https://github.com/OpenHands/software-agent-sdk/tree/main/
 - [`47_defense_in_depth_security.py`](https://github.com/OpenHands/software-agent-sdk/blob/main/examples/01_standalone_sdk/47_defense_in_depth_security.py)
 - [`48_conversation_fork.py`](https://github.com/OpenHands/software-agent-sdk/blob/main/examples/01_standalone_sdk/48_conversation_fork.py)
 - [`49_switch_llm_tool.py`](https://github.com/OpenHands/software-agent-sdk/blob/main/examples/01_standalone_sdk/49_switch_llm_tool.py)
+- [`50_async_cancellation.py`](https://github.com/OpenHands/software-agent-sdk/blob/main/examples/01_standalone_sdk/50_async_cancellation.py)
 
 ### [`02_remote_agent_server/`](https://github.com/OpenHands/software-agent-sdk/tree/main/examples/02_remote_agent_server)
 
