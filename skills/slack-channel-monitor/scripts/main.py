@@ -44,19 +44,23 @@ TRIGGER_PHRASE = "@openhands"
 CHANNEL_IDS: list[str] = []          # e.g. ["C0123456789", "C9876543210"]
 DEFAULT_OPENHANDS_URL = "http://localhost:8000"
 
-# How far back (seconds) to look when there is no previous poll timestamp.
-# Slightly over 60 s to avoid missing messages at cron boundaries.
+# Lookback slightly over 60s to avoid missing messages at cron boundaries
+# when poll interval jitter causes slight delays.
 INITIAL_LOOKBACK = 70
 
-# Minimum seconds since last activity before treating a conversation as done.
-# Guards against posting a summary in the same run that created the conversation.
+# Prevent posting summaries in the same run that created the conversation,
+# avoiding race conditions with conversation startup.
 DONE_DEBOUNCE = 15
 
-# Maximum bot message timestamps to keep in state (rolling window).
+# Rolling window size for bot message deduplication - sized to handle
+# ~1 week of continuous operation at high message rates.
 MAX_BOT_TS = 2000
 
-# Maximum context messages to include when creating a new conversation.
+# Limit context to avoid overwhelming the agent with too much history.
 CONTEXT_MESSAGE_LIMIT = 15
+
+# How far back (seconds) to look for context when creating a new conversation.
+CONTEXT_LOOKBACK_SECONDS = 3600  # 1 hour of recent messages for context
 
 
 # ── Stdlib helpers ─────────────────────────────────────────────────────────────
@@ -265,12 +269,8 @@ def search_trigger_messages(
     return [m for m in matches if float(m.get("ts", "0")) > float(oldest_ts)]
 
 
-def has_search_permission(token: str) -> bool:
-    try:
-        slack_get(token, "search.messages", {"query": "test", "count": 1})
-        return True
-    except RuntimeError as exc:
-        return "missing_scope" not in str(exc)
+def has_search_permission(scopes: set[str]) -> bool:
+    return "search:read" in scopes
 
 
 # ── OpenHands Agent Server helpers ────────────────────────────────────────────
@@ -366,90 +366,82 @@ def _is_human_message(msg: dict, bot_user_id: str, bot_message_ts: list[str]) ->
     return True
 
 
-# ── Main ───────────────────────────────────────────────────────────────────────
+# ── Polling helpers ────────────────────────────────────────────────────────────
 
-def main() -> None:  # noqa: C901  (complexity is inherent here)
-    state_path = _state_file_path()
-    state = load_state(state_path)
-
-    agent_url = os.environ.get("AGENT_SERVER_URL", "").rstrip("/")
-    api_key = _get_env_key()
-
-    # ── Resolve Slack token ────────────────────────────────────────────────────
-    slack_token = ""
-    token_is_user = False
+def _resolve_slack_token() -> tuple[str, bool]:
+    """Try SLACK_USER_TOKEN then SLACK_BOT_TOKEN; return (token, is_user).
+    Raises RuntimeError if neither is set.
+    """
     for secret_name, is_user in [("SLACK_USER_TOKEN", True), ("SLACK_BOT_TOKEN", False)]:
         try:
             val = get_secret(secret_name)
             if val:
-                slack_token = val
-                token_is_user = is_user
                 print(f"Using {secret_name}")
-                break
+                return val, is_user
         except Exception:
             pass
+    raise RuntimeError(
+        "No Slack token found. Set SLACK_BOT_TOKEN or SLACK_USER_TOKEN in "
+        "OpenHands Settings → Secrets."
+    )
 
-    if not slack_token:
-        raise RuntimeError(
-            "No Slack token found. Set SLACK_BOT_TOKEN or SLACK_USER_TOKEN in "
-            "OpenHands Settings → Secrets."
-        )
 
-    # ── Resolve OpenHands base URL for conversation links ─────────────────────
-    try:
-        openhands_url = get_secret("OPENHANDS_URL").rstrip("/") or DEFAULT_OPENHANDS_URL
-    except Exception:
-        openhands_url = DEFAULT_OPENHANDS_URL
-
-    # ── Verify token and check required scopes (fail fast if insufficient) ────────
-    # Raises RuntimeError immediately if the token is invalid - no point polling.
-    bot_user_id_new, scopes = _slack_auth_test(slack_token)
-    state["bot_user_id"] = bot_user_id_new
-    print(f"Bot user ID: {bot_user_id_new}")
-
-    if scopes:
-        # Scopes the token must have to do anything useful
-        read_scopes = {"channels:history", "groups:history", "im:history", "mpim:history"}
-        if not (scopes & read_scopes):
-            raise RuntimeError(
-                "Slack token is missing a read scope. "
-                f"Required: one of {sorted(read_scopes)}. "
-                f"Token has: {sorted(scopes)}"
-            )
-        if "chat:write" not in scopes:
-            raise RuntimeError(
-                "Slack token is missing the chat:write scope. "
-                f"Token has: {sorted(scopes)}"
-            )
-        can_react: bool = "reactions:write" in scopes
-        if not can_react:
-            print("Note: reactions:write scope absent - 👀 reactions will be skipped")
-    else:
+def _verify_token_scopes(scopes: set[str]) -> bool:
+    """Validate required scopes; return can_react.
+    Raises RuntimeError if a mandatory scope is absent.
+    If scopes header was absent, allows the API to fail at point of use.
+    """
+    if not scopes:
         # X-OAuth-Scopes header absent (unusual); proceed and let the API
         # return errors at the point of use rather than blocking everything.
-        can_react = True
+        return True
+    read_scopes = {"channels:history", "groups:history", "im:history", "mpim:history"}
+    if not (scopes & read_scopes):
+        raise RuntimeError(
+            "Slack token is missing a read scope. "
+            f"Required: one of {sorted(read_scopes)}. "
+            f"Token has: {sorted(scopes)}"
+        )
+    if "chat:write" not in scopes:
+        raise RuntimeError(
+            "Slack token is missing the chat:write scope. "
+            f"Token has: {sorted(scopes)}"
+        )
+    can_react: bool = "reactions:write" in scopes
+    if not can_react:
+        print("Note: reactions:write scope absent - 👀 reactions will be skipped")
+    return can_react
 
-    bot_user_id: str = state.get("bot_user_id") or ""
-    bot_message_ts: list[str] = state.get("bot_message_ts", [])
-    now_ts = str(time.time())
 
-    # ── Determine polling strategy ─────────────────────────────────────────────
-    use_search = (
-        token_is_user
-        and len(CHANNEL_IDS) > 1
-        and has_search_permission(slack_token)
-    )
-    print(f"Polling strategy: {'search.messages' if use_search else 'conversations.history'}")
+def _gather_channel_context(
+    slack_token: str,
+    channel_id: str,
+    before_ts: str,
+    bot_user_id: str,
+    bot_message_ts: list[str],
+    limit: int = CONTEXT_MESSAGE_LIMIT,
+) -> list[str]:
+    """Gather recent human messages from a channel for context."""
+    context_lines: list[str] = []
+    try:
+        cutoff = str(float(before_ts) - CONTEXT_LOOKBACK_SECONDS)
+        msgs = channel_history(slack_token, channel_id, cutoff, limit)
+        for msg in reversed(msgs):
+            if _is_human_message(msg, bot_user_id, bot_message_ts):
+                context_lines.append(f"[{msg.get('user','?')}]: {msg.get('text','')}")
+    except Exception:
+        pass  # context is best-effort
+    return context_lines
 
-    # ── Collect earliest last_poll across all channels (for search) ───────────
-    oldest_by_channel: dict[str, str] = {
-        cid: state["last_poll"].get(cid, str(time.time() - INITIAL_LOOKBACK))
-        for cid in CHANNEL_IDS
-    }
-    global_oldest = min(oldest_by_channel.values())
 
-    # ── Poll for new top-level / trigger messages ──────────────────────────────
-    # Messages are (channel_id, message_dict)
+def _poll_new_messages(
+    slack_token: str,
+    use_search: bool,
+    oldest_by_channel: dict[str, str],
+    global_oldest: str,
+    active_convs: dict[str, dict],
+) -> list[tuple[str, dict]]:
+    """Collect and sort new top-level messages and thread replies from Slack."""
     new_messages: list[tuple[str, dict]] = []
 
     if use_search:
@@ -477,11 +469,8 @@ def main() -> None:  # noqa: C901  (complexity is inherent here)
             except Exception as exc:
                 print(f"  Warning: could not fetch history for {cid}: {exc}")
 
-    # ── Poll for new replies in active threads ─────────────────────────────────
-    active_convs: dict[str, dict] = state.get("conversations", {})
     reply_messages: list[tuple[str, dict]] = []
-
-    for conv_key, rec in active_convs.items():
+    for _conv_key, rec in active_convs.items():
         if rec.get("status") == "closed":
             continue
         cid = rec["channel_id"]
@@ -494,15 +483,166 @@ def main() -> None:  # noqa: C901  (complexity is inherent here)
         except Exception as exc:
             print(f"  Warning: could not fetch replies for thread {thread_ts}: {exc}")
 
-    # ── Update last_poll to now ────────────────────────────────────────────────
-    for cid in CHANNEL_IDS:
-        state["last_poll"][cid] = now_ts
-
-    # ── Process new messages (sorted chronologically) ─────────────────────────
-    all_incoming = sorted(
+    return sorted(
         new_messages + reply_messages,
         key=lambda x: float(x[1].get("ts", "0")),
     )
+
+
+def _process_trigger_message(
+    slack_token: str,
+    agent_url: str,
+    api_key: str,
+    openhands_url: str,
+    channel_id: str,
+    msg_ts: str,
+    text: str,
+    thread_root: str,
+    conv_key: str,
+    active_convs: dict[str, dict],
+    bot_message_ts: list[str],
+    bot_user_id: str,
+    can_react: bool,
+) -> None:
+    """React to a trigger message, create an OpenHands conversation, and post a link."""
+    print(f"  Trigger detected in {channel_id} at {msg_ts}: {text[:80]}")
+    if can_react:
+        add_reaction(slack_token, channel_id, msg_ts)
+
+    context_lines = _gather_channel_context(
+        slack_token, channel_id, msg_ts, bot_user_id, bot_message_ts
+    )
+    context_block = "\n".join(context_lines) if context_lines else "(no recent context)"
+
+    initial_prompt = (
+        f"You are an AI assistant responding to a message in a Slack channel.\n\n"
+        f"Channel ID : {channel_id}\n"
+        f"Thread root: {thread_root}\n"
+        f"Trigger msg: {text}\n\n"
+        f"Recent channel context (oldest → newest):\n"
+        f"---\n{context_block}\n---\n\n"
+        f"Please analyse the request and take the appropriate action. "
+        f"When you are finished, summarise what you did clearly  -  that "
+        f"summary will be posted back to the Slack thread."
+    )
+
+    try:
+        conv_id = create_conversation(agent_url, api_key, initial_prompt)
+        conv_url = f"{openhands_url}/conversations/{conv_id}"
+
+        active_convs[conv_key] = {
+            "conversation_id": conv_id,
+            "channel_id": channel_id,
+            "thread_ts": thread_root,
+            "status": "active",
+            "last_activity": time.time(),
+        }
+
+        link_text = f"🤖 On it! View progress here: {conv_url}"
+        ts_back = post_message(slack_token, channel_id, link_text, thread_ts=thread_root)
+        if ts_back:
+            bot_message_ts.append(ts_back)
+
+        print(f"  Created conversation {conv_id} ({conv_url})")
+    except Exception as exc:
+        print(f"  Error creating conversation for {conv_key}: {exc}")
+
+
+def _check_conversation_completion(
+    conv_key: str,
+    rec: dict,
+    agent_url: str,
+    api_key: str,
+    slack_token: str,
+    bot_message_ts: list[str],
+) -> None:
+    """Post the agent's final response to the Slack thread when the conversation finishes."""
+    last_activity: float = rec.get("last_activity", 0.0)
+    if (time.time() - last_activity) < DONE_DEBOUNCE:
+        return
+
+    conv_id = rec["conversation_id"]
+    channel_id = rec["channel_id"]
+    thread_ts = rec["thread_ts"]
+
+    try:
+        status = conversation_status(agent_url, api_key, conv_id)
+    except Exception as exc:
+        print(f"  Warning: could not get status for {conv_id}: {exc}")
+        return
+
+    print(f"  {conv_key} → status={status}")
+
+    if status in ("idle", "finished", "error", "stuck"):
+        try:
+            final = conversation_final_response(agent_url, api_key, conv_id)
+        except Exception:
+            final = ""
+
+        if status in ("error", "stuck"):
+            summary = (
+                f"⚠️ The agent encountered a problem (status: *{status}*)."
+                + (f"\n\n{final}" if final else "")
+            )
+        else:
+            summary = f"✅ Done!\n\n{final}" if final else "✅ Task complete (no summary available)."
+
+        ts_back = post_message(slack_token, channel_id, summary, thread_ts=thread_ts)
+        if ts_back:
+            bot_message_ts.append(ts_back)
+
+        rec["status"] = "closed"
+        print(f"  Posted summary for {conv_key}")
+
+
+# ── Main ───────────────────────────────────────────────────────────────────────
+
+def main() -> None:
+    state_path = _state_file_path()
+    state = load_state(state_path)
+
+    agent_url = os.environ.get("AGENT_SERVER_URL", "").rstrip("/")
+    api_key = _get_env_key()
+
+    slack_token, token_is_user = _resolve_slack_token()
+
+    try:
+        openhands_url = get_secret("OPENHANDS_URL").rstrip("/") or DEFAULT_OPENHANDS_URL
+    except Exception:
+        openhands_url = DEFAULT_OPENHANDS_URL
+
+    # Raises RuntimeError immediately if the token is invalid - no point polling.
+    bot_user_id_new, scopes = _slack_auth_test(slack_token)
+    state["bot_user_id"] = bot_user_id_new
+    print(f"Bot user ID: {bot_user_id_new}")
+
+    can_react = _verify_token_scopes(scopes)
+
+    bot_user_id: str = state.get("bot_user_id") or ""
+    bot_message_ts: list[str] = state.get("bot_message_ts", [])
+    now_ts = str(time.time())
+
+    use_search = (
+        token_is_user
+        and len(CHANNEL_IDS) > 1
+        and has_search_permission(scopes)
+    )
+    print(f"Polling strategy: {'search.messages' if use_search else 'conversations.history'}")
+
+    oldest_by_channel: dict[str, str] = {
+        cid: state["last_poll"].get(cid, str(time.time() - INITIAL_LOOKBACK))
+        for cid in CHANNEL_IDS
+    }
+    global_oldest = min(oldest_by_channel.values())
+
+    active_convs: dict[str, dict] = state.get("conversations", {})
+
+    all_incoming = _poll_new_messages(
+        slack_token, use_search, oldest_by_channel, global_oldest, active_convs
+    )
+
+    for cid in CHANNEL_IDS:
+        state["last_poll"][cid] = now_ts
 
     for channel_id, msg in all_incoming:
         if not _is_human_message(msg, bot_user_id, bot_message_ts):
@@ -542,108 +682,18 @@ def main() -> None:  # noqa: C901  (complexity is inherent here)
 
         # ── Case B: message contains trigger phrase → create a new conversation ─
         if has_trigger:
-            print(f"  Trigger detected in {channel_id} at {msg_ts}: {text[:80]}")
-            if can_react:
-                add_reaction(slack_token, channel_id, msg_ts)
-
-            # Gather recent channel context for the agent
-            context_lines: list[str] = []
-            try:
-                ctx_msgs = channel_history(slack_token, channel_id,
-                                           str(float(msg_ts) - 3600), CONTEXT_MESSAGE_LIMIT)
-                for cm in reversed(ctx_msgs):
-                    if _is_human_message(cm, bot_user_id, bot_message_ts):
-                        context_lines.append(f"[{cm.get('user','?')}]: {cm.get('text','')}")
-            except Exception:
-                pass  # context is best-effort
-
-            context_block = "\n".join(context_lines) if context_lines else "(no recent context)"
-
-            initial_prompt = (
-                f"You are an AI assistant responding to a message in a Slack channel.\n\n"
-                f"Channel ID : {channel_id}\n"
-                f"Thread root: {thread_root}\n"
-                f"Trigger msg: {text}\n\n"
-                f"Recent channel context (oldest → newest):\n"
-                f"---\n{context_block}\n---\n\n"
-                f"Please analyse the request and take the appropriate action. "
-                f"When you are finished, summarise what you did clearly  -  that "
-                f"summary will be posted back to the Slack thread."
+            _process_trigger_message(
+                slack_token, agent_url, api_key, openhands_url,
+                channel_id, msg_ts, text, thread_root, conv_key,
+                active_convs, bot_message_ts, bot_user_id, can_react,
             )
 
-            try:
-                conv_id = create_conversation(agent_url, api_key, initial_prompt)
-                conv_url = f"{openhands_url}/conversations/{conv_id}"
-
-                # Store the conversation
-                active_convs[conv_key] = {
-                    "conversation_id": conv_id,
-                    "channel_id": channel_id,
-                    "thread_ts": thread_root,
-                    "status": "active",
-                    "last_activity": time.time(),
-                }
-
-                # Post conversation link back to the Slack thread
-                link_text = f"🤖 On it! View progress here: {conv_url}"
-                ts_back = post_message(slack_token, channel_id, link_text,
-                                       thread_ts=thread_root)
-                if ts_back:
-                    bot_message_ts.append(ts_back)
-
-                print(f"  Created conversation {conv_id} ({conv_url})")
-
-            except Exception as exc:
-                print(f"  Error creating conversation for {conv_key}: {exc}")
-
-    # ── Check active conversations for completion ──────────────────────────────
     for conv_key, rec in list(active_convs.items()):
-        if rec.get("status") == "closed":
-            continue
+        if rec.get("status") != "closed":
+            _check_conversation_completion(
+                conv_key, rec, agent_url, api_key, slack_token, bot_message_ts,
+            )
 
-        # Debounce: don't check in the same run that triggered the last activity
-        last_activity: float = rec.get("last_activity", 0.0)
-        if (time.time() - last_activity) < DONE_DEBOUNCE:
-            continue
-
-        conv_id = rec["conversation_id"]
-        channel_id = rec["channel_id"]
-        thread_ts = rec["thread_ts"]
-
-        try:
-            status = conversation_status(agent_url, api_key, conv_id)
-        except Exception as exc:
-            print(f"  Warning: could not get status for {conv_id}: {exc}")
-            continue
-
-        print(f"  {conv_key} → status={status}")
-
-        # Terminal or idle (agent waiting for input after finishing its turn)
-        if status in ("idle", "finished", "error", "stuck"):
-            try:
-                final = conversation_final_response(agent_url, api_key, conv_id)
-            except Exception:
-                final = ""
-
-            if status in ("error", "stuck"):
-                summary = (
-                    f"⚠️ The agent encountered a problem (status: *{status}*)."
-                    + (f"\n\n{final}" if final else "")
-                )
-            else:
-                summary = (
-                    (f"✅ Done!\n\n{final}" if final else "✅ Task complete (no summary available).")
-                )
-
-            ts_back = post_message(slack_token, channel_id, summary, thread_ts=thread_ts)
-            if ts_back:
-                bot_message_ts.append(ts_back)
-
-            rec["status"] = "closed"
-            print(f"  Posted summary for {conv_key}")
-
-    # ── Housekeeping ───────────────────────────────────────────────────────────
-    # Trim bot message timestamp list
     if len(bot_message_ts) > MAX_BOT_TS:
         state["bot_message_ts"] = bot_message_ts[-MAX_BOT_TS:]
     else:
