@@ -373,8 +373,14 @@ def _get_agent_dict(agent_url: str, api_key: str) -> dict:
         raise RuntimeError(f"GET /api/settings failed: {exc.code}") from exc
     agent_settings = data.get("agent_settings", {})
     llm = agent_settings.get("llm", {})
-    agent_name = agent_settings.get("agent") or "CodeActAgent"
-    return {"kind": agent_name, "llm": llm}
+    agent_name = agent_settings.get("agent") or "Agent"
+    return {
+        "kind": agent_name,
+        "llm": llm,
+        # TerminalTool (bash) and FileEditorTool are provided by openhands-tools.
+        # Without an explicit tools list the SDK Agent defaults to think+finish only.
+        "tools": [{"name": "TerminalTool"}, {"name": "FileEditorTool"}],
+    }
 
 
 def create_conversation(agent_url: str, api_key: str, initial_message: str) -> str:

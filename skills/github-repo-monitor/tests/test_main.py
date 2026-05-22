@@ -316,11 +316,20 @@ class TestGetAgentDict(unittest.TestCase):
         return mock_resp
 
     @patch("urllib.request.urlopen")
-    def test_null_agent_falls_back_to_codeactagent(self, mock_urlopen):
-        """agent=null in settings must not propagate as kind=null (regression for 500 error)."""
+    def test_null_agent_falls_back_to_agent(self, mock_urlopen):
+        """agent=null in settings must fall back to 'Agent', not propagate as null."""
         mock_urlopen.return_value = self._mock_settings(agent_value=None)
         result = main._get_agent_dict("http://agent", "key")
-        self.assertEqual(result["kind"], "CodeActAgent")
+        self.assertEqual(result["kind"], "Agent")
+
+    @patch("urllib.request.urlopen")
+    def test_tools_always_included(self, mock_urlopen):
+        """TerminalTool and FileEditorTool must always be present so the agent has bash."""
+        mock_urlopen.return_value = self._mock_settings(agent_value=None)
+        result = main._get_agent_dict("http://agent", "key")
+        tool_names = [t["name"] for t in result.get("tools", [])]
+        self.assertIn("TerminalTool", tool_names)
+        self.assertIn("FileEditorTool", tool_names)
 
     @patch("urllib.request.urlopen")
     def test_explicit_agent_name_is_used(self, mock_urlopen):
@@ -329,7 +338,7 @@ class TestGetAgentDict(unittest.TestCase):
         self.assertEqual(result["kind"], "BrowsingAgent")
 
     @patch("urllib.request.urlopen")
-    def test_missing_agent_key_falls_back_to_codeactagent(self, mock_urlopen):
+    def test_missing_agent_key_falls_back_to_agent(self, mock_urlopen):
         payload = json.dumps({"agent_settings": {"llm": {}}}).encode()
         mock_resp = MagicMock()
         mock_resp.__enter__ = MagicMock(return_value=mock_resp)
@@ -337,7 +346,7 @@ class TestGetAgentDict(unittest.TestCase):
         mock_resp.read = MagicMock(return_value=payload)
         mock_urlopen.return_value = mock_resp
         result = main._get_agent_dict("http://agent", "key")
-        self.assertEqual(result["kind"], "CodeActAgent")
+        self.assertEqual(result["kind"], "Agent")
 
 
 if __name__ == "__main__":
