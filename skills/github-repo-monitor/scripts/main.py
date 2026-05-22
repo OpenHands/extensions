@@ -377,9 +377,9 @@ def _get_agent_dict(agent_url: str, api_key: str) -> dict:
     return {
         "kind": agent_name,
         "llm": llm,
-        # TerminalTool (bash) and FileEditorTool are provided by openhands-tools.
+        # "terminal" and "file_editor" are the runtime-registered tool names.
         # Without an explicit tools list the SDK Agent defaults to think+finish only.
-        "tools": [{"name": "TerminalTool"}, {"name": "FileEditorTool"}],
+        "tools": [{"name": "terminal"}, {"name": "file_editor"}],
     }
 
 

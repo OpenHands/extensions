@@ -324,12 +324,16 @@ class TestGetAgentDict(unittest.TestCase):
 
     @patch("urllib.request.urlopen")
     def test_tools_always_included(self, mock_urlopen):
-        """TerminalTool and FileEditorTool must always be present so the agent has bash."""
+        """terminal and file_editor must always be present so the agent has bash.
+
+        The runtime-registered names ('terminal', 'file_editor') must be used,
+        not the Python class names ('TerminalTool', 'FileEditorTool').
+        """
         mock_urlopen.return_value = self._mock_settings(agent_value=None)
         result = main._get_agent_dict("http://agent", "key")
         tool_names = [t["name"] for t in result.get("tools", [])]
-        self.assertIn("TerminalTool", tool_names)
-        self.assertIn("FileEditorTool", tool_names)
+        self.assertIn("terminal", tool_names)
+        self.assertIn("file_editor", tool_names)
 
     @patch("urllib.request.urlopen")
     def test_explicit_agent_name_is_used(self, mock_urlopen):
