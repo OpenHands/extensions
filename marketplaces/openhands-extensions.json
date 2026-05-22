@@ -474,6 +474,21 @@
             ]
         },
         {
+            "name": "slack-channel-monitor",
+            "source": "./skills/slack-channel-monitor",
+            "description": "Create a cron automation that polls up to 10 Slack channels every minute and starts an OpenHands conversation when a configurable trigger phrase is detected. Forwards thread replies to running conversations and posts summaries back to Slack when the agent finishes.",
+            "category": "productivity",
+            "keywords": [
+                "slack",
+                "monitor",
+                "channel",
+                "trigger",
+                "cron",
+                "automation",
+                "integration"
+            ]
+        },
+        {
             "name": "ssh",
             "source": "./skills/ssh",
             "description": "Establish and manage SSH connections to remote machines, including key generation, configuration, and file transfers. Use when connecting to remote servers, executing remote commands, or transferring files via SCP.",
