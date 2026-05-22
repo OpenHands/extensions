@@ -50,7 +50,7 @@ See [`mcps/README.md`](mcps/README.md) and [`automations/README.md`](automations
 ## Extensions Catalog
 
 <!-- BEGIN AUTO-GENERATED CATALOG -->
-This repository contains **2 marketplace(s)** with **48 extensions** (38 skills, 10 plugins).
+This repository contains **2 marketplace(s)** with **50 extensions** (39 skills, 11 plugins).
 
 ### large-codebase
 
@@ -69,7 +69,7 @@ OpenHands skills for interacting, improving, and refactoring large codebases
 
 Official skills and plugins for OpenHands — the open-source AI software engineer.
 
-**44 extensions** (36 skills, 8 plugins)
+**46 extensions** (37 skills, 9 plugins)
 
 | Name | Type | Description | Commands |
 |------|------|-------------|----------|
@@ -111,6 +111,8 @@ Official skills and plugins for OpenHands — the open-source AI software engine
 | release-notes | plugin | Generate consistent, well-structured release notes from git history. Produces categorized changelog with breaking cha... | `/release-notes` |
 | security | skill | Security best practices for secure coding, authentication, authorization, and data protection. Use when developing fe... | — |
 | skill-creator | skill | Guide for creating effective skills. This skill should be used when users want to create a new skill (or update an ex... | — |
+| slack-channel-listener | skill | Set up an OpenHands automation that listens to a Slack channel (or many) for a configurable trigger phrase and starts... | `/slack-listener` |
+| slack-reply | plugin | Custom-automation building blocks for Slack-triggered OpenHands conversations: prompt assembly from Slack events, Sla... | — |
 | ssh | skill | Establish and manage SSH connections to remote machines, including key generation, configuration, and file transfers.... | — |
 | swift-linux | skill | Install and configure Swift programming language on Debian Linux for server-side development. Use when building Swift... | — |
 | theme-factory | skill | Toolkit for styling artifacts with a theme. These artifacts can be slides, docs, reportings, HTML landing pages, etc.... | — |
