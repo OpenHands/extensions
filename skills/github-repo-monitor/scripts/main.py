@@ -367,8 +367,10 @@ def _get_agent_dict(agent_url: str, api_key: str) -> dict:
             data = json.loads(r.read())
     except urllib.error.HTTPError as exc:
         raise RuntimeError(f"GET /api/settings failed: {exc.code}") from exc
-    llm = data.get("agent_settings", {}).get("llm", {})
-    return {"kind": "Agent", "llm": llm}
+    agent_settings = data.get("agent_settings", {})
+    llm = agent_settings.get("llm", {})
+    agent_name = agent_settings.get("agent", "CodeActAgent")
+    return {"kind": agent_name, "llm": llm}
 
 
 def create_conversation(agent_url: str, api_key: str, initial_message: str) -> str:
