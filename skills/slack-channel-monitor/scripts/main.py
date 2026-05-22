@@ -291,19 +291,35 @@ def _oh_request(
         raise RuntimeError(f"Agent API {method} {path} → {exc.code}: {body_text}") from exc
 
 
-def _get_agent_settings(agent_url: str, api_key: str) -> dict:
-    """Fetch the server's configured agent_settings for use in new conversations."""
-    result = _oh_request(agent_url, api_key, "GET", "/api/settings")
-    return result.get("agent_settings", {})
+def _get_agent_dict(agent_url: str, api_key: str) -> dict:
+    """Fetch configured agent settings and return a serialised Agent dict.
+
+    Uses X-Expose-Secrets: plaintext so the LLM api_key is a real string
+    rather than a masked placeholder.  The result is passed as the 'agent'
+    field (not 'agent_settings') to avoid a double-registration bug: the
+    agent_settings code path calls create_agent() during request validation
+    AND again during StoredConversation construction, both of which try to
+    register the same usage_id in the LLM registry.
+    """
+    url = f"{agent_url}/api/settings"
+    headers = {"X-Session-API-Key": api_key, "X-Expose-Secrets": "plaintext"}
+    req = urllib.request.Request(url, headers=headers)
+    try:
+        with urllib.request.urlopen(req) as r:
+            data = json.loads(r.read())
+    except urllib.error.HTTPError as exc:
+        raise RuntimeError(f"GET /api/settings failed: {exc.code}") from exc
+    llm = data.get("agent_settings", {}).get("llm", {})
+    return {"kind": "Agent", "llm": llm}
 
 
 def create_conversation(agent_url: str, api_key: str, initial_message: str) -> str:
     """Create a conversation, start it running, and return its ID."""
     workspace_dir = os.environ.get("WORKSPACE_BASE", "/workspace")
-    agent_settings = _get_agent_settings(agent_url, api_key)
+    agent = _get_agent_dict(agent_url, api_key)
     result = _oh_request(agent_url, api_key, "POST", "/api/conversations", {
         "workspace": {"working_dir": workspace_dir},
-        "agent_settings": agent_settings,
+        "agent": agent,
         "initial_message": {"content": [{"text": initial_message}]},
     })
     conv_id = result["id"]
