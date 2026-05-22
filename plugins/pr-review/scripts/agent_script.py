@@ -36,6 +36,11 @@ Environment Variables:
     REPO_NAME: Repository name in format owner/repo (required)
     REQUIRE_EVIDENCE: Whether to require PR description evidence showing the code
         works ('true'/'false', default: 'false')
+    COLLECT_FEEDBACK: Whether to ask maintainers for thumbs up/down feedback by
+        appending a short footer to the main review body ('true'/'false',
+        default: 'false')
+    REVIEW_RUN_URL: Optional GitHub Actions run URL to include in the feedback
+        footer when COLLECT_FEEDBACK is enabled
     USE_SUB_AGENTS: Enable sub-agent delegation for file-level reviews
         ('true'/'false', default: 'false'). When enabled, the main agent acts
         as a coordinator that delegates per-file review work to
@@ -921,6 +926,8 @@ def validate_environment() -> dict[str, Any]:
         "model": os.getenv("LLM_MODEL", "anthropic/claude-sonnet-4-5-20250929"),
         "base_url": os.getenv("LLM_BASE_URL"),
         "require_evidence": _get_bool_env("REQUIRE_EVIDENCE"),
+        "collect_feedback": _get_bool_env("COLLECT_FEEDBACK"),
+        "review_run_url": os.getenv("REVIEW_RUN_URL", ""),
         "use_sub_agents": use_sub_agents,
         "load_public_skills": _get_bool_env("LOAD_PUBLIC_SKILLS", default=True),
         "pr_info": {
@@ -1217,10 +1224,12 @@ def main():
     config = validate_environment()
     pr_info = config["pr_info"]
     require_evidence = config["require_evidence"]
+    collect_feedback = config["collect_feedback"]
     use_sub_agents = config["use_sub_agents"]
 
     logger.info(f"Reviewing PR #{pr_info['number']}: {pr_info['title']}")
     logger.info(f"Require PR evidence: {require_evidence}")
+    logger.info(f"Collect review feedback: {collect_feedback}")
     logger.info(f"Sub-agent delegation: {use_sub_agents}")
     logger.info(f"Agent kind: {config['agent_kind']}")
 
@@ -1245,6 +1254,8 @@ def main():
             files_manifest=manifest,
             review_context=review_context,
             require_evidence=require_evidence,
+            collect_feedback=collect_feedback,
+            review_run_url=config["review_run_url"],
             use_sub_agents=use_sub_agents,
         )
 

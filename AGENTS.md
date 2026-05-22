@@ -90,12 +90,14 @@ When editing or adding skills in this repo, follow these rules (and add new skil
 - Keep formatting consistent across skills.
 - If you change a skill’s behavior or scope, update its `README.md` (if present) accordingly.
 - If you change top-level documentation, ensure links still resolve.
+- `mcps/catalog/*.json` is the source of truth consumed by `@openhands/extensions`; agent-canvas imports this package directly, so MCP marketplace fixes belong here rather than in app-local constants. When upstream MCP projects move repos, verify both `docsUrl` and the install template (`command`/`args`), not just links.
 - For Python test runs, prefer `uv sync --group test` followed by `uv run pytest -q`; the full suite depends on `openhands-sdk`, which is not available in the base environment.
 - Agent-driven plugins (for example `plugins/pr-review` and `plugins/release-notes`) use `uv run --with openhands-sdk --with openhands-tools ...` and require an `LLM_API_KEY` in addition to `GITHUB_TOKEN`.
 - For OpenHands Cloud API guidance, automations, and CLI integration, use `plugins/openhands`. It is the canonical unified OpenHands plugin covering the V1 Cloud API, Automations API, and CLI. The individual skills (`skills/openhands-api`, `skills/openhands-automation`) are also available standalone.
 - When reviewing or editing `skills/openhands-sdk`, validate copy-paste imports against the released packages with `uv run --with openhands-tools --with openhands-workspace --with openhands-agent-server python ...`. In the current released workspace package, the exported remote workspace classes are `APIRemoteWorkspace` / `OpenHandsCloudWorkspace`; `RemoteAPIWorkspace` is not available.
 - For agent-driven plugin scripts, prefer `from openhands.sdk.plugin import PluginSource` and pass `plugins=[PluginSource(source=...)]` into `Conversation`. In the current released SDK (`openhands-sdk` 1.18.x), `Plugin` is not exported from `openhands.sdk.plugin`, so direct `Plugin.load(...)` imports can break CI.
 - `plugins/qa-changes/action.yml` now has a preflight guard for fork PRs in `pull_request` context: if the PR comes from a fork and `LLM_API_KEY` is unavailable (normal for forks), the action exits successfully with a clear skip notice instead of failing.
+- `skills/bitbucket` should not tell agents to rewrite remotes proactively. In OpenHands, `BITBUCKET_TOKEN` is commonly kept in unencoded `user:token` form for API calls like `curl --user "$BITBUCKET_TOKEN" ...`; only split and URL-encode it when constructing a non-interactive HTTPS Git remote URL.
 
 - `plugins/release-notes` now has a standalone validator at `plugins/release-notes/scripts/validate_release_notes.py`; it rebuilds the deterministic tag-range context, fails if a change bullet omits explicit PR/commit refs or matching author handles, and enforces full PR/author coverage by appending a compact `### 🔎 Small Fixes/Internal Changes` appendix grouped by author when the agent omits lower-signal items. New contributor detection in `generate_release_notes.py` should use merged PR history for human authors (excluding bots) rather than commit-author lookup.
 
@@ -121,6 +123,8 @@ When editing or adding skills in this repo, follow these rules (and add new skil
 - `plugins/pr-review` exposes an `enable-uv-cache` input (default `'false'`) that toggles `setup-uv`'s GitHub Actions cache. Default stays off because a prompt-injected reviewer could poison a shared cache that higher-privilege workflows later consume; opt in only on single-tenant self-hosted runners. The README's "Caching and Security" section documents the threat model and recommends a host-level uv cache volume as the preferred alternative for self-hosted setups.
 - GitHub review suggestions that only delete lines can look empty in `PullRequestReviewComment.body`; the rendered content is available via `bodyText`/`bodyHTML`, so review-context formatting should fall back there before treating a suggestion as empty.
 - Prompt coverage for this behavior lives in `tests/test_pr_review_prompt.py`.
+- `plugins/pr-review`'s `collect-feedback` input should append a short thumbs up/down footer to the main GitHub review body via `agent_script.py` / `prompt.py`, rather than posting a separate PR comment. `evaluate_review.py` should read feedback from review-body reactions while still tolerating legacy issue-comment markers.
+
 
 ## When uncertain
 

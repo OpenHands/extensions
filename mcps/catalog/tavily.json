@@ -1,0 +1,33 @@
+{
+  "id": "tavily",
+  "name": "Tavily",
+  "description": "Production-grade web search optimized for LLM agents. Free tier available.",
+  "docsUrl": "https://github.com/tavily-ai/tavily-mcp",
+  "iconBg": "#2563EB",
+  "keywords": [
+    "search",
+    "web",
+    "browsing",
+    "research"
+  ],
+  "popularityRank": 90,
+  "installHint": "Paste your Tavily API key — the official tavily-mcp package runs via npx.",
+  "template": {
+    "kind": "stdio",
+    "serverName": "tavily",
+    "command": "npx",
+    "args": [
+      "-y",
+      "tavily-mcp"
+    ],
+    "envFields": [
+      {
+        "key": "TAVILY_API_KEY",
+        "label": "Tavily API key",
+        "type": "password",
+        "placeholder": "tvly-...",
+        "required": true
+      }
+    ]
+  }
+}

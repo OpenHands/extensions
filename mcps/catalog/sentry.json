@@ -1,0 +1,18 @@
+{
+  "id": "sentry",
+  "name": "Sentry",
+  "description": "Triage issues, inspect events, and run Seer fixes against your Sentry org.",
+  "docsUrl": "https://docs.sentry.io/product/sentry-mcp/",
+  "iconBg": "#362D59",
+  "keywords": [
+    "errors",
+    "observability",
+    "monitoring",
+    "crash"
+  ],
+  "template": {
+    "kind": "shttp",
+    "url": "https://mcp.sentry.dev/mcp",
+    "apiKeyOptional": true
+  }
+}

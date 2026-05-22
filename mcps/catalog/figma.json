@@ -1,0 +1,31 @@
+{
+  "id": "figma",
+  "name": "Figma",
+  "description": "Read Figma frames, components, and styles to ground UI work in your designs.",
+  "docsUrl": "https://github.com/GLips/Figma-Context-MCP",
+  "iconBg": "var(--oh-surface)",
+  "keywords": [
+    "design",
+    "ui",
+    "frames",
+    "components"
+  ],
+  "template": {
+    "kind": "stdio",
+    "serverName": "figma",
+    "command": "npx",
+    "args": [
+      "-y",
+      "figma-developer-mcp",
+      "--stdio"
+    ],
+    "envFields": [
+      {
+        "key": "FIGMA_API_KEY",
+        "label": "Figma personal access token",
+        "type": "password",
+        "required": true
+      }
+    ]
+  }
+}

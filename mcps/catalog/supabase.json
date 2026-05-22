@@ -1,0 +1,31 @@
+{
+  "id": "supabase",
+  "name": "Supabase",
+  "description": "Query and manage your Supabase project, including database, auth, and storage.",
+  "docsUrl": "https://supabase.com/docs/guides/getting-started/mcp",
+  "iconBg": "#3ECF8E",
+  "keywords": [
+    "database",
+    "auth",
+    "storage",
+    "postgres"
+  ],
+  "template": {
+    "kind": "stdio",
+    "serverName": "supabase",
+    "command": "npx",
+    "args": [
+      "-y",
+      "@supabase/mcp-server-supabase@latest"
+    ],
+    "envFields": [
+      {
+        "key": "SUPABASE_ACCESS_TOKEN",
+        "label": "Supabase access token",
+        "type": "password",
+        "required": true,
+        "helperText": "Personal access token from your Supabase dashboard."
+      }
+    ]
+  }
+}

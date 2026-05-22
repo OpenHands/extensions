@@ -1,0 +1,13 @@
+{
+  "id": "linear-triage-assistant",
+  "name": "Linear issue triage assistant",
+  "category": "Project management",
+  "description": "Classify new Linear issues, suggest labels, find duplicates, and ask clarifying questions.",
+  "requiredMcpIds": [
+    "linear"
+  ],
+  "popularityRank": 90,
+  "estimatedSetupMinutes": 3,
+  "prompt": "Create an automation that triages new Linear issues. Use the Linear MCP to inspect the issue title, description, team, customer, priority, and recent related issues. Suggest labels, priority, likely owner, duplicates, and a clarifying comment. Ask me which teams/projects to include and whether updates should be applied directly or presented for approval.",
+  "exampleImplementation": "Trigger: linear Issue create\nRequired MCP: Linear\n\n1. Load the new issue, team context, project, labels, and recent similar issues.\n2. Score priority and classify the request as bug, feature, support, or chore.\n3. TODO: map local team labels and priority conventions.\n4. Add a triage comment with rationale and suggested next actions.\n5. Optionally update labels, priority, and assignee."
+}

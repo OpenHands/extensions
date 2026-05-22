@@ -1,0 +1,18 @@
+{
+  "id": "stripe",
+  "name": "Stripe",
+  "description": "Query customers, payments, subscriptions, and invoices via Stripe's hosted MCP server.",
+  "docsUrl": "https://stripe.com/docs/mcp",
+  "iconBg": "#635BFF",
+  "keywords": [
+    "payments",
+    "billing",
+    "subscriptions",
+    "finance"
+  ],
+  "template": {
+    "kind": "shttp",
+    "url": "https://mcp.stripe.com/",
+    "apiKeyOptional": true
+  }
+}

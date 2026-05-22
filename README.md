@@ -29,6 +29,24 @@ They live under `plugins/`, **one directory per plugin**:
 
 Browse available plugins in [`plugins/`](plugins/).
 
+### NPM Package
+
+This repository also publishes catalog data through the `@openhands/extensions` package. It requires Node.js 18.20.0 or newer because the catalog entry points import JSON modules with import attributes.
+
+```js
+import { AUTOMATION_CATALOG, MCP_CATALOG } from "@openhands/extensions";
+import { MCP_CATALOG as MCP_MARKETPLACE } from "@openhands/extensions/mcps";
+import { AUTOMATION_CATALOG as RECOMMENDED_AUTOMATIONS } from "@openhands/extensions/automations";
+```
+
+React logo components are isolated behind a separate export so data-only consumers do not need React peer dependencies:
+
+```js
+import { MCP_LOGOS } from "@openhands/extensions/mcps/logos";
+```
+
+See [`mcps/README.md`](mcps/README.md) and [`automations/README.md`](automations/README.md) for catalog-specific details.
+
 ## Extensions Catalog
 
 <!-- BEGIN AUTO-GENERATED CATALOG -->
@@ -94,6 +112,7 @@ Official skills and plugins for OpenHands — the open-source AI software engine
 | release-notes | plugin | Generate consistent, well-structured release notes from git history. Produces categorized changelog with breaking cha... | `/release-notes` |
 | security | skill | Security best practices for secure coding, authentication, authorization, and data protection. Use when developing fe... | — |
 | skill-creator | skill | Guide for creating effective skills. This skill should be used when users want to create a new skill (or update an ex... | — |
+| slack-channel-monitor | skill | Create a cron automation that polls up to 10 Slack channels every minute and starts an OpenHands conversation when a ... | — |
 | ssh | skill | Establish and manage SSH connections to remote machines, including key generation, configuration, and file transfers.... | — |
 | swift-linux | skill | Install and configure Swift programming language on Debian Linux for server-side development. Use when building Swift... | — |
 | theme-factory | skill | Toolkit for styling artifacts with a theme. These artifacts can be slides, docs, reportings, HTML landing pages, etc.... | — |

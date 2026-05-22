@@ -1,0 +1,23 @@
+{
+  "id": "browser-mcp",
+  "name": "Browser MCP",
+  "description": "Control your local browser tab — navigate, click, type, and read DOM contents.",
+  "docsUrl": "https://browsermcp.io/",
+  "iconBg": "#0EA5E9",
+  "availability": "local",
+  "keywords": [
+    "browser",
+    "automation",
+    "chrome",
+    "playwright"
+  ],
+  "template": {
+    "kind": "stdio",
+    "serverName": "browser_mcp",
+    "command": "npx",
+    "args": [
+      "-y",
+      "@browsermcp/mcp"
+    ]
+  }
+}

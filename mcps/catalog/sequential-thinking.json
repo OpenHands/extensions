@@ -1,0 +1,21 @@
+{
+  "id": "sequential-thinking",
+  "name": "Sequential Thinking",
+  "description": "Lets the agent emit and revise a chain of structured thoughts.",
+  "docsUrl": "https://github.com/modelcontextprotocol/servers/tree/main/src/sequentialthinking",
+  "iconBg": "var(--oh-color-base)",
+  "keywords": [
+    "reasoning",
+    "planning",
+    "thoughts"
+  ],
+  "template": {
+    "kind": "stdio",
+    "serverName": "sequential_thinking",
+    "command": "npx",
+    "args": [
+      "-y",
+      "@modelcontextprotocol/server-sequential-thinking"
+    ]
+  }
+}

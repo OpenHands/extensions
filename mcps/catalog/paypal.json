@@ -1,0 +1,17 @@
+{
+  "id": "paypal",
+  "name": "PayPal",
+  "description": "Manage transactions and merchant data via PayPal's MCP server.",
+  "docsUrl": "https://developer.paypal.com/tools/mcp-server/",
+  "iconBg": "#003087",
+  "keywords": [
+    "payments",
+    "billing",
+    "finance"
+  ],
+  "template": {
+    "kind": "sse",
+    "url": "https://mcp.paypal.com/sse",
+    "apiKeyOptional": true
+  }
+}

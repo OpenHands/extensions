@@ -15,7 +15,19 @@ ALWAYS use the Bitbucket API for operations instead of a web browser.
 ALWAYS use the `create_bitbucket_pr` tool to open a pull request
 </IMPORTANT>
 
-If you encounter authentication issues when pushing to Bitbucket (such as password prompts or permission errors), the old token may have expired. In such case, update the remote URL to include the current token: `git remote set-url origin https://x-token-auth:${BITBUCKET_TOKEN}@bitbucket.org/username/repo.git`
+Only rewrite the Bitbucket remote if a push actually fails with authentication errors and the user has asked you to push. Do not proactively rewrite `origin`. OpenHands OSS commonly stores `BITBUCKET_TOKEN` in the same unencoded `user:token` form used by commands such as `curl --user "$BITBUCKET_TOKEN" ...`, so keep it in that form unless you truly need to embed it in a Git remote URL.
+
+If you need a non-interactive HTTPS remote URL, split `BITBUCKET_TOKEN` on the first `:` and URL-encode each part before calling `git remote set-url`. This avoids breaking usernames or emails that contain reserved URL characters such as `@`:
+
+```bash
+BB_USER="${BITBUCKET_TOKEN%%:*}" && \
+BB_PASS="${BITBUCKET_TOKEN#*:}" && \
+ENCODED_USER=$(python3 -c 'import sys, urllib.parse; print(urllib.parse.quote(sys.argv[1], safe=""))' "$BB_USER") && \
+ENCODED_PASS=$(python3 -c 'import sys, urllib.parse; print(urllib.parse.quote(sys.argv[1], safe=""))' "$BB_PASS") && \
+git remote set-url origin "https://${ENCODED_USER}:${ENCODED_PASS}@bitbucket.org/username/repo.git"
+```
+
+Atlassian's Bitbucket Cloud docs recommend avoiding long-lived credentials in the remote URL when possible. Their API token examples use either `https://{bitbucket_username}:{api_token}@...` or `https://x-bitbucket-api-token-auth:{api_token}@...`; OpenHands users should only construct those URLs on demand, with proper URL encoding.
 
 Here are some instructions for pushing, but ONLY do this if the user asks you to:
 * NEVER push directly to the `main` or `master` branch

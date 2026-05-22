@@ -1,0 +1,15 @@
+{
+  "id": "incident-retrospective-drafter",
+  "name": "Incident retrospective drafter",
+  "category": "Reliability",
+  "description": "Collect incident chatter and issue updates, then draft a timeline and follow-up checklist.",
+  "requiredMcpIds": [
+    "slack",
+    "linear",
+    "notion"
+  ],
+  "popularityRank": 78,
+  "estimatedSetupMinutes": 8,
+  "prompt": "Create an automation that drafts incident retrospectives. Use Slack MCP to gather incident-channel messages, Linear MCP to collect linked tickets and follow-ups, and Notion MCP to publish a retrospective draft. Ask me how incidents are identified, which channels and Linear teams to inspect, and the desired retrospective template.",
+  "exampleImplementation": "Trigger: manual, cron, or incident label added\nRequired MCPs: Slack, Linear, Notion\n\n1. Gather incident messages, timestamps, and linked issue references.\n2. Pull Linear follow-up tickets, owners, and status.\n3. TODO: define the incident identifier format and approved Notion template.\n4. Build a timeline, impact summary, root-cause hypotheses, and action items.\n5. Publish a draft retrospective and notify the incident owner."
+}

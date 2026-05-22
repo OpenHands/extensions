@@ -1,0 +1,30 @@
+{
+  "id": "firecrawl",
+  "name": "Firecrawl",
+  "description": "Crawl any site and return clean markdown, structured data, or screenshots.",
+  "docsUrl": "https://docs.firecrawl.dev/mcp",
+  "iconBg": "#F97316",
+  "keywords": [
+    "scraping",
+    "crawl",
+    "web",
+    "markdown"
+  ],
+  "template": {
+    "kind": "stdio",
+    "serverName": "firecrawl",
+    "command": "npx",
+    "args": [
+      "-y",
+      "firecrawl-mcp"
+    ],
+    "envFields": [
+      {
+        "key": "FIRECRAWL_API_KEY",
+        "label": "Firecrawl API key",
+        "type": "password",
+        "required": true
+      }
+    ]
+  }
+}

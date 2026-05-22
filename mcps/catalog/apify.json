@@ -1,0 +1,30 @@
+{
+  "id": "apify",
+  "name": "Apify Actors",
+  "description": "Run any of Apify's 5,000+ Actors (scrapers, automations) from the agent.",
+  "docsUrl": "https://docs.apify.com/platform/integrations/mcp",
+  "iconBg": "#10b981",
+  "keywords": [
+    "scraping",
+    "automation",
+    "crawl",
+    "actors"
+  ],
+  "template": {
+    "kind": "stdio",
+    "serverName": "apify",
+    "command": "npx",
+    "args": [
+      "-y",
+      "@apify/actors-mcp-server"
+    ],
+    "envFields": [
+      {
+        "key": "APIFY_TOKEN",
+        "label": "Apify token",
+        "type": "password",
+        "required": true
+      }
+    ]
+  }
+}

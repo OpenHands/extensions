@@ -1,0 +1,18 @@
+{
+  "id": "cloudflare-browser-rendering",
+  "name": "Cloudflare Browser Rendering",
+  "description": "Fetch and screenshot pages using Cloudflare's hosted browser rendering.",
+  "docsUrl": "https://developers.cloudflare.com/agents/model-context-protocol/",
+  "iconBg": "#F38020",
+  "keywords": [
+    "cloudflare",
+    "browser",
+    "rendering",
+    "screenshots"
+  ],
+  "template": {
+    "kind": "sse",
+    "url": "https://browser.mcp.cloudflare.com/sse",
+    "apiKeyOptional": true
+  }
+}

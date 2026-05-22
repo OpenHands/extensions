@@ -1,0 +1,34 @@
+{
+  "id": "redis",
+  "name": "Redis",
+  "description": "Get, set, scan, and inspect data on a Redis or Redis-compatible instance.",
+  "docsUrl": "https://github.com/redis/mcp-redis",
+  "iconBg": "#DC382D",
+  "availability": "local",
+  "keywords": [
+    "cache",
+    "kv",
+    "database"
+  ],
+  "template": {
+    "kind": "stdio",
+    "serverName": "redis",
+    "command": "uvx",
+    "args": [
+      "--from",
+      "redis-mcp-server@latest",
+      "redis-mcp-server",
+      "--url"
+    ],
+    "argFields": [
+      {
+        "key": "redis_url",
+        "label": "Redis URL",
+        "type": "password",
+        "placeholder": "redis://localhost:6379",
+        "required": true,
+        "helperText": "Appended as --url <redis_url>."
+      }
+    ]
+  }
+}

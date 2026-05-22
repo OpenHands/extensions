@@ -1,0 +1,18 @@
+{
+  "id": "cloudflare-docs",
+  "name": "Cloudflare Docs",
+  "description": "Search and reference Cloudflare's developer documentation directly from the agent.",
+  "docsUrl": "https://developers.cloudflare.com/agents/model-context-protocol/",
+  "iconBg": "#F38020",
+  "keywords": [
+    "cloudflare",
+    "docs",
+    "reference",
+    "workers"
+  ],
+  "template": {
+    "kind": "sse",
+    "url": "https://docs.mcp.cloudflare.com/sse",
+    "apiKeyOptional": true
+  }
+}
