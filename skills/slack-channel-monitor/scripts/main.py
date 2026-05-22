@@ -291,11 +291,19 @@ def _oh_request(
         raise RuntimeError(f"Agent API {method} {path} → {exc.code}: {body_text}") from exc
 
 
+def _get_agent_settings(agent_url: str, api_key: str) -> dict:
+    """Fetch the server's configured agent_settings for use in new conversations."""
+    result = _oh_request(agent_url, api_key, "GET", "/api/settings")
+    return result.get("agent_settings", {})
+
+
 def create_conversation(agent_url: str, api_key: str, initial_message: str) -> str:
     """Create a conversation, start it running, and return its ID."""
     workspace_dir = os.environ.get("WORKSPACE_BASE", "/workspace")
+    agent_settings = _get_agent_settings(agent_url, api_key)
     result = _oh_request(agent_url, api_key, "POST", "/api/conversations", {
         "workspace": {"working_dir": workspace_dir},
+        "agent_settings": agent_settings,
         "initial_message": {"content": [{"text": initial_message}]},
     })
     conv_id = result["id"]
