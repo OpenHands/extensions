@@ -314,7 +314,12 @@ def _get_agent_dict(agent_url: str, api_key: str) -> dict:
 
 
 def create_conversation(agent_url: str, api_key: str, initial_message: str) -> str:
-    """Create a conversation, start it running, and return its ID."""
+    """Create a conversation and return its ID.
+
+    The server auto-starts the agent when initial_message is provided
+    (conversation_service calls send_message(..., run=True)), so no
+    separate POST to /run is needed or wanted — it would 409.
+    """
     workspace_dir = os.environ.get("WORKSPACE_BASE", "/workspace")
     agent = _get_agent_dict(agent_url, api_key)
     result = _oh_request(agent_url, api_key, "POST", "/api/conversations", {
@@ -322,9 +327,7 @@ def create_conversation(agent_url: str, api_key: str, initial_message: str) -> s
         "agent": agent,
         "initial_message": {"content": [{"text": initial_message}]},
     })
-    conv_id = result["id"]
-    _oh_request(agent_url, api_key, "POST", f"/api/conversations/{conv_id}/run")
-    return conv_id
+    return result["id"]
 
 
 def send_to_conversation(agent_url: str, api_key: str, conv_id: str, text: str) -> None:
