@@ -177,8 +177,27 @@ def slack_post(token: str, endpoint: str, body: dict) -> dict:
     return _slack_call(token, "POST", endpoint, body=body)
 
 
-def get_bot_user_id(token: str) -> str:
-    return slack_get(token, "auth.test").get("user_id", "")
+def _slack_auth_test(token: str) -> tuple[str, set[str]]:
+    """Call auth.test, verify the token, and return (user_id, scopes).
+
+    Reads the X-OAuth-Scopes response header so callers can gate behaviour on
+    individual scopes without making extra API calls.  Raises RuntimeError if
+    the token is rejected by Slack.
+    """
+    req = urllib.request.Request(
+        "https://slack.com/api/auth.test",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    with urllib.request.urlopen(req) as r:
+        scopes_header: str = r.headers.get("X-OAuth-Scopes", "")
+        result = json.loads(r.read())
+    if not result.get("ok"):
+        raise RuntimeError(f"Slack token rejected: {result.get('error')}")
+    scopes = (
+        {s.strip() for s in scopes_header.split(",") if s.strip()}
+        if scopes_header else set()
+    )
+    return result.get("user_id", ""), scopes
 
 
 def add_reaction(token: str, channel: str, ts: str, emoji: str = "eyes") -> None:
@@ -274,7 +293,9 @@ def _oh_request(
 
 def create_conversation(agent_url: str, api_key: str, initial_message: str) -> str:
     """Create a conversation, start it running, and return its ID."""
+    workspace_dir = os.environ.get("WORKSPACE_BASE", "/workspace")
     result = _oh_request(agent_url, api_key, "POST", "/api/conversations", {
+        "workspace": {"working_dir": workspace_dir},
         "initial_message": {"content": [{"text": initial_message}]},
     })
     conv_id = result["id"]
@@ -353,13 +374,33 @@ def main() -> None:  # noqa: C901  (complexity is inherent here)
     except Exception:
         openhands_url = DEFAULT_OPENHANDS_URL
 
-    # ── Cache bot user ID (to skip self-messages) ──────────────────────────────
-    if not state.get("bot_user_id"):
-        try:
-            state["bot_user_id"] = get_bot_user_id(slack_token)
-            print(f"Bot user ID: {state['bot_user_id']}")
-        except Exception as exc:
-            print(f"Warning: could not resolve bot user ID: {exc}")
+    # ── Verify token and check required scopes (fail fast if insufficient) ────────
+    # Raises RuntimeError immediately if the token is invalid - no point polling.
+    bot_user_id_new, scopes = _slack_auth_test(slack_token)
+    state["bot_user_id"] = bot_user_id_new
+    print(f"Bot user ID: {bot_user_id_new}")
+
+    if scopes:
+        # Scopes the token must have to do anything useful
+        read_scopes = {"channels:history", "groups:history", "im:history", "mpim:history"}
+        if not (scopes & read_scopes):
+            raise RuntimeError(
+                "Slack token is missing a read scope. "
+                f"Required: one of {sorted(read_scopes)}. "
+                f"Token has: {sorted(scopes)}"
+            )
+        if "chat:write" not in scopes:
+            raise RuntimeError(
+                "Slack token is missing the chat:write scope. "
+                f"Token has: {sorted(scopes)}"
+            )
+        can_react: bool = "reactions:write" in scopes
+        if not can_react:
+            print("Note: reactions:write scope absent - 👀 reactions will be skipped")
+    else:
+        # X-OAuth-Scopes header absent (unusual); proceed and let the API
+        # return errors at the point of use rather than blocking everything.
+        can_react = True
 
     bot_user_id: str = state.get("bot_user_id") or ""
     bot_message_ts: list[str] = state.get("bot_message_ts", [])
@@ -468,14 +509,15 @@ def main() -> None:  # noqa: C901  (complexity is inherent here)
                 rec["last_activity"] = time.time()
             except Exception as exc:
                 print(f"  Warning: failed to forward reply: {exc}")
-            if has_trigger:
+            if has_trigger and can_react:
                 add_reaction(slack_token, channel_id, msg_ts)
             continue
 
         # ── Case B: message contains trigger phrase → create a new conversation ─
         if has_trigger:
             print(f"  Trigger detected in {channel_id} at {msg_ts}: {text[:80]}")
-            add_reaction(slack_token, channel_id, msg_ts)
+            if can_react:
+                add_reaction(slack_token, channel_id, msg_ts)
 
             # Gather recent channel context for the agent
             context_lines: list[str] = []
