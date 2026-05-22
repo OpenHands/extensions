@@ -373,9 +373,11 @@ def _get_agent_dict(agent_url: str, api_key: str) -> dict:
         raise RuntimeError(f"GET /api/settings failed: {exc.code}") from exc
     agent_settings = data.get("agent_settings", {})
     llm = agent_settings.get("llm", {})
-    agent_name = agent_settings.get("agent") or "Agent"
+    # settings["agent_settings"]["agent"] reflects the full-app agent registry
+    # (e.g. "CodeActAgent", "BrowsingAgent").  The automation SDK is a separate
+    # runtime whose only valid kind is "Agent" — never forward that value.
     return {
-        "kind": agent_name,
+        "kind": "Agent",
         "llm": llm,
         # "terminal" and "file_editor" are the runtime-registered tool names.
         # Without an explicit tools list the SDK Agent defaults to think+finish only.

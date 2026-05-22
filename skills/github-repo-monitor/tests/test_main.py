@@ -336,10 +336,18 @@ class TestGetAgentDict(unittest.TestCase):
         self.assertIn("file_editor", tool_names)
 
     @patch("urllib.request.urlopen")
-    def test_explicit_agent_name_is_used(self, mock_urlopen):
-        mock_urlopen.return_value = self._mock_settings(agent_value="BrowsingAgent")
-        result = main._get_agent_dict("http://agent", "key")
-        self.assertEqual(result["kind"], "BrowsingAgent")
+    def test_full_app_agent_name_not_forwarded(self, mock_urlopen):
+        """Full-app agent names (CodeActAgent, BrowsingAgent, …) must not be forwarded.
+
+        settings["agent_settings"]["agent"] belongs to the full OpenHands app
+        registry.  The automation SDK only accepts 'Agent' / 'ACPAgent'.
+        Forwarding 'CodeActAgent' causes a 500 with 'Unknown kind' in production.
+        """
+        for app_agent in ("CodeActAgent", "BrowsingAgent", "SomeFutureAgent"):
+            with self.subTest(app_agent=app_agent):
+                mock_urlopen.return_value = self._mock_settings(agent_value=app_agent)
+                result = main._get_agent_dict("http://agent", "key")
+                self.assertEqual(result["kind"], "Agent")
 
     @patch("urllib.request.urlopen")
     def test_missing_agent_key_falls_back_to_agent(self, mock_urlopen):
