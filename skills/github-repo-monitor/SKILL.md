@@ -1,3 +1,15 @@
+---
+name: github-repo-monitor
+description: >
+  This skill should be used when the user asks to "monitor a GitHub repository",
+  "watch GitHub for issues or PRs", "respond to @OpenHands mentions on GitHub",
+  "set up an OpenHands GitHub integration", "trigger OpenHands from a GitHub
+  comment", or "poll a GitHub repo for a trigger phrase". Guides the user
+  through creating a cron automation that polls a single repository and starts
+  an OpenHands conversation whenever a configurable trigger phrase is detected
+  in an issue or PR comment.
+---
+
 # GitHub Repository Monitor
 
 Create a cron automation that polls a single GitHub repository on a
