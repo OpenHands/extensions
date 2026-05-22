@@ -549,7 +549,7 @@ def _process_trigger_comment(
         f"I've started working on this {item_type}. "
         f"View the conversation here: {conv_url}\n\n"
         f"_This comment was posted by an AI agent (OpenHands) "
-        f"in response to an @openhands mention._"
+        f"in response to a '{TRIGGER_PHRASE}' mention._"
     )
     _post_github_comment(github_token, repo, issue_number, ack_body)
 
