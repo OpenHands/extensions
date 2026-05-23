@@ -40,6 +40,9 @@ from urllib.parse import urlencode
 REPO = "owner/repo"                     # e.g. "microsoft/vscode"
 TRIGGER_PHRASE = "@openhands"           # case-insensitive
 EVENT_TYPES = ["issue_comment"]         # e.g. ["issue_comment", "pr_review_comment"]
+# Who may trigger conversations. Default is the authenticated GITHUB_TOKEN owner.
+# Use ["*"] to allow any non-bot commenter, or explicit logins like ["octocat"].
+ALLOWED_GITHUB_LOGINS = ["<TOKEN_OWNER>"]
 DEFAULT_OPENHANDS_URL = "http://localhost:8000"
 
 # Context: number of recent issue/PR comments to include in the initial prompt.
@@ -420,11 +423,42 @@ def conversation_final_response(agent_url: str, api_key: str, conv_id: str) -> s
 
 # ── Comment filtering helpers ─────────────────────────────────────────────────
 
+def _comment_author_login(comment: dict) -> str:
+    """Return the GitHub login for the comment author, if present."""
+    user = comment.get("user") or {}
+    return (user.get("login") or "").strip()
+
+
 def _is_bot_comment(comment: dict) -> bool:
     """Return True if the comment was posted by a bot account."""
     user = comment.get("user") or {}
-    login = user.get("login", "")
+    login = _comment_author_login(comment)
     return login.endswith("[bot]") or user.get("type") == "Bot"
+
+
+def _allowed_login_set(token_owner_login: str) -> set[str]:
+    """Resolve configured login allowlist, including the token-owner sentinel."""
+    token_owner = token_owner_login.strip().lower()
+    allowed: set[str] = set()
+    for login in ALLOWED_GITHUB_LOGINS:
+        normalized = login.strip().lower()
+        if not normalized:
+            continue
+        if normalized == "<token_owner>":
+            if token_owner:
+                allowed.add(token_owner)
+            continue
+        allowed.add(normalized)
+    return allowed
+
+
+def _is_allowed_comment_author(comment: dict, token_owner_login: str) -> bool:
+    """Return True if this comment author is allowed to trigger conversations."""
+    author = _comment_author_login(comment).lower()
+    if not author:
+        return False
+    allowed = _allowed_login_set(token_owner_login)
+    return "*" in allowed or author in allowed
 
 
 def _has_trigger(comment: dict, phrase: str) -> bool:
@@ -685,7 +719,7 @@ def main() -> None:
     api_key = _get_env_key()
 
     github_token = _resolve_github_token()
-    _verify_token_and_repo(github_token, REPO)
+    token_owner_login = _verify_token_and_repo(github_token, REPO)
 
     try:
         openhands_url = get_secret("OPENHANDS_URL").rstrip("/") or DEFAULT_OPENHANDS_URL
@@ -733,6 +767,16 @@ def main() -> None:
             continue
 
         if _is_bot_comment(comment):
+            processed_set.add(comment_id)
+            continue
+
+        if not _is_allowed_comment_author(comment, token_owner_login):
+            if _has_trigger(comment, TRIGGER_PHRASE):
+                author = _comment_author_login(comment) or "unknown"
+                print(
+                    f"  Skipping trigger comment {comment_id} "
+                    f"from unauthorized user @{author}"
+                )
             processed_set.add(comment_id)
             continue
 

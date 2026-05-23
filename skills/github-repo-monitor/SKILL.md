@@ -118,7 +118,25 @@ Accepted values: any non-empty string unlikely to appear by accident.
 
 Record as `TRIGGER_PHRASE`. Default: `"@openhands"`.
 
-### Step 4  -  Collect event types
+### Step 4  -  Collect allowed GitHub logins
+
+Ask the user: *"Which GitHub users may trigger this automation?
+Press Enter to allow only the authenticated `GITHUB_TOKEN` owner.
+You may also provide comma-separated GitHub logins, or `*` to allow any
+non-bot commenter on the monitored repository."*
+
+Map the answer to `ALLOWED_GITHUB_LOGINS`:
+
+| User answer | `ALLOWED_GITHUB_LOGINS` value |
+|---|---|
+| Empty/default | `["<TOKEN_OWNER>"]` |
+| `enyst,tofarr` | `["enyst", "tofarr"]` |
+| `*` | `["*"]` |
+
+Default to token-owner-only unless the user explicitly chooses a broader
+allowlist. Record as `ALLOWED_GITHUB_LOGINS`.
+
+### Step 5  -  Collect event types
 
 Ask the user: *"Which event types should be monitored?
 Choose one or more:*
@@ -135,7 +153,7 @@ Map the choice to the `EVENT_TYPES` list:
 | 2 | `["pr_review_comment"]` |
 | 3 | `["issue_comment", "pr_review_comment"]` |
 
-### Step 5  -  Collect cron schedule
+### Step 6  -  Collect cron schedule
 
 Ask the user: *"How often should the automation poll GitHub?
 (Press Enter for the default: every minute.
@@ -147,9 +165,9 @@ Default: `* * * * *` (every minute).
 
 Record as `CRON_SCHEDULE`.
 
-### Step 6  -  Generate the automation script
+### Step 7  -  Generate the automation script
 
-Read `scripts/main.py` from this skill's directory. Apply exactly four
+Read `scripts/main.py` from this skill's directory. Apply exactly five
 constant substitutions near the top of the file:
 
 | Placeholder | Replace with |
@@ -157,6 +175,7 @@ constant substitutions near the top of the file:
 | `REPO = "owner/repo"` | `REPO = "{owner_repo}"` |
 | `TRIGGER_PHRASE = "@openhands"` | `TRIGGER_PHRASE = "{trigger_phrase_lower}"` |
 | `EVENT_TYPES = ["issue_comment"]` | `EVENT_TYPES = {event_types_list}` |
+| `ALLOWED_GITHUB_LOGINS = ["<TOKEN_OWNER>"]` | `ALLOWED_GITHUB_LOGINS = {allowed_logins_list}` |
 | `DEFAULT_OPENHANDS_URL = "http://localhost:8000"` | `DEFAULT_OPENHANDS_URL = "{url}"` (keep default if the user has no preference) |
 
 Write the customised script to a temporary build directory:
@@ -172,7 +191,7 @@ python3 -m py_compile /tmp/github-monitor-build/main.py && echo "Syntax OK"
 
 Fix any syntax errors before proceeding.
 
-### Step 7  -  Package and upload
+### Step 8  -  Package and upload
 
 ```bash
 tar -czf /tmp/github-monitor.tar.gz -C /tmp/github-monitor-build .
@@ -189,7 +208,7 @@ TARBALL_PATH=$(curl -s -X POST \
 echo "Uploaded: $TARBALL_PATH"
 ```
 
-### Step 8  -  Create the automation
+### Step 9  -  Create the automation
 
 ```bash
 curl -s -X POST "${OPENHANDS_HOST}/api/automation/v1" \
@@ -206,7 +225,7 @@ curl -s -X POST "${OPENHANDS_HOST}/api/automation/v1" \
 
 Record the returned `id`.
 
-### Step 9  -  Confirm
+### Step 10  -  Confirm
 
 Tell the user:
 
@@ -216,12 +235,13 @@ Tell the user:
 > - Repository: `{owner}/{repo}`
 > - Trigger phrase: `{phrase}`
 > - Event types: `{event_types}`
+> - Allowed GitHub logins: `{allowed_logins}`
 > - Polling schedule: `{cron_schedule}`
 > - State file: `~/.openhands/workspaces/automation-state/github_poller_{id}.json`
 >
-> Post a comment containing `{phrase}` on any issue or PR in `{owner}/{repo}`
-> to test it. OpenHands will acknowledge with a comment and a link to the
-> new conversation.
+> From an allowed GitHub login, post a comment containing `{phrase}` on any
+> issue or PR in `{owner}/{repo}` to test it. OpenHands will acknowledge with
+> a comment and a link to the new conversation.
 
 ---
 
@@ -237,6 +257,7 @@ Each cron run executes `main.py`, which:
 4. **Processes matching comments** in chronological order:
    - Skips bot accounts (login ending in `[bot]`) to avoid feedback loops.
    - Skips already-processed comment IDs.
+   - Skips comments from logins outside `ALLOWED_GITHUB_LOGINS`.
    - Checks body for the trigger phrase (case-insensitive).
    - Extracts the issue/PR number from the comment URL.
 5. **For each trigger comment**, per issue/PR:

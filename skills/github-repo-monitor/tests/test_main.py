@@ -127,6 +127,41 @@ class TestIsBotComment(unittest.TestCase):
         ))
 
 
+# ── Author authorization tests ────────────────────────────────────────────────
+
+class TestAllowedCommentAuthor(unittest.TestCase):
+
+    def setUp(self):
+        self._original_allowed = main.ALLOWED_GITHUB_LOGINS
+
+    def tearDown(self):
+        main.ALLOWED_GITHUB_LOGINS = self._original_allowed
+
+    def test_default_token_owner_allows_owner(self):
+        main.ALLOWED_GITHUB_LOGINS = ["<TOKEN_OWNER>"]
+        comment = _make_comment(login="OctoCat")
+        self.assertTrue(main._is_allowed_comment_author(comment, "octocat"))
+
+    def test_default_token_owner_rejects_other_user(self):
+        main.ALLOWED_GITHUB_LOGINS = ["<TOKEN_OWNER>"]
+        comment = _make_comment(login="enyst")
+        self.assertFalse(main._is_allowed_comment_author(comment, "tofarr"))
+
+    def test_explicit_allowlist_is_case_insensitive(self):
+        main.ALLOWED_GITHUB_LOGINS = ["Enyst", "tofarr"]
+        comment = _make_comment(login="enyst")
+        self.assertTrue(main._is_allowed_comment_author(comment, "someone-else"))
+
+    def test_wildcard_allows_any_commenter(self):
+        main.ALLOWED_GITHUB_LOGINS = ["*"]
+        comment = _make_comment(login="anyone")
+        self.assertTrue(main._is_allowed_comment_author(comment, "octocat"))
+
+    def test_missing_author_is_rejected(self):
+        main.ALLOWED_GITHUB_LOGINS = ["*"]
+        self.assertFalse(main._is_allowed_comment_author({}, "octocat"))
+
+
 # ── Trigger phrase tests ───────────────────────────────────────────────────────
 
 class TestHasTrigger(unittest.TestCase):

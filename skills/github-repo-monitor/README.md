@@ -36,8 +36,8 @@ Just tell OpenHands:
 
 > *"Set up a GitHub repository monitor for `owner/repo`"*
 
-The skill will walk through token verification, event-type selection, cron
-schedule, and automation creation automatically.
+The skill will walk through token verification, allowed-login selection,
+event-type selection, cron schedule, and automation creation automatically.
 
 ## Requirements
 
@@ -52,6 +52,7 @@ schedule, and automation creation automatically.
 |--------|---------|-------------|
 | Repository | (required) | `owner/repo` format |
 | Trigger phrase | `@OpenHands` | Case-insensitive string to watch for in comments |
+| Allowed GitHub logins | token owner only | Who may trigger conversations; use explicit logins or `*` for any non-bot commenter |
 | Event types | `issue_comment` | `issue_comment`, `pr_review_comment`, or both |
 | Cron schedule | `* * * * *` | Every minute; any valid 5-field cron expression |
 
