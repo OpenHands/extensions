@@ -3,6 +3,7 @@ import apify from "./catalog/apify.json" with { type: "json" };
 import atlassian from "./catalog/atlassian.json" with { type: "json" };
 import brave_search from "./catalog/brave-search.json" with { type: "json" };
 import browser_mcp from "./catalog/browser-mcp.json" with { type: "json" };
+import bilig_workpaper from "./catalog/bilig-workpaper.json" with { type: "json" };
 import clickhouse from "./catalog/clickhouse.json" with { type: "json" };
 import cloudflare_bindings from "./catalog/cloudflare-bindings.json" with { type: "json" };
 import cloudflare_browser_rendering from "./catalog/cloudflare-browser-rendering.json" with { type: "json" };
@@ -55,6 +56,7 @@ const DIRECT_INTEGRATIONS = [
   atlassian,
   brave_search,
   browser_mcp,
+  bilig_workpaper,
   clickhouse,
   cloudflare_bindings,
   cloudflare_browser_rendering,
