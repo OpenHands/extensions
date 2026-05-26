@@ -184,6 +184,44 @@ def _get_bool_env(name: str, default: bool = False) -> bool:
     return value.strip().lower() in {"1", "true", "yes", "on"}
 
 
+def get_session_url() -> str | None:
+    """Return a link to the current execution session.
+
+    Detects the environment automatically:
+
+    - **GitHub Actions**: constructs the workflow run URL from standard
+      ``GITHUB_*`` environment variables.
+    - **OpenHands Cloud Automation**: constructs the conversation URL from
+      ``SANDBOX_ID`` and ``OPENHANDS_CLOUD_API_URL``, which are injected by
+      the cloud automation backend.
+    - **Explicit override**: if ``REVIEW_RUN_URL`` is set it takes precedence
+      over auto-detection (preserves backward-compatibility for callers that
+      already supply the URL).
+
+    Returns:
+        URL string, or ``None`` if the environment cannot be determined.
+    """
+    explicit = os.getenv("REVIEW_RUN_URL", "").strip()
+    if explicit:
+        return explicit
+
+    # GitHub Actions
+    if os.getenv("GITHUB_ACTIONS") == "true":
+        server = os.getenv("GITHUB_SERVER_URL", "https://github.com").rstrip("/")
+        repo = os.getenv("GITHUB_REPOSITORY", "")
+        run_id = os.getenv("GITHUB_RUN_ID", "")
+        if repo and run_id:
+            return f"{server}/{repo}/actions/runs/{run_id}"
+
+    # OpenHands Cloud Automation
+    sandbox_id = os.getenv("SANDBOX_ID", "").strip()
+    cloud_url = os.getenv("OPENHANDS_CLOUD_API_URL", "").rstrip("/")
+    if sandbox_id and cloud_url:
+        return f"{cloud_url}/conversations/{sandbox_id}"
+
+    return None
+
+
 def _call_github_api(
     url: str,
     method: str = "GET",
@@ -865,6 +903,62 @@ def get_head_commit_sha(repo_dir: Path | None = None) -> str:
     return run_git_command(["git", "rev-parse", "HEAD"], repo_dir).strip()
 
 
+def post_progress_comment(
+    repo_name: str, pr_number: str, session_url: str | None
+) -> int | None:
+    """Post a 'review in progress' comment on the PR before the agent starts.
+
+    Args:
+        repo_name: Repository in ``owner/repo`` format.
+        pr_number: Pull request number.
+        session_url: Link to the execution session, or ``None``.
+
+    Returns:
+        GitHub comment ID on success, ``None`` on failure (non-fatal).
+    """
+    parts = ["🔍 **Review in progress…**"]
+    if session_url:
+        parts.append(f"[View session]({session_url})")
+    body = " · ".join(parts)
+    try:
+        result = _call_github_api(
+            f"/repos/{repo_name}/issues/{pr_number}/comments",
+            method="POST",
+            data={"body": body},
+        )
+        comment_id: int = result["id"]
+        logger.info("Posted progress comment id=%s", comment_id)
+        return comment_id
+    except Exception as exc:
+        logger.warning("Failed to post progress comment: %s", exc)
+        return None
+
+
+def update_progress_comment(
+    repo_name: str, comment_id: int, session_url: str | None
+) -> None:
+    """Update the progress comment to 'review complete' after the agent finishes.
+
+    Args:
+        repo_name: Repository in ``owner/repo`` format.
+        comment_id: ID returned by :func:`post_progress_comment`.
+        session_url: Link to the execution session, or ``None``.
+    """
+    parts = ["✅ **Review complete.**"]
+    if session_url:
+        parts.append(f"[View session]({session_url})")
+    body = " · ".join(parts)
+    try:
+        _call_github_api(
+            f"/repos/{repo_name}/issues/comments/{comment_id}",
+            method="PATCH",
+            data={"body": body},
+        )
+        logger.info("Updated progress comment id=%s", comment_id)
+    except Exception as exc:
+        logger.warning("Failed to update progress comment id=%s: %s", comment_id, exc)
+
+
 def validate_environment() -> dict[str, Any]:
     """Validate required environment variables and return config.
 
@@ -928,6 +1022,7 @@ def validate_environment() -> dict[str, Any]:
         "require_evidence": _get_bool_env("REQUIRE_EVIDENCE"),
         "collect_feedback": _get_bool_env("COLLECT_FEEDBACK"),
         "review_run_url": os.getenv("REVIEW_RUN_URL", ""),
+        "session_url": get_session_url(),
         "use_sub_agents": use_sub_agents,
         "load_public_skills": _get_bool_env("LOAD_PUBLIC_SKILLS", default=True),
         "pr_info": {
@@ -1238,6 +1333,11 @@ def main():
             pr_info["number"]
         )
 
+        session_url = config.get("session_url")
+        progress_comment_id = post_progress_comment(
+            pr_info["repo_name"], pr_info["number"], session_url
+        )
+
         skill_trigger = "/codereview"
         logger.info(f"Using skill trigger: {skill_trigger}")
 
@@ -1257,6 +1357,7 @@ def main():
             collect_feedback=collect_feedback,
             review_run_url=config["review_run_url"],
             use_sub_agents=use_sub_agents,
+            session_url=config.get("session_url", ""),
         )
 
         secrets = {}
@@ -1267,6 +1368,11 @@ def main():
 
         conversation = create_conversation(config, secrets)
         conversation = run_review(conversation, prompt)
+
+        if progress_comment_id:
+            update_progress_comment(
+                pr_info["repo_name"], progress_comment_id, session_url
+            )
 
         log_cost_summary(conversation)
         save_trace_context(pr_info, commit_id, config["model"])
