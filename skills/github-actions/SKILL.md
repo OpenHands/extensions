@@ -3,9 +3,10 @@ name: github-actions
 description: Create, debug, and test GitHub Actions workflows and custom actions. Use when building CI/CD pipelines, automating workflows, or troubleshooting GitHub Actions.
 triggers:
 - github actions
-- workflow
-- ci/cd
 - github workflow
+- actions workflow
+- gh actions
+- .github/workflows
 ---
 
 # GitHub Actions Guide
@@ -37,7 +38,7 @@ See [README.md](README.md) for the full debugging workflow, `gh` commands, and Y
 
 ## Key Gotchas
 
-1. **Secrets unavailable in fork PRs** - Use `pull_request_target` with caution or don't rely on secrets
+1. **Secrets unavailable in fork PRs** - `pull_request` has no secrets for forks; `pull_request_target` does but **never check out or execute fork PR code inside it** (RCE with write permissions)
 2. **Pin action versions** - Use `@v4` or SHA, not `@main` (prevents breaking changes)
 3. **Explicit permissions** - Set `permissions:` block for GITHUB_TOKEN operations
 4. **Artifacts for job-to-job data** - Files don't persist between jobs without `upload-artifact`/`download-artifact`
