@@ -14,7 +14,7 @@ triggers:
 
 **Custom Action Deployment:**
 - New custom actions MUST be merged to the main branch before they can be used
-- After the initial merge, should tested from feature branches
+- After the initial merge, they should be tested from feature branches
 
 **Debug Steps:**
 Add debug steps that print non-secret parameters when:
@@ -23,51 +23,17 @@ Add debug steps that print non-secret parameters when:
 
 (Not required for every workflow - use when needed)
 
-## Testing & Monitoring Strategy
+## Effectiveness Principles
 
-**Actions have costs** - Each workflow run consumes CI minutes. Plan efficiently:
+Actions cost CI minutes. Be deliberate, not iterative:
 
-1. **Use debug steps early** - don't guess, read actual values
-2. **Monitor actively** - use `gh run watch <run-id>` or `gh pr checks <pr-number> --watch`
-3. **Read logs immediately** - `gh run view <run-id> --log` or view in GitHub UI
-4. **Understand before changing** - examine what actually ran, not what you think ran
+1. **Monitor, don't poll** - use `gh run watch` / `gh pr checks --watch` to follow runs live
+2. **Read logs, don't guess** - fetch the failed job's log before changing code
+3. **Print actual values** - debug steps reveal the real `inputs`/`github` context, not your assumptions
+4. **Test locally first** - `act` runs workflows on your machine and avoids burning CI minutes
+5. **Plan the smallest reproduction** - one job, minimal matrix, narrow trigger before scaling up
 
-**Effective debugging workflow:**
-```bash
-# Watch workflow run in real-time
-gh run watch
-
-# Or monitor PR checks with auto-refresh
-gh pr checks <pr-number> --watch --interval 10
-
-# When failed, read full logs immediately
-gh run view <run-id> --log
-
-# Examine specific job logs
-gh run view <run-id> --log --job=<job-id>
-```
-
-**Add visibility to your actions:**
-```yaml
-steps:
-  # Print all non-secret inputs/context at start
-  - name: Debug - Action inputs
-    run: |
-      echo "Event: ${{ github.event_name }}"
-      echo "Ref: ${{ github.ref }}"
-      echo "Actor: ${{ github.actor }}"
-      echo "Working dir: $(pwd)"
-      echo "Custom input: ${{ inputs.my-param }}"
-  
-  # Your action logic here
-  
-  # Verify outcome before finishing
-  - name: Debug - Verify results
-    run: |
-      echo "Files created:"
-      ls -la
-      echo "Exit code: $?"
-```
+See [README.md](README.md) for the full debugging workflow, `gh` commands, and YAML debug-step examples.
 
 ## Key Gotchas
 
@@ -75,4 +41,3 @@ steps:
 2. **Pin action versions** - Use `@v4` or SHA, not `@main` (prevents breaking changes)
 3. **Explicit permissions** - Set `permissions:` block for GITHUB_TOKEN operations
 4. **Artifacts for job-to-job data** - Files don't persist between jobs without `upload-artifact`/`download-artifact`
-
