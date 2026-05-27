@@ -201,6 +201,19 @@
             ]
         },
         {
+            "name": "ejentum-mcp",
+            "source": "./skills/ejentum-mcp",
+            "description": "Call the Ejentum Reasoning Harness from inside the agent loop. Four agentic tools (harness_reasoning, harness_code, harness_anti_deception, harness_memory) return structured cognitive scaffolds the agent reads before producing its user-facing answer.",
+            "category": "development",
+            "keywords": [
+                "reasoning",
+                "anti-deception",
+                "cognitive-scaffold",
+                "agent-harness",
+                "ejentum"
+            ]
+        },
+        {
             "name": "flarglebargle",
             "source": "./skills/flarglebargle",
             "description": "A test skill that responds to the magic word 'flarglebargle' with a compliment. Use for testing skill activation and trigger functionality.",
