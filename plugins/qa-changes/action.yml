@@ -119,6 +119,8 @@ runs:
       env:
         LLM_API_KEY: ${{ inputs.llm-api-key }}
         GITHUB_TOKEN: ${{ inputs.github-token }}
+        GITHUB_EVENT_PULL_REQUEST_TITLE: ${{ github.event.pull_request.title }}
+        INPUTS_LLM_MODEL: ${{ inputs.llm-model }}
       run: |
         if [ -z "$LLM_API_KEY" ]; then
           echo "Error: llm-api-key is required."
@@ -130,9 +132,9 @@ runs:
         fi
 
         echo "PR Number: ${{ github.event.pull_request.number }}"
-        echo "PR Title: ${{ github.event.pull_request.title }}"
+        echo "PR Title: $GITHUB_EVENT_PULL_REQUEST_TITLE"
         echo "Repository: ${{ github.repository }}"
-        echo "LLM model: ${{ inputs.llm-model }}"
+        echo "LLM model: $INPUTS_LLM_MODEL"
 
     - name: Run QA validation
       if: steps.preflight.outputs.skip != 'true'
