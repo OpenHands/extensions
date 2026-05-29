@@ -158,6 +158,12 @@ Two preset endpoints simplify automation creation by handling SDK boilerplate, t
 
 Use the **preset/prompt endpoint** for simple automations. Provide a natural language prompt describing the task.
 
+#### How It Works
+
+1. Send a prompt describing the task (e.g., "Generate a weekly status report")
+2. The automation service generates a Python script that: fetches LLM config and secrets from the agent server, starts an AI agent conversation with your prompt, and sends a completion callback when done
+3. The script is packaged as a tarball and the automation is registered; on each trigger, the automation service uploads the tarball to the agent server, which unpacks and runs the script inside its environment
+
 #### Request
 
 ```bash
@@ -591,6 +597,13 @@ curl -X POST "${OPENHANDS_HOST}/api/automation/v1/preset/prompt" \
 Use the **preset/plugin endpoint** when you need to load one or more plugins that provide extended capabilities like skills, MCP configurations, hooks, and commands.
 
 > **💡 Finding plugins:** Browse the [OpenHands/extensions](https://github.com/OpenHands/extensions) repository for available skills and plugins. When given a broad use case, check this directory first to see if something already exists that fits your needs.
+
+#### How It Works
+
+1. Specify one or more plugins (from GitHub repos, git URLs, or monorepo subdirectories)
+2. Provide a prompt that can invoke plugin commands (e.g., `/plugin-name:command`)
+3. The service generates SDK boilerplate that loads all plugins at runtime, creates a conversation with plugin capabilities, and executes the prompt
+4. The service packages everything into a tarball, uploads it, and creates the automation
 
 #### Request
 
