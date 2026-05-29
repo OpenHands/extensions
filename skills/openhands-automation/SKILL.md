@@ -286,6 +286,10 @@ curl -X POST "${OPENHANDS_HOST}/api/automation/v1/preset/prompt" \
 
 ## Polling as a Webhook Alternative
 
+When the deployment cannot receive inbound webhook traffic (see rule 5), use a cron-triggered automation that calls the external service’s API on a schedule to check for new events.
+
+### Polling vs. Webhooks at a Glance
+
 ### Polling vs. Webhooks at a Glance
 
 | | Webhooks (Event trigger) | Polling (Cron trigger) |
