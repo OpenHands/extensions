@@ -836,6 +836,8 @@ Pick based on **what the task needs**, not just **what is technically possible**
 | **Deterministic task** (fixed data + scheduled action, e.g. healthcheck, Slack notification, rotating from a known list) — especially if it runs frequently | **Custom script, no LLM** — see `references/custom-automation.md#deterministic-script-no-llm` |
 | Custom Python dependencies, multi-file project, or direct SDK lifecycle control | **Custom script with SDK** — see `references/custom-automation.md#sdk-based-scripts` |
 
+The **prompt preset** is the right default for genuinely agent-shaped work — anything that benefits from reasoning over context, calling tools dynamically, or producing a non-templated output. Use the **plugin preset** when you need extended capabilities from plugins (skills, MCP configurations, hooks, commands).
+
 ## Reference Files
 
 - **`references/custom-automation.md`** — Detailed guide for custom automations: tarball uploads, code structure (SDK and no-LLM), environment variables, validation rules, and complete examples. Consult this whenever you need to evaluate or recommend the custom path (including for deterministic / cost-sensitive tasks per rule 0). Only *implement* a custom automation after the user agrees to that path.
