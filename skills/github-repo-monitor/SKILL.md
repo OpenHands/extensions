@@ -29,8 +29,11 @@ On every subsequent run:
 - When a conversation goes idle/finished/error the agent's final response
   is posted back as a GitHub comment.
 
-> **Local mode only.** This automation targets the local OpenHands setup
-> (`dev:automation` stack). A cloud/webhook variant is out of scope here.
+> **Cron polling vs. event triggers:** This skill uses cron polling and works in
+> any deployment. If `RUNTIME_URL` is set and does not contain `localhost` or
+> `127.0.0.1`, the environment can receive GitHub webhook events directly — prefer
+> an event-triggered automation (see the `openhands-automation` skill) rather than
+> polling. Use this skill only when `RUNTIME_URL` is unset, empty, or local.
 
 ---
 
@@ -68,6 +71,25 @@ function without GitHub credentials.
 ## Setup Workflow
 
 Follow these steps in order.
+
+### Step 0  -  Check deployment environment
+
+Check whether the environment can receive GitHub webhook events:
+
+```bash
+echo "RUNTIME_URL=${RUNTIME_URL}"
+```
+
+- If `RUNTIME_URL` is **set and does not contain `localhost` or `127.0.0.1`** →
+  tell the user:
+  *"Your environment has a reachable `RUNTIME_URL` (`$RUNTIME_URL`), so GitHub can
+  deliver events directly. An event-triggered automation (e.g. `pull_request.opened`
+  or `issue_comment.created`) using the `openhands-automation` skill would be more
+  immediate and efficient than cron polling. Continue with this skill only if you
+  specifically want polling."*
+  If the user confirms they want polling anyway, continue to Step 1.
+- If `RUNTIME_URL` is **unset, empty, or contains `localhost`/`127.0.0.1`** →
+  proceed directly to Step 1.
 
 ### Step 1  -  Verify GITHUB_TOKEN
 
@@ -303,3 +325,5 @@ Each cron run executes `main.py`, which:
 | Same comment processed twice | `processed_comment_ids` cleared | State file was deleted; harmless but duplicate comment may appear |
 | Summary never posted | Conversation stuck in `running` | Open the conversation in the OpenHands UI; agent may need input |
 | No events detected after first run | `last_poll` in the future | Delete the state file to reset; it will be recreated on next run |
+| `Callback error (non-fatal): HTTP Error 409: Conflict` in run logs | Automation service auto-marks the run complete on process exit; explicit `fire_callback("COMPLETED")` at script end then conflicts | Fixed in `scripts/main.py` ≥ this version — the 409 is now caught and ignored silently |
+| Automation stops firing after updating it via PATCH | PATCH resets `enabled` to `false` | Follow every PATCH with `{"enabled": true}` to re-activate |
