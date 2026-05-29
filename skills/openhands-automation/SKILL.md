@@ -24,7 +24,7 @@ Create and manage automations that run inside an OpenHands agent server — trig
 
 Two components work together to run automations:
 
-**Automation Service** (API at `{OPENHANDS_HOST}/api/automation/v1`)
+**Automation Service** (API at `OPENHANDS_HOST/api/automation/v1`)
 Manages the *when*: holds automation definitions, schedules cron-triggered runs, dispatches webhook-triggered runs, and receives completion callbacks to mark runs as done. This is the API you call to create, update, and manage automations.
 
 **Agent Server** (accessible as `AGENT_SERVER_URL` inside script runs)
