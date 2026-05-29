@@ -24,7 +24,7 @@ Create and manage automations that run inside an OpenHands agent server — trig
 
 Two components work together to run automations:
 
-**Automation Service** (API at `{RUNTIME_URL}/api/automation/v1`)
+**Automation Service** (API at `{OPENHANDS_HOST}/api/automation/v1`)
 Manages the *when*: holds automation definitions, schedules cron-triggered runs, dispatches webhook-triggered runs, and receives completion callbacks to mark runs as done. This is the API you call to create, update, and manage automations.
 
 **Agent Server** (accessible as `AGENT_SERVER_URL` inside script runs)
@@ -36,7 +36,7 @@ The agent server typically runs inside a **sandbox** (a Docker or Kubernetes con
 
 | Variable | Availability | Description |
 |---|---|---|
-| `RUNTIME_URL` | Ambient in cloud environments | Public-facing URL of the sandbox (agent server + automation service). Use this as the API host for all automation service calls. Also use it to determine whether external webhook delivery is possible — if unset or local, webhooks cannot be received. |
+| `RUNTIME_URL` | Ambient in cloud environments | Public-facing URL of the **agent server** sandbox. Use this to determine whether external webhook delivery is possible — if unset or local, webhooks cannot be received. The automation service may run at a separate URL (see Determining the API Host). |
 | `AGENT_SERVER_URL` | Injected into scripts at run time only | Internal URL of the agent server. Available inside script execution context; **not** an ambient environment variable outside of a running script. |
 
 > **⚠️ CRITICAL — Agent behavior rules:**
@@ -112,10 +112,13 @@ All requests require Bearer authentication:
 
 **Before making API calls, determine the correct host:**
 
-`RUNTIME_URL` is the public-facing URL of the sandbox and is the API host. In the examples throughout this skill, `${OPENHANDS_HOST}` is a shell-variable convention — set it before running any curl command:
+The automation service may run at a different URL from the agent server. In the examples throughout this skill, `${OPENHANDS_HOST}` is a shell-variable convention for the automation service base URL — it is **not** a real environment variable. Set it from context before running any curl command:
+
+- Look for a `<HOST>` value in the system prompt. If present, use that URL.
+- Otherwise default to `https://app.all-hands.dev`.
 
 ```bash
-OPENHANDS_HOST="${RUNTIME_URL:-https://app.all-hands.dev}"
+OPENHANDS_HOST="https://app.all-hands.dev"  # replace with <HOST> if provided
 ```
 
 
