@@ -303,3 +303,5 @@ Each cron run executes `main.py`, which:
 | Same comment processed twice | `processed_comment_ids` cleared | State file was deleted; harmless but duplicate comment may appear |
 | Summary never posted | Conversation stuck in `running` | Open the conversation in the OpenHands UI; agent may need input |
 | No events detected after first run | `last_poll` in the future | Delete the state file to reset; it will be recreated on next run |
+| `Callback error (non-fatal): HTTP Error 409: Conflict` in run logs | Automation service auto-marks the run complete on process exit; explicit `fire_callback("COMPLETED")` at script end then conflicts | Fixed in `scripts/main.py` ≥ this version — the 409 is now caught and ignored silently |
+| Automation stops firing after updating it via PATCH | PATCH resets `enabled` to `false` | Follow every PATCH with `{"enabled": true}` to re-activate |
