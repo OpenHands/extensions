@@ -143,8 +143,6 @@ Automations support two trigger types:
 | **Cron** | Run on a schedule (daily, weekly, hourly, etc.) |
 | **Event** | Run when a webhook event occurs (GitHub PR opened, issue commented, etc.) — **requires a publicly reachable deployment** |
 
-> **⚠️ Local deployments:** Event triggers rely on external services (GitHub, Slack, etc.) sending HTTP requests to the automation service. This only works when the service is hosted at a publicly accessible URL. If `RUNTIME_URL` is unset, empty, or a local address (`localhost`, `127.0.0.1`, etc.), use a **cron trigger** with polling instead — see [Polling as a Webhook Alternative](#polling-as-a-webhook-alternative).
-
 ---
 
 ## Creating Automations
@@ -159,12 +157,6 @@ Two preset endpoints simplify automation creation by handling SDK boilerplate, t
 ### Prompt Preset
 
 Use the **preset/prompt endpoint** for simple automations. Provide a natural language prompt describing the task.
-
-#### How It Works
-
-1. Send a prompt describing the task (e.g., "Generate a weekly status report")
-2. The automation service generates a Python script that: fetches LLM config and secrets from the agent server, starts an AI agent conversation with your prompt, and sends a completion callback when done
-3. The script is packaged as a tarball and the automation is registered; on each trigger, the automation service uploads the tarball to the agent server, which unpacks and runs the script inside its environment
 
 #### Request
 
@@ -273,10 +265,6 @@ curl -X POST "${OPENHANDS_HOST}/api/automation/v1/preset/prompt" \
 
 ## Polling as a Webhook Alternative
 
-When `RUNTIME_URL` is unset, empty, or a local address (`localhost`, `127.0.0.1`, `0.0.0.0`, etc.), external services cannot deliver webhook events to it. Use a **cron-triggered polling automation** instead.
-
-The polling automation runs on a schedule, calls the external service's API to fetch recent activity, and acts on anything new since the last run.
-
 ### Polling vs. Webhooks at a Glance
 
 | | Webhooks (Event trigger) | Polling (Cron trigger) |
@@ -289,8 +277,6 @@ The polling automation runs on a schedule, calls the external service's API to f
 ---
 
 ## Event-Triggered Automations (Webhooks)
-
-> **⚠️ Public URL required.** Event-triggered automations rely on external services posting HTTP events to the automation service. If `RUNTIME_URL` is unset, empty, or local, use a [cron-based polling automation](#polling-as-a-webhook-alternative) instead.
 
 Event-triggered automations run when a webhook event occurs — like a GitHub PR being opened, an issue receiving a comment, or a custom service sending a notification.
 
@@ -606,13 +592,6 @@ Use the **preset/plugin endpoint** when you need to load one or more plugins tha
 
 > **💡 Finding plugins:** Browse the [OpenHands/extensions](https://github.com/OpenHands/extensions) repository for available skills and plugins. When given a broad use case, check this directory first to see if something already exists that fits your needs.
 
-#### How It Works
-
-1. Specify one or more plugins (from GitHub repos, git URLs, or monorepo subdirectories)
-2. Provide a prompt that can invoke plugin commands (e.g., `/plugin-name:command`)
-3. The service generates SDK boilerplate that loads all plugins at runtime, creates a conversation with plugin capabilities, and executes the prompt
-4. The service packages everything into a tarball, uploads it, and creates the automation
-
 #### Request
 
 ```bash
@@ -843,12 +822,6 @@ Pick based on **what the task needs**, not just **what is technically possible**
 | Needs plugin commands / skills / MCP configs / hooks | **Plugin Preset** |
 | **Deterministic task** (fixed data + scheduled action, e.g. healthcheck, Slack notification, rotating from a known list) — especially if it runs frequently | **Custom script, no LLM** — see `references/custom-automation.md#deterministic-script-no-llm` |
 | Custom Python dependencies, multi-file project, or direct SDK lifecycle control | **Custom script with SDK** — see `references/custom-automation.md#sdk-based-scripts` |
-
-The **prompt preset** is the right default for genuinely agent-shaped work — anything that benefits from reasoning over context, calling tools dynamically, or producing a non-templated output. Use the **plugin preset** when you need extended capabilities from plugins (skills, MCP configurations, hooks, commands).
-
-**Watch for deterministic, high-frequency patterns.** Requests like "send a daily standup reminder", "ping a healthcheck URL every minute", "post a random quote every 5 minutes", or "rotate a fact-of-the-day message" do not need an LLM. Surface this to the user explicitly with a rough cost framing (e.g. "this schedule will invoke your LLM ~288 times/day") before defaulting to a preset. As a rule of thumb, any cron tighter than hourly deserves a deliberate "should this really be agent-driven?" check.
-
-**When neither preset is the right fit** (deterministic task, custom Python dependencies, non-Python entrypoint, multi-file project structure, direct SDK lifecycle control), explain the options to the user and let them decide. Do not attempt custom automation without explicit user agreement. If they choose the custom route, refer to `references/custom-automation.md`.
 
 ## Reference Files
 
