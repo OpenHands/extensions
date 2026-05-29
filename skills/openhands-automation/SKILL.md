@@ -38,6 +38,7 @@ The agent server typically runs inside a **sandbox** (a Docker or Kubernetes con
 |---|---|---|
 | `RUNTIME_URL` | Ambient in cloud environments | Public-facing URL of the **agent server** sandbox. Use this to determine whether external webhook delivery is possible — if unset or local, webhooks cannot be received. The automation service may run at a separate URL (see Determining the API Host). |
 | `AGENT_SERVER_URL` | Injected into scripts at run time only | Internal URL of the agent server. Available inside script execution context; **not** an ambient environment variable outside of a running script. |
+| `OPENHANDS_HOST` | Shell convention only — set manually | Base URL for the automation service API. **Not a real environment variable.** Set it from the `<HOST>` system-prompt value, or default to `https://app.all-hands.dev`. Used in all `curl` examples throughout this skill. |
 
 > **⚠️ CRITICAL — Agent behavior rules:**
 >
