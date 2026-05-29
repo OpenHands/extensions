@@ -28,7 +28,9 @@
             "key": "ELEVENLABS_API_KEY",
             "label": "ElevenLabs API key",
             "type": "password",
-            "required": true
+            "required": true,
+            "helperText": "API key from your ElevenLabs account settings.",
+            "helperLink": "https://elevenlabs.io/app/settings/api-keys"
           }
         ]
       },

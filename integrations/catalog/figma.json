@@ -30,7 +30,9 @@
             "key": "FIGMA_API_KEY",
             "label": "Figma personal access token",
             "type": "password",
-            "required": true
+            "required": true,
+            "helperText": "Personal access token from your Figma account settings.",
+            "helperLink": "https://www.figma.com/developers/api#access-tokens"
           }
         ]
       },

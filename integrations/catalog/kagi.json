@@ -28,7 +28,9 @@
             "key": "KAGI_API_KEY",
             "label": "Kagi API key",
             "type": "password",
-            "required": true
+            "required": true,
+            "helperText": "API key from your Kagi account settings.",
+            "helperLink": "https://kagi.com/settings?p=api"
           }
         ]
       },

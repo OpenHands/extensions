@@ -28,7 +28,9 @@
             "key": "RESEND_API_KEY",
             "label": "Resend API key",
             "type": "password",
-            "required": true
+            "required": true,
+            "helperText": "API key from your Resend dashboard.",
+            "helperLink": "https://resend.com/api-keys"
           },
           {
             "key": "SENDER_EMAIL_ADDRESS",

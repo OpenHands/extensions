@@ -71,6 +71,28 @@ def test_catalog_entries_have_required_fields():
         assert isinstance(entry["estimatedSetupMinutes"], int)
 
 
+def test_credential_fields_have_helper_text_and_link():
+    """All password fields must have helperText and helperLink so users know how to get credentials."""
+    for entry in load_catalog_entries("integrations/catalog"):
+        for option in entry["connectionOptions"]:
+            transport = option.get("transport", {})
+            for field_group in ("envFields", "argFields"):
+                for field in transport.get(field_group, []):
+                    if field.get("type") == "password":
+                        assert "helperText" in field, (
+                            f"{entry['id']}: password field '{field['key']}' is missing helperText"
+                        )
+                        assert "helperLink" in field, (
+                            f"{entry['id']}: password field '{field['key']}' is missing helperLink"
+                        )
+                        assert field["helperText"], (
+                            f"{entry['id']}: password field '{field['key']}' has empty helperText"
+                        )
+                        assert field["helperLink"].startswith("https://"), (
+                            f"{entry['id']}: password field '{field['key']}' helperLink must start with https://"
+                        )
+
+
 def test_node_package_exports_catalogs():
     script = """
       import { INTEGRATION_CATALOG, AUTOMATION_CATALOG } from './index.js';
