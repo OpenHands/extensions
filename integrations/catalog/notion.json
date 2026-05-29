@@ -32,7 +32,9 @@
             "label": "Internal integration token",
             "type": "password",
             "placeholder": "ntn_...",
-            "required": true
+            "required": true,
+            "helperText": "Internal integration token from your Notion integrations page.",
+            "helperLink": "https://www.notion.so/profile/integrations"
           }
         ]
       },

@@ -29,7 +29,9 @@
             "key": "EXA_API_KEY",
             "label": "Exa API key",
             "type": "password",
-            "required": true
+            "required": true,
+            "helperText": "API key from your Exa dashboard.",
+            "helperLink": "https://dashboard.exa.ai/"
           }
         ]
       },

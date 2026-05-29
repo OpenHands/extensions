@@ -32,7 +32,9 @@
             "label": "Tavily API key",
             "type": "password",
             "placeholder": "tvly-...",
-            "required": true
+            "required": true,
+            "helperText": "API key from your Tavily dashboard.",
+            "helperLink": "https://app.tavily.com/home"
           }
         ]
       },

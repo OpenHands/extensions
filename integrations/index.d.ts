@@ -6,6 +6,7 @@ export interface MarketplaceField {
   type?: MarketplaceFieldType;
   placeholder?: string;
   helperText?: string;
+  helperLink?: string;
   required?: boolean;
 }
 

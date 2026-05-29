@@ -30,7 +30,8 @@
             "label": "Local REST API key",
             "type": "password",
             "required": true,
-            "helperText": "From the Obsidian 'Local REST API' community plugin."
+            "helperText": "From the Obsidian 'Local REST API' community plugin.",
+            "helperLink": "https://github.com/coddingtonbear/obsidian-local-rest-api"
           }
         ]
       },

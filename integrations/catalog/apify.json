@@ -29,7 +29,9 @@
             "key": "APIFY_TOKEN",
             "label": "Apify token",
             "type": "password",
-            "required": true
+            "required": true,
+            "helperText": "API token from your Apify account settings.",
+            "helperLink": "https://console.apify.com/account/integrations"
           }
         ]
       },
