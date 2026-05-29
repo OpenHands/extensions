@@ -290,8 +290,6 @@ When the deployment cannot receive inbound webhook traffic (see rule 5), use a c
 
 ### Polling vs. Webhooks at a Glance
 
-### Polling vs. Webhooks at a Glance
-
 | | Webhooks (Event trigger) | Polling (Cron trigger) |
 |---|---|---|
 | **Requires public URL** | Yes | No — works locally |
