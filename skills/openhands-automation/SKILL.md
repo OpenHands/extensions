@@ -850,6 +850,7 @@ Pick based on **what the task needs**, not just **what is technically possible**
 |----------|-------------|
 | Reasoning, summarization, triage, code review, or open-ended tool use | **Prompt Preset** |
 | Needs plugin commands / skills / MCP configs / hooks | **Plugin Preset** |
+| Compare plugin versions or configurations across runs | **Plugin Preset with A/B testing** — see `references/ab-testing.md` |
 | **Deterministic task** (fixed data + scheduled action, e.g. healthcheck, Slack notification, rotating from a known list) — especially if it runs frequently | **Custom script, no LLM** — see `references/custom-automation.md#deterministic-script-no-llm` |
 | Custom Python dependencies, multi-file project, or direct SDK lifecycle control | **Custom script with SDK** — see `references/custom-automation.md#sdk-based-scripts` |
 
@@ -862,3 +863,4 @@ The **prompt preset** is the right default for genuinely agent-shaped work — a
 ## Reference Files
 
 - **`references/custom-automation.md`** — Detailed guide for custom automations: tarball uploads, code structure (SDK and no-LLM), environment variables, validation rules, and complete examples. Consult this whenever you need to evaluate or recommend the custom path (including for deterministic / cost-sensitive tasks per rule 0). Only *implement* a custom automation after the user agrees to that path.
+- **`references/ab-testing.md`** — A/B testing for plugin automations: defining variants with weights, experiment configuration, variant selection logic, observability via conversation tags, and complete examples. Consult this when a user wants to compare plugin versions or configurations.
