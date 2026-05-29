@@ -53,10 +53,9 @@ The agent server typically runs inside a **sandbox** (a Docker or Kubernetes con
 >    - **Custom script** — full control over code, with or without LLM; point them to `references/custom-automation.md`
 >    - Let the user choose which approach to use.
 > 4. **Only create custom scripts after the user agrees to that path.** Refer to `references/custom-automation.md` for the full reference.
-> 5. **Before suggesting event-triggered (webhook) automations, check whether the deployment is publicly reachable.** Webhooks require an internet-accessible URL so that external services (GitHub, Slack, Linear, etc.) can deliver events to the automation service. If the `AGENT_SERVER_URL` environment variable or the `<HOST>` value in the system prompt is a local address — e.g., `http://localhost:...`, `http://127.0.0.1:...`, or `http://0.0.0.0:...` — the service cannot receive inbound webhook traffic from the public internet. In that case:
+> 5. **Before suggesting event-triggered (webhook) automations, check whether the deployment is publicly reachable.** Run `echo "RUNTIME_URL=${RUNTIME_URL}"`. Webhooks require an internet-accessible URL so that external services (GitHub, Slack, Linear, etc.) can deliver events to the automation service. If `RUNTIME_URL` is unset, empty, or a local address (`localhost`, `127.0.0.1`, `0.0.0.0`, etc.), the service cannot receive inbound webhook traffic from the public internet. In that case:
 >    - **Recommend a cron-based polling automation instead.** Have the automation run on a schedule and call the external service's API (e.g., the GitHub REST API) to check for new events since the last run.
 >    - Explain the limitation clearly to the user: "Because this is a local deployment, external services can't reach the webhook endpoint. I'll set up a polling automation using a cron schedule instead."
->    - The `github-repo-monitor` skill provides a ready-made polling pattern for GitHub repositories.
 
 ### No-LLM Script Helpers
 
@@ -144,7 +143,7 @@ Automations support two trigger types:
 | **Cron** | Run on a schedule (daily, weekly, hourly, etc.) |
 | **Event** | Run when a webhook event occurs (GitHub PR opened, issue commented, etc.) — **requires a publicly reachable deployment** |
 
-> **⚠️ Local deployments:** Event triggers rely on external services (GitHub, Slack, etc.) sending HTTP requests to the automation service. This only works when the service is hosted at a publicly accessible URL. If `AGENT_SERVER_URL` is a local address (`localhost`, `127.0.0.1`, etc.), use a **cron trigger** with polling instead — see [Polling as a Webhook Alternative](#polling-as-a-webhook-alternative).
+> **⚠️ Local deployments:** Event triggers rely on external services (GitHub, Slack, etc.) sending HTTP requests to the automation service. This only works when the service is hosted at a publicly accessible URL. If `RUNTIME_URL` is unset, empty, or a local address (`localhost`, `127.0.0.1`, etc.), use a **cron trigger** with polling instead — see [Polling as a Webhook Alternative](#polling-as-a-webhook-alternative).
 
 ---
 
@@ -274,7 +273,7 @@ curl -X POST "${OPENHANDS_HOST}/api/automation/v1/preset/prompt" \
 
 ## Polling as a Webhook Alternative
 
-When the deployment is local (i.e., `AGENT_SERVER_URL` or `<HOST>` is `localhost`, `127.0.0.1`, `0.0.0.0`, or any other non-public address), external services cannot deliver webhook events to it. Use a **cron-triggered polling automation** instead.
+When `RUNTIME_URL` is unset, empty, or a local address (`localhost`, `127.0.0.1`, `0.0.0.0`, etc.), external services cannot deliver webhook events to it. Use a **cron-triggered polling automation** instead.
 
 The polling automation runs on a schedule, calls the external service's API to fetch recent activity, and acts on anything new since the last run.
 
@@ -293,8 +292,6 @@ curl -X POST "${OPENHANDS_HOST}/api/automation/v1/preset/prompt" \
   }'
 ```
 
-> **Tip:** The `github-repo-monitor` skill provides a more fully-featured pattern for polling a GitHub repository and reacting to new issues, PRs, or comments containing a trigger phrase.
-
 ### Polling vs. Webhooks at a Glance
 
 | | Webhooks (Event trigger) | Polling (Cron trigger) |
@@ -308,7 +305,7 @@ curl -X POST "${OPENHANDS_HOST}/api/automation/v1/preset/prompt" \
 
 ## Event-Triggered Automations (Webhooks)
 
-> **⚠️ Public URL required.** Event-triggered automations rely on external services posting HTTP events to the automation service. If your deployment is local (e.g., `AGENT_SERVER_URL` is `http://localhost:...` or `http://127.0.0.1:...`), use a [cron-based polling automation](#polling-as-a-webhook-alternative) instead.
+> **⚠️ Public URL required.** Event-triggered automations rely on external services posting HTTP events to the automation service. If `RUNTIME_URL` is unset, empty, or local, use a [cron-based polling automation](#polling-as-a-webhook-alternative) instead.
 
 Event-triggered automations run when a webhook event occurs — like a GitHub PR being opened, an issue receiving a comment, or a custom service sending a notification.
 
