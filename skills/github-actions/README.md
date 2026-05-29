@@ -112,8 +112,7 @@ steps:
     if: always() && (runner.debug == '1' || inputs.debug == 'true')
     run: |
       echo "Generated files:"
-      ls -la dist/ || true
-      echo "Last exit code: $?"
+      ls -la dist/ || echo "dist/ not found"
 ```
 
 To enable `runner.debug == '1'` for a single run, re-run the workflow with **"Enable debug logging"** checked, or set the repo secret `ACTIONS_RUNNER_DEBUG=true`.
