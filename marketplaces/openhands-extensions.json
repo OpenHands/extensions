@@ -590,6 +590,20 @@
                 "pull-request",
                 "iterate"
             ]
+        },
+        {
+            "name": "model-router",
+            "source": "./skills/model-router",
+            "description": "Recommend the most cost-efficient LLM for a given task category (research, bug fixing, planning, frontend, testing, bulk repetitive work) based on the OpenHands Index benchmark data. Use when picking a model, configuring a sub-agent, or optimizing cost vs. quality.",
+            "category": "productivity",
+            "keywords": [
+                "model",
+                "llm",
+                "cost",
+                "routing",
+                "benchmark",
+                "openhands-index"
+            ]
         }
     ]
 }
