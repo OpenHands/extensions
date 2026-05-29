@@ -277,21 +277,6 @@ When `RUNTIME_URL` is unset, empty, or a local address (`localhost`, `127.0.0.1`
 
 The polling automation runs on a schedule, calls the external service's API to fetch recent activity, and acts on anything new since the last run.
 
-### GitHub Polling Example
-
-The following automation checks for new pull requests opened in the last hour and processes them:
-
-```bash
-curl -X POST "${OPENHANDS_HOST}/api/automation/v1/preset/prompt" \
-  -H "Authorization: Bearer ${OPENHANDS_API_KEY}" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "Poll GitHub for New PRs",
-    "prompt": "Use the GitHub API to fetch pull requests opened in the last hour for the repository owner/repo. For each new PR, review the code and post a structured review comment.",
-    "trigger": {"type": "cron", "schedule": "0 * * * *", "timezone": "UTC"}
-  }'
-```
-
 ### Polling vs. Webhooks at a Glance
 
 | | Webhooks (Event trigger) | Polling (Cron trigger) |
