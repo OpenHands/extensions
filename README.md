@@ -50,7 +50,7 @@ See [`integrations/README.md`](integrations/README.md), [`automations/README.md`
 ## Extensions Catalog
 
 <!-- BEGIN AUTO-GENERATED CATALOG -->
-This repository contains **2 marketplace(s)** with **50 extensions** (40 skills, 10 plugins).
+This repository contains **2 marketplace(s)** with **51 extensions** (41 skills, 10 plugins).
 
 ### large-codebase
 
@@ -69,7 +69,7 @@ OpenHands skills for interacting, improving, and refactoring large codebases
 
 Official skills and plugins for OpenHands — the open-source AI software engineer.
 
-**46 extensions** (38 skills, 8 plugins)
+**47 extensions** (39 skills, 8 plugins)
 
 | Name | Type | Description | Commands |
 |------|------|-------------|----------|
@@ -86,6 +86,7 @@ Official skills and plugins for OpenHands — the open-source AI software engine
 | deno | skill | Common project operations using Deno (tasks, run/test/lint/fmt, and dependency management). | — |
 | discord | skill | Build and automate Discord integrations (bots, webhooks, slash commands, and REST API workflows). Use when the user m... | — |
 | docker | skill | Run Docker commands within a container environment, including starting the Docker daemon and managing containers. Use... | — |
+| evidence-based-citations | skill | Back factual claims and field values with official, verifiable sources. Use when the user asks to fill fields, answer... | — |
 | flarglebargle | skill | A test skill that responds to the magic word 'flarglebargle' with a compliment. Use for testing skill activation and ... | — |
 | frontend-design | skill | Create distinctive, production-grade frontend interfaces with high design quality. Use this skill when the user asks ... | — |
 | github | skill | Interact with GitHub repositories, pull requests, issues, and workflows using the GITHUB_TOKEN environment variable a... | — |
