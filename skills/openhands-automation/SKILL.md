@@ -24,13 +24,20 @@ Create and manage automations that run inside an OpenHands agent server — trig
 
 Two components work together to run automations:
 
-**Automation Service** (API at `OPENHANDS_HOST/api/automation/v1`)
+**Automation Service** (API at `{RUNTIME_URL}/api/automation/v1`)
 Manages the *when*: holds automation definitions, schedules cron-triggered runs, dispatches webhook-triggered runs, and receives completion callbacks to mark runs as done. This is the API you call to create, update, and manage automations.
 
-**Agent Server** (reachable at `AGENT_SERVER_URL` inside a run)
-Manages the *what*: the runtime environment where automation scripts execute and where conversations (AI agent interactions with tools, bash, file editing, etc.) run. When a run is triggered, the automation service uploads the automation's tarball to the agent server, which unpacks and runs the entrypoint script. The script runs inside the agent server and connects back to it using `AGENT_SERVER_URL` and a session API key to start, monitor, and stop conversations.
+**Agent Server** (accessible as `AGENT_SERVER_URL` inside script runs)
+Manages the *what*: the runtime environment where automation scripts execute and where conversations (AI agent interactions with tools, bash, file editing, etc.) run. When a run is triggered, the automation service uploads the automation's tarball to the agent server, which unpacks and runs the entrypoint script. The script connects back to the agent server using `AGENT_SERVER_URL` and a session API key to start, monitor, and stop conversations.
 
 The agent server typically runs inside a **sandbox** (a Docker or Kubernetes container). Some deployments use sandboxless mode, where the agent server runs directly on a host.
+
+**Key environment variables:**
+
+| Variable | Availability | Description |
+|---|---|---|
+| `RUNTIME_URL` | Ambient in cloud environments | Public-facing URL of the sandbox (agent server + automation service). Use this as the API host for all automation service calls. Also use it to determine whether external webhook delivery is possible — if unset or local, webhooks cannot be received. |
+| `AGENT_SERVER_URL` | Injected into scripts at run time only | Internal URL of the agent server. Available inside script execution context; **not** an ambient environment variable outside of a running script. |
 
 > **⚠️ CRITICAL — Agent behavior rules:**
 >
@@ -53,7 +60,7 @@ The agent server typically runs inside a **sandbox** (a Docker or Kubernetes con
 >    - **Custom script** — full control over code, with or without LLM; point them to `references/custom-automation.md`
 >    - Let the user choose which approach to use.
 > 4. **Only create custom scripts after the user agrees to that path.** Refer to `references/custom-automation.md` for the full reference.
-> 5. **Before suggesting event-triggered (webhook) automations, check whether the deployment is publicly reachable.** check the `RUNTIME_URL` environment variable. Webhooks require an internet-accessible URL so that external services (GitHub, Slack, Linear, etc.) can deliver events to the automation service. If `RUNTIME_URL` is unset, empty, or a local address (`localhost`, `127.0.0.1`, `0.0.0.0`, etc.), the service cannot receive inbound webhook traffic from the public internet. In that case:
+> 5. **Before suggesting event-triggered (webhook) automations, check whether the deployment is publicly reachable.** Check `RUNTIME_URL`. Webhooks require an internet-accessible URL so that external services (GitHub, Slack, Linear, etc.) can deliver events to the automation service. If `RUNTIME_URL` is unset, empty, or a local address (`localhost`, `127.0.0.1`, `0.0.0.0`, etc.), the service cannot receive inbound webhook traffic from the public internet. In that case:
 >    - **Recommend a cron-based polling automation instead.** Have the automation run on a schedule and call the external service's API (e.g., the GitHub REST API) to check for new events since the last run.
 >    - Explain the limitation clearly to the user: "Because this is a local deployment, external services can't reach the webhook endpoint. I'll set up a polling automation using a cron schedule instead."
 
@@ -105,7 +112,11 @@ All requests require Bearer authentication:
 
 **Before making API calls, determine the correct host:**
 
-Look for a `<HOST>` value in the system prompt. If present, use that URL. Otherwise, default to `https://app.all-hands.dev`.
+`RUNTIME_URL` is the public-facing URL of the sandbox and is the API host. In the examples throughout this skill, `${OPENHANDS_HOST}` is a shell-variable convention — set it before running any curl command:
+
+```bash
+OPENHANDS_HOST="${RUNTIME_URL:-https://app.all-hands.dev}"
+```
 
 
 ### Automation Endpoints
