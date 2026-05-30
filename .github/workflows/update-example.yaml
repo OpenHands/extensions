@@ -1,0 +1,97 @@
+name: Update Type Annotations Example
+
+on:
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: "Branch to run on (leave empty for current branch)"
+        required: false
+        default: ""
+      llm_model:
+        description: "LLM model to use"
+        required: false
+        default: "anthropic/claude-sonnet-4-6-20250514"
+      llm_base_url:
+        description: "LLM base URL (optional)"
+        required: false
+        default: ""
+  push:
+    paths:
+      - "plugins/python-type-annotations/**"
+      - ".github/workflows/update-example.yaml"
+
+jobs:
+  update-example:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.branch || github.ref }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install OpenHands CLI
+        run: pip install openhands
+
+      - name: Copy before to after
+        run: |
+          cp -r plugins/python-type-annotations/examples/basic/before/* \
+                plugins/python-type-annotations/examples/basic/after/
+
+      - name: Set up skills directory
+        run: |
+          mkdir -p plugins/python-type-annotations/examples/basic/after/.agents/skills
+          cp -r plugins/python-type-annotations/skills/* \
+                plugins/python-type-annotations/examples/basic/after/.agents/skills/
+
+      - name: Run OpenHands in headless mode
+        id: openhands
+        working-directory: plugins/python-type-annotations/examples/basic/after
+        env:
+          LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
+          LLM_MODEL: ${{ github.event.inputs.llm_model || secrets.LLM_MODEL  }}
+          LLM_BASE_URL: ${{ secrets.LLM_BASE_URL }}
+        run: |
+          # Run headless and capture conversation ID from output
+          output=$(openhands --headless --override-with-envs -f ../prompt.md 2>&1 | tee /dev/stderr)
+          conversation_id=$(echo "$output" | grep -oP 'Conversation ID: \K[a-f0-9]+' | tail -1)
+          echo "conversation_id=$conversation_id" >> $GITHUB_OUTPUT
+
+      - name: Export trajectory
+        run: |
+          conversation_id="${{ steps.openhands.outputs.conversation_id }}"
+          if [ -n "$conversation_id" ]; then
+            # Combine all event files into a single trajectory JSON
+            events_dir="$HOME/.openhands/conversations/$conversation_id/events"
+            if [ -d "$events_dir" ]; then
+              echo '{"conversation_id": "'$conversation_id'", "events": [' > plugins/python-type-annotations/examples/basic/trajectory.json
+              first=true
+              for f in "$events_dir"/event-*.json; do
+                if [ "$first" = true ]; then
+                  first=false
+                else
+                  echo ',' >> plugins/python-type-annotations/examples/basic/trajectory.json
+                fi
+                cat "$f" >> plugins/python-type-annotations/examples/basic/trajectory.json
+              done
+              echo ']}' >> plugins/python-type-annotations/examples/basic/trajectory.json
+            fi
+          fi
+
+      - name: Clean up skills directory
+        run: |
+          rm -rf plugins/python-type-annotations/examples/basic/after/.agents
+
+      - name: Commit and push changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add plugins/python-type-annotations/examples/basic/after/
+          git add plugins/python-type-annotations/examples/basic/trajectory.json
+          git diff --cached --quiet || git commit -m "Update type annotations example output"
+          git push
