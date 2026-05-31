@@ -33,7 +33,8 @@
             "type": "password",
             "placeholder": "redis://localhost:6379",
             "required": true,
-            "helperText": "Appended as --url <redis_url>."
+            "helperText": "Connection URL for your Redis instance. Appended as --url <redis_url>.",
+            "helperLink": "https://redis.io/docs/latest/operate/rc/databases/connect/"
           }
         ]
       },

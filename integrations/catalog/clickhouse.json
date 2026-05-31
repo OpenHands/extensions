@@ -42,7 +42,9 @@
             "key": "CLICKHOUSE_PASSWORD",
             "label": "Password",
             "type": "password",
-            "required": true
+            "required": true,
+            "helperText": "Password for your ClickHouse user.",
+            "helperLink": "https://clickhouse.com/docs/operations/access-rights"
           }
         ]
       },

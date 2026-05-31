@@ -31,7 +31,9 @@
             "label": "Bot token",
             "type": "password",
             "placeholder": "xoxb-...",
-            "required": true
+            "required": true,
+            "helperText": "Bot token from your Slack app's OAuth & Permissions page.",
+            "helperLink": "https://api.slack.com/apps"
           },
           {
             "key": "SLACK_TEAM_ID",

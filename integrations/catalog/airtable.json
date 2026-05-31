@@ -30,7 +30,9 @@
             "key": "AIRTABLE_API_KEY",
             "label": "Airtable personal access token",
             "type": "password",
-            "required": true
+            "required": true,
+            "helperText": "Personal access token from your Airtable account.",
+            "helperLink": "https://airtable.com/create/tokens"
           }
         ]
       },

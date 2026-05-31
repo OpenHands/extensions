@@ -30,7 +30,8 @@
             "label": "Supabase access token",
             "type": "password",
             "required": true,
-            "helperText": "Personal access token from your Supabase dashboard."
+            "helperText": "Personal access token from your Supabase dashboard.",
+            "helperLink": "https://supabase.com/dashboard/account/tokens"
           }
         ]
       },

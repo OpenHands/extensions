@@ -37,7 +37,9 @@
             "label": "Personal access token",
             "type": "password",
             "placeholder": "github_pat_...",
-            "required": true
+            "required": true,
+            "helperText": "Classic or fine-grained personal access token from GitHub settings.",
+            "helperLink": "https://github.com/settings/tokens"
           }
         ]
       },
