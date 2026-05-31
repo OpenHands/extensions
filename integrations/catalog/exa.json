@@ -30,7 +30,7 @@
             "label": "Exa API key",
             "type": "password",
             "required": true,
-            "helperText": "API key from your Exa API dashboard; see the getting started docs.",
+            "helperText": "API key from your Exa account; see the getting-started guide for setup instructions.",
             "helperLink": "https://exa.ai/docs/reference/getting-started"
           }
         ]
