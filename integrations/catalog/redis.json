@@ -34,7 +34,7 @@
             "placeholder": "redis://localhost:6379",
             "required": true,
             "helperText": "Connection URL for your Redis instance. Appended as --url <redis_url>.",
-            "helperLink": "https://redis.io/docs/latest/develop/clients/redis-py/connect/#connect-to-a-redis-database"
+            "helperLink": "https://redis.io/docs/latest/operate/rc/databases/connect/"
           }
         ]
       },
