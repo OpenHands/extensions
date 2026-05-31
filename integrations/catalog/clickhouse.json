@@ -44,7 +44,7 @@
             "type": "password",
             "required": true,
             "helperText": "Password for your ClickHouse user.",
-            "helperLink": "https://clickhouse.com/docs/en/cloud/manage/users-and-roles"
+            "helperLink": "https://clickhouse.com/docs/cloud/security/manage-database-users"
           }
         ]
       },

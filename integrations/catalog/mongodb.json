@@ -31,7 +31,7 @@
             "placeholder": "mongodb+srv://user:pass@cluster.mongodb.net",
             "required": true,
             "helperText": "Connection string from your MongoDB Atlas cluster.",
-            "helperLink": "https://www.mongodb.com/docs/atlas/connect-to-your-cluster/"
+            "helperLink": "https://www.mongodb.com/docs/atlas/connect-to-database-deployment/#connect-with-a-connection-string"
           }
         ]
       },

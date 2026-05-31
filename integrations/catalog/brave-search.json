@@ -31,7 +31,7 @@
             "type": "password",
             "required": true,
             "helperText": "API key from the Brave Search API portal.",
-            "helperLink": "https://api.search.brave.com/app/keys"
+            "helperLink": "https://api-dashboard.search.brave.com/app/keys"
           }
         ]
       },
