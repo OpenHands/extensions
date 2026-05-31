@@ -11,7 +11,7 @@
     "research"
   ],
   "popularityRank": 90,
-  "installHint": "Paste your Tavily API key — the official tavily-mcp package runs via npx.",
+  "installHint": "Paste your Tavily API key - the official tavily-mcp package runs via npx.",
   "kind": "mcp",
   "defaultConnectionOptionId": "api",
   "connectionOptions": [
@@ -34,7 +34,7 @@
             "placeholder": "tvly-...",
             "required": true,
             "helperText": "API key from your Tavily dashboard.",
-            "helperLink": "https://app.tavily.com/home"
+            "helperLink": "https://app.tavily.com/home?tab=keys"
           }
         ]
       },

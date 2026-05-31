@@ -79,17 +79,18 @@ def test_credential_fields_have_helper_text_and_link():
             for field_group in ("envFields", "argFields"):
                 for field in transport.get(field_group, []):
                     if field.get("type") == "password":
+                        field_key = field.get("key", "<unknown>")
                         assert "helperText" in field, (
-                            f"{entry['id']}: password field '{field['key']}' is missing helperText"
+                            f"{entry['id']}: password field '{field_key}' is missing helperText"
                         )
                         assert "helperLink" in field, (
-                            f"{entry['id']}: password field '{field['key']}' is missing helperLink"
+                            f"{entry['id']}: password field '{field_key}' is missing helperLink"
                         )
                         assert field["helperText"], (
-                            f"{entry['id']}: password field '{field['key']}' has empty helperText"
+                            f"{entry['id']}: password field '{field_key}' has empty helperText"
                         )
                         assert field["helperLink"].startswith("https://"), (
-                            f"{entry['id']}: password field '{field['key']}' helperLink must start with https://"
+                            f"{entry['id']}: password field '{field_key}' helperLink must start with https://"
                         )
 
 
