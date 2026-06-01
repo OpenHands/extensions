@@ -25,6 +25,15 @@ DUPLICATE_MARKER_RE = re.compile(
 )
 
 
+class HTTPError(RuntimeError):
+    def __init__(self, method: str, path: str, status_code: int, body: str) -> None:
+        self.method = method
+        self.path = path
+        self.status_code = status_code
+        self.body = body
+        super().__init__(f"{method} {path} failed with HTTP {status_code}: {body}")
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Auto-close issues previously flagged as duplicate candidates."
@@ -73,9 +82,7 @@ def request_json(
             payload = response.read().decode("utf-8")
     except urllib.error.HTTPError as exc:
         error_body = exc.read().decode("utf-8", errors="replace")
-        raise RuntimeError(
-            f"{method} {path} failed with HTTP {exc.code}: {error_body}"
-        ) from exc
+        raise HTTPError(method, path, exc.code, error_body) from exc
     except urllib.error.URLError as exc:
         raise RuntimeError(f"{method} {path} failed: {exc}") from exc
 
@@ -265,8 +272,8 @@ def remove_candidate_label(
             f"/repos/{repository}/issues/{issue_number}/labels/{DUPLICATE_CANDIDATE_LABEL}",
             method="DELETE",
         )
-    except RuntimeError as exc:
-        if "HTTP 404" in str(exc):
+    except HTTPError as exc:
+        if exc.status_code == 404:
             return False
         raise
     return True
@@ -313,8 +320,8 @@ def post_newer_activity_note(repository: str, issue_number: int, *, dry_run: boo
 def fetch_issue(repository: str, issue_number: int) -> dict[str, Any] | None:
     try:
         payload = request_json(f"/repos/{repository}/issues/{issue_number}")
-    except RuntimeError as exc:
-        if "HTTP 404" in str(exc):
+    except HTTPError as exc:
+        if exc.status_code == 404:
             return None
         raise
     if not isinstance(payload, dict):

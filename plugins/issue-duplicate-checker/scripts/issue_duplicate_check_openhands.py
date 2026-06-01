@@ -87,15 +87,15 @@ def parse_args() -> argparse.Namespace:
 
 
 def github_headers() -> dict[str, str]:
-    headers = {
+    github_token = os.environ.get("GITHUB_TOKEN")
+    if not github_token:
+        raise RuntimeError("GITHUB_TOKEN environment variable is required")
+    return {
+        "Authorization": f"Bearer {github_token}",
         "Accept": "application/vnd.github+json",
         "User-Agent": "openhands-issue-duplicate-check",
         "X-GitHub-Api-Version": "2022-11-28",
     }
-    github_token = os.environ.get("GITHUB_TOKEN")
-    if github_token:
-        headers["Authorization"] = f"Bearer {github_token}"
-    return headers
 
 
 def openhands_headers() -> dict[str, str]:
@@ -528,12 +528,10 @@ def normalize_result(result: dict[str, Any]) -> dict[str, Any]:
     if classification != "duplicate":
         normalized["is_duplicate"] = False
         normalized["auto_close_candidate"] = False
-    if (
-        classification in {"duplicate", "overlapping-scope"}
-        and normalized["candidate_issues"]
-        and confidence in {"high", "medium"}
-    ):
-        normalized["should_comment"] = True
+    if normalized["should_comment"] and confidence not in {"high", "medium"}:
+        normalized["should_comment"] = False
+    if normalized["auto_close_candidate"] and not normalized["should_comment"]:
+        normalized["auto_close_candidate"] = False
     if normalized["auto_close_candidate"] and confidence != "high":
         normalized["auto_close_candidate"] = False
     if normalized["auto_close_candidate"] and not normalized["candidate_issues"]:

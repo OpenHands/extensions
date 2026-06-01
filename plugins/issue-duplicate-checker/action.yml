@@ -146,8 +146,9 @@ runs:
               OPENHANDS_BASE_URL: ${{ inputs.openhands-base-url }}
               GITHUB_API_BASE_URL: ${{ inputs.github-api-base-url }}
               GITHUB_BASE_URL: ${{ inputs.github-base-url }}
+              DUPLICATE_CHECK_SCRIPT: ${{ github.action_path }}/scripts/issue_duplicate_check_openhands.py
           run: |
-              python "${{ github.action_path }}/scripts/issue_duplicate_check_openhands.py" \
+              python "$DUPLICATE_CHECK_SCRIPT" \
                 --repository "$REPOSITORY" \
                 --issue-number "$ISSUE_NUMBER" \
                 --output "$OUTPUT_PATH"
@@ -279,12 +280,13 @@ runs:
               REPOSITORY: ${{ inputs.repository }}
               GITHUB_API_BASE_URL: ${{ inputs.github-api-base-url }}
               DRY_RUN: ${{ inputs.dry-run }}
+              AUTO_CLOSE_SCRIPT: ${{ github.action_path }}/scripts/auto_close_duplicate_issues.py
           run: |
               dry_run_arg=()
               if [ "$DRY_RUN" = "true" ]; then
                 dry_run_arg=(--dry-run)
               fi
-              python "${{ github.action_path }}/scripts/auto_close_duplicate_issues.py" \
+              python "$AUTO_CLOSE_SCRIPT" \
                 --repository "$REPOSITORY" \
                 --close-after-days "$CLOSE_AFTER_DAYS" \
                 "${dry_run_arg[@]}" | tee "$RUNNER_TEMP/auto-close-summary.json"
