@@ -1,0 +1,291 @@
+---
+name: OpenHands Issue Duplicate Checker
+description: Detect, comment on, and auto-close duplicate GitHub issues using OpenHands Cloud
+author: OpenHands
+
+branding:
+    icon: search
+    color: orange
+
+inputs:
+    mode:
+        description: "Which operation to run: issue-check, auto-close, or remove-label."
+        required: true
+    repository:
+        description: Repository in owner/repo form.
+        required: true
+    issue-number:
+        description: Issue number to inspect when mode is issue-check.
+        required: false
+        default: ''
+    close-after-days:
+        description: Days to wait before auto-closing duplicate candidates.
+        required: false
+        default: '3'
+    openhands-api-key:
+        description: OpenHands Cloud API key. Required for issue-check mode.
+        required: false
+        default: ''
+    github-token:
+        description: GitHub token with issues:write access.
+        required: true
+    openhands-base-url:
+        description: OpenHands Cloud base URL.
+        required: false
+        default: https://app.all-hands.dev
+    github-api-base-url:
+        description: GitHub API base URL.
+        required: false
+        default: https://api.github.com
+    python-version:
+        description: Python version used for bundled helper scripts.
+        required: false
+        default: '3.13'
+
+outputs:
+    should_comment:
+        description: Whether a duplicate/overlap notice should be posted.
+        value: ${{ steps.parsed_result.outputs.should_comment }}
+    is_duplicate:
+        description: Whether the analyzed issue is an exact or near-exact duplicate.
+        value: ${{ steps.parsed_result.outputs.is_duplicate }}
+    auto_close_candidate:
+        description: Whether the analyzed issue should be labeled for delayed duplicate auto-close.
+        value: ${{ steps.parsed_result.outputs.auto_close_candidate }}
+    confidence:
+        description: Duplicate-check confidence.
+        value: ${{ steps.parsed_result.outputs.confidence }}
+    classification:
+        description: duplicate, overlapping-scope, related-but-distinct, or no-match.
+        value: ${{ steps.parsed_result.outputs.classification }}
+    canonical_issue_number:
+        description: Canonical issue number, when one was identified.
+        value: ${{ steps.parsed_result.outputs.canonical_issue_number }}
+    conversation_url:
+        description: OpenHands conversation URL used for the duplicate check.
+        value: ${{ steps.parsed_result.outputs.conversation_url }}
+    app_conversation_id:
+        description: OpenHands app conversation id used for the duplicate check.
+        value: ${{ steps.parsed_result.outputs.app_conversation_id }}
+    summary:
+        description: Duplicate-check summary.
+        value: ${{ steps.parsed_result.outputs.summary }}
+    candidate_issues_json:
+        description: JSON array of candidate duplicate issues.
+        value: ${{ steps.parsed_result.outputs.candidate_issues_json }}
+
+runs:
+    using: composite
+    steps:
+        - name: Validate mode
+          shell: bash
+          env:
+              MODE: ${{ inputs.mode }}
+          run: |
+              case "$MODE" in
+                issue-check|auto-close|remove-label) ;;
+                *)
+                  echo "Error: mode must be one of: issue-check, auto-close, remove-label" >&2
+                  exit 1
+                  ;;
+              esac
+
+        - name: Set up Python
+          if: inputs.mode == 'issue-check' || inputs.mode == 'auto-close'
+          uses: actions/setup-python@v6
+          with:
+              python-version: ${{ inputs.python-version }}
+
+        - name: Validate duplicate check inputs
+          if: inputs.mode == 'issue-check'
+          shell: bash
+          env:
+              OPENHANDS_API_KEY: ${{ inputs.openhands-api-key }}
+              ISSUE_NUMBER: ${{ inputs.issue-number }}
+              GITHUB_TOKEN: ${{ inputs.github-token }}
+          run: |
+              if [ -z "$OPENHANDS_API_KEY" ]; then
+                echo "Error: openhands-api-key is required for issue-check mode" >&2
+                exit 1
+              fi
+              if [ -z "$ISSUE_NUMBER" ]; then
+                echo "Error: issue-number is required for issue-check mode" >&2
+                exit 1
+              fi
+              if [ -z "$GITHUB_TOKEN" ]; then
+                echo "Error: github-token is required" >&2
+                exit 1
+              fi
+
+        - name: Run OpenHands duplicate check conversation
+          if: inputs.mode == 'issue-check'
+          id: run_check
+          shell: bash
+          env:
+              OPENHANDS_API_KEY: ${{ inputs.openhands-api-key }}
+              GITHUB_TOKEN: ${{ inputs.github-token }}
+              ISSUE_NUMBER: ${{ inputs.issue-number }}
+              OUTPUT_PATH: ${{ runner.temp }}/issue-duplicate-check-result.json
+              REPOSITORY: ${{ inputs.repository }}
+              OPENHANDS_BASE_URL: ${{ inputs.openhands-base-url }}
+              GITHUB_API_BASE_URL: ${{ inputs.github-api-base-url }}
+          run: |
+              python "${{ github.action_path }}/scripts/issue_duplicate_check_openhands.py" \
+                --repository "$REPOSITORY" \
+                --issue-number "$ISSUE_NUMBER" \
+                --output "$OUTPUT_PATH"
+              test -f "$OUTPUT_PATH" || {
+                echo "Error: Output file not created" >&2
+                exit 1
+              }
+              echo "result_path=$OUTPUT_PATH" >> "$GITHUB_OUTPUT"
+
+        - name: Parse duplicate check result
+          if: inputs.mode == 'issue-check'
+          id: parsed_result
+          shell: bash
+          env:
+              RESULT_PATH: ${{ steps.run_check.outputs.result_path }}
+          run: |
+              python - <<'PY'
+              import json
+              import os
+              import sys
+              from pathlib import Path
+
+              try:
+                  result = json.loads(Path(os.environ['RESULT_PATH']).read_text())
+              except (FileNotFoundError, json.JSONDecodeError) as exc:
+                  print(
+                      f"Error: Failed to read duplicate check result: {exc}",
+                      file=sys.stderr,
+                  )
+                  raise SystemExit(1) from exc
+              output_path = Path(os.environ['GITHUB_OUTPUT'])
+              summary_path = Path(os.environ['GITHUB_STEP_SUMMARY'])
+
+              def write_multiline(name: str, value: str) -> None:
+                  delimiter = f"EOF_{os.urandom(8).hex()}"
+                  with output_path.open('a', encoding='utf-8') as fh:
+                      fh.write(f"{name}<<{delimiter}\n{value}\n{delimiter}\n")
+
+              canonical_issue_number = result.get('canonical_issue_number')
+              with output_path.open('a', encoding='utf-8') as fh:
+                  fh.write(f"should_comment={'true' if result.get('should_comment') else 'false'}\n")
+                  fh.write(f"is_duplicate={'true' if result.get('is_duplicate') else 'false'}\n")
+                  fh.write(
+                      f"auto_close_candidate={'true' if result.get('auto_close_candidate') else 'false'}\n"
+                  )
+                  fh.write(f"confidence={result.get('confidence', '')}\n")
+                  fh.write(f"classification={result.get('classification', '')}\n")
+                  fh.write(
+                      f"canonical_issue_number={canonical_issue_number if canonical_issue_number is not None else ''}\n"
+                  )
+                  fh.write(f"conversation_url={result.get('conversation_url', '')}\n")
+                  fh.write(f"app_conversation_id={result.get('app_conversation_id', '')}\n")
+
+              write_multiline('summary', str(result.get('summary', '')).strip())
+              write_multiline(
+                  'candidate_issues_json',
+                  json.dumps(result.get('candidate_issues', []), ensure_ascii=False),
+              )
+
+              candidate_lines = []
+              for candidate in result.get('candidate_issues', []):
+                  candidate_lines.append(
+                      f"- #{candidate.get('number')}: {candidate.get('title')} ({candidate.get('url')}) — {candidate.get('similarity_reason', '')}"
+                  )
+
+              summary_path.write_text(
+                  "\n".join(
+                      [
+                          "## Duplicate check result",
+                          "",
+                          f"- Repository: {result.get('repository')}",
+                          f"- Issue: #{result.get('issue_number')}",
+                          f"- Should comment: {result.get('should_comment')}",
+                          f"- Exact duplicate: {result.get('is_duplicate')}",
+                          f"- Auto-close candidate: {result.get('auto_close_candidate')}",
+                          f"- Classification: {result.get('classification')}",
+                          f"- Confidence: {result.get('confidence')}",
+                          f"- Canonical issue: {canonical_issue_number}",
+                          f"- Conversation: {result.get('conversation_url')}",
+                          "",
+                          "### Summary",
+                          result.get('summary', ''),
+                          "",
+                          "### Candidate issues",
+                          *(candidate_lines or ["- None"]),
+                      ]
+                  )
+                  + "\n",
+                  encoding='utf-8',
+              )
+              PY
+
+        - name: Post duplicate overlap notice
+          if: inputs.mode == 'issue-check' && steps.parsed_result.outputs.should_comment == 'true'
+          uses: actions/github-script@v9
+          env:
+              ACTION_SCRIPT: ${{ github.action_path }}/scripts/post_duplicate_notice.js
+              ISSUE_NUMBER: ${{ inputs.issue-number }}
+              SUMMARY: ${{ steps.parsed_result.outputs.summary }}
+              CANDIDATE_ISSUES_JSON: ${{ steps.parsed_result.outputs.candidate_issues_json }}
+              CLASSIFICATION: ${{ steps.parsed_result.outputs.classification }}
+              AUTO_CLOSE_CANDIDATE: ${{ steps.parsed_result.outputs.auto_close_candidate }}
+              CANONICAL_ISSUE_NUMBER: ${{ steps.parsed_result.outputs.canonical_issue_number }}
+              CLOSE_AFTER_DAYS: ${{ inputs.close-after-days }}
+          with:
+              github-token: ${{ inputs.github-token }}
+              script: |
+                  const run = require(process.env.ACTION_SCRIPT);
+                  await run({ github, context, core });
+
+        - name: Validate auto-close inputs
+          if: inputs.mode == 'auto-close'
+          shell: bash
+          env:
+              GITHUB_TOKEN: ${{ inputs.github-token }}
+          run: |
+              if [ -z "$GITHUB_TOKEN" ]; then
+                echo "Error: github-token is required" >&2
+                exit 1
+              fi
+
+        - name: Auto-close aged duplicate candidates
+          if: inputs.mode == 'auto-close'
+          shell: bash
+          env:
+              GITHUB_TOKEN: ${{ inputs.github-token }}
+              CLOSE_AFTER_DAYS: ${{ inputs.close-after-days }}
+              REPOSITORY: ${{ inputs.repository }}
+          run: |
+              python "${{ github.action_path }}/scripts/auto_close_duplicate_issues.py" \
+                --repository "$REPOSITORY" \
+                --close-after-days "$CLOSE_AFTER_DAYS" | tee "$RUNNER_TEMP/auto-close-summary.json"
+              status=${PIPESTATUS[0]}
+              if [ "$status" -ne 0 ]; then
+                echo "::error::Auto-close script failed with exit code $status"
+                exit "$status"
+              fi
+
+        - name: Summarize auto-close run
+          if: inputs.mode == 'auto-close'
+          shell: bash
+          run: |
+              {
+                echo "## Auto-close duplicate candidates"
+                echo
+                cat "$RUNNER_TEMP/auto-close-summary.json"
+              } >> "$GITHUB_STEP_SUMMARY"
+
+        - name: Remove duplicate-candidate label
+          if: inputs.mode == 'remove-label'
+          uses: actions/github-script@v9
+          env:
+              ACTION_SCRIPT: ${{ github.action_path }}/scripts/remove_duplicate_candidate_label.js
+          with:
+              github-token: ${{ inputs.github-token }}
+              script: |
+                  const run = require(process.env.ACTION_SCRIPT);
+                  await run({ github, context, core });
