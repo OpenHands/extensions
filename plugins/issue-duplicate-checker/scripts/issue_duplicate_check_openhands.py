@@ -328,10 +328,10 @@ def poll_start_task(
         if item is None:
             time.sleep(poll_interval_seconds)
             continue
-        status = item.get("status")
-        if status == "READY" and item.get("app_conversation_id"):
+        status = str(item.get("status") or "").lower()
+        if status == "ready" and item.get("app_conversation_id"):
             return item
-        if status in {"ERROR", "FAILED"}:
+        if status in {"error", "failed"}:
             raise RuntimeError(
                 f"OpenHands start task failed: {summarize_openhands_item(item)}"
             )

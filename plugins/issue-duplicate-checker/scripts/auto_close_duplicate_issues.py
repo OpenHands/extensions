@@ -361,7 +361,7 @@ def close_issue_as_duplicate(
         method="PATCH",
         body={"state": "closed", "state_reason": "duplicate"},
     )
-    remove_candidate_label(repository, issue_number, dry_run=False)
+    remove_candidate_label(repository, issue_number, dry_run=dry_run)
 
 
 def keep_open_due_to_newer_comments(
