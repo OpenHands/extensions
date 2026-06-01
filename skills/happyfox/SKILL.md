@@ -149,6 +149,33 @@ curl -s -X POST -u "$HF_API_KEY:$HF_AUTH_CODE" \
 - `cc`, `bcc`: Comma-separated email addresses
 - `due_date`: Format `yyyy-mm-dd` or `dd/mm/yyyy`
 - `visible_only_staff`: `true`/`false` for private tickets
+- **Ticket custom fields:** `t-cf-<id>: <value>` (see below).
+
+**Setting custom fields at create time:** custom fields are passed as **form-field-style keys** named `t-cf-<id>`, *not* nested under a `custom_fields` object. For enumeration fields (`type: "choice"`), `<value>` is the choice's numeric ID; for text/number fields it's the raw value.
+
+```bash
+curl -s -X POST -u "$HF_API_KEY:$HF_AUTH_CODE" \
+  -H "Content-Type: application/json" \
+  "$HF_BASE_URL/api/1.1/json/tickets/" \
+  -d '{
+    "name": "John Doe",
+    "email": "john@example.com",
+    "category": 1,
+    "subject": "Help with account access",
+    "html": "<p>I cannot log in to my account.</p>",
+    "priority": 2,
+    "t-cf-1": 3,
+    "t-cf-7": "conv_abc123"
+  }' | jq
+```
+
+If a custom field is marked `required: true` (or `compulsory_on_completed: true`) and omitted, the create call fails with a 422-style body:
+
+```json
+{"error":[{"field":"t-cf-1","errors":["This field is required"]}]}
+```
+
+To discover the available custom field IDs, their types, and the valid choice IDs for enumeration fields, use **List Ticket Custom Fields** below (`GET /ticket_custom_fields/`). The same fields appear on each ticket's `GET /ticket/<n>/` response as `custom_fields[]` with `{id, name, type, value, value_id}` — useful for inspecting what's already set on an existing ticket.
 
 ## Write-safety: avoid duplicate writes
 
