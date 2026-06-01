@@ -29,9 +29,11 @@ def test_action_shell_blocks_do_not_interpolate_expressions_directly():
         indent = len(line) - len(stripped)
         if in_block and stripped and indent <= block_indent:
             in_block = False
-        if stripped in {"run: |", "script: |"}:
-            in_block = True
-            block_indent = indent
+        if stripped.startswith(("run:", "script:")):
+            block_scalar = stripped.split(":", 1)[1].strip()
+            if block_scalar.startswith(("|", ">")):
+                in_block = True
+                block_indent = indent
             continue
         assert not (in_block and "${{" in line), (
             f"Move GitHub expression on line {line_number} into env before using it"

@@ -16,7 +16,7 @@ module.exports = async ({ github, context, core }) => {
     return;
   }
   if (candidates.length === 0) {
-    core.setFailed(`No candidate issues were returned for issue #${issueNumber}.`);
+    core.warning(`No candidate issues were returned for issue #${issueNumber}; skipping.`);
     return;
   }
 
