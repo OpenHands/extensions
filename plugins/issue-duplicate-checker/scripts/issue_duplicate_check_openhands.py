@@ -50,6 +50,15 @@ OPENHANDS_DEBUG_KEYS = (
 OPENHANDS_SENSITIVE_KEYS = frozenset({"session_api_key"})
 
 
+class HTTPError(RuntimeError):
+    def __init__(self, method: str, url: str, status_code: int, body: str) -> None:
+        self.method = method
+        self.url = url
+        self.status_code = status_code
+        self.body = body
+        super().__init__(f"{method} {url} failed with HTTP {status_code}: {body}")
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
@@ -117,8 +126,9 @@ def request_json(
     body: dict[str, Any] | None = None,
 ) -> Any:
     data = json.dumps(body).encode("utf-8") if body is not None else None
+    url = f"{base_url}{path}"
     request = urllib.request.Request(
-        f"{base_url}{path}",
+        url,
         data=data,
         headers=headers or {},
         method=method,
@@ -128,15 +138,11 @@ def request_json(
             return json.load(response)
     except urllib.error.HTTPError as exc:
         error_body = exc.read().decode("utf-8", errors="replace")
-        raise RuntimeError(
-            f"{method} {base_url}{path} failed with HTTP {exc.code}: {error_body}"
-        ) from exc
+        raise HTTPError(method, url, exc.code, error_body) from exc
     except json.JSONDecodeError as exc:
-        raise RuntimeError(
-            f"Failed to parse JSON from {method} {base_url}{path}: {exc}"
-        ) from exc
+        raise RuntimeError(f"Failed to parse JSON from {method} {url}: {exc}") from exc
     except urllib.error.URLError as exc:
-        raise RuntimeError(f"{method} {base_url}{path} failed: {exc}") from exc
+        raise RuntimeError(f"{method} {url} failed: {exc}") from exc
 
 
 def fetch_issue(repository: str, issue_number: int) -> dict[str, Any]:

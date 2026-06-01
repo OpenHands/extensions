@@ -74,6 +74,27 @@ def test_github_headers_require_token(monkeypatch):
     assert headers["Authorization"] == "Bearer token"
 
 
+def test_issue_check_request_json_raises_structured_http_error(monkeypatch):
+    script = load_script("issue_duplicate_check_openhands")
+
+    def fake_urlopen(*args, **kwargs):
+        raise urllib.error.HTTPError(
+            url="https://api.example.test/example",
+            code=403,
+            msg="Forbidden",
+            hdrs=None,
+            fp=io.BytesIO(b'{"message":"rate limited"}'),
+        )
+
+    monkeypatch.setattr(script.urllib.request, "urlopen", fake_urlopen)
+
+    with pytest.raises(script.HTTPError) as exc_info:
+        script.request_json("https://api.example.test", "/example")
+
+    assert exc_info.value.status_code == 403
+    assert exc_info.value.url == "https://api.example.test/example"
+
+
 def test_request_json_raises_structured_http_error(monkeypatch):
     script = load_script("auto_close_duplicate_issues")
     monkeypatch.setenv("GITHUB_TOKEN", "token")
