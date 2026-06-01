@@ -196,7 +196,7 @@ runs:
                       f"- #{candidate.get('number')}: {candidate.get('title')} ({candidate.get('url')}) — {candidate.get('similarity_reason', '')}"
                   )
 
-              summary_path.write_text(
+              summary_text = (
                   "\n".join(
                       [
                           "## Duplicate check result",
@@ -218,9 +218,10 @@ runs:
                           *(candidate_lines or ["- None"]),
                       ]
                   )
-                  + "\n",
-                  encoding='utf-8',
+                  + "\n"
               )
+              with summary_path.open('a', encoding='utf-8') as fh:
+                  fh.write(summary_text)
               PY
 
         - name: Post duplicate overlap notice
@@ -259,6 +260,7 @@ runs:
               GITHUB_TOKEN: ${{ inputs.github-token }}
               CLOSE_AFTER_DAYS: ${{ inputs.close-after-days }}
               REPOSITORY: ${{ inputs.repository }}
+              GITHUB_API_BASE_URL: ${{ inputs.github-api-base-url }}
           run: |
               python "${{ github.action_path }}/scripts/auto_close_duplicate_issues.py" \
                 --repository "$REPOSITORY" \

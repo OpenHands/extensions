@@ -113,6 +113,10 @@ module.exports = async ({ github, context, core }) => {
     core.setFailed(`No canonical issue number was returned for issue #${issueNumber}.`);
     return;
   }
+  if (canonicalIssueNumber === issueNumber) {
+    core.setFailed(`Duplicate check cannot mark issue #${issueNumber} as a duplicate of itself.`);
+    return;
+  }
 
   if (!(await ensureCanonicalIssueIsOpenIssue())) return;
 

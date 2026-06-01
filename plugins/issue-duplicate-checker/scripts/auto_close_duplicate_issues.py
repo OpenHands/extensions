@@ -13,7 +13,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 
 
-GITHUB_API_BASE_URL = "https://api.github.com"
+GITHUB_API_BASE_URL = os.environ.get("GITHUB_API_BASE_URL", "https://api.github.com")
 MAX_PAGES = 100
 DUPLICATE_CANDIDATE_LABEL = "duplicate-candidate"
 DUPLICATE_VETO_MARKER = "<!-- openhands-duplicate-veto -->"

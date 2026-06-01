@@ -419,10 +419,10 @@ def fetch_agent_server_final_response(
 
 
 def extract_agent_server_url(conversation_url: str) -> str | None:
-    marker = "/api/conversations/"
-    if marker not in conversation_url:
+    parsed = urllib.parse.urlparse(conversation_url)
+    if not parsed.scheme or not parsed.netloc:
         return None
-    return conversation_url.rsplit(marker, 1)[0]
+    return f"{parsed.scheme}://{parsed.netloc}"
 
 
 def extract_last_agent_text(events: list[dict[str, Any]]) -> str:
