@@ -291,6 +291,47 @@ def post_veto_note(repository: str, issue_number: int, *, dry_run: bool) -> bool
     return True
 
 
+def post_newer_activity_note(repository: str, issue_number: int, *, dry_run: bool) -> bool:
+    if dry_run:
+        return True
+    request_json(
+        f"/repos/{repository}/issues/{issue_number}/comments",
+        method="POST",
+        body={
+            "body": (
+                "Further activity was detected after the duplicate notice, so "
+                "this issue is being left open and the "
+                f"{DUPLICATE_CANDIDATE_LABEL} label is being removed.\n\n"
+                "_This comment was created by an AI assistant "
+                "(OpenHands) on behalf of the repository maintainer._"
+            )
+        },
+    )
+    return True
+
+
+def fetch_issue(repository: str, issue_number: int) -> dict[str, Any] | None:
+    try:
+        payload = request_json(f"/repos/{repository}/issues/{issue_number}")
+    except RuntimeError as exc:
+        if "HTTP 404" in str(exc):
+            return None
+        raise
+    if not isinstance(payload, dict):
+        raise RuntimeError(
+            f"Expected issue object while fetching #{issue_number}, "
+            f"got {type(payload).__name__}"
+        )
+    return payload
+
+
+def is_open_canonical_issue(repository: str, issue_number: int) -> bool:
+    issue = fetch_issue(repository, issue_number)
+    if issue is None or issue.get("pull_request"):
+        return False
+    return issue.get("state") == "open" and not issue.get("locked")
+
+
 def close_issue_as_duplicate(
     repository: str,
     issue_number: int,
@@ -337,11 +378,17 @@ def keep_open_due_to_newer_comments(
             issue_number,
             dry_run=dry_run,
         )
+    activity_note_posted = post_newer_activity_note(
+        repository,
+        issue_number,
+        dry_run=dry_run,
+    )
     return {
         "issue_number": issue_number,
         "action": "kept-open",
         "reason": "newer-comment-after-duplicate-notice",
         "label_removed": label_removed,
+        "activity_note_posted": activity_note_posted,
     }
 
 
@@ -444,6 +491,25 @@ def main() -> int:
                         issue_number,
                         dry_run=args.dry_run,
                     )
+                )
+                continue
+
+            if not is_open_canonical_issue(args.repository, canonical_issue_number):
+                label_removed = False
+                if issue_has_label(issue, DUPLICATE_CANDIDATE_LABEL):
+                    label_removed = remove_candidate_label(
+                        args.repository,
+                        issue_number,
+                        dry_run=args.dry_run,
+                    )
+                summary.append(
+                    {
+                        "issue_number": issue_number,
+                        "action": "kept-open",
+                        "reason": "canonical-issue-not-open",
+                        "canonical_issue_number": canonical_issue_number,
+                        "label_removed": label_removed,
+                    }
                 )
                 continue
 

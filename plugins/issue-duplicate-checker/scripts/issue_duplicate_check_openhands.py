@@ -519,6 +519,8 @@ def normalize_result(result: dict[str, Any]) -> dict[str, Any]:
     if not isinstance(candidate_issues, list):
         candidate_issues = []
     normalized["candidate_issues"] = candidate_issues[:3]
+    if not normalized["candidate_issues"]:
+        normalized["should_comment"] = False
 
     if classification not in {"duplicate", "overlapping-scope"}:
         normalized["should_comment"] = False

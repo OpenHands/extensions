@@ -40,7 +40,7 @@ inputs:
     python-version:
         description: Python version used for bundled helper scripts.
         required: false
-        default: '3.13'
+        default: '3.x'
 
 outputs:
     should_comment:
