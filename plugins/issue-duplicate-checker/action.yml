@@ -38,6 +38,10 @@ inputs:
         description: GitHub API base URL.
         required: false
         default: https://api.github.com
+    github-base-url:
+        description: GitHub web base URL used in duplicate-check prompt examples.
+        required: false
+        default: https://github.com
     python-version:
         description: Python version used for bundled helper scripts.
         required: false
@@ -137,6 +141,7 @@ runs:
               REPOSITORY: ${{ inputs.repository }}
               OPENHANDS_BASE_URL: ${{ inputs.openhands-base-url }}
               GITHUB_API_BASE_URL: ${{ inputs.github-api-base-url }}
+              GITHUB_BASE_URL: ${{ inputs.github-base-url }}
           run: |
               python "${{ github.action_path }}/scripts/issue_duplicate_check_openhands.py" \
                 --repository "$REPOSITORY" \

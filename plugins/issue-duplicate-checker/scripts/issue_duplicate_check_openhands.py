@@ -17,6 +17,7 @@ from typing import Any
 OPENHANDS_BASE_URL = os.environ.get("OPENHANDS_BASE_URL", "https://app.all-hands.dev")
 REPOSITORY_PATTERN = re.compile(r"^[a-zA-Z0-9_.-]+/[a-zA-Z0-9_.-]+$")
 GITHUB_API_BASE_URL = os.environ.get("GITHUB_API_BASE_URL", "https://api.github.com")
+GITHUB_BASE_URL = os.environ.get("GITHUB_BASE_URL", "https://github.com")
 FAILED_EXECUTION_STATUSES = {
     "error",
     "errored",
@@ -198,11 +199,11 @@ def build_prompt(repository: str, issue: dict[str, Any]) -> str:
             "7. Do not post comments, do not modify files, and do not change "
             "repository state.",
             "8. Useful API shapes include:",
-            f"   - GET https://api.github.com/repos/{repository}/issues?state=open&per_page=100",
-            "   - GET https://api.github.com/repos/"
+            f"   - GET {GITHUB_API_BASE_URL}/repos/{repository}/issues?state=open&per_page=100",
+            f"   - GET {GITHUB_API_BASE_URL}/repos/"
             f"{repository}/issues?state=closed&since=<ISO-8601 timestamp>&per_page=100",
-            "   - GET https://api.github.com/search/issues?q=<query>",
-            f"   - GET https://api.github.com/repos/{repository}/issues/<number>/comments",
+            f"   - GET {GITHUB_API_BASE_URL}/search/issues?q=<query>",
+            f"   - GET {GITHUB_API_BASE_URL}/repos/{repository}/issues/<number>/comments",
             "9. Return exactly one JSON object and nothing else. Do not wrap "
             "it in markdown fences.",
             "",
@@ -220,7 +221,7 @@ def build_prompt(repository: str, issue: dict[str, Any]) -> str:
             '  "candidate_issues": [',
             "    {",
             '      "number": 123,',
-            f'      "url": "https://github.com/{repository}/issues/123",',
+            f'      "url": "{GITHUB_BASE_URL}/{repository}/issues/123",',
             '      "title": "issue title",',
             '      "state": "open or closed",',
             '      "closed_at": "ISO timestamp or null",',

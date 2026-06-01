@@ -494,6 +494,17 @@ def main() -> int:
                 )
                 continue
 
+            if canonical_issue_number == issue_number:
+                summary.append(
+                    {
+                        "issue_number": issue_number,
+                        "action": "kept-open",
+                        "reason": "self-duplicate-marker",
+                        "canonical_issue_number": canonical_issue_number,
+                    }
+                )
+                continue
+
             if not is_open_canonical_issue(args.repository, canonical_issue_number):
                 label_removed = False
                 if issue_has_label(issue, DUPLICATE_CANDIDATE_LABEL):

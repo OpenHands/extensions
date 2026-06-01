@@ -25,14 +25,20 @@ For scheduled auto-close:
     close-after-days: '3'
 ```
 
-For removing the `duplicate-candidate` label after a human comments:
+For removing the `duplicate-candidate` label after a human comments, run the action from an `issue_comment` event:
 
 ```yaml
-- uses: OpenHands/extensions/plugins/issue-duplicate-checker@main
-  with:
-    mode: remove-label
-    repository: ${{ github.repository }}
-    github-token: ${{ secrets.OPENHANDS_BOT_GITHUB_PAT_PUBLIC || github.token }}
+on:
+  issue_comment:
+    types: [created]
+
+jobs:
+  remove-duplicate-candidate:
+    steps:
+      - uses: OpenHands/extensions/plugins/issue-duplicate-checker@main
+        with:
+          mode: remove-label
+          github-token: ${{ secrets.OPENHANDS_BOT_GITHUB_PAT_PUBLIC || github.token }}
 ```
 
 The action requires `issues: write` permission. `issue-check` also requires an `OPENHANDS_API_KEY` secret.
