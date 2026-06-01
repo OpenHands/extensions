@@ -23,6 +23,10 @@ inputs:
         description: Days to wait before auto-closing duplicate candidates.
         required: false
         default: '3'
+    dry-run:
+        description: Preview auto-close actions without mutating issues. Used only in auto-close mode.
+        required: false
+        default: 'false'
     openhands-api-key:
         description: OpenHands Cloud API key. Required for issue-check mode.
         required: false
@@ -274,10 +278,16 @@ runs:
               CLOSE_AFTER_DAYS: ${{ inputs.close-after-days }}
               REPOSITORY: ${{ inputs.repository }}
               GITHUB_API_BASE_URL: ${{ inputs.github-api-base-url }}
+              DRY_RUN: ${{ inputs.dry-run }}
           run: |
+              dry_run_arg=()
+              if [ "$DRY_RUN" = "true" ]; then
+                dry_run_arg=(--dry-run)
+              fi
               python "${{ github.action_path }}/scripts/auto_close_duplicate_issues.py" \
                 --repository "$REPOSITORY" \
-                --close-after-days "$CLOSE_AFTER_DAYS" | tee "$RUNNER_TEMP/auto-close-summary.json"
+                --close-after-days "$CLOSE_AFTER_DAYS" \
+                "${dry_run_arg[@]}" | tee "$RUNNER_TEMP/auto-close-summary.json"
               status=${PIPESTATUS[0]}
               if [ "$status" -ne 0 ]; then
                 echo "::error::Auto-close script failed with exit code $status"

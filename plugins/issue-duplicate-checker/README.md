@@ -23,6 +23,8 @@ For scheduled auto-close:
     repository: ${{ github.repository }}
     github-token: ${{ secrets.OPENHANDS_BOT_GITHUB_PAT_PUBLIC || github.token }}
     close-after-days: '3'
+    # Optional: preview without mutating issues.
+    dry-run: 'false'
 ```
 
 For removing the `duplicate-candidate` label after a human comments, run the action from an `issue_comment` event:
