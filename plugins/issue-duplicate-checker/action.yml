@@ -12,8 +12,9 @@ inputs:
         description: "Which operation to run: issue-check, auto-close, or remove-label."
         required: true
     repository:
-        description: Repository in owner/repo form.
-        required: true
+        description: Repository in owner/repo form. Required for issue-check and auto-close modes.
+        required: false
+        default: ''
     issue-number:
         description: Issue number to inspect when mode is issue-check.
         required: false
@@ -81,9 +82,16 @@ runs:
           shell: bash
           env:
               MODE: ${{ inputs.mode }}
+              REPOSITORY: ${{ inputs.repository }}
           run: |
               case "$MODE" in
-                issue-check|auto-close|remove-label) ;;
+                issue-check|auto-close) 
+                  if [ -z "$REPOSITORY" ]; then
+                    echo "Error: repository is required for $MODE mode" >&2
+                    exit 1
+                  fi
+                  ;;
+                remove-label) ;;
                 *)
                   echo "Error: mode must be one of: issue-check, auto-close, remove-label" >&2
                   exit 1
@@ -275,11 +283,30 @@ runs:
           if: inputs.mode == 'auto-close'
           shell: bash
           run: |
-              {
-                echo "## Auto-close duplicate candidates"
-                echo
-                cat "$RUNNER_TEMP/auto-close-summary.json"
-              } >> "$GITHUB_STEP_SUMMARY"
+              python - <<'PY' >> "$GITHUB_STEP_SUMMARY"
+              import json
+              import os
+              from pathlib import Path
+
+              data = json.loads(Path(os.environ['RUNNER_TEMP'], 'auto-close-summary.json').read_text())
+              print('## Auto-close duplicate candidates')
+              print()
+              results = data.get('results') if isinstance(data, dict) else []
+              if not results:
+                  print('- No matching duplicate candidates.')
+              for result in results:
+                  issue = result.get('issue_number', '?')
+                  action = result.get('action', 'unknown')
+                  reason = result.get('reason')
+                  canonical = result.get('canonical_issue_number')
+                  details = []
+                  if canonical is not None:
+                      details.append(f'canonical #{canonical}')
+                  if reason:
+                      details.append(str(reason))
+                  suffix = f" ({'; '.join(details)})" if details else ''
+                  print(f'- #{issue}: {action}{suffix}')
+              PY
 
         - name: Remove duplicate-candidate label
           if: inputs.mode == 'remove-label'

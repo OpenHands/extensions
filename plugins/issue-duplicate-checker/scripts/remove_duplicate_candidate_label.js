@@ -1,6 +1,6 @@
 module.exports = async ({ github, context, core }) => {
   const issueNumber = context.issue.number;
-  const commenter = context.payload.comment.user.login || "";
+  const commenter = context.payload.comment?.user?.login ?? "";
   const normalizedCommenter = commenter.toLowerCase();
 
   if (normalizedCommenter.endsWith("[bot]") || normalizedCommenter === "all-hands-bot") {
