@@ -150,6 +150,80 @@ curl -s -X POST -u "$HF_API_KEY:$HF_AUTH_CODE" \
 - `due_date`: Format `yyyy-mm-dd` or `dd/mm/yyyy`
 - `visible_only_staff`: `true`/`false` for private tickets
 
+## Write-safety: avoid duplicate writes
+
+<IMPORTANT>
+HappyFox's v1.1 REST API has **no endpoint to edit or delete an individual update / private note** — once posted, a note can only be removed by deleting the entire ticket (almost never the right tool) or by a human in the staff UI. This means there is no "undo" for write operations.
+
+**Never retry a POST just because the previous output looked truncated or empty in your terminal.** The right reflex on an ambiguous write:
+
+1. Check the curl exit code (`$?`) — `0` means the HTTP transaction completed.
+2. **GET the resource** (e.g., `GET /ticket/<id>/`) to confirm whether the write landed (look for a new `update_id`, or compare to a pre-write max).
+3. Only retry if the GET confirms the write did NOT land.
+
+Recommended pattern for any write:
+
+```bash
+# Capture pre-state
+PRE=$(curl -s -u "$HF_API_KEY:$HF_AUTH_CODE" \
+  "$HF_BASE_URL/api/1.1/json/ticket/$TID/" | jq '[.updates[].update_id] | max')
+
+# Single attempt — do NOT loop
+curl -s -X POST -u "$HF_API_KEY:$HF_AUTH_CODE" \
+  -H "Content-Type: application/json" \
+  -d @payload.json \
+  "$HF_BASE_URL/api/1.1/json/ticket/$TID/staff_pvtnote/" > /dev/null
+
+# Verify with GET
+curl -s -u "$HF_API_KEY:$HF_AUTH_CODE" \
+  "$HF_BASE_URL/api/1.1/json/ticket/$TID/" | \
+  jq --argjson pre "$PRE" '[.updates[] | select(.update_id > $pre)]'
+```
+
+The probed-and-confirmed dead-end endpoints (all return 404 or 405): `POST/DELETE/PUT` on `/ticket/<id>/{update,updates,staff_pvtnote,note,notes}/<update_id>/[delete/|destroy/]`, and `POST` on `/ticket/<id>/{update,delete_update,update_delete,staff_pvtnote}/delete/` with `{update_id, staff_id}` body.
+</IMPORTANT>
+
+## Endpoints that do NOT exist on v1.1
+
+Save yourself the probes — these all return 404 (or the generic "Cannot find the requested object"):
+
+| Endpoint | Notes |
+|---|---|
+| `/ticket/<id>/linked_objects/` | Native integrations' linked-object metadata is **not** exposed via API |
+| `/ticket/<id>/external_links/` | Same |
+| `/ticket/<id>/integrations/` | Same |
+| `/ticket/<id>/linked_tickets/`, `/related_tickets/`, `/linked_issues/` | Same |
+| `/integrations/` (global) | Same |
+| Update edit / delete (any path tried) | See "Write-safety" section above |
+
+If you need to discover whether a ticket is linked to an external system via a HappyFox integration (e.g., the Linear integration), the link is typically visible only in the staff UI's sidebar or by querying the *destination* system's API.
+
+## Message Formatting: HTML Only, No Markdown
+
+<IMPORTANT>
+HappyFox **renders HTML** in the `html` field of replies and private notes, but **does NOT render Markdown**. Raw Markdown syntax (`##`, `**bold**`, `[text](url)`, etc.) appears verbatim as literal characters in the UI.
+
+**Empirically verified renderings:**
+
+| Element | Renders? | Use for |
+|---|---|---|
+| `<p>`, `<br>`, `<div>` | ✅ | Structure / line breaks |
+| `<a href="...">text</a>` | ✅ Clickable | Always wrap URLs — don't rely on auto-linking |
+| `<strong>`, `<b>` | ✅ Bold | Emphasis |
+| `<em>`, `<i>` | ✅ Italic | Disclosures, asides |
+| `<ul>`, `<ol>`, `<li>` | ✅ (standard HTML) | Lists |
+| `##`, `###` headings | ❌ Literal text | Use `<strong>` instead |
+| `**bold**`, `__bold__` | ❌ Literal text | Use `<strong>` |
+| `[text](url)` links | ❌ Literal text | Use `<a href>` |
+| ``` ` `` code, ` ``` ` blocks | ❌ Literal text | Use `<code>` / `<pre>` |
+
+**If you have Markdown content to post, render it to HTML first.** Do not paste raw Markdown into the `html` field — the result is unreadable bold-wrapped-asterisks like `<strong>**Heading**</strong>` → "\*\*Heading\*\*" in bold.
+
+If you only need plain text with auto-linkable URLs, use the `text` field instead of `html`.
+
+> **Don't be misled by HappyFox's "Markdown Support" feature** ([release note](https://headwayapp.co/happyfox-helpdesk-release-notes/markdown-support-while-adding-ticket-replies-79174)). It is a compose-box typing shortcut for human agents — type `**bold**` in the rich-text editor and the editor converts it to HTML as you type. It does **not** make the API or the ticket viewer render stored markdown. The `html` field is always treated as HTML; the `text` field as plain text. There is no markdown content-type or markdown-rendering toggle on the API side.
+</IMPORTANT>
+
 ### Add Staff Update (Reply)
 
 ```bash
@@ -183,8 +257,13 @@ curl -s -X POST -u "$HF_API_KEY:$HF_AUTH_CODE" \
 
 <IMPORTANT>
 To create a private/internal note that is NOT visible to customers, you MUST use the `/staff_pvtnote/` endpoint.
-Do NOT use `/staff_update/` with `visible_only_staff` or `private` parameters - these do NOT create private notes.
-The `/staff_update/` endpoint always creates customer-visible replies regardless of parameters.
+Do NOT use `/staff_update/` with `visible_only_staff` or `private` parameters — those parameters are silently ignored. `/staff_update/` **always** creates a customer-visible reply.
+
+**How to verify after posting:** the GET response distinguishes them via `message.message_type`:
+- `"p"` → private note (staff-only)
+- `null` → customer-visible reply
+
+If you ever post what was meant to be a private note and find `message_type: null` afterwards, you have leaked internal content to the customer. There is no edit/delete API to fix it (see "Write-safety" above) — you'll need staff-UI cleanup. Always sanity-check `message_type` on the next GET after posting sensitive internal content.
 </IMPORTANT>
 
 ```bash
