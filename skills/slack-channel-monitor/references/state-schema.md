@@ -41,7 +41,12 @@ variable (field `automation_id`).
   "conversations": { ... },            // see ConversationRecord below
   "bot_message_ts": [                  // rolling list of Slack 'ts' values for
     "1716576100.000200"                // messages THIS bot posted; used to skip
-  ]                                    // self-messages during processing
+  ],                                   // self-messages during processing
+  "known_threads": {                   // channel_id → {thread_ts → latest_reply_ts}
+    "C0123456789": {                   // persisted thread parents so their
+      "1716575900.000100": "1716576000.000300"  // replies remain pollable
+    }                                  // even after the parent ages out of
+  }                                    // the channel history window
 }
 ```
 
@@ -92,6 +97,29 @@ replies as user messages.
 Entries are added when:
 - The bot posts a conversation link (on trigger detection)
 - The bot posts a summary (on conversation completion)
+
+---
+
+## `known_threads` Map
+
+Tracks thread parents the poller has previously seen so their replies can be
+polled on every run, even after the parent message ages out of the channel
+history window.
+
+- **Outer key**: channel_id.
+- **Inner key**: thread root `ts` (the parent message's timestamp).
+- **Value**: the most recent reply `ts` observed in that thread (used for
+  recency-based pruning).
+
+A thread is added when:
+- A top-level message returned by `conversations.history` has `reply_count > 0`.
+- A thread is being polled because it backs an active conversation (so it
+  remains in the map after the conversation closes).
+
+Each channel keeps at most `MAX_KNOWN_THREADS_PER_CHANNEL = 50` entries; the
+oldest threads (lowest latest-reply timestamp) are dropped first. Entries for
+channels no longer monitored are removed entirely. The cap doubles as a guard
+against rate-limit pressure on `conversations.replies` (Slack Tier 3).
 
 ---
 
@@ -151,6 +179,15 @@ Entries are added when:
   "bot_message_ts": [
     "1716575903.000200",
     "1716572105.000100"
-  ]
+  ],
+  "known_threads": {
+    "C0123456789": {
+      "1716575900.000100": "1716576040.000400",
+      "1716574500.000700": "1716574700.000800"
+    },
+    "C9876543210": {
+      "1716570000.000500": "1716572050.000900"
+    }
+  }
 }
 ```

@@ -1,12 +1,17 @@
 """
 Slack Channel Monitor  -  OpenHands Automation Script
 
-Polls monitored Slack channels every minute. When a message containing the
-trigger phrase is detected it:
+Polls monitored Slack channels every minute, including messages inside threads
+(not just top-level posts). When a message containing the trigger phrase is
+detected it:
   1. Adds a 👀 reaction to acknowledge the message.
   2. Creates an OpenHands conversation pre-loaded with the message and recent
-     channel context.
+     context (thread context if the trigger lives inside a thread, otherwise
+     recent channel history).
   3. Posts a reply in the Slack thread with a link to the conversation.
+
+If the trigger arrives in a thread that already has an open OpenHands
+conversation, that conversation is reused instead of starting a new one.
 
 On subsequent runs:
   - New replies in a tracked thread are forwarded to the running conversation.
@@ -61,6 +66,12 @@ CONTEXT_MESSAGE_LIMIT = 15
 
 # How far back (seconds) to look for context when creating a new conversation.
 CONTEXT_LOOKBACK_SECONDS = 3600  # 1 hour of recent messages for context
+
+# Cap on persisted thread parents per channel. Threads remain pollable across
+# runs even after their parent message ages out of the channel history window;
+# this bound keeps the state file small and the per-run `conversations.replies`
+# call count well under Slack's Tier 3 limit (~50 req/min) for typical setups.
+MAX_KNOWN_THREADS_PER_CHANNEL = 50
 
 
 # ── Stdlib helpers ─────────────────────────────────────────────────────────────
@@ -139,6 +150,7 @@ def load_state(path: str) -> dict:
         "last_poll": {},           # channel_id → float timestamp string
         "conversations": {},       # conv_key → ConversationRecord (see schema docs)
         "bot_message_ts": [],      # ts strings of messages posted by this bot
+        "known_threads": {},       # channel_id → {thread_ts: latest_reply_ts}
     }
 
 
@@ -444,15 +456,76 @@ def _gather_channel_context(
     return context_lines
 
 
+def _gather_thread_context(
+    slack_token: str,
+    channel_id: str,
+    thread_ts: str,
+    before_ts: str,
+    bot_user_id: str,
+    bot_message_ts: list[str],
+    limit: int = CONTEXT_MESSAGE_LIMIT,
+) -> list[str]:
+    """Gather messages from a Slack thread (parent + earlier replies).
+
+    Used when the trigger phrase arrives inside an existing thread - the
+    thread's own messages are usually more relevant context than channel-wide
+    history.  Stops collecting once `before_ts` is reached so the trigger
+    message itself (and anything posted after it) is not duplicated.
+    """
+    context_lines: list[str] = []
+    try:
+        result = slack_get(slack_token, "conversations.replies", {
+            "channel": channel_id,
+            "ts": thread_ts,
+            "limit": limit + 1,
+            "inclusive": "true",
+        })
+        before_f = float(before_ts)
+        for msg in result.get("messages", []):
+            if float(msg.get("ts", "0")) >= before_f:
+                break
+            if _is_human_message(msg, bot_user_id, bot_message_ts):
+                context_lines.append(f"[{msg.get('user','?')}]: {msg.get('text','')}")
+    except Exception:
+        pass  # context is best-effort
+    return context_lines
+
+
 def _poll_new_messages(
     slack_token: str,
     use_search: bool,
     oldest_by_channel: dict[str, str],
     global_oldest: str,
     active_convs: dict[str, dict],
+    known_threads: dict[str, dict[str, str]],
 ) -> list[tuple[str, dict]]:
-    """Collect and sort new top-level messages and thread replies from Slack."""
+    """Collect and sort new top-level messages and thread replies from Slack.
+
+    Thread discovery sources combined here:
+      - Brand-new thread parents observed in this poll's channel history.
+      - Threads with active OpenHands conversations (so user replies are
+        forwarded even when no new history is returned).
+      - Previously-seen threads persisted in `known_threads`. This keeps
+        threads pollable across runs even after the parent ages out of the
+        history window, so a trigger phrase posted as a reply still gets
+        picked up.
+
+    `known_threads` is mutated in place with the latest reply timestamp seen
+    for each thread.
+    """
     new_messages: list[tuple[str, dict]] = []
+    threads_to_poll: dict[str, set[str]] = {cid: set() for cid in CHANNEL_IDS}
+
+    # Seed thread discovery with tracked conversations and persisted threads.
+    for rec in active_convs.values():
+        if rec.get("status") == "closed":
+            continue
+        cid = rec["channel_id"]
+        if cid in threads_to_poll:
+            threads_to_poll[cid].add(rec["thread_ts"])
+    for cid, threads in known_threads.items():
+        if cid in threads_to_poll:
+            threads_to_poll[cid].update(threads.keys())
 
     if use_search:
         try:
@@ -475,28 +548,64 @@ def _poll_new_messages(
                 msgs = channel_history(slack_token, cid, oldest)
                 for m in msgs:
                     new_messages.append((cid, m))
+                    # Any top-level message that's the parent of a thread - even
+                    # one whose latest reply predates this poll - needs to be
+                    # registered so future runs can fetch later replies.
+                    if m.get("reply_count", 0) > 0:
+                        threads_to_poll[cid].add(m.get("ts", ""))
                 print(f"  {cid}: {len(msgs)} new message(s) since {oldest}")
             except Exception as exc:
                 print(f"  Warning: could not fetch history for {cid}: {exc}")
 
     reply_messages: list[tuple[str, dict]] = []
-    for _conv_key, rec in active_convs.items():
-        if rec.get("status") == "closed":
-            continue
-        cid = rec["channel_id"]
-        thread_ts = rec["thread_ts"]
+    for cid, thread_set in threads_to_poll.items():
         oldest = oldest_by_channel.get(cid, global_oldest)
-        try:
-            replies = thread_replies(slack_token, cid, thread_ts, oldest)
+        for thread_ts in thread_set:
+            try:
+                replies = thread_replies(slack_token, cid, thread_ts, oldest)
+            except Exception as exc:
+                print(f"  Warning: could not fetch replies for thread {thread_ts} in {cid}: {exc}")
+                continue
             for r in replies:
                 reply_messages.append((cid, r))
-        except Exception as exc:
-            print(f"  Warning: could not fetch replies for thread {thread_ts}: {exc}")
+            latest_ts = thread_ts
+            if replies:
+                latest_ts = max(
+                    (r.get("ts", thread_ts) for r in replies),
+                    key=lambda t: float(t or "0"),
+                    default=thread_ts,
+                )
+            known_threads.setdefault(cid, {})[thread_ts] = latest_ts
 
-    return sorted(
-        new_messages + reply_messages,
-        key=lambda x: float(x[1].get("ts", "0")),
-    )
+    # Dedupe by (channel, ts): conversations.history can return a brand-new
+    # thread parent that we also schedule for reply polling. `thread_replies`
+    # already drops the parent, but guarding here keeps the code robust if
+    # that behaviour ever changes.
+    seen: set[tuple[str, str]] = set()
+    deduped: list[tuple[str, dict]] = []
+    for cid, m in new_messages + reply_messages:
+        key = (cid, m.get("ts", ""))
+        if key in seen:
+            continue
+        seen.add(key)
+        deduped.append((cid, m))
+
+    return sorted(deduped, key=lambda x: float(x[1].get("ts", "0")))
+
+
+def _prune_known_threads(known_threads: dict[str, dict[str, str]]) -> None:
+    """Keep at most MAX_KNOWN_THREADS_PER_CHANNEL most recent threads per channel."""
+    for cid, threads in list(known_threads.items()):
+        if cid not in CHANNEL_IDS:
+            # Channel no longer monitored - drop entirely.
+            del known_threads[cid]
+            continue
+        if len(threads) <= MAX_KNOWN_THREADS_PER_CHANNEL:
+            continue
+        kept = sorted(
+            threads.items(), key=lambda kv: float(kv[1] or "0"), reverse=True
+        )[:MAX_KNOWN_THREADS_PER_CHANNEL]
+        known_threads[cid] = dict(kept)
 
 
 def _process_trigger_message(
@@ -519,9 +628,18 @@ def _process_trigger_message(
     if can_react:
         add_reaction(slack_token, channel_id, msg_ts)
 
-    context_lines = _gather_channel_context(
-        slack_token, channel_id, msg_ts, bot_user_id, bot_message_ts
-    )
+    # When the trigger arrived inside an existing thread (thread_root != msg_ts),
+    # the thread's own history is more relevant than channel-wide chatter.
+    if thread_root != msg_ts:
+        context_lines = _gather_thread_context(
+            slack_token, channel_id, thread_root, msg_ts, bot_user_id, bot_message_ts
+        )
+        context_label = "Recent thread context (oldest → newest):"
+    else:
+        context_lines = _gather_channel_context(
+            slack_token, channel_id, msg_ts, bot_user_id, bot_message_ts
+        )
+        context_label = "Recent channel context (oldest → newest):"
     context_block = "\n".join(context_lines) if context_lines else "(no recent context)"
 
     initial_prompt = (
@@ -529,7 +647,7 @@ def _process_trigger_message(
         f"Channel ID : {channel_id}\n"
         f"Thread root: {thread_root}\n"
         f"Trigger msg: {text}\n\n"
-        f"Recent channel context (oldest → newest):\n"
+        f"{context_label}\n"
         f"---\n{context_block}\n---\n\n"
         f"Please analyse the request and take the appropriate action. "
         f"When you are finished, summarise what you did clearly  -  that "
@@ -646,9 +764,11 @@ def main() -> None:
     global_oldest = min(oldest_by_channel.values())
 
     active_convs: dict[str, dict] = state.get("conversations", {})
+    known_threads: dict[str, dict[str, str]] = state.get("known_threads", {})
 
     all_incoming = _poll_new_messages(
-        slack_token, use_search, oldest_by_channel, global_oldest, active_convs
+        slack_token, use_search, oldest_by_channel, global_oldest,
+        active_convs, known_threads,
     )
 
     for cid in CHANNEL_IDS:
@@ -668,29 +788,31 @@ def main() -> None:
         conv_key = f"{channel_id}:{thread_root}"
 
         has_trigger = TRIGGER_PHRASE.lower() in text.lower()
-        is_reply_in_tracked = (
-            thread_ts is not None
-            and thread_ts != msg_ts
-            and conv_key in active_convs
-            and active_convs[conv_key].get("status") != "closed"
-        )
+        existing = active_convs.get(conv_key)
+        is_open_existing = existing is not None and existing.get("status") != "closed"
 
-        # ── Case A: reply in a thread that has an active conversation ──────────
-        if is_reply_in_tracked:
-            rec = active_convs[conv_key]
-            print(f"  Forwarding reply {msg_ts} → conversation {rec['conversation_id']}")
+        # ── Case A: this thread already has an open conversation - reuse it.
+        # Applies to plain replies AND to in-thread trigger phrases: the user
+        # asked for thread-scoped conversation reuse, so we never create a
+        # second conversation for the same thread.
+        if is_open_existing:
+            assert existing is not None  # narrow for type checkers
+            print(f"  Forwarding {msg_ts} → conversation {existing['conversation_id']}")
             try:
-                send_to_conversation(agent_url, api_key, rec["conversation_id"],
-                                     f"User replied in Slack thread: {text}")
-                rec["status"] = "active"
-                rec["last_activity"] = time.time()
+                send_to_conversation(
+                    agent_url, api_key, existing["conversation_id"],
+                    f"User said in Slack thread: {text}",
+                )
+                existing["status"] = "active"
+                existing["last_activity"] = time.time()
             except Exception as exc:
-                print(f"  Warning: failed to forward reply: {exc}")
+                print(f"  Warning: failed to forward message: {exc}")
             if has_trigger and can_react:
                 add_reaction(slack_token, channel_id, msg_ts)
             continue
 
-        # ── Case B: message contains trigger phrase → create a new conversation ─
+        # ── Case B: trigger phrase in a thread/message with no open conversation
+        # (either brand-new or one that's already been closed) - create one.
         if has_trigger:
             _process_trigger_message(
                 slack_token, agent_url, api_key, openhands_url,
@@ -709,7 +831,10 @@ def main() -> None:
     else:
         state["bot_message_ts"] = bot_message_ts
 
+    _prune_known_threads(known_threads)
+
     state["conversations"] = active_convs
+    state["known_threads"] = known_threads
     save_state(state_path, state)
     print(f"State saved to {state_path}")
 

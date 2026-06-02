@@ -12,13 +12,18 @@ description: >
 
 # Slack Channel Monitor
 
-Create a cron automation that polls up to 10 Slack channels every minute.
-When a message containing the **trigger phrase** (default: `@openhands`) is
-detected it:
+Create a cron automation that polls up to 10 Slack channels every minute,
+including messages **inside threads** (not just top-level posts). When a
+message containing the **trigger phrase** (default: `@openhands`) is detected
+it:
 
 1. Adds a 👀 reaction to the triggering message.
-2. Opens an OpenHands conversation with the message and recent channel context.
+2. Opens an OpenHands conversation with the message and recent context (thread
+   context if the trigger lives inside a thread, otherwise channel history).
 3. Posts a reply in the Slack thread with a link to the conversation.
+
+If the trigger arrives in a thread that already has an open OpenHands
+conversation, that conversation is **reused** instead of starting a new one.
 
 On every subsequent run:
 - Replies in the thread are forwarded to the running conversation.
@@ -202,15 +207,22 @@ Each cron run executes `main.py`, which:
 
 1. **Loads state** from the JSON file (see `references/state-schema.md`).
 2. **Resolves the Slack token**  -  checks `SLACK_USER_TOKEN` then `SLACK_BOT_TOKEN`.
-3. **Fetches new messages:**
+3. **Fetches new top-level messages:**
    - User token + `search:read` + > 1 channel → single `search.messages` call
-     (searches for the trigger phrase across all channels).
-   - Otherwise → one `conversations.history` call per channel.
-4. **Fetches thread replies**  -  one `conversations.replies` call per active thread.
+     (searches for the trigger phrase across all channels, including thread
+     replies).
+   - Otherwise → one `conversations.history` call per channel. Any thread
+     parent seen here is recorded in `known_threads` so its replies stay
+     pollable on future runs.
+4. **Fetches thread replies**  -  one `conversations.replies` call for each
+   thread in `known_threads` plus any thread with an active conversation,
+   so triggers and follow-up messages posted inside threads are detected.
 5. **Processes messages** in chronological order:
    - Skips bot messages and any `ts` in `bot_message_ts`.
-   - Reply in a tracked thread → forwards to the existing conversation.
-   - Contains trigger phrase → 👀 reaction, create conversation, post link.
+   - Thread already has an open conversation → forwards to it (reuses the
+     conversation for in-thread triggers and plain replies alike).
+   - Contains trigger phrase with no open conversation → 👀 reaction, create
+     a new conversation keyed on the thread root, post link.
 6. **Checks conversation statuses**  -  for each active conversation where
    `time.time() - last_activity > 15 s`:
    - If status is `idle`, `finished`, `error`, or `stuck` → fetch the agent's

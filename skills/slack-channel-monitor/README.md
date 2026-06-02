@@ -27,8 +27,12 @@ This skill is activated by keywords:
 - **Efficient polling**: single `search.messages` call for multi-channel user
   tokens with `search:read`; falls back to one `conversations.history` call
   per channel for bot tokens
-- **Thread tracking**: new replies in a triggered thread are forwarded to the
-  running OpenHands conversation
+- **Thread-aware polling**: messages posted inside threads (not only
+  top-level posts) are scanned for the trigger phrase, so an `@openhands`
+  reply on an existing thread is picked up
+- **Per-thread conversation reuse**: if a thread already has an open
+  OpenHands conversation, in-thread triggers and plain replies are forwarded
+  to it instead of spawning a duplicate conversation
 - **Reaction acknowledgement**: adds a 👀 to every message containing the
   trigger phrase
 - **Conversation link**: posts a link to the new conversation in the Slack
@@ -73,13 +77,16 @@ The skill will:
 
 Each cron run (every minute):
 
-1. Fetches new messages from all monitored channels
+1. Fetches new messages from all monitored channels, including replies in
+   any thread the poller has previously seen
 2. Adds 👀 to any message containing the trigger phrase
-3. Creates an OpenHands conversation with the message and recent channel
-   context as the initial prompt; posts a link to the conversation in the
-   Slack thread
-4. Forwards new replies in tracked threads to the running conversation
-5. Checks active conversations - posts the agent's final response back to
+3. For trigger phrases in a thread that already has an open conversation,
+   forwards the message to that conversation instead of starting a new one
+4. Otherwise creates an OpenHands conversation with the message and recent
+   context (thread context for in-thread triggers, channel history for
+   top-level triggers); posts a link to the conversation in the Slack thread
+5. Forwards new replies in tracked threads to the running conversation
+6. Checks active conversations - posts the agent's final response back to
    Slack when the conversation completes
 
 ## See Also
