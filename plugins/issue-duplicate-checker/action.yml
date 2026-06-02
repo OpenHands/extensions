@@ -258,7 +258,7 @@ runs:
           if: inputs.mode == 'issue-check' && steps.parsed_result.outputs.should_comment == 'true'
           uses: actions/github-script@v9
           env:
-              ACTION_SCRIPT: ${{ github.action_path }}/scripts/post_duplicate_notice.js
+              ACTION_SCRIPT: ${{ github.action_path }}/scripts/post_duplicate_notice.cjs
               ISSUE_NUMBER: ${{ inputs.issue-number }}
               SUMMARY: ${{ steps.parsed_result.outputs.summary }}
               CANDIDATE_ISSUES_JSON: ${{ steps.parsed_result.outputs.candidate_issues_json }}
@@ -341,7 +341,7 @@ runs:
           if: inputs.mode == 'remove-label'
           uses: actions/github-script@v9
           env:
-              ACTION_SCRIPT: ${{ github.action_path }}/scripts/remove_duplicate_candidate_label.js
+              ACTION_SCRIPT: ${{ github.action_path }}/scripts/remove_duplicate_candidate_label.cjs
           with:
               github-token: ${{ inputs.github-token }}
               script: |
