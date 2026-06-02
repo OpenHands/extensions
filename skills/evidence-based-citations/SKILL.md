@@ -7,13 +7,13 @@ triggers:
 - cite sources
 - official source
 - official link
+- official links
+- official docs
 - official documentation
 - verifiable source
-- with evidence
-- back with evidence
 ---
 
-The user wants every field value or factual claim you produce to be backed by an official, verifiable source. Apply this skill until the user clearly switches to a different task.
+The user wants every field value or factual claim you produce in the current response to be backed by an official, verifiable source. Apply this skill to the response that triggered it; do not assume it stays active for the rest of the conversation unless the user clearly asks for it to.
 
 ## Output format
 
@@ -42,16 +42,16 @@ When there are multiple fields, repeat the block once per field. Keep blocks sep
 ## When to fetch
 
 - If you have a browser / fetch tool available, retrieve the source page and copy the quote directly from it before responding.
-- If you do not have a fetch tool, only cite URLs you can recall with high confidence. When in doubt, prefer "No official source found." over guessing.
+- If you do not have a fetch tool, always respond with `Source: No official source found.` rather than citing URLs from memory. LLMs cannot reliably verify URL accuracy or quote fidelity without actually fetching the page, even when a URL feels familiar.
 
 ## Example
 
-> User: Fill in the connection timeout default for the Python `requests` library.
+> User: What HTTP status code indicates a successful request, per the HTTP semantics RFC?
 
-- **Field**: `requests` default connection timeout
-- **Value**: No timeout (blocks indefinitely) by default
-- **Quote**: "By default, requests do not time out unless a timeout value is set explicitly."
-- **Source**: https://requests.readthedocs.io/en/latest/user/advanced/#timeouts
+- **Field**: HTTP status code for a successful request (per RFC 9110)
+- **Value**: 200 (OK)
+- **Quote**: "The 200 (OK) status code indicates that the request has succeeded."
+- **Source**: https://www.rfc-editor.org/rfc/rfc9110.html#section-15.3.1
 
 ## What this skill is not
 

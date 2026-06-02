@@ -8,9 +8,9 @@ This skill is activated by the following keywords:
 
 - `evidence-based`
 - `cite source` / `cite sources`
-- `official source` / `official link` / `official documentation`
+- `official source` / `official link` / `official links`
+- `official docs` / `official documentation`
 - `verifiable source`
-- `with evidence` / `back with evidence`
 
 ## What it does
 
