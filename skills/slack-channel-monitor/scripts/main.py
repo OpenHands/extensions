@@ -85,7 +85,11 @@ def get_secret(name: str) -> str:
         return r.read().decode().strip()
 
 
-def fire_callback(status: str = "COMPLETED", error: str | None = None) -> None:
+def fire_callback(
+    status: str = "COMPLETED",
+    error: str | None = None,
+    conversation_id: str | None = None,
+) -> None:
     """Signal run completion to the automation service."""
     url = os.environ.get("AUTOMATION_CALLBACK_URL", "")
     if not url:
@@ -93,6 +97,8 @@ def fire_callback(status: str = "COMPLETED", error: str | None = None) -> None:
     body: dict = {"status": status, "run_id": os.environ.get("AUTOMATION_RUN_ID", "")}
     if error:
         body["error"] = error
+    if conversation_id:
+        body["conversation_id"] = conversation_id
     req = urllib.request.Request(
         url,
         data=json.dumps(body).encode(),
@@ -513,8 +519,11 @@ def _process_trigger_message(
     bot_message_ts: list[str],
     bot_user_id: str,
     can_react: bool,
-) -> None:
-    """React to a trigger message, create an OpenHands conversation, and post a link."""
+) -> str | None:
+    """React to a trigger message, create an OpenHands conversation, and post a link.
+
+    Returns the new conversation ID on success, or None on error.
+    """
     print(f"  Trigger detected in {channel_id} at {msg_ts}: {text[:80]}")
     if can_react:
         add_reaction(slack_token, channel_id, msg_ts)
@@ -554,8 +563,10 @@ def _process_trigger_message(
             bot_message_ts.append(ts_back)
 
         print(f"  Created conversation {conv_id} ({conv_url})")
+        return conv_id
     except Exception as exc:
         print(f"  Error creating conversation for {conv_key}: {exc}")
+        return None
 
 
 def _check_conversation_completion(
@@ -607,7 +618,8 @@ def _check_conversation_completion(
 
 # ── Main ───────────────────────────────────────────────────────────────────────
 
-def main() -> None:
+def main() -> str | None:
+    """Run one polling cycle. Returns the last conversation ID created, if any."""
     state_path = _state_file_path()
     state = load_state(state_path)
 
@@ -654,6 +666,7 @@ def main() -> None:
     for cid in CHANNEL_IDS:
         state["last_poll"][cid] = now_ts
 
+    last_conversation_id: str | None = None
     for channel_id, msg in all_incoming:
         if not _is_human_message(msg, bot_user_id, bot_message_ts):
             continue
@@ -692,11 +705,13 @@ def main() -> None:
 
         # ── Case B: message contains trigger phrase → create a new conversation ─
         if has_trigger:
-            _process_trigger_message(
+            conv_id = _process_trigger_message(
                 slack_token, agent_url, api_key, openhands_url,
                 channel_id, msg_ts, text, thread_root, conv_key,
                 active_convs, bot_message_ts, bot_user_id, can_react,
             )
+            if conv_id:
+                last_conversation_id = conv_id
 
     for conv_key, rec in list(active_convs.items()):
         if rec.get("status") != "closed":
@@ -712,11 +727,12 @@ def main() -> None:
     state["conversations"] = active_convs
     save_state(state_path, state)
     print(f"State saved to {state_path}")
+    return last_conversation_id
 
 
 try:
-    main()
-    fire_callback("COMPLETED")
+    conversation_id = main()
+    fire_callback("COMPLETED", conversation_id=conversation_id)
 except Exception as exc:
     import traceback
     traceback.print_exc()
