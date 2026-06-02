@@ -40,7 +40,7 @@
             "type": "password",
             "placeholder": "xoxb-...",
             "required": true,
-            "helperText": "You'll need to create or update a [Slack App](https://github.com/zencoderai/slack-mcp-server#slack-bot-setup)."
+            "helperText": "You'll need to create or update a [Slack App](https://github.com/zencoderai/slack-mcp-server#slack-bot-setup) to get a Bot token"
           }
         ]
       },
