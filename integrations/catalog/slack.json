@@ -40,8 +40,7 @@
             "type": "password",
             "placeholder": "xoxb-...",
             "required": true,
-            "helperText": "Bot token from your Slack app's OAuth & Permissions page.",
-            "helperLink": "https://api.slack.com/apps"
+            "helperText": "You'll need to create or update a Slack App as shown [here](https://github.com/zencoderai/slack-mcp-server#slack-bot-setup)."
           }
         ]
       },
