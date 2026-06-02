@@ -148,8 +148,38 @@ def load_state(path: str) -> dict:
 
 
 def save_state(path: str, state: dict) -> None:
-    with open(path, "w") as f:
+    """Persist state atomically (write to tmp + os.replace) so concurrent
+    runs never observe a half-written file."""
+    tmp = f"{path}.tmp.{os.getpid()}"
+    with open(tmp, "w") as f:
         json.dump(state, f, indent=2)
+    os.replace(tmp, path)
+
+
+def claim_comment(path: str, comment_id: int) -> bool:
+    """Reserve ``comment_id`` in ``processed_comment_ids`` on disk.
+
+    Concurrent cron runs can overlap when polling/network calls take longer
+    than the cron interval. To prevent two runs from spinning up two
+    conversations for the same trigger comment we re-read the latest state
+    from disk and atomically append ``comment_id`` *before* doing any
+    side-effects (conversation create, GitHub ack comment).
+
+    Returns True if this run won the claim, False if another concurrent run
+    already claimed ``comment_id``.
+
+    Note: this narrows but does not fully eliminate the race — two runs that
+    read state in the same millisecond can both think they won. For cron
+    schedules of one minute or greater this window is effectively zero.
+    Stronger guarantees would require an OS-level lock (fcntl.flock).
+    """
+    fresh = load_state(path)
+    processed = fresh.setdefault("processed_comment_ids", [])
+    if comment_id in set(processed):
+        return False
+    processed.append(comment_id)
+    save_state(path, fresh)
+    return True
 
 
 # ── GitHub API helpers ─────────────────────────────────────────────────────────
@@ -727,8 +757,9 @@ def main() -> None:
         openhands_url = DEFAULT_OPENHANDS_URL
 
     since = state.get("last_poll") or _default_since()
+    # Captured at the start of the run so any comments arriving while we work
+    # are still picked up by the next run.
     now_iso = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-    state["last_poll"] = now_iso  # advance before processing so next run doesn't miss events
 
     conversations: dict[str, dict] = state.get("conversations", {})
     processed_ids: list[int] = state.get("processed_comment_ids", [])
@@ -790,6 +821,14 @@ def main() -> None:
             processed_set.add(comment_id)
             continue
 
+        # Reserve the comment in shared state BEFORE creating a conversation
+        # or posting the GitHub ack. If a concurrent run already claimed it,
+        # skip — avoids the duplicate-conversation race.
+        if not claim_comment(state_path, comment_id):
+            print(f"  Comment {comment_id} already claimed by another run — skipping")
+            processed_set.add(comment_id)
+            continue
+
         _process_trigger_comment(
             github_token, agent_url, api_key, openhands_url,
             REPO, issue_number, comment, event_type, conversations,
@@ -804,14 +843,22 @@ def main() -> None:
             conv_key, rec, github_token, REPO, agent_url, api_key,
         )
 
-    # Trim processed_ids rolling window.
-    trimmed = sorted(processed_set)
+    # Re-read state from disk and merge in our updates so claims written
+    # by concurrent runs (via claim_comment) aren't clobbered.
+    fresh = load_state(state_path)
+    merged_ids = set(fresh.get("processed_comment_ids", [])) | processed_set
+    trimmed = sorted(merged_ids)
     if len(trimmed) > MAX_PROCESSED_IDS:
         trimmed = trimmed[-MAX_PROCESSED_IDS:]
-    state["processed_comment_ids"] = trimmed
-    state["conversations"] = conversations
 
-    save_state(state_path, state)
+    merged_convs = dict(fresh.get("conversations", {}))
+    merged_convs.update(conversations)
+
+    fresh["last_poll"] = now_iso
+    fresh["processed_comment_ids"] = trimmed
+    fresh["conversations"] = merged_convs
+
+    save_state(state_path, fresh)
     print(f"State saved → {state_path}")
 
 

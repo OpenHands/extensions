@@ -88,6 +88,71 @@ class TestSaveAndLoadRoundtrip(unittest.TestCase):
         finally:
             os.unlink(path)
 
+    def test_save_state_is_atomic_no_partial_file_left_behind(self):
+        """A successful save_state must leave no `.tmp.*` sidecar behind."""
+        with tempfile.TemporaryDirectory() as d:
+            path = os.path.join(d, "state.json")
+            main.save_state(path, {"version": 1, "processed_comment_ids": [7]})
+            files = os.listdir(d)
+            self.assertEqual(files, ["state.json"], f"unexpected files: {files}")
+
+
+# ── Claim/dedup tests ─────────────────────────────────────────────────────────
+
+class TestClaimComment(unittest.TestCase):
+    """The processed_comment_ids strategy prevents concurrent cron runs from
+    spinning up two conversations for the same trigger comment."""
+
+    def test_first_claim_wins_second_is_rejected(self):
+        with tempfile.TemporaryDirectory() as d:
+            path = os.path.join(d, "state.json")
+            self.assertTrue(main.claim_comment(path, 12345))
+            self.assertFalse(main.claim_comment(path, 12345))
+
+    def test_claim_persists_id_on_disk(self):
+        with tempfile.TemporaryDirectory() as d:
+            path = os.path.join(d, "state.json")
+            main.claim_comment(path, 999)
+            loaded = main.load_state(path)
+            self.assertIn(999, loaded["processed_comment_ids"])
+
+    def test_claim_respects_existing_ids(self):
+        """A comment already in processed_comment_ids cannot be re-claimed,
+        simulating: Run A wrote state, Run B reads disk and tries to claim."""
+        with tempfile.TemporaryDirectory() as d:
+            path = os.path.join(d, "state.json")
+            main.save_state(path, {
+                "version": 1,
+                "conversations": {},
+                "processed_comment_ids": [42],
+            })
+            self.assertFalse(main.claim_comment(path, 42))
+
+    def test_distinct_comments_both_succeed(self):
+        with tempfile.TemporaryDirectory() as d:
+            path = os.path.join(d, "state.json")
+            self.assertTrue(main.claim_comment(path, 1))
+            self.assertTrue(main.claim_comment(path, 2))
+            loaded = main.load_state(path)
+            self.assertEqual(sorted(loaded["processed_comment_ids"]), [1, 2])
+
+    def test_claim_preserves_other_state_fields(self):
+        """claim_comment must not clobber conversations or last_poll written
+        by an earlier run."""
+        with tempfile.TemporaryDirectory() as d:
+            path = os.path.join(d, "state.json")
+            main.save_state(path, {
+                "version": 1,
+                "last_poll": "2025-01-01T00:00:00Z",
+                "conversations": {"7": {"conversation_id": "x", "status": "active"}},
+                "processed_comment_ids": [10],
+            })
+            main.claim_comment(path, 11)
+            loaded = main.load_state(path)
+            self.assertEqual(loaded["last_poll"], "2025-01-01T00:00:00Z")
+            self.assertEqual(loaded["conversations"]["7"]["conversation_id"], "x")
+            self.assertEqual(sorted(loaded["processed_comment_ids"]), [10, 11])
+
 
 # ── Bot detection tests ────────────────────────────────────────────────────────
 
