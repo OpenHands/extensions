@@ -3,9 +3,11 @@
   "name": "Slack channel monitor",
   "category": "Team communication",
   "description": "Watch Slack channels for @openhands mentions, open a conversation with the message context, and reply in the thread when the agent finishes.",
-  "requiredIntegrationIds": ["slack"],
+  "requiredIntegrationIds": [
+    "slack"
+  ],
   "popularityRank": 92,
   "estimatedSetupMinutes": 7,
-  "prompt": "Set up a Slack channel monitor automation that polls Slack channels for messages containing a trigger phrase (default: @openhands) and starts an OpenHands conversation in response, then posts the agent's reply back to the Slack thread. Walk me through the setup — ask me which channels to monitor and what trigger phrase to use.",
-  "exampleImplementation": "Trigger: cron, every minute\nRequired secret: SLACK_BOT_TOKEN or SLACK_USER_TOKEN\n\n1. Poll up to 10 configured Slack channels for new messages since the last run.\n2. Match messages containing the trigger phrase (default: @openhands).\n3. React with 👀 and start an OpenHands conversation with the message and recent channel context.\n4. Post a thread reply with a link to the conversation.\n5. Forward subsequent thread replies to the running conversation and post the agent's response when done."
+  "prompt": "Set up a Slack channel monitor automation using a custom cron script, not a prompt preset. The script should poll Slack channels for messages containing a trigger phrase (default: @openhands), check persisted state and tracked threads, and only start an OpenHands conversation when there is a new matching message or a reply to an active tracked thread. If there is nothing actionable, it should save state, fire the completion callback, and exit without starting a conversation. When a conversation is started, post the agent's reply back to the Slack thread. Walk me through the setup - ask me which channels to monitor and what trigger phrase to use.",
+  "exampleImplementation": "Trigger: cron, every minute\nRequired secret: SLACK_BOT_TOKEN or SLACK_USER_TOKEN\n\n1. Run a lightweight custom script on each cron tick; do not use a prompt preset for the polling step.\n2. Poll up to 10 configured Slack channels for new messages since the last run and dedupe against persisted state.\n3. If no message matches the trigger phrase and there are no replies for active tracked threads, save state, fire the completion callback, and exit without starting an OpenHands conversation.\n4. When a matching message is found, react with 👀 and start an OpenHands conversation with the message and recent channel context.\n5. Post a thread reply with a link to the conversation.\n6. Forward subsequent thread replies to the running conversation and post the agent's response when done."
 }

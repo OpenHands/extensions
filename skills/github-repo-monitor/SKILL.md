@@ -12,8 +12,10 @@ description: >
 
 # GitHub Repository Monitor
 
-Create a cron automation that polls a single GitHub repository on a
-configurable schedule (default: every minute).
+Create a custom-script cron automation that polls a single GitHub repository
+on a configurable schedule (default: every minute). The polling script does the
+GitHub API checks first and only creates or resumes an OpenHands conversation
+when there is an actionable trigger comment or active conversation update.
 
 When a comment on an issue or PR contains the **trigger phrase**
 (default: `@OpenHands`) it:
@@ -24,6 +26,9 @@ When a comment on an issue or PR contains the **trigger phrase**
 3. Posts a summary GitHub comment when the conversation finishes.
 
 On every subsequent run:
+- If there are no matching comments and no active conversations to check, the
+  script saves state, fires the completion callback, and exits without starting
+  any OpenHands conversation or LLM-backed agent work.
 - New trigger comments on an already-tracked issue/PR are forwarded to the
   running conversation (or re-open a previously closed one).
 - When a conversation goes idle/finished/error the agent's final response
@@ -167,6 +172,11 @@ Record as `CRON_SCHEDULE`.
 
 ### Step 7  -  Generate the automation script
 
+Use the custom script path. Do **not** create this monitor through the prompt
+preset: a prompt preset starts an agent conversation on every cron tick. This
+script polls GitHub first and starts a conversation only after a comment passes
+the trigger, allowlist, and dedupe gates.
+
 Read `scripts/main.py` from this skill's directory. Apply exactly five
 constant substitutions near the top of the file:
 
@@ -251,7 +261,7 @@ Each cron run executes `main.py`, which:
 
 1. **Loads state** from the JSON file (see `references/state-schema.md`).
 2. **Resolves and validates GITHUB_TOKEN** — aborts immediately if absent or invalid.
-3. **Polls for new events** since the previous `last_poll` timestamp:
+3. **Polls for new events** since the previous `last_poll` timestamp before any conversation is started:
    - `GET /repos/{owner}/{repo}/issues/comments?since=…` for `issue_comment`
    - `GET /repos/{owner}/{repo}/pulls/comments?since=…` for `pr_review_comment`
 4. **Processes matching comments** in chronological order:
@@ -260,18 +270,19 @@ Each cron run executes `main.py`, which:
    - Skips comments from logins outside `ALLOWED_GITHUB_LOGINS`.
    - Checks body for the trigger phrase (case-insensitive).
    - Extracts the issue/PR number from the comment URL.
-5. **For each trigger comment**, per issue/PR:
+5. **If there are no trigger comments and no active conversations**, saves state, fires the completion callback, and exits without creating a conversation.
+6. **For each trigger comment**, per issue/PR:
    - **Active conversation** → forwards the new comment directly.
    - **Closed conversation** → tries to re-open it; falls back to creating
      a new conversation if the old one is unreachable.
    - **No conversation** → fetches full context (title, body, labels, last
      10 comments) and creates a new conversation with a detailed prompt.
    - Posts a GitHub comment: *"🤖 OpenHands is on it! View progress: {url}"*
-6. **Checks active conversations** for completion:
+7. **Checks active conversations** for completion:
    - If `status ∈ {idle, finished, error, stuck}` and enough time has passed
      since creation (debounce), fetches the agent's final response and posts
      it as a GitHub comment. Marks the conversation `closed`.
-7. **Saves state** and fires the completion callback.
+8. **Saves state** and fires the completion callback.
 
 ---
 

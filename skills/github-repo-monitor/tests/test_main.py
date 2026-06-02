@@ -396,5 +396,23 @@ class TestGetAgentDict(unittest.TestCase):
         self.assertEqual(result["kind"], "Agent")
 
 
+class TestFireCallbackAuth(unittest.TestCase):
+    """Regression coverage for no-work runs completing without a callback key."""
+
+    def test_callback_key_prefers_dedicated_key(self):
+        with patch.dict(os.environ, {
+            "AUTOMATION_CALLBACK_API_KEY": "callback-token",
+            "OPENHANDS_API_KEY": "run-token",
+        }, clear=False):
+            self.assertEqual(main._callback_api_key(), "callback-token")
+
+    def test_callback_key_falls_back_to_openhands_api_key(self):
+        with patch.dict(os.environ, {
+            "OPENHANDS_API_KEY": "run-token",
+        }, clear=False):
+            os.environ.pop("AUTOMATION_CALLBACK_API_KEY", None)
+            self.assertEqual(main._callback_api_key(), "run-token")
+
+
 if __name__ == "__main__":
     unittest.main()

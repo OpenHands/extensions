@@ -1,20 +1,23 @@
 # GitHub Repository Monitor Skill
 
-An OpenHands skill that creates a cron automation to monitor a GitHub
-repository for issue and PR comments, routing them to OpenHands conversations
-and posting results back as GitHub comments.
+An OpenHands skill that creates a custom-script cron automation to monitor a
+GitHub repository for issue and PR comments. Each run polls GitHub first and
+only routes work to an OpenHands conversation when a matching trigger comment
+or tracked conversation update exists.
 
 ## What it does
 
 1. **Polls** a GitHub repository for new comments on issues and PRs.
-2. **Triggers** when a comment contains `@OpenHands` (configurable).
-3. **Creates** an OpenHands conversation pre-loaded with the full issue/PR
-   context — title, description, labels, and the last 10 comments.
-4. **Posts** a GitHub comment with a link to the conversation and an
+2. **Exits without a conversation** when no comments match the trigger,
+   allowlist, and dedupe gates.
+3. **Triggers** when a comment contains `@OpenHands` (configurable).
+4. **Creates** an OpenHands conversation pre-loaded with the full issue/PR
+   context - title, description, labels, and the last 10 comments.
+5. **Posts** a GitHub comment with a link to the conversation and an
    AI-disclosure notice.
-5. **Forwards** follow-up trigger comments to the running conversation,
+6. **Forwards** follow-up trigger comments to the running conversation,
    or re-opens it if it was previously closed.
-6. **Summarises** by posting the agent's final response back to the
+7. **Summarises** by posting the agent's final response back to the
    issue/PR once the conversation finishes.
 
 ## Files

@@ -12,15 +12,21 @@ description: >
 
 # Slack Channel Monitor
 
-Create a cron automation that polls up to 10 Slack channels every minute.
-When a message containing the **trigger phrase** (default: `@openhands`) is
-detected it:
+Create a custom-script cron automation that polls up to 10 Slack channels
+every minute. The polling script checks Slack and persisted state first, then
+only creates or resumes an OpenHands conversation when there is an actionable
+trigger message or an update to an active tracked thread. When a message
+containing the **trigger phrase** (default: `@openhands`) is detected it:
 
 1. Adds a 👀 reaction to the triggering message.
 2. Opens an OpenHands conversation with the message and recent channel context.
 3. Posts a reply in the Slack thread with a link to the conversation.
 
 On every subsequent run:
+- If there are no matching messages, no replies for active tracked threads,
+  and no active conversations to check, the script saves state, fires the
+  completion callback, and exits without starting any OpenHands conversation
+  or LLM-backed agent work.
 - Replies in the thread are forwarded to the running conversation.
 - When the conversation finishes (or errors), the agent's final response is
   posted back to the Slack thread.
@@ -117,6 +123,11 @@ Accepted values: any non-empty string unlikely to appear accidentally, e.g.
 
 ### Step 3  -  Generate the automation script
 
+Use the custom script path. Do **not** create this monitor through the prompt
+preset: a prompt preset starts an agent conversation on every cron tick. This
+script polls Slack first and starts a conversation only after a message or
+tracked thread reply passes the actionability gates.
+
 Read `scripts/main.py` from this skill's directory. Apply exactly three
 constant substitutions near the top of the file:
 
@@ -202,7 +213,7 @@ Each cron run executes `main.py`, which:
 
 1. **Loads state** from the JSON file (see `references/state-schema.md`).
 2. **Resolves the Slack token**  -  checks `SLACK_USER_TOKEN` then `SLACK_BOT_TOKEN`.
-3. **Fetches new messages:**
+3. **Fetches new messages before any conversation is started:**
    - User token + `search:read` + > 1 channel → single `search.messages` call
      (searches for the trigger phrase across all channels).
    - Otherwise → one `conversations.history` call per channel.
@@ -211,12 +222,13 @@ Each cron run executes `main.py`, which:
    - Skips bot messages and any `ts` in `bot_message_ts`.
    - Reply in a tracked thread → forwards to the existing conversation.
    - Contains trigger phrase → 👀 reaction, create conversation, post link.
-6. **Checks conversation statuses**  -  for each active conversation where
+6. **If there are no trigger messages, tracked replies, or active conversations**, saves state, fires the completion callback, and exits without creating a conversation.
+7. **Checks conversation statuses**  -  for each active conversation where
    `time.time() - last_activity > 15 s`:
    - If status is `idle`, `finished`, `error`, or `stuck` → fetch the agent's
      final response via `/api/conversations/{id}/agent_final_response` and post
      it to the Slack thread. Mark conversation `closed`.
-7. **Saves state** and fires the completion callback.
+8. **Saves state** and fires the completion callback.
 
 ---
 

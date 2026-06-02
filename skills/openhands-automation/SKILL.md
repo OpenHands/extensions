@@ -81,6 +81,11 @@ def get_secret(name):
     )) as r:
         return r.read().decode().strip()
 
+def callback_api_key():
+    """Return the bearer token accepted by the completion callback."""
+    return os.environ.get("AUTOMATION_CALLBACK_API_KEY") or os.environ.get("OPENHANDS_API_KEY", "")
+
+
 def fire_callback(status="COMPLETED", error=None):
     """Signal run completion. MUST be called on every exit path — success AND error."""
     url = os.environ.get("AUTOMATION_CALLBACK_URL", "")
@@ -90,7 +95,7 @@ def fire_callback(status="COMPLETED", error=None):
     try:
         urllib.request.urlopen(urllib.request.Request(url, data=json.dumps(body).encode(), headers={
             "Content-Type": "application/json",
-            "Authorization": f"Bearer {os.environ.get('AUTOMATION_CALLBACK_API_KEY', '')}",
+            "Authorization": f"Bearer {callback_api_key()}",
         }))
     except Exception as e: print(f"Callback error: {e}")
 ```

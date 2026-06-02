@@ -358,7 +358,7 @@ with OpenHandsCloudWorkspace(local_agent_server_mode=True, cloud_api_url=api_url
 
 For cases where the automation script needs to exit while a conversation is still running, use a `stop` hook to fire the completion callback from within the agent server when the conversation finishes.
 
-The `stop` hook runs a shell command when the agent stops. The agent server's environment includes `AUTOMATION_CALLBACK_URL`, `AUTOMATION_CALLBACK_API_KEY`, and `AUTOMATION_RUN_ID`, so the hook can call the automation service directly.
+The `stop` hook runs a shell command when the agent stops. The agent server's environment includes `AUTOMATION_CALLBACK_URL`, `AUTOMATION_RUN_ID`, and a bearer token (`AUTOMATION_CALLBACK_API_KEY` when present, otherwise the per-run `OPENHANDS_API_KEY`), so the hook can call the automation service directly.
 
 ```python
 from openhands.sdk.hooks import HookConfig, HookDefinition, HookMatcher
@@ -371,7 +371,7 @@ stop_hook = HookConfig(
             HookDefinition(
                 command=(
                     'curl -sf -X POST "$AUTOMATION_CALLBACK_URL" '
-                    '-H "Authorization: Bearer $AUTOMATION_CALLBACK_API_KEY" '
+                    '-H "Authorization: Bearer ${AUTOMATION_CALLBACK_API_KEY:-$OPENHANDS_API_KEY}" '
                     '-H "Content-Type: application/json" '
                     '-d \'{"status":"COMPLETED","run_id":"$AUTOMATION_RUN_ID"}\' || true'
                 )
@@ -420,6 +420,10 @@ def get_secret(name: str) -> str:
 ```python
 import json, os, urllib.request
 
+def callback_api_key() -> str:
+    return os.environ.get("AUTOMATION_CALLBACK_API_KEY") or os.environ.get("OPENHANDS_API_KEY", "")
+
+
 def fire_callback(status: str = "COMPLETED", error: str | None = None) -> None:
     url = os.environ.get("AUTOMATION_CALLBACK_URL", "")
     if not url:
@@ -429,7 +433,7 @@ def fire_callback(status: str = "COMPLETED", error: str | None = None) -> None:
         body["error"] = error
     req = urllib.request.Request(url, data=json.dumps(body).encode(), headers={
         "Content-Type": "application/json",
-        "Authorization": f"Bearer {os.environ.get('AUTOMATION_CALLBACK_API_KEY', '')}",
+        "Authorization": f"Bearer {callback_api_key()}",
     })
     try:
         urllib.request.urlopen(req)
@@ -447,8 +451,9 @@ The automation service injects these environment variables into every run:
 |----------|----------|-------------|
 | `AGENT_SERVER_URL` | — | Agent server URL. Used as `cloud_api_url` for `OpenHandsCloudWorkspace`, and as the base URL for secret lookups |
 | `OH_SESSION_API_KEYS_0` | `SESSION_API_KEY` | Session API key. Used as `cloud_api_key` for `OpenHandsCloudWorkspace`, and as `X-Session-API-Key` for REST API calls |
+| `OPENHANDS_API_KEY` | - | Per-run automation API key. Used by SDK helpers and as the completion-callback bearer token when `AUTOMATION_CALLBACK_API_KEY` is not injected |
 | `AUTOMATION_CALLBACK_URL` | — | POST here to mark the run complete (done automatically by `OpenHandsCloudWorkspace.__exit__`, or manually in no-LLM scripts) |
-| `AUTOMATION_CALLBACK_API_KEY` | — | Bearer token for the completion callback POST |
+| `AUTOMATION_CALLBACK_API_KEY` | `OPENHANDS_API_KEY` | Bearer token for the completion callback POST; use `OPENHANDS_API_KEY` as the fallback when this variable is not injected |
 | `AUTOMATION_RUN_ID` | — | Run ID to include in the completion callback payload |
 | `AUTOMATION_EVENT_PAYLOAD` | — | JSON with trigger context: `automation_id`, `automation_name`, `trigger` type, and (for webhook runs) the raw event payload |
 
@@ -490,6 +495,10 @@ def get_secret(name):
     with urllib.request.urlopen(req) as r:
         return r.read().decode().strip()
 
+def callback_api_key():
+    return os.environ.get("AUTOMATION_CALLBACK_API_KEY") or os.environ.get("OPENHANDS_API_KEY", "")
+
+
 def fire_callback(status="COMPLETED", error=None):
     url = os.environ.get("AUTOMATION_CALLBACK_URL", "")
     if not url: return
@@ -497,7 +506,7 @@ def fire_callback(status="COMPLETED", error=None):
     if error: body["error"] = error
     req = urllib.request.Request(url, data=json.dumps(body).encode(), headers={
         "Content-Type": "application/json",
-        "Authorization": f"Bearer {os.environ.get('AUTOMATION_CALLBACK_API_KEY', '')}",
+        "Authorization": f"Bearer {callback_api_key()}",
     })
     try: urllib.request.urlopen(req)
     except Exception as e: print(f"Callback error: {e}")

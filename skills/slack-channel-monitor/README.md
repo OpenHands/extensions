@@ -1,7 +1,8 @@
 # Slack Channel Monitor
 
-Create a cron automation that polls up to 10 Slack channels every minute and
-starts an OpenHands conversation whenever a configurable trigger phrase is
+Create a custom-script cron automation that polls up to 10 Slack channels every
+minute. Each run polls Slack first and only starts or resumes an OpenHands
+conversation when a configurable trigger phrase or tracked thread reply is
 detected.
 
 ## Triggers
@@ -27,6 +28,9 @@ This skill is activated by keywords:
 - **Efficient polling**: single `search.messages` call for multi-channel user
   tokens with `search:read`; falls back to one `conversations.history` call
   per channel for bot tokens
+- **No-work fast path**: if no messages match and no tracked conversations need
+  attention, the script saves state, fires the completion callback, and exits
+  without starting an OpenHands conversation
 - **Thread tracking**: new replies in a triggered thread are forwarded to the
   running OpenHands conversation
 - **Reaction acknowledgement**: adds a 👀 to every message containing the
@@ -73,13 +77,16 @@ The skill will:
 
 Each cron run (every minute):
 
-1. Fetches new messages from all monitored channels
-2. Adds 👀 to any message containing the trigger phrase
-3. Creates an OpenHands conversation with the message and recent channel
+1. Fetches new messages from all monitored channels before starting any
+   conversation
+2. Exits without a conversation when no messages match and no tracked
+   conversations need attention
+3. Adds 👀 to any message containing the trigger phrase
+4. Creates an OpenHands conversation with the message and recent channel
    context as the initial prompt; posts a link to the conversation in the
    Slack thread
-4. Forwards new replies in tracked threads to the running conversation
-5. Checks active conversations - posts the agent's final response back to
+5. Forwards new replies in tracked threads to the running conversation
+6. Checks active conversations - posts the agent's final response back to
    Slack when the conversation completes
 
 ## See Also

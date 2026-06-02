@@ -80,6 +80,15 @@ def get_secret(name: str) -> str:
         return r.read().decode().strip()
 
 
+def _callback_api_key() -> str:
+    """Return the bearer token accepted by the completion callback."""
+    return (
+        os.environ.get("AUTOMATION_CALLBACK_API_KEY")
+        or os.environ.get("OPENHANDS_API_KEY")
+        or ""
+    )
+
+
 def fire_callback(status: str = "COMPLETED", error: str | None = None) -> None:
     """Signal run completion to the automation service."""
     url = os.environ.get("AUTOMATION_CALLBACK_URL", "")
@@ -93,7 +102,7 @@ def fire_callback(status: str = "COMPLETED", error: str | None = None) -> None:
         data=json.dumps(body).encode(),
         headers={
             "Content-Type": "application/json",
-            "Authorization": f"Bearer {os.environ.get('AUTOMATION_CALLBACK_API_KEY', '')}",
+            "Authorization": f"Bearer {_callback_api_key()}",
         },
     )
     try:
