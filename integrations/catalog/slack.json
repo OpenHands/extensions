@@ -31,7 +31,7 @@
             "label": "Team / Workspace ID",
             "type": "text",
             "placeholder": "T01234567",
-            "helperText": "First visit [here](https://slack.com/help/articles/221769328-Locate-your-Slack-URL-or-ID#find-your-url) to get your Slack URL and then visit [here](https://slack.com/help/articles/221769328-Locate-your-Slack-URL-or-ID#find-your-workspace-or-org-id) to get your workspace ID.",
+            "helperText": "First get your [Slack URL](https://slack.com/help/articles/221769328-Locate-your-Slack-URL-or-ID#find-your-url). Then use that to get your [Workspace ID](https://slack.com/help/articles/221769328-Locate-your-Slack-URL-or-ID#find-your-workspace-or-org-id).",
             "required": true
           },
           {
