@@ -29,7 +29,6 @@ Optional secret:
 import json
 import os
 import sys
-from pathlib import Path
 import time
 import urllib.error
 import urllib.request
@@ -111,23 +110,16 @@ def fire_callback(
 # ── State management ───────────────────────────────────────────────────────────
 
 def _state_file_path() -> str:
-    """Derive a persistent storage path from WORKSPACE_BASE.
+    """Return a writable path for the poller state file.
 
-    WORKSPACE_BASE = {root}/automation-runs/{run_id}
-    State lives two levels up at {root}/automation-state/.
+    Uses /tmp/openhands-automation-state/ which is always writable and shared
+    across cron runs on the same host regardless of WORKSPACE_BASE depth.
     """
-    workspace_base = os.environ.get("WORKSPACE_BASE", "")
     event_payload = json.loads(os.environ.get("AUTOMATION_EVENT_PAYLOAD", "{}"))
     automation_id = event_payload.get("automation_id", "default")
-
-    if workspace_base:
-        root = Path(workspace_base).resolve().parent.parent
-    else:
-        root = Path.home() / ".openhands" / "workspaces"
-
-    state_dir = root / "automation-state"
-    state_dir.mkdir(parents=True, exist_ok=True)
-    return str(state_dir / f"github_poller_{automation_id}.json")
+    state_dir = "/tmp/openhands-automation-state"
+    os.makedirs(state_dir, exist_ok=True)
+    return os.path.join(state_dir, f"github_poller_{automation_id}.json")
 
 
 def _default_since() -> str:
