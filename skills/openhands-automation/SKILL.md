@@ -20,6 +20,14 @@ triggers:
 
 Create and manage automations that run inside an OpenHands agent server — triggered by cron schedules or webhook events (GitHub, custom services).
 
+## Automation Creation Process
+The agent must follow these steps when creating an automation:
+* Quickly check that you can access the correct automations backend using the auth mechanism below
+* Ask the user for any necessary information, e.g. if you need the name of a Slack channel or GitHub repo to proceed
+* Write the code or prompt that will be sent to the automations backend _inside the current workspace_
+* Show the code to the user with the `canvas_ui` tool if available
+* Message the user with a concise summary of how the automation will behave, and ask if they are ready to deploy it
+
 ## Architecture
 
 Two components work together to run automations:
@@ -104,7 +112,7 @@ Entrypoint must be `python3 main.py` (no `setup.sh` needed). Wrap your main logi
 All requests require Bearer authentication:
 
 ```bash
--H "Authorization: Bearer ${OPENHANDS_API_KEY}"
+-H "X-API-Key: ${OPENHANDS_API_KEY}"
 ```
 
 ## API Endpoints
