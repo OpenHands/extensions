@@ -116,15 +116,21 @@ def fire_callback(
 # ── State management ───────────────────────────────────────────────────────────
 
 def _state_file_path() -> str:
-    """Return a writable path for the poller state file.
+    """Derive a persistent storage path from WORKSPACE_BASE.
 
-    Uses WORKSPACE_BASE directly when set, falling back to ~/.openhands/workspaces.
+    WORKSPACE_BASE = {root}/automation-runs/{run_id}
+    State lives two levels up at {root}/automation-state/.
     """
     workspace_base = os.environ.get("WORKSPACE_BASE", "")
     event_payload = json.loads(os.environ.get("AUTOMATION_EVENT_PAYLOAD", "{}"))
     automation_id = event_payload.get("automation_id", "default")
 
-    state_dir = workspace_base if workspace_base else os.path.expanduser("~/.openhands/workspaces")
+    if workspace_base:
+        root = os.path.dirname(os.path.dirname(os.path.abspath(workspace_base)))
+    else:
+        root = os.path.expanduser("~/.openhands/workspaces")
+
+    state_dir = os.path.join(root, "automation-state")
     os.makedirs(state_dir, exist_ok=True)
     return os.path.join(state_dir, f"slack_poller_{automation_id}.json")
 
