@@ -86,7 +86,7 @@ def test_skill_requires_description_to_match_suggestion(skill_text: str):
     """The skill must explicitly require the prose description to match the
     actual code change in the suggestion block (the third bug from #292)."""
     lowered = skill_text.lower()
-    assert "description" in lowered
+    assert any(phrase in lowered for phrase in ("description does not match", "prose description", "description must match"))
     # The text should connect the description to the resulting code change.
     assert (
         "match" in lowered or "matches" in lowered
