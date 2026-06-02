@@ -642,13 +642,20 @@ def _process_trigger_message(
         context_label = "Recent channel context (oldest → newest):"
     context_block = "\n".join(context_lines) if context_lines else "(no recent context)"
 
+    # Wrap the context in a 4-backtick fenced code block so:
+    #   * `---` separators don't get interpreted as setext H2 headings
+    #     (which made the context label render as a giant heading), and
+    #   * any markdown-looking characters in user-supplied Slack text
+    #     (`# foo`, `* bar`, `_baz_`, etc.) render verbatim.
+    # 4 backticks tolerate up to 3 consecutive backticks inside Slack text;
+    # users posting `````` ` ``````` would still break out, but it's vanishingly rare.
     initial_prompt = (
         f"You are an AI assistant responding to a message in a Slack channel.\n\n"
         f"Channel ID : {channel_id}\n"
         f"Thread root: {thread_root}\n"
         f"Trigger msg: {text}\n\n"
-        f"{context_label}\n"
-        f"---\n{context_block}\n---\n\n"
+        f"{context_label}\n\n"
+        f"````\n{context_block}\n````\n\n"
         f"Please analyse the request and take the appropriate action. "
         f"When you are finished, summarise what you did clearly  -  that "
         f"summary will be posted back to the Slack thread."
