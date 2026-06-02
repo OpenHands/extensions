@@ -81,8 +81,18 @@ A rolling list (max `MAX_PROCESSED_IDS = 5000` entries) of integer GitHub
 comment IDs that have already been processed. This prevents:
 
 - Duplicate processing caused by cron boundary overlap (the `last_poll`
-  timestamp is advanced to the start of the current run, so the next run
+  timestamp is captured at the start of the current run, so the next run
   re-scans a small window of time).
+- **Concurrent runs spinning up two conversations for the same comment.**
+  When a poll cycle's network calls take longer than the cron interval
+  (e.g. 60s), the next cron tick starts before the first run has saved
+  state. To prevent the duplicate, the poller uses a *claim-before-process*
+  pattern: it re-reads the state file from disk and atomically appends the
+  comment ID to `processed_comment_ids` **before** creating the OpenHands
+  conversation or posting the GitHub acknowledgement. Atomic writes use
+  `os.replace(tmp, path)` so concurrent runs never observe a half-written
+  file. The runner's final `save_state` at end-of-run also re-reads disk
+  and merges, so claims made by an overlapping run are never clobbered.
 - Accidental re-triggers if the state file is partially reset.
 
 IDs are stored as integers and kept sorted; the oldest entries are pruned

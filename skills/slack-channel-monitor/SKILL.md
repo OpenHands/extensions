@@ -132,17 +132,25 @@ mkdir -p /tmp/slack-monitor-build
 # (write the customised main.py to /tmp/slack-monitor-build/main.py)
 ```
 
-Validate syntax before packaging:
+Validate syntax before packaging. Use `ast.parse` (does **not** write a
+`__pycache__/main.cpython-*.pyc` file next to the source — those `.pyc`
+binaries occasionally fail to decompress when the sandbox unpacks the
+tarball and cause runs to fail):
+
 ```bash
-python3 -m py_compile /tmp/slack-monitor-build/main.py && echo "Syntax OK"
+python3 -c "import ast,sys; ast.parse(open('/tmp/slack-monitor-build/main.py').read()); print('Syntax OK')"
 ```
 
 Fix any syntax errors before proceeding.
 
 ### Step 4  -  Package and upload
 
+Exclude `__pycache__` directories from the tarball as a defensive measure
+even if validation didn't create one:
+
 ```bash
-tar -czf /tmp/slack-monitor.tar.gz -C /tmp/slack-monitor-build .
+tar --exclude='__pycache__' --exclude='*.pyc' \
+  -czf /tmp/slack-monitor.tar.gz -C /tmp/slack-monitor-build .
 
 # Determine the API host (use <HOST> from the system prompt, else localhost:8000)
 OPENHANDS_HOST="http://localhost:8000"

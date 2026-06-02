@@ -184,17 +184,25 @@ mkdir -p /tmp/github-monitor-build
 # (write the customised main.py to /tmp/github-monitor-build/main.py)
 ```
 
-Validate syntax before packaging:
+Validate syntax before packaging. Use `ast.parse` (does **not** write a
+`__pycache__/main.cpython-*.pyc` file next to the source — those `.pyc`
+binaries occasionally fail to decompress when the sandbox unpacks the
+tarball and cause runs to fail):
+
 ```bash
-python3 -m py_compile /tmp/github-monitor-build/main.py && echo "Syntax OK"
+python3 -c "import ast,sys; ast.parse(open('/tmp/github-monitor-build/main.py').read()); print('Syntax OK')"
 ```
 
 Fix any syntax errors before proceeding.
 
 ### Step 8  -  Package and upload
 
+Exclude `__pycache__` directories from the tarball as a defensive measure
+even if validation didn't create one:
+
 ```bash
-tar -czf /tmp/github-monitor.tar.gz -C /tmp/github-monitor-build .
+tar --exclude='__pycache__' --exclude='*.pyc' \
+  -czf /tmp/github-monitor.tar.gz -C /tmp/github-monitor-build .
 
 OPENHANDS_HOST="http://localhost:8000"
 

@@ -56,6 +56,9 @@ DONE_DEBOUNCE = 15
 # ~1 week of continuous operation at high message rates.
 MAX_BOT_TS = 2000
 
+# Rolling window size for processed-message dedup (see claim_message).
+MAX_PROCESSED_KEYS = 5000
+
 # Limit context to avoid overwhelming the agent with too much history.
 CONTEXT_MESSAGE_LIMIT = 15
 
@@ -139,12 +142,48 @@ def load_state(path: str) -> dict:
         "last_poll": {},           # channel_id → float timestamp string
         "conversations": {},       # conv_key → ConversationRecord (see schema docs)
         "bot_message_ts": [],      # ts strings of messages posted by this bot
+        "processed_message_keys": [],  # "{channel_id}:{msg_ts}" claimed by past runs
     }
 
 
 def save_state(path: str, state: dict) -> None:
-    with open(path, "w") as f:
+    """Persist state atomically (write to tmp + os.replace) so concurrent
+    runs never observe a half-written file."""
+    tmp = f"{path}.tmp.{os.getpid()}"
+    with open(tmp, "w") as f:
         json.dump(state, f, indent=2)
+    os.replace(tmp, path)
+
+
+def claim_message(path: str, channel_id: str, msg_ts: str) -> bool:
+    """Reserve ``{channel_id}:{msg_ts}`` in ``processed_message_keys`` on disk.
+
+    Concurrent cron runs can overlap when polling/network calls take longer
+    than the cron interval. To prevent two runs from spinning up two
+    conversations for the same trigger message (or double-forwarding the same
+    thread reply), this re-reads the latest state from disk and atomically
+    appends the message key *before* doing any side-effects (conversation
+    create, Slack ack, reaction).
+
+    Slack ``ts`` values are unique within a channel but not necessarily
+    globally, so the key is namespaced by ``channel_id``.
+
+    Returns True if this run won the claim, False if another concurrent run
+    already claimed the message.
+
+    Note: this narrows but does not fully eliminate the race — two runs that
+    read state in the same millisecond can both think they won. For cron
+    schedules of one minute or greater this window is effectively zero.
+    Stronger guarantees would require an OS-level lock (fcntl.flock).
+    """
+    key = f"{channel_id}:{msg_ts}"
+    fresh = load_state(path)
+    keys = fresh.setdefault("processed_message_keys", [])
+    if key in set(keys):
+        return False
+    keys.append(key)
+    save_state(path, fresh)
+    return True
 
 
 # ── Slack API helpers ──────────────────────────────────────────────────────────
@@ -677,6 +716,11 @@ def main() -> None:
 
         # ── Case A: reply in a thread that has an active conversation ──────────
         if is_reply_in_tracked:
+            # Claim BEFORE forwarding to prevent two overlapping runs from
+            # double-forwarding the same reply (and double-reacting).
+            if not claim_message(state_path, channel_id, msg_ts):
+                print(f"  Reply {channel_id}:{msg_ts} already claimed — skipping")
+                continue
             rec = active_convs[conv_key]
             print(f"  Forwarding reply {msg_ts} → conversation {rec['conversation_id']}")
             try:
@@ -692,6 +736,11 @@ def main() -> None:
 
         # ── Case B: message contains trigger phrase → create a new conversation ─
         if has_trigger:
+            # Claim BEFORE creating the conversation / posting the link, so
+            # an overlapping cron run doesn't spin up a duplicate conversation.
+            if not claim_message(state_path, channel_id, msg_ts):
+                print(f"  Trigger {channel_id}:{msg_ts} already claimed — skipping")
+                continue
             _process_trigger_message(
                 slack_token, agent_url, api_key, openhands_url,
                 channel_id, msg_ts, text, thread_root, conv_key,
@@ -710,15 +759,33 @@ def main() -> None:
         state["bot_message_ts"] = bot_message_ts
 
     state["conversations"] = active_convs
+
+    # Re-read state from disk and merge in our updates so claims written by
+    # concurrent runs (via claim_message) aren't clobbered.
+    fresh = load_state(state_path)
+    merged_keys = list(dict.fromkeys(
+        fresh.get("processed_message_keys", []) + state.get("processed_message_keys", [])
+    ))
+    if len(merged_keys) > MAX_PROCESSED_KEYS:
+        merged_keys = merged_keys[-MAX_PROCESSED_KEYS:]
+    state["processed_message_keys"] = merged_keys
+
+    # Conversations dict: our in-memory state has the latest local updates;
+    # merge with any entries that disk had but we didn't see.
+    merged_convs = dict(fresh.get("conversations", {}))
+    merged_convs.update(active_convs)
+    state["conversations"] = merged_convs
+
     save_state(state_path, state)
     print(f"State saved to {state_path}")
 
 
-try:
-    main()
-    fire_callback("COMPLETED")
-except Exception as exc:
-    import traceback
-    traceback.print_exc()
-    fire_callback("FAILED", str(exc))
-    sys.exit(1)
+if __name__ == "__main__":
+    try:
+        main()
+        fire_callback("COMPLETED")
+    except Exception as exc:
+        import traceback
+        traceback.print_exc()
+        fire_callback("FAILED", str(exc))
+        sys.exit(1)

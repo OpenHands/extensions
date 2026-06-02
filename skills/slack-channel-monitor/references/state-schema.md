@@ -41,7 +41,10 @@ variable (field `automation_id`).
   "conversations": { ... },            // see ConversationRecord below
   "bot_message_ts": [                  // rolling list of Slack 'ts' values for
     "1716576100.000200"                // messages THIS bot posted; used to skip
-  ]                                    // self-messages during processing
+  ],                                   // self-messages during processing
+  "processed_message_keys": [          // rolling list (max 5000) of
+    "C0123456789:1716576000.123456"    // "{channel_id}:{msg_ts}" reserved by
+  ]                                    // claim_message before side effects
 }
 ```
 
@@ -92,6 +95,28 @@ replies as user messages.
 Entries are added when:
 - The bot posts a conversation link (on trigger detection)
 - The bot posts a summary (on conversation completion)
+
+---
+
+## `processed_message_keys` List
+
+A rolling list (max `MAX_PROCESSED_KEYS = 5000` entries) of
+`"{channel_id}:{msg_ts}"` strings claimed by `claim_message`. This prevents
+**concurrent runs from spinning up two conversations for the same trigger
+message (or double-forwarding the same thread reply).**
+
+When a poll cycle's network calls take longer than the cron interval (e.g.
+60s), the next cron tick starts before the first run has saved state. To
+prevent the duplicate, the poller uses a *claim-before-process* pattern: it
+re-reads the state file from disk and atomically appends the key **before**
+any side effects (creating an OpenHands conversation, posting a Slack
+reaction, forwarding a thread reply).
+
+Atomic writes use `os.replace(tmp, path)` so concurrent runs never observe a
+half-written file. The runner's final `save_state` at end-of-run also
+re-reads disk and merges, so claims made by an overlapping run are never
+clobbered. The key is namespaced by `channel_id` because Slack `ts` values
+are unique within a channel but not necessarily globally.
 
 ---
 
@@ -151,6 +176,10 @@ Entries are added when:
   "bot_message_ts": [
     "1716575903.000200",
     "1716572105.000100"
+  ],
+  "processed_message_keys": [
+    "C0123456789:1716575900.000100",
+    "C0123456789:1716572100.000100"
   ]
 }
 ```
