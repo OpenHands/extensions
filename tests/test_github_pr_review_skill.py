@@ -76,10 +76,14 @@ def test_skill_warns_about_duplicated_and_deleted_lines(skill_text: str):
     assert "duplicat" in lowered, (
         "SKILL.md should warn about suggestions that duplicate lines."
     )
-    # Match 'disappear', 'delete', or 'remove' phrasing.
-    assert any(
-        term in lowered for term in ("disappear", "delete", "remove")
-    ), "SKILL.md should warn about suggestions that drop lines."
+    # "disappear"/"disappearing" is unique to the failure-mode description in
+    # the "Common Mistakes" section. The generic terms "delete" and "remove"
+    # also appear in the recipe table for intentional deletions, so checking
+    # for those would let the failure-mode guidance be removed silently.
+    assert "disappear" in lowered, (
+        "SKILL.md should warn about suggestions that silently drop lines "
+        "(see 'Disappearing lines' under Common Mistakes)."
+    )
 
 
 def test_skill_requires_description_to_match_suggestion(skill_text: str):

@@ -137,7 +137,7 @@ Writing the wrong combination of `start_line`/`line` and suggestion body is what
 
 ### Common Mistakes That Break Code
 
-1. **Duplicated lines.** You anchor a single-line suggestion on line N and put `line N's text` + `new line` in the body to "add" something — but the surrounding lines you forgot to include are still there, so the line above/below ends up repeated. Fix: only include lines from the replaced range in the body, plus any genuinely new lines.
+1. **Duplicated lines.** You copy a neighboring line (N-1 or N+1) into the suggestion body as context — that line is still present in the file outside the replaced range, so accepting the suggestion inserts a second copy of it. Fix: only include lines that fall within the targeted range, plus any genuinely new content.
 2. **Disappearing lines.** You target `start_line=10, line=12` to comment on a 3-line block, but your suggestion body only contains 1 line because you "only want to change line 11". Accepting that suggestion deletes lines 10 and 12. Fix: either narrow the range to just line 11, or include lines 10 and 12 verbatim in the body.
 3. **Description does not match the suggestion.** The prose says "rename this variable" but the suggestion replaces an entire function. Or the prose says "add a None check" but the suggestion only contains the check (deleting the original code). Fix: after writing the suggestion, re-read the prose and confirm the resulting file would match it line-for-line.
 
