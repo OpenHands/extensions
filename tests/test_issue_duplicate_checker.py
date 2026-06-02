@@ -95,6 +95,118 @@ def test_issue_check_request_json_raises_structured_http_error(monkeypatch):
     assert exc_info.value.url == "https://api.example.test/example"
 
 
+def test_parse_agent_json_extracts_fenced_json():
+    script = load_script("issue_duplicate_check_openhands")
+
+    result = script.parse_agent_json(
+        'Here is the result:\n```json\n'
+        '{"classification":"duplicate","confidence":"high"}\n```'
+    )
+
+    assert result == {"classification": "duplicate", "confidence": "high"}
+
+
+def test_normalize_result_guards_auto_close_and_infers_canonical_issue():
+    script = load_script("issue_duplicate_check_openhands")
+
+    overlapping = script.normalize_result(
+        {
+            "should_comment": True,
+            "is_duplicate": False,
+            "auto_close_candidate": True,
+            "classification": "overlapping-scope",
+            "confidence": "high",
+            "candidate_issues": [{"number": 10}],
+        }
+    )
+    assert overlapping["should_comment"] is True
+    assert overlapping["auto_close_candidate"] is False
+
+    low_confidence = script.normalize_result(
+        {
+            "should_comment": True,
+            "is_duplicate": True,
+            "auto_close_candidate": True,
+            "classification": "duplicate",
+            "confidence": "low",
+            "candidate_issues": [{"number": 11}],
+        }
+    )
+    assert low_confidence["should_comment"] is False
+    assert low_confidence["auto_close_candidate"] is False
+
+    inferred = script.normalize_result(
+        {
+            "should_comment": True,
+            "is_duplicate": True,
+            "auto_close_candidate": True,
+            "classification": "duplicate",
+            "confidence": "high",
+            "canonical_issue_number": None,
+            "candidate_issues": [{"number": "12"}],
+        }
+    )
+    assert inferred["auto_close_candidate"] is True
+    assert inferred["canonical_issue_number"] == 12
+
+
+def test_build_prompt_includes_required_schema_keys():
+    script = load_script("issue_duplicate_check_openhands")
+
+    prompt = script.build_prompt(
+        "OpenHands/extensions",
+        {
+            "number": 123,
+            "title": "Duplicate bug",
+            "body": "Looks related",
+            "html_url": "https://github.com/OpenHands/extensions/issues/123",
+        },
+    )
+
+    for key in [
+        "should_comment",
+        "is_duplicate",
+        "auto_close_candidate",
+        "classification",
+        "confidence",
+        "canonical_issue_number",
+        "candidate_issues",
+    ]:
+        assert key in prompt
+
+
+def test_find_latest_auto_close_comment_uses_newest_auto_close_marker():
+    script = load_script("auto_close_duplicate_issues")
+
+    latest, canonical = script.find_latest_auto_close_comment(
+        [
+            {
+                "id": 1,
+                "created_at": "2026-01-01T00:00:00Z",
+                "body": "<!-- openhands-duplicate-check canonical=10 auto-close=true -->",
+            },
+            {
+                "id": 2,
+                "created_at": "2026-01-03T00:00:00Z",
+                "body": "<!-- openhands-duplicate-check canonical=20 auto-close=false -->",
+            },
+            {
+                "id": 3,
+                "created_at": None,
+                "body": "<!-- openhands-duplicate-check canonical=30 auto-close=true -->",
+            },
+            {
+                "id": 4,
+                "created_at": "2026-01-02T00:00:00Z",
+                "body": "<!-- openhands-duplicate-check canonical=40 auto-close=true -->",
+            },
+        ]
+    )
+
+    assert latest["id"] == 4
+    assert canonical == 40
+
+
 def test_request_json_raises_structured_http_error(monkeypatch):
     script = load_script("auto_close_duplicate_issues")
     monkeypatch.setenv("GITHUB_TOKEN", "token")

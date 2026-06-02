@@ -12,6 +12,11 @@ Reusable GitHub Action for detecting duplicate issues with an OpenHands Cloud co
     issue-number: ${{ github.event.issue.number }}
     openhands-api-key: ${{ secrets.OPENHANDS_API_KEY }}
     github-token: ${{ secrets.OPENHANDS_BOT_GITHUB_PAT_PUBLIC || github.token }}
+    # Optional OpenHands polling controls. Each polling phase can wait up to
+    # max-wait-seconds, so total runtime can approach twice this value when a
+    # start task must be awaited before the conversation run.
+    poll-interval-seconds: '5'
+    max-wait-seconds: '900'
 ```
 
 For scheduled auto-close:

@@ -183,17 +183,23 @@ module.exports = async ({ github, context, core }) => {
   if (existing) {
     const existingMarker = parseDuplicateCheckMarker(existing.body);
     if (existingMarker) {
-      if (existingMarker.autoClose) await ensureCandidateLabelOnIssue();
-      else await removeCandidateLabelFromIssue();
       if (
         existingMarker.canonicalIssueNumber !== canonicalIssueNumber ||
         existingMarker.autoClose !== autoClose
       ) {
-        core.setFailed(
-          `Duplicate check comment already exists on issue #${issueNumber} with different canonical/auto-close metadata; manual reconciliation is required.`,
-        );
+        await github.rest.issues.updateComment({
+          owner: context.repo.owner,
+          repo: context.repo.repo,
+          comment_id: existing.id,
+          body,
+        });
+        if (autoClose) await ensureCandidateLabelOnIssue();
+        else await removeCandidateLabelFromIssue();
+        core.info(`Updated existing duplicate check comment ${existing.id} on issue #${issueNumber}.`);
         return;
       }
+      if (autoClose) await ensureCandidateLabelOnIssue();
+      else await removeCandidateLabelFromIssue();
     } else {
       core.warning(
         `Duplicate check comment already exists on issue #${issueNumber} but its marker could not be parsed; leaving label state unchanged.`,
