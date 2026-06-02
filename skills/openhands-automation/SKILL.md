@@ -113,7 +113,7 @@ Entrypoint must be `python3 main.py` (no `setup.sh` needed). Wrap your main logi
 All requests require Bearer authentication:
 
 ```bash
--H "X-API-Key: ${OPENHANDS_API_KEY}"
+-H "Authorization: Bearer ${OPENHANDS_API_KEY}"
 ```
 
 ## API Endpoints
