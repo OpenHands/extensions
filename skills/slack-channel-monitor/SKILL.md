@@ -8,6 +8,8 @@ description: >
   phrase". Guides the user through creating a cron automation that watches up
   to 10 Slack channels and starts an OpenHands conversation whenever a
   configurable trigger phrase is detected.
+triggers:
+  - /slack-monitor:poll
 ---
 
 # Slack Channel Monitor
@@ -141,15 +143,23 @@ Fix any syntax errors before proceeding.
 
 ### Step 4  -  Package and upload
 
+Determine the Automation backend URL and auth from the `<RUNTIME_SERVICES>`
+block in your system context:
+- Use the **Automation backend** `url_from_agent` as `OPENHANDS_HOST`
+- Auth: `X-Session-API-Key: $OPENHANDS_AUTOMATION_API_KEY`
+
+If no Automation backend is listed in `<RUNTIME_SERVICES>`, stop and tell
+the user to start the full automation stack.
+
 ```bash
 tar -czf /tmp/slack-monitor.tar.gz -C /tmp/slack-monitor-build .
 
-# Determine the API host (use <HOST> from the system prompt, else localhost:8000)
-OPENHANDS_HOST="http://localhost:8000"
+# OPENHANDS_HOST: read from <RUNTIME_SERVICES> Automation backend url_from_agent
+OPENHANDS_HOST="<automation-url-from-runtime-services>"
 
 TARBALL_PATH=$(curl -s -X POST \
   "${OPENHANDS_HOST}/api/automation/v1/uploads?name=slack-channel-monitor" \
-  -H "Authorization: Bearer $OPENHANDS_AUTOMATION_API_KEY" \
+  -H "X-Session-API-Key: $OPENHANDS_AUTOMATION_API_KEY" \
   -H "Content-Type: application/gzip" \
   --data-binary @/tmp/slack-monitor.tar.gz \
   | python3 -c "import json,sys; print(json.load(sys.stdin)['tarball_path'])")
@@ -164,7 +174,7 @@ If the upload fails with a size error, the tarball must be under 1 MB.
 
 ```bash
 curl -s -X POST "${OPENHANDS_HOST}/api/automation/v1" \
-  -H "Authorization: Bearer $OPENHANDS_AUTOMATION_API_KEY" \
+  -H "X-Session-API-Key: $OPENHANDS_AUTOMATION_API_KEY" \
   -H "Content-Type: application/json" \
   -d "{
     \"name\": \"Slack Channel Monitor\",

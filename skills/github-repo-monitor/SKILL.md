@@ -8,6 +8,8 @@ description: >
   through creating a cron automation that polls a single repository and starts
   an OpenHands conversation whenever a configurable trigger phrase is detected
   in an issue or PR comment.
+triggers:
+  - /github-monitor:poll
 ---
 
 # GitHub Repository Monitor
@@ -193,14 +195,23 @@ Fix any syntax errors before proceeding.
 
 ### Step 8  -  Package and upload
 
+Determine the Automation backend URL and auth from the `<RUNTIME_SERVICES>`
+block in your system context:
+- Use the **Automation backend** `url_from_agent` as `OPENHANDS_HOST`
+- Auth: `X-Session-API-Key: $OPENHANDS_AUTOMATION_API_KEY`
+
+If no Automation backend is listed in `<RUNTIME_SERVICES>`, stop and tell
+the user to start the full automation stack.
+
 ```bash
 tar -czf /tmp/github-monitor.tar.gz -C /tmp/github-monitor-build .
 
-OPENHANDS_HOST="http://localhost:8000"
+# OPENHANDS_HOST: read from <RUNTIME_SERVICES> Automation backend url_from_agent
+OPENHANDS_HOST="<automation-url-from-runtime-services>"
 
 TARBALL_PATH=$(curl -s -X POST \
   "${OPENHANDS_HOST}/api/automation/v1/uploads?name=github-repo-monitor" \
-  -H "Authorization: Bearer $OPENHANDS_AUTOMATION_API_KEY" \
+  -H "X-Session-API-Key: $OPENHANDS_AUTOMATION_API_KEY" \
   -H "Content-Type: application/gzip" \
   --data-binary @/tmp/github-monitor.tar.gz \
   | python3 -c "import json,sys; print(json.load(sys.stdin)['tarball_path'])")
@@ -212,7 +223,7 @@ echo "Uploaded: $TARBALL_PATH"
 
 ```bash
 curl -s -X POST "${OPENHANDS_HOST}/api/automation/v1" \
-  -H "Authorization: Bearer $OPENHANDS_AUTOMATION_API_KEY" \
+  -H "X-Session-API-Key: $OPENHANDS_AUTOMATION_API_KEY" \
   -H "Content-Type: application/json" \
   -d "{
     \"name\": \"GitHub Monitor: {owner}/{repo}\",
