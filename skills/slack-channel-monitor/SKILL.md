@@ -139,7 +139,15 @@ python3 -m py_compile /tmp/slack-monitor-build/main.py && echo "Syntax OK"
 
 Fix any syntax errors before proceeding.
 
-### Step 4  -  Package and upload
+### Step 4  -  Show the customised script
+
+Show `/tmp/slack-monitor-build/main.py` to the user with the `canvas_ui` tool
+if available, otherwise display it in a fenced code block. Then ask:
+*"Does this look right? Shall I package and deploy the automation?"*
+
+Wait for confirmation before proceeding.
+
+### Step 5  -  Package and upload
 
 ```bash
 tar -czf /tmp/slack-monitor.tar.gz -C /tmp/slack-monitor-build .
@@ -160,7 +168,7 @@ echo "Uploaded: $TARBALL_PATH"
 If the upload fails with a size error, the tarball must be under 1 MB.
 `main.py` is under 15 KB so this should never trigger.
 
-### Step 5  -  Create the automation
+### Step 6  -  Create the automation
 
 ```bash
 curl -s -X POST "${OPENHANDS_HOST}/api/automation/v1" \
@@ -179,7 +187,7 @@ A 55-second timeout keeps runs well within the 60-second cron window.
 
 Record the returned `id`  -  share it with the user as confirmation.
 
-### Step 6  -  Confirm
+### Step 7  -  Confirm
 
 Tell the user:
 
