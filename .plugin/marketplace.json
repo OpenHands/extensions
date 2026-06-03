@@ -168,7 +168,7 @@
         },
         {
             "name": "github-actions",
-            "source": "./github-actions",
+            "source": "./skills/github-actions",
             "description": "Create, debug, and test GitHub Actions workflows and custom actions. Use when building CI/CD pipelines, automating workflows, or troubleshooting GitHub Actions.",
             "category": "integration",
             "keywords": [
