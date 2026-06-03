@@ -181,7 +181,11 @@ If you need to iterate on an action and its consumer together, point `uses:` at 
 7. **Fail loudly** — `set -euo pipefail` in non-trivial bash steps
 8. **Document non-obvious triggers/inputs** at the top of the workflow file
 
-## Related
+- [GitHub Actions documentation](https://docs.github.com/en/actions)
+- [`act` — run actions locally](https://github.com/nektos/act)
+- [`gh run` CLI reference](https://cli.github.com/manual/gh_run)
+- [github skill](https://github.com/OpenHands/extensions/tree/main/skills/github) — GitHub API, PRs, issues, and repos
+- [github-pr-review skill](https://github.com/OpenHands/extensions/tree/main/skills/github-pr-review) — post structured code reviews via the GitHub API
 
 - [GitHub Actions documentation](https://docs.github.com/en/actions)
 - [`act` — run actions locally](https://github.com/nektos/act)
