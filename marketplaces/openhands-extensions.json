@@ -590,6 +590,20 @@
                 "pull-request",
                 "iterate"
             ]
+        },
+        {
+            "name": "evidence-based-citations",
+            "source": "./skills/evidence-based-citations",
+            "description": "Back factual claims and field values with official, verifiable sources. Use when the user asks to fill fields, answer questions, or make claims that must be supported by an exact quote and an official link.",
+            "category": "productivity",
+            "keywords": [
+                "evidence",
+                "citations",
+                "sources",
+                "verification",
+                "documentation",
+                "official"
+            ]
         }
     ]
 }
