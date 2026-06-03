@@ -1,0 +1,21 @@
+{
+  "name": "code-simplifier",
+  "version": "1.0.0",
+  "description": "Simplifies and refines code across three dimensions - code reuse, code quality, and efficiency - while preserving all functionality. Analyzes recently modified code and provides actionable impro...",
+  "author": {
+    "name": "OpenHands",
+    "email": "contact@all-hands.dev"
+  },
+  "homepage": "https://github.com/OpenHands/extensions",
+  "repository": "https://github.com/OpenHands/extensions",
+  "license": "MIT",
+  "keywords": [
+    "simplify",
+    "refine",
+    "cleanup",
+    "code-quality",
+    "reuse",
+    "efficiency",
+    "refactor"
+  ]
+}

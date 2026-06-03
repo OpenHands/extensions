@@ -42,6 +42,8 @@ skill-name/
 
 **Metadata Quality:** The `name` and `description` in YAML frontmatter determine when OpenHands will use the skill. Be specific about what the skill does and when to use it. Use the third-person (e.g. "This skill should be used when..." instead of "Use this skill when...").
 
+**Slash commands vs keyword triggers:** SKILL.md frontmatter supports an optional `triggers:` field for keyword-based activation (e.g., `triggers: [docker, container]`). For **slash commands** (e.g., `/codereview`, `/init`), prefer creating a `commands/command-name.md` file in the plugin's `commands/` directory instead of using slash triggers in SKILL.md. Slash triggers still work for backward compatibility but are deprecated in favor of the `commands/` approach. See the [Plugins guide](https://docs.openhands.dev/sdk/guides/plugins) for details.
+
 #### Bundled Resources (optional)
 
 ##### Scripts (`scripts/`)
@@ -52,6 +54,7 @@ Executable code (Python/Bash/etc.) for tasks that require deterministic reliabil
 - **Example**: `scripts/rotate_pdf.py` for PDF rotation tasks
 - **Benefits**: Token efficient, deterministic, may be executed without loading into context
 - **Note**: Scripts may still need to be read by OpenHands for patching or environment-specific adjustments
+- **Python dependencies**: Use `uv` instead of `pip` or `pip3` for all Python dependency installs. `uv` is cross-platform, faster, and avoids the `pip`/`pip3` naming inconsistency across environments. Example: `uv venv .venv --quiet && uv pip install --quiet <package>`
 
 ##### References (`references/`)
 
@@ -503,6 +506,7 @@ Good for: Complex domains with validation utilities
 - Reference supporting files clearly
 - Provide working examples
 - Create utility scripts for common operations
+- Use `uv` for Python dependency installs in scripts (`uv venv .venv --quiet && uv pip install --quiet <pkg>`)
 
 ❌ **DON'T:**
 - Use second person anywhere
@@ -512,6 +516,7 @@ Good for: Complex domains with validation utilities
 - Leave resources unreferenced
 - Include broken or incomplete examples
 - Skip validation
+- Use `pip` or `pip3` directly — `uv` is the cross-platform standard
 
 ## Additional Resources
 

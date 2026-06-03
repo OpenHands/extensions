@@ -1,0 +1,117 @@
+---
+name: OpenHands Release Notes Generator
+description: Generate agent-authored release notes from git history and PR context
+author: OpenHands
+
+branding:
+    icon: file-text
+    color: green
+
+inputs:
+    tag:
+        description: The release tag to generate notes for
+        required: true
+    previous-tag:
+        description: Override automatic detection of previous release tag
+        required: false
+        default: ''
+    include-internal:
+        description: Include internal/infrastructure changes in the release notes
+        required: false
+        default: 'false'
+    output-format:
+        description: "Output format: 'release' (GitHub release) or 'changelog' (CHANGELOG.md)"
+        required: false
+        default: release
+    llm-model:
+        description: LLM model to use for agent-based release note generation
+        required: false
+        default: anthropic/claude-sonnet-4-5-20250929
+    llm-base-url:
+        description: LLM base URL (optional, for custom LLM endpoints)
+        required: false
+        default: ''
+    llm-api-key:
+        description: LLM API key (required)
+        required: true
+    github-token:
+        description: GitHub token for API access (required)
+        required: true
+
+outputs:
+    release-notes:
+        description: The generated release notes in markdown format
+        value: ${{ steps.generate.outputs.release_notes }}
+    previous-tag:
+        description: The detected or provided previous release tag
+        value: ${{ steps.generate.outputs.previous_tag }}
+    commit-count:
+        description: Number of commits included in the release
+        value: ${{ steps.generate.outputs.commit_count }}
+    contributor-count:
+        description: Number of unique contributors
+        value: ${{ steps.generate.outputs.contributor_count }}
+    new-contributor-count:
+        description: Number of first-time contributors
+        value: ${{ steps.generate.outputs.new_contributor_count }}
+
+runs:
+    using: composite
+    steps:
+        - name: Checkout extensions repository
+          uses: actions/checkout@v4
+          with:
+              repository: OpenHands/extensions
+              ref: main
+              path: extensions
+              sparse-checkout: plugins/release-notes
+
+        - name: Set up Python
+          uses: actions/setup-python@v5
+          with:
+              python-version: '3.12'
+
+        - name: Install uv
+          uses: astral-sh/setup-uv@v6
+          with:
+              enable-cache: true
+
+        - name: Generate release notes
+          id: generate
+          shell: bash
+          env:
+              LLM_MODEL: ${{ inputs.llm-model }}
+              LLM_BASE_URL: ${{ inputs.llm-base-url }}
+              LLM_API_KEY: ${{ inputs.llm-api-key }}
+              GITHUB_TOKEN: ${{ inputs.github-token }}
+              TAG: ${{ inputs.tag }}
+              PREVIOUS_TAG: ${{ inputs.previous-tag }}
+              INCLUDE_INTERNAL: ${{ inputs.include-internal }}
+              OUTPUT_FORMAT: ${{ inputs.output-format }}
+              REPO_NAME: ${{ github.repository }}
+          run: |
+              uv run --with openhands-sdk --with openhands-tools \
+                python extensions/plugins/release-notes/scripts/agent_script.py
+
+        - name: Validate PR and author attribution
+          shell: bash
+          env:
+              GITHUB_TOKEN: ${{ inputs.github-token }}
+              TAG: ${{ inputs.tag }}
+              PREVIOUS_TAG: ${{ inputs.previous-tag }}
+              INCLUDE_INTERNAL: ${{ inputs.include-internal }}
+              REPO_NAME: ${{ github.repository }}
+          run: |
+              python extensions/plugins/release-notes/scripts/validate_release_notes.py
+
+        - name: Update GitHub release (if release format)
+          if: inputs.output-format == 'release'
+          shell: bash
+          env:
+              GITHUB_TOKEN: ${{ inputs.github-token }}
+          run: |
+              if [ -f release_notes.md ]; then
+                echo "Updating release notes for tag ${{ inputs.tag }}"
+                gh release edit "${{ inputs.tag }}" --notes-file release_notes.md || \
+                  echo "Note: Could not update release. Release may not exist yet."
+              fi

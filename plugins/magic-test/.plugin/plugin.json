@@ -1,0 +1,13 @@
+{
+  "name": "magic-test",
+  "version": "1.0.0",
+  "description": "A simple test plugin with a magic word skill for verifying plugin loading",
+  "author": {
+    "name": "OpenHands Test",
+    "email": "test@openhands.dev"
+  },
+  "homepage": "https://github.com/jpshackelford/openhands-sample-plugins",
+  "repository": "https://github.com/jpshackelford/openhands-sample-plugins",
+  "license": "MIT",
+  "keywords": ["test", "magic", "plugin", "verification"]
+}

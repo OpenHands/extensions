@@ -1,0 +1,22 @@
+{
+  "name": "github-repo-monitor",
+  "version": "1.0.0",
+  "description": "Create a cron automation that polls a GitHub repository for issue and PR comments containing a configurable trigger phrase (@OpenHands by default). Starts an OpenHands conversation with full issue/PR context, posts acknowledgement comments with a conversation link, and summarises results back to the issue/PR when the agent finishes.",
+  "author": {
+    "name": "OpenHands",
+    "email": "contact@all-hands.dev"
+  },
+  "homepage": "https://github.com/OpenHands/extensions",
+  "repository": "https://github.com/OpenHands/extensions",
+  "license": "MIT",
+  "keywords": [
+    "github",
+    "monitor",
+    "issues",
+    "pull-requests",
+    "trigger",
+    "cron",
+    "automation",
+    "integration"
+  ]
+}

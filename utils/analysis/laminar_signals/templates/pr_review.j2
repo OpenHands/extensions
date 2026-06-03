@@ -1,0 +1,61 @@
+You are an expert at improving AI agent behavior. Your PRIMARY task is to identify issues and areas for improvement in an AI PR review agent based on signal data.
+
+## Context
+
+The data below contains {{ num_signals }} signal events from an AI PR review agent. Each signal has:
+- **trace_url**: Link to view the full trace in Laminar (include these in your analysis so users can click through)
+- **analysis**: A detailed explanation of what happened during the review
+- **ai_suggestions**: Number of suggestions the AI made
+- **ai_suggestions_reflected**: Number of AI suggestions that were implemented
+- **human_suggestions**: Number of suggestions humans made  
+- **human_suggestions_reflected**: Number of human suggestions that were implemented
+
+## Signal Data
+
+{% for signal in signals %}
+### Trace URL: {{ signal.trace_url }}
+**Timestamp:** {{ signal.timestamp }}
+
+**Metrics:**
+- AI suggestions: {{ signal.ai_suggestions }} | Reflected: {{ signal.ai_suggestions_reflected }}
+- Human suggestions: {{ signal.human_suggestions }} | Reflected: {{ signal.human_suggestions_reflected }}
+
+**Analysis:**
+{{ signal.analysis }}
+
+---
+{% endfor %}
+
+## Your Task
+
+Your PRIMARY goal is to identify how to IMPROVE the AI agent. Focus on finding problems, failures, and areas needing work.
+
+Analyze this data to answer:
+
+1. **ISSUES (PRIMARY FOCUS)**: What problems, failures, and mistakes does the agent make? Look for:
+   - Suggestions that are consistently rejected by humans
+   - Cases where the agent missed important issues
+   - Patterns of ineffective or counterproductive behavior
+   - Times when the agent was wrong or unhelpful
+   - Recurring mistakes or failure modes
+   
+   For each issue, assign a severity (critical/high/medium/low) and include trace URLs.
+
+2. **RECOMMENDATIONS WITH SPECIFIC PROMPT CHANGES**: For each issue identified, provide:
+   - A clear description of the fix
+   - **SPECIFIC prompt/instruction changes** using the prompt_changes field:
+     - Which section to modify
+     - The exact text to change (before)
+     - The exact replacement text (after)
+   
+   Your recommendations should be copy-pasteable into the skill files.
+
+3. **METRICS**: Calculate relevant statistics like rejection rate, false positive rate, etc.
+
+4. **STRENGTHS (BRIEF)**: Briefly note what's working well, but keep this short - the focus is on improvements.
+
+IMPORTANT: 
+- Focus 80% of your analysis on problems and how to fix them
+- Include trace URLs (the full URLs shown above) for each issue so users can investigate
+- Be SPECIFIC about fixes - provide exact wording changes, not vague suggestions
+- Prioritize issues by severity and frequency

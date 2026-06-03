@@ -1,0 +1,17 @@
+{
+  "name": "notion",
+  "version": "1.0.0",
+  "description": "Create, search, and update Notion pages/databases using the Notion API. Use for documenting work, generating runbooks, and automating knowledge base updates.",
+  "author": {
+    "name": "OpenHands",
+    "email": "contact@all-hands.dev"
+  },
+  "homepage": "https://github.com/OpenHands/extensions",
+  "repository": "https://github.com/OpenHands/extensions",
+  "license": "MIT",
+  "keywords": [
+    "notion",
+    "documentation",
+    "knowledge-base"
+  ]
+}

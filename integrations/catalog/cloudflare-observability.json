@@ -1,0 +1,31 @@
+{
+  "id": "cloudflare-observability",
+  "name": "Cloudflare Observability",
+  "description": "Tail Workers logs and query observability data from your Cloudflare account.",
+  "docsUrl": "https://developers.cloudflare.com/agents/model-context-protocol/",
+  "iconBg": "#F38020",
+  "keywords": [
+    "cloudflare",
+    "logs",
+    "tail",
+    "observability",
+    "workers"
+  ],
+  "kind": "mcp",
+  "defaultConnectionOptionId": "none",
+  "connectionOptions": [
+    {
+      "id": "none",
+      "provider": "mcp",
+      "transport": {
+        "kind": "sse",
+        "url": "https://observability.mcp.cloudflare.com/sse",
+        "apiKeyOptional": true
+      },
+      "auth": {
+        "strategy": "none",
+        "apiKeyOptional": true
+      }
+    }
+  ]
+}

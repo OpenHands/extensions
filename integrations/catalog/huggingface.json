@@ -1,0 +1,32 @@
+{
+  "id": "huggingface",
+  "name": "Hugging Face",
+  "description": "Search models, datasets, and Spaces on the Hugging Face Hub from your agent.",
+  "docsUrl": "https://huggingface.co/docs/huggingface_hub/en/guides/mcp",
+  "iconBg": "#FFD21E",
+  "iconColor": "#000000",
+  "keywords": [
+    "ml",
+    "models",
+    "datasets",
+    "ai",
+    "hub"
+  ],
+  "kind": "mcp",
+  "defaultConnectionOptionId": "none",
+  "connectionOptions": [
+    {
+      "id": "none",
+      "provider": "mcp",
+      "transport": {
+        "kind": "shttp",
+        "url": "https://huggingface.co/mcp",
+        "apiKeyOptional": true
+      },
+      "auth": {
+        "strategy": "none",
+        "apiKeyOptional": true
+      }
+    }
+  ]
+}

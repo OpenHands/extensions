@@ -1,0 +1,18 @@
+{
+  "name": "security",
+  "version": "1.0.0",
+  "description": "Security best practices for secure coding, authentication, authorization, and data protection. Use when developing features that handle sensitive data, user authentication, or require security review.",
+  "author": {
+    "name": "OpenHands",
+    "email": "contact@all-hands.dev"
+  },
+  "homepage": "https://github.com/OpenHands/extensions",
+  "repository": "https://github.com/OpenHands/extensions",
+  "license": "MIT",
+  "keywords": [
+    "security",
+    "authentication",
+    "authorization",
+    "encryption"
+  ]
+}

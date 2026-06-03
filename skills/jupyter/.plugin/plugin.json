@@ -1,0 +1,18 @@
+{
+  "name": "jupyter",
+  "version": "1.0.0",
+  "description": "Read, modify, execute, and convert Jupyter notebooks programmatically. Use when working with .ipynb files for data science workflows, including editing cells, clearing outputs, or converting to oth...",
+  "author": {
+    "name": "OpenHands",
+    "email": "contact@all-hands.dev"
+  },
+  "homepage": "https://github.com/OpenHands/extensions",
+  "repository": "https://github.com/OpenHands/extensions",
+  "license": "MIT",
+  "keywords": [
+    "jupyter",
+    "notebook",
+    "ipynb",
+    "data-science"
+  ]
+}

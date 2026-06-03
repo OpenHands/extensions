@@ -1,0 +1,18 @@
+{
+  "name": "pdflatex",
+  "version": "1.0.0",
+  "description": "Install and use pdflatex to compile LaTeX documents into PDFs on Linux. Use when generating academic papers, research publications, or any documents written in LaTeX.",
+  "author": {
+    "name": "OpenHands",
+    "email": "contact@all-hands.dev"
+  },
+  "homepage": "https://github.com/OpenHands/extensions",
+  "repository": "https://github.com/OpenHands/extensions",
+  "license": "MIT",
+  "keywords": [
+    "latex",
+    "pdf",
+    "academic",
+    "documents"
+  ]
+}

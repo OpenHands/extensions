@@ -1,0 +1,32 @@
+{
+  "id": "deepwiki",
+  "name": "DeepWiki",
+  "description": "Ask grounded questions about any public GitHub repository via Devin's DeepWiki MCP.",
+  "docsUrl": "https://docs.devin.ai/work-with-devin/deepwiki-mcp",
+  "iconBg": "var(--oh-color-base)",
+  "keywords": [
+    "devin",
+    "code",
+    "wiki",
+    "github",
+    "docs",
+    "qa"
+  ],
+  "kind": "mcp",
+  "defaultConnectionOptionId": "none",
+  "connectionOptions": [
+    {
+      "id": "none",
+      "provider": "mcp",
+      "transport": {
+        "kind": "sse",
+        "url": "https://mcp.deepwiki.com/sse",
+        "apiKeyOptional": true
+      },
+      "auth": {
+        "strategy": "none",
+        "apiKeyOptional": true
+      }
+    }
+  ]
+}

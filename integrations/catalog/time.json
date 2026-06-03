@@ -1,0 +1,31 @@
+{
+  "id": "time",
+  "name": "Time",
+  "description": "Timezone-aware current time, conversions, and timestamp formatting.",
+  "docsUrl": "https://github.com/modelcontextprotocol/servers/tree/main/src/time",
+  "iconBg": "var(--oh-surface)",
+  "keywords": [
+    "clock",
+    "timezone",
+    "date"
+  ],
+  "kind": "mcp",
+  "defaultConnectionOptionId": "none",
+  "connectionOptions": [
+    {
+      "id": "none",
+      "provider": "mcp",
+      "transport": {
+        "kind": "stdio",
+        "serverName": "time",
+        "command": "uvx",
+        "args": [
+          "mcp-server-time"
+        ]
+      },
+      "auth": {
+        "strategy": "none"
+      }
+    }
+  ]
+}

@@ -1,0 +1,1282 @@
+#!/usr/bin/env python3
+"""
+Example: PR Review Agent
+
+This script runs OpenHands agent to review a pull request and provide
+fine-grained review comments. The agent has full repository access and
+uses bash commands to analyze changes in context and post detailed review
+feedback directly via `gh` or the GitHub API.
+
+This example demonstrates how to use the `/codereview` skill for code review.
+
+The agent posts inline review comments on specific lines of code using
+the GitHub API, rather than posting one giant comment under the PR.
+
+The agent also considers previous review context including:
+- Existing review comments and their resolution status
+- Previous review decisions (APPROVED, CHANGES_REQUESTED, etc.)
+- Review threads (resolved and unresolved)
+
+Designed for use with GitHub Actions workflows triggered by PR labels.
+
+Environment Variables:
+    AGENT_KIND: Review agent backend, either 'openhands' or 'acp'
+        (default: 'openhands')
+    ACP_COMMAND: Command used to start the ACP server when AGENT_KIND='acp'
+    ACP_PROMPT_TIMEOUT: Timeout in seconds for one ACP prompt turn
+    LLM_API_KEY: API key for the LLM (required for OpenHands agent kind)
+    LLM_MODEL: Language model to use (default: anthropic/claude-sonnet-4-5-20250929)
+    LLM_BASE_URL: Optional base URL for LLM API
+    GITHUB_TOKEN: GitHub token for API access (required)
+    PR_NUMBER: Pull request number (required)
+    PR_TITLE: Pull request title (required)
+    PR_BODY: Pull request body (optional)
+    PR_BASE_BRANCH: Base branch name (required)
+    PR_HEAD_BRANCH: Head branch name (required)
+    REPO_NAME: Repository name in format owner/repo (required)
+    REQUIRE_EVIDENCE: Whether to require PR description evidence showing the code
+        works ('true'/'false', default: 'false')
+    COLLECT_FEEDBACK: Whether to ask maintainers for thumbs up/down feedback by
+        appending a short footer to the main review body ('true'/'false',
+        default: 'false')
+    REVIEW_RUN_URL: Optional GitHub Actions run URL to include in the feedback
+        footer when COLLECT_FEEDBACK is enabled
+    USE_SUB_AGENTS: Enable sub-agent delegation for file-level reviews
+        ('true'/'false', default: 'false'). When enabled, the main agent acts
+        as a coordinator that delegates per-file review work to
+        file_reviewer sub-agents via the TaskToolSet, then consolidates
+        findings into a single GitHub PR review.
+    LOAD_PUBLIC_SKILLS: Whether to load the public skills repository
+        ('true'/'false', default: 'true')
+
+For setup instructions, usage examples, and GitHub Actions integration,
+see README.md in this directory.
+"""
+
+from __future__ import annotations
+
+import json
+import os
+import shlex
+import sys
+import time
+import urllib.error
+import urllib.request
+from collections.abc import Callable
+from pathlib import Path
+from typing import Any
+
+from lmnr import Laminar
+from openhands.sdk import (
+    LLM,
+    Agent,
+    AgentContext,
+    Conversation,
+    Tool,
+    get_logger,
+    register_agent,
+)
+from openhands.sdk.context import Skill
+from openhands.sdk.conversation import get_agent_final_response
+from openhands.sdk.git.utils import run_git_command
+from openhands.sdk.plugin import PluginSource
+from openhands.sdk.skills import load_project_skills
+from openhands.tools.delegate import DelegationVisualizer
+from openhands.tools.preset.default import get_default_condenser, get_default_tools
+from openhands.tools.task import TaskToolSet
+
+# Add the script directory to Python path so we can import prompt.py
+script_dir = Path(__file__).parent
+sys.path.insert(0, str(script_dir))
+
+from prompt import FILE_REVIEWER_SKILL, format_prompt  # noqa: E402
+
+logger = get_logger(__name__)
+
+# Maximum total size of all patches combined in the prompt
+MAX_TOTAL_DIFF = 100000
+
+# Maximum size for a single file's patch body. Prevents a single huge file
+# (e.g. a regenerated lockfile) from starving smaller files' patches.
+MAX_PER_FILE_PATCH = 8000
+
+# Maximum size for review context to avoid overwhelming the prompt
+# Keeps context under ~7500 tokens (assuming ~4 chars/token average)
+MAX_REVIEW_CONTEXT = 30000
+
+# Maximum time (seconds) for GraphQL pagination to prevent hanging on slow APIs
+MAX_PAGINATION_TIME = 120
+
+DEFAULT_ACP_PROMPT_TIMEOUT_SECONDS = 1800.0
+
+# GraphQL queries as module-level constants for reusability and testability
+REVIEWS_QUERY = """
+query(
+    $owner: String!
+    $repo: String!
+    $pr_number: Int!
+    $count: Int!
+    $cursor: String
+) {
+    repository(owner: $owner, name: $repo) {
+        pullRequest(number: $pr_number) {
+            reviews(last: $count, before: $cursor) {
+                pageInfo {
+                    hasPreviousPage
+                    startCursor
+                }
+                nodes {
+                    id
+                    author { login }
+                    body
+                    state
+                    submittedAt
+                }
+            }
+        }
+    }
+}
+"""
+
+THREADS_QUERY = """
+query($owner: String!, $repo: String!, $pr_number: Int!, $cursor: String) {
+    repository(owner: $owner, name: $repo) {
+        pullRequest(number: $pr_number) {
+            reviewThreads(last: 100, before: $cursor) {
+                pageInfo {
+                    hasPreviousPage
+                    startCursor
+                }
+                nodes {
+                    id
+                    isResolved
+                    isOutdated
+                    path
+                    line
+                    comments(first: 50) {
+                        nodes {
+                            id
+                            author { login }
+                            body
+                            bodyText
+                            createdAt
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+"""
+
+
+def _get_required_env(name: str) -> str:
+    value = os.getenv(name)
+    if not value:
+        raise ValueError(f"{name} environment variable is required")
+    return value
+
+
+def _get_bool_env(name: str, default: bool = False) -> bool:
+    value = os.getenv(name)
+    if value is None:
+        return default
+    return value.strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _call_github_api(
+    url: str,
+    method: str = "GET",
+    data: dict[str, Any] | None = None,
+    accept: str = "application/vnd.github+json",
+) -> Any:
+    """Make a GitHub API request (REST or GraphQL).
+
+    This function handles both REST API calls and GraphQL queries
+    (via the /graphql endpoint). The function name reflects this dual purpose.
+
+    Args:
+        url: Full API URL or path (will be prefixed with api.github.com if needed)
+        method: HTTP method (GET, POST, etc.)
+        data: JSON data to send (for POST/PUT requests, including GraphQL queries)
+        accept: Accept header value
+
+    Returns:
+        Parsed JSON response or raw text for diff requests
+    """
+    token = _get_required_env("GITHUB_TOKEN")
+    if not url.startswith("http"):
+        url = f"https://api.github.com{url}"
+
+    request = urllib.request.Request(url, method=method)
+    request.add_header("Accept", accept)
+    request.add_header("Authorization", f"Bearer {token}")
+    request.add_header("X-GitHub-Api-Version", "2022-11-28")
+
+    if data:
+        request.add_header("Content-Type", "application/json")
+        request.data = json.dumps(data).encode("utf-8")
+
+    try:
+        with urllib.request.urlopen(request, timeout=60) as response:
+            raw_data = response.read()
+            if "diff" in accept:
+                return raw_data.decode("utf-8", errors="replace")
+            return json.loads(raw_data.decode("utf-8"))
+    except urllib.error.HTTPError as e:
+        details = (e.read() or b"").decode("utf-8", errors="replace").strip()
+        raise RuntimeError(
+            f"GitHub API request failed: HTTP {e.code} {e.reason}. {details}"
+        ) from e
+    except urllib.error.URLError as e:
+        raise RuntimeError(f"GitHub API request failed: {e.reason}") from e
+    except json.JSONDecodeError as e:
+        raise RuntimeError(f"GitHub API returned invalid JSON: {e}") from e
+
+
+def _paginate_graphql(
+    query: str,
+    variables: dict[str, Any],
+    path_to_nodes: list[str],
+    max_items: int | None = None,
+    item_name: str = "items",
+) -> list[dict[str, Any]]:
+    """Generic GraphQL pagination with timeout.
+
+    Handles cursor-based pagination for GitHub GraphQL queries using `last`/`before`.
+
+    Args:
+        query: GraphQL query string with $cursor variable
+        variables: Base variables for the query (will be updated with cursor)
+        path_to_nodes: Path to the nodes in the response, e.g.
+                       ["pullRequest", "reviews"] to access
+                       data.repository.pullRequest.reviews
+        max_items: Maximum number of items to fetch (None for unlimited)
+        item_name: Name for logging purposes
+
+    Returns:
+        List of all nodes fetched, in reverse order (oldest first)
+    """
+    all_items: list[dict[str, Any]] = []
+    cursor = None
+    start_time = time.time()
+    page_count = 0
+    has_more_pages = False
+
+    while max_items is None or len(all_items) < max_items:
+        elapsed = time.time() - start_time
+        if elapsed > MAX_PAGINATION_TIME:
+            logger.warning(
+                f"{item_name} pagination timeout after {elapsed:.1f}s, "
+                f"fetched {len(all_items)} {item_name} across {page_count} pages"
+            )
+            break
+
+        # Update cursor for pagination
+        vars_with_cursor = {**variables, "cursor": cursor}
+
+        # Adjust count if max_items is set
+        if max_items is not None and "count" in vars_with_cursor:
+            remaining = max_items - len(all_items)
+            vars_with_cursor["count"] = min(remaining, vars_with_cursor["count"])
+
+        result = _call_github_api(
+            "https://api.github.com/graphql",
+            method="POST",
+            data={"query": query, "variables": vars_with_cursor},
+        )
+
+        if "errors" in result:
+            logger.warning(f"GraphQL errors fetching {item_name}: {result['errors']}")
+            break
+
+        # Navigate to the data using path
+        data = result.get("data", {}).get("repository", {})
+        for key in path_to_nodes:
+            data = data.get(key, {}) if data else {}
+
+        if not data:
+            break
+
+        nodes = data.get("nodes", [])
+        page_count += 1
+
+        if not nodes:
+            break
+
+        all_items.extend(nodes)
+
+        logger.debug(
+            f"Fetched page {page_count} with {len(nodes)} {item_name} "
+            f"(total: {len(all_items)})"
+        )
+
+        page_info = data.get("pageInfo", {})
+        has_more_pages = page_info.get("hasPreviousPage", False)
+        if not has_more_pages:
+            break
+        cursor = page_info.get("startCursor")
+
+    if has_more_pages and max_items is None:
+        logger.warning(
+            f"{item_name} limited to {len(all_items)} items. "
+            "Some items may be omitted for PRs with extensive history."
+        )
+
+    # Items are fetched newest-first with `last`, reverse for chronological order
+    return list(reversed(all_items))
+
+
+def get_pr_reviews(pr_number: str, max_reviews: int = 100) -> list[dict[str, Any]]:
+    """Fetch the latest reviews for a PR using GraphQL.
+
+    Uses GraphQL with `last` to fetch the most recent reviews directly,
+    avoiding the need to paginate through all reviews from oldest to newest.
+
+    Args:
+        pr_number: The PR number
+        max_reviews: Maximum number of reviews to return (default: 100)
+
+    Returns a list of review objects containing:
+    - id: Review ID
+    - user: Author information
+    - body: Review body text
+    - state: APPROVED, CHANGES_REQUESTED, COMMENTED, DISMISSED, PENDING
+    - submitted_at: When the review was submitted
+    """
+    repo = _get_required_env("REPO_NAME")
+    owner, repo_name = repo.split("/")
+
+    variables = {
+        "owner": owner,
+        "repo": repo_name,
+        "pr_number": int(pr_number),
+        "count": 100,  # GraphQL max per request
+    }
+
+    nodes = _paginate_graphql(
+        query=REVIEWS_QUERY,
+        variables=variables,
+        path_to_nodes=["pullRequest", "reviews"],
+        max_items=max_reviews,
+        item_name="reviews",
+    )
+
+    # Convert GraphQL format to REST-like format for compatibility
+    reviews = []
+    for node in nodes:
+        author = node.get("author") or {}
+        reviews.append(
+            {
+                "id": node.get("id"),
+                "user": {"login": author.get("login", "unknown")},
+                "body": node.get("body", ""),
+                "state": node.get("state", "UNKNOWN"),
+                "submitted_at": node.get("submittedAt"),
+            }
+        )
+
+    return reviews
+
+
+def get_review_threads_graphql(pr_number: str) -> list[dict[str, Any]]:
+    """Fetch the latest review threads with resolution status using GraphQL API.
+
+    The REST API doesn't expose thread resolution status, so we use GraphQL.
+    Uses `last` to fetch the most recent threads first, ensuring we get the
+    latest discussions rather than the oldest ones.
+
+    Note: This query fetches up to 100 review threads per page, each with
+    up to 50 comments. For PRs exceeding these limits, older threads/comments
+    may be omitted. We paginate through threads but not through comments
+    within threads.
+
+    Returns a list of thread objects containing:
+    - id: Thread ID
+    - isResolved: Whether the thread is resolved
+    - isOutdated: Whether the thread is outdated (code changed)
+    - path: File path
+    - line: Line number
+    - comments: List of comments in the thread (up to 50 per thread)
+    """
+    repo = _get_required_env("REPO_NAME")
+    owner, repo_name = repo.split("/")
+
+    variables = {
+        "owner": owner,
+        "repo": repo_name,
+        "pr_number": int(pr_number),
+    }
+
+    return _paginate_graphql(
+        query=THREADS_QUERY,
+        variables=variables,
+        path_to_nodes=["pullRequest", "reviewThreads"],
+        item_name="review threads",
+    )
+
+
+def format_review_context(
+    reviews: list[dict[str, Any]],
+    threads: list[dict[str, Any]],
+    max_size: int = MAX_REVIEW_CONTEXT,
+) -> str:
+    """Format review history into a context string for the agent.
+
+    Args:
+        reviews: List of review objects from get_pr_reviews()
+        threads: List of thread objects from get_review_threads_graphql()
+        max_size: Maximum size of the formatted context
+
+    Returns:
+        Formatted markdown string with review history
+    """
+    if not reviews and not threads:
+        return ""
+
+    sections: list[str] = []
+    current_size = 0
+
+    def _add_section(section: str) -> bool:
+        """Add a section if it fits within max_size. Returns True if added."""
+        nonlocal current_size
+        section_size = len(section) + 1  # +1 for newline separator
+        if current_size + section_size > max_size:
+            return False
+        sections.append(section)
+        current_size += section_size
+        return True
+
+    # Format reviews (high-level review decisions)
+    if reviews:
+        review_lines: list[str] = ["### Previous Reviews\n"]
+        for review in reviews:
+            user_data = review.get("user") or {}
+            user = user_data.get("login", "unknown")
+            state = review.get("state") or "UNKNOWN"
+            body = (review.get("body") or "").strip()
+
+            # Map state to emoji for visual clarity
+            state_emoji = {
+                "APPROVED": "✅",
+                "CHANGES_REQUESTED": "🔴",
+                "COMMENTED": "💬",
+                "DISMISSED": "❌",
+                "PENDING": "⏳",
+            }.get(state, "❓")
+
+            review_lines.append(f"- {state_emoji} **{user}** ({state})")
+            if body:
+                # Indent the body and truncate if too long
+                body_preview = body[:500] + "..." if len(body) > 500 else body
+                indented = "\n".join(f"  > {line}" for line in body_preview.split("\n"))
+                review_lines.append(indented)
+            review_lines.append("")
+
+        review_section = "\n".join(review_lines)
+        if not _add_section(review_section):
+            # Even reviews section doesn't fit, return truncation message
+            return (
+                f"... [review context truncated, "
+                f"content exceeds {max_size:,} chars] ..."
+            )
+
+    # Format review threads with resolution status
+    if threads:
+        resolved_threads = [t for t in threads if t.get("isResolved")]
+        unresolved_threads = [t for t in threads if not t.get("isResolved")]
+
+        # Unresolved threads (higher priority)
+        if unresolved_threads:
+            header = (
+                "### Unresolved Review Threads\n\n"
+                "*These threads have not been resolved and may need attention:*\n"
+            )
+            if not _add_section(header):
+                count = len(unresolved_threads)
+                sections.append(
+                    f"\n... [truncated, {count} unresolved threads omitted] ..."
+                )
+            else:
+                threads_added = 0
+                for thread in unresolved_threads:
+                    thread_lines = _format_thread(thread)
+                    thread_section = "\n".join(thread_lines)
+                    if not _add_section(thread_section):
+                        remaining = len(unresolved_threads) - threads_added
+                        sections.append(
+                            f"\n... [truncated, {remaining} unresolved "
+                            "threads omitted] ..."
+                        )
+                        break
+                    threads_added += 1
+
+        # Resolved threads (lower priority, add if space remains)
+        if resolved_threads and current_size < max_size:
+            header = (
+                "### Resolved Review Threads\n\n"
+                "*These threads have been resolved but provide context:*\n"
+            )
+            if _add_section(header):
+                threads_added = 0
+                for thread in resolved_threads:
+                    thread_lines = _format_thread(thread)
+                    thread_section = "\n".join(thread_lines)
+                    if not _add_section(thread_section):
+                        remaining = len(resolved_threads) - threads_added
+                        sections.append(
+                            f"\n... [truncated, {remaining} resolved "
+                            "threads omitted] ..."
+                        )
+                        break
+                    threads_added += 1
+
+    return "\n".join(sections)
+
+
+def _is_empty_suggestion_block(body: str) -> bool:
+    """Return True when a suggestion fence contains no visible replacement text."""
+    lines = body.splitlines()
+    return (
+        len(lines) >= 2
+        and lines[0].strip() == "```suggestion"
+        and lines[-1].strip() == "```"
+        and all(not line.strip() for line in lines[1:-1])
+    )
+
+
+def _normalize_review_comment_text(text: str) -> str:
+    """Normalize GitHub review comment text for prompt readability."""
+    normalized_lines = [line.rstrip() for line in text.splitlines()]
+    cleaned_lines: list[str] = []
+    previous_blank = False
+
+    for line in normalized_lines:
+        is_blank = not line.strip()
+        if is_blank:
+            if previous_blank:
+                continue
+            cleaned_lines.append("")
+        else:
+            cleaned_lines.append(line)
+        previous_blank = is_blank
+
+    return "\n".join(cleaned_lines).strip()
+
+
+def _get_review_comment_body(comment: dict[str, Any]) -> str:
+    """Get the best available comment text for review context.
+
+    GitHub stores deletion-only suggestions as an empty ```suggestion``` block in
+    `body`, but exposes the rendered suggestion content in `bodyText`/`bodyHTML`.
+    Prefer the original markdown when it contains real text, and fall back to the
+    normalized plain-text rendering when the raw body would look empty to the agent.
+    """
+    body = _normalize_review_comment_text(comment.get("body") or "")
+    body_text = _normalize_review_comment_text(comment.get("bodyText") or "")
+
+    if not body or _is_empty_suggestion_block(body):
+        return body_text or body
+
+    return body
+
+
+def _format_thread(thread: dict[str, Any]) -> list[str]:
+    """Format a single review thread.
+
+    Args:
+        thread: Thread object from GraphQL
+
+    Returns:
+        List of formatted lines
+    """
+    lines: list[str] = []
+
+    path = thread.get("path", "unknown")
+    line_num = thread.get("line")
+    is_outdated = thread.get("isOutdated", False)
+    is_resolved = thread.get("isResolved", False)
+
+    # Thread header
+    status = "✅ RESOLVED" if is_resolved else "⚠️ UNRESOLVED"
+    outdated = " (outdated)" if is_outdated else ""
+    location = f"{path}"
+    if line_num:
+        location += f":{line_num}"
+
+    lines.append(f"**{location}**{outdated} - {status}")
+
+    # Thread comments
+    comments_data = thread.get("comments") or {}
+    comments = comments_data.get("nodes") or []
+
+    for comment in comments:
+        author_data = comment.get("author") or {}
+        author = author_data.get("login", "unknown")
+        body = _get_review_comment_body(comment)
+
+        if body:
+            # Truncate individual comments if too long
+            body_preview = body[:300] + "..." if len(body) > 300 else body
+            indented = "\n".join(f"  > {line}" for line in body_preview.split("\n"))
+            lines.append(f"  - **{author}**:")
+            lines.append(indented)
+
+    lines.append("")
+    return lines
+
+
+def _fetch_with_fallback(
+    name: str, fetch_fn: Callable[[], list[dict[str, Any]]]
+) -> list[dict[str, Any]]:
+    """Fetch data with error handling and logging.
+
+    Args:
+        name: Name of the data being fetched (for logging)
+        fetch_fn: Function to call to fetch the data
+
+    Returns:
+        Fetched data or empty list on error
+    """
+    try:
+        data = fetch_fn()
+        logger.info(f"Fetched {len(data)} {name}")
+        return data
+    except Exception as e:
+        logger.warning(f"Failed to fetch {name}: {e}")
+        return []
+
+
+def get_pr_review_context(pr_number: str) -> str:
+    """Get all review context for a PR.
+
+    Fetches reviews and review threads, then formats them into a context string.
+
+    Args:
+        pr_number: The PR number
+
+    Returns:
+        Formatted review context string, or empty string if no context
+    """
+    reviews = _fetch_with_fallback("reviews", lambda: get_pr_reviews(pr_number))
+    threads = _fetch_with_fallback(
+        "review threads", lambda: get_review_threads_graphql(pr_number)
+    )
+
+    return format_review_context(reviews, threads)
+
+
+def get_pr_files(pr_number: str) -> list[dict[str, Any]]:
+    """Fetch every file in the PR via the `/pulls/{n}/files` REST endpoint.
+
+    Returns structured per-file metadata (filename, status, +/- counts) plus
+    each file's `patch` text. Paginates with `per_page=100` until the page
+    is short or empty. GitHub caps the response at 3000 files; review of
+    larger PRs is out of scope.
+    """
+    repo = _get_required_env("REPO_NAME")
+    files: list[dict[str, Any]] = []
+    page = 1
+    while True:
+        url = (
+            f"/repos/{repo}/pulls/{pr_number}/files"
+            f"?per_page=100&page={page}"
+        )
+        page_files = _call_github_api(url)
+        if not isinstance(page_files, list) or not page_files:
+            break
+        files.extend(page_files)
+        if len(page_files) < 100:
+            break
+        page += 1
+    return files
+
+
+def _format_file_stats(file: dict[str, Any]) -> str:
+    """Format adds/deletes for a single file: `+12/-3`, `+24`, `-7`, or ``."""
+    additions = file.get("additions", 0) or 0
+    deletions = file.get("deletions", 0) or 0
+    if additions and deletions:
+        return f"+{additions}/-{deletions}"
+    if additions:
+        return f"+{additions}"
+    if deletions:
+        return f"-{deletions}"
+    return ""
+
+
+def _format_file_status(file: dict[str, Any]) -> str:
+    """Map GitHub's status field to a short bracketed tag."""
+    status = (file.get("status") or "").lower()
+    if status == "renamed":
+        previous = file.get("previous_filename") or "?"
+        return f"[renamed from {previous}]"
+    if status in {"added", "modified", "removed", "copied", "changed"}:
+        return f"[{status}]"
+    return f"[{status}]" if status else ""
+
+
+def format_files_manifest(files: list[dict[str, Any]]) -> str:
+    """Build the 'Files Changed' manifest shown before the patch block.
+
+    Invariant: every file in `files` appears exactly once in the output,
+    regardless of patch size or budget. The patch block may abbreviate or
+    omit individual patches; the manifest never does.
+    """
+    if not files:
+        return "## Files Changed\n\n_(no files reported by GitHub)_\n"
+
+    total_additions = sum((f.get("additions") or 0) for f in files)
+    total_deletions = sum((f.get("deletions") or 0) for f in files)
+    header = (
+        f"## Files Changed ({len(files)} files, "
+        f"+{total_additions} / -{total_deletions})\n\n"
+        "All files in the PR are listed here. If a file's patch is missing "
+        "or abbreviated in the Patches section below, read the file from the "
+        "workspace (it is checked out) rather than treating it as absent.\n"
+    )
+
+    lines = [header]
+    for file in files:
+        path = file.get("filename", "?")
+        status = _format_file_status(file)
+        stats = _format_file_stats(file)
+        suffix_parts: list[str] = []
+        if not file.get("patch") and (
+            file.get("additions") or file.get("deletions")
+        ):
+            suffix_parts.append("(binary or unavailable, no patch)")
+        bits = [f"- `{path}`", status, stats, *suffix_parts]
+        lines.append(" ".join(b for b in bits if b))
+
+    return "\n".join(lines) + "\n"
+
+
+def _abbreviate_patch(patch: str, limit: int) -> tuple[str, bool]:
+    """Truncate a single file's patch to `limit` chars on a line boundary.
+
+    Returns `(text, truncated)`. The truncated text ends on a complete line
+    so the closing `[patch abbreviated]` marker isn't dangling mid-line.
+    """
+    if len(patch) <= limit:
+        return patch, False
+    cut = patch.rfind("\n", 0, limit)
+    if cut <= 0:
+        cut = limit
+    return patch[:cut], True
+
+
+def format_patches(
+    files: list[dict[str, Any]],
+    max_total: int = MAX_TOTAL_DIFF,
+    max_per_file: int = MAX_PER_FILE_PATCH,
+) -> str:
+    """Assemble per-file patches into a single diff block within budget.
+
+    Every file gets at least its diff header. Patches are taken from each
+    file's `patch` field (the same text the raw-diff endpoint returns) and
+    abbreviated to `max_per_file` chars; if the running total would exceed
+    `max_total`, later files get a header-only stub. Each abbreviation is
+    annotated inline so the agent can tell "I was given a short patch" from
+    "no patch was given" — both are visible.
+    """
+    sections: list[str] = []
+    total = 0
+    for file in files:
+        path = file.get("filename", "?")
+        previous = file.get("previous_filename")
+        status = (file.get("status") or "").lower()
+        header_lines = [f"diff --git a/{previous or path} b/{path}"]
+        if status == "renamed":
+            header_lines.append(f"rename from {previous}")
+            header_lines.append(f"rename to {path}")
+        if status == "added":
+            header_lines.append("new file")
+        elif status == "removed":
+            header_lines.append("deleted file")
+        header = "\n".join(header_lines) + "\n"
+
+        patch = file.get("patch") or ""
+        remaining_budget = max_total - total
+        if remaining_budget <= len(header):
+            sections.append(
+                header
+                + f"[patch omitted: total budget of {max_total:,} chars reached; "
+                f"read `{path}` from the workspace to inspect]\n"
+            )
+            total += len(sections[-1])
+            continue
+
+        if not patch:
+            note = (
+                "[no patch available — likely a binary file, rename without "
+                "content change, or otherwise unrepresentable as text]\n"
+                if status not in {"added", "removed"}
+                or (file.get("additions") or file.get("deletions"))
+                else ""
+            )
+            sections.append(header + note)
+            total += len(sections[-1])
+            continue
+
+        per_file_cap = min(max_per_file, remaining_budget - len(header))
+        truncated_patch, was_truncated = _abbreviate_patch(patch, per_file_cap)
+        section = header + truncated_patch
+        if not section.endswith("\n"):
+            section += "\n"
+        if was_truncated:
+            section += (
+                f"[patch abbreviated: {len(patch):,} chars total, showing first "
+                f"{len(truncated_patch):,}; read `{path}` from the workspace "
+                "to inspect the rest]\n"
+            )
+        sections.append(section)
+        total += len(section)
+
+    return "\n".join(sections)
+
+
+def get_pr_diff_payload(pr_number: str) -> tuple[str, str]:
+    """Fetch PR files and produce `(manifest, patches)` for the prompt.
+
+    The manifest is rendered as markdown above the patch fence so the agent
+    always sees the complete file list, even when individual patches are
+    abbreviated. The patches string is what goes inside the ```diff fence.
+    """
+    files = get_pr_files(pr_number)
+    logger.info(f"Fetched {len(files)} files for PR #{pr_number}")
+    manifest = format_files_manifest(files)
+    patches = format_patches(files)
+    return manifest, patches
+
+
+def get_head_commit_sha(repo_dir: Path | None = None) -> str:
+    """
+    Get the SHA of the HEAD commit.
+
+    Args:
+        repo_dir: Path to the repository (defaults to cwd)
+
+    Returns:
+        The commit SHA
+    """
+    if repo_dir is None:
+        repo_dir = Path.cwd()
+    return run_git_command(["git", "rev-parse", "HEAD"], repo_dir).strip()
+
+
+def validate_environment() -> dict[str, Any]:
+    """Validate required environment variables and return config.
+
+    Returns:
+        Dictionary with validated environment variables
+
+    Raises:
+        SystemExit if required variables are missing
+    """
+    required_vars = [
+        "GITHUB_TOKEN",
+        "PR_NUMBER",
+        "PR_TITLE",
+        "PR_BASE_BRANCH",
+        "PR_HEAD_BRANCH",
+        "REPO_NAME",
+    ]
+    missing_vars = [var for var in required_vars if not os.getenv(var)]
+    if missing_vars:
+        logger.error(f"Missing required environment variables: {missing_vars}")
+        sys.exit(1)
+
+    agent_kind = os.getenv("AGENT_KIND", "openhands")
+    if agent_kind not in ("openhands", "acp"):
+        logger.error("AGENT_KIND must be 'openhands' or 'acp'")
+        sys.exit(1)
+
+    api_key = os.getenv("LLM_API_KEY")
+    if agent_kind == "openhands" and not api_key:
+        logger.error(
+            "LLM_API_KEY is required when AGENT_KIND is 'openhands'"
+        )
+        sys.exit(1)
+
+    use_sub_agents = _get_bool_env("USE_SUB_AGENTS")
+    if agent_kind == "acp" and use_sub_agents:
+        logger.info(
+            "Sub-agent delegation is disabled in ACP mode because delegation "
+            "depends on OpenHands agent runtime details such as TaskToolSet, "
+            "agent registration, and tool routing that ACP servers do not "
+            "expose consistently."
+        )
+        use_sub_agents = False
+
+    try:
+        acp_prompt_timeout = float(
+            os.getenv("ACP_PROMPT_TIMEOUT", str(DEFAULT_ACP_PROMPT_TIMEOUT_SECONDS))
+        )
+    except ValueError:
+        logger.error("ACP_PROMPT_TIMEOUT must be a number")
+        sys.exit(1)
+
+    return {
+        "agent_kind": agent_kind,
+        "acp_command": os.getenv("ACP_COMMAND", ""),
+        "acp_prompt_timeout": acp_prompt_timeout,
+        "api_key": api_key,
+        "github_token": os.getenv("GITHUB_TOKEN"),
+        "model": os.getenv("LLM_MODEL", "anthropic/claude-sonnet-4-5-20250929"),
+        "base_url": os.getenv("LLM_BASE_URL"),
+        "require_evidence": _get_bool_env("REQUIRE_EVIDENCE"),
+        "collect_feedback": _get_bool_env("COLLECT_FEEDBACK"),
+        "review_run_url": os.getenv("REVIEW_RUN_URL", ""),
+        "use_sub_agents": use_sub_agents,
+        "load_public_skills": _get_bool_env("LOAD_PUBLIC_SKILLS", default=True),
+        "pr_info": {
+            "number": os.getenv("PR_NUMBER"),
+            "title": os.getenv("PR_TITLE"),
+            "body": os.getenv("PR_BODY", ""),
+            "repo_name": os.getenv("REPO_NAME"),
+            "base_branch": os.getenv("PR_BASE_BRANCH"),
+            "head_branch": os.getenv("PR_HEAD_BRANCH"),
+        },
+    }
+
+
+def fetch_pr_context(pr_number: str) -> tuple[str, str, str, str]:
+    """Fetch PR manifest, patches, commit SHA, and review context.
+
+    Returns:
+        Tuple of (manifest, patches, commit_id, review_context).
+        `manifest` is the markdown 'Files Changed' block; `patches` is the
+        per-file diff text to render inside the ```diff fence.
+    """
+    manifest, patches = get_pr_diff_payload(pr_number)
+    logger.info(
+        f"Got PR diff: manifest {len(manifest)} chars, "
+        f"patches {len(patches)} chars"
+    )
+
+    commit_id = get_head_commit_sha()
+    logger.info(f"HEAD commit SHA: {commit_id}")
+
+    review_context = get_pr_review_context(pr_number)
+    if review_context:
+        logger.info(f"Got review context with {len(review_context)} characters")
+    else:
+        logger.info("No previous review context found")
+
+    return manifest, patches, commit_id, review_context
+
+
+def _create_file_reviewer_agent(llm: LLM) -> Agent:
+    """Factory for file_reviewer sub-agents used during delegation.
+
+    Each sub-agent receives a skill that defines its review persona and
+    expected output format.  It has read-only terminal and file_editor
+    access so it can inspect surrounding code context in the PR repo,
+    but the coordinator handles all GitHub API interaction.
+    """
+    skills = [
+        Skill(
+            name="file_review_instructions",
+            content=FILE_REVIEWER_SKILL,
+            trigger=None,
+        ),
+    ]
+    return Agent(
+        llm=llm,
+        tools=[
+            Tool(name="terminal"),
+            Tool(name="file_editor"),
+        ],
+        agent_context=AgentContext(skills=skills),
+    )
+
+
+def _register_sub_agents() -> None:
+    """Register the file_reviewer agent type.
+
+    TaskToolSet auto-registers on import, so no explicit
+    ``register_tool()`` call is needed.
+    """
+    register_agent(
+        name="file_reviewer",
+        factory_func=_create_file_reviewer_agent,
+        description=(
+            "Reviews one or more files from a PR diff and returns structured "
+            "findings as a JSON array."
+        ),
+    )
+
+
+def create_conversation(
+    config: dict[str, Any],
+    secrets: dict[str, str],
+) -> Conversation:
+    """Create the review conversation with the plugin loaded.
+
+    The pr-review plugin is passed to Conversation via PluginSource, which
+    handles wiring skills, MCP config, and hooks automatically.
+    Project-specific skills from the workspace are loaded separately.
+
+    When ``config["use_sub_agents"]`` is True the coordinator agent is
+    given the TaskToolSet so it can delegate to file_reviewer sub-agents.
+
+    Args:
+        config: Configuration dictionary from validate_environment()
+        secrets: Secrets to mask in output
+
+    Returns:
+        Configured Conversation instance
+    """
+    # Load project-specific skills from the workspace
+    cwd = os.getcwd()
+    project_skills = load_project_skills(cwd)
+    logger.info(
+        f"Loaded {len(project_skills)} project skills: "
+        f"{[s.name for s in project_skills]}"
+    )
+    load_public_skills = config.get("load_public_skills", True)
+    logger.info("Load public skills: %s", load_public_skills)
+
+    agent_context = AgentContext(
+        load_public_skills=load_public_skills,
+        skills=project_skills,
+    )
+
+    plugin_dir = script_dir.parent  # plugins/pr-review/
+
+    if config["agent_kind"] == "acp":
+        from openhands.sdk.agent import ACPAgent
+
+        acp_command = shlex.split(config["acp_command"])
+        if not acp_command:
+            raise ValueError("ACP_COMMAND must not be empty")
+        logger.info(
+            "Using ACP review agent with command: %s",
+            " ".join(shlex.quote(part) for part in acp_command),
+        )
+        agent = ACPAgent(
+            acp_command=acp_command,
+            acp_model=config["model"],
+            acp_prompt_timeout=config["acp_prompt_timeout"],
+            agent_context=agent_context,
+        )
+        return Conversation(
+            agent=agent,
+            workspace=cwd,
+            secrets=secrets,
+            plugins=[PluginSource(source=str(plugin_dir))],
+        )
+
+    llm_config: dict[str, Any] = {
+        "model": config["model"],
+        "api_key": config["api_key"],
+        "usage_id": "pr_review_agent",
+        "drop_params": True,
+    }
+    if config["base_url"]:
+        llm_config["base_url"] = config["base_url"]
+
+    llm = LLM(**llm_config)
+
+    tools = get_default_tools(enable_browser=False)
+
+    use_sub_agents = config.get("use_sub_agents", False)
+    if use_sub_agents:
+        _register_sub_agents()
+        tools.append(Tool(name=TaskToolSet.name))
+        logger.info("Sub-agent delegation enabled — TaskToolSet added")
+
+    # When sub-agents are enabled, allow the coordinator to launch
+    # multiple file_reviewer sub-agents concurrently via TaskToolSet.
+    concurrency_kwargs: dict[str, int] = {}
+    if use_sub_agents:
+        concurrency_kwargs["tool_concurrency_limit"] = 4
+
+    agent = Agent(
+        llm=llm,
+        tools=tools,
+        agent_context=agent_context,
+        system_prompt_kwargs={"cli_mode": True},
+        condenser=get_default_condenser(
+            llm=llm.model_copy(update={"usage_id": "condenser"})
+        ),
+        **concurrency_kwargs,
+    )
+
+    conversation_kwargs: dict[str, Any] = {
+        "agent": agent,
+        "workspace": cwd,
+        "secrets": secrets,
+        "plugins": [PluginSource(source=str(plugin_dir))],
+    }
+    if use_sub_agents:
+        conversation_kwargs["visualizer"] = DelegationVisualizer(
+            name="PR Review Coordinator"
+        )
+
+    return Conversation(**conversation_kwargs)
+
+
+def run_review(
+    conversation: Conversation,
+    prompt: str,
+) -> Conversation:
+    """Execute the PR review.
+
+    Args:
+        conversation: Configured Conversation instance
+        prompt: Review prompt
+
+    Returns:
+        Completed Conversation
+    """
+    logger.info("Starting PR review analysis...")
+    logger.info("Agent will post inline review comments directly via GitHub API")
+
+    conversation.send_message(prompt)
+    conversation.run()
+
+    review_content = get_agent_final_response(conversation.state.events)
+    if review_content:
+        logger.info(f"Agent final response: {len(review_content)} characters")
+
+    return conversation
+
+
+def log_cost_summary(conversation: Conversation) -> None:
+    """Print cost information for CI output."""
+    metrics = conversation.conversation_stats.get_combined_metrics()
+    print("\n=== PR Review Cost Summary ===")
+    print(f"Total Cost: ${metrics.accumulated_cost:.6f}")
+    if metrics.accumulated_token_usage:
+        token_usage = metrics.accumulated_token_usage
+        print(f"Prompt Tokens: {token_usage.prompt_tokens}")
+        print(f"Completion Tokens: {token_usage.completion_tokens}")
+        if token_usage.cache_read_tokens > 0:
+            print(f"Cache Read Tokens: {token_usage.cache_read_tokens}")
+        if token_usage.cache_write_tokens > 0:
+            print(f"Cache Write Tokens: {token_usage.cache_write_tokens}")
+
+
+def save_trace_context(
+    pr_info: dict[str, Any],
+    commit_id: str,
+    model: str,
+) -> None:
+    """Capture and store Laminar trace context for evaluation.
+
+    Saves trace info to file for GitHub artifact upload, enabling
+    the evaluation workflow to continue the trace.
+    """
+    trace_id = Laminar.get_trace_id()
+    laminar_span_context = Laminar.get_laminar_span_context()
+    span_context = (
+        laminar_span_context.model_dump(mode="json") if laminar_span_context else None
+    )
+
+    if not trace_id or not laminar_span_context:
+        logger.warning(
+            "No Laminar trace ID found - observability may not be enabled"
+        )
+        return
+
+    with Laminar.start_as_current_span(
+        name="pr-review-metadata",
+        parent_span_context=laminar_span_context,
+    ) as _:
+        pr_url = f"https://github.com/{pr_info['repo_name']}/pull/{pr_info['number']}"
+        Laminar.set_trace_metadata(
+            {
+                "pr_number": pr_info["number"],
+                "repo_name": pr_info["repo_name"],
+                "pr_url": pr_url,
+                "workflow_phase": "review",
+                "model": model,
+            }
+        )
+
+    trace_data = {
+        "trace_id": str(trace_id),
+        "span_context": span_context,
+        "pr_number": pr_info["number"],
+        "repo_name": pr_info["repo_name"],
+        "commit_id": commit_id,
+        "model": model,
+    }
+    with open("laminar_trace_info.json", "w") as f:
+        json.dump(trace_data, f, indent=2)
+
+    logger.info(f"Laminar trace ID: {trace_id}")
+    logger.info(f"Model used: {model}")
+    if span_context:
+        logger.info("Laminar span context captured for trace continuation")
+    print("\n=== Laminar Trace ===")
+    print(f"Trace ID: {trace_id}")
+
+    Laminar.flush()
+
+
+def main():
+    """Run the PR review agent."""
+    logger.info("Starting PR review process...")
+
+    config = validate_environment()
+    pr_info = config["pr_info"]
+    require_evidence = config["require_evidence"]
+    collect_feedback = config["collect_feedback"]
+    use_sub_agents = config["use_sub_agents"]
+
+    logger.info(f"Reviewing PR #{pr_info['number']}: {pr_info['title']}")
+    logger.info(f"Require PR evidence: {require_evidence}")
+    logger.info(f"Collect review feedback: {collect_feedback}")
+    logger.info(f"Sub-agent delegation: {use_sub_agents}")
+    logger.info(f"Agent kind: {config['agent_kind']}")
+
+    try:
+        manifest, patches, commit_id, review_context = fetch_pr_context(
+            pr_info["number"]
+        )
+
+        skill_trigger = "/codereview"
+        logger.info(f"Using skill trigger: {skill_trigger}")
+
+        prompt = format_prompt(
+            skill_trigger=skill_trigger,
+            title=pr_info.get("title", "N/A"),
+            body=pr_info.get("body") or "No description provided",
+            repo_name=pr_info.get("repo_name", "N/A"),
+            base_branch=pr_info.get("base_branch", "main"),
+            head_branch=pr_info.get("head_branch", "N/A"),
+            pr_number=pr_info["number"],
+            commit_id=commit_id,
+            diff=patches,
+            files_manifest=manifest,
+            review_context=review_context,
+            require_evidence=require_evidence,
+            collect_feedback=collect_feedback,
+            review_run_url=config["review_run_url"],
+            use_sub_agents=use_sub_agents,
+        )
+
+        secrets = {}
+        if config["api_key"]:
+            secrets["LLM_API_KEY"] = config["api_key"]
+        if config["github_token"]:
+            secrets["GITHUB_TOKEN"] = config["github_token"]
+
+        conversation = create_conversation(config, secrets)
+        conversation = run_review(conversation, prompt)
+
+        log_cost_summary(conversation)
+        save_trace_context(pr_info, commit_id, config["model"])
+
+        logger.info("PR review completed successfully")
+
+    except Exception as e:
+        logger.error(f"PR review failed: {e}")
+        sys.exit(1)
+
+
+if __name__ == "__main__":
+    main()

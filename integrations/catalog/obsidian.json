@@ -1,0 +1,43 @@
+{
+  "id": "obsidian",
+  "name": "Obsidian",
+  "description": "Read and edit Markdown notes inside an Obsidian vault on the local disk.",
+  "docsUrl": "https://github.com/MarkusPfundstein/mcp-obsidian",
+  "iconBg": "#7C3AED",
+  "keywords": [
+    "notes",
+    "knowledge",
+    "markdown",
+    "vault"
+  ],
+  "kind": "mcp",
+  "runtimeAvailability": "local",
+  "defaultConnectionOptionId": "api",
+  "connectionOptions": [
+    {
+      "id": "api",
+      "provider": "mcp",
+      "transport": {
+        "kind": "stdio",
+        "serverName": "obsidian",
+        "command": "uvx",
+        "args": [
+          "mcp-obsidian"
+        ],
+        "envFields": [
+          {
+            "key": "OBSIDIAN_API_KEY",
+            "label": "Local REST API key",
+            "type": "password",
+            "required": true,
+            "helperText": "From the Obsidian 'Local REST API' community plugin.",
+            "helperLink": "https://github.com/coddingtonbear/obsidian-local-rest-api"
+          }
+        ]
+      },
+      "auth": {
+        "strategy": "api_key"
+      }
+    }
+  ]
+}

@@ -1,0 +1,32 @@
+{
+  "id": "linear",
+  "name": "Linear",
+  "description": "Browse and update Linear issues, cycles, and projects from the agent.",
+  "docsUrl": "https://linear.app/changelog/2025-05-01-mcp",
+  "iconBg": "#5E6AD2",
+  "keywords": [
+    "issues",
+    "project management",
+    "tasks",
+    "tickets"
+  ],
+  "popularityRank": 86,
+  "installHint": "Linear's hosted MCP server uses your Linear OAuth login — no key required.",
+  "kind": "mcp",
+  "defaultConnectionOptionId": "none",
+  "connectionOptions": [
+    {
+      "id": "none",
+      "provider": "mcp",
+      "transport": {
+        "kind": "sse",
+        "url": "https://mcp.linear.app/sse",
+        "apiKeyOptional": true
+      },
+      "auth": {
+        "strategy": "none",
+        "apiKeyOptional": true
+      }
+    }
+  ]
+}

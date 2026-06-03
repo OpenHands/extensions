@@ -1,0 +1,18 @@
+{
+  "name": "agent-sdk-builder",
+  "version": "1.0.0",
+  "description": "Guided workflow for building custom AI agents using the OpenHands Software Agent SDK. Use when you want to create a new agent through an interactive interview process that gathers requirements and ...",
+  "author": {
+    "name": "OpenHands",
+    "email": "contact@all-hands.dev"
+  },
+  "homepage": "https://github.com/OpenHands/extensions",
+  "repository": "https://github.com/OpenHands/extensions",
+  "license": "MIT",
+  "keywords": [
+    "agent",
+    "sdk",
+    "builder",
+    "openhands"
+  ]
+}

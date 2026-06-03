@@ -47,6 +47,7 @@ git checkout -b create-widget && git add . && git commit -m "Create widget" && g
 - Before resolving a thread, leave a reply comment that either explains the reason for dismissing the feedback or references the specific commit (e.g., commit SHA) that addressed the issue.
 - Prefer resolving threads only once fixes are pushed or a clear decision is documented.
 - Use the GitHub GraphQL API to reply to and resolve review threads (see below).
+- After making changes to a PR, verify the title and description still match the content. Update them if the scope, features, or intent changed.
 
 ## Resolving Review Threads via GraphQL
 

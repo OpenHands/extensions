@@ -1,0 +1,18 @@
+{
+  "name": "github-pr-review",
+  "version": "1.0.0",
+  "description": "Post structured PR reviews to GitHub with inline comments/suggestions in a single API call.",
+  "author": {
+    "name": "OpenHands",
+    "email": "contact@all-hands.dev"
+  },
+  "homepage": "https://github.com/OpenHands/extensions",
+  "repository": "https://github.com/OpenHands/extensions",
+  "license": "MIT",
+  "keywords": [
+    "github",
+    "pull-request",
+    "review",
+    "code-review"
+  ]
+}

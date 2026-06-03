@@ -1,0 +1,31 @@
+{
+  "id": "cloudflare-builds",
+  "name": "Cloudflare Builds",
+  "description": "Inspect Workers Builds — logs, statuses, and rerun failed deploys.",
+  "docsUrl": "https://developers.cloudflare.com/agents/model-context-protocol/",
+  "iconBg": "#F38020",
+  "keywords": [
+    "cloudflare",
+    "workers",
+    "ci",
+    "builds",
+    "deploys"
+  ],
+  "kind": "mcp",
+  "defaultConnectionOptionId": "none",
+  "connectionOptions": [
+    {
+      "id": "none",
+      "provider": "mcp",
+      "transport": {
+        "kind": "sse",
+        "url": "https://builds.mcp.cloudflare.com/sse",
+        "apiKeyOptional": true
+      },
+      "auth": {
+        "strategy": "none",
+        "apiKeyOptional": true
+      }
+    }
+  ]
+}

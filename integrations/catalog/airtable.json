@@ -1,0 +1,44 @@
+{
+  "id": "airtable",
+  "name": "Airtable",
+  "description": "List bases, query records, and update fields across your Airtable workspace.",
+  "docsUrl": "https://github.com/domdomegg/airtable-mcp-server",
+  "iconBg": "#FCB400",
+  "iconColor": "var(--oh-surface-deep)",
+  "keywords": [
+    "spreadsheet",
+    "database",
+    "records",
+    "bases"
+  ],
+  "kind": "mcp",
+  "defaultConnectionOptionId": "api",
+  "connectionOptions": [
+    {
+      "id": "api",
+      "provider": "mcp",
+      "transport": {
+        "kind": "stdio",
+        "serverName": "airtable",
+        "command": "npx",
+        "args": [
+          "-y",
+          "airtable-mcp-server"
+        ],
+        "envFields": [
+          {
+            "key": "AIRTABLE_API_KEY",
+            "label": "Airtable personal access token",
+            "type": "password",
+            "required": true,
+            "helperText": "Personal access token from your Airtable account.",
+            "helperLink": "https://airtable.com/create/tokens"
+          }
+        ]
+      },
+      "auth": {
+        "strategy": "api_key"
+      }
+    }
+  ]
+}

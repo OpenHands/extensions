@@ -1,0 +1,76 @@
+---
+name: Generate Release Notes
+
+on:
+    # Trigger on release tags matching semver pattern
+    push:
+        tags:
+            - 'v[0-9]+.[0-9]+.[0-9]+*'
+
+    # Allow manual triggering with tag input
+    workflow_dispatch:
+        inputs:
+            tag:
+                description: 'The release tag to generate notes for'
+                required: true
+                type: string
+            previous-tag:
+                description: 'Override automatic detection of previous release tag'
+                required: false
+                type: string
+            include-internal:
+                description: 'Include internal/infrastructure changes'
+                required: false
+                type: boolean
+                default: false
+
+permissions:
+    contents: write
+
+jobs:
+    generate-release-notes:
+        runs-on: ubuntu-latest
+        steps:
+            - name: Checkout repository
+              uses: actions/checkout@v4
+              with:
+                  fetch-depth: 0  # Full history for tag comparison
+
+            - name: Determine tag
+              id: get-tag
+              run: |
+                  if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+                    echo "tag=${{ github.event.inputs.tag }}" >> $GITHUB_OUTPUT
+                  else
+                    echo "tag=${{ github.ref_name }}" >> $GITHUB_OUTPUT
+                  fi
+
+            - name: Generate Release Notes
+              id: release-notes
+              uses: OpenHands/extensions/plugins/release-notes@main
+              with:
+                  tag: ${{ steps.get-tag.outputs.tag }}
+                  previous-tag: ${{ github.event.inputs.previous-tag || '' }}
+                  include-internal: ${{ github.event.inputs.include-internal || 'false' }}
+                  output-format: release
+                  llm-api-key: ${{ secrets.LLM_API_KEY }}
+                  github-token: ${{ secrets.GITHUB_TOKEN }}
+
+            - name: Display generated notes
+              run: |
+                  echo "## Release Notes for ${{ steps.get-tag.outputs.tag }}"
+                  echo ""
+                  echo "Previous tag: ${{ steps.release-notes.outputs.previous-tag }}"
+                  echo "Commits: ${{ steps.release-notes.outputs.commit-count }}"
+                  echo "Contributors: ${{ steps.release-notes.outputs.contributor-count }}"
+                  echo "New contributors: ${{ steps.release-notes.outputs.new-contributor-count }}"
+                  echo ""
+                  echo "---"
+                  cat release_notes.md
+
+            - name: Upload release notes artifact
+              uses: actions/upload-artifact@v4
+              with:
+                  name: release-notes-${{ steps.get-tag.outputs.tag }}
+                  path: release_notes.md
+                  retention-days: 30

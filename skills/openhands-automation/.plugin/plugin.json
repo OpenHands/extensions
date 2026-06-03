@@ -1,0 +1,19 @@
+{
+  "name": "openhands-automation",
+  "version": "1.0.0",
+  "description": "Create and manage OpenHands automations - scheduled tasks that run in sandboxes. Use the prompt preset to create automations from natural language, or manage existing automations.",
+  "author": {
+    "name": "OpenHands",
+    "email": "contact@all-hands.dev"
+  },
+  "homepage": "https://github.com/OpenHands/extensions",
+  "repository": "https://github.com/OpenHands/extensions",
+  "license": "MIT",
+  "keywords": [
+    "automation",
+    "cron",
+    "scheduled-task",
+    "sandbox",
+    "openhands"
+  ]
+}
