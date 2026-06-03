@@ -198,7 +198,7 @@ With < 10 channels polled every minute:
 | Method | Tier | Calls/min | Headroom |
 |--------|------|-----------|---------|
 | `conversations.history` | Tier 3 | ≤ 10 | Comfortable |
-| `conversations.replies` | Tier 3 | ≤ active threads | Fine unless hundreds of threads |
+| `conversations.replies` | Tier 3 | ≤ tracked threads | One call per known thread per channel (capped at `MAX_KNOWN_THREADS_PER_CHANNEL = 50`); fine for typical setups |
 | `search.messages` | Tier 2 | 1 | Fine |
 | `reactions.add` | Tier 2 | ≤ triggers/min | Fine |
 | `chat.postMessage` | Tier 3 | ≤ triggers + summaries | Fine |
