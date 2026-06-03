@@ -158,7 +158,7 @@ If you need to iterate on an action and its consumer together, point `uses:` at 
 2. **`GITHUB_TOKEN` permissions** — defaults can be read-only. Set `permissions:` explicitly at the workflow or job level.
 3. **`pull_request` vs `pull_request_target`** — `pull_request` runs in the fork's context (no secrets); `pull_request_target` runs with repo secrets against the base — **dangerous** if you check out PR code and execute it. Don't.
 4. **Secrets in fork PRs** — even non-`*_target` workflows hide secrets from forks. Don't design workflows that require secrets to run on community PRs.
-5. **New trigger types don't take effect until merged** — a `schedule:` or `workflow_dispatch:` trigger added in a PR only fires after merge; `pull_request`-triggered workflows do run on the PR that introduces them.
+5. **`schedule:` triggers only fire from the default branch** — a `schedule:` trigger added in a PR only fires after it lands on the default branch; `workflow_dispatch` similarly won't appear in the Actions tab UI until merged to default (though it can be triggered via API on any branch); `pull_request`-triggered workflows do run on the PR that introduces them.
 6. **Path filters are OR, not AND** — any matching path triggers; you can't require all paths.
 7. **Matrix `fail-fast: true`** (default) cancels other matrix legs on first failure — turn off when you need full coverage.
 8. **Artifacts** — files don't persist between jobs unless uploaded via `actions/upload-artifact` and downloaded in the consuming job.
