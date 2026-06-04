@@ -85,34 +85,8 @@ jobs:
           fi
           echo "✓ Version $PACKAGE_VERSION matches release tag"
 
-      # Determine if any full stable release (no pre-release suffix) has ever been
-      # published. Until one exists, all releases use --tag latest so plain
-      # `npm install @openhands/extensions` always resolves to the newest build.
-      # Once a stable version is published, pre-release versions revert to their
-      # own dist-tags (alpha / beta / rc) and only stable versions keep latest.
-      - name: Resolve npm dist-tag
-        id: dist_tag
-        run: |
-          VERSION=$(node -p "require('./package.json').version")
-          VERSIONS_JSON=$(npm view @openhands/extensions versions --json 2>/dev/null || echo "[]")
-          STABLE_EXISTS=$(VERSIONS_JSON="$VERSIONS_JSON" node -e "
-            const vs = JSON.parse(process.env.VERSIONS_JSON);
-            const arr = Array.isArray(vs) ? vs : [vs];
-            console.log(arr.some(v => !v.includes('-')));
-          ")
-          if [[ "$STABLE_EXISTS" != "true" ]]; then
-            DIST_TAG="latest"
-          elif [[ "$VERSION" == *-alpha* ]]; then
-            DIST_TAG="alpha"
-          elif [[ "$VERSION" == *-beta* ]]; then
-            DIST_TAG="beta"
-          elif [[ "$VERSION" == *-rc* ]]; then
-            DIST_TAG="rc"
-          else
-            DIST_TAG="latest"
-          fi
-          echo "dist_tag=$DIST_TAG" >> "$GITHUB_OUTPUT"
-          echo "📦 Version $VERSION → dist-tag: $DIST_TAG (stable release exists: $STABLE_EXISTS)"
-
+      # release-please only cuts stable SemVer releases (no alpha/beta/rc), so
+      # every publish goes to npm's default `latest` dist-tag. If a pre-release
+      # flow is added later, reintroduce dist-tag resolution here.
       - name: Publish to npm with provenance
-        run: npm publish --access public --provenance --tag ${{ steps.dist_tag.outputs.dist_tag }}
+        run: npm publish --access public --provenance
