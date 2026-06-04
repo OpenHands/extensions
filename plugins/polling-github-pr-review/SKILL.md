@@ -2,9 +2,10 @@
 name: polling-github-pr-review
 description: >
   Deploy a cron automation that polls a GitHub repository every 5 minutes for
-  new labeled pull requests and automatically starts an OpenHands code review
-  conversation for each one. Use when you want automated PR code review triggered
-  by a label, without needing a publicly reachable webhook endpoint.
+  pull requests that have moved to an Open status (newly opened or reopened)
+  and automatically starts an OpenHands code review conversation for each one.
+  Label filtering is optional. Use when you want automated PR code review
+  without needing a publicly reachable webhook endpoint.
 triggers:
   - poll github pr review
   - automated pull request code review
@@ -15,10 +16,10 @@ triggers:
 
 Sets up a cron automation (every 5 minutes) that:
 
-1. Polls the configured GitHub repository for open pull requests carrying a specific label.
-2. Filters to only PRs created since the previous automation run.
-3. Starts a new OpenHands conversation for each matching PR to perform a code review using the configured skill.
-4. On the first run, records a baseline timestamp and exits cleanly (no reviews are triggered for pre-existing PRs).
+1. Fetches the current set of open pull requests in the configured repository (filtered by label if one is provided).
+2. Diffs against the set of open PRs recorded in the previous run to find PRs that have moved to an Open status - this catches both newly created PRs and PRs that were closed and then reopened.
+3. Starts a new OpenHands conversation for each such PR to perform a code review using the configured skill.
+4. On the first run, snapshots the current set of open PRs as a baseline and exits cleanly (no reviews are triggered for pre-existing PRs).
 
 > **Note:** This automation uses polling rather than webhooks, so it works in all deployment modes including local setups without a publicly reachable URL.
 
@@ -80,9 +81,11 @@ Record as `REPO`.
 
 ---
 
-**Question 2:** *"What pull request label should trigger a code review? Only PRs carrying this label will be reviewed. (e.g. `needs-review`, `review-requested`, `ai-review`)"*
+**Question 2 (optional):** *"Should the automation only review PRs with a specific label? Enter a label name (e.g. `needs-review`, `ai-review`) or press Enter to review all newly-opened PRs regardless of label."*
 
-Record as `LABEL`.
+If the user provides a label, record it as `LABEL`. If they skip (press Enter or say "no"), set `LABEL` to an empty string `""`.
+
+Record as `LABEL`. Default: `""` (empty - no label filter).
 
 ---
 
@@ -101,7 +104,7 @@ Read `scripts/main.py` from this plugin's directory. Apply exactly three constan
 | Placeholder | Replace with |
 |---|---|
 | `REPO = "owner/repo"` | `REPO = "{user_repo}"` |
-| `LABEL = "needs-review"` | `LABEL = "{user_label}"` |
+| `LABEL = ""` | `LABEL = "{user_label}"` (use `""` if the user skipped the label question) |
 | `CODE_REVIEW_SKILL = (...)` the full multi-line string | `CODE_REVIEW_SKILL = "{user_skill_url}"` |
 
 Write the customized script to a temporary build directory:
@@ -128,11 +131,12 @@ Present the key automation details to the user and confirm they are ready to dep
 > **Automation summary:**
 >
 > - Repository: `{owner}/{repo}`
-> - Label filter: `{label}`
+> - Label filter: `{label}` (or "none - all newly-opened PRs" if LABEL is empty)
+> - Detection: PRs that move to Open status (newly created or reopened) since the previous run
 > - Code review skill: `{skill_url}`
 > - Schedule: every 5 minutes (`*/5 * * * *`)
 > - Required secret: `GITHUB_PERSONAL_ACCESS_TOKEN`
-> - First run behavior: records a baseline timestamp, no reviews triggered
+> - First run behavior: snapshots current open PRs as baseline, no reviews triggered
 >
 > Ready to deploy?
 
@@ -195,15 +199,16 @@ Tell the user:
 >
 > - Automation ID: `{id}`
 > - Repository: `{owner}/{repo}`
-> - Label filter: `{label}`
+> - Label filter: `{label}` (or "none - all newly-opened PRs")
+> - Detection: PRs that move to Open status since the previous run
 > - Code review skill: `{skill_url}`
 > - Schedule: every 5 minutes (`*/5 * * * *`)
 > - Required secret: `GITHUB_PERSONAL_ACCESS_TOKEN`
 > - State file: `{workspace}/automation-state/github_pr_poller_{id}.json`
 >
-> **First run:** The automation will record a baseline timestamp and exit without triggering any reviews. Reviews will begin on the second run (approximately 5 minutes later).
+> **First run:** The automation will snapshot the current set of open PRs as a baseline and exit without triggering any reviews. Reviews will begin on the second run (approximately 5 minutes later).
 >
-> To test, open a new pull request in `{owner}/{repo}` and add the `{label}` label. The automation will pick it up within 5 minutes.
+> To test, open a new pull request in `{owner}/{repo}` (with the `{label}` label if configured). The automation will pick it up within 5 minutes.
 
 ---
 
@@ -212,14 +217,14 @@ Tell the user:
 Each cron run executes `main.py`, which:
 
 1. **Reads state** from `automation-state/github_pr_poller_{id}.json`.
-2. **First run guard:** if `last_run_ts` is absent, writes the current timestamp and exits with code 0 (no reviews triggered).
-3. **Fetches the `GITHUB_PERSONAL_ACCESS_TOKEN` secret** from the agent server. Exits with `FAILED` status if absent or invalid.
-4. **Queries the GitHub API** for open PRs carrying `LABEL` created after `last_run_ts`.
-5. **Skips PRs** already in the `reviewed_prs` deduplication list.
-6. **For each new matching PR**, calls `POST /api/conversations` on the agent server to create a new OpenHands conversation. The conversation prompt includes:
+2. **Fetches the `GITHUB_PERSONAL_ACCESS_TOKEN` secret** from the agent server. Exits with `FAILED` status if absent or invalid.
+3. **Fetches currently open PRs** from the GitHub API. If `LABEL` is set, filters by that label using `/issues?state=open&labels={LABEL}`; otherwise fetches all open PRs via `/pulls?state=open`. Both paths paginate to collect all results.
+4. **First run guard:** if `open_pr_numbers` is absent from state, saves the current open PR numbers as the baseline and exits with code 0 (no reviews triggered).
+5. **Set diff:** compares the current open PR numbers against the stored `open_pr_numbers`. PRs present in the current set but not in the stored set have "moved to Open" (newly opened or reopened).
+6. **For each PR that moved to Open**, calls `POST /api/conversations` on the agent server to create a new OpenHands conversation. The conversation prompt includes:
    - PR number, title, URL, labels, and description
    - An instruction to load and apply the code review skill at `CODE_REVIEW_SKILL`
-7. **Updates state**: advances `last_run_ts` to the current timestamp and appends newly reviewed PR numbers to `reviewed_prs`.
+7. **Updates state**: saves the current open PR numbers as the new `open_pr_numbers` snapshot.
 8. **Fires the completion callback** (`COMPLETED` on success, `FAILED` on unrecoverable errors).
 
 ---
@@ -230,6 +235,7 @@ Each cron run executes `main.py`, which:
 |---|---|---|
 | No reviews triggered after 10+ minutes | `GITHUB_PERSONAL_ACCESS_TOKEN` missing or invalid | Verify the secret is set; test with `curl /user` |
 | `Not Found` from GitHub API | Wrong repo name or token has no access | Re-check `owner/repo` spelling; ensure the PAT has `repo` or `public_repo` scope |
-| Automation runs but skips all PRs | PRs existed before the automation was created | Only PRs created after the baseline timestamp are reviewed - this is expected |
-| Reviews triggered for wrong PRs | Wrong label name | Delete the state file to reset the baseline; recreate the automation with the correct label |
+| Automation runs but no new reviews | All current open PRs were in the previous snapshot | Expected behavior; only PRs that move to Open since the last run are reviewed |
+| A reopened PR was not reviewed | PR was reopened and closed again within a single 5-minute interval | Polling gap - unavoidable with this approach; reduce cron interval if needed |
+| All PRs reviewed on first non-baseline run | State file was deleted between runs | Delete the state file again to re-snapshot baseline; the next run will treat all current open PRs as baseline |
 | State file path | Debug state location | `{WORKSPACE_BASE}/automation-state/github_pr_poller_{automation_id}.json` |

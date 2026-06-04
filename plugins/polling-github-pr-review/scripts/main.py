@@ -2,10 +2,16 @@
 """
 GitHub PR Review Polling Automation
 
-Polls a GitHub repository every 5 minutes for open pull requests that carry a
-specific label and were created since the previous automation run.  For each
-matching PR a new OpenHands conversation is started that performs a code review
+Polls a GitHub repository every 5 minutes for pull requests that have moved to
+an Open status since the previous run (newly opened or reopened).  For each
+such PR a new OpenHands conversation is started that performs a code review
 using the configured skill.
+
+Detection strategy - set diff:
+  At the end of each run the script persists the set of currently open PR
+  numbers.  On the next run it fetches the current open set again and starts
+  reviews for any PR that appears in the current set but not in the stored set.
+  This catches both newly created PRs and PRs that were closed and reopened.
 
 Required secret (set in OpenHands Settings -> Secrets):
   GITHUB_PERSONAL_ACCESS_TOKEN  - Classic or fine-grained PAT
@@ -13,9 +19,9 @@ Required secret (set in OpenHands Settings -> Secrets):
                                    Fine-grained scope:  Pull requests: Read and Write
 
 Behaviour on first run:
-  Records the current timestamp as the baseline and exits cleanly (exit code 0).
-  No PRs are reviewed on the first run - this prevents a flood of reviews for
-  all open PRs that existed before the automation was created.
+  Snapshots the current set of open PRs as the baseline and exits cleanly
+  (exit code 0).  No reviews are triggered for PRs that were already open
+  before the automation was created.
 """
 
 from __future__ import annotations
@@ -25,18 +31,13 @@ import os
 import sys
 import urllib.error
 import urllib.request
-from datetime import datetime, timezone
 
 # ── Embedded configuration (filled in by the SKILL onboarding workflow) ───────
 REPO = "owner/repo"                 # e.g. "myorg/myrepo"
-LABEL = "needs-review"              # GitHub label to filter PRs
+LABEL = ""                          # GitHub label filter - leave empty to review all open PRs
 CODE_REVIEW_SKILL = (               # URL to the code-review skill
     "https://github.com/OpenHands/extensions/tree/main/skills/code-review"
 )
-
-# Maximum number of PR numbers to retain in the reviewed-PR deduplication list.
-_MAX_REVIEWED_PRS = 1000
-_REVIEWED_PRS_TRIM = 500
 
 
 # ── State management ───────────────────────────────────────────────────────────
@@ -129,29 +130,43 @@ def _gh_request(url: str, token: str) -> list | dict:
         raise RuntimeError(f"GitHub API {url} -> {exc.code}: {body}") from exc
 
 
-def get_new_prs(token: str, since_iso: str) -> list[dict]:
-    """Return open PRs carrying LABEL that were created or updated since since_iso.
+def get_open_prs(token: str) -> list[dict]:
+    """Return all currently open PRs, optionally filtered by LABEL.
 
-    The GitHub /issues endpoint supports ?since= (updated_at) and ?labels= together.
-    We filter for items that have a pull_request key (i.e. actual PRs, not plain issues)
-    and whose created_at is strictly after since_iso so we avoid re-reviewing PRs that
-    were merely updated (e.g. by a comment) after the baseline.
+    When LABEL is set, queries /issues (which supports label filtering) and
+    removes plain issues from the results.  When LABEL is empty, queries
+    /pulls directly.  Both paths paginate until all results are collected.
     """
     owner, repo_name = REPO.split("/", 1)
-    url = (
-        f"https://api.github.com/repos/{owner}/{repo_name}/issues"
-        f"?state=open&labels={LABEL}&since={since_iso}"
-        f"&per_page=50&sort=created&direction=asc"
-    )
-    items = _gh_request(url, token)
-    if not isinstance(items, list):
-        raise RuntimeError(f"Unexpected GitHub response type: {type(items)}")
 
-    return [
-        item
-        for item in items
-        if "pull_request" in item and item.get("created_at", "") > since_iso
-    ]
+    if LABEL:
+        base_url = (
+            f"https://api.github.com/repos/{owner}/{repo_name}/issues"
+            f"?state=open&labels={LABEL}&per_page=100"
+        )
+    else:
+        base_url = (
+            f"https://api.github.com/repos/{owner}/{repo_name}/pulls"
+            f"?state=open&per_page=100"
+        )
+
+    all_prs: list[dict] = []
+    page = 1
+    while True:
+        items = _gh_request(f"{base_url}&page={page}", token)
+        if not isinstance(items, list):
+            raise RuntimeError(f"Unexpected GitHub response type: {type(items)}")
+        if not items:
+            break
+        if LABEL:
+            # /issues returns both issues and PRs; keep only PRs
+            items = [i for i in items if "pull_request" in i]
+        all_prs.extend(items)
+        if len(items) < 100:
+            break
+        page += 1
+
+    return all_prs
 
 
 # ── OpenHands conversation helpers ─────────────────────────────────────────────
@@ -226,28 +241,8 @@ def main() -> None:
 
     state_path = _state_path(automation_id)
     state = _load_state(state_path)
-    now_iso = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
-    # ── First run: record baseline timestamp and exit cleanly ──────────────────
-    if "last_run_ts" not in state:
-        print(
-            f"First run for automation {automation_id}. "
-            f"Recording baseline timestamp {now_iso} and exiting. "
-            f"Code reviews will begin on the next run."
-        )
-        state["last_run_ts"] = now_iso
-        state["reviewed_prs"] = []
-        _save_state(state_path, state)
-        fire_callback("COMPLETED")
-        sys.exit(0)
-
-    last_run_ts: str = state["last_run_ts"]
-    reviewed_prs: list[int] = state.get("reviewed_prs", [])
-
-    print(
-        f"Polling {REPO} for open PRs with label '{LABEL}' "
-        f"created since {last_run_ts}"
-    )
+    label_desc = f"with label '{LABEL}'" if LABEL else "(any label)"
 
     # ── Fetch GitHub PAT ───────────────────────────────────────────────────────
     try:
@@ -260,19 +255,42 @@ def main() -> None:
         fire_callback("FAILED", msg)
         sys.exit(1)
 
-    # ── Poll GitHub for new PRs ────────────────────────────────────────────────
+    # ── Fetch currently open PRs ───────────────────────────────────────────────
+    print(f"Fetching open PRs in {REPO} {label_desc}")
     try:
-        new_prs = get_new_prs(token, last_run_ts)
+        current_prs = get_open_prs(token)
     except Exception as exc:
         msg = f"GitHub API error: {exc}"
         print(f"ERROR: {msg}", file=sys.stderr)
         fire_callback("FAILED", msg)
         sys.exit(1)
 
-    print(f"Found {len(new_prs)} new PR(s) matching criteria.")
+    current_open: set[int] = {pr["number"] for pr in current_prs}
+    print(f"Currently open: {len(current_open)} PR(s)")
 
-    if not new_prs:
-        state["last_run_ts"] = now_iso
+    # ── First run: snapshot baseline and exit cleanly ─────────────────────────
+    if "open_pr_numbers" not in state:
+        print(
+            f"First run for automation {automation_id}. "
+            f"Snapshotting {len(current_open)} open PR(s) as baseline and exiting. "
+            f"Code reviews will begin on the next run."
+        )
+        state["open_pr_numbers"] = sorted(current_open)
+        _save_state(state_path, state)
+        fire_callback("COMPLETED")
+        sys.exit(0)
+
+    # ── Diff: find PRs that moved to Open since the last run ──────────────────
+    prev_open: set[int] = set(state.get("open_pr_numbers", []))
+    newly_open_prs = [pr for pr in current_prs if pr["number"] not in prev_open]
+
+    print(
+        f"PRs that moved to Open since last run: {len(newly_open_prs)} "
+        f"(prev snapshot had {len(prev_open)} open PR(s))"
+    )
+
+    if not newly_open_prs:
+        state["open_pr_numbers"] = sorted(current_open)
         _save_state(state_path, state)
         fire_callback("COMPLETED")
         return
@@ -286,19 +304,14 @@ def main() -> None:
         fire_callback("FAILED", msg)
         sys.exit(1)
 
-    # ── Start a review conversation for each new PR ────────────────────────────
-    for pr in new_prs:
+    # ── Start a review conversation for each PR that moved to Open ─────────────
+    for pr in newly_open_prs:
         pr_number = pr.get("number")
         pr_title = pr.get("title", "")
-
-        if pr_number in reviewed_prs:
-            print(f"Skipping PR #{pr_number} — already reviewed in a previous run.")
-            continue
 
         print(f"Starting code review conversation for PR #{pr_number}: {pr_title}")
         try:
             conv_id = start_review_conversation(pr, agent_config)
-            reviewed_prs.append(pr_number)
             print(f"  -> Conversation {conv_id} started for PR #{pr_number}")
         except Exception as exc:
             print(
@@ -306,13 +319,8 @@ def main() -> None:
                 file=sys.stderr,
             )
 
-    # ── Trim deduplication list to avoid unbounded growth ──────────────────────
-    if len(reviewed_prs) > _MAX_REVIEWED_PRS:
-        reviewed_prs = reviewed_prs[-_REVIEWED_PRS_TRIM:]
-
-    # ── Persist state and signal completion ────────────────────────────────────
-    state["last_run_ts"] = now_iso
-    state["reviewed_prs"] = reviewed_prs
+    # ── Persist updated open-PR snapshot and signal completion ─────────────────
+    state["open_pr_numbers"] = sorted(current_open)
     _save_state(state_path, state)
 
     fire_callback("COMPLETED")
