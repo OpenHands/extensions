@@ -93,7 +93,7 @@ def test_skill_requires_description_to_match_suggestion(skill_text: str):
     assert any(phrase in lowered for phrase in ("description does not match", "prose description", "description must match"))
     # The text should connect the description to the resulting code change.
     assert (
-        "match" in lowered or "matches" in lowered
+        "match" in lowered
     ), "SKILL.md should say the description must match the change."
 
 
