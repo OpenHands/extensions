@@ -417,6 +417,20 @@
       ]
     },
     {
+      "name": "polling-github-pr-review",
+      "source": "./plugins/polling-github-pr-review",
+      "description": "Deploy a cron automation that polls a GitHub repository every 5 minutes for new labeled pull requests and starts an OpenHands code review conversation for each one. Works without a public webhook URL.",
+      "category": "code-quality",
+      "keywords": [
+        "github",
+        "pull-request",
+        "code-review",
+        "polling",
+        "cron",
+        "automation"
+      ]
+    },
+    {
       "name": "pr-review",
       "source": "./plugins/pr-review",
       "description": "Automated PR code review \u2014 analyzes diffs and posts inline review comments via the GitHub API.",
