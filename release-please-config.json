@@ -3,11 +3,10 @@
   "bump-minor-pre-major": true,
   "packages": {
     ".": {
-      "release-type": "simple",
+      "release-type": "node",
       "changelog-type": "github",
       "skip-changelog": true,
       "extra-files": [
-        { "type": "json", "path": "package.json", "jsonpath": "$.version" },
         { "type": "toml", "path": "pyproject.toml", "jsonpath": "$.project.version" }
       ]
     }
