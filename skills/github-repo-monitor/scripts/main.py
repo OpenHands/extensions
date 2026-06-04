@@ -370,16 +370,25 @@ def _oh_request(
         raise RuntimeError(f"Agent API {method} {path} → {exc.code}: {body_text}") from exc
 
 
-def _get_agent_dict(agent_url: str, api_key: str) -> dict:
-    """Fetch configured agent settings for conversation creation."""
+def _fetch_settings(agent_url: str, api_key: str) -> dict:
+    """Fetch the full user settings from the agent server.
+
+    Uses X-Expose-Secrets: plaintext so the LLM api_key is a real string
+    rather than a masked placeholder.
+    """
     url = f"{agent_url}/api/settings"
     headers = {"X-Session-API-Key": api_key, "X-Expose-Secrets": "plaintext"}
     req = urllib.request.Request(url, headers=headers)
     try:
         with urllib.request.urlopen(req) as r:
-            data = json.loads(r.read())
+            return json.loads(r.read())
     except urllib.error.HTTPError as exc:
         raise RuntimeError(f"GET /api/settings failed: {exc.code}") from exc
+
+
+def _get_agent_dict(agent_url: str, api_key: str) -> dict:
+    """Fetch configured agent settings for conversation creation."""
+    data = _fetch_settings(agent_url, api_key)
     agent_settings = data.get("agent_settings", {})
     llm = agent_settings.get("llm", {})
     # settings["agent_settings"]["agent"] reflects the full-app agent registry
@@ -394,15 +403,79 @@ def _get_agent_dict(agent_url: str, api_key: str) -> dict:
     }
 
 
+def _get_mcp_config(agent_url: str, api_key: str) -> dict | None:
+    """Extract MCP server configuration from user settings, if any."""
+    try:
+        data = _fetch_settings(agent_url, api_key)
+        agent_settings = data.get("agent_settings", {})
+        mcp_config = agent_settings.get("mcp_config")
+        if isinstance(mcp_config, dict) and mcp_config.get("mcpServers"):
+            return mcp_config
+    except Exception as exc:
+        print(f"Warning: could not fetch MCP config: {exc}")
+    return None
+
+
+def _list_secret_names(agent_url: str, api_key: str) -> list[dict]:
+    """Fetch user secret names and descriptions from the agent server."""
+    try:
+        result = _oh_request(agent_url, api_key, "GET", "/api/settings/secrets")
+        return result.get("secrets", [])
+    except Exception as exc:
+        print(f"Warning: could not list secrets: {exc}")
+        return []
+
+
+def _build_secrets_payload(agent_url: str, api_key: str) -> dict:
+    """Build LookupSecret references so spawned conversations can access
+    the user's secrets via the agent server's per-secret endpoint.
+    """
+    secrets_list = _list_secret_names(agent_url, api_key)
+    if not secrets_list:
+        return {}
+    secrets: dict = {}
+    for secret in secrets_list:
+        name = secret.get("name", "")
+        if not name:
+            continue
+        lookup: dict = {
+            "kind": "LookupSecret",
+            "url": f"/api/settings/secrets/{name}",
+        }
+        if api_key:
+            lookup["headers"] = {"X-Session-API-Key": api_key}
+        desc = secret.get("description")
+        if desc:
+            lookup["description"] = desc
+        secrets[name] = lookup
+    return secrets
+
+
 def create_conversation(agent_url: str, api_key: str, initial_message: str) -> str:
-    """Create an OpenHands conversation and return its ID."""
+    """Create an OpenHands conversation and return its ID.
+
+    Inherits the user's secrets (as LookupSecret references) and MCP
+    server configuration so the spawned agent has the same capabilities.
+    """
     workspace_dir = os.environ.get("WORKSPACE_BASE", "/workspace")
     agent = _get_agent_dict(agent_url, api_key)
-    result = _oh_request(agent_url, api_key, "POST", "/api/conversations", {
+    payload: dict = {
         "workspace": {"working_dir": workspace_dir},
         "agent": agent,
         "initial_message": {"content": [{"text": initial_message}]},
-    })
+    }
+
+    # Forward user secrets so the spawned conversation can access them.
+    secrets = _build_secrets_payload(agent_url, api_key)
+    if secrets:
+        payload["secrets"] = secrets
+
+    # Forward MCP server configuration so MCP tools are available.
+    mcp_config = _get_mcp_config(agent_url, api_key)
+    if mcp_config:
+        payload["mcp_config"] = mcp_config
+
+    result = _oh_request(agent_url, api_key, "POST", "/api/conversations", payload)
     return result["id"]
 
 
