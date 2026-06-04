@@ -1,0 +1,34 @@
+{
+  "id": "bilig-workpaper",
+  "name": "Bilig WorkPaper",
+  "description": "Edit formula workbook inputs, recalculate, verify readback, and export JSON-backed WorkPaper state.",
+  "docsUrl": "https://github.com/proompteng/bilig/tree/main/packages/workpaper#readme",
+  "iconBg": "#0F766E",
+  "keywords": [
+    "spreadsheet",
+    "workbook",
+    "formula",
+    "recalculation",
+    "xlsx",
+    "readback",
+    "finance",
+    "agents"
+  ],
+  "kind": "mcp",
+  "defaultConnectionOptionId": "none",
+  "connectionOptions": [
+    {
+      "id": "none",
+      "provider": "mcp",
+      "transport": {
+        "kind": "shttp",
+        "url": "https://bilig.proompteng.ai/mcp",
+        "apiKeyOptional": true
+      },
+      "auth": {
+        "strategy": "none",
+        "apiKeyOptional": true
+      }
+    }
+  ]
+}
