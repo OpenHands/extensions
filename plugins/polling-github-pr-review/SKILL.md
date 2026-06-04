@@ -19,7 +19,7 @@ Sets up a cron automation (every 5 minutes) that:
 1. Fetches the current set of open pull requests in the configured repository (filtered by label if one is provided).
 2. Diffs against the set of open PRs recorded in the previous run to find PRs that have moved to an Open status - this catches both newly created PRs and PRs that were closed and then reopened.
 3. Starts a new OpenHands conversation for each such PR to perform a code review using the configured skill.
-4. On the first run, snapshots the current set of open PRs as a baseline and exits cleanly (no reviews are triggered for pre-existing PRs).
+4. On the first run (detected by the absence of the state file on disk), snapshots the current set of open PRs as a baseline and exits cleanly (no reviews are triggered for pre-existing PRs).
 
 > **Note:** This automation uses polling rather than webhooks, so it works in all deployment modes including local setups without a publicly reachable URL.
 
@@ -219,7 +219,7 @@ Each cron run executes `main.py`, which:
 1. **Reads state** from `automation-state/github_pr_poller_{id}.json`.
 2. **Fetches the `GITHUB_PERSONAL_ACCESS_TOKEN` secret** from the agent server. Exits with `FAILED` status if absent or invalid.
 3. **Fetches currently open PRs** from the GitHub API. If `LABEL` is set, filters by that label using `/issues?state=open&labels={LABEL}`; otherwise fetches all open PRs via `/pulls?state=open`. Both paths paginate to collect all results.
-4. **First run guard:** if `open_pr_numbers` is absent from state, saves the current open PR numbers as the baseline and exits with code 0 (no reviews triggered).
+4. **First run guard:** if the state file does not exist on disk, saves the current open PR numbers as the baseline and exits with code 0 (no reviews triggered). The state file's existence — not its contents — is the source of truth for whether this is a first run.
 5. **Set diff:** compares the current open PR numbers against the stored `open_pr_numbers`. PRs present in the current set but not in the stored set have "moved to Open" (newly opened or reopened).
 6. **For each PR that moved to Open**, calls `POST /api/conversations` on the agent server to create a new OpenHands conversation. The conversation prompt includes:
    - PR number, title, URL, labels, and description

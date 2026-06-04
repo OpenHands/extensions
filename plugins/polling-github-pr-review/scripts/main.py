@@ -240,7 +240,7 @@ def main() -> None:
     automation_id = event_payload.get("automation_id", "default")
 
     state_path = _state_path(automation_id)
-    state = _load_state(state_path)
+    is_first_run = not os.path.exists(state_path)
 
     label_desc = f"with label '{LABEL}'" if LABEL else "(any label)"
 
@@ -268,19 +268,19 @@ def main() -> None:
     current_open: set[int] = {pr["number"] for pr in current_prs}
     print(f"Currently open: {len(current_open)} PR(s)")
 
-    # ── First run: snapshot baseline and exit cleanly ─────────────────────────
-    if "open_pr_numbers" not in state:
+    # ── First run: state file didn't exist — snapshot baseline and exit ────────
+    if is_first_run:
         print(
-            f"First run for automation {automation_id}. "
+            f"First run — state file did not exist. "
             f"Snapshotting {len(current_open)} open PR(s) as baseline and exiting. "
             f"Code reviews will begin on the next run."
         )
-        state["open_pr_numbers"] = sorted(current_open)
-        _save_state(state_path, state)
+        _save_state(state_path, {"open_pr_numbers": sorted(current_open)})
         fire_callback("COMPLETED")
         sys.exit(0)
 
-    # ── Diff: find PRs that moved to Open since the last run ──────────────────
+    # ── Subsequent runs: diff against stored snapshot ─────────────────────────
+    state = _load_state(state_path)
     prev_open: set[int] = set(state.get("open_pr_numbers", []))
     newly_open_prs = [pr for pr in current_prs if pr["number"] not in prev_open]
 
