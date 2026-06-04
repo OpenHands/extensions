@@ -85,8 +85,5 @@ jobs:
           fi
           echo "✓ Version $PACKAGE_VERSION matches release tag"
 
-      # release-please only cuts stable SemVer releases (no alpha/beta/rc), so
-      # every publish goes to npm's default `latest` dist-tag. If a pre-release
-      # flow is added later, reintroduce dist-tag resolution here.
       - name: Publish to npm with provenance
         run: npm publish --access public --provenance
