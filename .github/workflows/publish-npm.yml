@@ -1,0 +1,52 @@
+name: publish-npm
+
+# Publishes @openhands/extensions to the npm registry when a release is created.
+#
+# release-please (via OpenHands/release-actions) cuts the release — tag + GitHub
+# release — using the org GitHub App token. That matters: a release created by
+# the default GITHUB_TOKEN would be suppressed by GitHub's recursion guard and
+# this workflow would never fire. Because release-please uses the App token, the
+# `release: published` event below actually triggers.
+on:
+  release:
+    types: [published]
+
+jobs:
+  publish:
+    # Only the npm release line, whose tags look like v1.2.3. If a second release
+    # line is ever added with a different tag prefix (e.g. cloud-*), it won't
+    # trigger an npm publish.
+    if: ${{ startsWith(github.event.release.tag_name, 'v') }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write # required for npm provenance (--provenance)
+    steps:
+      - name: Check out the released tag
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.release.tag_name }}
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          registry-url: "https://registry.npmjs.org"
+
+      - name: Verify package.json version matches the release tag
+        run: |
+          tag="${{ github.event.release.tag_name }}"
+          pkg="v$(node -p "require('./package.json').version")"
+          if [ "$tag" != "$pkg" ]; then
+            echo "::error::Release tag $tag does not match package.json version $pkg" >&2
+            exit 1
+          fi
+          echo "Publishing $pkg"
+
+      - name: Publish to npm
+        # No build/install step: the package ships plain ESM + hand-written .d.ts
+        # and JSON catalogs, with only peerDependencies. `npm publish` packs the
+        # files listed in package.json "files".
+        run: npm publish --provenance --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
