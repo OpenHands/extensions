@@ -55,8 +55,6 @@ const skillPath = import.meta.resolve("@openhands/extensions/skills/code-review/
 import marketplace from "@openhands/extensions/marketplaces/openhands-extensions.json" with { type: "json" };
 ```
 
-Symlinks are never published, so the repo's `.claude-plugin`/`.codex-plugin` aliases don't ship; read the canonical files instead (each extension's `.plugin/plugin.json`, manifests under `marketplaces/`).
-
 See [`integrations/README.md`](integrations/README.md), [`automations/README.md`](automations/README.md), and [`MIGRATION.md`](MIGRATION.md) for catalog-specific details.
 
 ## Extensions Catalog
