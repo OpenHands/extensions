@@ -6,6 +6,7 @@
     ".": {
       "release-type": "node",
       "changelog-type": "github",
+      "include-component-in-tag": false,
       "skip-changelog": true,
       "extra-files": [
         { "type": "toml", "path": "pyproject.toml", "jsonpath": "$.project.version" }
