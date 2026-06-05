@@ -35,13 +35,16 @@ variable (field `automation_id`).
                                        // cached from auth.test; null until first run
   "last_poll": {
     "C0123456789": "1716576000.123456" // channel_id → float Unix timestamp (string)
-                                       // updated at the START of each run so that
-                                       // the NEXT run fetches everything after it
+                                       // set to (now - POLL_OVERLAP_SECONDS) at the
+                                       // END of each run; pinned back if triggers fail
   },
   "conversations": { ... },            // see ConversationRecord below
   "bot_message_ts": [                  // rolling list of Slack 'ts' values for
     "1716576100.000200"                // messages THIS bot posted; used to skip
-  ]                                    // self-messages during processing
+  ],                                   // self-messages during processing
+  "processed_ts": [                    // rolling list of message ts values that have
+    "1716576050.000100"                // already been fully handled (dedup across the
+  ]                                    // overlap window between iterations)
 }
 ```
 
@@ -92,6 +95,23 @@ replies as user messages.
 Entries are added when:
 - The bot posts a conversation link (on trigger detection)
 - The bot posts a summary (on conversation completion)
+
+---
+
+## `processed_ts` List
+
+A rolling list (max `MAX_PROCESSED_TS = 2000` entries) of Slack `ts` values
+for messages that have already been fully handled by this script.
+
+Because `last_poll` is set to `(now - POLL_OVERLAP_SECONDS)` rather than
+exactly `now`, messages near the boundary are re-fetched on the next iteration.
+`processed_ts` provides a second deduplication layer that prevents these
+re-fetched messages from being processed twice (e.g., triggering a duplicate
+conversation or forwarding the same reply multiple times).
+
+Entries are added when a message is either skipped (not human, already handled)
+or successfully processed (trigger detected and conversation created, or reply
+forwarded).
 
 ---
 
@@ -151,6 +171,10 @@ Entries are added when:
   "bot_message_ts": [
     "1716575903.000200",
     "1716572105.000100"
+  ],
+  "processed_ts": [
+    "1716575900.000100",
+    "1716572000.000500"
   ]
 }
 ```

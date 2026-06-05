@@ -27,21 +27,20 @@
         ],
         "envFields": [
           {
+            "key": "SLACK_TEAM_ID",
+            "label": "Team / Workspace ID",
+            "type": "text",
+            "placeholder": "T01234567",
+            "helperText": "First get your [Slack URL](https://slack.com/help/articles/221769328-Locate-your-Slack-URL-or-ID#find-your-url). Then use that to get your [Workspace ID](https://slack.com/help/articles/221769328-Locate-your-Slack-URL-or-ID#find-your-workspace-or-org-id).",
+            "required": true
+          },
+          {
             "key": "SLACK_BOT_TOKEN",
             "label": "Bot token",
             "type": "password",
             "placeholder": "xoxb-...",
             "required": true,
-            "helperText": "Bot token from your Slack app's OAuth & Permissions page.",
-            "helperLink": "https://api.slack.com/apps"
-          },
-          {
-            "key": "SLACK_TEAM_ID",
-            "label": "Team / Workspace ID",
-            "type": "text",
-            "placeholder": "T01234567",
-            "helperText": "Find this in Slack under Workspace settings → About this workspace.",
-            "required": true
+            "helperText": "You'll need to create or have access to a [Slack App](https://github.com/zencoderai/slack-mcp-server#slack-bot-setup) to get a Bot token."
           }
         ]
       },

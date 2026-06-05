@@ -8,6 +8,8 @@ description: >
   phrase". Guides the user through creating a cron automation that watches up
   to 10 Slack channels and starts an OpenHands conversation whenever a
   configurable trigger phrase is detected.
+triggers:
+  - /slack-monitor:poll
 ---
 
 # Slack Channel Monitor
@@ -141,15 +143,23 @@ Fix any syntax errors before proceeding.
 
 ### Step 4  -  Package and upload
 
+Determine the Automation backend URL and auth from the `<RUNTIME_SERVICES>`
+block in your system context:
+- Use the **Automation backend** `url_from_agent` as `OPENHANDS_HOST`
+- Auth: `X-Session-API-Key: $OPENHANDS_AUTOMATION_API_KEY`
+
+If no Automation backend is listed in `<RUNTIME_SERVICES>`, stop and tell
+the user to start the full automation stack.
+
 ```bash
 tar -czf /tmp/slack-monitor.tar.gz -C /tmp/slack-monitor-build .
 
-# Determine the API host (use <HOST> from the system prompt, else localhost:8000)
-OPENHANDS_HOST="http://localhost:8000"
+# OPENHANDS_HOST: read from <RUNTIME_SERVICES> Automation backend url_from_agent
+OPENHANDS_HOST="<automation-url-from-runtime-services>"
 
 TARBALL_PATH=$(curl -s -X POST \
   "${OPENHANDS_HOST}/api/automation/v1/uploads?name=slack-channel-monitor" \
-  -H "Authorization: Bearer $OPENHANDS_AUTOMATION_API_KEY" \
+  -H "X-Session-API-Key: $OPENHANDS_AUTOMATION_API_KEY" \
   -H "Content-Type: application/gzip" \
   --data-binary @/tmp/slack-monitor.tar.gz \
   | python3 -c "import json,sys; print(json.load(sys.stdin)['tarball_path'])")
@@ -164,7 +174,7 @@ If the upload fails with a size error, the tarball must be under 1 MB.
 
 ```bash
 curl -s -X POST "${OPENHANDS_HOST}/api/automation/v1" \
-  -H "Authorization: Bearer $OPENHANDS_AUTOMATION_API_KEY" \
+  -H "X-Session-API-Key: $OPENHANDS_AUTOMATION_API_KEY" \
   -H "Content-Type: application/json" \
   -d "{
     \"name\": \"Slack Channel Monitor\",
@@ -198,7 +208,8 @@ Tell the user:
 
 ## Runtime Behaviour (per poll)
 
-Each cron run executes `main.py`, which:
+Each cron run executes `main.py`, which runs **10 polling iterations** (every
+5 seconds) within the 55-second timeout window. Each iteration:
 
 1. **Loads state** from the JSON file (see `references/state-schema.md`).
 2. **Resolves the Slack token**  -  checks `SLACK_USER_TOKEN` then `SLACK_BOT_TOKEN`.
@@ -206,17 +217,30 @@ Each cron run executes `main.py`, which:
    - User token + `search:read` + > 1 channel → single `search.messages` call
      (searches for the trigger phrase across all channels).
    - Otherwise → one `conversations.history` call per channel.
-4. **Fetches thread replies**  -  one `conversations.replies` call per active thread.
+4. **Fetches thread replies**  -  one `conversations.replies` call per tracked thread.
 5. **Processes messages** in chronological order:
+   - Skips messages already in `processed_ts` (dedup across the overlap window).
    - Skips bot messages and any `ts` in `bot_message_ts`.
-   - Reply in a tracked thread → forwards to the existing conversation.
+   - Reply in a tracked thread (active **or** closed) → forwards to the existing
+     conversation; re-opens closed conversations automatically.
    - Contains trigger phrase → 👀 reaction, create conversation, post link.
+     - Thread replies: agent receives full thread history for context.
+     - Root messages: agent receives the trigger text only.
 6. **Checks conversation statuses**  -  for each active conversation where
    `time.time() - last_activity > 15 s`:
    - If status is `idle`, `finished`, `error`, or `stuck` → fetch the agent's
      final response via `/api/conversations/{id}/agent_final_response` and post
      it to the Slack thread. Mark conversation `closed`.
-7. **Saves state** and fires the completion callback.
+7. **Advances `last_poll`** to `now - 10 s` (overlap window prevents boundary
+   races). If a conversation creation failed, pins `last_poll` further back to
+   retry on the next iteration.
+8. **Saves state** (including `processed_ts`) and continues to the next iteration.
+9. After all iterations, fires the completion callback.
+
+Debug output is written to both stdout and a persistent log at:
+```
+{WORKSPACE_BASE_ROOT}/automation-state/slack_poller_debug.log
+```
 
 ---
 
@@ -247,3 +271,6 @@ Each cron run executes `main.py`, which:
 | No messages detected | `last_poll` timestamp is in the future | Delete the state file to reset; it will be recreated on next run |
 | Conversation link 404 | `OPENHANDS_URL` points to wrong host | Set the `OPENHANDS_URL` secret to the correct base URL |
 | Summary never posted | Conversation stuck in `running` state | Check conversation in the OpenHands UI; the agent may need intervention |
+| Duplicate conversations created | `processed_ts` state missing or corrupted | Delete the state file to reset; dedup will rebuild on next run |
+| Trigger message processed on each cron run | State file deleted between runs | Ensure `automation-state/` directory is persistent across runs |
+| Debug info needed | Need detailed per-message trace | Check `{WORKSPACE_BASE_ROOT}/automation-state/slack_poller_debug.log` |

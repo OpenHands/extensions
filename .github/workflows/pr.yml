@@ -1,0 +1,30 @@
+name: pr
+
+# Caller workflow for the shared PR-title lint/label in OpenHands/release-actions.
+#
+# Trigger is pull_request_target (NOT pull_request) so the lint/label also runs
+# on PRs from forks — e.g. external contributors who aren't org members. On a
+# fork-originated `pull_request`, GITHUB_TOKEN is read-only, so the label step
+# (which needs pull-requests: write) would fail; pull_request_target runs in the
+# base repo's context with a writable token.
+#
+# pull_request_target is safe here — and only stays safe — because of two
+# invariants enforced by the reusable workflow:
+#   1. It NEVER checks out or executes any code from the PR. It only reads the
+#      PR title from the event payload, so fork code never runs with the base
+#      repo's token/secrets. Do not add a checkout step.
+#   2. This caller does NOT pass `secrets: inherit`, so the release App's
+#      credentials are not in scope for the title workflow — it runs on the
+#      default GITHUB_TOKEN alone. Do not add `secrets: inherit`.
+on:
+  pull_request_target:
+    # synchronize is needed alongside the title events: required status checks
+    # attach to a head SHA, and release-please force-pushes new commits to its
+    # release PR, so the lint must re-run on each update to stay green.
+    types: [opened, edited, reopened, synchronize]
+
+jobs:
+  pr-title:
+    permissions:
+      pull-requests: write
+    uses: OpenHands/release-actions/.github/workflows/pr-title.yml@main

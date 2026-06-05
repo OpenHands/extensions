@@ -1,4 +1,5 @@
 import json
+import re
 import subprocess
 from pathlib import Path
 
@@ -72,7 +73,10 @@ def test_catalog_entries_have_required_fields():
 
 
 def test_credential_fields_have_helper_text_and_link():
-    """All password fields must have helperText and helperLink so users know how to get credentials."""
+    """All password fields must have helperText plus a link (either a helperLink field or a
+    markdown link embedded in helperText) so users know how to get credentials."""
+    markdown_link_re = re.compile(r"\[.+?\]\(https://[^)]+\)")
+
     for entry in load_catalog_entries("integrations/catalog"):
         for option in entry["connectionOptions"]:
             transport = option.get("transport", {})
@@ -83,14 +87,14 @@ def test_credential_fields_have_helper_text_and_link():
                         assert "helperText" in field, (
                             f"{entry['id']}: password field '{field_key}' is missing helperText"
                         )
-                        assert "helperLink" in field, (
-                            f"{entry['id']}: password field '{field_key}' is missing helperLink"
-                        )
                         assert field["helperText"], (
                             f"{entry['id']}: password field '{field_key}' has empty helperText"
                         )
-                        assert field["helperLink"].startswith("https://"), (
-                            f"{entry['id']}: password field '{field_key}' helperLink must start with https://"
+                        has_helper_link = field.get("helperLink", "").startswith("https://")
+                        has_inline_link = bool(markdown_link_re.search(field["helperText"]))
+                        assert has_helper_link or has_inline_link, (
+                            f"{entry['id']}: password field '{field_key}' must have a helperLink "
+                            f"or a markdown link in helperText"
                         )
 
 

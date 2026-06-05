@@ -80,7 +80,11 @@ def get_secret(name: str) -> str:
         return r.read().decode().strip()
 
 
-def fire_callback(status: str = "COMPLETED", error: str | None = None) -> None:
+def fire_callback(
+    status: str = "COMPLETED",
+    error: str | None = None,
+    conversation_id: str | None = None,
+) -> None:
     """Signal run completion to the automation service."""
     url = os.environ.get("AUTOMATION_CALLBACK_URL", "")
     if not url:
@@ -88,6 +92,8 @@ def fire_callback(status: str = "COMPLETED", error: str | None = None) -> None:
     body: dict = {"status": status, "run_id": os.environ.get("AUTOMATION_RUN_ID", "")}
     if error:
         body["error"] = error
+    if conversation_id:
+        body["conversation_id"] = conversation_id
     req = urllib.request.Request(
         url,
         data=json.dumps(body).encode(),
@@ -364,16 +370,25 @@ def _oh_request(
         raise RuntimeError(f"Agent API {method} {path} → {exc.code}: {body_text}") from exc
 
 
-def _get_agent_dict(agent_url: str, api_key: str) -> dict:
-    """Fetch configured agent settings for conversation creation."""
+def _fetch_settings(agent_url: str, api_key: str) -> dict:
+    """Fetch the full user settings from the agent server.
+
+    Uses X-Expose-Secrets: plaintext so the LLM api_key is a real string
+    rather than a masked placeholder.
+    """
     url = f"{agent_url}/api/settings"
     headers = {"X-Session-API-Key": api_key, "X-Expose-Secrets": "plaintext"}
     req = urllib.request.Request(url, headers=headers)
     try:
         with urllib.request.urlopen(req) as r:
-            data = json.loads(r.read())
+            return json.loads(r.read())
     except urllib.error.HTTPError as exc:
         raise RuntimeError(f"GET /api/settings failed: {exc.code}") from exc
+
+
+def _get_agent_dict(agent_url: str, api_key: str) -> dict:
+    """Fetch configured agent settings for conversation creation."""
+    data = _fetch_settings(agent_url, api_key)
     agent_settings = data.get("agent_settings", {})
     llm = agent_settings.get("llm", {})
     # settings["agent_settings"]["agent"] reflects the full-app agent registry
@@ -388,15 +403,79 @@ def _get_agent_dict(agent_url: str, api_key: str) -> dict:
     }
 
 
+def _get_mcp_config(agent_url: str, api_key: str) -> dict | None:
+    """Extract MCP server configuration from user settings, if any."""
+    try:
+        data = _fetch_settings(agent_url, api_key)
+        agent_settings = data.get("agent_settings", {})
+        mcp_config = agent_settings.get("mcp_config")
+        if isinstance(mcp_config, dict) and mcp_config.get("mcpServers"):
+            return mcp_config
+    except Exception as exc:
+        print(f"Warning: could not fetch MCP config: {exc}")
+    return None
+
+
+def _list_secret_names(agent_url: str, api_key: str) -> list[dict]:
+    """Fetch user secret names and descriptions from the agent server."""
+    try:
+        result = _oh_request(agent_url, api_key, "GET", "/api/settings/secrets")
+        return result.get("secrets", [])
+    except Exception as exc:
+        print(f"Warning: could not list secrets: {exc}")
+        return []
+
+
+def _build_secrets_payload(agent_url: str, api_key: str) -> dict:
+    """Build LookupSecret references so spawned conversations can access
+    the user's secrets via the agent server's per-secret endpoint.
+    """
+    secrets_list = _list_secret_names(agent_url, api_key)
+    if not secrets_list:
+        return {}
+    secrets: dict = {}
+    for secret in secrets_list:
+        name = secret.get("name", "")
+        if not name:
+            continue
+        lookup: dict = {
+            "kind": "LookupSecret",
+            "url": f"/api/settings/secrets/{name}",
+        }
+        if api_key:
+            lookup["headers"] = {"X-Session-API-Key": api_key}
+        desc = secret.get("description")
+        if desc:
+            lookup["description"] = desc
+        secrets[name] = lookup
+    return secrets
+
+
 def create_conversation(agent_url: str, api_key: str, initial_message: str) -> str:
-    """Create an OpenHands conversation and return its ID."""
+    """Create an OpenHands conversation and return its ID.
+
+    Inherits the user's secrets (as LookupSecret references) and MCP
+    server configuration so the spawned agent has the same capabilities.
+    """
     workspace_dir = os.environ.get("WORKSPACE_BASE", "/workspace")
     agent = _get_agent_dict(agent_url, api_key)
-    result = _oh_request(agent_url, api_key, "POST", "/api/conversations", {
+    payload: dict = {
         "workspace": {"working_dir": workspace_dir},
         "agent": agent,
         "initial_message": {"content": [{"text": initial_message}]},
-    })
+    }
+
+    # Forward user secrets so the spawned conversation can access them.
+    secrets = _build_secrets_payload(agent_url, api_key)
+    if secrets:
+        payload["secrets"] = secrets
+
+    # Forward MCP server configuration so MCP tools are available.
+    mcp_config = _get_mcp_config(agent_url, api_key)
+    if mcp_config:
+        payload["mcp_config"] = mcp_config
+
+    result = _oh_request(agent_url, api_key, "POST", "/api/conversations", payload)
     return result["id"]
 
 
@@ -607,8 +686,12 @@ def _process_trigger_comment(
     comment: dict,
     event_type: str,
     conversations: dict[str, dict],
-) -> None:
-    """Handle a new trigger comment: create or resume a conversation."""
+) -> str | None:
+    """Handle a new trigger comment: create or resume a conversation.
+
+    Returns the conversation ID when a new or re-opened conversation is
+    created, or None when the comment is forwarded to an existing one.
+    """
     conv_key = str(issue_number)
     print(f"  Trigger detected on #{issue_number} (comment {comment.get('id')})")
 
@@ -617,7 +700,7 @@ def _process_trigger_comment(
         ctx = _get_issue_context(github_token, repo, issue_number)
     except Exception as exc:
         print(f"  Error fetching context for #{issue_number}: {exc}")
-        return
+        return None
 
     is_pr = ctx["is_pr"]
     item_type = "pull request" if is_pr else "issue"
@@ -637,7 +720,7 @@ def _process_trigger_comment(
                 f"New comment on GitHub {item_type} #{issue_number} by @{author}:\n\n{body}",
             )
             existing["last_activity"] = time.time()
-            return
+            return None
         except Exception as exc:
             print(f"  Warning: could not forward to conversation {conv_id}: {exc} — creating new")
             # Fall through to create a new conversation.
@@ -651,10 +734,11 @@ def _process_trigger_comment(
         )
     except Exception as exc:
         print(f"  Error creating conversation for #{issue_number}: {exc}")
-        return
+        return None
 
     conv_url = f"{openhands_url}/conversations/{conv_id}"
     _post_acknowledgement(github_token, repo, issue_number, item_type, conv_url, resumed)
+    return conv_id
 
 
 def _check_conversation_completion(
@@ -711,7 +795,8 @@ def _check_conversation_completion(
 
 # ── Main ───────────────────────────────────────────────────────────────────────
 
-def main() -> None:
+def main() -> str | None:
+    """Run one polling cycle. Returns the last conversation ID created, if any."""
     state_path = _state_file_path()
     state = load_state(state_path)
 
@@ -761,6 +846,7 @@ def main() -> None:
     all_events.sort(key=lambda x: x[1].get("created_at", ""))
 
     # ── Process trigger events ─────────────────────────────────────────────────
+    last_conversation_id: str | None = None
     for event_type, comment in all_events:
         comment_id: int = comment.get("id", 0)
         if comment_id in processed_set:
@@ -790,10 +876,12 @@ def main() -> None:
             processed_set.add(comment_id)
             continue
 
-        _process_trigger_comment(
+        conv_id = _process_trigger_comment(
             github_token, agent_url, api_key, openhands_url,
             REPO, issue_number, comment, event_type, conversations,
         )
+        if conv_id:
+            last_conversation_id = conv_id
         processed_set.add(comment_id)
 
     # ── Check active conversations for completion ──────────────────────────────
@@ -813,12 +901,13 @@ def main() -> None:
 
     save_state(state_path, state)
     print(f"State saved → {state_path}")
+    return last_conversation_id
 
 
 if __name__ == "__main__":
     try:
-        main()
-        fire_callback("COMPLETED")
+        conversation_id = main()
+        fire_callback("COMPLETED", conversation_id=conversation_id)
     except Exception as exc:
         import traceback
         traceback.print_exc()
