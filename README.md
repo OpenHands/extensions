@@ -45,6 +45,20 @@ React logo components are isolated behind a separate export so data-only consume
 import { INTEGRATION_LOGOS } from "@openhands/extensions/integrations/logos";
 ```
 
+The package ships the entire repository (everything except the `.gitignore`'d and npm-default-ignored files), so consumers can read the raw `skills/`, `plugins/`, and `marketplaces/` trees — and any other repo file — directly from the installed package. The catalog data and content trees are exposed as resolvable subpaths (use `import.meta.resolve` / `require.resolve` to locate them on disk, or import JSON manifests with an import attribute):
+
+```js
+// Locate skill/plugin files on disk
+const skillPath = import.meta.resolve("@openhands/extensions/skills/code-review/SKILL.md");
+const pluginManifest = import.meta.resolve("@openhands/extensions/plugins/pr-review/.plugin/plugin.json");
+
+// Load a marketplace manifest as JSON
+import marketplace from "@openhands/extensions/marketplaces/openhands-extensions.json" with { type: "json" };
+import largeCodebase from "@openhands/extensions/marketplaces/large-codebase.json" with { type: "json" };
+```
+
+> **Note:** The tarball contains only regular files — symlinks are never published (npm-packlist drops them). The repo's vendor-alias symlinks (`.claude-plugin`/`.codex-plugin` → `.plugin`) and the symlinked root `.plugin/marketplace.json` are therefore not shipped; consumers read the canonical real files instead (each extension's `.plugin/plugin.json`, and the marketplace manifests under `marketplaces/`).
+
 See [`integrations/README.md`](integrations/README.md), [`automations/README.md`](automations/README.md), and [`MIGRATION.md`](MIGRATION.md) for catalog-specific details.
 
 ## Extensions Catalog
