@@ -1,0 +1,8 @@
+{
+  "name": "pdflatex",
+  "description": "Install and use pdflatex to compile LaTeX documents into PDFs on Linux. Use when generating academic papers, research publications, or any documents written in LaTeX.",
+  "triggers": [
+    "pdflatex"
+  ],
+  "content": "PdfLatex is a tool that converts Latex sources into PDF. This is specifically very important for researchers, as they use it to publish their findings. It could be installed very easily using Linux terminal, though this seems an annoying task on Windows. Installation commands are given below.\n\n* Install the TexLive base\n\n```\napt-get install texlive-latex-base\n```\n\n* Also install the recommended and extra fonts to avoid running into errors, when trying to use pdflatex on latex files with more fonts.\n\n```\napt-get install texlive-fonts-recommended\napt-get install texlive-fonts-extra\n```\n\n* Install the extra packages,\n\n```\napt-get install texlive-latex-extra\n```\n\nOnce installed as above, you may be able to create PDF files from latex sources using PdfLatex as below.\n```\npdflatex latex_source_name.tex\n```\n\nRef: http://kkpradeeban.blogspot.com/2014/04/installing-latexpdflatex-on-ubuntu.html"
+}

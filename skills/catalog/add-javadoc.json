@@ -1,0 +1,12 @@
+{
+  "name": "add-javadoc",
+  "description": "Add comprehensive JavaDoc documentation to Java classes and methods. Use when documenting Java code, adding API documentation, or improving code documentation.",
+  "triggers": [
+    "javadoc",
+    "java documentation",
+    "document java"
+  ],
+  "content": "Add comprehensive JavaDoc documentation to all public classes and methods.\n\n## Class-Level Documentation\n\nFor each public class:\n- Add class-level JavaDoc describing the purpose and responsibility of the class\n- Include `@author` tag if appropriate\n\n## Method-Level Documentation\n\nFor each public method:\n- Add method-level JavaDoc describing what the method does\n- Include `@param` tags for all parameters with clear descriptions\n- Include `@return` tag describing the return value\n- Include `@throws` tags for any checked exceptions\n\n## Style Guidelines\n\n- First sentence should be a concise summary\n- Use HTML tags sparingly (prefer plain text)\n- Document preconditions and postconditions when relevant\n- Include code examples with `{@code ...}` for complex methods\n\nSee [references/example.md](references/example.md) for before/after examples.",
+  "license": "MIT",
+  "compatibility": "Requires Java source files"
+}

@@ -1,0 +1,10 @@
+{
+  "name": "kubernetes",
+  "description": "Set up and manage local Kubernetes clusters using KIND (Kubernetes IN Docker). Use when testing Kubernetes applications locally or developing cloud-native workloads.",
+  "triggers": [
+    "kubernetes",
+    "k8s",
+    "kube"
+  ],
+  "content": "# Kubernetes Local Development with KIND\n\n## KIND Installation and Setup\n\nKIND (Kubernetes IN Docker) is a tool for running local Kubernetes clusters using Docker containers as nodes. It's designed for testing Kubernetes applications locally.\n\nIMPORTANT: Before you proceed with installation, make sure you have docker installed locally.\n\n### Installation\n\nTo install KIND on a Debian/Ubuntu system:\n\n```bash\n# Download KIND binary\ncurl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.22.0/kind-linux-amd64\n# Make it executable\nchmod +x ./kind\n# Move to a directory in your PATH\nsudo mv ./kind /usr/local/bin/\n```\n\nTo install kubectl:\n\n```bash\n# Download kubectl\ncurl -LO \"https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl\"\n# Make it executable\nchmod +x kubectl\n# Move to a directory in your PATH\nsudo mv ./kubectl /usr/local/bin/\n```\n\n### Creating a Cluster\n\nCreate a basic KIND cluster:\n\n```bash\nkind create cluster\n```"
+}

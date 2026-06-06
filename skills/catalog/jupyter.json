@@ -1,0 +1,9 @@
+{
+  "name": "jupyter",
+  "description": "Read, modify, execute, and convert Jupyter notebooks programmatically. Use when working with .ipynb files for data science workflows, including editing cells, clearing outputs, or converting to other formats.",
+  "triggers": [
+    "ipynb",
+    "jupyter"
+  ],
+  "content": "# Jupyter Notebook Guide\n\nNotebooks are JSON files. Cells are in `nb['cells']`, each has `source` (list of strings) and `cell_type` ('code', 'markdown', or 'raw').\n\n## Modifying Notebooks\n```python\nimport json\nwith open('notebook.ipynb') as f:\n    nb = json.load(f)\n# Modify nb['cells'][i]['source'], then:\nwith open('notebook.ipynb', 'w') as f:\n    json.dump(nb, f, indent=1)\n```\n\n## Executing & Converting\n```bash\njupyter nbconvert --to notebook --execute --inplace notebook.ipynb  # Execute in place\njupyter nbconvert --to html notebook.ipynb      # Convert to HTML\njupyter nbconvert --to script notebook.ipynb    # Convert to Python\njupyter nbconvert --to markdown notebook.ipynb  # Convert to Markdown\n```\n\n## Finding Code\n```bash\ngrep -n \"search_term\" notebook.ipynb\n```\n\n## Cell Structure\n```python\n# Code cell\n{\"cell_type\": \"code\", \"execution_count\": None, \"metadata\": {}, \"outputs\": [], \"source\": [\"code\\n\"]}\n# Markdown cell\n{\"cell_type\": \"markdown\", \"metadata\": {}, \"source\": [\"# Title\\n\"]}\n```\n\n## Clear Outputs\n```python\nfor cell in nb['cells']:\n    if cell['cell_type'] == 'code':\n        cell['outputs'] = []\n        cell['execution_count'] = None\n```"
+}

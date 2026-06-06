@@ -42,6 +42,12 @@
       "default": "./integrations/logos.js"
     },
     "./integrations/catalog/*.json": "./integrations/catalog/*.json",
+    "./skills": {
+      "types": "./skills/index.d.ts",
+      "import": "./skills/index.js",
+      "default": "./skills/index.js"
+    },
+    "./skills/catalog/*.json": "./skills/catalog/*.json",
     "./skills/*": "./skills/*",
     "./plugins/*": "./plugins/*",
     "./marketplaces/*.json": "./marketplaces/*.json",

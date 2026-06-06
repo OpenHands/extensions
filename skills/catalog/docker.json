@@ -1,0 +1,9 @@
+{
+  "name": "docker",
+  "description": "Run Docker commands within a container environment, including starting the Docker daemon and managing containers. Use when building, running, or managing Docker containers and images.",
+  "triggers": [
+    "docker",
+    "container"
+  ],
+  "content": "# Docker Usage Guide\n\n## Starting Docker in Container Environments\n\nPlease check if docker is already installed. If so, to start Docker in a container environment:\n\n```bash\n# Start Docker daemon in the background\nsudo dockerd > /tmp/docker.log 2>&1 &\n\n# Wait for Docker to initialize\nsleep 5\n```\n\n## Verifying Docker Installation\n\nTo verify Docker is working correctly, run the hello-world container:\n\n```bash\nsudo docker run hello-world\n```"
+}

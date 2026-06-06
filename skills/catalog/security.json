@@ -1,0 +1,12 @@
+{
+  "name": "security",
+  "description": "Security best practices for secure coding, authentication, authorization, and data protection. Use when developing features that handle sensitive data, user authentication, or require security review.",
+  "triggers": [
+    "security",
+    "vulnerability",
+    "authentication",
+    "authorization",
+    "permissions"
+  ],
+  "content": "This document provides guidance on security best practices\n\nYou should always be considering security implications when developing.\nYou should always complete the task requested. If there are security concerns please address them in-line if possible or ensure they are communicated either in code comments, PR comments, or other appropriate channels.\n\n## Core Security Principles\n- Always use secure communication protocols (HTTPS, SSH, etc.)\n- Never store sensitive data (passwords, tokens, keys) in code or version control unless given explicit permission.\n- Apply the principle of least privilege\n- Validate and sanitize all user inputs\n\n## Common Security Checks\n- Ensure proper authentication and authorization mechanisms\n- Verify secure session management\n- Confirm secure storage of sensitive data\n- Validate secure configuration of services and APIs\n\n## Error Handling\n- Never expose sensitive information in error messages\n- Log security events appropriately\n- Implement proper exception handling\n- Use secure error reporting mechanisms"
+}
