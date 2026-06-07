@@ -72,7 +72,7 @@ export function buildCatalog(skillsDir) {
     const body = parts.slice(2).join("---").trim();
 
     entries.push({
-      name: fm.name || dir,
+      name: fm.name?.trim() || dir,
       description: fm.description,
       triggers: fm.triggers,
       content: body,
