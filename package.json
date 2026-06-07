@@ -8,6 +8,9 @@
     "type": "git",
     "url": "https://github.com/OpenHands/extensions"
   },
+  "scripts": {
+    "build:skills": "node scripts/build-skills-catalog.mjs"
+  },
   "engines": {
     "node": ">=18.20.0"
   },
@@ -42,6 +45,11 @@
       "default": "./integrations/logos.js"
     },
     "./integrations/catalog/*.json": "./integrations/catalog/*.json",
+    "./skills": {
+      "types": "./skills/index.d.ts",
+      "import": "./skills/index.js",
+      "default": "./skills/index.js"
+    },
     "./skills/*": "./skills/*",
     "./plugins/*": "./plugins/*",
     "./marketplaces/*.json": "./marketplaces/*.json",
