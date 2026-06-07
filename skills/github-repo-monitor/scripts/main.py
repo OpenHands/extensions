@@ -104,6 +104,10 @@ def fire_callback(
     )
     try:
         urllib.request.urlopen(req)
+    except urllib.error.HTTPError as exc:
+        if exc.code == 409:
+            return  # Run already marked complete by the automation service — ignore.
+        print(f"Callback error (non-fatal): {exc}")
     except Exception as exc:
         print(f"Callback error (non-fatal): {exc}")
 
