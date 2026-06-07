@@ -28,8 +28,8 @@ function parseFrontmatter(raw) {
       }
       continue;
     }
-    // Key: value
-    const match = line.match(/^(\w+):\s*(.*)/);
+    // Key: value (allow hyphens in key names, e.g. event-key)
+    const match = line.match(/^([\w-]+):\s*(.*)/);
     if (match) {
       currentKey = match[1];
       const value = match[2].trim();
@@ -61,7 +61,10 @@ for (const dir of readdirSync(SKILLS_DIR).sort()) {
 
   const raw = readFileSync(skillMd, "utf-8");
   const parts = raw.split("---");
-  if (parts.length < 3) continue;
+  if (parts.length < 3) {
+    console.warn(`Warning: ${skillMd} missing frontmatter sections, skipping`);
+    continue;
+  }
 
   const fm = parseFrontmatter(parts[1]);
   const body = parts.slice(2).join("---").trim();
