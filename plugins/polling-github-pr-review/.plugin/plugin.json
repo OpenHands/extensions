@@ -1,0 +1,20 @@
+{
+  "name": "polling-github-pr-review",
+  "version": "1.0.0",
+  "description": "Deploy a cron automation that polls a GitHub repository every 5 minutes for new labeled pull requests and starts an OpenHands code review conversation for each one.",
+  "author": {
+    "name": "OpenHands",
+    "email": "contact@all-hands.dev"
+  },
+  "homepage": "https://github.com/OpenHands/extensions",
+  "repository": "https://github.com/OpenHands/extensions",
+  "license": "MIT",
+  "keywords": [
+    "github",
+    "pull-request",
+    "code-review",
+    "polling",
+    "cron",
+    "automation"
+  ]
+}

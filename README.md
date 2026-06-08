@@ -60,7 +60,7 @@ See [`integrations/README.md`](integrations/README.md), [`automations/README.md`
 ## Extensions Catalog
 
 <!-- BEGIN AUTO-GENERATED CATALOG -->
-This repository contains **2 marketplace(s)** with **56 extensions** (46 skills, 10 plugins).
+This repository contains **2 marketplace(s)** with **57 extensions** (46 skills, 11 plugins).
 
 ### large-codebase
 
@@ -79,7 +79,7 @@ OpenHands skills for interacting, improving, and refactoring large codebases
 
 Official skills and plugins for OpenHands — the open-source AI software engineer.
 
-**52 extensions** (44 skills, 8 plugins)
+**53 extensions** (44 skills, 9 plugins)
 
 | Name | Type | Description | Commands |
 |------|------|-------------|----------|
@@ -120,6 +120,7 @@ Official skills and plugins for OpenHands — the open-source AI software engine
 | openhands-automation | skill | Create and manage OpenHands automations - scheduled tasks that run in sandboxes. Use the prompt preset to create auto... | `/automation:create` |
 | openhands-sdk | skill | Reference skill for the OpenHands Software Agent SDK - build AI agents with custom tools, LLM configuration, conversa... | `/sdk` |
 | pdflatex | skill | Install and use pdflatex to compile LaTeX documents into PDFs on Linux. Use when generating academic papers, research... | — |
+| polling-github-pr-review | plugin | Deploy a cron automation that polls a GitHub repository every 5 minutes for new labeled pull requests and starts an O... | — |
 | pr-review | plugin | Automated PR code review — analyzes diffs and posts inline review comments via the GitHub API. | — |
 | prd | skill | Generate a Product Requirements Document (PRD) for a new feature through an interactive clarifying-question workflow.... | `/prd` |
 | qa-changes | plugin | Validate pull request changes by actually running the code — setting up the environment, exercising changed behavior,... | — |
