@@ -18,7 +18,7 @@ Configuration constants are embedded at automation-creation time by the skill.
 See SKILL.md for the full setup workflow.
 
 Required secrets (set in OpenHands Settings → Secrets):
-  GITHUB_TOKEN  - Personal Access Token
+  GITHUB_PERSONAL_ACCESS_TOKEN  - Personal Access Token
                   Classic PAT:       'repo' scope (private) or 'public_repo' (public)
                   Fine-grained PAT:  Issues: Read and Write
 
@@ -40,7 +40,7 @@ from urllib.parse import urlencode
 REPO = "owner/repo"                     # e.g. "microsoft/vscode"
 TRIGGER_PHRASE = "@openhands"           # case-insensitive
 EVENT_TYPES = ["issue_comment"]         # e.g. ["issue_comment", "pr_review_comment"]
-# Who may trigger conversations. Default is the authenticated GITHUB_TOKEN owner.
+# Who may trigger conversations. Default is the authenticated GITHUB_PERSONAL_ACCESS_TOKEN owner.
 # Use ["*"] to allow any non-bot commenter, or explicit logins like ["octocat"].
 ALLOWED_GITHUB_LOGINS = ["<TOKEN_OWNER>"]
 DEFAULT_OPENHANDS_URL = "http://localhost:8000"
@@ -207,15 +207,15 @@ def _github_paginate(token: str, path: str, params: dict | None = None) -> list:
 
 
 def _resolve_github_token() -> str:
-    """Fetch GITHUB_TOKEN from secrets.  Raises RuntimeError if absent."""
+    """Fetch GITHUB_PERSONAL_ACCESS_TOKEN from secrets.  Raises RuntimeError if absent."""
     try:
-        token = get_secret("GITHUB_TOKEN")
+        token = get_secret("GITHUB_PERSONAL_ACCESS_TOKEN")
         if token:
             return token
     except Exception:
         pass
     raise RuntimeError(
-        "GITHUB_TOKEN secret is not set. "
+        "GITHUB_PERSONAL_ACCESS_TOKEN secret is not set. "
         "Go to OpenHands Settings → Secrets and add your GitHub Personal Access Token."
     )
 
@@ -231,7 +231,7 @@ def _verify_token_and_repo(token: str, repo: str) -> str:
     except urllib.error.HTTPError as exc:
         if exc.code == 401:
             raise RuntimeError(
-                "GITHUB_TOKEN is invalid or expired. "
+                "GITHUB_PERSONAL_ACCESS_TOKEN is invalid or expired. "
                 "Update it in OpenHands Settings → Secrets."
             )
         raise RuntimeError(f"GitHub /user check failed: {exc.code}")
@@ -247,13 +247,13 @@ def _verify_token_and_repo(token: str, repo: str) -> str:
     except urllib.error.HTTPError as exc:
         if exc.code == 404:
             raise RuntimeError(
-                f"Repository '{repo}' not found or not accessible with the current GITHUB_TOKEN. "
+                f"Repository '{repo}' not found or not accessible with the current GITHUB_PERSONAL_ACCESS_TOKEN. "
                 "Check the repo name (format: owner/repo) and token permissions."
             )
         if exc.code == 403:
             raise RuntimeError(
                 f"Access denied to repository '{repo}'. "
-                "Ensure GITHUB_TOKEN has the required permissions."
+                "Ensure GITHUB_PERSONAL_ACCESS_TOKEN has the required permissions."
             )
         raise RuntimeError(f"GitHub /repos/{repo} check failed: {exc.code}")
 
@@ -268,7 +268,7 @@ def _verify_token_and_repo(token: str, repo: str) -> str:
         # Private repo: must have push access or the 'repo' classic-PAT scope.
         if not can_push and not has_repo_scope and scopes:
             raise RuntimeError(
-                f"GITHUB_TOKEN cannot post comments to private repository '{repo}'. "
+                f"GITHUB_PERSONAL_ACCESS_TOKEN cannot post comments to private repository '{repo}'. "
                 "A classic PAT needs the 'repo' scope; "
                 "a fine-grained PAT needs 'Issues: Read and Write' permission."
             )
@@ -276,7 +276,7 @@ def _verify_token_and_repo(token: str, repo: str) -> str:
         # Public repo: need at minimum 'public_repo' scope or push access.
         if scopes and not (can_push or has_public_repo_scope or has_repo_scope):
             raise RuntimeError(
-                f"GITHUB_TOKEN cannot post comments to public repository '{repo}'. "
+                f"GITHUB_PERSONAL_ACCESS_TOKEN cannot post comments to public repository '{repo}'. "
                 "A classic PAT needs the 'public_repo' scope; "
                 "a fine-grained PAT needs 'Issues: Read and Write' permission."
             )
@@ -591,7 +591,7 @@ def _build_initial_prompt(ctx: dict, trigger_comment: dict, event_type: str) -> 
         f"\nTriggering comment by @{trigger_author}:{path_info}\n"
         f"---\n{trigger_body}\n---\n"
         f"\nPlease analyse the request and take the appropriate action.\n"
-        f"The GITHUB_TOKEN secret is available if you need to interact with the "
+        f"The GITHUB_PERSONAL_ACCESS_TOKEN secret is available if you need to interact with the "
         f"GitHub API (fetch the PR diff, create commits, update labels, etc.).\n"
         f"When you are finished, summarise what you did clearly — that summary "
         f"will be posted back to the GitHub {item_type} as a comment."
