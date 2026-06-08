@@ -69,7 +69,7 @@ Add the following secrets in your repository settings (**Settings → Secrets an
 | `GITHUB_TOKEN` | Auto | Provided automatically by GitHub Actions |
 | `LMNR_SKILLS_API_KEY` | No | Laminar API key (org-level secret; mapped to `LMNR_PROJECT_API_KEY` env var in workflows) |
 
-**Note**: For repositories that need to post review comments from a bot account, use `ALLHANDS_BOT_GITHUB_PAT` instead of `GITHUB_TOKEN`.
+**Note**: To post review comments from a bot account instead of `GITHUB_TOKEN`, use a bot token scoped to the repository's trust boundary. On **public** repositories, use `OPENHANDS_BOT_GITHUB_PAT_PUBLIC` — a fine-grained token limited to public repositories. On **private** repositories, use a bot token scoped to that repository. Never give a public repository a token that can reach private repositories.
 
 ### 3. Customize the Workflow (Optional)
 
