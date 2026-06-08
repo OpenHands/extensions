@@ -1,6 +1,6 @@
 {
   "id": "github-pr-reviewer",
-  "name": "GitHub PR review copilot",
+  "name": "GitHub PR Review Agent",
   "category": "Code review",
   "description": "Watch pull requests, inspect the diff, and leave a concise review with risks and suggested follow-ups.",
   "requiredIntegrationIds": [
