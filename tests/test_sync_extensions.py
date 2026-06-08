@@ -198,6 +198,20 @@ class TestCollectNeededCommands:
             assert spec.path.parent.name == "commands"
             assert spec.path.suffix == ".md"
 
+    def test_colon_triggers_are_normalized_for_filenames(self, tmp_path, monkeypatch):
+        skill_dir = tmp_path / "skills" / "test-skill"
+        skill_dir.mkdir(parents=True)
+        (skill_dir / "SKILL.md").write_text(
+            "---\nname: test-skill\ndescription: Test\ntriggers:\n  - /test:command\n---\nBody\n"
+        )
+
+        monkeypatch.setattr("sync_extensions.SKILL_DIRS", [tmp_path / "skills"])
+
+        specs = collect_needed_commands()
+        assert [spec.path.relative_to(tmp_path).as_posix() for spec in specs] == [
+            "skills/test-skill/commands/test-command.md"
+        ]
+
 
 # ── load_marketplaces ────────────────────────────────────────────────
 
