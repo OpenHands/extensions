@@ -57,6 +57,12 @@ Identify:
 - Code that could be 3 lines instead of 10
 - Poor naming that obscures intent
 - Missing inline documentation for non-obvious logic
+- **Unnecessary comments**: flag and suggest removing comments that add noise rather than value. A 3-line change should not produce 19 lines of comments. Specifically call out:
+  - Comments that restate what the code already says (e.g. `# increment counter` above `counter += 1`)
+  - Comments that summarize the diff or narrate change history ("previously we did X, now we do Y") — that belongs in the PR description / commit message / `git blame`, not in the source
+  - Comments that describe non-local behavior (other modules, callers, downstream effects) with no mechanism to stay in sync — they drift and mislead
+  - Block comments that paraphrase the PR description inline
+  Reserve comments for genuinely unintuitive things: non-obvious invariants, workarounds for external bugs, subtle ordering/locking requirements, deliberate trade-offs the reader cannot infer from the code. When in doubt, prefer restructuring or renaming over commenting.
 
 3. **Pragmatic Problem Analysis**
 "Theory and practice sometimes clash. Theory loses. Every single time."

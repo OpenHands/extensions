@@ -1,12 +1,15 @@
 {
   "name": "@openhands/extensions",
-  "version": "0.0.0",
+  "version": "0.3.0",
   "description": "Public OpenHands extension catalogs for skills, plugins, integrations, and automation templates.",
   "license": "MIT",
   "type": "module",
   "repository": {
     "type": "git",
     "url": "https://github.com/OpenHands/extensions"
+  },
+  "scripts": {
+    "build:skills": "node scripts/build-skills-catalog.mjs"
   },
   "engines": {
     "node": ">=18.20.0"
@@ -16,13 +19,9 @@
     "react": ">=18.0.0",
     "react-icons": ">=5.0.0"
   },
-  "files": [
-    "automations",
-    "integrations",
-    "LICENSE",
-    "MIGRATION.md",
-    "README.md"
-  ],
+  "publishConfig": {
+    "access": "public"
+  },
   "exports": {
     ".": {
       "types": "./index.d.ts",
@@ -46,6 +45,14 @@
       "default": "./integrations/logos.js"
     },
     "./integrations/catalog/*.json": "./integrations/catalog/*.json",
+    "./skills": {
+      "types": "./skills/index.d.ts",
+      "import": "./skills/index.js",
+      "default": "./skills/index.js"
+    },
+    "./skills/*": "./skills/*",
+    "./plugins/*": "./plugins/*",
+    "./marketplaces/*.json": "./marketplaces/*.json",
     "./package.json": "./package.json"
   }
 }
