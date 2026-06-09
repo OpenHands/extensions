@@ -2,20 +2,20 @@
 name: github-pr-reviewer
 description: >
   Create an automation that reviews GitHub pull requests when they are opened
-  or updated. Polls configured repositories on a fixed 5-minute cron schedule,
-  detects new or updated PRs, and starts an OpenHands conversation for each
-  one that performs a code review and posts it directly back to GitHub.
-  Only reviews each unique HEAD commit once — no duplicate reviews on the same
-  code. Draft PRs are skipped by default.
+  or updated. Polls configured repositories on a configurable cron schedule
+  (default: every 5 minutes), detects new or updated PRs, and starts an
+  OpenHands conversation for each one that performs a code review and posts it
+  directly back to GitHub. Only reviews each unique HEAD commit once — no
+  duplicate reviews on the same code. Draft PRs are skipped by default.
 triggers:
   - /pr-reviewer-setup
 ---
 
 # GitHub Code Review Agent  —  Setup
 
-Create a cron automation that polls a set of GitHub repositories every
-5 minutes. For each open PR that has not been reviewed at its current HEAD
-commit it:
+Create a cron automation that polls a set of GitHub repositories on a
+configurable schedule (default: every 5 minutes). For each open PR that has
+not been reviewed at its current HEAD commit it:
 
 1. Creates an OpenHands conversation that fetches the diff, reviews the
    changes, and posts the review back to GitHub via the `/github-pr-review`
@@ -25,9 +25,6 @@ commit it:
 3. Records the reviewed HEAD SHA so the same commit is never reviewed twice.
    A new review is triggered automatically when the PR author pushes a new
    commit.
-
-> **Schedule is fixed at `*/5 * * * *`.** Do NOT ask the user for a cron
-> schedule and do NOT deviate from this interval.
 
 ---
 
@@ -110,7 +107,21 @@ Map the answer:
 | 1 / Enter | `"balanced"` |
 | 2 | `"roasted"` |
 
-### Step 5  —  Generate the automation script
+### Step 5  —  Collect polling schedule
+
+Ask the user:
+*"How often should the bot poll for new pull requests?
+(Press Enter for the default: every 5 minutes.
+Use a cron expression for a different interval, e.g.:
+`* * * * *` = every minute,
+`*/15 * * * *` = every 15 minutes,
+`0 * * * *` = every hour)"*
+
+Default: `*/5 * * * *` (every 5 minutes).
+
+Record as `CRON_SCHEDULE`.
+
+### Step 6  —  Generate the automation script
 
 Read `scripts/main.py` from this skill's directory. Apply exactly four
 constant substitutions near the top of the file:
@@ -135,7 +146,7 @@ python3 -m py_compile /tmp/pr-reviewer-build/main.py && echo "Syntax OK"
 
 Fix any syntax errors before proceeding.
 
-### Step 6  —  Package and upload
+### Step 7  —  Package and upload
 
 Read the Automation backend URL and auth from `<RUNTIME_SERVICES>`:
 - Use the **Automation backend** `url_from_agent` as `OPENHANDS_HOST`
@@ -157,7 +168,7 @@ TARBALL_PATH=$(curl -s -X POST \
 echo "Uploaded: $TARBALL_PATH"
 ```
 
-### Step 7  —  Create the automation
+### Step 8  —  Create the automation
 
 ```bash
 REPOS_DISPLAY="{comma-separated repo list}"
@@ -167,7 +178,7 @@ curl -s -X POST "${OPENHANDS_HOST}/api/automation/v1" \
   -H "Content-Type: application/json" \
   -d "{
     \"name\": \"GitHub Code Review: ${REPOS_DISPLAY}\",
-    \"trigger\": {\"type\": \"cron\", \"schedule\": \"*/5 * * * *\"},
+    \"trigger\": {\"type\": \"cron\", \"schedule\": \"{cron_schedule}\"},
     \"tarball_path\": \"$TARBALL_PATH\",
     \"entrypoint\": \"python3 main.py\",
     \"timeout\": 55
@@ -176,7 +187,7 @@ curl -s -X POST "${OPENHANDS_HOST}/api/automation/v1" \
 
 Record the returned `id`.
 
-### Step 8  —  Confirm
+### Step 9  —  Confirm
 
 Tell the user:
 
@@ -186,7 +197,7 @@ Tell the user:
 > - Repositories: `{repo list}`
 > - Label filter: `{label_filter or "none (reviews all open PRs)"}`
 > - Review tone: `{review_tone}`
-> - Schedule: every 5 minutes
+> - Schedule: `{cron_schedule}`
 > - State file: `~/.openhands/workspaces/automation-state/pr_reviewer_{id}.json`
 >
 > The bot will review each open PR once per HEAD commit. When the PR author
