@@ -441,6 +441,103 @@ curl -s -X POST -u "$HF_API_KEY:$HF_AUTH_CODE" \
   }' | jq
 ```
 
+## Attaching Files to Updates
+
+HappyFox's v1.1 API accepts file attachments on **ticket creation**, **staff updates**, and **private notes**. The contract (per the [Tickets API docs](https://support.happyfox.com/kb/article/1039-tickets-endpoint/)):
+
+| Aspect | Value |
+|---|---|
+| Field name | `attachments` (plural — repeat for multiple files) |
+| Content-Type | `multipart/form-data` (required when attachments are present) |
+| Total size cap | 25 MB combined across all files in one request |
+| File type | No restrictions |
+| File encoding | HappyFox uses the file's declared encoding, else UTF-8 |
+| Supported endpoints | `POST /tickets/`, `POST /ticket/<id>/staff_update/`, `POST /ticket/<id>/staff_pvtnote/` |
+
+For inline images embedded in `html` (e.g. `<img src="...">`), use the separate `POST /api/1.1/json/ticket-inline-attachment/` endpoint (single file, returns a temporary URL to drop into the `src` attribute).
+
+### Recipe: curl (preferred)
+
+```bash
+curl -s -X POST -u "$HF_API_KEY:$HF_AUTH_CODE" \
+  -F "staff=1" \
+  -F "update_customer=true" \
+  -F "html=<p>Attaching the patch for your review.</p>" \
+  -F "attachments=@/path/to/first.diff;type=text/x-diff" \
+  -F "attachments=@/path/to/second.log;type=text/plain" \
+  "$HF_BASE_URL/api/1.1/json/ticket/TICKET_NUMBER/staff_update/" | jq
+```
+
+Two attachments above — repeat `-F "attachments=@..."` once per file. Each modifier (`;type=`, `;filename=`) is optional; HappyFox falls back to the OS-detected MIME type and the basename of the path.
+
+### Recipe: Python stdlib (fallback)
+
+Use this when `curl -F` fails with `(26) Failed to open/read local data from file/application` — see the caveat below. No third-party dependencies required.
+
+```python
+import base64, mimetypes, os, urllib.request, uuid
+from pathlib import Path
+
+API_KEY, AUTH_CODE = os.environ["HF_API_KEY"], os.environ["HF_AUTH_CODE"]
+BASE = os.environ["HF_BASE_URL"]
+
+TICKET = "TICKET_NUMBER"
+FILES  = [Path("/path/to/first.diff"), Path("/path/to/second.log")]
+FIELDS = {"staff": "1", "update_customer": "true",
+          "html":  "<p>Attaching files for your review.</p>"}
+
+boundary = f"----HappyFox{uuid.uuid4().hex}"
+CRLF = "\r\n"
+body = b""
+for name, value in FIELDS.items():
+    body += (f"--{boundary}{CRLF}"
+             f'Content-Disposition: form-data; name="{name}"{CRLF}{CRLF}'
+             f"{value}{CRLF}").encode()
+for fp in FILES:
+    mime = mimetypes.guess_type(str(fp))[0] or "application/octet-stream"
+    body += (f"--{boundary}{CRLF}"
+             f'Content-Disposition: form-data; name="attachments"; filename="{fp.name}"{CRLF}'
+             f"Content-Type: {mime}{CRLF}{CRLF}").encode()
+    body += fp.read_bytes() + CRLF.encode()
+body += f"--{boundary}--{CRLF}".encode()
+
+req = urllib.request.Request(
+    f"{BASE}/api/1.1/json/ticket/{TICKET}/staff_update/", data=body, method="POST",
+    headers={
+        "Authorization": "Basic " + base64.b64encode(f"{API_KEY}:{AUTH_CODE}".encode()).decode(),
+        "Content-Type":  f"multipart/form-data; boundary={boundary}",
+        "Content-Length": str(len(body)),
+    })
+print(urllib.request.urlopen(req, timeout=30).read().decode())
+```
+
+### Verification
+
+Per "Write-safety" above, GET the ticket after posting and confirm the new update carries the files (HappyFox echoes `id` and `filename` for each attachment, plus a short-lived signed S3 `url` valid for ~5 minutes):
+
+```bash
+curl -s -u "$HF_API_KEY:$HF_AUTH_CODE" \
+  "$HF_BASE_URL/api/1.1/json/ticket/TICKET_NUMBER/" | \
+  jq '.updates[-1] | {update_id, message_type,
+        attachments: [.message.attachments[]? | {id, filename, url}]}'
+```
+
+### Caveat: `curl -F` can fail with error 26 in containerized environments
+
+<IMPORTANT>
+`curl -F "attachments=@/path/file"` has been observed to fail with
+`curl: (26) Failed to open/read local data from file/application`
+even on small, readable files in some containerized sandboxes (verified with
+curl 8.14.1 + libcurl/8.14.1 OpenSSL/3.5.5 on a Debian-derived image). The
+file opens fine with `cat`, `wc`, `ls`, and Python; only the libcurl
+multipart reader trips on it.
+
+If you hit this, **do not retry curl** — the failure is deterministic on
+that toolchain — fall through to the Python stdlib recipe above. The
+underlying root cause hasn't been pinned down; this is documented as an
+empirical workaround.
+</IMPORTANT>
+
 ## Status Behaviors
 
 | Behavior | Description |
