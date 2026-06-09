@@ -4,6 +4,10 @@ An OpenHands skill that creates a cron automation to monitor a GitHub
 repository for issue and PR comments, routing them to OpenHands conversations
 and posting results back as GitHub comments.
 
+The setup flow is written to stay cross-platform: it uses workspace-local files
+and Python-based packaging/upload steps instead of bash-only `/tmp`, heredoc,
+or `tar` workflows.
+
 ## What it does
 
 1. **Polls** a GitHub repository for new comments on issues and PRs.

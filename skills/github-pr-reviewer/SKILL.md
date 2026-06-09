@@ -66,17 +66,20 @@ Read the Automation backend URL and auth from `<RUNTIME_SERVICES>`:
 - Use the **Automation backend** `url_from_agent` as `OPENHANDS_HOST`
 - Auth: `X-Session-API-Key: $OPENHANDS_AUTOMATION_API_KEY`
 
-Use the **prompt preset** endpoint:
-```bash
-curl -s -X POST "${OPENHANDS_HOST}/api/automation/v1/preset/prompt" \
-  -H "X-Session-API-Key: $OPENHANDS_AUTOMATION_API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "GitHub PR Reviewer",
-    "prompt": "<constructed review prompt>",
-    "trigger": <trigger config from step 2>
-  }'
+Use the **prompt preset** endpoint, but do it in a shell-neutral way:
+1. Write the request body to a JSON file in the workspace (for example `.agent_tmp/github-pr-reviewer-request.json`).
+2. POST that file with the HTTP client that fits the current environment (`curl`, `Invoke-RestMethod`, or a short Python script).
+
+Request body:
+```json
+{
+  "name": "GitHub PR Reviewer",
+  "prompt": "<constructed review prompt>",
+  "trigger": <trigger config from step 2>
+}
 ```
+
+The important part is the payload shape and endpoint; do not force bash-only quoting or heredoc patterns when creating the file or sending the request.
 
 ### Step 5 — Confirm
 

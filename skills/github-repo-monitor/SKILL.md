@@ -48,12 +48,24 @@ before proceeding:
 | `GITHUB_PERSONAL_ACCESS_TOKEN` | Classic PAT | `repo` (private repos) or `public_repo` (public repos) |
 | `GITHUB_PERSONAL_ACCESS_TOKEN` | Fine-grained PAT | Issues: Read and Write |
 
-Check with:
-```bash
-curl -s https://api.github.com/user \
-  -H "Authorization: Bearer $GITHUB_PERSONAL_ACCESS_TOKEN" \
-  -H "Accept: application/vnd.github+json" \
-  | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('login') or d.get('message'))"
+Check with any shell-appropriate HTTP client or a short Python script. The important part is to call `GET https://api.github.com/user` with `Authorization: Bearer <token>` and `Accept: application/vnd.github+json`, then read either the authenticated login or the error message.
+
+Example Python snippet:
+```python
+import json
+import urllib.request
+
+token = "<GITHUB_PERSONAL_ACCESS_TOKEN>"
+req = urllib.request.Request(
+    "https://api.github.com/user",
+    headers={
+        "Authorization": f"Bearer {token}",
+        "Accept": "application/vnd.github+json",
+    },
+)
+with urllib.request.urlopen(req) as response:
+    data = json.load(response)
+print(data.get("login") or data.get("message"))
 ```
 
 If the token is missing, inform the user and stop — the automation cannot
@@ -88,21 +100,28 @@ Fetch the secret and run the `curl` check above.
 Ask the user: *"Which GitHub repository should be monitored?
 (Format: `owner/repo`, e.g. `microsoft/vscode`)"*
 
-Validate access and write permissions:
+Validate access and write permissions with any shell-appropriate HTTP client or Python. The important part is to call `GET https://api.github.com/repos/{owner}/{repo}` with the same bearer token and inspect either `message` or `permissions`.
 
-```bash
-curl -s "https://api.github.com/repos/{owner}/{repo}" \
-  -H "Authorization: Bearer $GITHUB_PERSONAL_ACCESS_TOKEN" \
-  -H "Accept: application/vnd.github+json" \
-  | python3 -c "
-import json, sys
-d = json.load(sys.stdin)
-if 'message' in d:
-    print('ERROR:', d['message'])
+Example Python snippet:
+```python
+import json
+import urllib.request
+
+owner_repo = "{owner}/{repo}"
+token = "<GITHUB_PERSONAL_ACCESS_TOKEN>"
+req = urllib.request.Request(
+    f"https://api.github.com/repos/{owner_repo}",
+    headers={
+        "Authorization": f"Bearer {token}",
+        "Accept": "application/vnd.github+json",
+    },
+)
+with urllib.request.urlopen(req) as response:
+    data = json.load(response)
+if "message" in data:
+    print("ERROR:", data["message"])
 else:
-    perms = d.get('permissions', {})
-    print(f\"Accessible. Private: {d.get('private')}. Permissions: {perms}\")
-"
+    print(f"Accessible. Private: {data.get('private')}. Permissions: {data.get('permissions', {})}")
 ```
 
 - If `message: Not Found` or `message: Bad credentials` →
@@ -180,15 +199,11 @@ constant substitutions near the top of the file:
 | `ALLOWED_GITHUB_LOGINS = ["<TOKEN_OWNER>"]` | `ALLOWED_GITHUB_LOGINS = {allowed_logins_list}` |
 | `DEFAULT_OPENHANDS_URL = "http://localhost:8000"` | `DEFAULT_OPENHANDS_URL = "{url}"` (keep default if the user has no preference) |
 
-Write the customised script to a temporary build directory:
-```bash
-mkdir -p /tmp/github-monitor-build
-# (write the customised main.py to /tmp/github-monitor-build/main.py)
-```
+Write the customised script to a workspace-local build directory such as `.agent_tmp/github-monitor-build/main.py`. Use the file editor or a short Python helper so the path works on Windows, macOS, and Linux.
 
-Validate syntax before packaging:
-```bash
-python3 -m py_compile /tmp/github-monitor-build/main.py && echo "Syntax OK"
+Validate syntax before packaging using the current environment's Python launcher (`python`, `python3`, or `py`):
+```text
+<python-launcher> -m py_compile .agent_tmp/github-monitor-build/main.py
 ```
 
 Fix any syntax errors before proceeding.
@@ -203,35 +218,85 @@ block in your system context:
 If no Automation backend is listed in `<RUNTIME_SERVICES>`, stop and tell
 the user to start the full automation stack.
 
-```bash
-tar -czf /tmp/github-monitor.tar.gz -C /tmp/github-monitor-build .
+Package and upload with Python so the flow stays cross-platform:
 
-# OPENHANDS_HOST: read from <RUNTIME_SERVICES> Automation backend url_from_agent
-OPENHANDS_HOST="<automation-url-from-runtime-services>"
+```python
+import json
+import os
+import tarfile
+import urllib.request
+from pathlib import Path
 
-TARBALL_PATH=$(curl -s -X POST \
-  "${OPENHANDS_HOST}/api/automation/v1/uploads?name=github-repo-monitor" \
-  -H "X-Session-API-Key: $OPENHANDS_AUTOMATION_API_KEY" \
-  -H "Content-Type: application/gzip" \
-  --data-binary @/tmp/github-monitor.tar.gz \
-  | python3 -c "import json,sys; print(json.load(sys.stdin)['tarball_path'])")
+build_dir = Path(".agent_tmp/github-monitor-build")
+tarball_path = Path(".agent_tmp/github-monitor.tar.gz")
+openhands_host = "<automation-url-from-runtime-services>".rstrip("/")
+api_key = os.environ["OPENHANDS_AUTOMATION_API_KEY"]
 
-echo "Uploaded: $TARBALL_PATH"
+with tarfile.open(tarball_path, "w:gz") as tar:
+    tar.add(build_dir, arcname=".")
+
+upload_request = urllib.request.Request(
+    f"{openhands_host}/api/automation/v1/uploads?name=github-repo-monitor",
+    data=tarball_path.read_bytes(),
+    headers={
+        "X-Session-API-Key": api_key,
+        "Content-Type": "application/gzip",
+    },
+    method="POST",
+)
+with urllib.request.urlopen(upload_request) as response:
+    upload_data = json.load(response)
+
+TARBALL_PATH = upload_data["tarball_path"]
+print(TARBALL_PATH)
 ```
+
+Record the returned `TARBALL_PATH`.
 
 ### Step 9  -  Create the automation
 
-```bash
-curl -s -X POST "${OPENHANDS_HOST}/api/automation/v1" \
-  -H "X-Session-API-Key: $OPENHANDS_AUTOMATION_API_KEY" \
-  -H "Content-Type: application/json" \
-  -d "{
-    \"name\": \"GitHub Monitor: {owner}/{repo}\",
-    \"trigger\": {\"type\": \"cron\", \"schedule\": \"{cron_schedule}\"},
-    \"tarball_path\": \"$TARBALL_PATH\",
-    \"entrypoint\": \"python3 main.py\",
-    \"timeout\": 55
-  }" | python3 -m json.tool
+Use the same shell-neutral pattern: write the request body as JSON, then POST it with Python or another HTTP client that matches the current environment.
+
+Request body:
+```json
+{
+  "name": "GitHub Monitor: {owner}/{repo}",
+  "trigger": {"type": "cron", "schedule": "{cron_schedule}"},
+  "tarball_path": "<TARBALL_PATH>",
+  "entrypoint": "<python-launcher> main.py",
+  "timeout": 55
+}
+```
+
+Set `entrypoint` to the same launcher that worked in Step 7 (for example `python main.py`, `python3 main.py`, or `py -3 main.py`).
+
+Example Python snippet:
+```python
+import json
+import os
+import urllib.request
+
+openhands_host = "<automation-url-from-runtime-services>".rstrip("/")
+api_key = os.environ["OPENHANDS_AUTOMATION_API_KEY"]
+payload = {
+    "name": "GitHub Monitor: {owner}/{repo}",
+    "trigger": {"type": "cron", "schedule": "{cron_schedule}"},
+    "tarball_path": "<TARBALL_PATH>",
+    "entrypoint": "<python-launcher> main.py",
+    "timeout": 55,
+}
+request = urllib.request.Request(
+    f"{openhands_host}/api/automation/v1",
+    data=json.dumps(payload).encode(),
+    headers={
+        "X-Session-API-Key": api_key,
+        "Content-Type": "application/json",
+    },
+    method="POST",
+)
+with urllib.request.urlopen(request) as response:
+    automation = json.load(response)
+print(json.dumps(automation, indent=2))
 ```
 
 Record the returned `id`.
@@ -297,9 +362,9 @@ Each cron run executes `main.py`, which:
 
 ### Script Template
 
-- **`scripts/main.py`**  -  The complete automation script. Customise the four
+- **`scripts/main.py`**  -  The complete automation script. Customise the five
   constants at the top (`REPO`, `TRIGGER_PHRASE`, `EVENT_TYPES`,
-  `DEFAULT_OPENHANDS_URL`) before packaging.
+  `ALLOWED_GITHUB_LOGINS`, `DEFAULT_OPENHANDS_URL`) before packaging.
 
 ---
 

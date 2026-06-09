@@ -17,6 +17,7 @@ This skill is activated by keywords:
 - **Supports event-based (webhook) or cron-based (polling) triggers**
 - **Configurable review tone (thorough, concise, friendly)**
 - **Auto-post or draft mode for human approval**
+- **Uses shell-neutral JSON request bodies so setup works across Windows, macOS, and Linux**
 
 ## Prerequisites
 
