@@ -66,7 +66,8 @@ The skill will:
 1. Verify your Slack token is available
 2. Resolve channel names to IDs
 3. Confirm the trigger phrase (or use the default `@openhands`)
-4. Generate and upload a customised automation script
+4. Generate and upload a customised automation script by copying the template
+   and changing only the configuration constants
 5. Create the automation with cron schedule `* * * * *`
 
 ## How It Works

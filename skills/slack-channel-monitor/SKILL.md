@@ -119,8 +119,13 @@ Accepted values: any non-empty string unlikely to appear accidentally, e.g.
 
 ### Step 3  -  Generate the automation script
 
-Read `scripts/main.py` from this skill's directory. Apply exactly three
-constant substitutions near the top of the file:
+Read `scripts/main.py` from this skill's directory and **copy it verbatim**.
+Apply exactly three constant substitutions near the top of the file:
+
+> **Do not reimplement, simplify, or hand-write a replacement script.**
+> The template already contains the correct secret-loading, state-path,
+> conversation-creation, and context-forwarding logic. Only the three
+> configuration constants below should change unless syntax validation fails.
 
 | Placeholder | Replace with |
 |---|---|
@@ -131,7 +136,8 @@ constant substitutions near the top of the file:
 Write the customised script to a temporary directory:
 ```bash
 mkdir -p /tmp/slack-monitor-build
-# (write the customised main.py to /tmp/slack-monitor-build/main.py)
+# copy scripts/main.py to /tmp/slack-monitor-build/main.py
+# then replace only the three constants above
 ```
 
 Validate syntax before packaging:
@@ -139,7 +145,19 @@ Validate syntax before packaging:
 python3 -m py_compile /tmp/slack-monitor-build/main.py && echo "Syntax OK"
 ```
 
-Fix any syntax errors before proceeding.
+Then run a quick integrity check to confirm the template structure is still
+present and only the configuration block was customised:
+```bash
+grep -n 'TRIGGER_PHRASE = "' /tmp/slack-monitor-build/main.py
+grep -n 'CHANNEL_IDS: list\[str\] =' /tmp/slack-monitor-build/main.py
+grep -n 'DEFAULT_OPENHANDS_URL = "' /tmp/slack-monitor-build/main.py
+grep -n 'def get_secret' /tmp/slack-monitor-build/main.py
+grep -n 'def _state_file_path' /tmp/slack-monitor-build/main.py
+grep -n 'def create_conversation' /tmp/slack-monitor-build/main.py
+```
+
+If any of those checks fail, stop and re-copy the template instead of trying to
+repair a hand-written variant.
 
 ### Step 4  -  Package and upload
 
