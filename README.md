@@ -102,7 +102,7 @@ Official skills and plugins for OpenHands — the open-source AI software engine
 | github | skill | Interact with GitHub repositories, pull requests, issues, and workflows using the GITHUB_TOKEN environment variable a... | — |
 | github-actions | skill | Create, debug, and test GitHub Actions workflows and custom actions. Use when building CI/CD pipelines, automating wo... | — |
 | github-pr-review | skill | Post structured PR reviews to GitHub with inline comments/suggestions in a single API call. | `/github-pr-review` |
-| github-pr-reviewer | skill | Create an automation that reviews GitHub pull requests when they are opened or updated. Inspects the diff, changed fi... | `/pr-reviewer:setup` |
+| github-pr-reviewer | skill | Create an automation that reviews GitHub pull requests when they are opened or updated. Inspects the diff, changed fi... | `/pr-reviewer-setup` |
 | github-repo-monitor | skill | Create a cron automation that polls a GitHub repository for issue and PR comments containing a configurable trigger p... | `/github-monitor:poll` |
 | gitlab | skill | Interact with GitLab repositories, merge requests, and APIs using the GITLAB_TOKEN environment variable. Use when wor... | — |
 | incident-retrospective | skill | Create an automation that drafts incident retrospectives by gathering incident-channel messages from Slack, collectin... | `/incident-retro:setup` |
