@@ -327,6 +327,31 @@ curl -s -X POST -u "$HF_API_KEY:$HF_AUTH_CODE" \
   }' | jq
 ```
 
+**Custom fields** can be updated via the same endpoint using the `t-cf-<id>` form-field convention (same as ticket creation — see "Create a Ticket" above). For text fields pass the raw string; for choice (enumeration) fields pass the choice's numeric `id`:
+
+```bash
+curl -s -X POST -u "$HF_API_KEY:$HF_AUTH_CODE" \
+  -H "Content-Type: application/json" \
+  "$HF_BASE_URL/api/1.1/json/ticket/TICKET_NUMBER/staff_update/" \
+  -d '{
+    "staff": 1,
+    "t-cf-3": "FDE-50 — https://linear.app/all-hands-ai/issue/FDE-50/..."
+  }' | jq
+```
+
+<IMPORTANT>
+**Side-effect to know about:** every `POST /staff_update/` creates an entry in the ticket's `updates[]` array, even when the payload contains no `html`/`text` body and no tracked-change field (status, priority, assignee, tags, due_date). Property-only and custom-field-only writes therefore leave a `message: null` audit row with all `*_change` fields set to `null`. Empirically verified — including for custom-field changes, which do **not** populate `custom_field_change` (that field stays `null`).
+
+Concretely, this no-op audit entry:
+
+- is invisible in the customer portal (no message body to render),
+- triggers no email (no body to send), regardless of `update_customer`,
+- still appears in the staff timeline as a from-staff event,
+- bumps the ticket's `last_updated_at`.
+
+If you need to set many properties or custom fields, batch them into a single `/staff_update/` call to avoid stacking multiple no-op rows. There is no `PATCH /ticket/<id>/` for silent property writes on v1.1.
+</IMPORTANT>
+
 ### Update Ticket Tags
 
 ```bash
