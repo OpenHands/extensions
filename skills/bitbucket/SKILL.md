@@ -27,6 +27,15 @@ ENCODED_PASS=$(python3 -c 'import sys, urllib.parse; print(urllib.parse.quote(sy
 git remote set-url origin "https://${ENCODED_USER}:${ENCODED_PASS}@bitbucket.org/username/repo.git"
 ```
 
+PowerShell equivalent for the remote URL encoding:
+
+```powershell
+$parts = $env:BITBUCKET_TOKEN -split ":", 2
+$encodedUser = [Uri]::EscapeDataString($parts[0])
+$encodedPass = [Uri]::EscapeDataString($parts[1])
+git remote set-url origin "https://${encodedUser}:${encodedPass}@bitbucket.org/username/repo.git"
+```
+
 Atlassian's Bitbucket Cloud docs recommend avoiding long-lived credentials in the remote URL when possible. Their API token examples use either `https://{bitbucket_username}:{api_token}@...` or `https://x-bitbucket-api-token-auth:{api_token}@...`; OpenHands users should only construct those URLs on demand, with proper URL encoding.
 
 Here are some instructions for pushing, but ONLY do this if the user asks you to:
@@ -43,3 +52,5 @@ Here are some instructions for pushing, but ONLY do this if the user asks you to
 git remote -v && git branch # to find the current org, repo and branch
 git checkout -b create-widget && git add . && git commit -m "Create widget" && git push -u origin create-widget
 ```
+
+On Windows PowerShell, run those `git` commands as separate commands if `&&` is not supported by the installed shell.

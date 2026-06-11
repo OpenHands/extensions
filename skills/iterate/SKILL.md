@@ -21,6 +21,7 @@ No scripts — you are the orchestration loop. Uses only standard `gh` CLI
 commands that work on any GitHub repo.
 
 Requires: `gh` CLI authenticated with repo access, a PR branch.
+Windows PowerShell equivalents for Bash-only assignment, redirection, and quoting patterns in this skill are in `references/windows.md`.
 
 ## Discover what the repo has
 

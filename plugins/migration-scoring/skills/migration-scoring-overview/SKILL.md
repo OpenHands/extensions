@@ -39,6 +39,17 @@ uv run python -m lc_sdk_examples.migration_scoring \
   --rubric-path /path/to/style_rubric.txt
 ```
 
+PowerShell equivalent for the environment setup:
+
+```powershell
+$env:LLM_API_KEY = "your-api-key"
+$env:LLM_MODEL = "anthropic/claude-3-5-sonnet-20241022"
+
+uv run python -m lc_sdk_examples.migration_scoring `
+  --src-path C:\path\to\migration\project `
+  --rubric-path C:\path\to\style_rubric.txt
+```
+
 ## Workflow Phases
 
 ### Phase 1: Migration Mapping
