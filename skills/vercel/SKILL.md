@@ -40,6 +40,11 @@ To allow agents and automated systems to access protected deployments, users nee
    ```bash
    curl -H "x-vercel-protection-bypass: <secret>" https://your-preview-url.vercel.app
    ```
+
+   PowerShell equivalent:
+   ```powershell
+   Invoke-WebRequest -Headers @{ "x-vercel-protection-bypass" = "<secret>" } -Uri https://your-preview-url.vercel.app
+   ```
    
    **As a Query Parameter:**
    ```

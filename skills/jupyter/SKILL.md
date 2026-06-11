@@ -33,6 +33,12 @@ jupyter nbconvert --to markdown notebook.ipynb  # Convert to Markdown
 grep -n "search_term" notebook.ipynb
 ```
 
+PowerShell equivalent:
+
+```powershell
+Select-String -Path notebook.ipynb -Pattern "search_term"
+```
+
 ## Cell Structure
 ```python
 # Code cell

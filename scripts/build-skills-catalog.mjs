@@ -61,7 +61,7 @@ export function buildCatalog(skillsDir) {
     const skillMd = join(dirPath, "SKILL.md");
     if (!existsSync(skillMd)) continue;
 
-    const raw = readFileSync(skillMd, "utf-8");
+    const raw = readFileSync(skillMd, "utf-8").replace(/\r\n?/g, "\n");
     const parts = raw.split("---");
     if (parts.length < 3) {
       console.warn(`Warning: ${skillMd} missing frontmatter sections, skipping`);

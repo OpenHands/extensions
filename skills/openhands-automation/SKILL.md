@@ -19,6 +19,7 @@ triggers:
 # OpenHands Automations
 
 Create and manage automations that run inside an OpenHands agent server — triggered by cron schedules or webhook events (GitHub, custom services).
+Windows PowerShell equivalents for the automation API `curl` examples and shell-variable conventions are in `references/windows.md`.
 
 ## Automation Creation Process
 The agent must follow these steps when creating an automation:

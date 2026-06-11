@@ -30,6 +30,8 @@ git remote -v && git branch # to find the current org, repo and branch
 git checkout -b create-widget && git add . && git commit -m "Create widget" && git push -u origin create-widget
 ```
 
+On Windows PowerShell, run those `git` commands as separate commands if `&&` is not supported by the installed shell.
+
 ## Azure DevOps API Usage
 
 When working with Azure DevOps API, you need to use Basic authentication with your Personal Access Token (PAT). The username is ignored (empty string), and the password is the PAT.
@@ -41,6 +43,15 @@ AUTH=$(echo -n ":$AZURE_DEVOPS_TOKEN" | base64)
 
 # Make API call
 curl -H "Authorization: Basic $AUTH" -H "Content-Type: application/json" https://dev.azure.com/{organization}/{project}/_apis/git/repositories?api-version=7.1
+```
+
+PowerShell equivalent for the PAT header:
+
+```powershell
+$auth = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(":$env:AZURE_DEVOPS_TOKEN"))
+Invoke-RestMethod `
+  -Headers @{ Authorization = "Basic $auth"; "Content-Type" = "application/json" } `
+  -Uri "https://dev.azure.com/{organization}/{project}/_apis/git/repositories?api-version=7.1"
 ```
 
 Common API endpoints:

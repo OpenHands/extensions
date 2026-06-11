@@ -15,6 +15,7 @@ triggers:
 # Slack Channel Monitor
 
 Create a cron automation that polls up to 10 Slack channels every minute.
+Windows PowerShell equivalents for the setup, packaging, upload, and API-check shell snippets are in `references/windows.md`.
 When a message containing the **trigger phrase** (default: `@openhands`) is
 detected it:
 

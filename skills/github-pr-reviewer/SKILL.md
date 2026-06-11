@@ -13,6 +13,7 @@ triggers:
 
 Create a cron automation that polls a GitHub repository, reviews each open
 pull request exactly once, and posts the AI review as a GitHub comment.
+Windows PowerShell equivalents for the setup, packaging, upload, and API-check shell snippets are in `references/windows.md`.
 
 The automation script is fully deterministic: PR discovery, state tracking,
 and deduplication are handled in Python. The LLM is only invoked to write

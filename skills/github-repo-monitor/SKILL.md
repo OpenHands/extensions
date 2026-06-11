@@ -16,6 +16,7 @@ triggers:
 
 Create a cron automation that polls a single GitHub repository on a
 configurable schedule (default: every minute).
+Windows PowerShell equivalents for the setup, packaging, upload, and API-check shell snippets are in `references/windows.md`.
 
 When a comment on an issue or PR contains the **trigger phrase**
 (default: `@OpenHands`) it:
