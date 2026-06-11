@@ -190,6 +190,7 @@ Source: [`examples/`](https://github.com/OpenHands/software-agent-sdk/tree/main/
 - [`50_async_cancellation.py`](https://github.com/OpenHands/software-agent-sdk/blob/main/examples/01_standalone_sdk/50_async_cancellation.py)
 - [`51_agent_hooks`](https://github.com/OpenHands/software-agent-sdk/tree/main/examples/01_standalone_sdk/51_agent_hooks)
 - [`52_dynamic_workflow.py`](https://github.com/OpenHands/software-agent-sdk/blob/main/examples/01_standalone_sdk/52_dynamic_workflow.py)
+- [`53_client_defined_tools.py`](https://github.com/OpenHands/software-agent-sdk/blob/main/examples/01_standalone_sdk/53_client_defined_tools.py)
 
 ### [`02_remote_agent_server/`](https://github.com/OpenHands/software-agent-sdk/tree/main/examples/02_remote_agent_server)
 
@@ -206,6 +207,8 @@ Source: [`examples/`](https://github.com/OpenHands/software-agent-sdk/tree/main/
 - [`11_conversation_fork.py`](https://github.com/OpenHands/software-agent-sdk/blob/main/examples/02_remote_agent_server/11_conversation_fork.py)
 - [`12_settings_and_secrets_api.py`](https://github.com/OpenHands/software-agent-sdk/blob/main/examples/02_remote_agent_server/12_settings_and_secrets_api.py)
 - [`13_workspace_get_llm.py`](https://github.com/OpenHands/software-agent-sdk/blob/main/examples/02_remote_agent_server/13_workspace_get_llm.py)
+- [`14_client_defined_tools.py`](https://github.com/OpenHands/software-agent-sdk/blob/main/examples/02_remote_agent_server/14_client_defined_tools.py)
+- [`15_openai_compatible_gateway.py`](https://github.com/OpenHands/software-agent-sdk/blob/main/examples/02_remote_agent_server/15_openai_compatible_gateway.py)
 - [`hook_scripts`](https://github.com/OpenHands/software-agent-sdk/tree/main/examples/02_remote_agent_server/hook_scripts)
 - [`scripts`](https://github.com/OpenHands/software-agent-sdk/tree/main/examples/02_remote_agent_server/scripts)
 
