@@ -193,7 +193,15 @@ python3 -m py_compile /tmp/github-monitor-build/main.py && echo "Syntax OK"
 
 Fix any syntax errors before proceeding.
 
-### Step 8  -  Package and upload
+### Step 8  -  Show the customised script
+
+Show `/tmp/github-monitor-build/main.py` to the user with the `canvas_ui` tool
+if available, otherwise display it in a fenced code block. Then ask:
+*"Does this look right? Shall I package and deploy the automation?"*
+
+Wait for confirmation before proceeding.
+
+### Step 9  -  Package and upload
 
 Determine the Automation backend URL and auth from the `<RUNTIME_SERVICES>`
 block in your system context:
@@ -219,7 +227,7 @@ TARBALL_PATH=$(curl -s -X POST \
 echo "Uploaded: $TARBALL_PATH"
 ```
 
-### Step 9  -  Create the automation
+### Step 10  -  Create the automation
 
 ```bash
 curl -s -X POST "${OPENHANDS_HOST}/api/automation/v1" \
@@ -236,7 +244,7 @@ curl -s -X POST "${OPENHANDS_HOST}/api/automation/v1" \
 
 Record the returned `id`.
 
-### Step 10  -  Confirm
+### Step 11  -  Confirm
 
 Tell the user:
 
