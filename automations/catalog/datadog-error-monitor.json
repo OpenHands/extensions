@@ -1,0 +1,11 @@
+{
+  "id": "datadog-error-monitor",
+  "name": "Datadog error monitor",
+  "category": "Developer tools",
+  "description": "Poll Datadog logs for new or spiking errors, investigate root causes in your codebase, and post a Slack summary with optional PR fixes.",
+  "requiredIntegrationIds": ["datadog", "slack"],
+  "popularityRank": 80,
+  "estimatedSetupMinutes": 10,
+  "prompt": "/datadog-monitor:setup",
+  "exampleImplementation": "Trigger: cron, every 15 minutes\nRequired secrets: DD_API_KEY, DD_APP_KEY, SLACK_BOT_TOKEN\n\n1. Query Datadog logs using a configured filter (e.g. service:api status:error).\n2. Match log events against a regex-based error pattern library stored in a state file.\n3. Track hit counts per pattern; detect spikes (count > 3× rolling baseline).\n4. TODO: configure Datadog query, Slack alert channel, and local repo paths.\n5. When new or spiking errors are found, start an investigation conversation.\n6. The agent categorizes unknown errors into named patterns, investigates root causes in the configured codebases, creates a PR if confident, and posts a Slack summary."
+}
