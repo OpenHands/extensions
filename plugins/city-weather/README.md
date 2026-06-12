@@ -1,5 +1,7 @@
 # City Weather Plugin
 
+[![Launch City Weather](https://img.shields.io/badge/Launch%20City%20Weather-blue?logo=data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI+PHBhdGggZmlsbD0id2hpdGUiIGQ9Ik0xMiAyQzYuNDggMiAyIDYuNDggMiAxMnM0LjQ4IDEwIDEwIDEwIDEwLTQuNDggMTAtMTBTMTcuNTIgMiAxMiAyem0xIDE1aC0ydi02aDJ2NnptMC04aC0yVjdoMnYyeiIvPjwvc3ZnPg==)](https://app.all-hands.dev/launch?plugins=W3sic291cmNlIjogImdpdGh1YjpPcGVuSGFuZHMvZXh0ZW5zaW9ucyIsICJyZWYiOiAibWFpbiIsICJyZXBvX3BhdGgiOiAicGx1Z2lucy9jaXR5LXdlYXRoZXIifV0=&message=%2Fcity-weather%3Anow%20Tokyo)
+
 Get current weather, time, and precipitation forecast for any city worldwide using the free [Open-Meteo API](https://open-meteo.com/).
 
 This plugin is also useful for **testing plugin loading** in OpenHands Cloud and the Software Agent SDK.
