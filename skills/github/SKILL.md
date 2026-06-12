@@ -19,7 +19,7 @@ Examples:
 - `gh pr checks 200 --watch --interval 10` to check until completed.
 </IMPORTANT>
 
-If you encounter authentication issues when pushing to GitHub (such as password prompts or permission errors), the old token may have expired. In such case, update the remote URL to include the current token: `git remote set-url origin https://${GITHUB_TOKEN}@github.com/username/repo.git`
+If you encounter authentication issues when pushing to GitHub (such as password prompts or permission errors), the old token may have expired. In such case, update the remote URL to include the current token using the environment-variable syntax for the current shell. Keep the URL shape `https://<token>@github.com/username/repo.git`, and match the active shell instead of defaulting to bash-only examples.
 
 Here are some instructions for pushing, but ONLY do this if the user asks you to:
 * NEVER push directly to the `main` or `master` branch
@@ -30,10 +30,14 @@ Here are some instructions for pushing, but ONLY do this if the user asks you to
 * Use the main branch as the base branch, unless the user requests otherwise
 * After opening or updating a pull request, send the user a short message with a link to the pull request.
 * Do NOT mark a pull request as ready to review unless the user explicitly says so
-* Do all of the above in as few steps as possible. E.g. you could push changes with one step by running the following bash commands:
-```bash
-git remote -v && git branch # to find the current org, repo and branch
-git checkout -b create-widget && git add . && git commit -m "Create widget" && git push -u origin create-widget
+* Do all of the above in as few steps as possible. For example:
+```text
+git remote -v
+git branch
+git switch -c create-widget
+git add .
+git commit -m "Create widget"
+git push -u origin create-widget
 ```
 
 ## Handling Review Comments
@@ -53,54 +57,29 @@ git checkout -b create-widget && git add . && git commit -m "Create widget" && g
 
 To resolve existing review threads programmatically:
 
-1. Get the thread IDs (replace `<OWNER>`, `<REPO>`, `<PR_NUMBER>`):
-```bash
-gh api graphql -f query='
+1. Get the thread IDs (replace `<OWNER>`, `<REPO>`, `<PR_NUMBER>`). Write the GraphQL body to a JSON file under the system temporary directory such as `<system-temp>/review-threads.json`, then call `gh api graphql --input <file>`:
+```json
 {
-  repository(owner: "<OWNER>", name: "<REPO>") {
-    pullRequest(number: <PR_NUMBER>) {
-      reviewThreads(first: 20) {
-        nodes {
-          id
-          isResolved
-          comments(first: 1) {
-            nodes { body }
-          }
-        }
-      }
-    }
-  }
-}'
+  "query": "query { repository(owner: \"<OWNER>\", name: \"<REPO>\") { pullRequest(number: <PR_NUMBER>) { reviewThreads(first: 20) { nodes { id isResolved comments(first: 1) { nodes { body } } } } } } }"
+}
 ```
 
-2. Reply to the thread explaining how the feedback was addressed:
-```bash
-gh api graphql -f query='
-mutation {
-  addPullRequestReviewThreadReply(input: {
-    pullRequestReviewThreadId: "<THREAD_ID>"
-    body: "Fixed in <COMMIT_SHA>"
-  }) {
-    comment { id }
-  }
-}'
+2. Reply to the thread explaining how the feedback was addressed by updating the JSON body and reusing the same `gh api graphql --input <file>` pattern:
+```json
+{
+  "query": "mutation { addPullRequestReviewThreadReply(input: { pullRequestReviewThreadId: \"<THREAD_ID>\", body: \"Fixed in <COMMIT_SHA>\" }) { comment { id } } }"
+}
 ```
 
-3. Resolve the thread:
-```bash
-gh api graphql -f query='
-mutation {
-  resolveReviewThread(input: {threadId: "<THREAD_ID>"}) {
-    thread { isResolved }
-  }
-}'
+3. Resolve the thread with the same file-based GraphQL pattern:
+```json
+{
+  "query": "mutation { resolveReviewThread(input: {threadId: \"<THREAD_ID>\"}) { thread { isResolved } } }"
+}
 ```
 
 4. Get the failed workflow run ID and rerun it:
-```bash
-# Find the run ID from the failed check URL, or use:
+```text
 gh run list --repo <OWNER>/<REPO> --branch <BRANCH> --limit 5
-
-# Rerun failed jobs
 gh run rerun <RUN_ID> --repo <OWNER>/<REPO> --failed
 ```

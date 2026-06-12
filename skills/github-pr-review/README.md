@@ -20,23 +20,40 @@ Bundle ALL comments into a **single review API call**. Do not post comments indi
 
 ## Posting a Review
 
-Use the GitHub CLI (`gh`). The `GITHUB_TOKEN` is automatically available.
+Use the GitHub CLI (`gh`) with a JSON input file. The `GITHUB_TOKEN` is automatically available.
 
-```bash
-gh api \
-  -X POST \
-  repos/{owner}/{repo}/pulls/{pr_number}/reviews \
-  -f commit_id='{commit_sha}' \
-  -f event='COMMENT' \
-  -f body='Brief 1-3 sentence summary.' \
-  -f comments[][path]='path/to/file.py' \
-  -F comments[][line]=42 \
-  -f comments[][side]='RIGHT' \
-  -f comments[][body]='🟠 Important: Your comment here.' \
-  -f comments[][path]='another/file.js' \
-  -F comments[][line]=15 \
-  -f comments[][side]='RIGHT' \
-  -f comments[][body]='🟡 Suggestion: Another comment.'
+**Important**: Always use `--input` with a JSON file instead of inline `-F` flags. This avoids shell quoting issues with special characters in comment bodies and works cleanly across Windows, macOS, and Linux.
+
+### Step 1: Create a JSON file
+
+Write the review payload to a JSON file under the system temporary directory (for example `<system-temp>/review.json`). Use the file editor or any shell-appropriate file-writing command. Replace `<system-temp>` with an absolute path for the current OS temp directory.
+
+```json
+{
+  "commit_id": "{commit_sha}",
+  "event": "COMMENT",
+  "body": "Brief 1-3 sentence summary.",
+  "comments": [
+    {
+      "path": "path/to/file.py",
+      "line": 42,
+      "side": "RIGHT",
+      "body": "🟠 Important: Your comment here."
+    },
+    {
+      "path": "another/file.js",
+      "line": 15,
+      "side": "RIGHT",
+      "body": "🟡 Suggestion: Another comment."
+    }
+  ]
+}
+```
+
+### Step 2: Post the review
+
+```text
+gh api -X POST repos/{owner}/{repo}/pulls/{pr_number}/reviews --input <system-temp>/review.json
 ```
 
 ### Parameters
@@ -54,32 +71,29 @@ gh api \
 
 For comments spanning multiple lines, add `start_line` to specify the range:
 
-```bash
-  -f comments[][path]='path/to/file.py' \
-  -F comments[][start_line]=10 \
-  -F comments[][line]=12 \
-  -f comments[][side]='RIGHT' \
-  -f comments[][body]='🟡 Suggestion: Refactor this block:
-
-```suggestion
-line_one = "new"
-line_two = "code"
-line_three = "here"
-```'
+```json
+{
+  "path": "path/to/file.py",
+  "start_line": 10,
+  "line": 12,
+  "side": "RIGHT",
+  "body": "🟡 Suggestion: Refactor this block:\n\n```suggestion\nline_one = \"new\"\nline_two = \"code\"\nline_three = \"here\"\n```"
+}
 ```
 
-**Important**: The suggestion must have the same number of lines as the range (e.g., lines 10-12 = 3 lines).
+**`start_line`/`line` define the range that will be REPLACED.** The suggestion block may have any number of lines — it does **not** have to match the range size.
 
 ## Priority Labels
 
-Start each comment with a priority label:
+Start each comment with a priority label. **Minimize nits** — leave minor style issues to linters.
 
 | Label | When to Use |
 |-------|-------------|
 | 🔴 **Critical** | Must fix: security vulnerabilities, bugs, data loss risks |
 | 🟠 **Important** | Should fix: logic errors, performance issues, missing error handling |
-| 🟡 **Suggestion** | Nice to have: better naming, code organization |
-| 🟢 **Nit** | Optional: formatting, minor style preferences |
+| 🟡 **Suggestion** | Worth considering: significant improvements to clarity or maintainability |
+
+**Do NOT post 🟢 Nit or 🟢 Acceptable comments.** If code is fine, simply don't comment on it.
 
 **Example:**
 ```
@@ -107,39 +121,23 @@ Avoid for: large refactors, architectural changes, ambiguous improvements.
 
 ## Finding Line Numbers
 
-```bash
-# From diff header: @@ -old_start,old_count +new_start,new_count @@
-# Count from new_start for added/modified lines
-
-grep -n "pattern" filename     # Find line number
-head -n 42 filename | tail -1  # Verify line content
-```
+Use the file editor, your code editor's line numbers, or another shell-appropriate search command. Verify the exact lines to be replaced before posting a suggestion; do not rely on POSIX-only `grep`, `sed`, or `head | tail` snippets.
 
 ## Fallback: curl
 
-If `gh` is unavailable:
+If `gh` is unavailable, use any HTTP client that can POST the saved JSON file. Example:
 
-```bash
-curl -X POST \
-  -H "Authorization: token $GITHUB_TOKEN" \
-  -H "Accept: application/vnd.github+json" \
-  "https://api.github.com/repos/{owner}/{repo}/pulls/{pr_number}/reviews" \
-  -d '{
-    "commit_id": "{commit_sha}",
-    "event": "COMMENT",
-    "body": "Review summary.",
-    "comments": [
-      {"path": "file.py", "line": 42, "side": "RIGHT", "body": "Comment"},
-      {"path": "file.py", "start_line": 10, "line": 12, "side": "RIGHT", "body": "Multi-line"}
-    ]
-  }'
+```text
+curl -X POST -H "Authorization: token $GITHUB_TOKEN" -H "Accept: application/vnd.github+json" -H "Content-Type: application/json" https://api.github.com/repos/{owner}/{repo}/pulls/{pr_number}/reviews --data-binary @<system-temp>/review.json
 ```
 
 ## Summary
 
-1. Analyze the code and identify issues
-2. Post **ONE** review with all inline comments bundled
-3. Use priority labels (🔴🟠🟡🟢) on every comment
-4. Use suggestion syntax for concrete code changes
-5. Keep the review body brief (details go in inline comments)
-6. If no issues: post a short approval message
+1. Analyze the code and identify important issues (minimize nits)
+2. Write review data to a JSON file under the system temporary directory (for example `<system-temp>/review.json`)
+3. Post **ONE** review using `gh api --input <system-temp>/review.json`
+4. Use priority labels (🔴🟠🟡) on every comment
+5. Do NOT post comments for code that is acceptable — only comment when action is needed
+6. Use suggestion syntax for concrete code changes, but verify the resulting code first
+7. Keep the review body brief (details go in inline comments)
+8. If no issues: post a short approval message with no inline comments
