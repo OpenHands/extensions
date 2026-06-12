@@ -1,6 +1,6 @@
 [project]
 name = "extensions"
-version = "0.4.2"
+version = "0.5.0"
 description = "OpenHands extensions, plugins, and skills"
 requires-python = ">=3.12"
 
