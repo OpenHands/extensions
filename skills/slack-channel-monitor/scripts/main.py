@@ -311,7 +311,12 @@ def add_reaction(token: str, channel: str, ts: str, emoji: str = "eyes") -> None
 
 def post_message(token: str, channel: str, text: str, thread_ts: str | None = None) -> str:
     """Post a Slack message and return its timestamp."""
-    body: dict = {"channel": channel, "text": text}
+    body: dict = {
+        "channel": channel,
+        "markdown_text": text,
+        "unfurl_links": False,
+        "unfurl_media": False,
+    }
     if thread_ts:
         body["thread_ts"] = thread_ts
     return slack_post(token, "chat.postMessage", body).get("ts", "")
