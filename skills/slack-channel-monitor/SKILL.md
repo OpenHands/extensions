@@ -256,8 +256,9 @@ Each cron run executes `main.py`, which runs **10 polling iterations** (every
    `time.time() - last_activity > 15 s`:
    - If status is `idle`, `finished`, `error`, or `stuck` → fetch the agent's
      final response via `/api/conversations/{id}/agent_final_response` and post
-     it to the Slack thread. Mark the record `watching` for five minutes so
-     triggered follow-up replies can continue the same conversation.
+     it to the Slack thread using Slack's `markdown_text` field so Markdown
+     formatting renders correctly. Mark the record `watching` for five minutes
+     so triggered follow-up replies can continue the same conversation.
 7. **Advances `last_poll`** to `now - 10 s` (overlap window prevents boundary
    races). If a conversation creation failed, pins `last_poll` further back to
    retry on the next iteration.

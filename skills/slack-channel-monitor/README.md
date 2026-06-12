@@ -83,9 +83,9 @@ Each cron run (every minute):
    Slack thread
 4. Forwards triggered replies in tracked threads to the existing conversation,
    while ignoring replies that do not contain the trigger phrase
-5. Checks active conversations - posts the agent's final response back to
-   Slack when the conversation completes, then watches briefly for triggered
-   follow-up replies
+5. Checks active conversations - posts the agent's final response with
+   Slack's `markdown_text` field so Markdown renders correctly, then watches
+   briefly for triggered follow-up replies
 
 ## See Also
 
