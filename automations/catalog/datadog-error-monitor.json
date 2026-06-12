@@ -3,7 +3,7 @@
   "name": "Datadog error monitor",
   "category": "Developer tools",
   "description": "Poll Datadog logs for new or spiking errors, investigate root causes in your codebase, and post a Slack summary with optional PR fixes.",
-  "requiredIntegrationIds": ["slack"],
+  "requiredIntegrationIds": ["datadog", "slack"],
   "popularityRank": 80,
   "estimatedSetupMinutes": 10,
   "prompt": "/datadog-monitor:setup",
