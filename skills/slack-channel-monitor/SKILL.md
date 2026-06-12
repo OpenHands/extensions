@@ -23,9 +23,12 @@ detected it:
 3. Posts a reply in the Slack thread with a link to the conversation.
 
 On every subsequent run:
-- Replies in the thread are forwarded to the running conversation.
+- New Slack thread replies are forwarded only when they contain the trigger
+  phrase, so unrelated conversation in the thread is ignored.
 - When the conversation finishes (or errors), the agent's final response is
   posted back to the Slack thread.
+- Completed conversations stay in a short follow-up watch window, allowing
+  triggered Slack replies to continue the same OpenHands conversation.
 
 > **Local mode only.** This automation targets the local OpenHands setup
 > (`dev:automation` stack). A cloud/webhook-based variant is out of scope here.
@@ -235,20 +238,26 @@ Each cron run executes `main.py`, which runs **10 polling iterations** (every
    - User token + `search:read` + > 1 channel → single `search.messages` call
      (searches for the trigger phrase across all channels).
    - Otherwise → one `conversations.history` call per channel.
-4. **Fetches thread replies**  -  one `conversations.replies` call per tracked thread.
+4. **Fetches due thread replies**  -  polls at most one tracked thread per
+   iteration using per-thread exponential backoff to stay within Slack rate
+   limits.
 5. **Processes messages** in chronological order:
    - Skips messages already in `processed_ts` (dedup across the overlap window).
    - Skips bot messages and any `ts` in `bot_message_ts`.
-   - Reply in a tracked thread (active **or** closed) → forwards to the existing
-     conversation; re-opens closed conversations automatically.
-   - Contains trigger phrase → 👀 reaction, create conversation, post link.
+   - Reply in a tracked thread whose text contains the trigger phrase → forwards
+     a follow-up request to the existing conversation and resets the follow-up
+     watch window. Replies without the trigger phrase are marked processed and
+     ignored.
+   - Contains trigger phrase outside a tracked conversation → 👀 reaction, create
+     a new conversation, post link.
      - Thread replies: agent receives full thread history for context.
      - Root messages: agent receives the trigger text only.
 6. **Checks conversation statuses**  -  for each active conversation where
    `time.time() - last_activity > 15 s`:
    - If status is `idle`, `finished`, `error`, or `stuck` → fetch the agent's
      final response via `/api/conversations/{id}/agent_final_response` and post
-     it to the Slack thread. Mark conversation `closed`.
+     it to the Slack thread. Mark the record `watching` for five minutes so
+     triggered follow-up replies can continue the same conversation.
 7. **Advances `last_poll`** to `now - 10 s` (overlap window prevents boundary
    races). If a conversation creation failed, pins `last_poll` further back to
    retry on the next iteration.

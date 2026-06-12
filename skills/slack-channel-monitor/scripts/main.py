@@ -9,7 +9,8 @@ trigger phrase is detected it:
   3. Posts a reply in the Slack thread with a link to the conversation.
 
 On subsequent runs:
-  - New replies in a tracked thread are forwarded to the running conversation.
+  - New replies in a tracked thread are forwarded only when they contain the
+    trigger phrase.
   - When the conversation reaches a terminal/idle state the agent's final
     response (or an error notice) is posted back to the Slack thread.
 
@@ -85,6 +86,18 @@ CONTEXT_MESSAGE_LIMIT = 15
 # How far back (seconds) to look for context when creating a new conversation.
 CONTEXT_LOOKBACK_SECONDS = 3600  # 1 hour of recent messages for context
 
+# Keep completed conversations available for triggered follow-up replies for a
+# short inactivity window. Polling conversations.replies is intentionally throttled:
+# bot-token Slack apps may have a very small per-method quota, so each thread
+# carries its own exponential backoff and each automation run polls at most one
+# due thread. Start hot immediately after each bot reply, then back off
+# on quiet threads.
+THREAD_FOLLOWUP_WATCH_SECONDS = 300
+THREAD_REPLY_INITIAL_BACKOFF_SECONDS = 5
+THREAD_REPLY_MAX_BACKOFF_SECONDS = 300
+THREAD_REPLY_BACKOFF_MULTIPLIER = 2
+MAX_THREAD_REPLY_POLLS_PER_RUN = 1
+
 
 # ── Stdlib helpers ─────────────────────────────────────────────────────────────
 
@@ -106,6 +119,55 @@ def get_secret(name: str) -> str:
     )
     with urllib.request.urlopen(req) as r:
         return r.read().decode().strip()
+
+
+def _is_loopback_openhands_url(url: str) -> bool:
+    return url.startswith((
+        "http://localhost",
+        "https://localhost",
+        "http://127.0.0.1",
+        "https://127.0.0.1",
+    ))
+
+
+def _ngrok_public_openhands_url() -> str | None:
+    try:
+        with urllib.request.urlopen(
+            "http://127.0.0.1:4040/api/tunnels", timeout=2
+        ) as response:
+            tunnels = json.loads(response.read()).get("tunnels", [])
+    except Exception as exc:
+        print(f"Could not discover ngrok public URL: {exc}")
+        return None
+
+    for tunnel in tunnels:
+        public_url = str(tunnel.get("public_url", "")).rstrip("/")
+        addr = str(tunnel.get("config", {}).get("addr", ""))
+        if (
+            public_url.startswith("https://")
+            and ("localhost:8000" in addr or "127.0.0.1:8000" in addr)
+        ):
+            return public_url
+
+    for tunnel in tunnels:
+        public_url = str(tunnel.get("public_url", "")).rstrip("/")
+        if public_url.startswith("https://"):
+            return public_url
+
+    return None
+
+
+def resolve_openhands_url() -> str:
+    try:
+        configured = get_secret("OPENHANDS_URL").rstrip()
+    except Exception:
+        configured = ""
+
+    configured = (configured or DEFAULT_OPENHANDS_URL).rstrip("/")
+    if not _is_loopback_openhands_url(configured):
+        return configured
+
+    return _ngrok_public_openhands_url() or configured
 
 
 def fire_callback(
@@ -195,8 +257,14 @@ def _slack_call(
     }
     data = json.dumps(body).encode() if body is not None else None
     req = urllib.request.Request(url, data=data, headers=headers, method=method)
-    with urllib.request.urlopen(req) as r:
-        result = json.loads(r.read())
+    try:
+        with urllib.request.urlopen(req) as r:
+            result = json.loads(r.read())
+    except urllib.error.HTTPError as exc:
+        if exc.code == 429:
+            retry_after = exc.headers.get("Retry-After", "60")
+            raise RuntimeError(f"Slack {endpoint}: rate_limited retry_after={retry_after}") from exc
+        raise
     if not result.get("ok"):
         raise RuntimeError(f"Slack {endpoint}: {result.get('error', 'unknown_error')}")
     return result
@@ -271,6 +339,36 @@ def thread_replies(token: str, channel: str, thread_ts: str, oldest: str) -> lis
     messages = result.get("messages", [])
     # conversations.replies includes the parent; drop it
     return [m for m in messages if m.get("ts") != thread_ts]
+
+
+def _trigger_index(text: str) -> int:
+    """Return the start index of an exact trigger phrase match, or -1."""
+    lowered = text.lower()
+    trigger = TRIGGER_PHRASE.lower()
+    start = 0
+    while True:
+        idx = lowered.find(trigger, start)
+        if idx < 0:
+            return -1
+        before = lowered[idx - 1] if idx > 0 else ""
+        after_idx = idx + len(trigger)
+        after = lowered[after_idx] if after_idx < len(lowered) else ""
+        before_ok = not before or not (before.isalnum() or before in "_-")
+        after_ok = not after or not (after.isalnum() or after in "_-")
+        if before_ok and after_ok:
+            return idx
+        start = idx + 1
+
+
+def _has_trigger(text: str) -> bool:
+    return _trigger_index(text) >= 0
+
+
+def _request_after_trigger(text: str) -> str:
+    idx = _trigger_index(text)
+    if idx < 0:
+        return text
+    return text[idx + len(TRIGGER_PHRASE):].strip(" :–—")
 
 
 def full_thread_history(
@@ -567,14 +665,99 @@ def _gather_channel_context(
     return context_lines
 
 
+def _expire_inactive_thread_watches(active_convs: dict[str, dict], now: float) -> None:
+    for conv_key, rec in active_convs.items():
+        if rec.get("status") != "watching":
+            continue
+        watch_until = float(rec.get("watch_until") or 0)
+        if watch_until and now >= watch_until:
+            rec["status"] = "closed"
+            rec["closed_reason"] = "followup_watch_expired"
+            rec["closed_at"] = now
+            print(f"  Follow-up watch expired for {conv_key}")
+
+
+def _poll_due_thread_replies(
+    slack_token: str,
+    active_convs: dict[str, dict],
+    bot_user_id: str,
+    bot_message_ts: list[str],
+) -> list[tuple[str, dict]]:
+    now = time.time()
+    _expire_inactive_thread_watches(active_convs, now)
+    due: list[tuple[float, str, dict]] = []
+    for conv_key, rec in active_convs.items():
+        if rec.get("status") not in {"active", "watching"}:
+            continue
+        next_poll = float(rec.get("next_reply_poll_at") or 0)
+        if next_poll <= now:
+            due.append((next_poll, conv_key, rec))
+
+    reply_messages: list[tuple[str, dict]] = []
+    for _next_poll, conv_key, rec in sorted(due)[:MAX_THREAD_REPLY_POLLS_PER_RUN]:
+        cid = rec["channel_id"]
+        thread_ts = rec["thread_ts"]
+        oldest = rec.get("last_seen_reply_ts") or thread_ts
+        try:
+            replies = thread_replies(slack_token, cid, thread_ts, oldest)
+        except Exception as exc:
+            message = str(exc)
+            retry_after = THREAD_REPLY_MAX_BACKOFF_SECONDS
+            marker = "retry_after="
+            if marker in message:
+                raw = message.split(marker, 1)[1].split()[0]
+                try:
+                    retry_after = max(THREAD_REPLY_INITIAL_BACKOFF_SECONDS, int(raw))
+                except ValueError:
+                    pass
+            rec["next_reply_poll_at"] = now + retry_after
+            rec["reply_poll_backoff_seconds"] = min(
+                THREAD_REPLY_MAX_BACKOFF_SECONDS,
+                max(retry_after, int(rec.get("reply_poll_backoff_seconds") or THREAD_REPLY_INITIAL_BACKOFF_SECONDS)),
+            )
+            print(f"  Warning: could not fetch replies for thread {thread_ts}: {exc}")
+            continue
+
+        if replies:
+            rec["last_seen_reply_ts"] = max(r.get("ts", oldest) for r in replies)
+
+        human_replies = [r for r in replies if _is_human_message(r, bot_user_id, bot_message_ts)]
+        triggered_replies = [
+            r for r in human_replies
+            if _has_trigger(r.get("text", "") or "")
+        ]
+        if triggered_replies:
+            rec["reply_poll_backoff_seconds"] = THREAD_REPLY_INITIAL_BACKOFF_SECONDS
+            rec["next_reply_poll_at"] = now + THREAD_REPLY_INITIAL_BACKOFF_SECONDS
+            rec["watch_until"] = now + THREAD_FOLLOWUP_WATCH_SECONDS
+            for r in triggered_replies:
+                reply_messages.append((cid, r))
+            print(f"  {conv_key}: {len(triggered_replies)} triggered follow-up reply/replies")
+        else:
+            if human_replies:
+                print(f"  {conv_key}: ignored {len(human_replies)} follow-up reply/replies without trigger")
+            current = int(rec.get("reply_poll_backoff_seconds") or THREAD_REPLY_INITIAL_BACKOFF_SECONDS)
+            next_backoff = min(
+                THREAD_REPLY_MAX_BACKOFF_SECONDS,
+                max(THREAD_REPLY_INITIAL_BACKOFF_SECONDS, current * THREAD_REPLY_BACKOFF_MULTIPLIER),
+            )
+            rec["reply_poll_backoff_seconds"] = next_backoff
+            rec["next_reply_poll_at"] = now + next_backoff
+            print(f"  {conv_key}: no follow-ups; next reply poll in {next_backoff}s")
+
+    return reply_messages
+
+
 def _poll_new_messages(
     slack_token: str,
     use_search: bool,
     oldest_by_channel: dict[str, str],
     global_oldest: str,
     active_convs: dict[str, dict],
+    bot_user_id: str,
+    bot_message_ts: list[str],
 ) -> list[tuple[str, dict]]:
-    """Collect and sort new top-level messages and thread replies from Slack."""
+    """Collect and sort new top-level messages and due thread replies from Slack."""
     new_messages: list[tuple[str, dict]] = []
 
     if use_search:
@@ -602,19 +785,9 @@ def _poll_new_messages(
             except Exception as exc:
                 print(f"  Warning: could not fetch history for {cid}: {exc}")
 
-    reply_messages: list[tuple[str, dict]] = []
-    for _conv_key, rec in active_convs.items():
-        if rec.get("status") == "closed":
-            continue
-        cid = rec["channel_id"]
-        thread_ts = rec["thread_ts"]
-        oldest = oldest_by_channel.get(cid, global_oldest)
-        try:
-            replies = thread_replies(slack_token, cid, thread_ts, oldest)
-            for r in replies:
-                reply_messages.append((cid, r))
-        except Exception as exc:
-            print(f"  Warning: could not fetch replies for thread {thread_ts}: {exc}")
+    reply_messages = _poll_due_thread_replies(
+        slack_token, active_convs, bot_user_id, bot_message_ts
+    )
 
     return sorted(
         new_messages + reply_messages,
@@ -669,10 +842,7 @@ def _process_trigger_message(
             print(f"  Warning: could not fetch thread history: {exc}")
 
     # Extract the user's request: the text that follows the trigger phrase.
-    request_part = text
-    idx = text.lower().find(TRIGGER_PHRASE.lower())
-    if idx >= 0:
-        request_part = text[idx + len(TRIGGER_PHRASE):].strip(" :–—")
+    request_part = _request_after_trigger(text)
 
     initial_prompt = (
         f"You are an AI assistant responding to a Slack message.\n\n"
@@ -697,12 +867,17 @@ def _process_trigger_message(
         conv_id = create_conversation(agent_url, api_key, initial_prompt)
         conv_url = f"{openhands_url}/conversations/{conv_id}"
 
+        now = time.time()
         active_convs[conv_key] = {
             "conversation_id": conv_id,
             "channel_id": channel_id,
             "thread_ts": thread_root,
             "status": "active",
-            "last_activity": time.time(),
+            "last_activity": now,
+            "last_seen_reply_ts": msg_ts,
+            "reply_poll_backoff_seconds": THREAD_REPLY_INITIAL_BACKOFF_SECONDS,
+            "next_reply_poll_at": now + THREAD_REPLY_INITIAL_BACKOFF_SECONDS,
+            "watch_until": now + THREAD_FOLLOWUP_WATCH_SECONDS,
         }
 
         link_text = f"🤖 On it! View progress here: {conv_url}"
@@ -760,8 +935,16 @@ def _check_conversation_completion(
         if ts_back:
             bot_message_ts.append(ts_back)
 
-        rec["status"] = "closed"
-        print(f"  Posted summary for {conv_key}")
+        now = time.time()
+        rec["status"] = "watching"
+        rec["last_activity"] = now
+        rec["watch_until"] = now + THREAD_FOLLOWUP_WATCH_SECONDS
+        rec["reply_poll_backoff_seconds"] = THREAD_REPLY_INITIAL_BACKOFF_SECONDS
+        rec["next_reply_poll_at"] = now + THREAD_REPLY_INITIAL_BACKOFF_SECONDS
+        print(
+            f"  Posted summary for {conv_key}; watching for follow-ups "
+            f"until {rec['watch_until']:.0f}"
+        )
 
 
 # ── Main ───────────────────────────────────────────────────────────────────────
@@ -776,10 +959,7 @@ def main() -> str | None:
 
     slack_token, token_is_user = _resolve_slack_token()
 
-    try:
-        openhands_url = get_secret("OPENHANDS_URL").rstrip("/") or DEFAULT_OPENHANDS_URL
-    except Exception:
-        openhands_url = DEFAULT_OPENHANDS_URL
+    openhands_url = resolve_openhands_url()
 
     # Raises RuntimeError immediately if the token is invalid - no point polling.
     bot_user_id_new, scopes = _slack_auth_test(slack_token)
@@ -808,7 +988,8 @@ def main() -> str | None:
     active_convs: dict[str, dict] = state.get("conversations", {})
 
     all_incoming = _poll_new_messages(
-        slack_token, use_search, oldest_by_channel, global_oldest, active_convs
+        slack_token, use_search, oldest_by_channel, global_oldest,
+        active_convs, bot_user_id, bot_message_ts,
     )
 
     print(f"  all_incoming: {len(all_incoming)} message(s), "
@@ -848,14 +1029,16 @@ def main() -> str | None:
         thread_root: str = thread_ts if thread_ts and thread_ts != msg_ts else msg_ts
         conv_key = f"{channel_id}:{thread_root}"
 
-        has_trigger = TRIGGER_PHRASE.lower() in text.lower()
+        has_trigger = _has_trigger(text)
         is_thread_reply = (
             thread_ts is not None
             and thread_ts != msg_ts
         )
+        tracked_rec = active_convs.get(conv_key)
         is_reply_in_tracked = (
             is_thread_reply
-            and conv_key in active_convs
+            and tracked_rec is not None
+            and tracked_rec.get("status") in {"active", "watching"}
         )
 
         print(f"  EVAL: ts={msg_ts} trigger={has_trigger} reply={is_thread_reply} "
@@ -863,20 +1046,39 @@ def main() -> str | None:
               f"text={text[:60]!r}")
 
         # ── Case A: reply in a thread that has a tracked conversation ──────────
-        # Route to the existing conversation regardless of its status (active or
-        # closed).  If the conversation was closed, re-activate it so the agent
-        # processes the new message and the completion check fires again later.
+        # Route to the existing conversation while it is active or in its
+        # follow-up watch window, but only when the reply includes the trigger
+        # phrase. Once the watch expires, a new trigger in the thread creates a
+        # fresh conversation instead.
         if is_reply_in_tracked:
             rec = active_convs[conv_key]
-            print(f"  → Case A: Forwarding reply {msg_ts} → conversation {rec['conversation_id']}")
+            rec["last_seen_reply_ts"] = max(rec.get("last_seen_reply_ts", msg_ts), msg_ts)
+            if not has_trigger:
+                processed_ts.add(msg_ts)
+                print(f"  → Case A ignored (tracked reply without trigger): {msg_ts}")
+                continue
+
+            request_part = _request_after_trigger(text)
+            print(f"  → Case A: Forwarding triggered reply {msg_ts} → conversation {rec['conversation_id']}")
             try:
-                send_to_conversation(agent_url, api_key, rec["conversation_id"],
-                                     f"User replied in Slack thread: {text}")
+                send_to_conversation(
+                    agent_url, api_key, rec["conversation_id"],
+                    (
+                        f"User <@{msg.get('user', '?')}> replied in Slack thread.\n"
+                        f"The reply was activated by the trigger phrase: `{TRIGGER_PHRASE}`\n"
+                        f"Full reply: {text}\n"
+                        f"User request: {request_part or '(no explicit request — use your best judgement)'}"
+                    ),
+                )
+                now = time.time()
                 rec["status"] = "active"
-                rec["last_activity"] = time.time()
+                rec["last_activity"] = now
+                rec["watch_until"] = now + THREAD_FOLLOWUP_WATCH_SECONDS
+                rec["reply_poll_backoff_seconds"] = THREAD_REPLY_INITIAL_BACKOFF_SECONDS
+                rec["next_reply_poll_at"] = now + THREAD_REPLY_INITIAL_BACKOFF_SECONDS
             except Exception as exc:
                 print(f"  Warning: failed to forward reply: {exc}")
-            if has_trigger and can_react:
+            if can_react:
                 add_reaction(slack_token, channel_id, msg_ts)
             processed_ts.add(msg_ts)
             continue
@@ -922,7 +1124,7 @@ def main() -> str | None:
     print(f"  last_poll set to {effective_last_poll}")
 
     for conv_key, rec in list(active_convs.items()):
-        if rec.get("status") != "closed":
+        if rec.get("status") == "active":
             _check_conversation_completion(
                 conv_key, rec, agent_url, api_key, slack_token, bot_message_ts,
             )

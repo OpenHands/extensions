@@ -27,8 +27,10 @@ This skill is activated by keywords:
 - **Efficient polling**: single `search.messages` call for multi-channel user
   tokens with `search:read`; falls back to one `conversations.history` call
   per channel for bot tokens
-- **Thread tracking**: new replies in a triggered thread are forwarded to the
-  running OpenHands conversation
+- **Triggered follow-ups**: Slack thread replies that repeat the trigger phrase
+  are forwarded to the existing OpenHands conversation
+- **Watch window**: completed conversations keep watching their Slack thread for
+  short follow-up periods, with quiet threads backed off automatically
 - **Reaction acknowledgement**: adds a 👀 to every message containing the
   trigger phrase
 - **Conversation link**: posts a link to the new conversation in the Slack
@@ -79,9 +81,11 @@ Each cron run (every minute):
 3. Creates an OpenHands conversation with the message and recent channel
    context as the initial prompt; posts a link to the conversation in the
    Slack thread
-4. Forwards new replies in tracked threads to the running conversation
+4. Forwards triggered replies in tracked threads to the existing conversation,
+   while ignoring replies that do not contain the trigger phrase
 5. Checks active conversations - posts the agent's final response back to
-   Slack when the conversation completes
+   Slack when the conversation completes, then watches briefly for triggered
+   follow-up replies
 
 ## See Also
 
