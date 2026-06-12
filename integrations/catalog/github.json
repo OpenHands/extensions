@@ -26,7 +26,9 @@
         "strategy": "api_key",
         "credentialLabel": "Personal access token",
         "credentialPlaceholder": "github_pat_...",
-        "credentialHelp": "Classic or fine-grained personal access token from GitHub settings."
+        "credentialHelp": "Classic or fine-grained personal access token from GitHub settings.",
+        "credentialSecretName": "GITHUB_PERSONAL_ACCESS_TOKEN",
+        "saveCredentialAsSecretByDefault": true
       }
     }
   ]

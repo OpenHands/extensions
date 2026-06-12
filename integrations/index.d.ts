@@ -59,6 +59,8 @@ export interface IntegrationAuthConfig {
   credentialLabel?: string;
   credentialPlaceholder?: string;
   credentialHelp?: string;
+  credentialSecretName?: string;
+  saveCredentialAsSecretByDefault?: boolean;
   apiKeyHeaderName?: string;
   apiKeyOptional?: boolean;
   oauth?: IntegrationOAuthConfig;
