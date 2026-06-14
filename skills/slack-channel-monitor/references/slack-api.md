@@ -198,10 +198,12 @@ With < 10 channels polled every minute:
 | Method | Tier | Calls/min | Headroom |
 |--------|------|-----------|---------|
 | `conversations.history` | Tier 3 | ≤ 10 | Comfortable |
-| `conversations.replies` | Tier 3 | ≤ active threads | Fine unless hundreds of threads |
+| `conversations.replies` | Tier 3 | ≤ 1 due tracked thread per iteration | Throttled with per-thread backoff |
 | `search.messages` | Tier 2 | 1 | Fine |
 | `reactions.add` | Tier 2 | ≤ triggers/min | Fine |
 | `chat.postMessage` | Tier 3 | ≤ triggers + summaries | Fine |
 
-No rate-limit handling is implemented in the script. If you hit limits the
-run will fail and retry on the next cron tick.
+The script surfaces Slack HTTP 429 responses with `Retry-After`. Thread reply
+polling catches that signal, delays the affected thread, and increases its
+per-thread backoff. Other Slack methods still fail fast so the next cron tick can
+retry with the persisted state.

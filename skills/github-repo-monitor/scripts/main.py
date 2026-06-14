@@ -18,7 +18,7 @@ Configuration constants are embedded at automation-creation time by the skill.
 See SKILL.md for the full setup workflow.
 
 Required secrets (set in OpenHands Settings → Secrets):
-  GITHUB_TOKEN  - Personal Access Token
+  GITHUB_PERSONAL_ACCESS_TOKEN  - Personal Access Token
                   Classic PAT:       'repo' scope (private) or 'public_repo' (public)
                   Fine-grained PAT:  Issues: Read and Write
 
@@ -40,7 +40,7 @@ from urllib.parse import urlencode
 REPO = "owner/repo"                     # e.g. "microsoft/vscode"
 TRIGGER_PHRASE = "@openhands"           # case-insensitive
 EVENT_TYPES = ["issue_comment"]         # e.g. ["issue_comment", "pr_review_comment"]
-# Who may trigger conversations. Default is the authenticated GITHUB_TOKEN owner.
+# Who may trigger conversations. Default is the authenticated GITHUB_PERSONAL_ACCESS_TOKEN owner.
 # Use ["*"] to allow any non-bot commenter, or explicit logins like ["octocat"].
 ALLOWED_GITHUB_LOGINS = ["<TOKEN_OWNER>"]
 DEFAULT_OPENHANDS_URL = "http://localhost:8000"
@@ -207,15 +207,15 @@ def _github_paginate(token: str, path: str, params: dict | None = None) -> list:
 
 
 def _resolve_github_token() -> str:
-    """Fetch GITHUB_TOKEN from secrets.  Raises RuntimeError if absent."""
+    """Fetch GITHUB_PERSONAL_ACCESS_TOKEN from secrets.  Raises RuntimeError if absent."""
     try:
-        token = get_secret("GITHUB_TOKEN")
+        token = get_secret("GITHUB_PERSONAL_ACCESS_TOKEN")
         if token:
             return token
     except Exception:
         pass
     raise RuntimeError(
-        "GITHUB_TOKEN secret is not set. "
+        "GITHUB_PERSONAL_ACCESS_TOKEN secret is not set. "
         "Go to OpenHands Settings → Secrets and add your GitHub Personal Access Token."
     )
 
@@ -231,7 +231,7 @@ def _verify_token_and_repo(token: str, repo: str) -> str:
     except urllib.error.HTTPError as exc:
         if exc.code == 401:
             raise RuntimeError(
-                "GITHUB_TOKEN is invalid or expired. "
+                "GITHUB_PERSONAL_ACCESS_TOKEN is invalid or expired. "
                 "Update it in OpenHands Settings → Secrets."
             )
         raise RuntimeError(f"GitHub /user check failed: {exc.code}")
@@ -247,13 +247,13 @@ def _verify_token_and_repo(token: str, repo: str) -> str:
     except urllib.error.HTTPError as exc:
         if exc.code == 404:
             raise RuntimeError(
-                f"Repository '{repo}' not found or not accessible with the current GITHUB_TOKEN. "
+                f"Repository '{repo}' not found or not accessible with the current GITHUB_PERSONAL_ACCESS_TOKEN. "
                 "Check the repo name (format: owner/repo) and token permissions."
             )
         if exc.code == 403:
             raise RuntimeError(
                 f"Access denied to repository '{repo}'. "
-                "Ensure GITHUB_TOKEN has the required permissions."
+                "Ensure GITHUB_PERSONAL_ACCESS_TOKEN has the required permissions."
             )
         raise RuntimeError(f"GitHub /repos/{repo} check failed: {exc.code}")
 
@@ -268,7 +268,7 @@ def _verify_token_and_repo(token: str, repo: str) -> str:
         # Private repo: must have push access or the 'repo' classic-PAT scope.
         if not can_push and not has_repo_scope and scopes:
             raise RuntimeError(
-                f"GITHUB_TOKEN cannot post comments to private repository '{repo}'. "
+                f"GITHUB_PERSONAL_ACCESS_TOKEN cannot post comments to private repository '{repo}'. "
                 "A classic PAT needs the 'repo' scope; "
                 "a fine-grained PAT needs 'Issues: Read and Write' permission."
             )
@@ -276,7 +276,7 @@ def _verify_token_and_repo(token: str, repo: str) -> str:
         # Public repo: need at minimum 'public_repo' scope or push access.
         if scopes and not (can_push or has_public_repo_scope or has_repo_scope):
             raise RuntimeError(
-                f"GITHUB_TOKEN cannot post comments to public repository '{repo}'. "
+                f"GITHUB_PERSONAL_ACCESS_TOKEN cannot post comments to public repository '{repo}'. "
                 "A classic PAT needs the 'public_repo' scope; "
                 "a fine-grained PAT needs 'Issues: Read and Write' permission."
             )
@@ -370,16 +370,25 @@ def _oh_request(
         raise RuntimeError(f"Agent API {method} {path} → {exc.code}: {body_text}") from exc
 
 
-def _get_agent_dict(agent_url: str, api_key: str) -> dict:
-    """Fetch configured agent settings for conversation creation."""
+def _fetch_settings(agent_url: str, api_key: str) -> dict:
+    """Fetch the full user settings from the agent server.
+
+    Uses X-Expose-Secrets: plaintext so the LLM api_key is a real string
+    rather than a masked placeholder.
+    """
     url = f"{agent_url}/api/settings"
     headers = {"X-Session-API-Key": api_key, "X-Expose-Secrets": "plaintext"}
     req = urllib.request.Request(url, headers=headers)
     try:
         with urllib.request.urlopen(req) as r:
-            data = json.loads(r.read())
+            return json.loads(r.read())
     except urllib.error.HTTPError as exc:
         raise RuntimeError(f"GET /api/settings failed: {exc.code}") from exc
+
+
+def _get_agent_dict(agent_url: str, api_key: str) -> dict:
+    """Fetch configured agent settings for conversation creation."""
+    data = _fetch_settings(agent_url, api_key)
     agent_settings = data.get("agent_settings", {})
     llm = agent_settings.get("llm", {})
     # settings["agent_settings"]["agent"] reflects the full-app agent registry
@@ -394,15 +403,79 @@ def _get_agent_dict(agent_url: str, api_key: str) -> dict:
     }
 
 
+def _get_mcp_config(agent_url: str, api_key: str) -> dict | None:
+    """Extract MCP server configuration from user settings, if any."""
+    try:
+        data = _fetch_settings(agent_url, api_key)
+        agent_settings = data.get("agent_settings", {})
+        mcp_config = agent_settings.get("mcp_config")
+        if isinstance(mcp_config, dict) and mcp_config.get("mcpServers"):
+            return mcp_config
+    except Exception as exc:
+        print(f"Warning: could not fetch MCP config: {exc}")
+    return None
+
+
+def _list_secret_names(agent_url: str, api_key: str) -> list[dict]:
+    """Fetch user secret names and descriptions from the agent server."""
+    try:
+        result = _oh_request(agent_url, api_key, "GET", "/api/settings/secrets")
+        return result.get("secrets", [])
+    except Exception as exc:
+        print(f"Warning: could not list secrets: {exc}")
+        return []
+
+
+def _build_secrets_payload(agent_url: str, api_key: str) -> dict:
+    """Build LookupSecret references so spawned conversations can access
+    the user's secrets via the agent server's per-secret endpoint.
+    """
+    secrets_list = _list_secret_names(agent_url, api_key)
+    if not secrets_list:
+        return {}
+    secrets: dict = {}
+    for secret in secrets_list:
+        name = secret.get("name", "")
+        if not name:
+            continue
+        lookup: dict = {
+            "kind": "LookupSecret",
+            "url": f"/api/settings/secrets/{name}",
+        }
+        if api_key:
+            lookup["headers"] = {"X-Session-API-Key": api_key}
+        desc = secret.get("description")
+        if desc:
+            lookup["description"] = desc
+        secrets[name] = lookup
+    return secrets
+
+
 def create_conversation(agent_url: str, api_key: str, initial_message: str) -> str:
-    """Create an OpenHands conversation and return its ID."""
+    """Create an OpenHands conversation and return its ID.
+
+    Inherits the user's secrets (as LookupSecret references) and MCP
+    server configuration so the spawned agent has the same capabilities.
+    """
     workspace_dir = os.environ.get("WORKSPACE_BASE", "/workspace")
     agent = _get_agent_dict(agent_url, api_key)
-    result = _oh_request(agent_url, api_key, "POST", "/api/conversations", {
+    payload: dict = {
         "workspace": {"working_dir": workspace_dir},
         "agent": agent,
         "initial_message": {"content": [{"text": initial_message}]},
-    })
+    }
+
+    # Forward user secrets so the spawned conversation can access them.
+    secrets = _build_secrets_payload(agent_url, api_key)
+    if secrets:
+        payload["secrets"] = secrets
+
+    # Forward MCP server configuration so MCP tools are available.
+    mcp_config = _get_mcp_config(agent_url, api_key)
+    if mcp_config:
+        payload["mcp_config"] = mcp_config
+
+    result = _oh_request(agent_url, api_key, "POST", "/api/conversations", payload)
     return result["id"]
 
 
@@ -518,7 +591,7 @@ def _build_initial_prompt(ctx: dict, trigger_comment: dict, event_type: str) -> 
         f"\nTriggering comment by @{trigger_author}:{path_info}\n"
         f"---\n{trigger_body}\n---\n"
         f"\nPlease analyse the request and take the appropriate action.\n"
-        f"The GITHUB_TOKEN secret is available if you need to interact with the "
+        f"The GITHUB_PERSONAL_ACCESS_TOKEN secret is available if you need to interact with the "
         f"GitHub API (fetch the PR diff, create commits, update labels, etc.).\n"
         f"When you are finished, summarise what you did clearly — that summary "
         f"will be posted back to the GitHub {item_type} as a comment."

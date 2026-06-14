@@ -52,7 +52,7 @@ variable (field `automation_id`).
 
 ## `conversations` Map
 
-Key: `"{channel_id}:{thread_root_ts}"`  -  uniquely identifies a Slack thread.
+Key: `"{channel_id}:{thread_root_ts}"` - uniquely identifies a Slack thread.
 
 Value: **ConversationRecord**
 
@@ -61,14 +61,25 @@ Value: **ConversationRecord**
   // Required fields
   "conversation_id": "550e8400-e29b-41d4-a716-446655440000",
                                       // OpenHands conversation UUID
-  "channel_id":      "C0123456789",  // Slack channel ID
+  "channel_id":      "C0123456789", // Slack channel ID
   "thread_ts":       "1716576000.000100",
                                       // Slack thread root timestamp
                                       // (= msg_ts for top-level trigger messages)
-  "status":          "active",        // "active" | "closed"
-  "last_activity":   1716576060.0,    // float Unix timestamp of the last time the
-                                      // script sent a message to this conversation
-                                      // (creation time, or time a reply was forwarded)
+  "status":          "active",      // "active" | "watching" | "closed"
+  "last_activity":   1716576060.0,   // float Unix timestamp of the last time the
+                                      // script created, resumed, or summarized the
+                                      // OpenHands conversation
+
+  // Follow-up polling fields
+  "last_seen_reply_ts": "1716576000.000100",
+                                      // newest Slack reply ts observed for this thread
+  "reply_poll_backoff_seconds": 5,   // current per-thread conversations.replies backoff
+  "next_reply_poll_at": 1716576065.0,// next Unix timestamp when replies may be polled
+  "watch_until": 1716576360.0,       // follow-up watch expiry for completed conversations
+
+  // Present after expiry
+  "closed_reason": "followup_watch_expired",
+  "closed_at": 1716576360.0
 }
 ```
 
@@ -76,13 +87,13 @@ Value: **ConversationRecord**
 
 | Value | Meaning |
 |-------|---------|
-| `active` | Conversation is running or awaiting more input; replies will be forwarded |
-| `closed` | Summary has been posted to Slack; no further processing |
+| `active` | Conversation is running or awaiting completion; triggered replies are forwarded to it |
+| `watching` | A summary has been posted and the thread remains open briefly for triggered follow-ups |
+| `closed` | The follow-up watch expired; future triggered replies create a new conversation |
 
-Closed conversations are retained in the map indefinitely (the map stays small
-since there are < 10 channels and the trigger rate is typically low). If the
-map grows unexpectedly, closed entries older than a configurable TTL can be
-pruned.
+`watching` records use `watch_until` to avoid keeping every completed thread hot
+forever. Quiet watched threads use exponential backoff for `conversations.replies`
+polling, and each automation iteration polls at most one due thread.
 
 ---
 
@@ -109,9 +120,9 @@ exactly `now`, messages near the boundary are re-fetched on the next iteration.
 re-fetched messages from being processed twice (e.g., triggering a duplicate
 conversation or forwarding the same reply multiple times).
 
-Entries are added when a message is either skipped (not human, already handled)
-or successfully processed (trigger detected and conversation created, or reply
-forwarded).
+Entries are added when a message is either skipped (not human, already handled,
+or an untriggered reply in a watched thread) or successfully processed (trigger
+detected and conversation created, or triggered reply forwarded).
 
 ---
 
@@ -119,25 +130,33 @@ forwarded).
 
 ```
 [trigger detected]
-        │
-        ▼
+        |
+        v
   status = "active"
   last_activity = now
-        │
-  (next run or later runs)
-        │
-  ┌─────┴──────────────────────────────────────────┐
-  │  User sends a reply in the thread               │
-  │  → send_to_conversation() called               │
-  │  → last_activity = now                         │
-  └─────────────────────────────────────────────────┘
-        │
+  follow-up poll fields initialized
+        |
+        | triggered Slack reply while active
+        | -> send_to_conversation()
+        | -> last_activity = now
+        | -> watch window/backoff reset
+        |
   (when time.time() - last_activity > DONE_DEBOUNCE
-   AND conversation_status ∈ {idle, finished, error, stuck})
-        │
-        ▼
+   AND conversation_status in {idle, finished, error, stuck})
+        |
+        v
   Post summary to Slack thread
+  status = "watching"
+  watch_until = now + THREAD_FOLLOWUP_WATCH_SECONDS
+        |
+        | triggered Slack reply before watch_until
+        | -> send_to_conversation()
+        | -> status = "active"
+        |
+        | no triggered reply before watch_until
+        v
   status = "closed"
+  closed_reason = "followup_watch_expired"
 ```
 
 ---
@@ -158,14 +177,22 @@ forwarded).
       "channel_id": "C0123456789",
       "thread_ts": "1716575900.000100",
       "status": "active",
-      "last_activity": 1716575902.3
+      "last_activity": 1716575902.3,
+      "last_seen_reply_ts": "1716575900.000100",
+      "reply_poll_backoff_seconds": 5,
+      "next_reply_poll_at": 1716575907.3,
+      "watch_until": 1716576202.3
     },
     "C9876543210:1716570000.000500": {
       "conversation_id": "7c9e6679-7425-40de-944b-e07fc1f90ae7",
       "channel_id": "C9876543210",
       "thread_ts": "1716570000.000500",
-      "status": "closed",
-      "last_activity": 1716572100.0
+      "status": "watching",
+      "last_activity": 1716572100.0,
+      "last_seen_reply_ts": "1716572050.000100",
+      "reply_poll_backoff_seconds": 20,
+      "next_reply_poll_at": 1716572120.0,
+      "watch_until": 1716572400.0
     }
   },
   "bot_message_ts": [

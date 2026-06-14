@@ -1,7 +1,7 @@
 {
   "name": "github-pr-reviewer",
   "version": "1.0.0",
-  "description": "Create an automation that reviews GitHub pull requests when they are opened or updated. Inspects the diff, changed files, tests, and existing discussion via GitHub MCP, then posts a concise review highlighting risks, security issues, missing tests, and next steps.",
+  "description": "Create an automation that reviews GitHub pull requests when a configurable trigger label is applied. It starts one OpenHands review conversation per label event, inspects full PR and repository context, and posts the final review comment back to GitHub.",
   "author": {
     "name": "OpenHands",
     "email": "contact@all-hands.dev"

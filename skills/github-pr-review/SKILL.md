@@ -76,7 +76,7 @@ For comments spanning multiple lines, add `start_line` to specify the range:
 }
 ```
 
-**Important**: The suggestion must have the same number of lines as the range (e.g., lines 10-12 = 3 lines).
+**`start_line`/`line` define the range that will be REPLACED.** The suggestion block may have any number of lines — it does **not** have to match the range size. See the next section for the exact semantics; getting this wrong is how suggestions silently delete or duplicate code.
 
 ## Priority Labels
 
@@ -114,6 +114,44 @@ Use suggestions for: renaming, typos, small refactors (1-5 lines), type hints, d
 
 Avoid for: large refactors, architectural changes, ambiguous improvements.
 
+### How Suggestions Actually Work (READ THIS BEFORE WRITING ONE)
+
+A suggestion block **replaces** the targeted range with its contents. The replaced range is:
+
+- `line` only → the single line `line` (replaces 1 line)
+- `start_line` + `line` → the inclusive range `start_line..line` (replaces `line - start_line + 1` lines)
+
+The suggestion content can be **any number of lines** — 0 (deletion), 1, or many. It does not have to match the range size. Whatever is between the ` ```suggestion ` and closing ` ``` ` fences becomes the new content of those lines.
+
+Writing the wrong combination of `start_line`/`line` and suggestion body is what causes accepted suggestions to **duplicate** or **delete** code. Use the table below as your contract:
+
+| Intent | `start_line` | `line` | Suggestion body must contain |
+|--------|--------------|--------|-------------------------------|
+| Change line N | omit | N | the new content for line N |
+| Change lines N..M | N | M | the new content for the whole block |
+| **Add** a line **after** line N (keep line N) | omit | N | line N's exact current text, then the new line(s) |
+| **Add** a line **before** line N (keep line N) | omit | N | the new line(s), then line N's exact current text |
+| **Insert** lines inside range N..M (keep N..M) | N | M | every original line in N..M plus the new lines, in the final desired order |
+| **Delete** line N | omit | N | empty body (just an empty ` ```suggestion ``` ` block) |
+| **Delete** lines N..M | N | M | empty body |
+
+### Common Mistakes That Break Code
+
+1. **Duplicated lines.** You copy a neighboring line (N-1 or N+1) into the suggestion body as context — that line is still present in the file outside the replaced range, so accepting the suggestion inserts a second copy of it. Fix: only include lines that fall within the targeted range, plus any genuinely new content.
+2. **Disappearing lines.** You target `start_line=10, line=12` to comment on a 3-line block, but your suggestion body only contains 1 line because you "only want to change line 11". Accepting that suggestion deletes lines 10 and 12. Fix: either narrow the range to just line 11, or include lines 10 and 12 verbatim in the body.
+3. **Description does not match the suggestion.** The prose says "rename this variable" but the suggestion replaces an entire function. Or the prose says "add a None check" but the suggestion only contains the check (deleting the original code). Fix: after writing the suggestion, re-read the prose and confirm the resulting file would match it line-for-line.
+
+### Mandatory Verification Before Posting
+
+For every comment that contains a ` ```suggestion ``` ` block, do this check before adding it to the review JSON:
+
+1. Read the actual file lines that will be replaced: `sed -n '<start_line>,<line>p' <path>` (or `sed -n '<line>p' <path>` for a single-line target).
+2. Mentally apply the suggestion: drop those lines, splice in the suggestion body, and look at the result in context.
+3. Confirm the resulting code matches **exactly** what your prose description promises — no extra duplicated line above/below, no original line accidentally dropped, no off-by-one.
+4. If the change cannot be expressed cleanly as a contiguous replacement (e.g., it touches non-adjacent lines, or it depends on edits elsewhere in the file), do **not** use a suggestion block — describe the change in prose instead.
+
+If you are not 100% sure the suggestion will produce the exact code you described, drop the ` ```suggestion ``` ` block and leave a regular inline comment. A correct prose comment is always better than a one-click suggestion that silently corrupts the file.
+
 ## Finding Line Numbers
 
 ```bash
@@ -143,6 +181,6 @@ curl -X POST \
 3. Post **ONE** review using `gh api --input /tmp/review.json`
 4. Use priority labels (🔴🟠🟡) on every comment
 5. Do NOT post comments for code that is acceptable — only comment when action is needed
-6. Use suggestion syntax for concrete code changes
+6. Use suggestion syntax for concrete code changes, but only after verifying the resulting code matches your description (see "How Suggestions Actually Work")
 7. Keep the review body brief (details go in inline comments)
 8. If no issues: post a short approval message with no inline comments

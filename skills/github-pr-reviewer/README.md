@@ -1,34 +1,40 @@
 # GitHub PR Reviewer
 
-Create an automation that reviews GitHub pull requests on open or update.
+Create an automation that reviews GitHub pull requests when a configurable
+trigger label is applied.
 
-## Triggers
+## Trigger
 
-This skill is activated by keywords:
+This skill is activated by:
 
-- `review pull requests`
-- `PR review automation`
-- `auto-review PRs`
+- `/pr-reviewer:setup`
 
 ## Features
 
-- **Inspects PR diff, changed files, and test coverage**
-- **Posts review with correctness risks, security issues, missing tests**
-- **Supports event-based (webhook) or cron-based (polling) triggers**
-- **Configurable review tone (thorough, concise, friendly)**
-- **Auto-post or draft mode for human approval**
+- Reviews PRs on demand by watching for a GitHub label event
+- Processes each label application exactly once, with persistent state
+- Re-review support by removing and re-applying the label
+- Suppresses stale reviews when the PR head commit changes mid-review
+- Uses a real cloned checkout and full PR context instead of only a truncated diff
+- Posts acknowledgement and final review comments with AI disclosure
+- Configurable review tone and polling schedule
 
 ## Prerequisites
 
-GitHub MCP installed in Settings → MCP
+Set `GITHUB_PERSONAL_ACCESS_TOKEN` in OpenHands Settings -> Secrets. The token
+must be able to read the repository, read pull requests, read issue events, and
+write issue comments.
 
 ## Quick Start
 
 Ask OpenHands:
 
-> "Set up a PR review automation for my myorg/backend repo that posts
-> concise reviews when PRs are opened"
+> "Set up a PR review automation for my `myorg/backend` repo using the
+> `openhands-review` label and concise reviews."
+
+After setup, apply the configured label to a pull request to queue a review. To
+request another review later, remove and re-apply the label.
 
 ## See Also
 
-- [SKILL.md](SKILL.md) — Full setup workflow reference
+- [SKILL.md](SKILL.md) - Full setup workflow reference

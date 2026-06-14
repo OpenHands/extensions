@@ -2,10 +2,10 @@
   "id": "slack-channel-monitor",
   "name": "Slack channel monitor",
   "category": "Team communication",
-  "description": "Watch Slack channels for @openhands mentions, open a conversation with the message context, and reply in the thread when the agent finishes.",
+  "description": "Watch Slack channels for @openhands mentions, open a conversation with the message context, reply when the agent finishes, and continue the same conversation from triggered Slack thread follow-ups.",
   "requiredIntegrationIds": ["slack"],
   "popularityRank": 92,
   "estimatedSetupMinutes": 7,
   "prompt": "/slack-monitor:poll",
-  "exampleImplementation": "Trigger: cron, every minute\nRequired secret: SLACK_BOT_TOKEN or SLACK_USER_TOKEN\n\n1. Poll up to 10 configured Slack channels for new messages since the last run.\n2. Match messages containing the trigger phrase (default: @openhands).\n3. React with 👀 and start an OpenHands conversation with the message and recent channel context.\n4. Post a thread reply with a link to the conversation.\n5. Forward subsequent thread replies to the running conversation and post the agent's response when done."
+  "exampleImplementation": "Trigger: cron, every minute\nRequired secret: SLACK_BOT_TOKEN or SLACK_USER_TOKEN\n\n1. Poll up to 10 configured Slack channels for new messages since the last run.\n2. Match messages containing the trigger phrase (default: @openhands).\n3. React with 👀 and start an OpenHands conversation with the message and recent channel context.\n4. Post a thread reply with a link to the conversation, then post the agent response when done.\n5. Keep the thread in a short follow-up watch window and forward only replies that repeat the trigger phrase to the same conversation, with per-thread backoff for quiet threads."
 }

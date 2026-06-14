@@ -109,9 +109,10 @@ runs:
           shell: bash
           env:
               GITHUB_TOKEN: ${{ inputs.github-token }}
+              INPUTS_TAG: ${{ inputs.tag }}
           run: |
               if [ -f release_notes.md ]; then
-                echo "Updating release notes for tag ${{ inputs.tag }}"
-                gh release edit "${{ inputs.tag }}" --notes-file release_notes.md || \
+                echo "Updating release notes for tag $INPUTS_TAG"
+                gh release edit "$INPUTS_TAG" --notes-file release_notes.md || \
                   echo "Note: Could not update release. Release may not exist yet."
               fi

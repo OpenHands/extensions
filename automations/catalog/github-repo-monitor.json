@@ -7,5 +7,5 @@
   "popularityRank": 98,
   "estimatedSetupMinutes": 5,
   "prompt": "/github-monitor:poll",
-  "exampleImplementation": "Trigger: cron, every minute (configurable)\nRequired secret: GITHUB_TOKEN\n\n1. Poll GitHub for new issue and PR comments since the last run.\n2. Match comments containing the trigger phrase (case-insensitive, default: @OpenHands).\n3. Post an acknowledgment comment with a link to the new OpenHands conversation.\n4. Forward follow-up replies in the same thread to the running conversation.\n5. Post the agent's final response back to GitHub when the conversation completes."
+  "exampleImplementation": "Trigger: cron, every minute (configurable)\nRequired secret: GITHUB_PERSONAL_ACCESS_TOKEN\n\n1. Poll GitHub for new issue and PR comments since the last run.\n2. Match comments containing the trigger phrase (case-insensitive, default: @OpenHands).\n3. Post an acknowledgment comment with a link to the new OpenHands conversation.\n4. Forward follow-up replies in the same thread to the running conversation.\n5. Post the agent's final response back to GitHub when the conversation completes."
 }

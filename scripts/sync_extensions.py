@@ -143,7 +143,8 @@ def collect_needed_commands() -> list[CommandSpec]:
             meta = parse_frontmatter(skill_md.read_text())
             desc = str(meta.get("description", ""))
             for trigger in slash_triggers(meta):
-                cmd_name = trigger.lstrip("/")
+                # Replace colons with dashes for cross-platform filename compatibility
+                cmd_name = trigger.lstrip("/").replace(":", "-")
                 cmd_path = skill_dir / "commands" / f"{cmd_name}.md"
                 needed.append(CommandSpec(path=cmd_path, trigger=trigger, description=desc))
     return needed

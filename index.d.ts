@@ -15,3 +15,5 @@ export {
 } from "./integrations/index.js";
 export { AUTOMATION_CATALOG } from "./automations/index.js";
 export type { RecommendedAutomation } from "./automations/index.js";
+export { SKILLS_CATALOG } from "./skills/index.js";
+export type { SkillCatalogEntry } from "./skills/index.js";
