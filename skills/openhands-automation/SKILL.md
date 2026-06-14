@@ -110,62 +110,10 @@ Entrypoint must be `python3 main.py` (no `setup.sh` needed). Wrap your main logi
 
 ## Authentication
 
-Automation service requests require Bearer authentication:
+All requests require Bearer authentication:
 
 ```bash
 -H "Authorization: Bearer ${OPENHANDS_API_KEY}"
-```
-
-### Local Agent Canvas child conversations
-
-Use this only for local Agent Canvas / agent-server development flows, such as `npm run dev` with ingress at `http://localhost:8000`. This calls the agent server directly with `X-Session-API-Key`; it is different from OpenHands Cloud delegation through `POST /api/v1/app-conversations`, which uses Bearer auth against the Cloud app API and may return asynchronous start-task records.
-
-When Agent Canvas runs locally, the launcher generates and persists the session API key at `~/.openhands/agent-canvas/api-key.txt` unless `LOCAL_BACKEND_API_KEY` is set. Set `OH_SESSION_API_KEY_PATH` to override the persisted key path. Never print, log, or paste the actual key; use command substitution or an environment variable in examples and scripts.
-
-```bash
-LOCAL_AGENT_SERVER_URL="${LOCAL_AGENT_SERVER_URL:-http://localhost:8000}"
-SESSION_API_KEY="${LOCAL_BACKEND_API_KEY:-$(cat "${OH_SESSION_API_KEY_PATH:-$HOME/.openhands/agent-canvas/api-key.txt}")}"
-```
-
-Check the local server before creating a child conversation:
-
-```bash
-curl -sS "${LOCAL_AGENT_SERVER_URL}/server_info" \
-  -H "X-Session-API-Key: ${SESSION_API_KEY}"
-```
-
-Start a child conversation with `POST /api/conversations`. Include the current workspace and, when your local UI/session requires it, pass through current settings or encrypted settings rather than hard-coding secrets.
-
-```bash
-CONVERSATION_JSON=$(curl -sS -X POST "${LOCAL_AGENT_SERVER_URL}/api/conversations" \
-  -H "X-Session-API-Key: ${SESSION_API_KEY}" \
-  -H "Content-Type: application/json" \
-  -d @- <<'JSON'
-{
-  "workspace": {"working_dir": "/workspace"},
-  "initial_message": {"content": [{"text": "Summarize the current workspace."}]},
-  "run": true
-}
-JSON
-)
-CONVERSATION_ID=$(python3 -c 'import json,sys; print(json.load(sys.stdin)["id"])' <<<"${CONVERSATION_JSON}")
-printf 'UI: %s/conversations/%s\n' "${LOCAL_AGENT_SERVER_URL}" "${CONVERSATION_ID}"
-```
-
-Poll status and inspect recent events:
-
-```bash
-curl -sS "${LOCAL_AGENT_SERVER_URL}/api/conversations/${CONVERSATION_ID}" \
-  -H "X-Session-API-Key: ${SESSION_API_KEY}"
-
-curl -sS "${LOCAL_AGENT_SERVER_URL}/api/conversations/${CONVERSATION_ID}/events/search?limit=20&sort_order=TIMESTAMP_DESC" \
-  -H "X-Session-API-Key: ${SESSION_API_KEY}"
-```
-
-The local UI route is:
-
-```bash
-printf '%s/conversations/%s\n' "${LOCAL_AGENT_SERVER_URL}" "${CONVERSATION_ID}"
 ```
 
 ## API Endpoints
