@@ -670,16 +670,19 @@ def _gather_channel_context(
     return context_lines
 
 
-def _expire_inactive_thread_watches(active_convs: dict[str, dict], now: float) -> None:
-    for conv_key, rec in active_convs.items():
-        if rec.get("status") != "watching":
-            continue
-        watch_until = float(rec.get("watch_until") or 0)
-        if watch_until and now >= watch_until:
-            rec["status"] = "closed"
-            rec["closed_reason"] = "followup_watch_expired"
-            rec["closed_at"] = now
-            print(f"  Follow-up watch expired for {conv_key}")
+def _close_thread_watch(rec: dict, conv_key: str, now: float) -> None:
+    rec["status"] = "closed"
+    rec["closed_reason"] = "followup_watch_expired"
+    rec["closed_at"] = now
+    print(f"  Follow-up watch expired for {conv_key}")
+
+
+def _next_reply_poll_at(rec: dict, now: float, delay: int) -> float:
+    next_poll_at = now + delay
+    watch_until = float(rec.get("watch_until") or 0)
+    if rec.get("status") == "watching" and watch_until:
+        next_poll_at = min(next_poll_at, watch_until)
+    return next_poll_at
 
 
 def _poll_due_thread_replies(
@@ -689,12 +692,14 @@ def _poll_due_thread_replies(
     bot_message_ts: list[str],
 ) -> list[tuple[str, dict]]:
     now = time.time()
-    _expire_inactive_thread_watches(active_convs, now)
     due: list[tuple[float, str, dict]] = []
     for conv_key, rec in active_convs.items():
         if rec.get("status") not in {"active", "watching"}:
             continue
         next_poll = float(rec.get("next_reply_poll_at") or 0)
+        watch_until = float(rec.get("watch_until") or 0)
+        if rec.get("status") == "watching" and watch_until and now >= watch_until:
+            next_poll = min(next_poll or watch_until, watch_until)
         if next_poll <= now:
             due.append((next_poll, conv_key, rec))
 
@@ -703,6 +708,8 @@ def _poll_due_thread_replies(
         cid = rec["channel_id"]
         thread_ts = rec["thread_ts"]
         oldest = rec.get("last_seen_reply_ts") or thread_ts
+        watch_until = float(rec.get("watch_until") or 0)
+        watch_expired = rec.get("status") == "watching" and watch_until and now >= watch_until
         try:
             replies = thread_replies(slack_token, cid, thread_ts, oldest)
         except Exception as exc:
@@ -715,11 +722,14 @@ def _poll_due_thread_replies(
                     retry_after = max(THREAD_REPLY_INITIAL_BACKOFF_SECONDS, int(raw))
                 except ValueError:
                     pass
-            rec["next_reply_poll_at"] = now + retry_after
-            rec["reply_poll_backoff_seconds"] = min(
-                THREAD_REPLY_MAX_BACKOFF_SECONDS,
-                max(retry_after, int(rec.get("reply_poll_backoff_seconds") or THREAD_REPLY_INITIAL_BACKOFF_SECONDS)),
-            )
+            if watch_expired:
+                _close_thread_watch(rec, conv_key, now)
+            else:
+                rec["next_reply_poll_at"] = _next_reply_poll_at(rec, now, retry_after)
+                rec["reply_poll_backoff_seconds"] = min(
+                    THREAD_REPLY_MAX_BACKOFF_SECONDS,
+                    max(retry_after, int(rec.get("reply_poll_backoff_seconds") or THREAD_REPLY_INITIAL_BACKOFF_SECONDS)),
+                )
             print(f"  Warning: could not fetch replies for thread {thread_ts}: {exc}")
             continue
 
@@ -738,6 +748,10 @@ def _poll_due_thread_replies(
             for r in triggered_replies:
                 reply_messages.append((cid, r))
             print(f"  {conv_key}: {len(triggered_replies)} triggered follow-up reply/replies")
+        elif watch_expired:
+            if human_replies:
+                print(f"  {conv_key}: ignored {len(human_replies)} follow-up reply/replies without trigger")
+            _close_thread_watch(rec, conv_key, now)
         else:
             if human_replies:
                 print(f"  {conv_key}: ignored {len(human_replies)} follow-up reply/replies without trigger")
@@ -747,8 +761,9 @@ def _poll_due_thread_replies(
                 max(THREAD_REPLY_INITIAL_BACKOFF_SECONDS, current * THREAD_REPLY_BACKOFF_MULTIPLIER),
             )
             rec["reply_poll_backoff_seconds"] = next_backoff
-            rec["next_reply_poll_at"] = now + next_backoff
-            print(f"  {conv_key}: no follow-ups; next reply poll in {next_backoff}s")
+            rec["next_reply_poll_at"] = _next_reply_poll_at(rec, now, next_backoff)
+            next_delay = max(0, int(rec["next_reply_poll_at"] - now))
+            print(f"  {conv_key}: no follow-ups; next reply poll in {next_delay}s")
 
     return reply_messages
 
