@@ -93,7 +93,7 @@ curl -sS "${LOCAL_AGENT_SERVER_URL}/server_info" \
   -H "X-Session-API-Key: ${SESSION_API_KEY}"
 ```
 
-Start a backend conversation with `POST /api/conversations`. Include the agent settings and workspace expected by that backend. If you are starting the conversation from an existing Agent Canvas session, pass through the current configured settings or encrypted settings rather than hard-coding secrets into scripts.
+Start a backend conversation with `POST /api/conversations`. Include the agent settings and workspace expected by that backend. Local agent-server calls use an explicit `workspace` such as `{"kind": "LocalWorkspace", "working_dir": "/workspace"}`; Cloud app-conversation delegation instead uses app-server fields such as `selected_repository` and `selected_branch`. If you are starting the conversation from an existing Agent Canvas session, pass through the current configured settings or encrypted settings rather than hard-coding secrets into scripts.
 
 ```bash
 CONVERSATION_JSON=$(curl -sS -X POST "${LOCAL_AGENT_SERVER_URL}/api/conversations" \
