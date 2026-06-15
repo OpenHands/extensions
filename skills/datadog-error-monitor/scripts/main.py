@@ -49,6 +49,7 @@ MAX_LOG_MESSAGE_CHARS = 500     # truncate individual extracted log messages at 
 MAX_RUN_HISTORY = 20            # keep at most this many entries in run_history per pattern
 INVESTIGATION_BUDGET = 10       # total tool calls the agent may spend across all investigation tasks
 PATTERN_ARCHIVE_DAYS = 30       # patterns not seen within this many days are moved to the archive
+STUCK_CONVERSATION_MINUTES = 45  # conversations still 'running' beyond this are treated as stuck
 
 
 # ── Stdlib-only helpers ────────────────────────────────────────────────────────
@@ -293,24 +294,8 @@ def _oh_request(
 
 
 def _fetch_settings(agent_url: str, api_key: str) -> dict:
-    """Fetch the full user settings from the agent server.
-
-    Uses X-Expose-Secrets: plaintext so the LLM api_key is a real string
-    rather than a masked placeholder.
-    """
-    url = f"{agent_url.rstrip('/')}/api/settings"
-    headers = {
-        "X-Session-API-Key": api_key,
-        "X-Expose-Secrets": "plaintext",
-        "Content-Type": "application/json",
-    }
-    req = urllib.request.Request(url, headers=headers)
     try:
-        with urllib.request.urlopen(req, timeout=30) as r:
-            return json.loads(r.read().decode())
-    except urllib.error.HTTPError as exc:
-        print(f"Warning: could not fetch agent settings: {exc.code}")
-        return {}
+        return _oh_request(agent_url, api_key, "GET", "/api/settings")
     except Exception as exc:
         print(f"Warning: could not fetch agent settings: {exc}")
         return {}
@@ -741,6 +726,22 @@ def main() -> str | None:
             status = "unknown"
 
         print(f"Active conversation {conv_id} → status={status}")
+
+        # Treat conversations stuck in a non-terminal state beyond the timeout as stuck.
+        if status not in ("idle", "finished", "error", "stuck"):
+            started_at_str = active.get("started_at", "")
+            if started_at_str:
+                try:
+                    started_dt = datetime.fromisoformat(started_at_str.replace("Z", "+00:00"))
+                    elapsed_min = (now - started_dt).total_seconds() / 60
+                    if elapsed_min > STUCK_CONVERSATION_MINUTES:
+                        print(
+                            f"Conversation {conv_id} has been running for {elapsed_min:.0f} min "
+                            f"(> {STUCK_CONVERSATION_MINUTES} min limit) — treating as stuck"
+                        )
+                        status = "stuck"
+                except ValueError:
+                    pass
 
         if status in ("idle", "finished", "error", "stuck"):
             print("Conversation finished — clearing active slot")
