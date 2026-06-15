@@ -37,7 +37,7 @@ DD_SITE = "datadoghq.com"
 SLACK_CHANNEL_ID = "C0123456789"
 REPO_CONFIGS: list[dict] = []  # [{"path": "/path/to/repo", "host": "github", "remote": "owner/repo"}]
 MAX_UNKNOWN_LOGS = 100
-EXAMPLES_PER_PATTERN = 5
+EXAMPLES_PER_PATTERN = 3
 SPIKE_MULTIPLIER = 3.0
 DEFAULT_OPENHANDS_URL = "http://localhost:8000"
 
@@ -47,6 +47,8 @@ OVERLAP_SECONDS = 60            # extend each query back by this to avoid bounda
 MIN_RUNS_FOR_SPIKE = 3          # minimum run_history entries before spike detection activates
 MAX_LOG_MESSAGE_CHARS = 500     # truncate individual extracted log messages at this length
 MAX_RUN_HISTORY = 20            # keep at most this many entries in run_history per pattern
+INVESTIGATION_BUDGET = 10       # total tool calls the agent may spend across all investigation tasks
+PATTERN_ARCHIVE_DAYS = 30       # patterns not seen within this many days are moved to the archive
 
 
 # ── Stdlib-only helpers ────────────────────────────────────────────────────────
@@ -148,6 +150,64 @@ def save_state(path: str, state: dict) -> None:
     with open(tmp, "w") as f:
         json.dump(state, f, indent=2)
     os.replace(tmp, path)
+
+
+# ── Pattern archiving ──────────────────────────────────────────────────────────
+
+def _archive_file_path(state_path: str) -> str:
+    p = Path(state_path)
+    return str(p.parent / (p.stem + "_archive" + p.suffix))
+
+
+def archive_stale_patterns(state: dict, state_path: str) -> int:
+    """Move patterns last seen more than PATTERN_ARCHIVE_DAYS ago to a separate
+    archive file.  Returns the number of patterns archived.
+
+    The archive is a flat JSON object keyed by pattern UUID.  Each entry gets
+    an ``archived_at`` timestamp added so old investigations can be correlated
+    with the time the pattern fell silent.
+    """
+    cutoff = datetime.now(timezone.utc) - timedelta(days=PATTERN_ARCHIVE_DAYS)
+
+    to_archive: dict = {}
+    to_keep: dict = {}
+    for pid, pattern in state.get("known_patterns", {}).items():
+        last_seen_str = pattern.get("last_seen", "")
+        if not last_seen_str:
+            to_keep[pid] = pattern
+            continue
+        try:
+            last_seen = datetime.fromisoformat(last_seen_str.replace("Z", "+00:00"))
+            if last_seen < cutoff:
+                to_archive[pid] = pattern
+            else:
+                to_keep[pid] = pattern
+        except ValueError:
+            to_keep[pid] = pattern  # keep if unparseable
+
+    if not to_archive:
+        return 0
+
+    archive_path = _archive_file_path(state_path)
+    try:
+        with open(archive_path) as f:
+            archive: dict = json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError, OSError):
+        archive = {}
+
+    now_str = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    for pid, pattern in to_archive.items():
+        archive[pid] = {**pattern, "archived_at": now_str}
+
+    tmp = archive_path + ".tmp"
+    with open(tmp, "w") as f:
+        json.dump(archive, f, indent=2)
+    os.replace(tmp, archive_path)
+
+    state["known_patterns"] = to_keep
+    names = [p.get("name", pid) for pid, p in to_archive.items()]
+    print(f"Archived {len(to_archive)} stale pattern(s) → {archive_path}: {names}")
+    return len(to_archive)
 
 
 # ── Datadog API ────────────────────────────────────────────────────────────────
@@ -337,12 +397,27 @@ def _build_prompt(
         "## Context",
         f"- **Datadog query:** `{DD_QUERY}`",
         f"- **Time window:** {from_ts} → {to_ts}",
-        f"- **State file path:** `{state_file_path}`",
+        f"- **State file:** `{state_file_path}`",
+        f"- **Archive file:** `{_archive_file_path(state_file_path)}`",
         "",
-        "## Your Tasks",
+        "## Investigation Budget",
+        "",
+        f"You have **{INVESTIGATION_BUDGET} tool calls** (terminal commands, file reads,",
+        "Datadog API queries combined) to spend across **all tasks**.",
+        "",
+        "- Simple cases (clear stack trace → matching code location): 2–3 calls",
+        "- Ambiguous cases: spend at most 3–4 calls, then **declare inconclusive**",
+        "- Stop when the budget is exhausted, even if patterns remain uninvestigated",
+        "",
+        "If you cannot identify the root cause within your allocated calls, set the",
+        "pattern's `description` to `\"Inconclusive — <brief notes on what you tried>\"`",
+        "and move on. An inconclusive finding is more useful than no finding.",
+        "",
+        "## Tasks",
         "",
         "Work through the following tasks in order. The state file is a JSON document;",
-        "read it, make your additions, and write it back atomically.",
+        "read it, make your changes, then write it back **atomically** (write to a `.tmp`",
+        "file, then `os.replace`). Preserve all existing top-level fields.",
         "",
         "---",
         "",
@@ -350,39 +425,48 @@ def _build_prompt(
     ]
 
     if total_unknown == 0:
-        lines.append("")
-        lines.append("No uncategorized logs detected this run. Proceed to Task 2.")
+        lines += ["", "No uncategorized logs this run. Proceed to Task 2."]
     else:
         truncation_note = (
-            f"\n> Only the first {MAX_UNKNOWN_LOGS} of {total_unknown} events are shown below."
+            f"  Only the first {MAX_UNKNOWN_LOGS} of {total_unknown} are shown."
             if total_unknown > MAX_UNKNOWN_LOGS else ""
         )
         lines += [
             "",
-            f"**{total_unknown} log events** did not match any known pattern.{truncation_note}",
+            f"**{total_unknown} log event(s)** did not match any known pattern.{truncation_note}",
             "",
-            "For each distinct error class you identify, add a new entry to `known_patterns`",
-            f"in the state file at `{state_file_path}`.",
+            "**Before creating any new pattern**, read `known_patterns` from the state file",
+            "and check for overlap with the samples below:",
             "",
-            "Each new pattern object requires these fields:",
+            "- Test each existing pattern's `regex` against the new samples:",
+            "  `re.search(pattern['regex'], sample, re.IGNORECASE | re.DOTALL)`",
+            "- If an existing regex already covers a sample, do **not** create a new pattern;",
+            "  note the overlap in the Slack summary (Task 4) instead.",
+            "- If root causes appear similar but error messages are distinct, create a new",
+            "  pattern and cross-reference both `description` fields.",
+            "",
+            "For each genuinely new error class, add an entry to `known_patterns` using a",
+            "new UUID key (`import uuid; str(uuid.uuid4())`).",
+            "",
+            "Each new pattern requires these fields:",
             "```json",
-            '{',
-            '  "name": "Concise human-readable label",',
-            '  "regex": "Python regex (re.IGNORECASE | re.DOTALL) matching this error class",',
-            f'  "run_history": [<count of matching logs from this window>],',
+            "{",
+            '  "name": "Concise human-readable label (e.g. Redis connection timeout)",',
+            '  "regex": "Python regex — re.IGNORECASE | re.DOTALL — matching this error class",',
+            '  "first_seen": "<earliest example timestamp, or current UTC if unavailable>",',
             '  "last_seen": "<current UTC ISO 8601 timestamp>",',
+            '  "total_events": <count of matching samples from this window>,',
+            '  "description": "Brief notes: likely cause, related service, stack trace clues.",',
+            '  "run_history": [<count of matching logs from this window>],',
             '  "examples": [{"timestamp": "...", "message": "..."}]',
-            '}',
+            "}",
             "```",
-            "",
-            "Use a UUID as the key (`import uuid; str(uuid.uuid4())`). Preserve all",
-            "existing patterns and top-level fields when writing back.",
             "",
             "**Regex quality rules:**",
             "- Match the error *class*, not a single occurrence",
-            "- Avoid encoding timestamps, request IDs, memory addresses, or UUIDs",
+            "- Avoid embedding timestamps, request IDs, memory addresses, or UUIDs",
             "- Use `.*` to skip variable parts between fixed anchor strings",
-            "- Prefer fewer, broader patterns — if several logs share a root cause, one pattern is better than many",
+            "- Prefer fewer, broader patterns over many narrow ones",
             "",
             "<unknown_logs>",
         ]
@@ -390,27 +474,95 @@ def _build_prompt(
             lines.append(f"[{i}] {msg}")
         lines.append("</unknown_logs>")
 
+    # ── Task 2: Deployment correlation ────────────────────────────────────────
     lines += [
         "",
         "---",
         "",
-        "### Task 2 — Investigate spiking patterns",
+        "### Task 2 — Correlate errors with deployments",
+        "",
+        "For every newly created pattern (Task 1) and every spiking pattern (listed in",
+        "Task 3), compare `first_seen` against recent deployments to identify likely cause.",
+        "",
+    ]
+
+    if REPO_CONFIGS:
+        lines += [
+            "Fetch tags and list recent ones with dates for each configured repository:",
+            "```bash",
+        ]
+        for cfg in REPO_CONFIGS:
+            repo_label = cfg.get("remote", cfg["path"])
+            lines += [
+                f"# {repo_label}",
+                f"git -C {cfg['path']} fetch --tags --quiet origin 2>/dev/null",
+                f"git -C {cfg['path']} log --tags --simplify-by-decoration"
+                " --pretty=format:'%D  %ai' --since='60 days ago' | grep 'tag:'",
+            ]
+        lines += [
+            "```",
+            "",
+            "> **Note:** This step assumes git tags mark production deployments.",
+            "> If your team deploys differently (branch tip, CI artefact, Datadog",
+            "> deployment markers), confirm the right signal with the repo owner and",
+            "> adjust this step accordingly.",
+            "",
+            "If a pattern's `first_seen` falls within a few hours after a tag, update its",
+            "`description` to note the correlation, e.g.:",
+            '`"Errors first seen ~2 h after deploy v2.3.1 (2024-03-12T14:05Z). Likely introduced then."`',
+        ]
+    else:
+        lines += ["*(No repositories configured — skip deployment correlation.)*"]
+
+    # ── Task 3: Investigate spiking patterns ──────────────────────────────────
+    lines += [
+        "",
+        "---",
+        "",
+        "### Task 3 — Investigate spiking patterns",
+        "",
     ]
 
     if not spiking:
-        lines += ["", "No known patterns have spiked this run. Proceed to Task 3."]
+        lines += ["No patterns have spiked this run. Proceed to Task 4."]
     else:
-        lines += ["", "The following patterns have counts significantly above their recent baseline:", ""]
+        lines += [
+            "The following patterns have counts significantly above their recent baseline.",
+            "",
+            "For **each** spiking pattern, work through these steps within your budget:",
+            "",
+            "1. `git -C <repo> pull --ff-only origin` to ensure you are on the latest code",
+            "2. Check the stack traces in the examples for a specific code location",
+            "3. If a location is identified: read that file and check recent changes",
+            "   (`git -C <repo> log -8 --oneline -- <file>`)",
+            "4. If the cause is still unclear, run **one** follow-up Datadog query:",
+            "   ```bash",
+            f'   curl -s -X POST "https://api.{DD_SITE}/api/v2/logs/events/search" \\',
+            '     -H "DD-API-KEY: $DD_API_KEY" -H "DD-APPLICATION-KEY: $DD_APP_KEY" \\',
+            '     -H "Content-Type: application/json" \\',
+            "     -d '{\"filter\":{\"query\":\"<refine query>\","
+            "\"from\":\"now-1h\",\"to\":\"now\"},\"page\":{\"limit\":10}}'",
+            "   ```",
+            "5. If still unclear after step 4: **declare inconclusive** and move on",
+            "",
+            "After investigating each pattern, **overwrite its `description`** in the state",
+            "file with your current findings.",
+            "",
+        ]
+
         for pid, pattern, count in spiking:
             history = pattern.get("run_history", [])
             recent = history[-MIN_RUNS_FOR_SPIKE:] if len(history) >= MIN_RUNS_FOR_SPIKE else history
-            baseline_str = f"{sum(recent)/len(recent):.1f}" if recent else "N/A"
+            baseline_str = f"{sum(recent) / len(recent):.1f}" if recent else "N/A"
             lines += [
                 f"#### `{pattern['name']}`",
-                f"- Current count: **{count}** &nbsp;|&nbsp; Recent baseline: {baseline_str}"
-                f" (last {len(recent)} runs: `{recent}`)",
+                f"- Count this run: **{count}**  |  Baseline: {baseline_str}"
+                f"  (last {len(recent)} runs: `{recent}`)",
+                f"- First seen: {pattern.get('first_seen', 'unknown')}",
+                f"- Last seen:  {pattern.get('last_seen', 'unknown')}",
+                f"- Total events: {pattern.get('total_events', 'unknown')}",
                 f"- Regex: `{pattern.get('regex', 'N/A')}`",
-                f"- Last seen: {pattern.get('last_seen', 'unknown')}",
+                f"- Description: {pattern.get('description', '(none yet)')}",
                 "",
             ]
             examples = pattern.get("examples", [])[:EXAMPLES_PER_PATTERN]
@@ -420,74 +572,64 @@ def _build_prompt(
                     lines.append(f"  - `{ex.get('message', '')[:300]}`")
             lines.append("")
 
-    lines += [
-        "---",
-        "",
-        "### Task 3 — Investigate and fix",
-        "",
-        "For each spiking pattern (and for any newly categorized error class that",
-        "looks like a code-level bug):",
-        "",
-        "1. Navigate to the relevant repository and run `git pull origin` to ensure",
-        "   you are working on the latest code",
-        "2. Search the codebase for the origin of the error",
-        "3. Determine whether this is a **code bug** or an **infrastructure/config/data issue**",
-        "",
-        "**Repositories** (already cloned on this machine):",
-    ]
+        lines += [
+            "**If you identify a code-level fix:**",
+            "- Create a focused PR using the appropriate git host (GitHub / GitLab / Bitbucket)",
+            "- Only open a PR when you are **highly confident** the fix is correct",
+            "- Include a description referencing the error pattern name and `first_seen`",
+            "",
+            "**Otherwise** (infrastructure / config / data issue, or inconclusive):",
+            "- Do NOT create a PR",
+            "- Capture your findings in the pattern's `description` for the Slack summary",
+        ]
 
     if REPO_CONFIGS:
+        lines += [
+            "",
+            "**Repositories (already cloned on this machine):**",
+        ]
         for cfg in REPO_CONFIGS:
             lines.append(
-                f"- `{cfg['path']}` — host: **{cfg.get('host', 'unknown')}**,"
-                f" remote: `{cfg.get('remote', '')}`"
+                f"- `{cfg['path']}` — {cfg.get('host', 'git')} · `{cfg.get('remote', '')}`"
             )
-    else:
-        lines.append("- *(No repositories configured — skip code investigation)*")
 
+    # ── Task 4: Slack summary ──────────────────────────────────────────────────
     lines += [
-        "",
-        "**If you identify a code-level fix:**",
-        "- Create a focused PR using the appropriate git host (GitHub/GitLab/Bitbucket)",
-        "- Only create the PR if you are **highly confident** the fix is correct",
-        "- Include a clear description referencing the error pattern",
-        "",
-        "**If the issue is infrastructure/config/data, or if unsure:**",
-        "- Do NOT create a PR",
-        "- Document your findings for the Slack summary instead",
         "",
         "---",
         "",
         "### Task 4 — Post Slack summary",
         "",
-        f"Post a summary to Slack channel `{SLACK_CHANNEL_ID}` using the `SLACK_BOT_TOKEN` secret.",
+        f"Post to Slack channel `{SLACK_CHANNEL_ID}` using the `SLACK_BOT_TOKEN` secret.",
         "",
-        "**Only post if there were actual findings** (new categories or spiking patterns).",
-        "If no triggers fired this run, skip this task.",
+        "**Only post if there were actual findings** (new patterns, spikes, or deployment",
+        "correlations). Skip this task entirely if nothing triggered.",
         "",
-        "The summary should include:",
-        "- New error categories identified (names and brief description)",
-        "- Spiking patterns and your diagnosis",
-        "- Links to any PRs created",
-        "- Suggested next steps if no PR was created",
+        "Include:",
+        "- New error patterns: name, event count, and brief description",
+        "- Spiking patterns: diagnosis, deployment correlation if found, PR link if opened",
+        "- Inconclusive patterns: name + what was tried — flag for manual investigation",
         "",
-        "Keep it concise — bullet points preferred. Example format:",
+        "Keep it concise — bullet points preferred. Example:",
         "",
         "```",
-        "🔴 *Datadog Error Monitor — {from_ts}*",
+        f"🔴 *Datadog Error Monitor — {from_ts}*",
         "",
-        "New patterns (3): Redis timeout in CacheService, JWT validation failure, DB pool exhaustion",
-        "Spikes: NullPointerException in PaymentService — 47 events (baseline ~3)",
-        "  → Root cause: null check missing after optional field refactor (PR: #123)",
+        "New patterns (2):",
+        "  • Redis timeout in CacheService — 12 events, likely from deploy v2.3.1",
+        "  • JWT validation failure — 4 events — inconclusive, needs manual review",
+        "Spike:",
+        "  • NullPointerException in PaymentService — 47 events (baseline ~3)",
+        "    → null check missing after optional-field refactor → PR #123 opened",
         "```",
         "",
-        "Slack API call:",
         "```bash",
         "curl -s -X POST https://slack.com/api/chat.postMessage \\",
         '  -H "Authorization: Bearer $SLACK_BOT_TOKEN" \\',
         '  -H "Content-Type: application/json" \\',
         f'  -d \'{{\"channel\": \"{SLACK_CHANNEL_ID}\", \"text\": \"YOUR SUMMARY\"}}\' \\',
-        "  | python3 -c \"import json,sys; d=json.load(sys.stdin); print('OK' if d.get('ok') else d.get('error'))\"",
+        "  | python3 -c \"import json,sys; d=json.load(sys.stdin);"
+        " print('OK' if d.get('ok') else d.get('error'))\"",
         "```",
     ]
 
@@ -500,6 +642,9 @@ def main() -> str | None:
     state_path = _state_file_path()
     print(f"State file: {state_path}")
     state = load_state(state_path)
+
+    # ── Archive patterns not seen recently ───────────────────────────────────
+    archive_stale_patterns(state, state_path)
 
     # ── Resolve Datadog secrets ──────────────────────────────────────────────
     try:
@@ -539,6 +684,7 @@ def main() -> str | None:
             pattern_counts[pid] = pattern_counts.get(pid, 0) + 1
             pattern = known_patterns[pid]
             pattern["last_seen"] = now.strftime("%Y-%m-%dT%H:%M:%SZ")
+            pattern["total_events"] = pattern.get("total_events", 0) + 1
             pattern.setdefault("examples", [])
             new_example = {
                 "timestamp": log_event.get("attributes", {}).get("timestamp", ""),
