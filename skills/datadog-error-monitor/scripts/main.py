@@ -293,8 +293,24 @@ def _oh_request(
 
 
 def _fetch_settings(agent_url: str, api_key: str) -> dict:
+    """Fetch the full user settings from the agent server.
+
+    Uses X-Expose-Secrets: plaintext so the LLM api_key is a real string
+    rather than a masked placeholder.
+    """
+    url = f"{agent_url.rstrip('/')}/api/settings"
+    headers = {
+        "X-Session-API-Key": api_key,
+        "X-Expose-Secrets": "plaintext",
+        "Content-Type": "application/json",
+    }
+    req = urllib.request.Request(url, headers=headers)
     try:
-        return _oh_request(agent_url, api_key, "GET", "/api/settings")
+        with urllib.request.urlopen(req, timeout=30) as r:
+            return json.loads(r.read().decode())
+    except urllib.error.HTTPError as exc:
+        print(f"Warning: could not fetch agent settings: {exc.code}")
+        return {}
     except Exception as exc:
         print(f"Warning: could not fetch agent settings: {exc}")
         return {}
