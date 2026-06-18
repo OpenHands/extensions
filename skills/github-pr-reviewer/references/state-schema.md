@@ -1,12 +1,19 @@
-# State File Schema
+# State Schema
 
-The automation maintains a JSON state file that persists across polling runs.
+The automation maintains a JSON state document that persists across polling runs.
 It is the source of truth for which trigger-label events have queued reviews
 and which conversations are still active.
 
 ---
 
-## File Location
+## Storage
+
+**Primary (cloud):** The state is stored in the automation service's built-in KV
+store under the key `"state"`. The KV store is available when `AUTOMATION_KV_TOKEN`
+is injected into the run environment. Each automation has its own isolated namespace.
+
+**Fallback (local/dev):** When the KV store is not available, the state is written
+to a local JSON file at:
 
 ```
 {WORKSPACE_BASE_ROOT}/automation-state/github_pr_reviewer_label_event_{automation_id}.json
@@ -116,8 +123,15 @@ Trigger label applied on GitHub
 ## Resetting State
 
 To force the automation to reconsider previous label events, delete the state
-file:
+from the KV store (cloud) or the fallback file (local).
 
+**Cloud (KV store):**
+```bash
+curl -X DELETE "${OPENHANDS_HOST}/api/automation/v1/kv/state" \
+  -H "Authorization: Bearer ${AUTOMATION_KV_TOKEN}"
+```
+
+**Local (file fallback):**
 ```bash
 rm ~/.openhands/workspaces/automation-state/github_pr_reviewer_label_event_<id>.json
 ```

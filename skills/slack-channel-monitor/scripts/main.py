@@ -40,11 +40,10 @@ import urllib.request
 from datetime import datetime, timezone
 from urllib.parse import urlencode
 
-# ── Debug logging to a persistent file ────────────────────────────────────────
+# ── Debug logging to a per-run file ───────────────────────────────────────────
 _DEBUG_LOG_PATH = os.path.join(
-    os.path.dirname(os.path.dirname(os.path.abspath(
-        os.environ.get("WORKSPACE_BASE", "/tmp")))),
-    "automation-state", "slack_poller_debug.log",
+    os.environ.get("WORKSPACE_BASE", "/tmp"),
+    "slack_poller_debug.log",
 )
 os.makedirs(os.path.dirname(_DEBUG_LOG_PATH), exist_ok=True)
 _debug_log_fh = open(_DEBUG_LOG_PATH, "a")
@@ -198,14 +197,47 @@ def fire_callback(
         print(f"Callback error (non-fatal): {exc}")
 
 
-# ── State management ───────────────────────────────────────────────────────────
+# ── State persistence (KV store with local-file fallback) ─────────────────────
+
+_KV_TOKEN = os.environ.get("AUTOMATION_KV_TOKEN", "")
+_KV_BASE = os.environ.get("AUTOMATION_API_URL", "").rstrip("/")
+_STATE_KEY = "state"
+
+
+def _kv_available() -> bool:
+    return bool(_KV_TOKEN and _KV_BASE)
+
+
+def _kv_get(key: str) -> dict | None:
+    req = urllib.request.Request(
+        f"{_KV_BASE}/v1/kv/{key}",
+        headers={"Authorization": f"Bearer {_KV_TOKEN}"},
+    )
+    try:
+        with urllib.request.urlopen(req) as r:
+            return json.loads(r.read())["value"]
+    except urllib.error.HTTPError as exc:
+        if exc.code == 404:
+            return None
+        raise
+
+
+def _kv_set(key: str, value: dict) -> None:
+    req = urllib.request.Request(
+        f"{_KV_BASE}/v1/kv/{key}",
+        data=json.dumps(value).encode(),
+        headers={
+            "Authorization": f"Bearer {_KV_TOKEN}",
+            "Content-Type": "application/json",
+        },
+        method="PUT",
+    )
+    with urllib.request.urlopen(req) as r:
+        r.read()
+
 
 def _state_file_path() -> str:
-    """Derive a persistent storage path from WORKSPACE_BASE.
-
-    WORKSPACE_BASE = {root}/automation-runs/{run_id}
-    State lives two levels up at {root}/automation-state/.
-    """
+    """Derive a persistent storage path from WORKSPACE_BASE (file fallback only)."""
     workspace_base = os.environ.get("WORKSPACE_BASE", "")
     event_payload = json.loads(os.environ.get("AUTOMATION_EVENT_PAYLOAD", "{}"))
     automation_id = event_payload.get("automation_id", "default")
@@ -220,22 +252,42 @@ def _state_file_path() -> str:
     return os.path.join(state_dir, f"slack_poller_{automation_id}.json")
 
 
-def load_state(path: str) -> dict:
-    if os.path.exists(path):
-        return json.load(open(path))
+def _default_state() -> dict:
     return {
         "version": 1,
         "bot_user_id": None,
-        "last_poll": {},           # channel_id → float timestamp string
-        "conversations": {},       # conv_key → ConversationRecord (see schema docs)
-        "bot_message_ts": [],      # ts strings of messages posted by this bot
-        "processed_ts": [],        # ts strings of messages already handled (dedup)
+        "last_poll": {},
+        "conversations": {},
+        "bot_message_ts": [],
+        "processed_ts": [],
     }
 
 
-def save_state(path: str, state: dict) -> None:
+def load_state() -> dict:
+    if _kv_available():
+        data = _kv_get(_STATE_KEY)
+        if data is not None:
+            print("State loaded from KV store")
+            return data
+        return _default_state()
+    path = _state_file_path()
+    if os.path.exists(path):
+        try:
+            return json.load(open(path))
+        except Exception as exc:
+            print(f"Warning: state file {path} unreadable ({exc}); starting fresh")
+    return _default_state()
+
+
+def save_state(state: dict) -> None:
+    if _kv_available():
+        _kv_set(_STATE_KEY, state)
+        print("State saved to KV store")
+        return
+    path = _state_file_path()
     with open(path, "w") as f:
         json.dump(state, f, indent=2)
+    print(f"State saved to {path}")
 
 
 # ── Slack API helpers ──────────────────────────────────────────────────────────
@@ -971,8 +1023,7 @@ def _check_conversation_completion(
 
 def main() -> str | None:
     """Run one polling cycle. Returns the last conversation ID created, if any."""
-    state_path = _state_file_path()
-    state = load_state(state_path)
+    state = load_state()
 
     agent_url = os.environ.get("AGENT_SERVER_URL", "").rstrip("/")
     api_key = _get_env_key()
@@ -1159,8 +1210,7 @@ def main() -> str | None:
     state["processed_ts"] = processed_list[-MAX_PROCESSED_TS:]
 
     state["conversations"] = active_convs
-    save_state(state_path, state)
-    print(f"State saved to {state_path}")
+    save_state(state)
     return last_conversation_id
 
 
