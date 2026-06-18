@@ -1,0 +1,19 @@
+{
+  "name": "agent-canvas-environment",
+  "version": "1.0.0",
+  "description": "Work effectively inside a local Agent Canvas environment, including local agent-server auth, frontend/backend port discovery, safe workspace hygiene, and local conversation delegation.",
+  "author": {
+    "name": "OpenHands",
+    "email": "contact@all-hands.dev"
+  },
+  "homepage": "https://github.com/OpenHands/extensions",
+  "repository": "https://github.com/OpenHands/extensions",
+  "license": "MIT",
+  "keywords": [
+    "agent-canvas",
+    "openhands",
+    "local",
+    "conversation",
+    "delegation"
+  ]
+}

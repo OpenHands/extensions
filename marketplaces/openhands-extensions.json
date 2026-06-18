@@ -89,6 +89,19 @@
       ]
     },
     {
+      "name": "agent-canvas-environment",
+      "source": "./skills/agent-canvas-environment",
+      "description": "Work effectively inside a local Agent Canvas environment, including local agent-server auth, safe workspace hygiene, and local conversation delegation.",
+      "category": "development",
+      "keywords": [
+        "agent-canvas",
+        "openhands",
+        "local",
+        "conversation",
+        "delegation"
+      ]
+    },
+    {
       "name": "openhands-sdk",
       "source": "./skills/openhands-sdk",
       "description": "Reference skill for the OpenHands Software Agent SDK - build AI agents with custom tools, LLM configuration, conversations, sub-agent delegation, MCP integration, security, and persistence.",

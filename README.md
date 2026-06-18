@@ -60,7 +60,7 @@ See [`integrations/README.md`](integrations/README.md), [`automations/README.md`
 ## Extensions Catalog
 
 <!-- BEGIN AUTO-GENERATED CATALOG -->
-This repository contains **2 marketplace(s)** with **57 extensions** (47 skills, 10 plugins).
+This repository contains **2 marketplace(s)** with **58 extensions** (48 skills, 10 plugins).
 
 ### large-codebase
 
@@ -79,11 +79,12 @@ OpenHands skills for interacting, improving, and refactoring large codebases
 
 Official skills and plugins for OpenHands — the open-source AI software engineer.
 
-**53 extensions** (45 skills, 8 plugins)
+**54 extensions** (46 skills, 8 plugins)
 
 | Name | Type | Description | Commands |
 |------|------|-------------|----------|
 | add-skill | skill | Add (import) an OpenHands skill from a GitHub repository into the current workspace. | — |
+| agent-canvas-environment | skill | Work effectively inside a local Agent Canvas environment, including local agent-server auth, safe workspace hygiene, ... | — |
 | agent-creator | skill | Create file-based sub-agents as Markdown files — no Python code required. Guides the user through a structured interv... | `/agent-creator` |
 | agent-memory | skill | Persist and retrieve repository-specific knowledge using AGENTS.md files. Use when you want to save important informa... | `/remember` |
 | agent-sdk-builder | skill | Guided workflow for building custom AI agents using the OpenHands Software Agent SDK. Use when you want to create a n... | `/agent-builder` |
