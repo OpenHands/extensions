@@ -126,7 +126,7 @@ def _kv_get(key: str) -> dict | None:
     )
     try:
         with urllib.request.urlopen(req) as r:
-            return json.loads(r.read())
+            return json.loads(r.read())["value"]
     except urllib.error.HTTPError as exc:
         if exc.code == 404:
             return None
