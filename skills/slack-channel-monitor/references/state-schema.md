@@ -1,12 +1,19 @@
-# State File Schema
+# State Schema
 
-The automation maintains a JSON state file that persists across polling runs.
-This file is the source of truth for which conversations are active, which
+The automation maintains a JSON state document that persists across polling runs.
+This document is the source of truth for which conversations are active, which
 timestamps have been processed, and which messages were posted by the bot.
 
 ---
 
-## File Location
+## Storage
+
+**Primary (cloud):** The state is stored in the automation service's built-in KV
+store under the key `"state"`. The KV store is available when `AUTOMATION_KV_TOKEN`
+is injected into the run environment. Each automation has its own isolated namespace.
+
+**Fallback (local/dev):** When the KV store is not available, the state is written
+to a local JSON file at:
 
 ```
 {WORKSPACE_BASE_ROOT}/automation-state/slack_poller_{automation_id}.json

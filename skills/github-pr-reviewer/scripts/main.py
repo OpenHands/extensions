@@ -67,6 +67,45 @@ def fire_callback(
         print(f"Callback error (non-fatal): {exc}")
 
 
+# ── State persistence (KV store with local-file fallback) ─────────────────────
+
+_KV_TOKEN = os.environ.get("AUTOMATION_KV_TOKEN", "")
+_KV_BASE = os.environ.get("AUTOMATION_API_URL", "").rstrip("/")
+_STATE_KEY = "state"
+
+
+def _kv_available() -> bool:
+    return bool(_KV_TOKEN and _KV_BASE)
+
+
+def _kv_get(key: str) -> dict | None:
+    req = urllib.request.Request(
+        f"{_KV_BASE}/v1/kv/{key}",
+        headers={"Authorization": f"Bearer {_KV_TOKEN}"},
+    )
+    try:
+        with urllib.request.urlopen(req) as r:
+            return json.loads(r.read())
+    except urllib.error.HTTPError as exc:
+        if exc.code == 404:
+            return None
+        raise
+
+
+def _kv_set(key: str, value: dict) -> None:
+    req = urllib.request.Request(
+        f"{_KV_BASE}/v1/kv/{key}",
+        data=json.dumps(value).encode(),
+        headers={
+            "Authorization": f"Bearer {_KV_TOKEN}",
+            "Content-Type": "application/json",
+        },
+        method="PUT",
+    )
+    with urllib.request.urlopen(req) as r:
+        r.read()
+
+
 def _state_file_path() -> str:
     workspace_base = os.environ.get("WORKSPACE_BASE", "")
     event_payload = json.loads(os.environ.get("AUTOMATION_EVENT_PAYLOAD", "{}"))
@@ -82,13 +121,7 @@ def _state_file_path() -> str:
     return str(state_dir / f"github_pr_reviewer_label_event_{automation_id}.json")
 
 
-def load_state(path: str) -> dict:
-    if os.path.exists(path):
-        try:
-            with open(path) as f:
-                return json.load(f)
-        except (json.JSONDecodeError, OSError) as exc:
-            print(f"Warning: state file {path} unreadable ({exc}); starting fresh")
+def _default_state() -> dict:
     return {
         "version": 2,
         "repo": REPO,
@@ -98,11 +131,39 @@ def load_state(path: str) -> dict:
     }
 
 
-def save_state(path: str, state: dict) -> None:
+def load_state() -> dict:
+    if _kv_available():
+        try:
+            data = _kv_get(_STATE_KEY)
+            if data is not None:
+                print("State loaded from KV store")
+                return data
+        except Exception as exc:
+            print(f"Warning: KV get failed ({exc}); falling back to file")
+    path = _state_file_path()
+    if os.path.exists(path):
+        try:
+            with open(path) as f:
+                return json.load(f)
+        except (json.JSONDecodeError, OSError) as exc:
+            print(f"Warning: state file {path} unreadable ({exc}); starting fresh")
+    return _default_state()
+
+
+def save_state(state: dict) -> None:
+    if _kv_available():
+        try:
+            _kv_set(_STATE_KEY, state)
+            print("State saved to KV store")
+            return
+        except Exception as exc:
+            print(f"Warning: KV set failed ({exc}); falling back to file")
+    path = _state_file_path()
     tmp_path = f"{path}.tmp"
     with open(tmp_path, "w") as f:
         json.dump(state, f, indent=2, sort_keys=True)
     os.replace(tmp_path, path)
+    print(f"State saved to {path}")
 
 
 def _github_request(
@@ -522,8 +583,7 @@ def _check_conversation_completion(
 
 
 def main() -> str | None:
-    state_path = _state_file_path()
-    state = load_state(state_path)
+    state = load_state()
     agent_url = os.environ.get("AGENT_SERVER_URL", "").rstrip("/")
     api_key = _get_env_key()
 
@@ -591,8 +651,7 @@ def main() -> str | None:
     state["repo"] = REPO
     state["trigger_label"] = TRIGGER_LABEL
     state["updated_at"] = time.time()
-    save_state(state_path, state)
-    print(f"State saved → {state_path}")
+    save_state(state)
     return last_conversation_id
 
 
