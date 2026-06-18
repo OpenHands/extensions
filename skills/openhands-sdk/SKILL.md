@@ -191,6 +191,7 @@ Source: [`examples/`](https://github.com/OpenHands/software-agent-sdk/tree/main/
 - [`51_agent_hooks`](https://github.com/OpenHands/software-agent-sdk/tree/main/examples/01_standalone_sdk/51_agent_hooks)
 - [`52_dynamic_workflow.py`](https://github.com/OpenHands/software-agent-sdk/blob/main/examples/01_standalone_sdk/52_dynamic_workflow.py)
 - [`53_client_defined_tools.py`](https://github.com/OpenHands/software-agent-sdk/blob/main/examples/01_standalone_sdk/53_client_defined_tools.py)
+- [`54_goal_completion_loop.py`](https://github.com/OpenHands/software-agent-sdk/blob/main/examples/01_standalone_sdk/54_goal_completion_loop.py)
 
 ### [`02_remote_agent_server/`](https://github.com/OpenHands/software-agent-sdk/tree/main/examples/02_remote_agent_server)
 
@@ -209,6 +210,7 @@ Source: [`examples/`](https://github.com/OpenHands/software-agent-sdk/tree/main/
 - [`13_workspace_get_llm.py`](https://github.com/OpenHands/software-agent-sdk/blob/main/examples/02_remote_agent_server/13_workspace_get_llm.py)
 - [`14_client_defined_tools.py`](https://github.com/OpenHands/software-agent-sdk/blob/main/examples/02_remote_agent_server/14_client_defined_tools.py)
 - [`15_openai_compatible_gateway.py`](https://github.com/OpenHands/software-agent-sdk/blob/main/examples/02_remote_agent_server/15_openai_compatible_gateway.py)
+- [`16_deferred_init.py`](https://github.com/OpenHands/software-agent-sdk/blob/main/examples/02_remote_agent_server/16_deferred_init.py)
 - [`hook_scripts`](https://github.com/OpenHands/software-agent-sdk/tree/main/examples/02_remote_agent_server/hook_scripts)
 - [`scripts`](https://github.com/OpenHands/software-agent-sdk/tree/main/examples/02_remote_agent_server/scripts)
 
