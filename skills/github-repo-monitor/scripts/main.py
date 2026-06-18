@@ -182,13 +182,11 @@ def _default_state() -> dict:
 
 def load_state() -> dict:
     if _kv_available():
-        try:
-            data = _kv_get(_STATE_KEY)
-            if data is not None:
-                print("State loaded from KV store")
-                return data
-        except Exception as exc:
-            print(f"Warning: KV get failed ({exc}); falling back to file")
+        data = _kv_get(_STATE_KEY)
+        if data is not None:
+            print("State loaded from KV store")
+            return data
+        return _default_state()
     path = _state_file_path()
     if os.path.exists(path):
         try:
@@ -201,12 +199,9 @@ def load_state() -> dict:
 
 def save_state(state: dict) -> None:
     if _kv_available():
-        try:
-            _kv_set(_STATE_KEY, state)
-            print("State saved to KV store")
-            return
-        except Exception as exc:
-            print(f"Warning: KV set failed ({exc}); falling back to file")
+        _kv_set(_STATE_KEY, state)
+        print("State saved to KV store")
+        return
     path = _state_file_path()
     with open(path, "w") as f:
         json.dump(state, f, indent=2)

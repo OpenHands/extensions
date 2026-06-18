@@ -487,7 +487,7 @@ def kv_get(key: str):
     )
     try:
         with urllib.request.urlopen(req) as r:
-            return json.loads(r.read())
+            return json.loads(r.read())["value"]
     except urllib.error.HTTPError as exc:
         if exc.code == 404:
             return None
@@ -533,7 +533,7 @@ def kv_get(key: str):
     )
     try:
         with urllib.request.urlopen(req) as r:
-            return json.loads(r.read())
+            return json.loads(r.read())["value"]
     except urllib.error.HTTPError as exc:
         if exc.code == 404:
             return None
@@ -573,13 +573,11 @@ def _default_state() -> dict:
 
 def load_state() -> dict:
     if kv_available():
-        try:
-            data = kv_get(_STATE_KEY)
-            if data is not None:
-                print("State loaded from KV store")
-                return data
-        except Exception as exc:
-            print(f"Warning: KV get failed ({exc}); falling back to file")
+        data = kv_get(_STATE_KEY)
+        if data is not None:
+            print("State loaded from KV store")
+            return data
+        return _default_state()
     path = _state_file_path()
     if path.exists():
         try:
@@ -591,12 +589,9 @@ def load_state() -> dict:
 
 def save_state(state: dict) -> None:
     if kv_available():
-        try:
-            kv_set(_STATE_KEY, state)
-            print("State saved to KV store")
-            return
-        except Exception as exc:
-            print(f"Warning: KV set failed ({exc}); falling back to file")
+        kv_set(_STATE_KEY, state)
+        print("State saved to KV store")
+        return
     path = _state_file_path()
     tmp = path.with_suffix(".tmp")
     tmp.write_text(json.dumps(state, indent=2))
