@@ -29,10 +29,20 @@ def _make_comment(body="hello @openhands", login="octocat", user_type="User"):
 
 # ── State file tests ───────────────────────────────────────────────────────────
 
+def _no_kv(path):
+    """Return a pair of patches: KV disabled, file path pinned to *path*."""
+    return (
+        patch("main._kv_available", return_value=False),
+        patch("main._state_file_path", return_value=path),
+    )
+
+
 class TestLoadState(unittest.TestCase):
 
     def test_missing_file_returns_default(self):
-        state = main.load_state("/nonexistent/path/state.json")
+        with patch("main._kv_available", return_value=False), \
+             patch("main._state_file_path", return_value="/nonexistent/path/state.json"):
+            state = main.load_state()
         self.assertIn("conversations", state)
         self.assertIn("processed_comment_ids", state)
         self.assertEqual(state["version"], 1)
@@ -42,7 +52,9 @@ class TestLoadState(unittest.TestCase):
             json.dump({"version": 1, "custom": "value", "conversations": {}}, f)
             path = f.name
         try:
-            state = main.load_state(path)
+            with patch("main._kv_available", return_value=False), \
+                 patch("main._state_file_path", return_value=path):
+                state = main.load_state()
             self.assertEqual(state["custom"], "value")
         finally:
             os.unlink(path)
@@ -52,7 +64,9 @@ class TestLoadState(unittest.TestCase):
             f.write("{this is not valid json!!!}")
             path = f.name
         try:
-            state = main.load_state(path)
+            with patch("main._kv_available", return_value=False), \
+                 patch("main._state_file_path", return_value=path):
+                state = main.load_state()
             # Should return the default state rather than raising.
             self.assertIn("conversations", state)
             self.assertEqual(state["version"], 1)
@@ -64,7 +78,9 @@ class TestLoadState(unittest.TestCase):
             f.write("")
             path = f.name
         try:
-            state = main.load_state(path)
+            with patch("main._kv_available", return_value=False), \
+                 patch("main._state_file_path", return_value=path):
+                state = main.load_state()
             self.assertIn("conversations", state)
         finally:
             os.unlink(path)
@@ -81,12 +97,53 @@ class TestSaveAndLoadRoundtrip(unittest.TestCase):
         with tempfile.NamedTemporaryFile(suffix=".json", delete=False) as f:
             path = f.name
         try:
-            main.save_state(path, data)
-            loaded = main.load_state(path)
+            with patch("main._kv_available", return_value=False), \
+                 patch("main._state_file_path", return_value=path):
+                main.save_state(data)
+                loaded = main.load_state()
             self.assertEqual(loaded["conversations"]["42"]["conversation_id"], "abc")
             self.assertEqual(loaded["processed_comment_ids"], [1, 2, 3])
         finally:
             os.unlink(path)
+
+
+class TestKVState(unittest.TestCase):
+
+    def test_load_reads_value_from_kv(self):
+        kv_data = {"version": 1, "conversations": {"7": {"conversation_id": "kv-c"}},
+                   "processed_comment_ids": []}
+        with patch("main._kv_available", return_value=True), \
+             patch("main._kv_get", return_value=kv_data) as mock_get:
+            state = main.load_state()
+        self.assertEqual(state["conversations"]["7"]["conversation_id"], "kv-c")
+        mock_get.assert_called_once_with("state")
+
+    def test_load_returns_default_on_kv_miss(self):
+        with patch("main._kv_available", return_value=True), \
+             patch("main._kv_get", return_value=None):
+            state = main.load_state()
+        self.assertIn("conversations", state)
+        self.assertEqual(state["version"], 1)
+
+    def test_save_writes_to_kv(self):
+        data = {"version": 1, "conversations": {}, "processed_comment_ids": []}
+        with patch("main._kv_available", return_value=True), \
+             patch("main._kv_set") as mock_set:
+            main.save_state(data)
+        mock_set.assert_called_once_with("state", data)
+
+    def test_kv_error_propagates_on_load(self):
+        with patch("main._kv_available", return_value=True), \
+             patch("main._kv_get", side_effect=RuntimeError("network error")):
+            with self.assertRaises(RuntimeError):
+                main.load_state()
+
+    def test_kv_error_propagates_on_save(self):
+        data = {"version": 1, "conversations": {}, "processed_comment_ids": []}
+        with patch("main._kv_available", return_value=True), \
+             patch("main._kv_set", side_effect=RuntimeError("network error")):
+            with self.assertRaises(RuntimeError):
+                main.save_state(data)
 
 
 # ── Bot detection tests ────────────────────────────────────────────────────────
@@ -214,8 +271,10 @@ class TestProcessedIdDeduplication(unittest.TestCase):
         try:
             state = {"version": 1, "conversations": {},
                      "processed_comment_ids": [101, 202, 303]}
-            main.save_state(path, state)
-            loaded = main.load_state(path)
+            with patch("main._kv_available", return_value=False), \
+                 patch("main._state_file_path", return_value=path):
+                main.save_state(state)
+                loaded = main.load_state()
             self.assertIn(101, loaded["processed_comment_ids"])
             self.assertIn(303, loaded["processed_comment_ids"])
             self.assertNotIn(404, loaded["processed_comment_ids"])
