@@ -1,8 +1,6 @@
 ---
 name: custom-codereview-guide
-description: Repository-specific code review guidelines for OpenHands/extensions
-triggers:
-- /codereview
+description: Repository-specific code review guidelines for the OpenHands/extensions repo. Use when reviewing pull requests in this repository. Covers SDK documentation placement rules and pre-release catalog migration policy.
 ---
 
 # Extensions Repo — Code Review Guidelines
