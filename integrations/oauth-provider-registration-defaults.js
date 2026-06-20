@@ -330,6 +330,12 @@ const registrationDefaults = {
     scopes: [],
     credentialHelp:
       "Use the client ID and secret from a HubSpot MCP auth app (Development → MCP Auth Apps). Standard HubSpot OAuth apps and private apps will not authenticate with mcp.hubspot.com.",
+    errorHints: {
+      401:
+        "HubSpot MCP requires a user-level OAuth token from a HubSpot MCP auth app. Reconnect HubSpot with an MCP auth app instead of a standard HubSpot OAuth app or private app.",
+      403:
+        "HubSpot MCP may need reauthorization to grant the current server tool scopes. Disconnect and reconnect HubSpot, then try discovery again.",
+    },
   },
   zendesk: {
     apiBaseUrl: "https://{subdomain}.zendesk.com/api/v2",

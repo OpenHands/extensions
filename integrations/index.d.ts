@@ -114,6 +114,12 @@ export interface OAuthProviderRegistrationDefaults {
   toolDescription?: string;
   requestMethod?: string;
   requestPath?: string;
+  /**
+   * Provider-specific, HTTP-status-keyed error hints surfaced to the user when
+   * a managed connector call fails (e.g. HubSpot 401/403 reconnection advice).
+   * Keeps provider knowledge out of the hub's own source.
+   */
+  errorHints?: Record<number, string>;
 }
 
 export interface OAuthProviderCatalogOption {
