@@ -42,6 +42,9 @@ import { listOAuthProviderCatalog } from "./oauth-provider-catalog.js";
 export { listOAuthProviderCatalog } from "./oauth-provider-catalog.js";
 export {
   getOAuthProviderRegistrationDefaults,
+  hubspotLegacyScopeBundle,
+  hubspotLegacyScopeBundleWithoutOauth,
+  hubspotManagedConnectorMigration,
   hubspotMcpAuthorizationUrl,
   hubspotMcpServerUrl,
   hubspotMcpTokenUrl,

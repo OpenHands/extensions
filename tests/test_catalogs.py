@@ -107,3 +107,61 @@ def test_node_package_exports_catalogs():
       if (!AUTOMATION_CATALOG.some((entry) => entry.id === 'github-pr-reviewer')) process.exit(1);
     """
     subprocess.run(["node", "--input-type=module", "-e", script], cwd=ROOT, check=True)
+
+
+def test_hubspot_managed_connector_migration_is_declared():
+    """The HubSpot catalog entry must declare the managed-connector migration
+    descriptor (canonicalServerUrl + the four legacy scope bundles) so the
+    integrations hub can migrate legacy HubSpot connectors from catalog data
+    instead of branching on the "hubspot" slug. The bundles must match the
+    historical hub constants exactly."""
+    script = r"""
+      import {
+        getOAuthProviderRegistrationDefaults,
+        hubspotMcpServerUrl,
+        hubspotRequiredScopes,
+        hubspotOptionalScopes,
+      } from './integrations/index.js';
+
+      const defaults = getOAuthProviderRegistrationDefaults('hubspot');
+      const migration = defaults?.managedConnectorMigration;
+      if (!migration) process.exit(1);
+
+      const expectedUnion = [...hubspotRequiredScopes, ...hubspotOptionalScopes];
+      const expectedUnionWithoutOauth = expectedUnion.filter((s) => s !== 'oauth');
+
+      const assertEqual = (actual, expected, label) => {
+        const a = JSON.stringify(actual);
+        const e = JSON.stringify(expected);
+        if (a !== e) {
+          console.error(`${label} mismatch:\n  actual:   ${a}\n  expected: ${e}`);
+          process.exit(1);
+        }
+      };
+
+      if (migration.canonicalServerUrl !== hubspotMcpServerUrl) process.exit(1);
+      if (migration.canonicalServerUrl !== 'https://mcp.hubspot.com') process.exit(1);
+
+      assertEqual(migration.legacyScopeBundles.required, hubspotRequiredScopes, 'required');
+      assertEqual(migration.legacyScopeBundles.optional, hubspotOptionalScopes, 'optional');
+      assertEqual(migration.legacyScopeBundles.union, expectedUnion, 'union');
+      assertEqual(
+        migration.legacyScopeBundles.unionWithoutOauth,
+        expectedUnionWithoutOauth,
+        'unionWithoutOauth',
+      );
+
+      // errorHints must remain declared alongside the migration metadata.
+      if (!defaults.errorHints?.[401] || !defaults.errorHints?.[403]) process.exit(1);
+      // Canonical OAuth config the hub reads from the same entry.
+      if (
+        defaults.provider !== 'mcp' ||
+        defaults.serverUrl !== hubspotMcpServerUrl ||
+        defaults.clientAuthentication !== 'body' ||
+        defaults.pkce !== true ||
+        defaults.scopes.length !== 0
+      ) {
+        process.exit(1);
+      }
+    """
+    subprocess.run(["node", "--input-type=module", "-e", script], cwd=ROOT, check=True)

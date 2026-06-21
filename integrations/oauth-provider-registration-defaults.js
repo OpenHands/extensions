@@ -87,6 +87,36 @@ export const hubspotOptionalScopes = [
   "crm.schemas.deals.read",
 ];
 
+/**
+ * Historical HubSpot OAuth scope bundles. Before the managed connector pointed
+ * at mcp.hubspot.com, already-stored HubSpot connectors carried these scopes.
+ * The integrations hub compares a stored connector's scopes against these
+ * bundles to detect legacy connectors that need re-discovery, so the values
+ * here must match the bundles the hub previously hardcoded exactly.
+ */
+export const hubspotLegacyScopeBundle = [
+  ...hubspotRequiredScopes,
+  ...hubspotOptionalScopes,
+];
+
+export const hubspotLegacyScopeBundleWithoutOauth =
+  hubspotLegacyScopeBundle.filter((scope) => scope !== "oauth");
+
+/**
+ * Declarative HubSpot managed-connector migration descriptor. Lets the
+ * integrations hub migrate/normalize legacy HubSpot connectors from catalog
+ * data instead of branching on the "hubspot" slug in its own source.
+ */
+export const hubspotManagedConnectorMigration = {
+  canonicalServerUrl: hubspotMcpServerUrl,
+  legacyScopeBundles: {
+    required: hubspotRequiredScopes,
+    optional: hubspotOptionalScopes,
+    union: hubspotLegacyScopeBundle,
+    unionWithoutOauth: hubspotLegacyScopeBundleWithoutOauth,
+  },
+};
+
 const registrationDefaults = {
   github: {
     apiBaseUrl: "https://api.github.com",
@@ -330,6 +360,7 @@ const registrationDefaults = {
     scopes: [],
     credentialHelp:
       "Use the client ID and secret from a HubSpot MCP auth app (Development → MCP Auth Apps). Standard HubSpot OAuth apps and private apps will not authenticate with mcp.hubspot.com.",
+    managedConnectorMigration: hubspotManagedConnectorMigration,
     errorHints: {
       401:
         "HubSpot MCP requires a user-level OAuth token from a HubSpot MCP auth app. Reconnect HubSpot with an MCP auth app instead of a standard HubSpot OAuth app or private app.",
