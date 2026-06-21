@@ -114,37 +114,6 @@ export interface OAuthProviderRegistrationDefaults {
   toolDescription?: string;
   requestMethod?: string;
   requestPath?: string;
-  /**
-   * Provider-specific, HTTP-status-keyed error hints surfaced to the user when
-   * a managed connector call fails (e.g. HubSpot 401/403 reconnection advice).
-   * Keeps provider knowledge out of the hub's own source.
-   */
-  errorHints?: Record<number, string>;
-  /**
-   * Declarative managed-connector migration descriptor. Lets the integrations
-   * hub detect and normalize legacy stored connectors from catalog data instead
-   * of branching on a provider slug in its own source.
-   */
-  managedConnectorMigration?: ManagedConnectorMigration;
-}
-
-/**
- * Describes how to migrate a legacy stored managed connector to the canonical
- * shape declared on the provider's catalog entry.
- */
-export interface ManagedConnectorMigration {
-  /** Canonical MCP/HTTP server URL the connector should resolve to. */
-  canonicalServerUrl: string;
-  /**
-   * Historical OAuth scope bundles. A stored connector whose scopes match one
-   * of these bundles is treated as legacy and forced to re-discover tools.
-   */
-  legacyScopeBundles: {
-    required: string[];
-    optional: string[];
-    union: string[];
-    unionWithoutOauth: string[];
-  };
 }
 
 export interface OAuthProviderCatalogOption {

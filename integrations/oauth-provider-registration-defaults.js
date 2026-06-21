@@ -308,61 +308,6 @@ const registrationDefaults = {
     scopes: [],
     credentialHelp:
       "Use the client ID and secret from a HubSpot MCP auth app (Development → MCP Auth Apps). Standard HubSpot OAuth apps and private apps will not authenticate with mcp.hubspot.com.",
-    // Declarative managed-connector migration descriptor. Lets the
-    // integrations hub detect/normalize legacy stored HubSpot connectors from
-    // catalog data instead of branching on the "hubspot" slug. The historical
-    // scope bundles must match the bundles the hub previously hardcoded.
-    managedConnectorMigration: {
-      canonicalServerUrl: "https://mcp.hubspot.com",
-      legacyScopeBundles: {
-        required: ["oauth", "crm.objects.contacts.read"],
-        optional: [
-          "crm.objects.contacts.write",
-          "crm.objects.companies.read",
-          "crm.objects.companies.write",
-          "crm.objects.deals.read",
-          "crm.objects.deals.write",
-          "tickets",
-          "crm.objects.owners.read",
-          "crm.schemas.contacts.read",
-          "crm.schemas.companies.read",
-          "crm.schemas.deals.read",
-        ],
-        union: [
-          "oauth",
-          "crm.objects.contacts.read",
-          "crm.objects.contacts.write",
-          "crm.objects.companies.read",
-          "crm.objects.companies.write",
-          "crm.objects.deals.read",
-          "crm.objects.deals.write",
-          "tickets",
-          "crm.objects.owners.read",
-          "crm.schemas.contacts.read",
-          "crm.schemas.companies.read",
-          "crm.schemas.deals.read",
-        ],
-        unionWithoutOauth: [
-          "crm.objects.contacts.read",
-          "crm.objects.contacts.write",
-          "crm.objects.companies.read",
-          "crm.objects.companies.write",
-          "crm.objects.deals.read",
-          "crm.objects.deals.write",
-          "tickets",
-          "crm.objects.owners.read",
-          "crm.schemas.contacts.read",
-          "crm.schemas.companies.read",
-          "crm.schemas.deals.read",
-        ],
-      },
-    },
-    errorHints: {
-      401:
-        "HubSpot MCP requires a user-level OAuth token from a HubSpot MCP auth app. Reconnect HubSpot with an MCP auth app instead of a standard HubSpot OAuth app or private app.",
-      403:
-        "HubSpot MCP may need reauthorization to grant the current server tool scopes. Disconnect and reconnect HubSpot, then try discovery again.",
-    },
   },
   zendesk: {
     apiBaseUrl: "https://{subdomain}.zendesk.com/api/v2",
