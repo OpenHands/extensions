@@ -66,8 +66,6 @@ from openhands_extensions import (
     list_oauth_provider_catalog,                      # listOAuthProviderCatalog()
     get_oauth_provider_registration_defaults,         # getOAuthProviderRegistrationDefaults(slug)
     default_managed_connectors,                       # snapshot defaultManagedConnectors
-    HUBSPOT_MCP_SERVER_URL,                           # hubspotMcpServerUrl
-    HUBSPOT_REQUIRED_SCOPES,                          # hubspotRequiredScopes
     INTEGRATION_CATALOG_SNAPSHOT,                     # { providers, defaultManagedConnectors }
 )
 

@@ -14,6 +14,7 @@ never drift.
 
 from __future__ import annotations
 
+import copy
 import json
 from functools import lru_cache
 from importlib import resources
@@ -23,18 +24,13 @@ __all__ = [
     "INTEGRATION_CATALOG_SNAPSHOT",
     "default_managed_connectors",
     "get_oauth_provider_registration_defaults",
-    "hubspot_mcp_authorization_url",
-    "hubspot_mcp_server_url",
-    "hubspot_mcp_token_url",
-    "hubspot_optional_scopes",
-    "hubspot_required_scopes",
     "list_oauth_provider_catalog",
 ]
 
 
 @lru_cache(maxsize=1)
 def _load_snapshot() -> dict[str, Any]:
-    """Load the embedded ``oauth-provider-catalog.json`` asset."""
+    """Load the embedded ``oauth-provider-catalog.json`` asset (cached)."""
     with resources.files(__package__).joinpath("oauth-provider-catalog.json").open(
         "r", encoding="utf-8"
     ) as handle:
@@ -49,9 +45,10 @@ def list_oauth_provider_catalog() -> list[dict[str, Any]]:
     """Return the full OAuth provider catalog.
 
     Mirrors ``listOAuthProviderCatalog()`` in
-    ``integrations/oauth-provider-catalog.js``.
+    ``integrations/oauth-provider-catalog.js``. Returns a fresh list so callers
+    can mutate it without corrupting the shared cache.
     """
-    return _providers()
+    return [copy.deepcopy(provider) for provider in _providers()]
 
 
 def get_oauth_provider_registration_defaults(
@@ -60,11 +57,13 @@ def get_oauth_provider_registration_defaults(
     """Return the registration defaults for ``slug``, or ``None``.
 
     Mirrors ``getOAuthProviderRegistrationDefaults(slug)`` in
-    ``integrations/oauth-provider-registration-defaults.js``.
+    ``integrations/oauth-provider-registration-defaults.js``. Returns a copy so
+    callers can mutate it without corrupting the shared cache.
     """
     for provider in _providers():
         if provider["slug"] == slug:
-            return provider.get("registrationDefaults")
+            defaults = provider.get("registrationDefaults")
+            return copy.deepcopy(defaults) if defaults is not None else None
     return None
 
 
@@ -73,27 +72,14 @@ def default_managed_connectors() -> list[dict[str, Any]]:
 
     Mirrors the ``defaultManagedConnectors`` array produced by
     ``scripts/build-integration-catalog.mjs`` (and consumed by the
-    integrations-hub backend).
+    integrations-hub backend). Returns a fresh list so callers can mutate it
+    without corrupting the shared cache.
     """
-    return _load_snapshot()["defaultManagedConnectors"]
-
-
-def _hubspot_defaults() -> dict[str, Any]:
-    defaults = get_oauth_provider_registration_defaults("hubspot")
-    if defaults is None:
-        raise RuntimeError("hubspot provider missing from oauth-provider-catalog.json")
-    return defaults
-
-
-#: HubSpot MCP endpoint constants (mirror the JS ``hubspotMcp*`` exports).
-#: Exposed as plain values, not callables, to match the JS constant semantics.
-HUBSPOT_MCP_SERVER_URL: str = _hubspot_defaults()["serverUrl"]
-HUBSPOT_MCP_AUTHORIZATION_URL: str = _hubspot_defaults()["authorizationUrl"]
-HUBSPOT_MCP_TOKEN_URL: str = _hubspot_defaults()["tokenUrl"]
-HUBSPOT_REQUIRED_SCOPES: list[str] = list(_hubspot_defaults().get("scopes", []))
-HUBSPOT_OPTIONAL_SCOPES: list[str] = list(_hubspot_defaults().get("optionalScopes", []))
+    return copy.deepcopy(_load_snapshot()["defaultManagedConnectors"])
 
 
 #: The raw ``{ providers, defaultManagedConnectors }`` snapshot, for consumers
 #: that want the whole asset in one read (e.g. the integrations-hub backend).
+#: Treat this as read-only; mutating it would corrupt the shared cache for all
+#: callers. For a mutable copy, use ``copy.deepcopy(INTEGRATION_CATALOG_SNAPSHOT)``.
 INTEGRATION_CATALOG_SNAPSHOT: dict[str, Any] = _load_snapshot()

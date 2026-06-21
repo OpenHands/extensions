@@ -28,7 +28,25 @@ import { fileURLToPath } from "node:url";
 import { listOAuthProviderCatalog } from "../integrations/oauth-provider-catalog.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const OUTPUT = path.resolve(__dirname, "..", "integrations", "oauth-provider-catalog.json");
+
+/**
+ * Every location the generated catalog asset must be written to. There is a
+ * single generation pass (below); each path receives a byte-identical copy so
+ * the JS package, the Python package, and CI all read exactly the same bytes.
+ * A parity test (tests/test_integration_catalog_in_sync.py) asserts the
+ * checked-in copies stay identical, so a maintainer who edits one without
+ * re-running `npm run build:integration-catalog` fails CI.
+ */
+const OUTPUTS = [
+  path.resolve(__dirname, "..", "integrations", "oauth-provider-catalog.json"),
+  path.resolve(
+    __dirname,
+    "..",
+    "python",
+    "openhands_extensions",
+    "oauth-provider-catalog.json",
+  ),
+];
 
 const isDefaultManagedConnectorProvider = (provider) => {
   const defaults = provider.registrationDefaults;
@@ -84,9 +102,13 @@ export function buildCatalog() {
 const isMain = process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1];
 if (isMain) {
   const catalog = buildCatalog();
-  writeFileSync(OUTPUT, `${JSON.stringify(catalog, null, 2)}\n`);
+  const serialized = `${JSON.stringify(catalog, null, 2)}\n`;
+  for (const output of OUTPUTS) {
+    writeFileSync(output, serialized);
+  }
   console.log(
-    `Generated ${OUTPUT} with ${catalog.providers.length} providers and ` +
-      `${catalog.defaultManagedConnectors.length} default managed connectors`,
+    `Generated ${catalog.providers.length} providers and ` +
+      `${catalog.defaultManagedConnectors.length} default managed connectors -> ` +
+      OUTPUTS.map((p) => path.relative(path.resolve(__dirname, ".."), p)).join(", "),
   );
 }
