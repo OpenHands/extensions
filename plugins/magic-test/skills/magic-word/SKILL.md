@@ -1,4 +1,5 @@
 ---
+name: magic-word
 description: A test skill that responds to the magic word "alakazam" with a specific phrase
 triggers:
   - alakazam
