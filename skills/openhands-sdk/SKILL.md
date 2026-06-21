@@ -180,7 +180,6 @@ Source: [`examples/`](https://github.com/OpenHands/software-agent-sdk/tree/main/
 - [`40_acp_agent_example.py`](https://github.com/OpenHands/software-agent-sdk/blob/main/examples/01_standalone_sdk/40_acp_agent_example.py)
 - [`41_task_tool_set.py`](https://github.com/OpenHands/software-agent-sdk/blob/main/examples/01_standalone_sdk/41_task_tool_set.py)
 - [`42_file_based_subagents.py`](https://github.com/OpenHands/software-agent-sdk/blob/main/examples/01_standalone_sdk/42_file_based_subagents.py)
-- [`43_mixed_marketplace_skills`](https://github.com/OpenHands/software-agent-sdk/tree/main/examples/01_standalone_sdk/43_mixed_marketplace_skills)
 - [`44_model_switching_in_convo.py`](https://github.com/OpenHands/software-agent-sdk/blob/main/examples/01_standalone_sdk/44_model_switching_in_convo.py)
 - [`45_parallel_tool_execution.py`](https://github.com/OpenHands/software-agent-sdk/blob/main/examples/01_standalone_sdk/45_parallel_tool_execution.py)
 - [`46_agent_settings.py`](https://github.com/OpenHands/software-agent-sdk/blob/main/examples/01_standalone_sdk/46_agent_settings.py)
@@ -232,4 +231,5 @@ Source: [`examples/`](https://github.com/OpenHands/software-agent-sdk/tree/main/
 - [`01_loading_agentskills`](https://github.com/OpenHands/software-agent-sdk/tree/main/examples/05_skills_and_plugins/01_loading_agentskills)
 - [`02_loading_plugins`](https://github.com/OpenHands/software-agent-sdk/tree/main/examples/05_skills_and_plugins/02_loading_plugins)
 - [`03_managing_installed_skills`](https://github.com/OpenHands/software-agent-sdk/tree/main/examples/05_skills_and_plugins/03_managing_installed_skills)
+- [`04_mixed_marketplace_skills`](https://github.com/OpenHands/software-agent-sdk/tree/main/examples/05_skills_and_plugins/04_mixed_marketplace_skills)
 
