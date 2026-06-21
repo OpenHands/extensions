@@ -160,7 +160,7 @@ runs:
         # so we enforce the time limit via the coreutils timeout command.
         TIMEOUT_SECONDS=$((TIMEOUT_MINUTES * 60))
         timeout "${TIMEOUT_SECONDS}" \
-          uv run --no-project --with openhands-sdk --with openhands-tools --with lmnr \
+          uv run --no-project --with openhands-sdk --with openhands-tools --with 'lmnr<0.7.53' \
             python ../extensions/plugins/qa-changes/scripts/agent_script.py
 
     - name: Upload logs as artifact

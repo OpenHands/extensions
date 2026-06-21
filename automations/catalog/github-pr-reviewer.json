@@ -2,12 +2,12 @@
   "id": "github-pr-reviewer",
   "name": "GitHub Code Review Agent",
   "category": "Code review",
-  "description": "Watch pull requests, inspect the diff, and leave a concise review with risks and suggested follow-ups.",
+  "description": "Watch for a configurable label on GitHub pull requests, inspect full PR and repository context, and post an AI review comment once per label event.",
   "requiredIntegrationIds": [
     "github"
   ],
   "popularityRank": 100,
   "estimatedSetupMinutes": 4,
   "prompt": "/pr-reviewer:setup",
-  "exampleImplementation": "Trigger: github.pull_request.opened and github.pull_request.synchronize\nRequired MCP: GitHub\n\n1. Read repository, pull_request, and sender from the event payload.\n2. Fetch the PR diff and related comments through the GitHub MCP.\n3. Run a review rubric focused on bugs, security, tests, and maintainability.\n4. TODO: decide whether to publish inline comments, a summary comment, or a draft artifact.\n5. Post or save the review with links back to the exact files and lines."
+  "exampleImplementation": "Trigger: cron polling for open GitHub PRs with a configured label such as openhands-review\nRequired secret: GITHUB_PERSONAL_ACCESS_TOKEN\n\n1. Read repository, trigger label, review tone, and polling schedule from setup.\n2. List open PRs and find the latest matching GitHub labeled issue event for each labeled PR.\n3. Deduplicate on the label event ID so every label application queues exactly one review.\n4. Start an OpenHands conversation that clones the repo, checks out the exact PR head SHA, and inspects PR discussion, review comments, changed files, diff, and surrounding code.\n5. Post an acknowledgement with the conversation link, then post the final AI review comment only if the PR is still open and the head SHA has not changed."
 }

@@ -1,28 +1,35 @@
-# State File Schema
+# State Schema
 
-The automation maintains a JSON state file that persists across polling runs.
-It is the source of truth for which PRs have been reviewed and which
-conversations are still active.
+The automation maintains a JSON state document that persists across polling runs.
+It is the source of truth for which trigger-label events have queued reviews
+and which conversations are still active.
 
 ---
 
-## File Location
+## Storage
+
+**Primary (cloud):** The state is stored in the automation service's built-in KV
+store under the key `"state"`. The KV store is available when `AUTOMATION_KV_TOKEN`
+is injected into the run environment. Each automation has its own isolated namespace.
+
+**Fallback (local/dev):** When the KV store is not available, the state is written
+to a local JSON file at:
 
 ```
-{WORKSPACE_BASE_ROOT}/automation-state/github_pr_reviewer_{automation_id}.json
+{WORKSPACE_BASE_ROOT}/automation-state/github_pr_reviewer_label_event_{automation_id}.json
 ```
 
 `WORKSPACE_BASE_ROOT` is derived by going two levels up from the `WORKSPACE_BASE`
-environment variable (stripping `automation-runs/{run_id}`).
+environment variable, stripping `automation-runs/{run_id}`.
 
 Example on a local install:
 
 ```
-~/.openhands/workspaces/automation-state/github_pr_reviewer_abc12345-….json
+~/.openhands/workspaces/automation-state/github_pr_reviewer_label_event_abc12345-....json
 ```
 
 The `automation_id` is read from the `AUTOMATION_EVENT_PAYLOAD` environment
-variable (field `automation_id`).
+variable, field `automation_id`.
 
 ---
 
@@ -30,69 +37,104 @@ variable (field `automation_id`).
 
 ```jsonc
 {
-  "version": 1,          // schema version (integer)
-  "repo": "owner/repo",  // the monitored repository
-  "conversations": { }   // see ConversationRecord below
+  "version": 2,
+  "repo": "owner/repo",
+  "trigger_label": "openhands-review",
+  "updated_at": 1717200000.0,
+  "reviews": {},
+  "prs": {}
 }
 ```
 
 ---
 
-## `conversations` Map
+## `reviews` Map
 
-Key: `"{pr_number}"` (string) — uniquely identifies a PR in the repo.
+Key: `"{pr_number}:label:{label_event_id}"`. This makes the latest GitHub
+`labeled` event the idempotency key. Re-applying the trigger label creates a new
+GitHub event and therefore a new review request.
 
-Value: **ConversationRecord**
+Value: **ReviewRecord**
 
 ```jsonc
 {
-  // Always present
-  "pr_number":    42,                                      // GitHub PR number (integer)
-  "html_url":     "https://github.com/owner/repo/pull/42", // PR URL
-  "status":       "active",  // "active" | "closed" | "skipped"
-  "last_activity": 1717200000.0,  // Unix timestamp of last state change
-
-  // Present when status is "active" or "closed"
+  "pr_number": 42,
+  "head_sha": "0123456789abcdef...",
+  "trigger_label_event_id": 123456789,
+  "trigger_label_event_created_at": "2026-06-12T00:00:00Z",
+  "html_url": "https://github.com/owner/repo/pull/42",
+  "status": "active",
   "conversation_id": "550e8400-e29b-41d4-a716-446655440000",
-                     // OpenHands conversation UUID
-
-  // Present when status is "skipped"
-  "reason": "diff too large (6000 lines)"
+  "last_activity": 1717200000.0
 }
 ```
 
+`status` values:
+
+| Status | Meaning |
+|---|---|
+| `active` | Review conversation is running or waiting to be collected |
+| `closed` | Final result was posted, or the PR closed before collection |
+| `stale` | PR head SHA changed before the review completed, so the result was suppressed |
+
+When a review becomes stale, `stale_reason` records the old and new head SHAs.
+When a review closes after posting, `completed_at` records the completion time.
+
 ---
 
-## Conversation Lifecycle
+## `prs` Map
+
+Key: `"{pr_number}"`.
+
+Value: latest PR snapshot observed during polling:
+
+```jsonc
+{
+  "head_sha": "0123456789abcdef...",
+  "label_present": true,
+  "labels": ["openhands-review", "bug"],
+  "last_seen": 1717200000.0
+}
+```
+
+This snapshot is informational and helps diagnose whether a PR was skipped
+because the trigger label was absent.
+
+---
+
+## Review Lifecycle
 
 ```
-PR opened on GitHub
-        │
-        ▼
-[active]  ── conversation created, acknowledgement comment posted
-        │
-        ▼ (on a later cron run, when conversation reaches terminal status)
-[closed]  ── review posted to PR as GitHub comment
-        │
-        ▼ (if PR is merged/closed before review is ready)
-[closed]  ── no comment posted (silently closed)
-
-── or ──
-
-PR diff too large
-        │
-        ▼
-[skipped] ── explanatory comment posted, PR never re-queued
+Trigger label applied on GitHub
+        |
+        v
+[active]  - conversation created, acknowledgement comment posted
+        |
+        +-- PR closes/merges before collection --> [closed] without posting
+        |
+        +-- PR head SHA changes before collection --> [stale] without posting
+        |
+        v
+[closed]  - final review comment posted
 ```
 
 ---
 
 ## Resetting State
 
-To force a re-review of all PRs (e.g. after changing the review tone):
+To force the automation to reconsider previous label events, delete the state
+from the KV store (cloud) or the fallback file (local).
 
-1. Delete the state file:
-   ```bash
-   rm ~/.openhands/workspaces/automation-state/github_pr_reviewer_<id>.json
-   ```
-2. The next cron run will treat all open PRs as new and queue reviews for each.
+**Cloud (KV store):**
+```bash
+curl -X DELETE "${OPENHANDS_HOST}/api/automation/v1/kv/state" \
+  -H "Authorization: Bearer ${AUTOMATION_KV_TOKEN}"
+```
+
+**Local (file fallback):**
+```bash
+rm ~/.openhands/workspaces/automation-state/github_pr_reviewer_label_event_<id>.json
+```
+
+Usually, prefer removing and re-applying the trigger label. That preserves
+history while creating a new review request.

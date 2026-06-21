@@ -107,6 +107,8 @@ def fire_callback(status="COMPLETED", error=None):
 
 Entrypoint must be `python3 main.py` (no `setup.sh` needed). Wrap your main logic in `try/except` and call `fire_callback("FAILED", str(e))` in the except block.
 
+**State persistence between runs** — polling automations that track a "last processed" timestamp or active conversation IDs must use the built-in KV store rather than local files. Local files are lost when a run ends on a cloud pod. The KV store is available when `AUTOMATION_KV_TOKEN` is injected into the run environment. See `references/custom-automation.md#state-persistence-kv-store` for ready-to-copy `kv_get` / `kv_set` / `load_state` / `save_state` helpers.
+
 ---
 
 ## Authentication
@@ -872,5 +874,5 @@ The **prompt preset** is the right default for genuinely agent-shaped work — a
 
 ## Reference Files
 
-- **`references/custom-automation.md`** — Detailed guide for custom automations: tarball uploads, code structure (SDK and no-LLM), environment variables, validation rules, and complete examples. Consult this whenever you need to evaluate or recommend the custom path (including for deterministic / cost-sensitive tasks per rule 0). Only *implement* a custom automation after the user agrees to that path.
+- **`references/custom-automation.md`** — Detailed guide for custom automations: tarball uploads, code structure (SDK and no-LLM), state persistence via the KV store, environment variables, validation rules, and complete examples. Consult this whenever you need to evaluate or recommend the custom path (including for deterministic / cost-sensitive tasks per rule 0). Only *implement* a custom automation after the user agrees to that path.
 - **`references/ab-testing.md`** — A/B testing for plugin automations: defining variants with weights, experiment configuration, variant selection logic, observability via conversation tags, and complete examples. Consult this when a user wants to compare plugin versions or configurations.

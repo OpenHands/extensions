@@ -108,14 +108,47 @@ def fire_callback(
         print(f"Callback error (non-fatal): {exc}")
 
 
-# ── State management ───────────────────────────────────────────────────────────
+# ── State persistence (KV store with local-file fallback) ─────────────────────
+
+_KV_TOKEN = os.environ.get("AUTOMATION_KV_TOKEN", "")
+_KV_BASE = os.environ.get("AUTOMATION_API_URL", "").rstrip("/")
+_STATE_KEY = "state"
+
+
+def _kv_available() -> bool:
+    return bool(_KV_TOKEN and _KV_BASE)
+
+
+def _kv_get(key: str) -> dict | None:
+    req = urllib.request.Request(
+        f"{_KV_BASE}/v1/kv/{key}",
+        headers={"Authorization": f"Bearer {_KV_TOKEN}"},
+    )
+    try:
+        with urllib.request.urlopen(req) as r:
+            return json.loads(r.read())["value"]
+    except urllib.error.HTTPError as exc:
+        if exc.code == 404:
+            return None
+        raise
+
+
+def _kv_set(key: str, value: dict) -> None:
+    req = urllib.request.Request(
+        f"{_KV_BASE}/v1/kv/{key}",
+        data=json.dumps(value).encode(),
+        headers={
+            "Authorization": f"Bearer {_KV_TOKEN}",
+            "Content-Type": "application/json",
+        },
+        method="PUT",
+    )
+    with urllib.request.urlopen(req) as r:
+        r.read()
+
 
 def _state_file_path() -> str:
-    """Derive a persistent storage path from WORKSPACE_BASE.
-
-    WORKSPACE_BASE = {root}/automation-runs/{run_id}
-    State lives two levels up at {root}/automation-state/.
-    """
+    """Derive a persistent storage path from WORKSPACE_BASE (file fallback only)."""
     workspace_base = os.environ.get("WORKSPACE_BASE", "")
     event_payload = json.loads(os.environ.get("AUTOMATION_EVENT_PAYLOAD", "{}"))
     automation_id = event_payload.get("automation_id", "default")
@@ -137,25 +170,42 @@ def _default_since() -> str:
     ).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
-def load_state(path: str) -> dict:
+def _default_state() -> dict:
+    return {
+        "version": 1,
+        "repo": REPO,
+        "last_poll": _default_since(),
+        "conversations": {},
+        "processed_comment_ids": [],
+    }
+
+
+def load_state() -> dict:
+    if _kv_available():
+        data = _kv_get(_STATE_KEY)
+        if data is not None:
+            print("State loaded from KV store")
+            return data
+        return _default_state()
+    path = _state_file_path()
     if os.path.exists(path):
         try:
             with open(path) as f:
                 return json.load(f)
         except (json.JSONDecodeError, OSError) as exc:
             print(f"Warning: state file {path} unreadable ({exc}); starting fresh")
-    return {
-        "version": 1,
-        "repo": REPO,
-        "last_poll": _default_since(),
-        "conversations": {},       # issue_number (str) → ConversationRecord
-        "processed_comment_ids": [],  # list of int comment IDs already handled
-    }
+    return _default_state()
 
 
-def save_state(path: str, state: dict) -> None:
+def save_state(state: dict) -> None:
+    if _kv_available():
+        _kv_set(_STATE_KEY, state)
+        print("State saved to KV store")
+        return
+    path = _state_file_path()
     with open(path, "w") as f:
         json.dump(state, f, indent=2)
+    print(f"State saved to {path}")
 
 
 # ── GitHub API helpers ─────────────────────────────────────────────────────────
@@ -797,8 +847,7 @@ def _check_conversation_completion(
 
 def main() -> str | None:
     """Run one polling cycle. Returns the last conversation ID created, if any."""
-    state_path = _state_file_path()
-    state = load_state(state_path)
+    state = load_state()
 
     agent_url = os.environ.get("AGENT_SERVER_URL", "").rstrip("/")
     api_key = _get_env_key()
@@ -899,8 +948,7 @@ def main() -> str | None:
     state["processed_comment_ids"] = trimmed
     state["conversations"] = conversations
 
-    save_state(state_path, state)
-    print(f"State saved → {state_path}")
+    save_state(state)
     return last_conversation_id
 
 

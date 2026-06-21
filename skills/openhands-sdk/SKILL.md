@@ -180,7 +180,6 @@ Source: [`examples/`](https://github.com/OpenHands/software-agent-sdk/tree/main/
 - [`40_acp_agent_example.py`](https://github.com/OpenHands/software-agent-sdk/blob/main/examples/01_standalone_sdk/40_acp_agent_example.py)
 - [`41_task_tool_set.py`](https://github.com/OpenHands/software-agent-sdk/blob/main/examples/01_standalone_sdk/41_task_tool_set.py)
 - [`42_file_based_subagents.py`](https://github.com/OpenHands/software-agent-sdk/blob/main/examples/01_standalone_sdk/42_file_based_subagents.py)
-- [`43_mixed_marketplace_skills`](https://github.com/OpenHands/software-agent-sdk/tree/main/examples/01_standalone_sdk/43_mixed_marketplace_skills)
 - [`44_model_switching_in_convo.py`](https://github.com/OpenHands/software-agent-sdk/blob/main/examples/01_standalone_sdk/44_model_switching_in_convo.py)
 - [`45_parallel_tool_execution.py`](https://github.com/OpenHands/software-agent-sdk/blob/main/examples/01_standalone_sdk/45_parallel_tool_execution.py)
 - [`46_agent_settings.py`](https://github.com/OpenHands/software-agent-sdk/blob/main/examples/01_standalone_sdk/46_agent_settings.py)
@@ -191,6 +190,7 @@ Source: [`examples/`](https://github.com/OpenHands/software-agent-sdk/tree/main/
 - [`51_agent_hooks`](https://github.com/OpenHands/software-agent-sdk/tree/main/examples/01_standalone_sdk/51_agent_hooks)
 - [`52_dynamic_workflow.py`](https://github.com/OpenHands/software-agent-sdk/blob/main/examples/01_standalone_sdk/52_dynamic_workflow.py)
 - [`53_client_defined_tools.py`](https://github.com/OpenHands/software-agent-sdk/blob/main/examples/01_standalone_sdk/53_client_defined_tools.py)
+- [`54_goal_completion_loop.py`](https://github.com/OpenHands/software-agent-sdk/blob/main/examples/01_standalone_sdk/54_goal_completion_loop.py)
 
 ### [`02_remote_agent_server/`](https://github.com/OpenHands/software-agent-sdk/tree/main/examples/02_remote_agent_server)
 
@@ -209,6 +209,7 @@ Source: [`examples/`](https://github.com/OpenHands/software-agent-sdk/tree/main/
 - [`13_workspace_get_llm.py`](https://github.com/OpenHands/software-agent-sdk/blob/main/examples/02_remote_agent_server/13_workspace_get_llm.py)
 - [`14_client_defined_tools.py`](https://github.com/OpenHands/software-agent-sdk/blob/main/examples/02_remote_agent_server/14_client_defined_tools.py)
 - [`15_openai_compatible_gateway.py`](https://github.com/OpenHands/software-agent-sdk/blob/main/examples/02_remote_agent_server/15_openai_compatible_gateway.py)
+- [`16_deferred_init.py`](https://github.com/OpenHands/software-agent-sdk/blob/main/examples/02_remote_agent_server/16_deferred_init.py)
 - [`hook_scripts`](https://github.com/OpenHands/software-agent-sdk/tree/main/examples/02_remote_agent_server/hook_scripts)
 - [`scripts`](https://github.com/OpenHands/software-agent-sdk/tree/main/examples/02_remote_agent_server/scripts)
 
@@ -230,4 +231,5 @@ Source: [`examples/`](https://github.com/OpenHands/software-agent-sdk/tree/main/
 - [`01_loading_agentskills`](https://github.com/OpenHands/software-agent-sdk/tree/main/examples/05_skills_and_plugins/01_loading_agentskills)
 - [`02_loading_plugins`](https://github.com/OpenHands/software-agent-sdk/tree/main/examples/05_skills_and_plugins/02_loading_plugins)
 - [`03_managing_installed_skills`](https://github.com/OpenHands/software-agent-sdk/tree/main/examples/05_skills_and_plugins/03_managing_installed_skills)
+- [`04_mixed_marketplace_skills`](https://github.com/OpenHands/software-agent-sdk/tree/main/examples/05_skills_and_plugins/04_mixed_marketplace_skills)
 

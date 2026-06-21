@@ -12,7 +12,6 @@
     "code"
   ],
   "popularityRank": 100,
-  "installHint": "Requires Docker because the legacy npm package was deprecated upstream.",
   "kind": "mcp",
   "defaultConnectionOptionId": "api",
   "connectionOptions": [
@@ -20,31 +19,16 @@
       "id": "api",
       "provider": "mcp",
       "transport": {
-        "kind": "stdio",
-        "serverName": "github",
-        "command": "docker",
-        "args": [
-          "run",
-          "-i",
-          "--rm",
-          "-e",
-          "GITHUB_PERSONAL_ACCESS_TOKEN",
-          "ghcr.io/github/github-mcp-server"
-        ],
-        "envFields": [
-          {
-            "key": "GITHUB_PERSONAL_ACCESS_TOKEN",
-            "label": "Personal access token",
-            "type": "password",
-            "placeholder": "github_pat_...",
-            "required": true,
-            "helperText": "Classic or fine-grained personal access token from GitHub settings.",
-            "helperLink": "https://github.com/settings/tokens"
-          }
-        ]
+        "kind": "shttp",
+        "url": "https://api.githubcopilot.com/mcp/"
       },
       "auth": {
-        "strategy": "api_key"
+        "strategy": "api_key",
+        "credentialLabel": "Personal access token",
+        "credentialPlaceholder": "github_pat_...",
+        "credentialHelp": "Classic or fine-grained personal access token from GitHub settings.",
+        "credentialSecretName": "GITHUB_PERSONAL_ACCESS_TOKEN",
+        "saveCredentialAsSecretByDefault": true
       }
     }
   ]
