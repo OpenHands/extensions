@@ -1,16 +1,14 @@
 #!/usr/bin/env node
 /**
- * Generates integrations/oauth-provider-catalog.json, the single source of
- * truth for the OAuth provider catalog. Both the JS package
- * (integrations/oauth-provider-catalog.js) and the Python package
- * (python/openhands_extensions) read this asset at runtime so the two language
- * bindings never drift.
+ * Generates the checked-in OAuth provider catalog asset
+ * (integrations/oauth-provider-catalog.json). The JS package is the authoring
+ * and runtime source — `integrations/oauth-provider-catalog.js` (plus
+ * `oauth-provider-registration-defaults.js`) — and this script imports it to
+ * emit the JSON. The Python package (`python/openhands_extensions`) reads its
+ * embedded copy of that same JSON at runtime. CI asserts the checked-in JSON
+ * matches a fresh generation so the two language bindings never drift.
  *
- * The generator source is the JS module chain
- * (oauth-provider-catalog.js + oauth-provider-registration-defaults.js); run
- * `npm run build:integration-catalog` after editing those files. CI asserts
- * the checked-in JSON matches a fresh generation (see
- * tests/test_integration_catalog_in_sync.py).
+ * Run `npm run build:integration-catalog` after editing the JS source files.
  *
  * Shape (mirrors listOAuthProviderCatalog()):
  *   {
@@ -32,10 +30,11 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 /**
  * Every location the generated catalog asset must be written to. There is a
  * single generation pass (below); each path receives a byte-identical copy so
- * the JS package, the Python package, and CI all read exactly the same bytes.
- * A parity test (tests/test_integration_catalog_in_sync.py) asserts the
- * checked-in copies stay identical, so a maintainer who edits one without
- * re-running `npm run build:integration-catalog` fails CI.
+ * the Python package (which reads its embedded copy) and CI see exactly the
+ * same bytes as the JS source generates. A parity test
+ * (tests/test_integration_catalog_in_sync.py) asserts the checked-in copies
+ * stay identical, so a maintainer who edits one without re-running
+ * `npm run build:integration-catalog` fails CI.
  */
 const OUTPUTS = [
   path.resolve(__dirname, "..", "integrations", "oauth-provider-catalog.json"),
