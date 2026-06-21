@@ -75,7 +75,7 @@ def test_get_oauth_provider_registration_defaults_round_trip() -> None:
     for provider in openhands_extensions.list_oauth_provider_catalog():
         slug = provider["slug"]
         defaults = openhands_extensions.get_oauth_provider_registration_defaults(slug)
-        assert defaults == provider["registrationDefaults"]
+        assert defaults == provider.get("registrationDefaults")
 
 
 def test_get_oauth_provider_registration_defaults_unknown_slug() -> None:
@@ -117,3 +117,12 @@ def test_accessors_return_independent_copies() -> None:
     connectors_a = openhands_extensions.default_managed_connectors()
     connectors_b = openhands_extensions.default_managed_connectors()
     assert connectors_a is not connectors_b
+
+    # INTEGRATION_CATALOG_SNAPSHOT is a deep copy of the cached snapshot, so
+    # mutating it must not affect the accessors (which read the cache).
+    snapshot = openhands_extensions.INTEGRATION_CATALOG_SNAPSHOT
+    snapshot["providers"][0]["__mutated"] = True
+    assert (
+        "__mutated"
+        not in openhands_extensions.list_oauth_provider_catalog()[0]
+    )

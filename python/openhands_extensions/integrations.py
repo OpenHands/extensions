@@ -80,6 +80,6 @@ def default_managed_connectors() -> list[dict[str, Any]]:
 
 #: The raw ``{ providers, defaultManagedConnectors }`` snapshot, for consumers
 #: that want the whole asset in one read (e.g. the integrations-hub backend).
-#: Treat this as read-only; mutating it would corrupt the shared cache for all
-#: callers. For a mutable copy, use ``copy.deepcopy(INTEGRATION_CATALOG_SNAPSHOT)``.
-INTEGRATION_CATALOG_SNAPSHOT: dict[str, Any] = _load_snapshot()
+#: Read-only by convention. This is a deep copy of the cached snapshot, so
+#: mutating it cannot corrupt the shared cache backing the accessors below.
+INTEGRATION_CATALOG_SNAPSHOT: dict[str, Any] = copy.deepcopy(_load_snapshot())
