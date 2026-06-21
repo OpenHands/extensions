@@ -1,8 +1,18 @@
 [project]
-name = "extensions"
+name = "openhands-extensions"
 version = "0.5.0"
-description = "OpenHands extensions, plugins, and skills"
+description = "OpenHands extensions, plugins, and skills (Python bindings for the integration catalog)"
 requires-python = ">=3.12"
+
+[build-system]
+requires = ["hatchling>=1.21"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["python/openhands_extensions"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"python/openhands_extensions/oauth-provider-catalog.json" = "openhands_extensions/oauth-provider-catalog.json"
 
 [dependency-groups]
 test = [
@@ -10,3 +20,7 @@ test = [
     "requests>=2.31",
     "openhands-sdk>=0.3",
 ]
+
+[tool.pytest.ini_options]
+pythonpath = ["python"]
+testpaths = ["tests"]

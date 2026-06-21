@@ -1,0 +1,1513 @@
+{
+  "providers": [
+    {
+      "slug": "github",
+      "name": "GitHub",
+      "description": "Source control, issues, pull requests, and developer workflows.",
+      "categories": [
+        "Engineering",
+        "Source control"
+      ],
+      "availability": "manual_token",
+      "managedConnectorSlug": "github",
+      "appUrl": "https://github.com",
+      "docsUrl": "https://docs.github.com/apps/oauth-apps/building-oauth-apps",
+      "notes": "Current managed connector works with bearer tokens today; GitHub OAuth is a strong candidate for a future one-click connect flow.",
+      "authStrategy": "oauth2",
+      "popularityRank": 1,
+      "registrationDefaults": {
+        "apiBaseUrl": "https://api.github.com",
+        "authorizationUrl": "https://github.com/login/oauth/authorize",
+        "tokenUrl": "https://github.com/login/oauth/access_token",
+        "scopes": [
+          "read:user",
+          "repo"
+        ],
+        "toolName": "get_authenticated_user",
+        "toolDescription": "Fetch the authenticated GitHub user profile.",
+        "requestMethod": "GET",
+        "requestPath": "/user",
+        "provider": "mcp",
+        "serverUrl": "https://api.githubcopilot.com/mcp/"
+      }
+    },
+    {
+      "slug": "google-docs",
+      "name": "Google Docs",
+      "description": "Docs authoring and Google Workspace document automation.",
+      "categories": [
+        "Documents",
+        "Knowledge base"
+      ],
+      "availability": "manual_token",
+      "managedConnectorSlug": "google-docs",
+      "appUrl": "https://workspace.google.com/products/docs/",
+      "docsUrl": "https://developers.google.com/identity/protocols/oauth2",
+      "notes": "Current managed connector accepts a Google access token manually; a full OAuth connect flow can remove token copy/paste.",
+      "authStrategy": "oauth2",
+      "popularityRank": 2,
+      "registrationDefaults": {
+        "apiBaseUrl": "https://docs.googleapis.com",
+        "authorizationUrl": "https://accounts.google.com/o/oauth2/v2/auth",
+        "tokenUrl": "https://oauth2.googleapis.com/token",
+        "scopes": [
+          "https://www.googleapis.com/auth/documents.readonly"
+        ],
+        "toolName": "get_document",
+        "toolDescription": "Fetch a Google Docs document by ID.",
+        "requestMethod": "GET",
+        "requestPath": "/v1/documents/{documentId}",
+        "provider": "http"
+      }
+    },
+    {
+      "slug": "slack",
+      "name": "Slack",
+      "description": "Channels, messaging, workflows, canvases, and operational collaboration.",
+      "categories": [
+        "Communication",
+        "Operations"
+      ],
+      "availability": "oauth_ready",
+      "managedConnectorSlug": "slack",
+      "appUrl": "https://slack.com",
+      "docsUrl": "https://docs.slack.dev/ai/slack-mcp-server",
+      "notes": "Uses Slack's official hosted MCP server with confidential OAuth user-token auth.",
+      "authStrategy": "oauth2",
+      "popularityRank": 3,
+      "registrationDefaults": {
+        "provider": "mcp",
+        "authorizationUrl": "https://slack.com/oauth/v2_user/authorize",
+        "tokenUrl": "https://slack.com/api/oauth.v2.user.access",
+        "scopes": [
+          "search:read.public",
+          "search:read.private",
+          "search:read.mpim",
+          "search:read.im",
+          "search:read.files",
+          "search:read.users",
+          "chat:write",
+          "channels:history",
+          "groups:history",
+          "mpim:history",
+          "im:history",
+          "canvases:read",
+          "canvases:write",
+          "users:read",
+          "users:read.email"
+        ],
+        "pkce": true,
+        "clientAuthentication": "body",
+        "serverUrl": "https://mcp.slack.com/mcp"
+      }
+    },
+    {
+      "slug": "notion",
+      "name": "Notion",
+      "description": "Workspace search, pages, databases, and knowledge management.",
+      "categories": [
+        "Knowledge base",
+        "Documentation"
+      ],
+      "availability": "oauth_ready",
+      "managedConnectorSlug": "notion",
+      "appUrl": "https://www.notion.so",
+      "docsUrl": "https://developers.notion.com/docs/authorization",
+      "notes": "",
+      "authStrategy": "oauth2",
+      "popularityRank": 4,
+      "registrationDefaults": {
+        "provider": "http",
+        "apiBaseUrl": "https://api.notion.com",
+        "openApiUrl": "https://developers.notion.com/openapi.json",
+        "authorizationUrl": "https://api.notion.com/v1/oauth/authorize",
+        "tokenUrl": "https://api.notion.com/v1/oauth/token",
+        "scopes": [],
+        "toolName": "post_search",
+        "toolDescription": "Search pages and databases in the connected Notion workspace.",
+        "requestMethod": "POST",
+        "requestPath": "/v1/search"
+      }
+    },
+    {
+      "slug": "figma",
+      "name": "Figma",
+      "description": "Design files, nodes, and developer handoff automation.",
+      "categories": [
+        "Design",
+        "Frontend"
+      ],
+      "availability": "oauth_ready",
+      "managedConnectorSlug": "figma",
+      "appUrl": "https://www.figma.com",
+      "docsUrl": "https://www.figma.com/developers/api#oauth2",
+      "notes": "",
+      "authStrategy": "oauth2",
+      "popularityRank": 5,
+      "registrationDefaults": {
+        "apiBaseUrl": "https://api.figma.com",
+        "authorizationUrl": "https://www.figma.com/oauth",
+        "tokenUrl": "https://api.figma.com/v1/oauth/token",
+        "scopes": [
+          "current_user:read",
+          "file_content:read",
+          "file_metadata:read",
+          "projects:read"
+        ],
+        "toolName": "get_file",
+        "toolDescription": "Fetch a Figma file by key.",
+        "requestMethod": "GET",
+        "requestPath": "/v1/files/{fileKey}",
+        "provider": "http"
+      }
+    },
+    {
+      "slug": "google-drive",
+      "name": "Google Drive",
+      "description": "File search, metadata, folders, and document discovery.",
+      "categories": [
+        "Storage",
+        "Documents"
+      ],
+      "availability": "planned",
+      "appUrl": "https://workspace.google.com/products/drive/",
+      "docsUrl": "https://developers.google.com/identity/protocols/oauth2",
+      "notes": "Natural expansion of the Google Workspace surface beyond Google Docs.",
+      "authStrategy": "oauth2",
+      "popularityRank": 6,
+      "registrationDefaults": {
+        "apiBaseUrl": "https://www.googleapis.com/drive/v3",
+        "authorizationUrl": "https://accounts.google.com/o/oauth2/v2/auth",
+        "tokenUrl": "https://oauth2.googleapis.com/token",
+        "scopes": [
+          "https://www.googleapis.com/auth/drive.metadata.readonly"
+        ],
+        "toolName": "list_files",
+        "toolDescription": "List Drive files visible to the connected user.",
+        "requestMethod": "GET",
+        "requestPath": "/files",
+        "provider": "http"
+      }
+    },
+    {
+      "slug": "google-sheets",
+      "name": "Google Sheets",
+      "description": "Spreadsheet reads, writes, formulas, and reporting workflows.",
+      "categories": [
+        "Spreadsheets",
+        "Analytics"
+      ],
+      "availability": "planned",
+      "appUrl": "https://workspace.google.com/products/sheets/",
+      "docsUrl": "https://developers.google.com/identity/protocols/oauth2",
+      "notes": "High-value automation surface for agent-driven reporting and structured edits.",
+      "authStrategy": "oauth2",
+      "popularityRank": 7,
+      "registrationDefaults": {
+        "apiBaseUrl": "https://sheets.googleapis.com",
+        "authorizationUrl": "https://accounts.google.com/o/oauth2/v2/auth",
+        "tokenUrl": "https://oauth2.googleapis.com/token",
+        "scopes": [
+          "https://www.googleapis.com/auth/spreadsheets.readonly"
+        ],
+        "toolName": "get_spreadsheet",
+        "toolDescription": "Fetch spreadsheet metadata and sheets by ID.",
+        "requestMethod": "GET",
+        "requestPath": "/v4/spreadsheets/{spreadsheetId}",
+        "provider": "http"
+      }
+    },
+    {
+      "slug": "gmail",
+      "name": "Gmail",
+      "description": "Mailbox search, drafting, sending, and thread triage.",
+      "categories": [
+        "Communication",
+        "Email"
+      ],
+      "availability": "planned",
+      "appUrl": "https://workspace.google.com/products/gmail/",
+      "docsUrl": "https://developers.google.com/identity/protocols/oauth2",
+      "notes": "Popular agent workflow target for inbox triage and drafting.",
+      "authStrategy": "oauth2",
+      "popularityRank": 8,
+      "registrationDefaults": {
+        "apiBaseUrl": "https://gmail.googleapis.com",
+        "authorizationUrl": "https://accounts.google.com/o/oauth2/v2/auth",
+        "tokenUrl": "https://oauth2.googleapis.com/token",
+        "scopes": [
+          "https://www.googleapis.com/auth/gmail.readonly"
+        ],
+        "toolName": "list_messages",
+        "toolDescription": "List Gmail messages for the authenticated user.",
+        "requestMethod": "GET",
+        "requestPath": "/gmail/v1/users/me/messages",
+        "provider": "http"
+      }
+    },
+    {
+      "slug": "google-calendar",
+      "name": "Google Calendar",
+      "description": "Calendar search, event scheduling, and meeting coordination.",
+      "categories": [
+        "Calendar",
+        "Scheduling"
+      ],
+      "availability": "planned",
+      "appUrl": "https://workspace.google.com/products/calendar/",
+      "docsUrl": "https://developers.google.com/identity/protocols/oauth2",
+      "notes": "Strong personal productivity use case with mature OAuth flows.",
+      "authStrategy": "oauth2",
+      "popularityRank": 9,
+      "registrationDefaults": {
+        "apiBaseUrl": "https://www.googleapis.com/calendar/v3",
+        "authorizationUrl": "https://accounts.google.com/o/oauth2/v2/auth",
+        "tokenUrl": "https://oauth2.googleapis.com/token",
+        "scopes": [
+          "https://www.googleapis.com/auth/calendar.readonly"
+        ],
+        "toolName": "list_events",
+        "toolDescription": "List events from the user's primary Google Calendar.",
+        "requestMethod": "GET",
+        "requestPath": "/calendars/primary/events",
+        "provider": "http"
+      }
+    },
+    {
+      "slug": "jira",
+      "name": "Jira",
+      "description": "Issue tracking, sprint workflows, and engineering program management.",
+      "categories": [
+        "Project management",
+        "Engineering"
+      ],
+      "availability": "planned",
+      "appUrl": "https://www.atlassian.com/software/jira",
+      "docsUrl": "https://developer.atlassian.com/cloud/jira/platform/oauth-2-3lo-apps/",
+      "notes": "Very common MCP target for software teams and ticket automation.",
+      "authStrategy": "oauth2",
+      "popularityRank": 10,
+      "registrationDefaults": {
+        "apiBaseUrl": "https://api.atlassian.com/ex/jira/{cloudId}",
+        "authorizationUrl": "https://auth.atlassian.com/authorize",
+        "tokenUrl": "https://auth.atlassian.com/oauth/token",
+        "scopes": [
+          "read:jira-work"
+        ],
+        "toolName": "list_projects",
+        "toolDescription": "List Jira projects available to the connected user.",
+        "requestMethod": "GET",
+        "requestPath": "/rest/api/3/project/search",
+        "provider": "http"
+      }
+    },
+    {
+      "slug": "confluence",
+      "name": "Confluence",
+      "description": "Wiki pages, spaces, and internal documentation search.",
+      "categories": [
+        "Documentation",
+        "Knowledge base"
+      ],
+      "availability": "planned",
+      "appUrl": "https://www.atlassian.com/software/confluence",
+      "docsUrl": "https://developer.atlassian.com/cloud/confluence/oauth-2-3lo-apps/",
+      "notes": "Natural companion to Jira for software teams.",
+      "authStrategy": "oauth2",
+      "popularityRank": 11,
+      "registrationDefaults": {
+        "apiBaseUrl": "https://api.atlassian.com/ex/confluence/{cloudId}",
+        "authorizationUrl": "https://auth.atlassian.com/authorize",
+        "tokenUrl": "https://auth.atlassian.com/oauth/token",
+        "scopes": [
+          "read:page:confluence"
+        ],
+        "toolName": "list_spaces",
+        "toolDescription": "List Confluence spaces available to the connected user.",
+        "requestMethod": "GET",
+        "requestPath": "/wiki/api/v2/spaces",
+        "provider": "http"
+      }
+    },
+    {
+      "slug": "linear",
+      "name": "Linear",
+      "description": "Issue tracking, roadmap planning, and product engineering workflows.",
+      "categories": [
+        "Project management",
+        "Engineering"
+      ],
+      "availability": "planned",
+      "appUrl": "https://linear.app",
+      "docsUrl": "https://linear.app/developers/oauth-authentication",
+      "notes": "Popular among modern product engineering teams and already useful to this repo's users.",
+      "authStrategy": "oauth2",
+      "popularityRank": 12,
+      "registrationDefaults": {
+        "apiBaseUrl": "https://api.linear.app",
+        "authorizationUrl": "https://linear.app/oauth/authorize",
+        "tokenUrl": "https://api.linear.app/oauth/token",
+        "scopes": [
+          "read"
+        ],
+        "toolName": "list_issues",
+        "toolDescription": "Query issues from Linear via GraphQL.",
+        "requestMethod": "POST",
+        "requestPath": "/graphql",
+        "provider": "http"
+      }
+    },
+    {
+      "slug": "asana",
+      "name": "Asana",
+      "description": "Task management, projects, and work tracking.",
+      "categories": [
+        "Project management",
+        "Operations"
+      ],
+      "availability": "planned",
+      "appUrl": "https://asana.com",
+      "docsUrl": "https://developers.asana.com/docs/oauth",
+      "notes": "Broad business adoption and straightforward OAuth app model.",
+      "authStrategy": "oauth2",
+      "popularityRank": 13,
+      "registrationDefaults": {
+        "apiBaseUrl": "https://app.asana.com/api/1.0",
+        "authorizationUrl": "https://app.asana.com/-/oauth_authorize",
+        "tokenUrl": "https://app.asana.com/-/oauth_token",
+        "scopes": [
+          "tasks:read"
+        ],
+        "toolName": "list_tasks",
+        "toolDescription": "List tasks visible to the connected Asana user.",
+        "requestMethod": "GET",
+        "requestPath": "/tasks",
+        "provider": "http"
+      }
+    },
+    {
+      "slug": "trello",
+      "name": "Trello",
+      "description": "Boards, cards, checklists, and lightweight project planning.",
+      "categories": [
+        "Project management",
+        "Operations"
+      ],
+      "availability": "planned",
+      "appUrl": "https://trello.com",
+      "docsUrl": "https://developer.atlassian.com/cloud/trello/guides/rest-api/authorization/",
+      "notes": "Useful for SMB and cross-functional task boards, but Trello's public API auth is a special-case flow rather than a straightforward generic OAuth2 connector.",
+      "authStrategy": "oauth2",
+      "popularityRank": 14,
+      "registrationDefaults": {
+        "apiBaseUrl": "https://api.trello.com/1",
+        "toolName": "list_boards",
+        "toolDescription": "List Trello boards visible to the authenticated member.",
+        "requestMethod": "GET",
+        "requestPath": "/members/me/boards",
+        "provider": "http"
+      }
+    },
+    {
+      "slug": "clickup",
+      "name": "ClickUp",
+      "description": "Tasks, docs, goals, and workflow automation.",
+      "categories": [
+        "Project management",
+        "Operations"
+      ],
+      "availability": "planned",
+      "appUrl": "https://clickup.com",
+      "docsUrl": "https://clickup.com/api/developer-portal/authentication",
+      "notes": "Large install base and broad operations coverage.",
+      "authStrategy": "oauth2",
+      "popularityRank": 15,
+      "registrationDefaults": {
+        "apiBaseUrl": "https://api.clickup.com/api/v2",
+        "authorizationUrl": "https://app.clickup.com/api",
+        "tokenUrl": "https://api.clickup.com/api/v2/oauth/token",
+        "scopes": [],
+        "toolName": "list_workspaces",
+        "toolDescription": "List ClickUp workspaces available to the connected user.",
+        "requestMethod": "GET",
+        "requestPath": "/team",
+        "provider": "http"
+      }
+    },
+    {
+      "slug": "monday",
+      "name": "Monday.com",
+      "description": "Boards, automations, and work management across teams.",
+      "categories": [
+        "Project management",
+        "Operations"
+      ],
+      "availability": "planned",
+      "appUrl": "https://monday.com",
+      "docsUrl": "https://developer.monday.com/apps/docs/oauth",
+      "notes": "High-demand operations platform with rich board APIs.",
+      "authStrategy": "oauth2",
+      "popularityRank": 16,
+      "registrationDefaults": {
+        "apiBaseUrl": "https://api.monday.com/v2",
+        "authorizationUrl": "https://auth.monday.com/oauth2/authorize",
+        "tokenUrl": "https://auth.monday.com/oauth2/token",
+        "scopes": [
+          "boards:read"
+        ],
+        "toolName": "list_boards",
+        "toolDescription": "Query boards from Monday.com.",
+        "requestMethod": "POST",
+        "requestPath": "/",
+        "provider": "http"
+      }
+    },
+    {
+      "slug": "airtable",
+      "name": "Airtable",
+      "description": "Bases, records, linked data, and workflow automation.",
+      "categories": [
+        "Database",
+        "Operations"
+      ],
+      "availability": "planned",
+      "appUrl": "https://airtable.com",
+      "docsUrl": "https://airtable.com/developers/web/api/oauth-reference",
+      "notes": "Very common internal-tools and operations automation surface.",
+      "authStrategy": "oauth2",
+      "popularityRank": 17,
+      "registrationDefaults": {
+        "apiBaseUrl": "https://api.airtable.com/v0",
+        "authorizationUrl": "https://airtable.com/oauth2/v1/authorize",
+        "tokenUrl": "https://airtable.com/oauth2/v1/token",
+        "scopes": [
+          "schema.bases:read",
+          "data.records:read"
+        ],
+        "toolName": "list_bases",
+        "toolDescription": "List Airtable bases the connected user granted access to.",
+        "requestMethod": "GET",
+        "requestPath": "/meta/bases",
+        "provider": "http"
+      }
+    },
+    {
+      "slug": "dropbox",
+      "name": "Dropbox",
+      "description": "Cloud files, folders, content access, and sharing.",
+      "categories": [
+        "Storage",
+        "Documents"
+      ],
+      "availability": "planned",
+      "appUrl": "https://www.dropbox.com",
+      "docsUrl": "https://developers.dropbox.com/oauth-guide",
+      "notes": "Popular file automation target with mature OAuth support.",
+      "authStrategy": "oauth2",
+      "popularityRank": 18,
+      "registrationDefaults": {
+        "apiBaseUrl": "https://api.dropboxapi.com/2",
+        "authorizationUrl": "https://www.dropbox.com/oauth2/authorize",
+        "tokenUrl": "https://api.dropboxapi.com/oauth2/token",
+        "scopes": [
+          "files.metadata.read"
+        ],
+        "toolName": "list_root_folder",
+        "toolDescription": "List entries in the root Dropbox folder.",
+        "requestMethod": "POST",
+        "requestPath": "/files/list_folder",
+        "provider": "http"
+      }
+    },
+    {
+      "slug": "box",
+      "name": "Box",
+      "description": "Enterprise file storage, metadata, and collaboration.",
+      "categories": [
+        "Storage",
+        "Enterprise"
+      ],
+      "availability": "planned",
+      "appUrl": "https://www.box.com",
+      "docsUrl": "https://developer.box.com/guides/authentication/oauth2/",
+      "notes": "Strong enterprise document-management footprint.",
+      "authStrategy": "oauth2",
+      "popularityRank": 19,
+      "registrationDefaults": {
+        "apiBaseUrl": "https://api.box.com/2.0",
+        "authorizationUrl": "https://account.box.com/api/oauth2/authorize",
+        "tokenUrl": "https://api.box.com/oauth2/token",
+        "scopes": [
+          "root_readonly",
+          "item_read"
+        ],
+        "toolName": "list_root_items",
+        "toolDescription": "List files and folders in the Box root folder.",
+        "requestMethod": "GET",
+        "requestPath": "/folders/0/items",
+        "provider": "http"
+      }
+    },
+    {
+      "slug": "microsoft-outlook",
+      "name": "Microsoft Outlook",
+      "description": "Mail, calendar, contacts, and meeting workflows through Microsoft Graph.",
+      "categories": [
+        "Email",
+        "Calendar"
+      ],
+      "availability": "planned",
+      "appUrl": "https://www.microsoft.com/microsoft-365/outlook/email-and-calendar-software-microsoft-outlook",
+      "docsUrl": "https://learn.microsoft.com/graph/auth-v2-user",
+      "notes": "High-value Microsoft Graph integration surface for enterprise users.",
+      "authStrategy": "oauth2",
+      "popularityRank": 20,
+      "registrationDefaults": {
+        "apiBaseUrl": "https://graph.microsoft.com/v1.0",
+        "authorizationUrl": "https://login.microsoftonline.com/common/oauth2/v2.0/authorize",
+        "tokenUrl": "https://login.microsoftonline.com/common/oauth2/v2.0/token",
+        "scopes": [
+          "Mail.Read"
+        ],
+        "toolName": "list_messages",
+        "toolDescription": "List Outlook messages for the signed-in user.",
+        "requestMethod": "GET",
+        "requestPath": "/me/messages",
+        "provider": "http"
+      }
+    },
+    {
+      "slug": "microsoft-teams",
+      "name": "Microsoft Teams",
+      "description": "Chats, channels, meetings, and collaboration via Microsoft Graph.",
+      "categories": [
+        "Communication",
+        "Enterprise"
+      ],
+      "availability": "planned",
+      "appUrl": "https://www.microsoft.com/microsoft-teams/group-chat-software",
+      "docsUrl": "https://learn.microsoft.com/graph/auth-v2-user",
+      "notes": "Common enterprise chat target alongside Outlook.",
+      "authStrategy": "oauth2",
+      "popularityRank": 21,
+      "registrationDefaults": {
+        "apiBaseUrl": "https://graph.microsoft.com/v1.0",
+        "authorizationUrl": "https://login.microsoftonline.com/common/oauth2/v2.0/authorize",
+        "tokenUrl": "https://login.microsoftonline.com/common/oauth2/v2.0/token",
+        "scopes": [
+          "Team.ReadBasic.All"
+        ],
+        "toolName": "list_teams",
+        "toolDescription": "List Microsoft Teams joined by the signed-in user.",
+        "requestMethod": "GET",
+        "requestPath": "/me/joinedTeams",
+        "provider": "http"
+      }
+    },
+    {
+      "slug": "onedrive",
+      "name": "OneDrive",
+      "description": "Cloud file access and document workflows through Microsoft Graph.",
+      "categories": [
+        "Storage",
+        "Documents"
+      ],
+      "availability": "planned",
+      "appUrl": "https://www.microsoft.com/microsoft-365/onedrive/online-cloud-storage",
+      "docsUrl": "https://learn.microsoft.com/graph/auth-v2-user",
+      "notes": "Useful for enterprise file automation and search.",
+      "authStrategy": "oauth2",
+      "popularityRank": 22,
+      "registrationDefaults": {
+        "apiBaseUrl": "https://graph.microsoft.com/v1.0",
+        "authorizationUrl": "https://login.microsoftonline.com/common/oauth2/v2.0/authorize",
+        "tokenUrl": "https://login.microsoftonline.com/common/oauth2/v2.0/token",
+        "scopes": [
+          "Files.Read"
+        ],
+        "toolName": "list_drive_items",
+        "toolDescription": "List OneDrive items in the root folder.",
+        "requestMethod": "GET",
+        "requestPath": "/me/drive/root/children",
+        "provider": "http"
+      }
+    },
+    {
+      "slug": "sharepoint",
+      "name": "SharePoint",
+      "description": "Sites, document libraries, lists, and intranet content.",
+      "categories": [
+        "Knowledge base",
+        "Enterprise"
+      ],
+      "availability": "planned",
+      "appUrl": "https://www.microsoft.com/microsoft-365/sharepoint/collaboration",
+      "docsUrl": "https://learn.microsoft.com/graph/auth-v2-user",
+      "notes": "Frequently requested for enterprise knowledge retrieval.",
+      "authStrategy": "oauth2",
+      "popularityRank": 23,
+      "registrationDefaults": {
+        "apiBaseUrl": "https://graph.microsoft.com/v1.0",
+        "authorizationUrl": "https://login.microsoftonline.com/common/oauth2/v2.0/authorize",
+        "tokenUrl": "https://login.microsoftonline.com/common/oauth2/v2.0/token",
+        "scopes": [
+          "Sites.Read.All"
+        ],
+        "toolName": "get_root_site",
+        "toolDescription": "Fetch the SharePoint root site through Microsoft Graph.",
+        "requestMethod": "GET",
+        "requestPath": "/sites/root",
+        "provider": "http"
+      }
+    },
+    {
+      "slug": "salesforce",
+      "name": "Salesforce",
+      "description": "CRM records, accounts, opportunities, and sales operations.",
+      "categories": [
+        "CRM",
+        "Sales"
+      ],
+      "availability": "planned",
+      "appUrl": "https://www.salesforce.com",
+      "docsUrl": "https://help.salesforce.com/s/articleView?id=sf.remoteaccess_oauth_web_server_flow.htm&type=5",
+      "notes": "Very common enterprise CRM and agent-assist target.",
+      "authStrategy": "oauth2",
+      "popularityRank": 24,
+      "registrationDefaults": {
+        "apiBaseUrl": "https://{instance}.salesforce.com/services/data/v60.0",
+        "authorizationUrl": "https://login.salesforce.com/services/oauth2/authorize",
+        "tokenUrl": "https://login.salesforce.com/services/oauth2/token",
+        "scopes": [
+          "api"
+        ],
+        "toolName": "list_accounts",
+        "toolDescription": "List Salesforce accounts from the connected org.",
+        "requestMethod": "GET",
+        "requestPath": "/sobjects/Account",
+        "provider": "http"
+      }
+    },
+    {
+      "slug": "hubspot",
+      "name": "HubSpot",
+      "description": "CRM, marketing, tickets, and customer lifecycle workflows.",
+      "categories": [
+        "CRM",
+        "Marketing"
+      ],
+      "availability": "oauth_ready",
+      "managedConnectorSlug": "hubspot",
+      "appUrl": "https://www.hubspot.com",
+      "docsUrl": "https://developers.hubspot.com/docs/apps/developer-platform/build-apps/integrate-with-the-remote-hubspot-mcp-server",
+      "notes": "Uses HubSpot's official remote MCP server plus MCP auth apps with PKCE.",
+      "authStrategy": "oauth2",
+      "popularityRank": 25,
+      "registrationDefaults": {
+        "provider": "mcp",
+        "authorizationUrl": "https://mcp.hubspot.com/oauth/authorize/user",
+        "tokenUrl": "https://mcp.hubspot.com/oauth/v3/token",
+        "clientAuthentication": "body",
+        "pkce": true,
+        "scopes": [],
+        "credentialHelp": "Use the client ID and secret from a HubSpot MCP auth app (Development → MCP Auth Apps). Standard HubSpot OAuth apps and private apps will not authenticate with mcp.hubspot.com.",
+        "serverUrl": "https://mcp.hubspot.com"
+      }
+    },
+    {
+      "slug": "zendesk",
+      "name": "Zendesk",
+      "description": "Support tickets, customers, agents, and help desk operations.",
+      "categories": [
+        "Support",
+        "Operations"
+      ],
+      "availability": "planned",
+      "appUrl": "https://www.zendesk.com",
+      "docsUrl": "https://developer.zendesk.com/documentation/apps/getting-started/oauth/",
+      "notes": "Strong support automation use case for agents.",
+      "authStrategy": "oauth2",
+      "popularityRank": 26,
+      "registrationDefaults": {
+        "apiBaseUrl": "https://{subdomain}.zendesk.com/api/v2",
+        "authorizationUrl": "https://{subdomain}.zendesk.com/oauth2/authorize",
+        "tokenUrl": "https://{subdomain}.zendesk.com/oauth2/token",
+        "scopes": [
+          "tickets:read"
+        ],
+        "toolName": "list_tickets",
+        "toolDescription": "List Zendesk tickets for the connected account.",
+        "requestMethod": "GET",
+        "requestPath": "/tickets",
+        "provider": "http"
+      }
+    },
+    {
+      "slug": "intercom",
+      "name": "Intercom",
+      "description": "Customer support, conversations, inboxes, and CRM context.",
+      "categories": [
+        "Support",
+        "CRM"
+      ],
+      "availability": "planned",
+      "appUrl": "https://www.intercom.com",
+      "docsUrl": "https://developers.intercom.com/building-apps/docs/authentication-types",
+      "notes": "Useful for customer-facing assistant workflows.",
+      "authStrategy": "oauth2",
+      "popularityRank": 27,
+      "registrationDefaults": {
+        "apiBaseUrl": "https://api.intercom.io",
+        "authorizationUrl": "https://app.intercom.com/oauth",
+        "tokenUrl": "https://api.intercom.io/auth/eagle/token",
+        "scopes": [
+          "read_users",
+          "read_conversations"
+        ],
+        "toolName": "list_contacts",
+        "toolDescription": "List Intercom contacts for the connected workspace.",
+        "requestMethod": "GET",
+        "requestPath": "/contacts",
+        "provider": "http"
+      }
+    },
+    {
+      "slug": "stripe",
+      "name": "Stripe",
+      "description": "Payments, customers, invoices, and subscription operations.",
+      "categories": [
+        "Payments",
+        "Finance"
+      ],
+      "availability": "planned",
+      "appUrl": "https://stripe.com",
+      "docsUrl": "https://docs.stripe.com/connect/oauth-reference",
+      "notes": "High-value fintech automation target with mature OAuth patterns.",
+      "authStrategy": "oauth2",
+      "popularityRank": 28,
+      "registrationDefaults": {
+        "apiBaseUrl": "https://api.stripe.com/v1",
+        "authorizationUrl": "https://connect.stripe.com/oauth/authorize",
+        "tokenUrl": "https://connect.stripe.com/oauth/token",
+        "scopes": [
+          "read_only"
+        ],
+        "toolName": "list_customers",
+        "toolDescription": "List Stripe customers from the connected account.",
+        "requestMethod": "GET",
+        "requestPath": "/customers",
+        "provider": "http"
+      }
+    },
+    {
+      "slug": "shopify",
+      "name": "Shopify",
+      "description": "Storefronts, products, orders, and ecommerce operations.",
+      "categories": [
+        "Ecommerce",
+        "Operations"
+      ],
+      "availability": "planned",
+      "appUrl": "https://www.shopify.com",
+      "docsUrl": "https://shopify.dev/docs/apps/build/authentication-authorization/access-tokens/authorization-code-grant",
+      "notes": "A top ecommerce platform and strong MCP candidate.",
+      "authStrategy": "oauth2",
+      "popularityRank": 29,
+      "registrationDefaults": {
+        "apiBaseUrl": "https://{shop}.myshopify.com/admin/api/2025-01",
+        "authorizationUrl": "https://{shop}.myshopify.com/admin/oauth/authorize",
+        "tokenUrl": "https://{shop}.myshopify.com/admin/oauth/access_token",
+        "scopes": [
+          "read_products"
+        ],
+        "toolName": "list_products",
+        "toolDescription": "List Shopify products for the connected store.",
+        "requestMethod": "GET",
+        "requestPath": "/products.json",
+        "provider": "http"
+      }
+    },
+    {
+      "slug": "discord",
+      "name": "Discord",
+      "description": "Guilds, channels, messages, and community operations.",
+      "categories": [
+        "Communication",
+        "Community"
+      ],
+      "availability": "planned",
+      "appUrl": "https://discord.com",
+      "docsUrl": "https://discord.com/developers/docs/topics/oauth2",
+      "notes": "Useful for community automation and bot-assisted workflows.",
+      "authStrategy": "oauth2",
+      "popularityRank": 30,
+      "registrationDefaults": {
+        "apiBaseUrl": "https://discord.com/api/v10",
+        "authorizationUrl": "https://discord.com/oauth2/authorize",
+        "tokenUrl": "https://discord.com/api/oauth2/token",
+        "scopes": [
+          "identify",
+          "guilds"
+        ],
+        "toolName": "list_guilds",
+        "toolDescription": "List Discord guilds available to the connected user.",
+        "requestMethod": "GET",
+        "requestPath": "/users/@me/guilds",
+        "provider": "http"
+      }
+    },
+    {
+      "slug": "zoom",
+      "name": "Zoom",
+      "description": "Meetings, recordings, webinars, and scheduling operations.",
+      "categories": [
+        "Meetings",
+        "Calendar"
+      ],
+      "availability": "planned",
+      "appUrl": "https://zoom.us",
+      "docsUrl": "https://developers.zoom.us/docs/integrations/oauth/",
+      "notes": "Frequently requested for scheduling and meeting summaries.",
+      "authStrategy": "oauth2",
+      "popularityRank": 31,
+      "registrationDefaults": {
+        "apiBaseUrl": "https://api.zoom.us/v2",
+        "authorizationUrl": "https://zoom.us/oauth/authorize",
+        "tokenUrl": "https://zoom.us/oauth/token",
+        "scopes": [
+          "meeting:read:user"
+        ],
+        "toolName": "list_meetings",
+        "toolDescription": "List Zoom meetings for the connected user.",
+        "requestMethod": "GET",
+        "requestPath": "/users/me/meetings",
+        "provider": "http"
+      }
+    },
+    {
+      "slug": "webflow",
+      "name": "Webflow",
+      "description": "CMS items, sites, and web publishing workflows.",
+      "categories": [
+        "CMS",
+        "Marketing"
+      ],
+      "availability": "oauth_ready",
+      "managedConnectorSlug": "webflow",
+      "appUrl": "https://webflow.com",
+      "docsUrl": "https://developers.webflow.com/mcp/reference/getting-started",
+      "notes": "Uses Webflow's official hosted MCP server and deployment-scoped MCP OAuth registration so each user can authorize their own sites and workspaces.",
+      "authStrategy": "oauth2",
+      "popularityRank": 32,
+      "registrationDefaults": {
+        "provider": "mcp",
+        "authorizationUrl": "https://mcp.webflow.com/oauth/authorize",
+        "tokenUrl": "https://mcp.webflow.com/oauth/token",
+        "registrationUrl": "https://mcp.webflow.com/oauth/register",
+        "clientAuthentication": "none",
+        "pkce": true,
+        "scopes": [],
+        "serverUrl": "https://mcp.webflow.com/mcp"
+      }
+    },
+    {
+      "slug": "miro",
+      "name": "Miro",
+      "description": "Whiteboards, diagrams, notes, and workshop collaboration.",
+      "categories": [
+        "Whiteboard",
+        "Collaboration"
+      ],
+      "availability": "planned",
+      "appUrl": "https://miro.com",
+      "docsUrl": "https://developers.miro.com/docs/rest-api-build-your-first-oauth-app",
+      "notes": "Strong visual collaboration target for design and product teams.",
+      "authStrategy": "oauth2",
+      "popularityRank": 33,
+      "registrationDefaults": {
+        "apiBaseUrl": "https://api.miro.com/v2",
+        "authorizationUrl": "https://miro.com/oauth/authorize",
+        "tokenUrl": "https://api.miro.com/v1/oauth/token",
+        "scopes": [
+          "boards:read"
+        ],
+        "toolName": "list_boards",
+        "toolDescription": "List Miro boards available to the connected user.",
+        "requestMethod": "GET",
+        "requestPath": "/boards",
+        "provider": "http"
+      }
+    },
+    {
+      "slug": "canva",
+      "name": "Canva",
+      "description": "Design content, brand assets, and marketing collateral workflows.",
+      "categories": [
+        "Design",
+        "Marketing"
+      ],
+      "availability": "planned",
+      "appUrl": "https://www.canva.com",
+      "docsUrl": "https://www.canva.dev/docs/connect/oauth/",
+      "notes": "Broad creator and marketing adoption with OAuth-based apps.",
+      "authStrategy": "oauth2",
+      "popularityRank": 34,
+      "registrationDefaults": {
+        "apiBaseUrl": "https://api.canva.com/rest/v1",
+        "tokenUrl": "https://api.canva.com/rest/v1/oauth/token",
+        "scopes": [],
+        "toolName": "list_designs",
+        "toolDescription": "List Canva designs available to the connected user.",
+        "requestMethod": "GET",
+        "requestPath": "/designs",
+        "provider": "http"
+      }
+    },
+    {
+      "slug": "datadog",
+      "name": "Datadog",
+      "description": "Logs, metrics, monitors, incidents, and observability workflows.",
+      "categories": [
+        "Observability",
+        "Operations"
+      ],
+      "availability": "oauth_ready",
+      "managedConnectorSlug": "datadog",
+      "appUrl": "https://www.datadoghq.com",
+      "docsUrl": "https://docs.datadoghq.com/bits_ai/mcp_server/setup/",
+      "notes": "Uses Datadog's official hosted MCP server. The default registration targets the US1 endpoint and can be edited for other Datadog sites.",
+      "authStrategy": "oauth2",
+      "popularityRank": 35,
+      "registrationDefaults": {
+        "provider": "mcp",
+        "authorizationUrl": "https://app.datadoghq.com/oauth2/v1/authorize",
+        "tokenUrl": "https://api.datadoghq.com/oauth2/v1/token",
+        "scopes": [
+          "dashboards_read",
+          "monitors_read"
+        ],
+        "serverUrl": "https://mcp.datadoghq.com/api/unstable/mcp-server/mcp"
+      }
+    },
+    {
+      "slug": "sentry",
+      "name": "Sentry",
+      "description": "Errors, releases, issue ownership, and incident investigation.",
+      "categories": [
+        "Observability",
+        "Engineering"
+      ],
+      "availability": "planned",
+      "appUrl": "https://sentry.io",
+      "docsUrl": "https://docs.sentry.io/api/guides/oauth/",
+      "notes": "Natural target for engineering support agents.",
+      "authStrategy": "oauth2",
+      "popularityRank": 36,
+      "registrationDefaults": {
+        "apiBaseUrl": "https://sentry.io/api/0",
+        "authorizationUrl": "https://sentry.io/oauth/authorize",
+        "tokenUrl": "https://sentry.io/oauth/token",
+        "scopes": [
+          "project:read",
+          "event:read",
+          "org:read"
+        ],
+        "toolName": "list_organizations",
+        "toolDescription": "List Sentry organizations available to the connected user.",
+        "requestMethod": "GET",
+        "requestPath": "/organizations/",
+        "provider": "http"
+      }
+    },
+    {
+      "slug": "posthog",
+      "name": "PostHog",
+      "description": "Product analytics, feature flags, and session insights.",
+      "categories": [
+        "Analytics",
+        "Product"
+      ],
+      "availability": "planned",
+      "appUrl": "https://posthog.com",
+      "docsUrl": "https://posthog.com/docs/apps/build/oauth",
+      "notes": "Relevant for product analytics and experimentation workflows.",
+      "authStrategy": "oauth2",
+      "popularityRank": 37,
+      "registrationDefaults": {
+        "apiBaseUrl": "https://us.posthog.com/api",
+        "authorizationUrl": "https://us.posthog.com/oauth/authorize",
+        "tokenUrl": "https://us.posthog.com/oauth/token",
+        "scopes": [
+          "project:read"
+        ],
+        "toolName": "list_projects",
+        "toolDescription": "List PostHog projects available to the connected user.",
+        "requestMethod": "GET",
+        "requestPath": "/projects/",
+        "provider": "http"
+      }
+    },
+    {
+      "slug": "supabase",
+      "name": "Supabase",
+      "description": "Projects, databases, auth, and storage administration.",
+      "categories": [
+        "Database",
+        "Developer tools"
+      ],
+      "availability": "planned",
+      "appUrl": "https://supabase.com",
+      "docsUrl": "https://supabase.com/docs/guides/integrations/build-a-supabase-oauth-integration",
+      "notes": "Popular developer platform with broad automation value and a documented management-API OAuth integration flow.",
+      "authStrategy": "oauth2",
+      "popularityRank": 38,
+      "registrationDefaults": {
+        "apiBaseUrl": "https://api.supabase.com/v1",
+        "authorizationUrl": "https://api.supabase.com/v1/oauth/authorize",
+        "tokenUrl": "https://api.supabase.com/v1/oauth/token",
+        "scopes": [],
+        "toolName": "list_projects",
+        "toolDescription": "List Supabase projects available to the connected user.",
+        "requestMethod": "GET",
+        "requestPath": "/projects",
+        "provider": "http"
+      }
+    },
+    {
+      "slug": "vercel",
+      "name": "Vercel",
+      "description": "Deployments, projects, domains, and preview environment workflows.",
+      "categories": [
+        "Developer tools",
+        "Deployment"
+      ],
+      "availability": "planned",
+      "appUrl": "https://vercel.com",
+      "docsUrl": "https://vercel.com/docs/rest-api#oauth-apps",
+      "notes": "Especially relevant to this repo's deployment model.",
+      "authStrategy": "oauth2",
+      "popularityRank": 39,
+      "registrationDefaults": {
+        "apiBaseUrl": "https://api.vercel.com",
+        "authorizationUrl": "https://vercel.com/oauth/authorize",
+        "tokenUrl": "https://api.vercel.com/v2/oauth/access_token",
+        "scopes": [
+          "project:read"
+        ],
+        "toolName": "list_projects",
+        "toolDescription": "List Vercel projects available to the connected user.",
+        "requestMethod": "GET",
+        "requestPath": "/v9/projects",
+        "provider": "http"
+      }
+    },
+    {
+      "slug": "netlify",
+      "name": "Netlify",
+      "description": "Sites, builds, deploy previews, and web operations.",
+      "categories": [
+        "Deployment",
+        "Developer tools"
+      ],
+      "availability": "planned",
+      "appUrl": "https://www.netlify.com",
+      "docsUrl": "https://docs.netlify.com/api/get-started/#oauth-applications",
+      "notes": "Common alternative hosting/deployment automation target.",
+      "authStrategy": "oauth2",
+      "popularityRank": 40,
+      "registrationDefaults": {
+        "apiBaseUrl": "https://api.netlify.com/api/v1",
+        "authorizationUrl": "https://app.netlify.com/authorize",
+        "tokenUrl": "https://api.netlify.com/oauth/token",
+        "scopes": [
+          "sites:read"
+        ],
+        "toolName": "list_sites",
+        "toolDescription": "List Netlify sites available to the connected user.",
+        "requestMethod": "GET",
+        "requestPath": "/sites",
+        "provider": "http"
+      }
+    },
+    {
+      "slug": "plaid",
+      "name": "Plaid",
+      "description": "Financial account connectivity and transaction data flows.",
+      "categories": [
+        "Finance",
+        "Payments"
+      ],
+      "availability": "planned",
+      "appUrl": "https://plaid.com",
+      "docsUrl": "https://plaid.com/docs/auth/oauth/",
+      "notes": "Strong fintech workflow candidate, although much of Plaid's OAuth guidance is a special-case token exchange rather than a generic end-user SaaS OAuth connector.",
+      "authStrategy": "oauth2",
+      "popularityRank": 41,
+      "registrationDefaults": {
+        "apiBaseUrl": "https://production.plaid.com",
+        "toolName": "get_accounts",
+        "toolDescription": "Fetch accounts for a connected Plaid item.",
+        "requestMethod": "POST",
+        "requestPath": "/accounts/get",
+        "provider": "http"
+      }
+    },
+    {
+      "slug": "okta",
+      "name": "Okta",
+      "description": "Identity, users, applications, and access administration.",
+      "categories": [
+        "Identity",
+        "Enterprise"
+      ],
+      "availability": "planned",
+      "appUrl": "https://www.okta.com",
+      "docsUrl": "https://developer.okta.com/docs/guides/implement-oauth-for-okta/main/",
+      "notes": "High-value admin and security automation surface.",
+      "authStrategy": "oauth2",
+      "popularityRank": 42,
+      "registrationDefaults": {
+        "apiBaseUrl": "https://{yourOktaDomain}/api/v1",
+        "authorizationUrl": "https://{yourOktaDomain}/oauth2/v1/authorize",
+        "tokenUrl": "https://{yourOktaDomain}/oauth2/v1/token",
+        "scopes": [
+          "okta.users.read"
+        ],
+        "toolName": "list_users",
+        "toolDescription": "List Okta users for the connected org.",
+        "requestMethod": "GET",
+        "requestPath": "/users",
+        "provider": "http"
+      }
+    },
+    {
+      "slug": "servicenow",
+      "name": "ServiceNow",
+      "description": "Tickets, incidents, service catalogs, and enterprise workflows.",
+      "categories": [
+        "ITSM",
+        "Enterprise"
+      ],
+      "availability": "planned",
+      "appUrl": "https://www.servicenow.com",
+      "docsUrl": "https://www.servicenow.com/docs/bundle/xanadu-platform-security/page/administer/security/concept/oauth-concept.html",
+      "notes": "Strong enterprise IT operations use case.",
+      "authStrategy": "oauth2",
+      "popularityRank": 43,
+      "registrationDefaults": {
+        "apiBaseUrl": "https://{instance}.service-now.com/api/now/v1",
+        "authorizationUrl": "https://{instance}.service-now.com/oauth_auth.do",
+        "tokenUrl": "https://{instance}.service-now.com/oauth_token.do",
+        "scopes": [
+          "useraccount",
+          "table.read"
+        ],
+        "toolName": "list_incidents",
+        "toolDescription": "List ServiceNow incidents for the connected instance.",
+        "requestMethod": "GET",
+        "requestPath": "/table/incident",
+        "provider": "http"
+      }
+    },
+    {
+      "slug": "freshdesk",
+      "name": "Freshdesk",
+      "description": "Support tickets, customer records, and help desk workflows.",
+      "categories": [
+        "Support",
+        "Operations"
+      ],
+      "availability": "planned",
+      "appUrl": "https://www.freshworks.com/freshdesk/",
+      "docsUrl": "https://developers.freshdesk.com/api/#authentication",
+      "notes": "Popular support platform for SMB and mid-market teams.",
+      "authStrategy": "oauth2",
+      "popularityRank": 44,
+      "registrationDefaults": {
+        "apiBaseUrl": "https://{domain}.freshdesk.com/api/v2",
+        "authorizationUrl": "https://{domain}.freshdesk.com/oauth/authorize",
+        "tokenUrl": "https://{domain}.freshdesk.com/oauth/token",
+        "scopes": [
+          "tickets_view"
+        ],
+        "toolName": "list_tickets",
+        "toolDescription": "List Freshdesk tickets for the connected account.",
+        "requestMethod": "GET",
+        "requestPath": "/tickets",
+        "provider": "http"
+      }
+    },
+    {
+      "slug": "pipedrive",
+      "name": "Pipedrive",
+      "description": "Deals, contacts, and sales pipeline management.",
+      "categories": [
+        "CRM",
+        "Sales"
+      ],
+      "availability": "planned",
+      "appUrl": "https://www.pipedrive.com",
+      "docsUrl": "https://pipedrive.readme.io/docs/marketplace-oauth-authorization",
+      "notes": "Common CRM choice with solid OAuth story.",
+      "authStrategy": "oauth2",
+      "popularityRank": 45,
+      "registrationDefaults": {
+        "apiBaseUrl": "https://api.pipedrive.com/v1",
+        "authorizationUrl": "https://oauth.pipedrive.com/oauth/authorize",
+        "tokenUrl": "https://oauth.pipedrive.com/oauth/token",
+        "scopes": [
+          "deals:read",
+          "contacts:read"
+        ],
+        "toolName": "list_persons",
+        "toolDescription": "List Pipedrive people visible to the connected user.",
+        "requestMethod": "GET",
+        "requestPath": "/persons",
+        "provider": "http"
+      }
+    },
+    {
+      "slug": "mailchimp",
+      "name": "Mailchimp",
+      "description": "Campaigns, audiences, automations, and email marketing.",
+      "categories": [
+        "Marketing",
+        "Email"
+      ],
+      "availability": "planned",
+      "appUrl": "https://mailchimp.com",
+      "docsUrl": "https://mailchimp.com/developer/marketing/guides/access-user-data-oauth-2/",
+      "notes": "Popular marketing automation target.",
+      "authStrategy": "oauth2",
+      "popularityRank": 46,
+      "registrationDefaults": {
+        "apiBaseUrl": "https://{dc}.api.mailchimp.com/3.0",
+        "authorizationUrl": "https://login.mailchimp.com/oauth2/authorize",
+        "tokenUrl": "https://login.mailchimp.com/oauth2/token",
+        "scopes": [
+          "audiences:read"
+        ],
+        "toolName": "list_audiences",
+        "toolDescription": "List Mailchimp audiences for the connected account.",
+        "requestMethod": "GET",
+        "requestPath": "/lists",
+        "provider": "http"
+      }
+    },
+    {
+      "slug": "quickbooks",
+      "name": "QuickBooks",
+      "description": "Accounting, invoices, customers, and financial operations.",
+      "categories": [
+        "Finance",
+        "Accounting"
+      ],
+      "availability": "planned",
+      "appUrl": "https://quickbooks.intuit.com",
+      "docsUrl": "https://developer.intuit.com/app/developer/qbo/docs/develop/authentication-and-authorization/oauth-2.0",
+      "notes": "Frequent finance automation request with OAuth-based apps.",
+      "authStrategy": "oauth2",
+      "popularityRank": 47,
+      "registrationDefaults": {
+        "apiBaseUrl": "https://sandbox-quickbooks.api.intuit.com/v3/company/{companyId}",
+        "authorizationUrl": "https://appcenter.intuit.com/connect/oauth2",
+        "tokenUrl": "https://oauth.platform.intuit.com/oauth2/v1/tokens/bearer",
+        "scopes": [
+          "com.intuit.quickbooks.accounting"
+        ],
+        "toolName": "list_customers",
+        "toolDescription": "Query QuickBooks customers for the connected company.",
+        "requestMethod": "GET",
+        "requestPath": "/query?query=SELECT%20*%20FROM%20Customer%20MAXRESULTS%2010",
+        "provider": "http"
+      }
+    },
+    {
+      "slug": "xero",
+      "name": "Xero",
+      "description": "Accounting, contacts, invoices, and bookkeeping workflows.",
+      "categories": [
+        "Finance",
+        "Accounting"
+      ],
+      "availability": "planned",
+      "appUrl": "https://www.xero.com",
+      "docsUrl": "https://developer.xero.com/documentation/guides/oauth2/overview/",
+      "notes": "Important accounting platform in many regions.",
+      "authStrategy": "oauth2",
+      "popularityRank": 48,
+      "registrationDefaults": {
+        "apiBaseUrl": "https://api.xero.com/api.xro/2.0",
+        "authorizationUrl": "https://login.xero.com/identity/connect/authorize",
+        "tokenUrl": "https://identity.xero.com/connect/token",
+        "scopes": [
+          "accounting.contacts.read"
+        ],
+        "toolName": "list_contacts",
+        "toolDescription": "List Xero contacts for the connected tenant.",
+        "requestMethod": "GET",
+        "requestPath": "/Contacts",
+        "provider": "http"
+      }
+    },
+    {
+      "slug": "gitlab",
+      "name": "GitLab",
+      "description": "Repositories, issues, merge requests, pipelines, and DevSecOps.",
+      "categories": [
+        "Engineering",
+        "Source control"
+      ],
+      "availability": "planned",
+      "appUrl": "https://about.gitlab.com",
+      "docsUrl": "https://docs.gitlab.com/integration/oauth_provider/",
+      "notes": "Major Git hosting platform and natural expansion beyond GitHub.",
+      "authStrategy": "oauth2",
+      "popularityRank": 49,
+      "registrationDefaults": {
+        "apiBaseUrl": "https://gitlab.com/api/v4",
+        "authorizationUrl": "https://gitlab.com/oauth/authorize",
+        "tokenUrl": "https://gitlab.com/oauth/token",
+        "scopes": [
+          "read_api"
+        ],
+        "toolName": "get_current_user",
+        "toolDescription": "Fetch the authenticated GitLab user profile.",
+        "requestMethod": "GET",
+        "requestPath": "/user",
+        "provider": "http"
+      }
+    },
+    {
+      "slug": "bitbucket",
+      "name": "Bitbucket",
+      "description": "Repositories, pull requests, and Atlassian engineering workflows.",
+      "categories": [
+        "Engineering",
+        "Source control"
+      ],
+      "availability": "planned",
+      "appUrl": "https://bitbucket.org",
+      "docsUrl": "https://developer.atlassian.com/cloud/bitbucket/oauth-2/",
+      "notes": "Popular in Atlassian-centric teams and complements Jira/Confluence.",
+      "authStrategy": "oauth2",
+      "popularityRank": 50,
+      "registrationDefaults": {
+        "apiBaseUrl": "https://api.bitbucket.org/2.0",
+        "authorizationUrl": "https://bitbucket.org/site/oauth2/authorize",
+        "tokenUrl": "https://bitbucket.org/site/oauth2/access_token",
+        "scopes": [
+          "account",
+          "repository"
+        ],
+        "toolName": "get_current_user",
+        "toolDescription": "Fetch the authenticated Bitbucket user profile.",
+        "requestMethod": "GET",
+        "requestPath": "/user",
+        "provider": "http"
+      }
+    },
+    {
+      "slug": "elevenlabs",
+      "name": "ElevenLabs",
+      "description": "Text to speech, voices, transcription, audio generation, and agents.",
+      "categories": [
+        "Audio",
+        "AI"
+      ],
+      "authStrategy": "api_key",
+      "availability": "manual_token",
+      "managedConnectorSlug": "elevenlabs",
+      "appUrl": "https://elevenlabs.io",
+      "docsUrl": "https://elevenlabs.io/docs/api-reference/introduction",
+      "notes": "Official API-key connector backed by ElevenLabs' published OpenAPI spec.",
+      "popularityRank": 51,
+      "registrationDefaults": {
+        "provider": "http",
+        "authModes": [
+          "api_key"
+        ],
+        "authStrategy": "api_key",
+        "credentialLabel": "ElevenLabs API key",
+        "credentialPlaceholder": "Paste your ElevenLabs API key",
+        "credentialHelp": "Personal or workspace ElevenLabs API key sent in the xi-api-key header.",
+        "apiKeyHeaderName": "xi-api-key",
+        "apiBaseUrl": "https://api.elevenlabs.io",
+        "openApiUrl": "https://api.elevenlabs.io/openapi.json"
+      }
+    },
+    {
+      "slug": "ordinal",
+      "name": "Ordinal",
+      "description": "Social media posts, profiles, analytics, labels, approvals, and engagements.",
+      "categories": [
+        "Social media",
+        "Marketing"
+      ],
+      "authStrategy": "bearer",
+      "availability": "manual_token",
+      "managedConnectorSlug": "ordinal",
+      "appUrl": "https://app.tryordinal.com",
+      "docsUrl": "https://docs.tryordinal.com/api/mcp",
+      "notes": "Official MCP server backed by Ordinal's API with API-key (Bearer) auth.",
+      "popularityRank": 52,
+      "registrationDefaults": {
+        "provider": "mcp",
+        "authModes": [
+          "bearer"
+        ],
+        "authStrategy": "bearer",
+        "credentialLabel": "Ordinal API key",
+        "credentialPlaceholder": "Paste your Ordinal API key",
+        "credentialHelp": "API key from your Ordinal workspace settings, sent as a Bearer token in the Authorization header.",
+        "serverUrl": "https://app.tryordinal.com/api/mcp"
+      }
+    }
+  ],
+  "defaultManagedConnectors": [
+    {
+      "slug": "elevenlabs",
+      "name": "ElevenLabs",
+      "description": "Text to speech, voices, transcription, audio generation, and agents.",
+      "appUrl": "https://elevenlabs.io",
+      "docsUrl": "https://elevenlabs.io/docs/api-reference/introduction",
+      "categories": [
+        "Audio",
+        "AI"
+      ],
+      "authModes": [
+        "api_key"
+      ],
+      "authStrategy": "api_key",
+      "provider": "http",
+      "credentialLabel": "ElevenLabs API key",
+      "credentialPlaceholder": "Paste your ElevenLabs API key",
+      "credentialHelp": "Personal or workspace ElevenLabs API key sent in the xi-api-key header.",
+      "apiKeyHeaderName": "xi-api-key",
+      "apiBaseUrl": "https://api.elevenlabs.io",
+      "openApiUrl": "https://api.elevenlabs.io/openapi.json",
+      "oauthConfigured": true
+    },
+    {
+      "slug": "ordinal",
+      "name": "Ordinal",
+      "description": "Social media posts, profiles, analytics, labels, approvals, and engagements.",
+      "appUrl": "https://app.tryordinal.com",
+      "docsUrl": "https://docs.tryordinal.com/api/mcp",
+      "categories": [
+        "Social media",
+        "Marketing"
+      ],
+      "authModes": [
+        "bearer"
+      ],
+      "authStrategy": "bearer",
+      "provider": "mcp",
+      "credentialLabel": "Ordinal API key",
+      "credentialPlaceholder": "Paste your Ordinal API key",
+      "credentialHelp": "API key from your Ordinal workspace settings, sent as a Bearer token in the Authorization header.",
+      "serverUrl": "https://app.tryordinal.com/api/mcp",
+      "oauthConfigured": true
+    }
+  ]
+}

@@ -57,6 +57,31 @@ import marketplace from "@openhands/extensions/marketplaces/openhands-extensions
 
 See [`integrations/README.md`](integrations/README.md), [`automations/README.md`](automations/README.md), and [`MIGRATION.md`](MIGRATION.md) for catalog-specific details.
 
+### Python Package
+
+The OAuth provider catalog is also published as a Python package (`openhands-extensions`) so Python services can read the same catalog data as JS consumers without re-implementing it. The single source of truth is the JSON asset `integrations/oauth-provider-catalog.json`, generated from the JS authoring source by `npm run build:integration-catalog` and embedded into both packages.
+
+```python
+from openhands_extensions import (
+    list_oauth_provider_catalog,
+    get_oauth_provider_registration_defaults,
+    default_managed_connectors,
+    INTEGRATION_CATALOG_SNAPSHOT,
+)
+
+providers = list_oauth_provider_catalog()              # mirrors listOAuthProviderCatalog()
+defaults = get_oauth_provider_registration_defaults("hubspot")  # mirrors getOAuthProviderRegistrationDefaults()
+defaults_connectors = default_managed_connectors()     # mirrors the snapshot's defaultManagedConnectors
+```
+
+Install from git (the hub backend consumes it this way):
+
+```bash
+pip install git+https://github.com/OpenHands/extensions.git
+```
+
+The JS and Python versions are kept in lock-step by `release-please` and guarded by `tests/test_version_alignment.py`.
+
 ## Extensions Catalog
 
 <!-- BEGIN AUTO-GENERATED CATALOG -->

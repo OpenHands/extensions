@@ -9,7 +9,9 @@
     "url": "https://github.com/OpenHands/extensions"
   },
   "scripts": {
-    "build:skills": "node scripts/build-skills-catalog.mjs"
+    "build:skills": "node scripts/build-skills-catalog.mjs",
+    "build:integration-catalog": "node scripts/build-integration-catalog.mjs",
+    "build": "npm run build:skills && npm run build:integration-catalog"
   },
   "engines": {
     "node": ">=18.20.0"
@@ -45,6 +47,7 @@
       "default": "./integrations/logos.js"
     },
     "./integrations/catalog/*.json": "./integrations/catalog/*.json",
+    "./integrations/oauth-provider-catalog.json": "./integrations/oauth-provider-catalog.json",
     "./skills": {
       "types": "./skills/index.d.ts",
       "import": "./skills/index.js",
