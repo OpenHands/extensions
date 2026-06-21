@@ -107,3 +107,65 @@ def test_node_package_exports_catalogs():
       if (!AUTOMATION_CATALOG.some((entry) => entry.id === 'github-pr-reviewer')) process.exit(1);
     """
     subprocess.run(["node", "--input-type=module", "-e", script], cwd=ROOT, check=True)
+
+
+def test_managed_connector_migration_descriptors_are_well_formed():
+    """Every provider that declares a managed-connector migration descriptor
+    must do so declaratively on its catalog entry (no provider-specific named
+    exports). The descriptor is consumed generically by the integrations hub, so
+    this asserts structural invariants that hold for ANY provider:
+
+      - canonicalServerUrl is a non-empty https URL
+      - legacyScopeBundles has all four bundles as string arrays
+      - union equals required + optional (order-preserving)
+      - unionWithoutOauth equals union with the "oauth" scope removed
+      - errorHints is declared alongside the migration
+
+    This is intentionally provider-agnostic: it never references a slug or any
+    provider-named symbol.
+    """
+    script = r"""
+      import { listOAuthProviderCatalog } from './integrations/index.js';
+
+      const isStringArray = (v) => Array.isArray(v) && v.every((s) => typeof s === 'string');
+      const eq = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+
+      let declared = 0;
+      for (const provider of listOAuthProviderCatalog()) {
+        const migration = provider.registrationDefaults?.managedConnectorMigration;
+        if (!migration) continue;
+        declared += 1;
+
+        if (!/^https:\/\//.test(migration.canonicalServerUrl)) {
+          console.error('canonicalServerUrl must be an https URL');
+          process.exit(1);
+        }
+        const bundles = migration.legacyScopeBundles;
+        for (const key of ['required', 'optional', 'union', 'unionWithoutOauth']) {
+          if (!isStringArray(bundles[key])) {
+            console.error(`legacyScopeBundles.${key} must be a string array`);
+            process.exit(1);
+          }
+        }
+        const expectedUnion = [...bundles.required, ...bundles.optional];
+        if (!eq(bundles.union, expectedUnion)) {
+          console.error('union must equal required + optional');
+          process.exit(1);
+        }
+        const expectedUnionWithoutOauth = expectedUnion.filter((s) => s !== 'oauth');
+        if (!eq(bundles.unionWithoutOauth, expectedUnionWithoutOauth)) {
+          console.error('unionWithoutOauth must equal union minus "oauth"');
+          process.exit(1);
+        }
+        const errorHints = provider.registrationDefaults?.errorHints;
+        if (!errorHints || typeof errorHints !== 'object') {
+          console.error('errorHints must be declared alongside managedConnectorMigration');
+          process.exit(1);
+        }
+      }
+      if (declared === 0) {
+        console.error('expected at least one provider to declare a managedConnectorMigration');
+        process.exit(1);
+      }
+    """
+    subprocess.run(["node", "--input-type=module", "-e", script], cwd=ROOT, check=True)

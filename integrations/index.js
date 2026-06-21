@@ -42,11 +42,6 @@ import { listOAuthProviderCatalog } from "./oauth-provider-catalog.js";
 export { listOAuthProviderCatalog } from "./oauth-provider-catalog.js";
 export {
   getOAuthProviderRegistrationDefaults,
-  hubspotMcpAuthorizationUrl,
-  hubspotMcpServerUrl,
-  hubspotMcpTokenUrl,
-  hubspotOptionalScopes,
-  hubspotRequiredScopes,
 } from "./oauth-provider-registration-defaults.js";
 
 const DIRECT_INTEGRATIONS = [
