@@ -10,26 +10,26 @@ from __future__ import annotations
 
 from ._version import __version__
 from .integrations import (
+    HUBSPOT_MCP_AUTHORIZATION_URL,
+    HUBSPOT_MCP_SERVER_URL,
+    HUBSPOT_MCP_TOKEN_URL,
+    HUBSPOT_OPTIONAL_SCOPES,
+    HUBSPOT_REQUIRED_SCOPES,
     INTEGRATION_CATALOG_SNAPSHOT,
     default_managed_connectors,
     get_oauth_provider_registration_defaults,
-    hubspot_mcp_authorization_url,
-    hubspot_mcp_server_url,
-    hubspot_mcp_token_url,
-    hubspot_optional_scopes,
-    hubspot_required_scopes,
     list_oauth_provider_catalog,
 )
 
 __all__ = [
+    "HUBSPOT_MCP_AUTHORIZATION_URL",
+    "HUBSPOT_MCP_SERVER_URL",
+    "HUBSPOT_MCP_TOKEN_URL",
+    "HUBSPOT_OPTIONAL_SCOPES",
+    "HUBSPOT_REQUIRED_SCOPES",
     "INTEGRATION_CATALOG_SNAPSHOT",
     "__version__",
     "default_managed_connectors",
     "get_oauth_provider_registration_defaults",
-    "hubspot_mcp_authorization_url",
-    "hubspot_mcp_server_url",
-    "hubspot_mcp_token_url",
-    "hubspot_optional_scopes",
-    "hubspot_required_scopes",
     "list_oauth_provider_catalog",
 ]

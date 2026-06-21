@@ -80,3 +80,30 @@ def test_get_oauth_provider_registration_defaults_round_trip() -> None:
 
 def test_get_oauth_provider_registration_defaults_unknown_slug() -> None:
     assert openhands_extensions.get_oauth_provider_registration_defaults("nope") is None
+
+
+def test_hubspot_constants_match_asset() -> None:
+    """The HubSpot module-level constants must match the hubspot entry's
+    registrationDefaults in the asset (they are convenience aliases, not a
+    second source of truth)."""
+    hubspot = openhands_extensions.get_oauth_provider_registration_defaults("hubspot")
+    assert hubspot is not None
+    assert openhands_extensions.HUBSPOT_MCP_SERVER_URL == hubspot["serverUrl"]
+    assert openhands_extensions.HUBSPOT_MCP_AUTHORIZATION_URL == hubspot["authorizationUrl"]
+    assert openhands_extensions.HUBSPOT_MCP_TOKEN_URL == hubspot["tokenUrl"]
+    assert openhands_extensions.HUBSPOT_REQUIRED_SCOPES == list(hubspot.get("scopes", []))
+    assert openhands_extensions.HUBSPOT_OPTIONAL_SCOPES == list(
+        hubspot.get("optionalScopes", [])
+    )
+
+
+def test_hubspot_constants_are_values_not_callables() -> None:
+    """Guard against regressing the public API back to callables (review
+    feedback: names like ``hubspot_mcp_server_url`` must be the string, not a
+    function returning it)."""
+    import openhands_extensions as ext
+
+    assert isinstance(ext.HUBSPOT_MCP_SERVER_URL, str)
+    assert isinstance(ext.HUBSPOT_MCP_TOKEN_URL, str)
+    assert isinstance(ext.HUBSPOT_REQUIRED_SCOPES, list)
+    assert all(isinstance(s, str) for s in ext.HUBSPOT_REQUIRED_SCOPES)

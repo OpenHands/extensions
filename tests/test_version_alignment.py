@@ -30,10 +30,18 @@ def _pyproject_version() -> str:
 
 
 def _version_module_version() -> str:
+    import openhands_extensions._version as v
+
     text = (ROOT / "python" / "openhands_extensions" / "_version.py").read_text()
-    match = re.search(r'__version__\s*=\s*"([^"]+)"', text)
-    assert match, "_version.py has no __version__"
-    return match.group(1)
+    match = re.search(r'_FALLBACK_VERSION\s*=\s*"([^"]+)"', text)
+    assert match, "_version.py has no _FALLBACK_VERSION"
+    fallback = match.group(1)
+    # Runtime __version__ is metadata-derived when installed, fallback otherwise;
+    # both must agree with the declared versions.
+    assert v.__version__ in (fallback, _package_json_version()), (
+        f"runtime __version__ {v.__version__!r} disagrees with fallback/package.json"
+    )
+    return fallback
 
 
 def test_package_json_and_pyproject_versions_match() -> None:

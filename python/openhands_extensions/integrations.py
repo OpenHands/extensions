@@ -85,24 +85,13 @@ def _hubspot_defaults() -> dict[str, Any]:
     return defaults
 
 
-def hubspot_mcp_server_url() -> str:
-    return _hubspot_defaults()["serverUrl"]
-
-
-def hubspot_mcp_authorization_url() -> str:
-    return _hubspot_defaults()["authorizationUrl"]
-
-
-def hubspot_mcp_token_url() -> str:
-    return _hubspot_defaults()["tokenUrl"]
-
-
-def hubspot_required_scopes() -> list[str]:
-    return list(_hubspot_defaults().get("scopes", []))
-
-
-def hubspot_optional_scopes() -> list[str]:
-    return list(_hubspot_defaults().get("optionalScopes", []))
+#: HubSpot MCP endpoint constants (mirror the JS ``hubspotMcp*`` exports).
+#: Exposed as plain values, not callables, to match the JS constant semantics.
+HUBSPOT_MCP_SERVER_URL: str = _hubspot_defaults()["serverUrl"]
+HUBSPOT_MCP_AUTHORIZATION_URL: str = _hubspot_defaults()["authorizationUrl"]
+HUBSPOT_MCP_TOKEN_URL: str = _hubspot_defaults()["tokenUrl"]
+HUBSPOT_REQUIRED_SCOPES: list[str] = list(_hubspot_defaults().get("scopes", []))
+HUBSPOT_OPTIONAL_SCOPES: list[str] = list(_hubspot_defaults().get("optionalScopes", []))
 
 
 #: The raw ``{ providers, defaultManagedConnectors }`` snapshot, for consumers
