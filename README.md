@@ -94,6 +94,7 @@ Official skills and plugins for OpenHands — the open-source AI software engine
 | code-review | skill | Rigorous code review focusing on data structures, simplicity, security, pragmatism, and risk/safety evaluation. Provi... | `/codereview`, `/codereview-roasted` |
 | code-simplifier | skill | Simplifies and refines code across three dimensions - code reuse, code quality, and efficiency - while preserving all... | `/simplify` |
 | datadog | skill | Query and analyze Datadog logs, metrics, APM traces, and monitors using the Datadog API. Use when debugging productio... | — |
+| datadog-error-monitor | skill | Create a cron automation that polls Datadog logs every 15 minutes, maintains a self-evolving regex-based error patter... | `/datadog-monitor:setup` |
 | deno | skill | Common project operations using Deno (tasks, run/test/lint/fmt, and dependency management). | — |
 | discord | skill | Build and automate Discord integrations (bots, webhooks, slash commands, and REST API workflows). Use when the user m... | — |
 | docker | skill | Run Docker commands within a container environment, including starting the Docker daemon and managing containers. Use... | — |
