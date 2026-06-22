@@ -21,6 +21,15 @@ def _generated_asset() -> dict:
     return json.loads(ASSET.read_text())
 
 
+def _supports_mcp(entry: dict) -> bool:
+    return any(option.get("provider") == "mcp" for option in entry["connectionOptions"])
+
+
+def _supports_oauth(entry: dict) -> bool:
+    return any(option.get("auth", {}).get("strategy") == "oauth2" for option in entry["connectionOptions"])
+
+
+
 def test_catalog_directory_is_hand_authored_source_of_truth() -> None:
     for integration_id, entry in _catalog_files().items():
         assert entry["id"] == integration_id
@@ -49,16 +58,17 @@ def test_python_reads_the_same_asset() -> None:
     assert openhands_extensions.INTEGRATION_CATALOG_SNAPSHOT == json.loads(ASSET.read_text())
 
 
-def test_python_list_integration_catalog_derives_fields() -> None:
+def test_python_list_integration_catalog_returns_raw_entries() -> None:
     entries = openhands_extensions.list_integration_catalog()
-    assert len(entries) == len(_generated_asset()["integrations"])
+    assert entries == _generated_asset()["integrations"]
     for entry in entries:
-        assert isinstance(entry["supportsMcp"], bool)
-        assert isinstance(entry["supportsOauth"], bool)
-        if entry.get("availability"):
-            assert entry["catalogStatus"] == entry["availability"]
-            assert entry["defaultConnectionOptionId"] == entry["connectionOptions"][0]["id"]
-            assert entry["registrationDefaults"]["provider"] == entry["connectionOptions"][0]["provider"]
+        assert "supportsMcp" not in entry
+        assert "supportsOauth" not in entry
+        assert "registrationDefaults" not in entry
+        assert "managedConnectorSlug" not in entry
+        assert "authStrategy" not in entry
+        assert "defaultConnectionOptionId" not in entry
+        assert "catalogStatus" not in entry
 
 
 def test_get_integration_catalog_entry_round_trip() -> None:
@@ -113,9 +123,7 @@ def _js_filter(mcp, oauth) -> list[str]:
 def test_filter_mcp_only() -> None:
     py_ids = {e["id"] for e in openhands_extensions.list_integration_catalog(mcp=True)}
     js_ids = set(_js_filter("true", "undefined"))
-    all_mcp = {
-        e["id"] for e in openhands_extensions.list_integration_catalog() if e["supportsMcp"]
-    }
+    all_mcp = {e["id"] for e in openhands_extensions.list_integration_catalog() if _supports_mcp(e)}
     assert py_ids == js_ids == all_mcp
     assert "filesystem" in py_ids
 
@@ -123,9 +131,7 @@ def test_filter_mcp_only() -> None:
 def test_filter_oauth_only() -> None:
     py_ids = {e["id"] for e in openhands_extensions.list_integration_catalog(oauth=True)}
     js_ids = set(_js_filter("undefined", "true"))
-    all_oauth = {
-        e["id"] for e in openhands_extensions.list_integration_catalog() if e["supportsOauth"]
-    }
+    all_oauth = {e["id"] for e in openhands_extensions.list_integration_catalog() if _supports_oauth(e)}
     assert py_ids == js_ids == all_oauth
     assert "github" in py_ids
 
@@ -138,7 +144,7 @@ def test_filter_oauth_not_mcp() -> None:
     expected = {
         e["id"]
         for e in openhands_extensions.list_integration_catalog()
-        if e["supportsOauth"] and not e["supportsMcp"]
+        if _supports_oauth(e) and not _supports_mcp(e)
     }
     assert py_ids == js_ids == expected
 
@@ -167,13 +173,14 @@ def test_accessors_return_independent_copies() -> None:
     assert "__mutated" not in openhands_extensions.list_integration_catalog()[0]
 
 
-def test_hubspot_oauth_config_is_derived_from_connection_option() -> None:
+def test_hubspot_oauth_config_lives_on_connection_option() -> None:
     hubspot = openhands_extensions.get_integration_catalog_entry("hubspot")
     assert hubspot is not None
-    raw_hubspot = _catalog_files()["hubspot"]
-    assert "registrationDefaults" not in raw_hubspot
-    defaults = hubspot["registrationDefaults"]
-    assert defaults["serverUrl"] == "https://mcp.hubspot.com"
-    assert defaults["authorizationUrl"] == "https://mcp.hubspot.com/oauth/authorize/user"
-    assert defaults["tokenUrl"] == "https://mcp.hubspot.com/oauth/v3/token"
-    assert defaults["pkce"] is True
+    assert "registrationDefaults" not in hubspot
+    option = hubspot["connectionOptions"][0]
+    assert option["provider"] == "mcp"
+    assert option["transport"]["url"] == "https://mcp.hubspot.com"
+    oauth = option["auth"]["oauth"]
+    assert oauth["authorizationUrl"] == "https://mcp.hubspot.com/oauth/authorize/user"
+    assert oauth["tokenUrl"] == "https://mcp.hubspot.com/oauth/v3/token"
+    assert oauth["pkce"] is True

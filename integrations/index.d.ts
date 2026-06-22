@@ -90,37 +90,6 @@ export interface IntegrationConnectionOption {
 
 export type IntegrationAvailability = "oauth_ready" | "manual_token" | "planned";
 
-export interface IntegrationRegistrationDefaults {
-  provider?: IntegrationProvider;
-  authModes?: IntegrationAuthStrategy[];
-  authStrategy?: IntegrationAuthStrategy;
-  credentialLabel?: string;
-  credentialPlaceholder?: string;
-  credentialHelp?: string;
-  credentialSecretName?: string;
-  saveCredentialAsSecretByDefault?: boolean;
-  apiKeyHeaderName?: string;
-  apiKeyOptional?: boolean;
-  apiBaseUrl?: string;
-  serverUrl?: string;
-  openApiUrl?: string;
-  authorizationUrl?: string;
-  tokenUrl?: string;
-  scopes?: string[];
-  optionalScopes?: string[];
-  toolScopes?: string[];
-  scopeSeparator?: "space" | "comma";
-  pkce?: boolean;
-  clientAuthentication?: "basic" | "body" | "none";
-  registrationUrl?: string;
-  additionalAuthorizationParams?: Record<string, string>;
-  additionalTokenParams?: Record<string, string>;
-  toolName?: string;
-  toolDescription?: string;
-  requestMethod?: string;
-  requestPath?: string;
-}
-
 export interface IntegrationCatalogEntry {
   id: string;
   name: string;
@@ -137,20 +106,6 @@ export interface IntegrationCatalogEntry {
   availability?: IntegrationAvailability;
   installHint?: string;
   connectionOptions: IntegrationConnectionOption[];
-  /** Legacy alias for `availability`, derived at read time. */
-  catalogStatus?: IntegrationAvailability;
-  /** The first connection option id, derived at read time. */
-  defaultConnectionOptionId?: string;
-  /** The first connection option auth strategy, derived at read time. */
-  authStrategy?: IntegrationAuthStrategy;
-  /** Present for ready/manual managed connectors and derived from `id`. */
-  managedConnectorSlug?: string;
-  /** Flattened view of the first connection option, derived at read time. */
-  registrationDefaults?: IntegrationRegistrationDefaults;
-  /** True if any connection option is an `mcp` connector, derived at read time. */
-  supportsMcp?: boolean;
-  /** True if any connection option uses `oauth2`, derived at read time. */
-  supportsOauth?: boolean;
 }
 
 /**
