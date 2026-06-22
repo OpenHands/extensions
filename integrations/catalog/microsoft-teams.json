@@ -1,0 +1,56 @@
+{
+  "id": "microsoft-teams",
+  "kind": "http",
+  "name": "Microsoft Teams",
+  "description": "Chats, channels, meetings, and collaboration via Microsoft Graph.",
+  "categories": [
+    "Communication",
+    "Enterprise"
+  ],
+  "appUrl": "https://www.microsoft.com/microsoft-teams/group-chat-software",
+  "docsUrl": "https://learn.microsoft.com/graph/auth-v2-user",
+  "notes": "Common enterprise chat target alongside Outlook.",
+  "catalogStatus": "planned",
+  "authStrategy": "oauth2",
+  "popularityRank": 21,
+  "registrationDefaults": {
+    "apiBaseUrl": "https://graph.microsoft.com/v1.0",
+    "authorizationUrl": "https://login.microsoftonline.com/common/oauth2/v2.0/authorize",
+    "tokenUrl": "https://login.microsoftonline.com/common/oauth2/v2.0/token",
+    "scopes": [
+      "Team.ReadBasic.All"
+    ],
+    "toolName": "list_teams",
+    "toolDescription": "List Microsoft Teams joined by the signed-in user.",
+    "requestMethod": "GET",
+    "requestPath": "/me/joinedTeams",
+    "provider": "http"
+  },
+  "defaultConnectionOptionId": "oauth",
+  "connectionOptions": [
+    {
+      "id": "oauth",
+      "provider": "http",
+      "auth": {
+        "strategy": "oauth2",
+        "oauth": {
+          "authorizationUrl": "https://login.microsoftonline.com/common/oauth2/v2.0/authorize",
+          "tokenUrl": "https://login.microsoftonline.com/common/oauth2/v2.0/token",
+          "scopes": [
+            "Team.ReadBasic.All"
+          ]
+        }
+      },
+      "http": {
+        "apiBaseUrl": "https://graph.microsoft.com/v1.0",
+        "defaultTool": {
+          "name": "list_teams",
+          "description": "List Microsoft Teams joined by the signed-in user.",
+          "method": "GET",
+          "path": "/me/joinedTeams"
+        }
+      }
+    }
+  ],
+  "oauthProvider": {}
+}

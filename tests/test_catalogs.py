@@ -41,7 +41,9 @@ def test_catalog_entries_have_required_fields():
         assert entry["name"]
         assert entry["description"]
         assert entry["kind"] in {"mcp", "http"}
-        assert entry["iconBg"]
+        # iconBg/iconColor are optional UI styling hints (OAuth-only entries may
+        # ship without a bespoke icon background).
+        assert "iconBg" not in entry or entry["iconBg"]
         assert entry["connectionOptions"]
         assert entry["defaultConnectionOptionId"]
         for option in entry["connectionOptions"]:

@@ -1,0 +1,56 @@
+{
+  "id": "confluence",
+  "kind": "http",
+  "name": "Confluence",
+  "description": "Wiki pages, spaces, and internal documentation search.",
+  "categories": [
+    "Documentation",
+    "Knowledge base"
+  ],
+  "appUrl": "https://www.atlassian.com/software/confluence",
+  "docsUrl": "https://developer.atlassian.com/cloud/confluence/oauth-2-3lo-apps/",
+  "notes": "Natural companion to Jira for software teams.",
+  "catalogStatus": "planned",
+  "authStrategy": "oauth2",
+  "popularityRank": 11,
+  "registrationDefaults": {
+    "apiBaseUrl": "https://api.atlassian.com/ex/confluence/{cloudId}",
+    "authorizationUrl": "https://auth.atlassian.com/authorize",
+    "tokenUrl": "https://auth.atlassian.com/oauth/token",
+    "scopes": [
+      "read:page:confluence"
+    ],
+    "toolName": "list_spaces",
+    "toolDescription": "List Confluence spaces available to the connected user.",
+    "requestMethod": "GET",
+    "requestPath": "/wiki/api/v2/spaces",
+    "provider": "http"
+  },
+  "defaultConnectionOptionId": "oauth",
+  "connectionOptions": [
+    {
+      "id": "oauth",
+      "provider": "http",
+      "auth": {
+        "strategy": "oauth2",
+        "oauth": {
+          "authorizationUrl": "https://auth.atlassian.com/authorize",
+          "tokenUrl": "https://auth.atlassian.com/oauth/token",
+          "scopes": [
+            "read:page:confluence"
+          ]
+        }
+      },
+      "http": {
+        "apiBaseUrl": "https://api.atlassian.com/ex/confluence/{cloudId}",
+        "defaultTool": {
+          "name": "list_spaces",
+          "description": "List Confluence spaces available to the connected user.",
+          "method": "GET",
+          "path": "/wiki/api/v2/spaces"
+        }
+      }
+    }
+  ],
+  "oauthProvider": {}
+}

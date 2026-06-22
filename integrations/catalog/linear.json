@@ -1,20 +1,56 @@
 {
   "id": "linear",
+  "kind": "mcp",
   "name": "Linear",
   "description": "Browse and update Linear issues, cycles, and projects from the agent.",
-  "docsUrl": "https://linear.app/changelog/2025-05-01-mcp",
-  "iconBg": "#5E6AD2",
-  "keywords": [
-    "issues",
-    "project management",
-    "tasks",
-    "tickets"
+  "categories": [
+    "Project management",
+    "Engineering"
   ],
+  "appUrl": "https://linear.app",
+  "docsUrl": "https://linear.app/changelog/2025-05-01-mcp",
+  "notes": "Popular among modern product engineering teams and already useful to this repo's users.",
+  "catalogStatus": "planned",
+  "authStrategy": "oauth2",
   "popularityRank": 86,
-  "installHint": "Linear's hosted MCP server uses your Linear OAuth login — no key required.",
-  "kind": "mcp",
-  "defaultConnectionOptionId": "none",
+  "registrationDefaults": {
+    "apiBaseUrl": "https://api.linear.app",
+    "authorizationUrl": "https://linear.app/oauth/authorize",
+    "tokenUrl": "https://api.linear.app/oauth/token",
+    "scopes": [
+      "read"
+    ],
+    "toolName": "list_issues",
+    "toolDescription": "Query issues from Linear via GraphQL.",
+    "requestMethod": "POST",
+    "requestPath": "/graphql",
+    "provider": "http"
+  },
+  "defaultConnectionOptionId": "oauth",
   "connectionOptions": [
+    {
+      "id": "oauth",
+      "provider": "http",
+      "auth": {
+        "strategy": "oauth2",
+        "oauth": {
+          "authorizationUrl": "https://linear.app/oauth/authorize",
+          "tokenUrl": "https://api.linear.app/oauth/token",
+          "scopes": [
+            "read"
+          ]
+        }
+      },
+      "http": {
+        "apiBaseUrl": "https://api.linear.app",
+        "defaultTool": {
+          "name": "list_issues",
+          "description": "Query issues from Linear via GraphQL.",
+          "method": "POST",
+          "path": "/graphql"
+        }
+      }
+    },
     {
       "id": "none",
       "provider": "mcp",
@@ -28,5 +64,18 @@
         "apiKeyOptional": true
       }
     }
-  ]
+  ],
+  "iconBg": "#5E6AD2",
+  "keywords": [
+    "issues",
+    "project management",
+    "tasks",
+    "tickets"
+  ],
+  "installHint": "Linear's hosted MCP server uses your Linear OAuth login — no key required.",
+  "oauthProvider": {
+    "description": "Issue tracking, roadmap planning, and product engineering workflows.",
+    "docsUrl": "https://linear.app/developers/oauth-authentication",
+    "popularityRank": 12
+  }
 }

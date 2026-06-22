@@ -4,9 +4,22 @@ This directory contains curated integration metadata for OpenHands clients.
 Most current entries are MCP-backed, but the schema also supports HTTP/OpenAPI
 integrations so clients can consume one source of truth.
 
-- `catalog/*.json` contains one source file per direct integration entry.
-- `index.js` assembles and exports the catalog for Node.js and bundlers.
+- `integration-catalog.json` is the hand-authored source of truth (a single
+  JSON asset, NOT generated from any `.mjs`/`.js` source). It is mirrored
+  byte-for-byte into the Python package.
+- `catalog/<id>.json` contains one file per integration entry, kept in sync
+  with the matching entry in `integration-catalog.json` (a CI parity test
+  asserts the two never drift).
+- `index.js` reads `integration-catalog.json` at runtime and derives the
+  `supportsMcp`/`supportsOauth` flags, the reconstructed `providers[]` view,
+  and `defaultManagedConnectors` from the canonical data.
 - `index.d.ts` contains the public TypeScript shape.
+
+Provider-specific OAuth knowledge is merged into each integration as a minimal
+`oauthProvider` override object (`null` when the integration has no OAuth
+provider); only fields whose OAuth-context values differ from the integration's
+connector view (`description`, `docsUrl`, `popularityRank`) are stored. The
+`providers[]` view is reconstructed at runtime by `listOAuthProviderCatalog()`.
 
 Consumers can import the package export:
 

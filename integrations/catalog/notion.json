@@ -1,20 +1,55 @@
 {
   "id": "notion",
+  "kind": "mcp",
   "name": "Notion",
   "description": "Read and edit Notion pages, databases, and blocks via Notion's MCP server.",
-  "docsUrl": "https://developers.notion.com/docs/mcp",
-  "iconBg": "#FFFFFF",
-  "iconColor": "#000000",
-  "keywords": [
-    "docs",
-    "notes",
-    "wiki",
-    "knowledge base"
+  "categories": [
+    "Knowledge base",
+    "Documentation"
   ],
+  "appUrl": "https://www.notion.so",
+  "docsUrl": "https://developers.notion.com/docs/mcp",
+  "notes": "",
+  "catalogStatus": "oauth_ready",
+  "managedConnectorSlug": "notion",
+  "authStrategy": "oauth2",
   "popularityRank": 82,
-  "kind": "mcp",
-  "defaultConnectionOptionId": "api",
+  "registrationDefaults": {
+    "provider": "http",
+    "apiBaseUrl": "https://api.notion.com",
+    "openApiUrl": "https://developers.notion.com/openapi.json",
+    "authorizationUrl": "https://api.notion.com/v1/oauth/authorize",
+    "tokenUrl": "https://api.notion.com/v1/oauth/token",
+    "scopes": [],
+    "toolName": "post_search",
+    "toolDescription": "Search pages and databases in the connected Notion workspace.",
+    "requestMethod": "POST",
+    "requestPath": "/v1/search"
+  },
+  "defaultConnectionOptionId": "oauth",
   "connectionOptions": [
+    {
+      "id": "oauth",
+      "provider": "http",
+      "auth": {
+        "strategy": "oauth2",
+        "oauth": {
+          "authorizationUrl": "https://api.notion.com/v1/oauth/authorize",
+          "tokenUrl": "https://api.notion.com/v1/oauth/token",
+          "scopes": []
+        }
+      },
+      "http": {
+        "apiBaseUrl": "https://api.notion.com",
+        "openApiUrl": "https://developers.notion.com/openapi.json",
+        "defaultTool": {
+          "name": "post_search",
+          "description": "Search pages and databases in the connected Notion workspace.",
+          "method": "POST",
+          "path": "/v1/search"
+        }
+      }
+    },
     {
       "id": "api",
       "provider": "mcp",
@@ -42,5 +77,18 @@
         "strategy": "api_key"
       }
     }
-  ]
+  ],
+  "iconBg": "#FFFFFF",
+  "iconColor": "#000000",
+  "keywords": [
+    "docs",
+    "notes",
+    "wiki",
+    "knowledge base"
+  ],
+  "oauthProvider": {
+    "description": "Workspace search, pages, databases, and knowledge management.",
+    "docsUrl": "https://developers.notion.com/docs/authorization",
+    "popularityRank": 4
+  }
 }

@@ -30,5 +30,6 @@
         "strategy": "none"
       }
     }
-  ]
+  ],
+  "oauthProvider": null
 }

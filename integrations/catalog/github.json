@@ -1,20 +1,55 @@
 {
   "id": "github",
+  "kind": "mcp",
   "name": "GitHub",
   "description": "Search code, manage issues and pull requests, and inspect repos via the GitHub API.",
-  "docsUrl": "https://github.com/github/github-mcp-server",
-  "iconBg": "var(--oh-surface)",
-  "keywords": [
-    "git",
-    "pr",
-    "repo",
-    "issues",
-    "code"
+  "categories": [
+    "Engineering",
+    "Source control"
   ],
+  "appUrl": "https://github.com",
+  "docsUrl": "https://github.com/github/github-mcp-server",
+  "notes": "Current managed connector works with bearer tokens today; GitHub OAuth is a strong candidate for a future one-click connect flow.",
+  "catalogStatus": "manual_token",
+  "managedConnectorSlug": "github",
+  "authStrategy": "oauth2",
   "popularityRank": 100,
-  "kind": "mcp",
-  "defaultConnectionOptionId": "api",
+  "registrationDefaults": {
+    "apiBaseUrl": "https://api.github.com",
+    "authorizationUrl": "https://github.com/login/oauth/authorize",
+    "tokenUrl": "https://github.com/login/oauth/access_token",
+    "scopes": [
+      "read:user",
+      "repo"
+    ],
+    "toolName": "get_authenticated_user",
+    "toolDescription": "Fetch the authenticated GitHub user profile.",
+    "requestMethod": "GET",
+    "requestPath": "/user",
+    "provider": "mcp",
+    "serverUrl": "https://api.githubcopilot.com/mcp/"
+  },
+  "defaultConnectionOptionId": "oauth",
   "connectionOptions": [
+    {
+      "id": "oauth",
+      "provider": "mcp",
+      "auth": {
+        "strategy": "oauth2",
+        "oauth": {
+          "authorizationUrl": "https://github.com/login/oauth/authorize",
+          "tokenUrl": "https://github.com/login/oauth/access_token",
+          "scopes": [
+            "read:user",
+            "repo"
+          ]
+        }
+      },
+      "transport": {
+        "kind": "shttp",
+        "url": "https://api.githubcopilot.com/mcp/"
+      }
+    },
     {
       "id": "api",
       "provider": "mcp",
@@ -31,5 +66,18 @@
         "saveCredentialAsSecretByDefault": true
       }
     }
-  ]
+  ],
+  "iconBg": "var(--oh-surface)",
+  "keywords": [
+    "git",
+    "pr",
+    "repo",
+    "issues",
+    "code"
+  ],
+  "oauthProvider": {
+    "description": "Source control, issues, pull requests, and developer workflows.",
+    "docsUrl": "https://docs.github.com/apps/oauth-apps/building-oauth-apps",
+    "popularityRank": 1
+  }
 }

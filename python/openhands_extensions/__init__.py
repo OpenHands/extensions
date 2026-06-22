@@ -1,10 +1,11 @@
 """Python bindings for the OpenHands extensions catalogs.
 
 Mirrors the JavaScript package (``@openhands/extensions``): both read the same
-unified JSON asset (``integrations/integration-catalog.json``) at runtime, so
-Python and JS consumers share a single source of truth. The asset is generated
-from the JS authoring source by ``scripts/build-integration-catalog.mjs``; a CI
-parity test asserts the checked-in copy matches a fresh build. See
+hand-authored JSON asset (``integrations/integration-catalog.json``) at runtime,
+so Python and JS consumers share a single source of truth. The asset is NOT
+generated from any ``.mjs``/``.js`` source; each per-integration entry also
+exists as ``integrations/catalog/<id>.json`` (a CI parity test asserts the two
+never drift). See
 ``integrations.py`` for the catalog API, including filtering by connector type
 (mcp / oauth).
 """

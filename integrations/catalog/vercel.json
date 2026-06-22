@@ -1,0 +1,56 @@
+{
+  "id": "vercel",
+  "kind": "http",
+  "name": "Vercel",
+  "description": "Deployments, projects, domains, and preview environment workflows.",
+  "categories": [
+    "Developer tools",
+    "Deployment"
+  ],
+  "appUrl": "https://vercel.com",
+  "docsUrl": "https://vercel.com/docs/rest-api#oauth-apps",
+  "notes": "Especially relevant to this repo's deployment model.",
+  "catalogStatus": "planned",
+  "authStrategy": "oauth2",
+  "popularityRank": 39,
+  "registrationDefaults": {
+    "apiBaseUrl": "https://api.vercel.com",
+    "authorizationUrl": "https://vercel.com/oauth/authorize",
+    "tokenUrl": "https://api.vercel.com/v2/oauth/access_token",
+    "scopes": [
+      "project:read"
+    ],
+    "toolName": "list_projects",
+    "toolDescription": "List Vercel projects available to the connected user.",
+    "requestMethod": "GET",
+    "requestPath": "/v9/projects",
+    "provider": "http"
+  },
+  "defaultConnectionOptionId": "oauth",
+  "connectionOptions": [
+    {
+      "id": "oauth",
+      "provider": "http",
+      "auth": {
+        "strategy": "oauth2",
+        "oauth": {
+          "authorizationUrl": "https://vercel.com/oauth/authorize",
+          "tokenUrl": "https://api.vercel.com/v2/oauth/access_token",
+          "scopes": [
+            "project:read"
+          ]
+        }
+      },
+      "http": {
+        "apiBaseUrl": "https://api.vercel.com",
+        "defaultTool": {
+          "name": "list_projects",
+          "description": "List Vercel projects available to the connected user.",
+          "method": "GET",
+          "path": "/v9/projects"
+        }
+      }
+    }
+  ],
+  "oauthProvider": {}
+}

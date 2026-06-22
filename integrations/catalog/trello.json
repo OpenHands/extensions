@@ -1,0 +1,44 @@
+{
+  "id": "trello",
+  "kind": "http",
+  "name": "Trello",
+  "description": "Boards, cards, checklists, and lightweight project planning.",
+  "categories": [
+    "Project management",
+    "Operations"
+  ],
+  "appUrl": "https://trello.com",
+  "docsUrl": "https://developer.atlassian.com/cloud/trello/guides/rest-api/authorization/",
+  "notes": "Useful for SMB and cross-functional task boards, but Trello's public API auth is a special-case flow rather than a straightforward generic OAuth2 connector.",
+  "catalogStatus": "planned",
+  "authStrategy": "oauth2",
+  "popularityRank": 14,
+  "registrationDefaults": {
+    "apiBaseUrl": "https://api.trello.com/1",
+    "toolName": "list_boards",
+    "toolDescription": "List Trello boards visible to the authenticated member.",
+    "requestMethod": "GET",
+    "requestPath": "/members/me/boards",
+    "provider": "http"
+  },
+  "defaultConnectionOptionId": "oauth",
+  "connectionOptions": [
+    {
+      "id": "oauth",
+      "provider": "http",
+      "auth": {
+        "strategy": "oauth2"
+      },
+      "http": {
+        "apiBaseUrl": "https://api.trello.com/1",
+        "defaultTool": {
+          "name": "list_boards",
+          "description": "List Trello boards visible to the authenticated member.",
+          "method": "GET",
+          "path": "/members/me/boards"
+        }
+      }
+    }
+  ],
+  "oauthProvider": {}
+}

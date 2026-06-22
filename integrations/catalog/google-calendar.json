@@ -1,0 +1,56 @@
+{
+  "id": "google-calendar",
+  "kind": "http",
+  "name": "Google Calendar",
+  "description": "Calendar search, event scheduling, and meeting coordination.",
+  "categories": [
+    "Calendar",
+    "Scheduling"
+  ],
+  "appUrl": "https://workspace.google.com/products/calendar/",
+  "docsUrl": "https://developers.google.com/identity/protocols/oauth2",
+  "notes": "Strong personal productivity use case with mature OAuth flows.",
+  "catalogStatus": "planned",
+  "authStrategy": "oauth2",
+  "popularityRank": 9,
+  "registrationDefaults": {
+    "apiBaseUrl": "https://www.googleapis.com/calendar/v3",
+    "authorizationUrl": "https://accounts.google.com/o/oauth2/v2/auth",
+    "tokenUrl": "https://oauth2.googleapis.com/token",
+    "scopes": [
+      "https://www.googleapis.com/auth/calendar.readonly"
+    ],
+    "toolName": "list_events",
+    "toolDescription": "List events from the user's primary Google Calendar.",
+    "requestMethod": "GET",
+    "requestPath": "/calendars/primary/events",
+    "provider": "http"
+  },
+  "defaultConnectionOptionId": "oauth",
+  "connectionOptions": [
+    {
+      "id": "oauth",
+      "provider": "http",
+      "auth": {
+        "strategy": "oauth2",
+        "oauth": {
+          "authorizationUrl": "https://accounts.google.com/o/oauth2/v2/auth",
+          "tokenUrl": "https://oauth2.googleapis.com/token",
+          "scopes": [
+            "https://www.googleapis.com/auth/calendar.readonly"
+          ]
+        }
+      },
+      "http": {
+        "apiBaseUrl": "https://www.googleapis.com/calendar/v3",
+        "defaultTool": {
+          "name": "list_events",
+          "description": "List events from the user's primary Google Calendar.",
+          "method": "GET",
+          "path": "/calendars/primary/events"
+        }
+      }
+    }
+  ],
+  "oauthProvider": {}
+}

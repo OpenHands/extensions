@@ -1,0 +1,57 @@
+{
+  "id": "google-docs",
+  "kind": "http",
+  "name": "Google Docs",
+  "description": "Docs authoring and Google Workspace document automation.",
+  "categories": [
+    "Documents",
+    "Knowledge base"
+  ],
+  "appUrl": "https://workspace.google.com/products/docs/",
+  "docsUrl": "https://developers.google.com/identity/protocols/oauth2",
+  "notes": "Current managed connector accepts a Google access token manually; a full OAuth connect flow can remove token copy/paste.",
+  "catalogStatus": "manual_token",
+  "managedConnectorSlug": "google-docs",
+  "authStrategy": "oauth2",
+  "popularityRank": 2,
+  "registrationDefaults": {
+    "apiBaseUrl": "https://docs.googleapis.com",
+    "authorizationUrl": "https://accounts.google.com/o/oauth2/v2/auth",
+    "tokenUrl": "https://oauth2.googleapis.com/token",
+    "scopes": [
+      "https://www.googleapis.com/auth/documents.readonly"
+    ],
+    "toolName": "get_document",
+    "toolDescription": "Fetch a Google Docs document by ID.",
+    "requestMethod": "GET",
+    "requestPath": "/v1/documents/{documentId}",
+    "provider": "http"
+  },
+  "defaultConnectionOptionId": "oauth",
+  "connectionOptions": [
+    {
+      "id": "oauth",
+      "provider": "http",
+      "auth": {
+        "strategy": "oauth2",
+        "oauth": {
+          "authorizationUrl": "https://accounts.google.com/o/oauth2/v2/auth",
+          "tokenUrl": "https://oauth2.googleapis.com/token",
+          "scopes": [
+            "https://www.googleapis.com/auth/documents.readonly"
+          ]
+        }
+      },
+      "http": {
+        "apiBaseUrl": "https://docs.googleapis.com",
+        "defaultTool": {
+          "name": "get_document",
+          "description": "Fetch a Google Docs document by ID.",
+          "method": "GET",
+          "path": "/v1/documents/{documentId}"
+        }
+      }
+    }
+  ],
+  "oauthProvider": {}
+}

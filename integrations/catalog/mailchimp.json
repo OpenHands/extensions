@@ -1,0 +1,56 @@
+{
+  "id": "mailchimp",
+  "kind": "http",
+  "name": "Mailchimp",
+  "description": "Campaigns, audiences, automations, and email marketing.",
+  "categories": [
+    "Marketing",
+    "Email"
+  ],
+  "appUrl": "https://mailchimp.com",
+  "docsUrl": "https://mailchimp.com/developer/marketing/guides/access-user-data-oauth-2/",
+  "notes": "Popular marketing automation target.",
+  "catalogStatus": "planned",
+  "authStrategy": "oauth2",
+  "popularityRank": 46,
+  "registrationDefaults": {
+    "apiBaseUrl": "https://{dc}.api.mailchimp.com/3.0",
+    "authorizationUrl": "https://login.mailchimp.com/oauth2/authorize",
+    "tokenUrl": "https://login.mailchimp.com/oauth2/token",
+    "scopes": [
+      "audiences:read"
+    ],
+    "toolName": "list_audiences",
+    "toolDescription": "List Mailchimp audiences for the connected account.",
+    "requestMethod": "GET",
+    "requestPath": "/lists",
+    "provider": "http"
+  },
+  "defaultConnectionOptionId": "oauth",
+  "connectionOptions": [
+    {
+      "id": "oauth",
+      "provider": "http",
+      "auth": {
+        "strategy": "oauth2",
+        "oauth": {
+          "authorizationUrl": "https://login.mailchimp.com/oauth2/authorize",
+          "tokenUrl": "https://login.mailchimp.com/oauth2/token",
+          "scopes": [
+            "audiences:read"
+          ]
+        }
+      },
+      "http": {
+        "apiBaseUrl": "https://{dc}.api.mailchimp.com/3.0",
+        "defaultTool": {
+          "name": "list_audiences",
+          "description": "List Mailchimp audiences for the connected account.",
+          "method": "GET",
+          "path": "/lists"
+        }
+      }
+    }
+  ],
+  "oauthProvider": {}
+}

@@ -1,18 +1,60 @@
 {
   "id": "sentry",
+  "kind": "mcp",
   "name": "Sentry",
   "description": "Triage issues, inspect events, and run Seer fixes against your Sentry org.",
-  "docsUrl": "https://docs.sentry.io/product/sentry-mcp/",
-  "iconBg": "#362D59",
-  "keywords": [
-    "errors",
-    "observability",
-    "monitoring",
-    "crash"
+  "categories": [
+    "Observability",
+    "Engineering"
   ],
-  "kind": "mcp",
-  "defaultConnectionOptionId": "none",
+  "appUrl": "https://sentry.io",
+  "docsUrl": "https://docs.sentry.io/product/sentry-mcp/",
+  "notes": "Natural target for engineering support agents.",
+  "catalogStatus": "planned",
+  "authStrategy": "oauth2",
+  "popularityRank": 36,
+  "registrationDefaults": {
+    "apiBaseUrl": "https://sentry.io/api/0",
+    "authorizationUrl": "https://sentry.io/oauth/authorize",
+    "tokenUrl": "https://sentry.io/oauth/token",
+    "scopes": [
+      "project:read",
+      "event:read",
+      "org:read"
+    ],
+    "toolName": "list_organizations",
+    "toolDescription": "List Sentry organizations available to the connected user.",
+    "requestMethod": "GET",
+    "requestPath": "/organizations/",
+    "provider": "http"
+  },
+  "defaultConnectionOptionId": "oauth",
   "connectionOptions": [
+    {
+      "id": "oauth",
+      "provider": "http",
+      "auth": {
+        "strategy": "oauth2",
+        "oauth": {
+          "authorizationUrl": "https://sentry.io/oauth/authorize",
+          "tokenUrl": "https://sentry.io/oauth/token",
+          "scopes": [
+            "project:read",
+            "event:read",
+            "org:read"
+          ]
+        }
+      },
+      "http": {
+        "apiBaseUrl": "https://sentry.io/api/0",
+        "defaultTool": {
+          "name": "list_organizations",
+          "description": "List Sentry organizations available to the connected user.",
+          "method": "GET",
+          "path": "/organizations/"
+        }
+      }
+    },
     {
       "id": "none",
       "provider": "mcp",
@@ -26,5 +68,16 @@
         "apiKeyOptional": true
       }
     }
-  ]
+  ],
+  "iconBg": "#362D59",
+  "keywords": [
+    "errors",
+    "observability",
+    "monitoring",
+    "crash"
+  ],
+  "oauthProvider": {
+    "description": "Errors, releases, issue ownership, and incident investigation.",
+    "docsUrl": "https://docs.sentry.io/api/guides/oauth/"
+  }
 }

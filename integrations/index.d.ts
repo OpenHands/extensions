@@ -131,6 +131,15 @@ export interface OAuthProviderCatalogOption {
   registrationDefaults?: OAuthProviderRegistrationDefaults;
 }
 
+export interface OAuthProviderOverride {
+  /** OAuth-context description (when it differs from the integration's). */
+  description?: string;
+  /** OAuth-context docs URL (when it differs from the integration's). */
+  docsUrl?: string;
+  /** OAuth-context popularity rank (when it differs from the integration's). */
+  popularityRank?: number;
+}
+
 export interface IntegrationCatalogEntry {
   id: string;
   kind: IntegrationProvider;
@@ -152,10 +161,18 @@ export interface IntegrationCatalogEntry {
   defaultConnectionOptionId?: string;
   connectionOptions: IntegrationConnectionOption[];
   registrationDefaults?: OAuthProviderRegistrationDefaults;
-  /** True if any connection option is an `mcp` connector. */
-  supportsMcp: boolean;
-  /** True if any connection option uses the `oauth2` auth strategy. */
-  supportsOauth: boolean;
+  /**
+   * OAuth-provider override for this integration. Non-null exactly when the
+   * integration has an OAuth provider entry; carries only the fields whose
+   * OAuth-context values differ from the integration's connector view. The
+   * provider view is reconstructed at runtime by
+   * {@link listOAuthProviderCatalog}.
+   */
+  oauthProvider?: OAuthProviderOverride | null;
+  /** True if any connection option is an `mcp` connector (derived). */
+  supportsMcp?: boolean;
+  /** True if any connection option uses the `oauth2` auth strategy (derived). */
+  supportsOauth?: boolean;
 }
 
 /**

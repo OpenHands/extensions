@@ -27,5 +27,6 @@
         "strategy": "none"
       }
     }
-  ]
+  ],
+  "oauthProvider": null
 }

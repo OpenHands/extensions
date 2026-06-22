@@ -59,17 +59,17 @@ See [`integrations/README.md`](integrations/README.md), [`automations/README.md`
 
 ### Python Package
 
-The OAuth provider catalog is also published as a Python package (`openhands-extensions`) so Python services read the same catalog data as JS consumers. The single source of truth is the unified JSON asset `integrations/integration-catalog.json`, generated from the JS authoring source by `npm run build:integration-catalog`. Both the JS package (`@openhands/extensions/integrations`) and the Python package read that same JSON asset at runtime, so the two language bindings can never drift. A CI parity test regenerates the JSON from the authoring source and asserts the checked-in copy matches.
+The OAuth provider catalog is also published as a Python package (`openhands-extensions`) so Python services read the same catalog data as JS consumers. The single source of truth is the hand-authored JSON asset `integrations/integration-catalog.json` (NOT generated from any `.mjs`/`.js` source). Each per-integration entry also exists as `integrations/catalog/<id>.json`; a CI parity test asserts the two never drift. Both the JS package (`@openhands/extensions/integrations`) and the Python package read that same JSON asset at runtime, so the two language bindings can never drift.
 
-The unified catalog merges every integration into one array where each entry can carry oauth and/or mcp/http `connectionOptions` (tagged with `supportsOauth` / `supportsMcp`). Use `listIntegrationCatalog({ mcp, oauth })` (JS) or `list_integration_catalog(mcp=, oauth=)` (Python) to filter by connector type - for example only integrations that support an oauth connector.
+The catalog is one array where each entry can carry oauth and/or mcp/http `connectionOptions`. Provider-specific OAuth knowledge is merged into each integration as a minimal `oauthProvider` override (`null` when the integration has no OAuth provider); the `providers[]` view, `supportsOauth` / `supportsMcp` flags, and `defaultManagedConnectors` are all derived at runtime. Use `listIntegrationCatalog({ mcp, oauth })` (JS) or `list_integration_catalog(mcp=, oauth=)` (Python) to filter by connector type - for example only integrations that support an oauth connector.
 
 ```python
 from openhands_extensions import (
     list_integration_catalog,                        # listIntegrationCatalog({ mcp, oauth })
     list_oauth_provider_catalog,                     # listOAuthProviderCatalog()
     get_oauth_provider_registration_defaults,        # getOAuthProviderRegistrationDefaults(slug)
-    default_managed_connectors,                      # snapshot defaultManagedConnectors
-    INTEGRATION_CATALOG_SNAPSHOT,                    # { integrations, providers, ... }
+    default_managed_connectors,                      # defaultManagedConnectors()
+    INTEGRATION_CATALOG_SNAPSHOT,                    # { integrations, defaultManagedConnectorSlugs }
 )
 
 all_integrations = list_integration_catalog()

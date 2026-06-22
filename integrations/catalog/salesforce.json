@@ -1,0 +1,56 @@
+{
+  "id": "salesforce",
+  "kind": "http",
+  "name": "Salesforce",
+  "description": "CRM records, accounts, opportunities, and sales operations.",
+  "categories": [
+    "CRM",
+    "Sales"
+  ],
+  "appUrl": "https://www.salesforce.com",
+  "docsUrl": "https://help.salesforce.com/s/articleView?id=sf.remoteaccess_oauth_web_server_flow.htm&type=5",
+  "notes": "Very common enterprise CRM and agent-assist target.",
+  "catalogStatus": "planned",
+  "authStrategy": "oauth2",
+  "popularityRank": 24,
+  "registrationDefaults": {
+    "apiBaseUrl": "https://{instance}.salesforce.com/services/data/v60.0",
+    "authorizationUrl": "https://login.salesforce.com/services/oauth2/authorize",
+    "tokenUrl": "https://login.salesforce.com/services/oauth2/token",
+    "scopes": [
+      "api"
+    ],
+    "toolName": "list_accounts",
+    "toolDescription": "List Salesforce accounts from the connected org.",
+    "requestMethod": "GET",
+    "requestPath": "/sobjects/Account",
+    "provider": "http"
+  },
+  "defaultConnectionOptionId": "oauth",
+  "connectionOptions": [
+    {
+      "id": "oauth",
+      "provider": "http",
+      "auth": {
+        "strategy": "oauth2",
+        "oauth": {
+          "authorizationUrl": "https://login.salesforce.com/services/oauth2/authorize",
+          "tokenUrl": "https://login.salesforce.com/services/oauth2/token",
+          "scopes": [
+            "api"
+          ]
+        }
+      },
+      "http": {
+        "apiBaseUrl": "https://{instance}.salesforce.com/services/data/v60.0",
+        "defaultTool": {
+          "name": "list_accounts",
+          "description": "List Salesforce accounts from the connected org.",
+          "method": "GET",
+          "path": "/sobjects/Account"
+        }
+      }
+    }
+  ],
+  "oauthProvider": {}
+}

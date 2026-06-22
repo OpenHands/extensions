@@ -1,0 +1,58 @@
+{
+  "id": "box",
+  "kind": "http",
+  "name": "Box",
+  "description": "Enterprise file storage, metadata, and collaboration.",
+  "categories": [
+    "Storage",
+    "Enterprise"
+  ],
+  "appUrl": "https://www.box.com",
+  "docsUrl": "https://developer.box.com/guides/authentication/oauth2/",
+  "notes": "Strong enterprise document-management footprint.",
+  "catalogStatus": "planned",
+  "authStrategy": "oauth2",
+  "popularityRank": 19,
+  "registrationDefaults": {
+    "apiBaseUrl": "https://api.box.com/2.0",
+    "authorizationUrl": "https://account.box.com/api/oauth2/authorize",
+    "tokenUrl": "https://api.box.com/oauth2/token",
+    "scopes": [
+      "root_readonly",
+      "item_read"
+    ],
+    "toolName": "list_root_items",
+    "toolDescription": "List files and folders in the Box root folder.",
+    "requestMethod": "GET",
+    "requestPath": "/folders/0/items",
+    "provider": "http"
+  },
+  "defaultConnectionOptionId": "oauth",
+  "connectionOptions": [
+    {
+      "id": "oauth",
+      "provider": "http",
+      "auth": {
+        "strategy": "oauth2",
+        "oauth": {
+          "authorizationUrl": "https://account.box.com/api/oauth2/authorize",
+          "tokenUrl": "https://api.box.com/oauth2/token",
+          "scopes": [
+            "root_readonly",
+            "item_read"
+          ]
+        }
+      },
+      "http": {
+        "apiBaseUrl": "https://api.box.com/2.0",
+        "defaultTool": {
+          "name": "list_root_items",
+          "description": "List files and folders in the Box root folder.",
+          "method": "GET",
+          "path": "/folders/0/items"
+        }
+      }
+    }
+  ],
+  "oauthProvider": {}
+}

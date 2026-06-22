@@ -1,0 +1,56 @@
+{
+  "id": "freshdesk",
+  "kind": "http",
+  "name": "Freshdesk",
+  "description": "Support tickets, customer records, and help desk workflows.",
+  "categories": [
+    "Support",
+    "Operations"
+  ],
+  "appUrl": "https://www.freshworks.com/freshdesk/",
+  "docsUrl": "https://developers.freshdesk.com/api/#authentication",
+  "notes": "Popular support platform for SMB and mid-market teams.",
+  "catalogStatus": "planned",
+  "authStrategy": "oauth2",
+  "popularityRank": 44,
+  "registrationDefaults": {
+    "apiBaseUrl": "https://{domain}.freshdesk.com/api/v2",
+    "authorizationUrl": "https://{domain}.freshdesk.com/oauth/authorize",
+    "tokenUrl": "https://{domain}.freshdesk.com/oauth/token",
+    "scopes": [
+      "tickets_view"
+    ],
+    "toolName": "list_tickets",
+    "toolDescription": "List Freshdesk tickets for the connected account.",
+    "requestMethod": "GET",
+    "requestPath": "/tickets",
+    "provider": "http"
+  },
+  "defaultConnectionOptionId": "oauth",
+  "connectionOptions": [
+    {
+      "id": "oauth",
+      "provider": "http",
+      "auth": {
+        "strategy": "oauth2",
+        "oauth": {
+          "authorizationUrl": "https://{domain}.freshdesk.com/oauth/authorize",
+          "tokenUrl": "https://{domain}.freshdesk.com/oauth/token",
+          "scopes": [
+            "tickets_view"
+          ]
+        }
+      },
+      "http": {
+        "apiBaseUrl": "https://{domain}.freshdesk.com/api/v2",
+        "defaultTool": {
+          "name": "list_tickets",
+          "description": "List Freshdesk tickets for the connected account.",
+          "method": "GET",
+          "path": "/tickets"
+        }
+      }
+    }
+  ],
+  "oauthProvider": {}
+}

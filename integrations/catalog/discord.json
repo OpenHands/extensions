@@ -1,0 +1,58 @@
+{
+  "id": "discord",
+  "kind": "http",
+  "name": "Discord",
+  "description": "Guilds, channels, messages, and community operations.",
+  "categories": [
+    "Communication",
+    "Community"
+  ],
+  "appUrl": "https://discord.com",
+  "docsUrl": "https://discord.com/developers/docs/topics/oauth2",
+  "notes": "Useful for community automation and bot-assisted workflows.",
+  "catalogStatus": "planned",
+  "authStrategy": "oauth2",
+  "popularityRank": 30,
+  "registrationDefaults": {
+    "apiBaseUrl": "https://discord.com/api/v10",
+    "authorizationUrl": "https://discord.com/oauth2/authorize",
+    "tokenUrl": "https://discord.com/api/oauth2/token",
+    "scopes": [
+      "identify",
+      "guilds"
+    ],
+    "toolName": "list_guilds",
+    "toolDescription": "List Discord guilds available to the connected user.",
+    "requestMethod": "GET",
+    "requestPath": "/users/@me/guilds",
+    "provider": "http"
+  },
+  "defaultConnectionOptionId": "oauth",
+  "connectionOptions": [
+    {
+      "id": "oauth",
+      "provider": "http",
+      "auth": {
+        "strategy": "oauth2",
+        "oauth": {
+          "authorizationUrl": "https://discord.com/oauth2/authorize",
+          "tokenUrl": "https://discord.com/api/oauth2/token",
+          "scopes": [
+            "identify",
+            "guilds"
+          ]
+        }
+      },
+      "http": {
+        "apiBaseUrl": "https://discord.com/api/v10",
+        "defaultTool": {
+          "name": "list_guilds",
+          "description": "List Discord guilds available to the connected user.",
+          "method": "GET",
+          "path": "/users/@me/guilds"
+        }
+      }
+    }
+  ],
+  "oauthProvider": {}
+}

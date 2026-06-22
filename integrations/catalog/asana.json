@@ -1,0 +1,56 @@
+{
+  "id": "asana",
+  "kind": "http",
+  "name": "Asana",
+  "description": "Task management, projects, and work tracking.",
+  "categories": [
+    "Project management",
+    "Operations"
+  ],
+  "appUrl": "https://asana.com",
+  "docsUrl": "https://developers.asana.com/docs/oauth",
+  "notes": "Broad business adoption and straightforward OAuth app model.",
+  "catalogStatus": "planned",
+  "authStrategy": "oauth2",
+  "popularityRank": 13,
+  "registrationDefaults": {
+    "apiBaseUrl": "https://app.asana.com/api/1.0",
+    "authorizationUrl": "https://app.asana.com/-/oauth_authorize",
+    "tokenUrl": "https://app.asana.com/-/oauth_token",
+    "scopes": [
+      "tasks:read"
+    ],
+    "toolName": "list_tasks",
+    "toolDescription": "List tasks visible to the connected Asana user.",
+    "requestMethod": "GET",
+    "requestPath": "/tasks",
+    "provider": "http"
+  },
+  "defaultConnectionOptionId": "oauth",
+  "connectionOptions": [
+    {
+      "id": "oauth",
+      "provider": "http",
+      "auth": {
+        "strategy": "oauth2",
+        "oauth": {
+          "authorizationUrl": "https://app.asana.com/-/oauth_authorize",
+          "tokenUrl": "https://app.asana.com/-/oauth_token",
+          "scopes": [
+            "tasks:read"
+          ]
+        }
+      },
+      "http": {
+        "apiBaseUrl": "https://app.asana.com/api/1.0",
+        "defaultTool": {
+          "name": "list_tasks",
+          "description": "List tasks visible to the connected Asana user.",
+          "method": "GET",
+          "path": "/tasks"
+        }
+      }
+    }
+  ],
+  "oauthProvider": {}
+}

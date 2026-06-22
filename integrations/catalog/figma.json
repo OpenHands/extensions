@@ -1,18 +1,63 @@
 {
   "id": "figma",
+  "kind": "mcp",
   "name": "Figma",
   "description": "Read Figma frames, components, and styles to ground UI work in your designs.",
-  "docsUrl": "https://github.com/GLips/Figma-Context-MCP",
-  "iconBg": "var(--oh-surface)",
-  "keywords": [
-    "design",
-    "ui",
-    "frames",
-    "components"
+  "categories": [
+    "Design",
+    "Frontend"
   ],
-  "kind": "mcp",
-  "defaultConnectionOptionId": "api",
+  "appUrl": "https://www.figma.com",
+  "docsUrl": "https://github.com/GLips/Figma-Context-MCP",
+  "notes": "",
+  "catalogStatus": "oauth_ready",
+  "managedConnectorSlug": "figma",
+  "authStrategy": "oauth2",
+  "popularityRank": 5,
+  "registrationDefaults": {
+    "apiBaseUrl": "https://api.figma.com",
+    "authorizationUrl": "https://www.figma.com/oauth",
+    "tokenUrl": "https://api.figma.com/v1/oauth/token",
+    "scopes": [
+      "current_user:read",
+      "file_content:read",
+      "file_metadata:read",
+      "projects:read"
+    ],
+    "toolName": "get_file",
+    "toolDescription": "Fetch a Figma file by key.",
+    "requestMethod": "GET",
+    "requestPath": "/v1/files/{fileKey}",
+    "provider": "http"
+  },
+  "defaultConnectionOptionId": "oauth",
   "connectionOptions": [
+    {
+      "id": "oauth",
+      "provider": "http",
+      "auth": {
+        "strategy": "oauth2",
+        "oauth": {
+          "authorizationUrl": "https://www.figma.com/oauth",
+          "tokenUrl": "https://api.figma.com/v1/oauth/token",
+          "scopes": [
+            "current_user:read",
+            "file_content:read",
+            "file_metadata:read",
+            "projects:read"
+          ]
+        }
+      },
+      "http": {
+        "apiBaseUrl": "https://api.figma.com",
+        "defaultTool": {
+          "name": "get_file",
+          "description": "Fetch a Figma file by key.",
+          "method": "GET",
+          "path": "/v1/files/{fileKey}"
+        }
+      }
+    },
     {
       "id": "api",
       "provider": "mcp",
@@ -40,5 +85,16 @@
         "strategy": "api_key"
       }
     }
-  ]
+  ],
+  "iconBg": "var(--oh-surface)",
+  "keywords": [
+    "design",
+    "ui",
+    "frames",
+    "components"
+  ],
+  "oauthProvider": {
+    "description": "Design files, nodes, and developer handoff automation.",
+    "docsUrl": "https://www.figma.com/developers/api#oauth2"
+  }
 }

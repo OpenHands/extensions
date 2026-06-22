@@ -1,18 +1,56 @@
 {
   "id": "stripe",
+  "kind": "mcp",
   "name": "Stripe",
   "description": "Query customers, payments, subscriptions, and invoices via Stripe's hosted MCP server.",
-  "docsUrl": "https://stripe.com/docs/mcp",
-  "iconBg": "#635BFF",
-  "keywords": [
-    "payments",
-    "billing",
-    "subscriptions",
-    "finance"
+  "categories": [
+    "Payments",
+    "Finance"
   ],
-  "kind": "mcp",
-  "defaultConnectionOptionId": "none",
+  "appUrl": "https://stripe.com",
+  "docsUrl": "https://stripe.com/docs/mcp",
+  "notes": "High-value fintech automation target with mature OAuth patterns.",
+  "catalogStatus": "planned",
+  "authStrategy": "oauth2",
+  "popularityRank": 28,
+  "registrationDefaults": {
+    "apiBaseUrl": "https://api.stripe.com/v1",
+    "authorizationUrl": "https://connect.stripe.com/oauth/authorize",
+    "tokenUrl": "https://connect.stripe.com/oauth/token",
+    "scopes": [
+      "read_only"
+    ],
+    "toolName": "list_customers",
+    "toolDescription": "List Stripe customers from the connected account.",
+    "requestMethod": "GET",
+    "requestPath": "/customers",
+    "provider": "http"
+  },
+  "defaultConnectionOptionId": "oauth",
   "connectionOptions": [
+    {
+      "id": "oauth",
+      "provider": "http",
+      "auth": {
+        "strategy": "oauth2",
+        "oauth": {
+          "authorizationUrl": "https://connect.stripe.com/oauth/authorize",
+          "tokenUrl": "https://connect.stripe.com/oauth/token",
+          "scopes": [
+            "read_only"
+          ]
+        }
+      },
+      "http": {
+        "apiBaseUrl": "https://api.stripe.com/v1",
+        "defaultTool": {
+          "name": "list_customers",
+          "description": "List Stripe customers from the connected account.",
+          "method": "GET",
+          "path": "/customers"
+        }
+      }
+    },
     {
       "id": "none",
       "provider": "mcp",
@@ -26,5 +64,16 @@
         "apiKeyOptional": true
       }
     }
-  ]
+  ],
+  "iconBg": "#635BFF",
+  "keywords": [
+    "payments",
+    "billing",
+    "subscriptions",
+    "finance"
+  ],
+  "oauthProvider": {
+    "description": "Payments, customers, invoices, and subscription operations.",
+    "docsUrl": "https://docs.stripe.com/connect/oauth-reference"
+  }
 }
