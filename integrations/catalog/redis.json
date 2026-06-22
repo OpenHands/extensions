@@ -9,7 +9,6 @@
     "kv",
     "database"
   ],
-  "runtimeAvailability": "local",
   "connectionOptions": [
     {
       "id": "api",

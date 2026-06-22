@@ -101,7 +101,6 @@ export interface IntegrationCatalogEntry {
   iconColor?: string;
   keywords?: string[];
   popularityRank?: number;
-  runtimeAvailability?: "all" | "local";
   installHint?: string;
   connectionOptions: IntegrationConnectionOption[];
 }

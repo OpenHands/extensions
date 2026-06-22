@@ -10,7 +10,6 @@
     "disk"
   ],
   "installHint": "Each path is exposed read/write. Add as many as you need, separated by spaces.",
-  "runtimeAvailability": "local",
   "connectionOptions": [
     {
       "id": "api",

@@ -10,7 +10,6 @@
     "chrome",
     "playwright"
   ],
-  "runtimeAvailability": "local",
   "connectionOptions": [
     {
       "id": "none",
