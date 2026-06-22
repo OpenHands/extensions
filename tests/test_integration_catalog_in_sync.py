@@ -9,16 +9,21 @@ from pathlib import Path
 import openhands_extensions
 
 ROOT = Path(__file__).resolve().parents[1]
-ASSET = ROOT / "integrations" / "integration-catalog.json"
 CATALOG_DIR = ROOT / "integrations" / "catalog"
+CATALOG_INDEX = ROOT / "integrations" / "catalog-index.js"
+AGGREGATE_ASSETS = [
+    ROOT / "integrations" / "integration-catalog.json",
+    ROOT / "python" / "openhands_extensions" / "integration-catalog.json",
+]
 
 
 def _catalog_files() -> dict[str, dict]:
     return {p.stem: json.loads(p.read_text()) for p in CATALOG_DIR.glob("*.json")}
 
 
-def _generated_asset() -> dict:
-    return json.loads(ASSET.read_text())
+def _catalog_entries() -> list[dict]:
+    entries = list(_catalog_files().values())
+    return sorted(entries, key=lambda entry: (-(entry.get("popularityRank") if entry.get("popularityRank") is not None else -1), entry["id"]))
 
 
 def _supports_mcp(entry: dict) -> bool:
@@ -44,23 +49,27 @@ def test_catalog_directory_is_hand_authored_source_of_truth() -> None:
         assert "catalogStatus" not in entry
 
 
-def test_generated_asset_matches_catalog_directory() -> None:
-    generated = _generated_asset()
-    assert set(generated.keys()) == {"integrations"}
-    master = {e["id"]: e for e in generated["integrations"]}
-    catalog_files = _catalog_files()
-    assert set(catalog_files) == set(master)
-    for integration_id, entry in master.items():
-        assert catalog_files[integration_id] == entry
+def test_no_aggregate_catalog_json_exists() -> None:
+    for asset in AGGREGATE_ASSETS:
+        assert not asset.exists()
 
 
-def test_python_reads_the_same_asset() -> None:
-    assert openhands_extensions.INTEGRATION_CATALOG_SNAPSHOT == json.loads(ASSET.read_text())
+def test_generated_js_index_references_catalog_directory() -> None:
+    body = CATALOG_INDEX.read_text()
+    for file in sorted(path.name for path in CATALOG_DIR.glob("*.json")):
+        assert f"./catalog/{file}" in body
+    assert "integration-catalog.json" not in body
+
+
+def test_python_snapshot_is_built_from_catalog_directory() -> None:
+    assert openhands_extensions.INTEGRATION_CATALOG_SNAPSHOT == {
+        "integrations": _catalog_entries()
+    }
 
 
 def test_python_list_integration_catalog_returns_raw_entries() -> None:
     entries = openhands_extensions.list_integration_catalog()
-    assert entries == _generated_asset()["integrations"]
+    assert entries == _catalog_entries()
     for entry in entries:
         assert "supportsMcp" not in entry
         assert "supportsOauth" not in entry
@@ -80,12 +89,6 @@ def test_get_integration_catalog_entry_round_trip() -> None:
     assert openhands_extensions.get_integration_catalog_entry("nope") is None
 
 
-def test_python_asset_is_byte_identical_to_root_asset() -> None:
-    root_asset = ASSET.read_bytes()
-    py_asset = (ROOT / "python" / "openhands_extensions" / "integration-catalog.json").read_bytes()
-    assert root_asset == py_asset
-
-
 def _js_call(expr: str) -> str:
     result = subprocess.run(
         ["node", "--input-type=module", "-e", expr],
@@ -97,7 +100,7 @@ def _js_call(expr: str) -> str:
     return result.stdout
 
 
-def test_js_reads_the_same_asset_as_python() -> None:
+def test_js_reads_the_same_catalog_as_python() -> None:
     integrations = _js_call(
         "import { listIntegrationCatalog } from './integrations/index.js';\n"
         "process.stdout.write(JSON.stringify(listIntegrationCatalog()));"

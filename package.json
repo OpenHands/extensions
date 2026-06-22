@@ -47,7 +47,6 @@
       "default": "./integrations/logos.js"
     },
     "./integrations/catalog/*.json": "./integrations/catalog/*.json",
-    "./integrations/integration-catalog.json": "./integrations/integration-catalog.json",
     "./skills": {
       "types": "./skills/index.d.ts",
       "import": "./skills/index.js",

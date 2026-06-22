@@ -123,9 +123,8 @@ export interface IntegrationCatalogFilter {
 export const INTEGRATION_CATALOG: IntegrationCatalogEntry[];
 /**
  * Return the full integration catalog, optionally filtered by connector type.
- * Reads the generated `integration-catalog.json` package asset. The manually
- * edited source of truth is `integrations/catalog/<id>.json`. Returns the
- * cached array; callers must treat it as read-only.
+ * Reads the generated static import index over `integrations/catalog/<id>.json`.
+ * Returns the cached array; callers must treat it as read-only.
  */
 export function listIntegrationCatalog(
   filter?: IntegrationCatalogFilter,

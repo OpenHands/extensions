@@ -2,12 +2,12 @@
  * Runtime integration catalog.
  *
  * The source of truth is the hand-authored `integrations/catalog/<id>.json`
- * directory. `integration-catalog.json` is a generated package asset assembled
- * from that directory and mirrored byte-for-byte into the Python package.
+ * directory. `catalog-index.js` is generated from that directory so the JS
+ * package can statically import each JSON file without an aggregate JSON asset.
  */
-import catalogAsset from "./integration-catalog.json" with { type: "json" };
+import { INTEGRATION_CATALOG_ENTRIES } from "./catalog-index.js";
 
-const INTEGRATIONS = catalogAsset.integrations;
+const INTEGRATIONS = INTEGRATION_CATALOG_ENTRIES;
 const INTEGRATION_BY_ID = new Map(INTEGRATIONS.map((entry) => [entry.id, entry]));
 
 const entrySupportsMcp = (entry) =>

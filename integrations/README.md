@@ -4,14 +4,15 @@ This directory contains curated integration metadata for OpenHands clients.
 Most current entries are MCP-backed, but the schema also supports HTTP/OpenAPI
 integrations so clients can consume one source of truth.
 
-- `integration-catalog.json` is the hand-authored source of truth (a single
-  JSON asset, NOT generated from any `.mjs`/`.js` source). It is mirrored
-  byte-for-byte into the Python package.
-- `catalog/<id>.json` contains one file per integration entry, kept in sync
-  with the matching entry in `integration-catalog.json` (a CI parity test
-  asserts the two never drift).
-- `index.js` reads `integration-catalog.json` at runtime and derives the
-  `supportsMcp`/`supportsOauth` flags from the canonical connection options.
+- `catalog/<id>.json` is the hand-authored source of truth. Add or edit an
+  integration by changing exactly one file in that directory.
+- `catalog-index.js` is generated from `catalog/*.json` so the JavaScript
+  package can statically import every individual JSON file without an aggregate
+  catalog JSON asset.
+- The Python package includes the same individual `catalog/*.json` files and
+  reads them directly.
+- `index.js` derives the `supportsMcp`/`supportsOauth` filters from the
+  canonical connection options at read time.
 - `index.d.ts` contains the public TypeScript shape.
 
 Each integration carries its OAuth/MCP connection data directly. Do not add a
@@ -37,8 +38,8 @@ old package exports were removed rather than kept as aliases.
 - Read MCP configuration from `entry.connectionOptions[]`. Direct MCP entries
   have `provider: "mcp"` and a `transport`; entries may expose multiple
   options such as `id: "oauth"` for a hosted OAuth MCP endpoint and `id:
-"api"` for an API-key or stdio fallback.
-- Use `entry.defaultConnectionOptionId` to choose the preferred option.
+"api"` for an API-key or stdio fallback. The first option is the preferred
+  default.
 - Automation catalog entries now use `requiredIntegrationIds` instead of
   `requiredMcpIds`.
 

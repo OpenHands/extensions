@@ -1,11 +1,10 @@
 """Python bindings for the OpenHands extensions catalogs.
 
 Mirrors the JavaScript package (``@openhands/extensions``): both read the same
-generated ``integration-catalog.json`` package asset at runtime. The manually
-edited source of truth is the ``integrations/catalog/<id>.json`` directory;
-``scripts/build-integration-catalog.mjs`` assembles the generated JS/Python
-assets from those files. See ``integrations.py`` for the catalog API, including
-filtering by connector type (mcp / oauth).
+hand-authored ``integrations/catalog/<id>.json`` files. The JavaScript package
+uses a generated static import index; the Python package loads the packaged
+individual JSON files directly. See ``integrations.py`` for the catalog API,
+including filtering by connector type (mcp / oauth).
 """
 
 from __future__ import annotations

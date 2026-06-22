@@ -1,8 +1,8 @@
 """Python bindings for the OpenHands extensions integration catalog.
 
 The source of truth is the hand-authored ``integrations/catalog/<id>.json``
-directory. ``integration-catalog.json`` is a generated package asset assembled
-from that directory and mirrored byte-for-byte into this package.
+directory. Wheels include those individual JSON files directly; no aggregate
+catalog JSON is authored or packaged.
 """
 
 from __future__ import annotations
@@ -11,7 +11,8 @@ import copy
 import json
 from functools import lru_cache
 from importlib import resources
-from typing import Any
+from pathlib import Path
+from typing import Any, Iterable
 
 __all__ = [
     "INTEGRATION_CATALOG_SNAPSHOT",
@@ -20,16 +21,38 @@ __all__ = [
 ]
 
 
+def _repo_catalog_dir() -> Path:
+    return Path(__file__).resolve().parents[2] / "integrations" / "catalog"
+
+
+def _catalog_files() -> Iterable[Any]:
+    packaged = resources.files(__package__).joinpath("catalog")
+    if packaged.is_dir():
+        return sorted(
+            (path for path in packaged.iterdir() if path.name.endswith(".json")),
+            key=lambda path: path.name,
+        )
+
+    repo_catalog = _repo_catalog_dir()
+    return sorted(repo_catalog.glob("*.json"), key=lambda path: path.name)
+
+
+def _read_json(path: Any) -> dict[str, Any]:
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
 @lru_cache(maxsize=1)
-def _load_snapshot() -> dict[str, Any]:
-    with resources.files(__package__).joinpath("integration-catalog.json").open(
-        "r", encoding="utf-8"
-    ) as handle:
-        return json.load(handle)
+def _integrations() -> tuple[dict[str, Any], ...]:
+    entries = [_read_json(path) for path in _catalog_files()]
+    entries.sort(
+        key=lambda entry: (-(entry.get("popularityRank") if entry.get("popularityRank") is not None else -1), entry["id"]),
+    )
+    return tuple(entries)
 
 
-def _raw_integrations() -> list[dict[str, Any]]:
-    return _load_snapshot()["integrations"]
+@lru_cache(maxsize=1)
+def _integration_by_id() -> dict[str, dict[str, Any]]:
+    return {entry["id"]: entry for entry in _integrations()}
 
 
 def _entry_supports_mcp(entry: dict[str, Any]) -> bool:
@@ -41,16 +64,6 @@ def _entry_supports_oauth(entry: dict[str, Any]) -> bool:
         option.get("auth", {}).get("strategy") == "oauth2"
         for option in entry.get("connectionOptions", [])
     )
-
-
-@lru_cache(maxsize=1)
-def _integrations() -> tuple[dict[str, Any], ...]:
-    return tuple(_raw_integrations())
-
-
-@lru_cache(maxsize=1)
-def _integration_by_id() -> dict[str, dict[str, Any]]:
-    return {entry["id"]: entry for entry in _integrations()}
 
 
 def list_integration_catalog(
@@ -74,4 +87,6 @@ def get_integration_catalog_entry(id: str) -> dict[str, Any] | None:
     return copy.deepcopy(entry) if entry is not None else None
 
 
-INTEGRATION_CATALOG_SNAPSHOT: dict[str, Any] = copy.deepcopy(_load_snapshot())
+INTEGRATION_CATALOG_SNAPSHOT: dict[str, Any] = {
+    "integrations": copy.deepcopy(list(_integrations()))
+}
