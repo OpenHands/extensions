@@ -417,7 +417,7 @@
     {
       "name": "openhands-api",
       "source": "./skills/openhands-api",
-      "description": "Use the OpenHands Cloud REST API (V1) to create and manage app conversations, including multi-conversation delegation workflows, and to access sandbox agent-server endpoints. Includes minimal Python and TypeScript clients under scripts/.",
+      "description": "Use the OpenHands Cloud REST API (V1) and agent-server APIs to create and manage Cloud or local backend conversations, including multi-conversation delegation workflows. Includes minimal Python and TypeScript clients under scripts/.",
       "category": "development",
       "keywords": [
         "openhands",
