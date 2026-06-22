@@ -88,14 +88,19 @@ export interface IntegrationConnectionOption {
   auth: IntegrationAuthConfig;
 }
 
-export interface OAuthProviderRegistrationDefaults {
+export type IntegrationAvailability = "oauth_ready" | "manual_token" | "planned";
+
+export interface IntegrationRegistrationDefaults {
   provider?: IntegrationProvider;
   authModes?: IntegrationAuthStrategy[];
   authStrategy?: IntegrationAuthStrategy;
   credentialLabel?: string;
   credentialPlaceholder?: string;
   credentialHelp?: string;
+  credentialSecretName?: string;
+  saveCredentialAsSecretByDefault?: boolean;
   apiKeyHeaderName?: string;
+  apiKeyOptional?: boolean;
   apiBaseUrl?: string;
   serverUrl?: string;
   openApiUrl?: string;
@@ -116,33 +121,8 @@ export interface OAuthProviderRegistrationDefaults {
   requestPath?: string;
 }
 
-export interface OAuthProviderCatalogOption {
-  slug: string;
-  name: string;
-  description: string;
-  categories: string[];
-  authStrategy: IntegrationAuthStrategy;
-  availability: "oauth_ready" | "manual_token" | "planned";
-  managedConnectorSlug?: string;
-  appUrl?: string;
-  docsUrl?: string;
-  notes: string;
-  popularityRank: number;
-  registrationDefaults?: OAuthProviderRegistrationDefaults;
-}
-
-export interface OAuthProviderOverride {
-  /** OAuth-context description (when it differs from the integration's). */
-  description?: string;
-  /** OAuth-context docs URL (when it differs from the integration's). */
-  docsUrl?: string;
-  /** OAuth-context popularity rank (when it differs from the integration's). */
-  popularityRank?: number;
-}
-
 export interface IntegrationCatalogEntry {
   id: string;
-  kind: IntegrationProvider;
   name: string;
   description: string;
   categories?: string[];
@@ -154,16 +134,22 @@ export interface IntegrationCatalogEntry {
   keywords?: string[];
   popularityRank?: number;
   runtimeAvailability?: "all" | "local";
-  catalogStatus?: "oauth_ready" | "manual_token" | "planned";
-  managedConnectorSlug?: string;
-  authStrategy?: IntegrationAuthStrategy;
+  availability?: IntegrationAvailability;
   installHint?: string;
-  defaultConnectionOptionId?: string;
   connectionOptions: IntegrationConnectionOption[];
-  registrationDefaults?: OAuthProviderRegistrationDefaults;
-  /** True if any connection option is an `mcp` connector (derived). */
+  /** Legacy alias for `availability`, derived at read time. */
+  catalogStatus?: IntegrationAvailability;
+  /** The first connection option id, derived at read time. */
+  defaultConnectionOptionId?: string;
+  /** The first connection option auth strategy, derived at read time. */
+  authStrategy?: IntegrationAuthStrategy;
+  /** Present for ready/manual managed connectors and derived from `id`. */
+  managedConnectorSlug?: string;
+  /** Flattened view of the first connection option, derived at read time. */
+  registrationDefaults?: IntegrationRegistrationDefaults;
+  /** True if any connection option is an `mcp` connector, derived at read time. */
   supportsMcp?: boolean;
-  /** True if any connection option uses the `oauth2` auth strategy (derived). */
+  /** True if any connection option uses `oauth2`, derived at read time. */
   supportsOauth?: boolean;
 }
 
@@ -182,9 +168,9 @@ export interface IntegrationCatalogFilter {
 export const INTEGRATION_CATALOG: IntegrationCatalogEntry[];
 /**
  * Return the full integration catalog, optionally filtered by connector type.
- * Reads from the unified `integration-catalog.json` asset (single source of
- * truth shared with the Python package). Returns the cached array; callers
- * must treat it as read-only.
+ * Reads the generated `integration-catalog.json` package asset. The manually
+ * edited source of truth is `integrations/catalog/<id>.json`. Returns the
+ * cached array; callers must treat it as read-only.
  */
 export function listIntegrationCatalog(
   filter?: IntegrationCatalogFilter,

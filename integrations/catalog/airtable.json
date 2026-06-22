@@ -1,6 +1,5 @@
 {
   "id": "airtable",
-  "kind": "mcp",
   "name": "Airtable",
   "description": "List bases, query records, and update fields across your Airtable workspace.",
   "categories": [
@@ -10,24 +9,7 @@
   "appUrl": "https://airtable.com",
   "docsUrl": "https://github.com/domdomegg/airtable-mcp-server",
   "notes": "Very common internal-tools and operations automation surface.",
-  "catalogStatus": "planned",
-  "authStrategy": "oauth2",
   "popularityRank": 17,
-  "registrationDefaults": {
-    "apiBaseUrl": "https://api.airtable.com/v0",
-    "authorizationUrl": "https://airtable.com/oauth2/v1/authorize",
-    "tokenUrl": "https://airtable.com/oauth2/v1/token",
-    "scopes": [
-      "schema.bases:read",
-      "data.records:read"
-    ],
-    "toolName": "list_bases",
-    "toolDescription": "List Airtable bases the connected user granted access to.",
-    "requestMethod": "GET",
-    "requestPath": "/meta/bases",
-    "provider": "http"
-  },
-  "defaultConnectionOptionId": "oauth",
   "connectionOptions": [
     {
       "id": "oauth",
@@ -87,5 +69,6 @@
     "database",
     "records",
     "bases"
-  ]
+  ],
+  "availability": "planned"
 }

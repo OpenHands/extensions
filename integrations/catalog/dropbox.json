@@ -1,6 +1,5 @@
 {
   "id": "dropbox",
-  "kind": "http",
   "name": "Dropbox",
   "description": "Cloud files, folders, content access, and sharing.",
   "categories": [
@@ -10,23 +9,7 @@
   "appUrl": "https://www.dropbox.com",
   "docsUrl": "https://developers.dropbox.com/oauth-guide",
   "notes": "Popular file automation target with mature OAuth support.",
-  "catalogStatus": "planned",
-  "authStrategy": "oauth2",
   "popularityRank": 18,
-  "registrationDefaults": {
-    "apiBaseUrl": "https://api.dropboxapi.com/2",
-    "authorizationUrl": "https://www.dropbox.com/oauth2/authorize",
-    "tokenUrl": "https://api.dropboxapi.com/oauth2/token",
-    "scopes": [
-      "files.metadata.read"
-    ],
-    "toolName": "list_root_folder",
-    "toolDescription": "List entries in the root Dropbox folder.",
-    "requestMethod": "POST",
-    "requestPath": "/files/list_folder",
-    "provider": "http"
-  },
-  "defaultConnectionOptionId": "oauth",
   "connectionOptions": [
     {
       "id": "oauth",
@@ -51,5 +34,6 @@
         }
       }
     }
-  ]
+  ],
+  "availability": "planned"
 }

@@ -1,6 +1,5 @@
 {
   "id": "quickbooks",
-  "kind": "http",
   "name": "QuickBooks",
   "description": "Accounting, invoices, customers, and financial operations.",
   "categories": [
@@ -10,23 +9,7 @@
   "appUrl": "https://quickbooks.intuit.com",
   "docsUrl": "https://developer.intuit.com/app/developer/qbo/docs/develop/authentication-and-authorization/oauth-2.0",
   "notes": "Frequent finance automation request with OAuth-based apps.",
-  "catalogStatus": "planned",
-  "authStrategy": "oauth2",
   "popularityRank": 47,
-  "registrationDefaults": {
-    "apiBaseUrl": "https://sandbox-quickbooks.api.intuit.com/v3/company/{companyId}",
-    "authorizationUrl": "https://appcenter.intuit.com/connect/oauth2",
-    "tokenUrl": "https://oauth.platform.intuit.com/oauth2/v1/tokens/bearer",
-    "scopes": [
-      "com.intuit.quickbooks.accounting"
-    ],
-    "toolName": "list_customers",
-    "toolDescription": "Query QuickBooks customers for the connected company.",
-    "requestMethod": "GET",
-    "requestPath": "/query?query=SELECT%20*%20FROM%20Customer%20MAXRESULTS%2010",
-    "provider": "http"
-  },
-  "defaultConnectionOptionId": "oauth",
   "connectionOptions": [
     {
       "id": "oauth",
@@ -51,5 +34,6 @@
         }
       }
     }
-  ]
+  ],
+  "availability": "planned"
 }

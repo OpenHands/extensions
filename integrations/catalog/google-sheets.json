@@ -1,6 +1,5 @@
 {
   "id": "google-sheets",
-  "kind": "http",
   "name": "Google Sheets",
   "description": "Spreadsheet reads, writes, formulas, and reporting workflows.",
   "categories": [
@@ -10,23 +9,7 @@
   "appUrl": "https://workspace.google.com/products/sheets/",
   "docsUrl": "https://developers.google.com/identity/protocols/oauth2",
   "notes": "High-value automation surface for agent-driven reporting and structured edits.",
-  "catalogStatus": "planned",
-  "authStrategy": "oauth2",
   "popularityRank": 7,
-  "registrationDefaults": {
-    "apiBaseUrl": "https://sheets.googleapis.com",
-    "authorizationUrl": "https://accounts.google.com/o/oauth2/v2/auth",
-    "tokenUrl": "https://oauth2.googleapis.com/token",
-    "scopes": [
-      "https://www.googleapis.com/auth/spreadsheets.readonly"
-    ],
-    "toolName": "get_spreadsheet",
-    "toolDescription": "Fetch spreadsheet metadata and sheets by ID.",
-    "requestMethod": "GET",
-    "requestPath": "/v4/spreadsheets/{spreadsheetId}",
-    "provider": "http"
-  },
-  "defaultConnectionOptionId": "oauth",
   "connectionOptions": [
     {
       "id": "oauth",
@@ -51,5 +34,6 @@
         }
       }
     }
-  ]
+  ],
+  "availability": "planned"
 }

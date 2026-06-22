@@ -10,8 +10,6 @@
     "rendering",
     "screenshots"
   ],
-  "kind": "mcp",
-  "defaultConnectionOptionId": "none",
   "connectionOptions": [
     {
       "id": "none",

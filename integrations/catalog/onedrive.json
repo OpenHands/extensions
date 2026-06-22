@@ -1,6 +1,5 @@
 {
   "id": "onedrive",
-  "kind": "http",
   "name": "OneDrive",
   "description": "Cloud file access and document workflows through Microsoft Graph.",
   "categories": [
@@ -10,23 +9,7 @@
   "appUrl": "https://www.microsoft.com/microsoft-365/onedrive/online-cloud-storage",
   "docsUrl": "https://learn.microsoft.com/graph/auth-v2-user",
   "notes": "Useful for enterprise file automation and search.",
-  "catalogStatus": "planned",
-  "authStrategy": "oauth2",
   "popularityRank": 22,
-  "registrationDefaults": {
-    "apiBaseUrl": "https://graph.microsoft.com/v1.0",
-    "authorizationUrl": "https://login.microsoftonline.com/common/oauth2/v2.0/authorize",
-    "tokenUrl": "https://login.microsoftonline.com/common/oauth2/v2.0/token",
-    "scopes": [
-      "Files.Read"
-    ],
-    "toolName": "list_drive_items",
-    "toolDescription": "List OneDrive items in the root folder.",
-    "requestMethod": "GET",
-    "requestPath": "/me/drive/root/children",
-    "provider": "http"
-  },
-  "defaultConnectionOptionId": "oauth",
   "connectionOptions": [
     {
       "id": "oauth",
@@ -51,5 +34,6 @@
         }
       }
     }
-  ]
+  ],
+  "availability": "planned"
 }

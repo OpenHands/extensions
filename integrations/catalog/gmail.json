@@ -1,6 +1,5 @@
 {
   "id": "gmail",
-  "kind": "http",
   "name": "Gmail",
   "description": "Mailbox search, drafting, sending, and thread triage.",
   "categories": [
@@ -10,23 +9,7 @@
   "appUrl": "https://workspace.google.com/products/gmail/",
   "docsUrl": "https://developers.google.com/identity/protocols/oauth2",
   "notes": "Popular agent workflow target for inbox triage and drafting.",
-  "catalogStatus": "planned",
-  "authStrategy": "oauth2",
   "popularityRank": 8,
-  "registrationDefaults": {
-    "apiBaseUrl": "https://gmail.googleapis.com",
-    "authorizationUrl": "https://accounts.google.com/o/oauth2/v2/auth",
-    "tokenUrl": "https://oauth2.googleapis.com/token",
-    "scopes": [
-      "https://www.googleapis.com/auth/gmail.readonly"
-    ],
-    "toolName": "list_messages",
-    "toolDescription": "List Gmail messages for the authenticated user.",
-    "requestMethod": "GET",
-    "requestPath": "/gmail/v1/users/me/messages",
-    "provider": "http"
-  },
-  "defaultConnectionOptionId": "oauth",
   "connectionOptions": [
     {
       "id": "oauth",
@@ -51,5 +34,6 @@
         }
       }
     }
-  ]
+  ],
+  "availability": "planned"
 }

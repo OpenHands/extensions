@@ -1,6 +1,5 @@
 {
   "id": "slack",
-  "kind": "mcp",
   "name": "Slack",
   "description": "Read channels, post messages, and search workspace history from your agent.",
   "categories": [
@@ -10,36 +9,7 @@
   "appUrl": "https://slack.com",
   "docsUrl": "https://github.com/zencoderai/slack-mcp-server",
   "notes": "Uses Slack's official hosted MCP server with confidential OAuth user-token auth.",
-  "catalogStatus": "oauth_ready",
-  "managedConnectorSlug": "slack",
-  "authStrategy": "oauth2",
   "popularityRank": 95,
-  "registrationDefaults": {
-    "provider": "mcp",
-    "authorizationUrl": "https://slack.com/oauth/v2_user/authorize",
-    "tokenUrl": "https://slack.com/api/oauth.v2.user.access",
-    "scopes": [
-      "search:read.public",
-      "search:read.private",
-      "search:read.mpim",
-      "search:read.im",
-      "search:read.files",
-      "search:read.users",
-      "chat:write",
-      "channels:history",
-      "groups:history",
-      "mpim:history",
-      "im:history",
-      "canvases:read",
-      "canvases:write",
-      "users:read",
-      "users:read.email"
-    ],
-    "pkce": true,
-    "clientAuthentication": "body",
-    "serverUrl": "https://mcp.slack.com/mcp"
-  },
-  "defaultConnectionOptionId": "oauth",
   "connectionOptions": [
     {
       "id": "oauth",
@@ -116,5 +86,6 @@
     "messaging",
     "team"
   ],
-  "installHint": "Create a Slack app with the required scopes, then paste its bot token below."
+  "installHint": "Create a Slack app with the required scopes, then paste its bot token below.",
+  "availability": "oauth_ready"
 }

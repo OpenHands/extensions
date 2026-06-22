@@ -10,9 +10,7 @@
     "markdown",
     "vault"
   ],
-  "kind": "mcp",
   "runtimeAvailability": "local",
-  "defaultConnectionOptionId": "api",
   "connectionOptions": [
     {
       "id": "api",

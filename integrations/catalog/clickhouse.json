@@ -11,8 +11,6 @@
     "database",
     "sql"
   ],
-  "kind": "mcp",
-  "defaultConnectionOptionId": "api",
   "connectionOptions": [
     {
       "id": "api",

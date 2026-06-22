@@ -9,8 +9,6 @@
     "nosql",
     "atlas"
   ],
-  "kind": "mcp",
-  "defaultConnectionOptionId": "api",
   "connectionOptions": [
     {
       "id": "api",

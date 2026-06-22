@@ -9,9 +9,7 @@
     "kv",
     "database"
   ],
-  "kind": "mcp",
   "runtimeAvailability": "local",
-  "defaultConnectionOptionId": "api",
   "connectionOptions": [
     {
       "id": "api",

@@ -1,6 +1,5 @@
 {
   "id": "posthog",
-  "kind": "http",
   "name": "PostHog",
   "description": "Product analytics, feature flags, and session insights.",
   "categories": [
@@ -10,23 +9,7 @@
   "appUrl": "https://posthog.com",
   "docsUrl": "https://posthog.com/docs/apps/build/oauth",
   "notes": "Relevant for product analytics and experimentation workflows.",
-  "catalogStatus": "planned",
-  "authStrategy": "oauth2",
   "popularityRank": 37,
-  "registrationDefaults": {
-    "apiBaseUrl": "https://us.posthog.com/api",
-    "authorizationUrl": "https://us.posthog.com/oauth/authorize",
-    "tokenUrl": "https://us.posthog.com/oauth/token",
-    "scopes": [
-      "project:read"
-    ],
-    "toolName": "list_projects",
-    "toolDescription": "List PostHog projects available to the connected user.",
-    "requestMethod": "GET",
-    "requestPath": "/projects/",
-    "provider": "http"
-  },
-  "defaultConnectionOptionId": "oauth",
   "connectionOptions": [
     {
       "id": "oauth",
@@ -51,5 +34,6 @@
         }
       }
     }
-  ]
+  ],
+  "availability": "planned"
 }

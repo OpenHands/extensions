@@ -1,6 +1,5 @@
 {
   "id": "clickup",
-  "kind": "http",
   "name": "ClickUp",
   "description": "Tasks, docs, goals, and workflow automation.",
   "categories": [
@@ -10,21 +9,7 @@
   "appUrl": "https://clickup.com",
   "docsUrl": "https://clickup.com/api/developer-portal/authentication",
   "notes": "Large install base and broad operations coverage.",
-  "catalogStatus": "planned",
-  "authStrategy": "oauth2",
   "popularityRank": 15,
-  "registrationDefaults": {
-    "apiBaseUrl": "https://api.clickup.com/api/v2",
-    "authorizationUrl": "https://app.clickup.com/api",
-    "tokenUrl": "https://api.clickup.com/api/v2/oauth/token",
-    "scopes": [],
-    "toolName": "list_workspaces",
-    "toolDescription": "List ClickUp workspaces available to the connected user.",
-    "requestMethod": "GET",
-    "requestPath": "/team",
-    "provider": "http"
-  },
-  "defaultConnectionOptionId": "oauth",
   "connectionOptions": [
     {
       "id": "oauth",
@@ -47,5 +32,6 @@
         }
       }
     }
-  ]
+  ],
+  "availability": "planned"
 }

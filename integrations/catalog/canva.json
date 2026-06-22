@@ -1,6 +1,5 @@
 {
   "id": "canva",
-  "kind": "http",
   "name": "Canva",
   "description": "Design content, brand assets, and marketing collateral workflows.",
   "categories": [
@@ -10,20 +9,7 @@
   "appUrl": "https://www.canva.com",
   "docsUrl": "https://www.canva.dev/docs/connect/oauth/",
   "notes": "Broad creator and marketing adoption with OAuth-based apps.",
-  "catalogStatus": "planned",
-  "authStrategy": "oauth2",
   "popularityRank": 34,
-  "registrationDefaults": {
-    "apiBaseUrl": "https://api.canva.com/rest/v1",
-    "tokenUrl": "https://api.canva.com/rest/v1/oauth/token",
-    "scopes": [],
-    "toolName": "list_designs",
-    "toolDescription": "List Canva designs available to the connected user.",
-    "requestMethod": "GET",
-    "requestPath": "/designs",
-    "provider": "http"
-  },
-  "defaultConnectionOptionId": "oauth",
   "connectionOptions": [
     {
       "id": "oauth",
@@ -45,5 +31,6 @@
         }
       }
     }
-  ]
+  ],
+  "availability": "planned"
 }

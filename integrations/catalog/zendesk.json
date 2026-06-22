@@ -1,6 +1,5 @@
 {
   "id": "zendesk",
-  "kind": "http",
   "name": "Zendesk",
   "description": "Support tickets, customers, agents, and help desk operations.",
   "categories": [
@@ -10,23 +9,7 @@
   "appUrl": "https://www.zendesk.com",
   "docsUrl": "https://developer.zendesk.com/documentation/apps/getting-started/oauth/",
   "notes": "Strong support automation use case for agents.",
-  "catalogStatus": "planned",
-  "authStrategy": "oauth2",
   "popularityRank": 26,
-  "registrationDefaults": {
-    "apiBaseUrl": "https://{subdomain}.zendesk.com/api/v2",
-    "authorizationUrl": "https://{subdomain}.zendesk.com/oauth2/authorize",
-    "tokenUrl": "https://{subdomain}.zendesk.com/oauth2/token",
-    "scopes": [
-      "tickets:read"
-    ],
-    "toolName": "list_tickets",
-    "toolDescription": "List Zendesk tickets for the connected account.",
-    "requestMethod": "GET",
-    "requestPath": "/tickets",
-    "provider": "http"
-  },
-  "defaultConnectionOptionId": "oauth",
   "connectionOptions": [
     {
       "id": "oauth",
@@ -51,5 +34,6 @@
         }
       }
     }
-  ]
+  ],
+  "availability": "planned"
 }

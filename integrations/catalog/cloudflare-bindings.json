@@ -12,8 +12,6 @@
     "r2",
     "durable objects"
   ],
-  "kind": "mcp",
-  "defaultConnectionOptionId": "none",
   "connectionOptions": [
     {
       "id": "none",

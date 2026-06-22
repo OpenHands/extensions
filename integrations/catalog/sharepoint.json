@@ -1,6 +1,5 @@
 {
   "id": "sharepoint",
-  "kind": "http",
   "name": "SharePoint",
   "description": "Sites, document libraries, lists, and intranet content.",
   "categories": [
@@ -10,23 +9,7 @@
   "appUrl": "https://www.microsoft.com/microsoft-365/sharepoint/collaboration",
   "docsUrl": "https://learn.microsoft.com/graph/auth-v2-user",
   "notes": "Frequently requested for enterprise knowledge retrieval.",
-  "catalogStatus": "planned",
-  "authStrategy": "oauth2",
   "popularityRank": 23,
-  "registrationDefaults": {
-    "apiBaseUrl": "https://graph.microsoft.com/v1.0",
-    "authorizationUrl": "https://login.microsoftonline.com/common/oauth2/v2.0/authorize",
-    "tokenUrl": "https://login.microsoftonline.com/common/oauth2/v2.0/token",
-    "scopes": [
-      "Sites.Read.All"
-    ],
-    "toolName": "get_root_site",
-    "toolDescription": "Fetch the SharePoint root site through Microsoft Graph.",
-    "requestMethod": "GET",
-    "requestPath": "/sites/root",
-    "provider": "http"
-  },
-  "defaultConnectionOptionId": "oauth",
   "connectionOptions": [
     {
       "id": "oauth",
@@ -51,5 +34,6 @@
         }
       }
     }
-  ]
+  ],
+  "availability": "planned"
 }

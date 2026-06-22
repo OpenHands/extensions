@@ -1,6 +1,5 @@
 {
   "id": "linear",
-  "kind": "mcp",
   "name": "Linear",
   "description": "Browse and update Linear issues, cycles, and projects from the agent.",
   "categories": [
@@ -10,23 +9,7 @@
   "appUrl": "https://linear.app",
   "docsUrl": "https://linear.app/changelog/2025-05-01-mcp",
   "notes": "Popular among modern product engineering teams and already useful to this repo's users.",
-  "catalogStatus": "planned",
-  "authStrategy": "oauth2",
   "popularityRank": 86,
-  "registrationDefaults": {
-    "apiBaseUrl": "https://api.linear.app",
-    "authorizationUrl": "https://linear.app/oauth/authorize",
-    "tokenUrl": "https://api.linear.app/oauth/token",
-    "scopes": [
-      "read"
-    ],
-    "toolName": "list_issues",
-    "toolDescription": "Query issues from Linear via GraphQL.",
-    "requestMethod": "POST",
-    "requestPath": "/graphql",
-    "provider": "http"
-  },
-  "defaultConnectionOptionId": "oauth",
   "connectionOptions": [
     {
       "id": "oauth",
@@ -72,5 +55,6 @@
     "tasks",
     "tickets"
   ],
-  "installHint": "Linear's hosted MCP server uses your Linear OAuth login \u2014 no key required."
+  "installHint": "Linear's hosted MCP server uses your Linear OAuth login — no key required.",
+  "availability": "planned"
 }

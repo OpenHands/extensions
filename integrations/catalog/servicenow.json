@@ -1,6 +1,5 @@
 {
   "id": "servicenow",
-  "kind": "http",
   "name": "ServiceNow",
   "description": "Tickets, incidents, service catalogs, and enterprise workflows.",
   "categories": [
@@ -10,24 +9,7 @@
   "appUrl": "https://www.servicenow.com",
   "docsUrl": "https://www.servicenow.com/docs/bundle/xanadu-platform-security/page/administer/security/concept/oauth-concept.html",
   "notes": "Strong enterprise IT operations use case.",
-  "catalogStatus": "planned",
-  "authStrategy": "oauth2",
   "popularityRank": 43,
-  "registrationDefaults": {
-    "apiBaseUrl": "https://{instance}.service-now.com/api/now/v1",
-    "authorizationUrl": "https://{instance}.service-now.com/oauth_auth.do",
-    "tokenUrl": "https://{instance}.service-now.com/oauth_token.do",
-    "scopes": [
-      "useraccount",
-      "table.read"
-    ],
-    "toolName": "list_incidents",
-    "toolDescription": "List ServiceNow incidents for the connected instance.",
-    "requestMethod": "GET",
-    "requestPath": "/table/incident",
-    "provider": "http"
-  },
-  "defaultConnectionOptionId": "oauth",
   "connectionOptions": [
     {
       "id": "oauth",
@@ -53,5 +35,6 @@
         }
       }
     }
-  ]
+  ],
+  "availability": "planned"
 }

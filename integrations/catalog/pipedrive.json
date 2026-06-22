@@ -1,6 +1,5 @@
 {
   "id": "pipedrive",
-  "kind": "http",
   "name": "Pipedrive",
   "description": "Deals, contacts, and sales pipeline management.",
   "categories": [
@@ -10,24 +9,7 @@
   "appUrl": "https://www.pipedrive.com",
   "docsUrl": "https://pipedrive.readme.io/docs/marketplace-oauth-authorization",
   "notes": "Common CRM choice with solid OAuth story.",
-  "catalogStatus": "planned",
-  "authStrategy": "oauth2",
   "popularityRank": 45,
-  "registrationDefaults": {
-    "apiBaseUrl": "https://api.pipedrive.com/v1",
-    "authorizationUrl": "https://oauth.pipedrive.com/oauth/authorize",
-    "tokenUrl": "https://oauth.pipedrive.com/oauth/token",
-    "scopes": [
-      "deals:read",
-      "contacts:read"
-    ],
-    "toolName": "list_persons",
-    "toolDescription": "List Pipedrive people visible to the connected user.",
-    "requestMethod": "GET",
-    "requestPath": "/persons",
-    "provider": "http"
-  },
-  "defaultConnectionOptionId": "oauth",
   "connectionOptions": [
     {
       "id": "oauth",
@@ -53,5 +35,6 @@
         }
       }
     }
-  ]
+  ],
+  "availability": "planned"
 }

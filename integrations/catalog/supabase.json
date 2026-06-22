@@ -1,6 +1,5 @@
 {
   "id": "supabase",
-  "kind": "mcp",
   "name": "Supabase",
   "description": "Query and manage your Supabase project, including database, auth, and storage.",
   "categories": [
@@ -10,21 +9,7 @@
   "appUrl": "https://supabase.com",
   "docsUrl": "https://supabase.com/docs/guides/getting-started/mcp",
   "notes": "Popular developer platform with broad automation value and a documented management-API OAuth integration flow.",
-  "catalogStatus": "planned",
-  "authStrategy": "oauth2",
   "popularityRank": 38,
-  "registrationDefaults": {
-    "apiBaseUrl": "https://api.supabase.com/v1",
-    "authorizationUrl": "https://api.supabase.com/v1/oauth/authorize",
-    "tokenUrl": "https://api.supabase.com/v1/oauth/token",
-    "scopes": [],
-    "toolName": "list_projects",
-    "toolDescription": "List Supabase projects available to the connected user.",
-    "requestMethod": "GET",
-    "requestPath": "/projects",
-    "provider": "http"
-  },
-  "defaultConnectionOptionId": "oauth",
   "connectionOptions": [
     {
       "id": "oauth",
@@ -80,5 +65,6 @@
     "auth",
     "storage",
     "postgres"
-  ]
+  ],
+  "availability": "planned"
 }

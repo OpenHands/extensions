@@ -1,6 +1,5 @@
 {
   "id": "zoom",
-  "kind": "http",
   "name": "Zoom",
   "description": "Meetings, recordings, webinars, and scheduling operations.",
   "categories": [
@@ -10,23 +9,7 @@
   "appUrl": "https://zoom.us",
   "docsUrl": "https://developers.zoom.us/docs/integrations/oauth/",
   "notes": "Frequently requested for scheduling and meeting summaries.",
-  "catalogStatus": "planned",
-  "authStrategy": "oauth2",
   "popularityRank": 31,
-  "registrationDefaults": {
-    "apiBaseUrl": "https://api.zoom.us/v2",
-    "authorizationUrl": "https://zoom.us/oauth/authorize",
-    "tokenUrl": "https://zoom.us/oauth/token",
-    "scopes": [
-      "meeting:read:user"
-    ],
-    "toolName": "list_meetings",
-    "toolDescription": "List Zoom meetings for the connected user.",
-    "requestMethod": "GET",
-    "requestPath": "/users/me/meetings",
-    "provider": "http"
-  },
-  "defaultConnectionOptionId": "oauth",
   "connectionOptions": [
     {
       "id": "oauth",
@@ -51,5 +34,6 @@
         }
       }
     }
-  ]
+  ],
+  "availability": "planned"
 }

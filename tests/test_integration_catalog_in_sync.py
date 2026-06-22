@@ -1,4 +1,4 @@
-"""Assert the checked-in integration catalog is the source of truth shared by JS and Python."""
+"""Assert integration catalog files drive the generated JS/Python assets."""
 
 from __future__ import annotations
 
@@ -13,18 +13,33 @@ ASSET = ROOT / "integrations" / "integration-catalog.json"
 CATALOG_DIR = ROOT / "integrations" / "catalog"
 
 
-def test_asset_is_hand_authored_source_of_truth() -> None:
-    checked_in = json.loads(ASSET.read_text())
-    assert set(checked_in.keys()) == {"integrations"}
-    for entry in checked_in["integrations"]:
+def _catalog_files() -> dict[str, dict]:
+    return {p.stem: json.loads(p.read_text()) for p in CATALOG_DIR.glob("*.json")}
+
+
+def _generated_asset() -> dict:
+    return json.loads(ASSET.read_text())
+
+
+def test_catalog_directory_is_hand_authored_source_of_truth() -> None:
+    for integration_id, entry in _catalog_files().items():
+        assert entry["id"] == integration_id
         assert "supportsMcp" not in entry
         assert "supportsOauth" not in entry
         assert "oauthProvider" not in entry
+        assert "registrationDefaults" not in entry
+        assert "managedConnectorSlug" not in entry
+        assert "authStrategy" not in entry
+        assert "defaultConnectionOptionId" not in entry
+        assert "kind" not in entry
+        assert "catalogStatus" not in entry
 
 
-def test_catalog_files_match_master_entries() -> None:
-    master = {e["id"]: e for e in json.loads(ASSET.read_text())["integrations"]}
-    catalog_files = {p.stem: json.loads(p.read_text()) for p in CATALOG_DIR.glob("*.json")}
+def test_generated_asset_matches_catalog_directory() -> None:
+    generated = _generated_asset()
+    assert set(generated.keys()) == {"integrations"}
+    master = {e["id"]: e for e in generated["integrations"]}
+    catalog_files = _catalog_files()
     assert set(catalog_files) == set(master)
     for integration_id, entry in master.items():
         assert catalog_files[integration_id] == entry
@@ -34,12 +49,16 @@ def test_python_reads_the_same_asset() -> None:
     assert openhands_extensions.INTEGRATION_CATALOG_SNAPSHOT == json.loads(ASSET.read_text())
 
 
-def test_python_list_integration_catalog_derives_flags() -> None:
+def test_python_list_integration_catalog_derives_fields() -> None:
     entries = openhands_extensions.list_integration_catalog()
-    assert len(entries) == len(json.loads(ASSET.read_text())["integrations"])
+    assert len(entries) == len(_generated_asset()["integrations"])
     for entry in entries:
         assert isinstance(entry["supportsMcp"], bool)
         assert isinstance(entry["supportsOauth"], bool)
+        if entry.get("availability"):
+            assert entry["catalogStatus"] == entry["availability"]
+            assert entry["defaultConnectionOptionId"] == entry["connectionOptions"][0]["id"]
+            assert entry["registrationDefaults"]["provider"] == entry["connectionOptions"][0]["provider"]
 
 
 def test_get_integration_catalog_entry_round_trip() -> None:
@@ -148,9 +167,11 @@ def test_accessors_return_independent_copies() -> None:
     assert "__mutated" not in openhands_extensions.list_integration_catalog()[0]
 
 
-def test_hubspot_oauth_config_stays_on_integration() -> None:
+def test_hubspot_oauth_config_is_derived_from_connection_option() -> None:
     hubspot = openhands_extensions.get_integration_catalog_entry("hubspot")
     assert hubspot is not None
+    raw_hubspot = _catalog_files()["hubspot"]
+    assert "registrationDefaults" not in raw_hubspot
     defaults = hubspot["registrationDefaults"]
     assert defaults["serverUrl"] == "https://mcp.hubspot.com"
     assert defaults["authorizationUrl"] == "https://mcp.hubspot.com/oauth/authorize/user"

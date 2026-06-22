@@ -1,6 +1,5 @@
 {
   "id": "plaid",
-  "kind": "http",
   "name": "Plaid",
   "description": "Financial account connectivity and transaction data flows.",
   "categories": [
@@ -10,18 +9,7 @@
   "appUrl": "https://plaid.com",
   "docsUrl": "https://plaid.com/docs/auth/oauth/",
   "notes": "Strong fintech workflow candidate, although much of Plaid's OAuth guidance is a special-case token exchange rather than a generic end-user SaaS OAuth connector.",
-  "catalogStatus": "planned",
-  "authStrategy": "oauth2",
   "popularityRank": 41,
-  "registrationDefaults": {
-    "apiBaseUrl": "https://production.plaid.com",
-    "toolName": "get_accounts",
-    "toolDescription": "Fetch accounts for a connected Plaid item.",
-    "requestMethod": "POST",
-    "requestPath": "/accounts/get",
-    "provider": "http"
-  },
-  "defaultConnectionOptionId": "oauth",
   "connectionOptions": [
     {
       "id": "oauth",
@@ -39,5 +27,6 @@
         }
       }
     }
-  ]
+  ],
+  "availability": "planned"
 }

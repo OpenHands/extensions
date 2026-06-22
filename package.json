@@ -10,7 +10,8 @@
   },
   "scripts": {
     "build:skills": "node scripts/build-skills-catalog.mjs",
-    "build": "npm run build:skills"
+    "build:integrations": "node scripts/build-integration-catalog.mjs",
+    "build": "npm run build:skills && npm run build:integrations"
   },
   "engines": {
     "node": ">=18.20.0"

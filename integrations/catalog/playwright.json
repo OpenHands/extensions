@@ -11,8 +11,6 @@
     "testing",
     "scrape"
   ],
-  "kind": "mcp",
-  "defaultConnectionOptionId": "none",
   "connectionOptions": [
     {
       "id": "none",

@@ -11,8 +11,6 @@
     "observability",
     "workers"
   ],
-  "kind": "mcp",
-  "defaultConnectionOptionId": "none",
   "connectionOptions": [
     {
       "id": "none",

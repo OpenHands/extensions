@@ -1,6 +1,5 @@
 {
   "id": "shopify",
-  "kind": "http",
   "name": "Shopify",
   "description": "Storefronts, products, orders, and ecommerce operations.",
   "categories": [
@@ -10,23 +9,7 @@
   "appUrl": "https://www.shopify.com",
   "docsUrl": "https://shopify.dev/docs/apps/build/authentication-authorization/access-tokens/authorization-code-grant",
   "notes": "A top ecommerce platform and strong MCP candidate.",
-  "catalogStatus": "planned",
-  "authStrategy": "oauth2",
   "popularityRank": 29,
-  "registrationDefaults": {
-    "apiBaseUrl": "https://{shop}.myshopify.com/admin/api/2025-01",
-    "authorizationUrl": "https://{shop}.myshopify.com/admin/oauth/authorize",
-    "tokenUrl": "https://{shop}.myshopify.com/admin/oauth/access_token",
-    "scopes": [
-      "read_products"
-    ],
-    "toolName": "list_products",
-    "toolDescription": "List Shopify products for the connected store.",
-    "requestMethod": "GET",
-    "requestPath": "/products.json",
-    "provider": "http"
-  },
-  "defaultConnectionOptionId": "oauth",
   "connectionOptions": [
     {
       "id": "oauth",
@@ -51,5 +34,6 @@
         }
       }
     }
-  ]
+  ],
+  "availability": "planned"
 }

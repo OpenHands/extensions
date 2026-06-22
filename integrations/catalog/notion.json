@@ -1,6 +1,5 @@
 {
   "id": "notion",
-  "kind": "mcp",
   "name": "Notion",
   "description": "Read and edit Notion pages, databases, and blocks via Notion's MCP server.",
   "categories": [
@@ -10,23 +9,7 @@
   "appUrl": "https://www.notion.so",
   "docsUrl": "https://developers.notion.com/docs/mcp",
   "notes": "",
-  "catalogStatus": "oauth_ready",
-  "managedConnectorSlug": "notion",
-  "authStrategy": "oauth2",
   "popularityRank": 82,
-  "registrationDefaults": {
-    "provider": "http",
-    "apiBaseUrl": "https://api.notion.com",
-    "openApiUrl": "https://developers.notion.com/openapi.json",
-    "authorizationUrl": "https://api.notion.com/v1/oauth/authorize",
-    "tokenUrl": "https://api.notion.com/v1/oauth/token",
-    "scopes": [],
-    "toolName": "post_search",
-    "toolDescription": "Search pages and databases in the connected Notion workspace.",
-    "requestMethod": "POST",
-    "requestPath": "/v1/search"
-  },
-  "defaultConnectionOptionId": "oauth",
   "connectionOptions": [
     {
       "id": "oauth",
@@ -85,5 +68,6 @@
     "notes",
     "wiki",
     "knowledge base"
-  ]
+  ],
+  "availability": "oauth_ready"
 }

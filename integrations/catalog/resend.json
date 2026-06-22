@@ -9,8 +9,6 @@
     "transactional",
     "smtp"
   ],
-  "kind": "mcp",
-  "defaultConnectionOptionId": "api",
   "connectionOptions": [
     {
       "id": "api",

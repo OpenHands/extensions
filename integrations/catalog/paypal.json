@@ -9,8 +9,6 @@
     "billing",
     "finance"
   ],
-  "kind": "mcp",
-  "defaultConnectionOptionId": "none",
   "connectionOptions": [
     {
       "id": "none",

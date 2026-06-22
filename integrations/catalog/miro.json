@@ -1,6 +1,5 @@
 {
   "id": "miro",
-  "kind": "http",
   "name": "Miro",
   "description": "Whiteboards, diagrams, notes, and workshop collaboration.",
   "categories": [
@@ -10,23 +9,7 @@
   "appUrl": "https://miro.com",
   "docsUrl": "https://developers.miro.com/docs/rest-api-build-your-first-oauth-app",
   "notes": "Strong visual collaboration target for design and product teams.",
-  "catalogStatus": "planned",
-  "authStrategy": "oauth2",
   "popularityRank": 33,
-  "registrationDefaults": {
-    "apiBaseUrl": "https://api.miro.com/v2",
-    "authorizationUrl": "https://miro.com/oauth/authorize",
-    "tokenUrl": "https://api.miro.com/v1/oauth/token",
-    "scopes": [
-      "boards:read"
-    ],
-    "toolName": "list_boards",
-    "toolDescription": "List Miro boards available to the connected user.",
-    "requestMethod": "GET",
-    "requestPath": "/boards",
-    "provider": "http"
-  },
-  "defaultConnectionOptionId": "oauth",
   "connectionOptions": [
     {
       "id": "oauth",
@@ -51,5 +34,6 @@
         }
       }
     }
-  ]
+  ],
+  "availability": "planned"
 }

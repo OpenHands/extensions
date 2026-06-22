@@ -1,6 +1,5 @@
 {
   "id": "xero",
-  "kind": "http",
   "name": "Xero",
   "description": "Accounting, contacts, invoices, and bookkeeping workflows.",
   "categories": [
@@ -10,23 +9,7 @@
   "appUrl": "https://www.xero.com",
   "docsUrl": "https://developer.xero.com/documentation/guides/oauth2/overview/",
   "notes": "Important accounting platform in many regions.",
-  "catalogStatus": "planned",
-  "authStrategy": "oauth2",
   "popularityRank": 48,
-  "registrationDefaults": {
-    "apiBaseUrl": "https://api.xero.com/api.xro/2.0",
-    "authorizationUrl": "https://login.xero.com/identity/connect/authorize",
-    "tokenUrl": "https://identity.xero.com/connect/token",
-    "scopes": [
-      "accounting.contacts.read"
-    ],
-    "toolName": "list_contacts",
-    "toolDescription": "List Xero contacts for the connected tenant.",
-    "requestMethod": "GET",
-    "requestPath": "/Contacts",
-    "provider": "http"
-  },
-  "defaultConnectionOptionId": "oauth",
   "connectionOptions": [
     {
       "id": "oauth",
@@ -51,5 +34,6 @@
         }
       }
     }
-  ]
+  ],
+  "availability": "planned"
 }

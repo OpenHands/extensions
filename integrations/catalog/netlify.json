@@ -1,6 +1,5 @@
 {
   "id": "netlify",
-  "kind": "http",
   "name": "Netlify",
   "description": "Sites, builds, deploy previews, and web operations.",
   "categories": [
@@ -10,23 +9,7 @@
   "appUrl": "https://www.netlify.com",
   "docsUrl": "https://docs.netlify.com/api/get-started/#oauth-applications",
   "notes": "Common alternative hosting/deployment automation target.",
-  "catalogStatus": "planned",
-  "authStrategy": "oauth2",
   "popularityRank": 40,
-  "registrationDefaults": {
-    "apiBaseUrl": "https://api.netlify.com/api/v1",
-    "authorizationUrl": "https://app.netlify.com/authorize",
-    "tokenUrl": "https://api.netlify.com/oauth/token",
-    "scopes": [
-      "sites:read"
-    ],
-    "toolName": "list_sites",
-    "toolDescription": "List Netlify sites available to the connected user.",
-    "requestMethod": "GET",
-    "requestPath": "/sites",
-    "provider": "http"
-  },
-  "defaultConnectionOptionId": "oauth",
   "connectionOptions": [
     {
       "id": "oauth",
@@ -51,5 +34,6 @@
         }
       }
     }
-  ]
+  ],
+  "availability": "planned"
 }

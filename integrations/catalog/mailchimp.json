@@ -1,6 +1,5 @@
 {
   "id": "mailchimp",
-  "kind": "http",
   "name": "Mailchimp",
   "description": "Campaigns, audiences, automations, and email marketing.",
   "categories": [
@@ -10,23 +9,7 @@
   "appUrl": "https://mailchimp.com",
   "docsUrl": "https://mailchimp.com/developer/marketing/guides/access-user-data-oauth-2/",
   "notes": "Popular marketing automation target.",
-  "catalogStatus": "planned",
-  "authStrategy": "oauth2",
   "popularityRank": 46,
-  "registrationDefaults": {
-    "apiBaseUrl": "https://{dc}.api.mailchimp.com/3.0",
-    "authorizationUrl": "https://login.mailchimp.com/oauth2/authorize",
-    "tokenUrl": "https://login.mailchimp.com/oauth2/token",
-    "scopes": [
-      "audiences:read"
-    ],
-    "toolName": "list_audiences",
-    "toolDescription": "List Mailchimp audiences for the connected account.",
-    "requestMethod": "GET",
-    "requestPath": "/lists",
-    "provider": "http"
-  },
-  "defaultConnectionOptionId": "oauth",
   "connectionOptions": [
     {
       "id": "oauth",
@@ -51,5 +34,6 @@
         }
       }
     }
-  ]
+  ],
+  "availability": "planned"
 }

@@ -1,6 +1,5 @@
 {
   "id": "monday",
-  "kind": "http",
   "name": "Monday.com",
   "description": "Boards, automations, and work management across teams.",
   "categories": [
@@ -10,23 +9,7 @@
   "appUrl": "https://monday.com",
   "docsUrl": "https://developer.monday.com/apps/docs/oauth",
   "notes": "High-demand operations platform with rich board APIs.",
-  "catalogStatus": "planned",
-  "authStrategy": "oauth2",
   "popularityRank": 16,
-  "registrationDefaults": {
-    "apiBaseUrl": "https://api.monday.com/v2",
-    "authorizationUrl": "https://auth.monday.com/oauth2/authorize",
-    "tokenUrl": "https://auth.monday.com/oauth2/token",
-    "scopes": [
-      "boards:read"
-    ],
-    "toolName": "list_boards",
-    "toolDescription": "Query boards from Monday.com.",
-    "requestMethod": "POST",
-    "requestPath": "/",
-    "provider": "http"
-  },
-  "defaultConnectionOptionId": "oauth",
   "connectionOptions": [
     {
       "id": "oauth",
@@ -51,5 +34,6 @@
         }
       }
     }
-  ]
+  ],
+  "availability": "planned"
 }

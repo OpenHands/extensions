@@ -1,6 +1,5 @@
 {
   "id": "hubspot",
-  "kind": "mcp",
   "name": "HubSpot",
   "description": "CRM, marketing, tickets, and customer lifecycle workflows.",
   "categories": [
@@ -10,28 +9,14 @@
   "appUrl": "https://www.hubspot.com",
   "docsUrl": "https://developers.hubspot.com/docs/apps/developer-platform/build-apps/integrate-with-the-remote-hubspot-mcp-server",
   "notes": "Uses HubSpot's official remote MCP server plus MCP auth apps with PKCE.",
-  "catalogStatus": "oauth_ready",
-  "managedConnectorSlug": "hubspot",
-  "authStrategy": "oauth2",
   "popularityRank": 25,
-  "registrationDefaults": {
-    "provider": "mcp",
-    "authorizationUrl": "https://mcp.hubspot.com/oauth/authorize/user",
-    "tokenUrl": "https://mcp.hubspot.com/oauth/v3/token",
-    "clientAuthentication": "body",
-    "pkce": true,
-    "scopes": [],
-    "credentialHelp": "Use the client ID and secret from a HubSpot MCP auth app (Development \u2192 MCP Auth Apps). Standard HubSpot OAuth apps and private apps will not authenticate with mcp.hubspot.com.",
-    "serverUrl": "https://mcp.hubspot.com"
-  },
-  "defaultConnectionOptionId": "oauth",
   "connectionOptions": [
     {
       "id": "oauth",
       "provider": "mcp",
       "auth": {
         "strategy": "oauth2",
-        "credentialHelp": "Use the client ID and secret from a HubSpot MCP auth app (Development \u2192 MCP Auth Apps). Standard HubSpot OAuth apps and private apps will not authenticate with mcp.hubspot.com.",
+        "credentialHelp": "Use the client ID and secret from a HubSpot MCP auth app (Development → MCP Auth Apps). Standard HubSpot OAuth apps and private apps will not authenticate with mcp.hubspot.com.",
         "oauth": {
           "authorizationUrl": "https://mcp.hubspot.com/oauth/authorize/user",
           "tokenUrl": "https://mcp.hubspot.com/oauth/v3/token",
@@ -45,5 +30,6 @@
         "url": "https://mcp.hubspot.com"
       }
     }
-  ]
+  ],
+  "availability": "oauth_ready"
 }

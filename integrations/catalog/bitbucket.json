@@ -1,6 +1,5 @@
 {
   "id": "bitbucket",
-  "kind": "http",
   "name": "Bitbucket",
   "description": "Repositories, pull requests, and Atlassian engineering workflows.",
   "categories": [
@@ -10,24 +9,7 @@
   "appUrl": "https://bitbucket.org",
   "docsUrl": "https://developer.atlassian.com/cloud/bitbucket/oauth-2/",
   "notes": "Popular in Atlassian-centric teams and complements Jira/Confluence.",
-  "catalogStatus": "planned",
-  "authStrategy": "oauth2",
   "popularityRank": 50,
-  "registrationDefaults": {
-    "apiBaseUrl": "https://api.bitbucket.org/2.0",
-    "authorizationUrl": "https://bitbucket.org/site/oauth2/authorize",
-    "tokenUrl": "https://bitbucket.org/site/oauth2/access_token",
-    "scopes": [
-      "account",
-      "repository"
-    ],
-    "toolName": "get_current_user",
-    "toolDescription": "Fetch the authenticated Bitbucket user profile.",
-    "requestMethod": "GET",
-    "requestPath": "/user",
-    "provider": "http"
-  },
-  "defaultConnectionOptionId": "oauth",
   "connectionOptions": [
     {
       "id": "oauth",
@@ -53,5 +35,6 @@
         }
       }
     }
-  ]
+  ],
+  "availability": "planned"
 }

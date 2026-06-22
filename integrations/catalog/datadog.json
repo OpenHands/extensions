@@ -1,6 +1,5 @@
 {
   "id": "datadog",
-  "kind": "mcp",
   "name": "Datadog",
   "description": "Logs, metrics, monitors, incidents, and observability workflows.",
   "categories": [
@@ -10,21 +9,7 @@
   "appUrl": "https://www.datadoghq.com",
   "docsUrl": "https://docs.datadoghq.com/bits_ai/mcp_server/setup/",
   "notes": "Uses Datadog's official hosted MCP server. The default registration targets the US1 endpoint and can be edited for other Datadog sites.",
-  "catalogStatus": "oauth_ready",
-  "managedConnectorSlug": "datadog",
-  "authStrategy": "oauth2",
   "popularityRank": 35,
-  "registrationDefaults": {
-    "provider": "mcp",
-    "authorizationUrl": "https://app.datadoghq.com/oauth2/v1/authorize",
-    "tokenUrl": "https://api.datadoghq.com/oauth2/v1/token",
-    "scopes": [
-      "dashboards_read",
-      "monitors_read"
-    ],
-    "serverUrl": "https://mcp.datadoghq.com/api/unstable/mcp-server/mcp"
-  },
-  "defaultConnectionOptionId": "oauth",
   "connectionOptions": [
     {
       "id": "oauth",
@@ -45,5 +30,6 @@
         "url": "https://mcp.datadoghq.com/api/unstable/mcp-server/mcp"
       }
     }
-  ]
+  ],
+  "availability": "oauth_ready"
 }
