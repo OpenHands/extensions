@@ -87,9 +87,5 @@
     "database",
     "records",
     "bases"
-  ],
-  "oauthProvider": {
-    "description": "Bases, records, linked data, and workflow automation.",
-    "docsUrl": "https://airtable.com/developers/web/api/oauth-reference"
-  }
+  ]
 }

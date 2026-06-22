@@ -80,9 +80,5 @@
     "auth",
     "storage",
     "postgres"
-  ],
-  "oauthProvider": {
-    "description": "Projects, databases, auth, and storage administration.",
-    "docsUrl": "https://supabase.com/docs/guides/integrations/build-a-supabase-oauth-integration"
-  }
+  ]
 }

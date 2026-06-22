@@ -1,7 +1,7 @@
 {
   "id": "everything",
   "name": "Everything (demo)",
-  "description": "Reference server exercising every MCP capability — useful for testing.",
+  "description": "Reference server exercising every MCP capability \u2014 useful for testing.",
   "docsUrl": "https://github.com/modelcontextprotocol/servers/tree/main/src/everything",
   "iconBg": "#6366F1",
   "keywords": [
@@ -28,6 +28,5 @@
         "strategy": "none"
       }
     }
-  ],
-  "oauthProvider": null
+  ]
 }

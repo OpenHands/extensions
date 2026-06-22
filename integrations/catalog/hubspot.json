@@ -21,7 +21,7 @@
     "clientAuthentication": "body",
     "pkce": true,
     "scopes": [],
-    "credentialHelp": "Use the client ID and secret from a HubSpot MCP auth app (Development → MCP Auth Apps). Standard HubSpot OAuth apps and private apps will not authenticate with mcp.hubspot.com.",
+    "credentialHelp": "Use the client ID and secret from a HubSpot MCP auth app (Development \u2192 MCP Auth Apps). Standard HubSpot OAuth apps and private apps will not authenticate with mcp.hubspot.com.",
     "serverUrl": "https://mcp.hubspot.com"
   },
   "defaultConnectionOptionId": "oauth",
@@ -31,7 +31,7 @@
       "provider": "mcp",
       "auth": {
         "strategy": "oauth2",
-        "credentialHelp": "Use the client ID and secret from a HubSpot MCP auth app (Development → MCP Auth Apps). Standard HubSpot OAuth apps and private apps will not authenticate with mcp.hubspot.com.",
+        "credentialHelp": "Use the client ID and secret from a HubSpot MCP auth app (Development \u2192 MCP Auth Apps). Standard HubSpot OAuth apps and private apps will not authenticate with mcp.hubspot.com.",
         "oauth": {
           "authorizationUrl": "https://mcp.hubspot.com/oauth/authorize/user",
           "tokenUrl": "https://mcp.hubspot.com/oauth/v3/token",
@@ -45,6 +45,5 @@
         "url": "https://mcp.hubspot.com"
       }
     }
-  ],
-  "oauthProvider": {}
+  ]
 }

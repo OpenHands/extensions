@@ -75,9 +75,5 @@
     "observability",
     "monitoring",
     "crash"
-  ],
-  "oauthProvider": {
-    "description": "Errors, releases, issue ownership, and incident investigation.",
-    "docsUrl": "https://docs.sentry.io/api/guides/oauth/"
-  }
+  ]
 }

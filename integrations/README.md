@@ -11,15 +11,11 @@ integrations so clients can consume one source of truth.
   with the matching entry in `integration-catalog.json` (a CI parity test
   asserts the two never drift).
 - `index.js` reads `integration-catalog.json` at runtime and derives the
-  `supportsMcp`/`supportsOauth` flags, the reconstructed `providers[]` view,
-  and `defaultManagedConnectors` from the canonical data.
+  `supportsMcp`/`supportsOauth` flags from the canonical connection options.
 - `index.d.ts` contains the public TypeScript shape.
 
-Provider-specific OAuth knowledge is merged into each integration as a minimal
-`oauthProvider` override object (`null` when the integration has no OAuth
-provider); only fields whose OAuth-context values differ from the integration's
-connector view (`description`, `docsUrl`, `popularityRank`) are stored. The
-`providers[]` view is reconstructed at runtime by `listOAuthProviderCatalog()`.
+Each integration carries its OAuth/MCP connection data directly. Do not add a
+separate provider catalog or per-language provider data.
 
 Consumers can import the package export:
 

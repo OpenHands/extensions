@@ -76,12 +76,7 @@
         "repo",
         "issues",
         "code"
-      ],
-      "oauthProvider": {
-        "description": "Source control, issues, pull requests, and developer workflows.",
-        "docsUrl": "https://docs.github.com/apps/oauth-apps/building-oauth-apps",
-        "popularityRank": 1
-      }
+      ]
     },
     {
       "id": "slack",
@@ -201,12 +196,7 @@
         "messaging",
         "team"
       ],
-      "installHint": "Create a Slack app with the required scopes, then paste its bot token below.",
-      "oauthProvider": {
-        "description": "Channels, messaging, workflows, canvases, and operational collaboration.",
-        "docsUrl": "https://docs.slack.dev/ai/slack-mcp-server",
-        "popularityRank": 3
-      }
+      "installHint": "Create a Slack app with the required scopes, then paste its bot token below."
     },
     {
       "id": "tavily",
@@ -252,8 +242,7 @@
             "strategy": "api_key"
           }
         }
-      ],
-      "oauthProvider": null
+      ]
     },
     {
       "id": "linear",
@@ -329,12 +318,7 @@
         "tasks",
         "tickets"
       ],
-      "installHint": "Linear's hosted MCP server uses your Linear OAuth login — no key required.",
-      "oauthProvider": {
-        "description": "Issue tracking, roadmap planning, and product engineering workflows.",
-        "docsUrl": "https://linear.app/developers/oauth-authentication",
-        "popularityRank": 12
-      }
+      "installHint": "Linear's hosted MCP server uses your Linear OAuth login \u2014 no key required."
     },
     {
       "id": "notion",
@@ -423,12 +407,7 @@
         "notes",
         "wiki",
         "knowledge base"
-      ],
-      "oauthProvider": {
-        "description": "Workspace search, pages, databases, and knowledge management.",
-        "docsUrl": "https://developers.notion.com/docs/authorization",
-        "popularityRank": 4
-      }
+      ]
     },
     {
       "id": "ordinal",
@@ -476,8 +455,7 @@
             "url": "https://app.tryordinal.com/api/mcp"
           }
         }
-      ],
-      "oauthProvider": {}
+      ]
     },
     {
       "id": "elevenlabs",
@@ -535,11 +513,7 @@
         "speech",
         "voice",
         "audio"
-      ],
-      "oauthProvider": {
-        "description": "Text to speech, voices, transcription, audio generation, and agents.",
-        "docsUrl": "https://elevenlabs.io/docs/api-reference/introduction"
-      }
+      ]
     },
     {
       "id": "bitbucket",
@@ -596,8 +570,7 @@
             }
           }
         }
-      ],
-      "oauthProvider": {}
+      ]
     },
     {
       "id": "gitlab",
@@ -652,8 +625,7 @@
             }
           }
         }
-      ],
-      "oauthProvider": {}
+      ]
     },
     {
       "id": "xero",
@@ -708,8 +680,7 @@
             }
           }
         }
-      ],
-      "oauthProvider": {}
+      ]
     },
     {
       "id": "quickbooks",
@@ -764,8 +735,7 @@
             }
           }
         }
-      ],
-      "oauthProvider": {}
+      ]
     },
     {
       "id": "mailchimp",
@@ -820,8 +790,7 @@
             }
           }
         }
-      ],
-      "oauthProvider": {}
+      ]
     },
     {
       "id": "pipedrive",
@@ -878,8 +847,7 @@
             }
           }
         }
-      ],
-      "oauthProvider": {}
+      ]
     },
     {
       "id": "freshdesk",
@@ -934,8 +902,7 @@
             }
           }
         }
-      ],
-      "oauthProvider": {}
+      ]
     },
     {
       "id": "servicenow",
@@ -992,8 +959,7 @@
             }
           }
         }
-      ],
-      "oauthProvider": {}
+      ]
     },
     {
       "id": "okta",
@@ -1048,8 +1014,7 @@
             }
           }
         }
-      ],
-      "oauthProvider": {}
+      ]
     },
     {
       "id": "plaid",
@@ -1092,8 +1057,7 @@
             }
           }
         }
-      ],
-      "oauthProvider": {}
+      ]
     },
     {
       "id": "netlify",
@@ -1148,8 +1112,7 @@
             }
           }
         }
-      ],
-      "oauthProvider": {}
+      ]
     },
     {
       "id": "vercel",
@@ -1204,8 +1167,7 @@
             }
           }
         }
-      ],
-      "oauthProvider": {}
+      ]
     },
     {
       "id": "supabase",
@@ -1289,11 +1251,7 @@
         "auth",
         "storage",
         "postgres"
-      ],
-      "oauthProvider": {
-        "description": "Projects, databases, auth, and storage administration.",
-        "docsUrl": "https://supabase.com/docs/guides/integrations/build-a-supabase-oauth-integration"
-      }
+      ]
     },
     {
       "id": "posthog",
@@ -1348,8 +1306,7 @@
             }
           }
         }
-      ],
-      "oauthProvider": {}
+      ]
     },
     {
       "id": "sentry",
@@ -1428,11 +1385,7 @@
         "observability",
         "monitoring",
         "crash"
-      ],
-      "oauthProvider": {
-        "description": "Errors, releases, issue ownership, and incident investigation.",
-        "docsUrl": "https://docs.sentry.io/api/guides/oauth/"
-      }
+      ]
     },
     {
       "id": "datadog",
@@ -1481,8 +1434,7 @@
             "url": "https://mcp.datadoghq.com/api/unstable/mcp-server/mcp"
           }
         }
-      ],
-      "oauthProvider": {}
+      ]
     },
     {
       "id": "canva",
@@ -1531,8 +1483,7 @@
             }
           }
         }
-      ],
-      "oauthProvider": {}
+      ]
     },
     {
       "id": "miro",
@@ -1587,8 +1538,7 @@
             }
           }
         }
-      ],
-      "oauthProvider": {}
+      ]
     },
     {
       "id": "webflow",
@@ -1637,8 +1587,7 @@
             "url": "https://mcp.webflow.com/mcp"
           }
         }
-      ],
-      "oauthProvider": {}
+      ]
     },
     {
       "id": "zoom",
@@ -1693,8 +1642,7 @@
             }
           }
         }
-      ],
-      "oauthProvider": {}
+      ]
     },
     {
       "id": "discord",
@@ -1751,8 +1699,7 @@
             }
           }
         }
-      ],
-      "oauthProvider": {}
+      ]
     },
     {
       "id": "shopify",
@@ -1807,8 +1754,7 @@
             }
           }
         }
-      ],
-      "oauthProvider": {}
+      ]
     },
     {
       "id": "stripe",
@@ -1883,11 +1829,7 @@
         "billing",
         "subscriptions",
         "finance"
-      ],
-      "oauthProvider": {
-        "description": "Payments, customers, invoices, and subscription operations.",
-        "docsUrl": "https://docs.stripe.com/connect/oauth-reference"
-      }
+      ]
     },
     {
       "id": "intercom",
@@ -1944,8 +1886,7 @@
             }
           }
         }
-      ],
-      "oauthProvider": {}
+      ]
     },
     {
       "id": "zendesk",
@@ -2000,8 +1941,7 @@
             }
           }
         }
-      ],
-      "oauthProvider": {}
+      ]
     },
     {
       "id": "hubspot",
@@ -2026,7 +1966,7 @@
         "clientAuthentication": "body",
         "pkce": true,
         "scopes": [],
-        "credentialHelp": "Use the client ID and secret from a HubSpot MCP auth app (Development → MCP Auth Apps). Standard HubSpot OAuth apps and private apps will not authenticate with mcp.hubspot.com.",
+        "credentialHelp": "Use the client ID and secret from a HubSpot MCP auth app (Development \u2192 MCP Auth Apps). Standard HubSpot OAuth apps and private apps will not authenticate with mcp.hubspot.com.",
         "serverUrl": "https://mcp.hubspot.com"
       },
       "defaultConnectionOptionId": "oauth",
@@ -2036,7 +1976,7 @@
           "provider": "mcp",
           "auth": {
             "strategy": "oauth2",
-            "credentialHelp": "Use the client ID and secret from a HubSpot MCP auth app (Development → MCP Auth Apps). Standard HubSpot OAuth apps and private apps will not authenticate with mcp.hubspot.com.",
+            "credentialHelp": "Use the client ID and secret from a HubSpot MCP auth app (Development \u2192 MCP Auth Apps). Standard HubSpot OAuth apps and private apps will not authenticate with mcp.hubspot.com.",
             "oauth": {
               "authorizationUrl": "https://mcp.hubspot.com/oauth/authorize/user",
               "tokenUrl": "https://mcp.hubspot.com/oauth/v3/token",
@@ -2050,8 +1990,7 @@
             "url": "https://mcp.hubspot.com"
           }
         }
-      ],
-      "oauthProvider": {}
+      ]
     },
     {
       "id": "salesforce",
@@ -2106,8 +2045,7 @@
             }
           }
         }
-      ],
-      "oauthProvider": {}
+      ]
     },
     {
       "id": "sharepoint",
@@ -2162,8 +2100,7 @@
             }
           }
         }
-      ],
-      "oauthProvider": {}
+      ]
     },
     {
       "id": "onedrive",
@@ -2218,8 +2155,7 @@
             }
           }
         }
-      ],
-      "oauthProvider": {}
+      ]
     },
     {
       "id": "microsoft-teams",
@@ -2274,8 +2210,7 @@
             }
           }
         }
-      ],
-      "oauthProvider": {}
+      ]
     },
     {
       "id": "microsoft-outlook",
@@ -2330,8 +2265,7 @@
             }
           }
         }
-      ],
-      "oauthProvider": {}
+      ]
     },
     {
       "id": "box",
@@ -2388,8 +2322,7 @@
             }
           }
         }
-      ],
-      "oauthProvider": {}
+      ]
     },
     {
       "id": "dropbox",
@@ -2444,8 +2377,7 @@
             }
           }
         }
-      ],
-      "oauthProvider": {}
+      ]
     },
     {
       "id": "airtable",
@@ -2536,11 +2468,7 @@
         "database",
         "records",
         "bases"
-      ],
-      "oauthProvider": {
-        "description": "Bases, records, linked data, and workflow automation.",
-        "docsUrl": "https://airtable.com/developers/web/api/oauth-reference"
-      }
+      ]
     },
     {
       "id": "monday",
@@ -2595,8 +2523,7 @@
             }
           }
         }
-      ],
-      "oauthProvider": {}
+      ]
     },
     {
       "id": "clickup",
@@ -2647,8 +2574,7 @@
             }
           }
         }
-      ],
-      "oauthProvider": {}
+      ]
     },
     {
       "id": "trello",
@@ -2691,8 +2617,7 @@
             }
           }
         }
-      ],
-      "oauthProvider": {}
+      ]
     },
     {
       "id": "asana",
@@ -2747,8 +2672,7 @@
             }
           }
         }
-      ],
-      "oauthProvider": {}
+      ]
     },
     {
       "id": "confluence",
@@ -2803,8 +2727,7 @@
             }
           }
         }
-      ],
-      "oauthProvider": {}
+      ]
     },
     {
       "id": "jira",
@@ -2859,8 +2782,7 @@
             }
           }
         }
-      ],
-      "oauthProvider": {}
+      ]
     },
     {
       "id": "google-calendar",
@@ -2915,8 +2837,7 @@
             }
           }
         }
-      ],
-      "oauthProvider": {}
+      ]
     },
     {
       "id": "gmail",
@@ -2971,8 +2892,7 @@
             }
           }
         }
-      ],
-      "oauthProvider": {}
+      ]
     },
     {
       "id": "google-sheets",
@@ -3027,8 +2947,7 @@
             }
           }
         }
-      ],
-      "oauthProvider": {}
+      ]
     },
     {
       "id": "google-drive",
@@ -3083,8 +3002,7 @@
             }
           }
         }
-      ],
-      "oauthProvider": {}
+      ]
     },
     {
       "id": "figma",
@@ -3180,11 +3098,7 @@
         "ui",
         "frames",
         "components"
-      ],
-      "oauthProvider": {
-        "description": "Design files, nodes, and developer handoff automation.",
-        "docsUrl": "https://www.figma.com/developers/api#oauth2"
-      }
+      ]
     },
     {
       "id": "google-docs",
@@ -3240,8 +3154,7 @@
             }
           }
         }
-      ],
-      "oauthProvider": {}
+      ]
     },
     {
       "id": "apify",
@@ -3284,8 +3197,7 @@
             "strategy": "api_key"
           }
         }
-      ],
-      "oauthProvider": null
+      ]
     },
     {
       "id": "atlassian",
@@ -3316,8 +3228,7 @@
             "apiKeyOptional": true
           }
         }
-      ],
-      "oauthProvider": null
+      ]
     },
     {
       "id": "brave-search",
@@ -3360,13 +3271,12 @@
             "strategy": "api_key"
           }
         }
-      ],
-      "oauthProvider": null
+      ]
     },
     {
       "id": "browser-mcp",
       "name": "Browser MCP",
-      "description": "Control your local browser tab — navigate, click, type, and read DOM contents.",
+      "description": "Control your local browser tab \u2014 navigate, click, type, and read DOM contents.",
       "docsUrl": "https://browsermcp.io/",
       "iconBg": "#0EA5E9",
       "keywords": [
@@ -3395,8 +3305,7 @@
             "strategy": "none"
           }
         }
-      ],
-      "oauthProvider": null
+      ]
     },
     {
       "id": "clickhouse",
@@ -3452,8 +3361,7 @@
             "strategy": "api_key"
           }
         }
-      ],
-      "oauthProvider": null
+      ]
     },
     {
       "id": "cloudflare-browser-rendering",
@@ -3483,13 +3391,12 @@
             "apiKeyOptional": true
           }
         }
-      ],
-      "oauthProvider": null
+      ]
     },
     {
       "id": "cloudflare-builds",
       "name": "Cloudflare Builds",
-      "description": "Inspect Workers Builds — logs, statuses, and rerun failed deploys.",
+      "description": "Inspect Workers Builds \u2014 logs, statuses, and rerun failed deploys.",
       "docsUrl": "https://developers.cloudflare.com/agents/model-context-protocol/",
       "iconBg": "#F38020",
       "keywords": [
@@ -3515,8 +3422,7 @@
             "apiKeyOptional": true
           }
         }
-      ],
-      "oauthProvider": null
+      ]
     },
     {
       "id": "cloudflare-docs",
@@ -3546,8 +3452,7 @@
             "apiKeyOptional": true
           }
         }
-      ],
-      "oauthProvider": null
+      ]
     },
     {
       "id": "cloudflare-observability",
@@ -3578,8 +3483,7 @@
             "apiKeyOptional": true
           }
         }
-      ],
-      "oauthProvider": null
+      ]
     },
     {
       "id": "cloudflare-bindings",
@@ -3611,8 +3515,7 @@
             "apiKeyOptional": true
           }
         }
-      ],
-      "oauthProvider": null
+      ]
     },
     {
       "id": "deepwiki",
@@ -3644,13 +3547,12 @@
             "apiKeyOptional": true
           }
         }
-      ],
-      "oauthProvider": null
+      ]
     },
     {
       "id": "everything",
       "name": "Everything (demo)",
-      "description": "Reference server exercising every MCP capability — useful for testing.",
+      "description": "Reference server exercising every MCP capability \u2014 useful for testing.",
       "docsUrl": "https://github.com/modelcontextprotocol/servers/tree/main/src/everything",
       "iconBg": "#6366F1",
       "keywords": [
@@ -3677,8 +3579,7 @@
             "strategy": "none"
           }
         }
-      ],
-      "oauthProvider": null
+      ]
     },
     {
       "id": "exa",
@@ -3721,8 +3622,7 @@
             "strategy": "api_key"
           }
         }
-      ],
-      "oauthProvider": null
+      ]
     },
     {
       "id": "fetch",
@@ -3754,8 +3654,7 @@
             "strategy": "none"
           }
         }
-      ],
-      "oauthProvider": null
+      ]
     },
     {
       "id": "filesystem",
@@ -3799,8 +3698,7 @@
             "strategy": "api_key"
           }
         }
-      ],
-      "oauthProvider": null
+      ]
     },
     {
       "id": "firecrawl",
@@ -3843,8 +3741,7 @@
             "strategy": "api_key"
           }
         }
-      ],
-      "oauthProvider": null
+      ]
     },
     {
       "id": "git",
@@ -3858,7 +3755,7 @@
         "diff",
         "blame"
       ],
-      "installHint": "Runs the official Python server via uvx — no setup beyond the path.",
+      "installHint": "Runs the official Python server via uvx \u2014 no setup beyond the path.",
       "kind": "mcp",
       "runtimeAvailability": "local",
       "defaultConnectionOptionId": "api",
@@ -3889,8 +3786,7 @@
             "strategy": "api_key"
           }
         }
-      ],
-      "oauthProvider": null
+      ]
     },
     {
       "id": "huggingface",
@@ -3922,13 +3818,12 @@
             "apiKeyOptional": true
           }
         }
-      ],
-      "oauthProvider": null
+      ]
     },
     {
       "id": "kagi",
       "name": "Kagi Search",
-      "description": "Paid, privacy-first search with high signal-to-noise — great for research.",
+      "description": "Paid, privacy-first search with high signal-to-noise \u2014 great for research.",
       "docsUrl": "https://github.com/kagisearch/kagimcp",
       "iconBg": "#FFB319",
       "iconColor": "var(--oh-surface-deep)",
@@ -3965,8 +3860,7 @@
             "strategy": "api_key"
           }
         }
-      ],
-      "oauthProvider": null
+      ]
     },
     {
       "id": "memory",
@@ -3999,8 +3893,7 @@
             "strategy": "none"
           }
         }
-      ],
-      "oauthProvider": null
+      ]
     },
     {
       "id": "mongodb",
@@ -4043,8 +3936,7 @@
             "strategy": "api_key"
           }
         }
-      ],
-      "oauthProvider": null
+      ]
     },
     {
       "id": "neon",
@@ -4088,8 +3980,7 @@
             "strategy": "api_key"
           }
         }
-      ],
-      "oauthProvider": null
+      ]
     },
     {
       "id": "obsidian",
@@ -4132,8 +4023,7 @@
             "strategy": "api_key"
           }
         }
-      ],
-      "oauthProvider": null
+      ]
     },
     {
       "id": "paypal",
@@ -4162,8 +4052,7 @@
             "apiKeyOptional": true
           }
         }
-      ],
-      "oauthProvider": null
+      ]
     },
     {
       "id": "playwright",
@@ -4197,8 +4086,7 @@
             "strategy": "none"
           }
         }
-      ],
-      "oauthProvider": null
+      ]
     },
     {
       "id": "redis",
@@ -4244,8 +4132,7 @@
             "strategy": "api_key"
           }
         }
-      ],
-      "oauthProvider": null
+      ]
     },
     {
       "id": "resend",
@@ -4294,8 +4181,7 @@
             "strategy": "api_key"
           }
         }
-      ],
-      "oauthProvider": null
+      ]
     },
     {
       "id": "sequential-thinking",
@@ -4327,8 +4213,7 @@
             "strategy": "none"
           }
         }
-      ],
-      "oauthProvider": null
+      ]
     },
     {
       "id": "time",
@@ -4359,12 +4244,7 @@
             "strategy": "none"
           }
         }
-      ],
-      "oauthProvider": null
+      ]
     }
-  ],
-  "defaultManagedConnectorSlugs": [
-    "elevenlabs",
-    "ordinal"
   ]
 }

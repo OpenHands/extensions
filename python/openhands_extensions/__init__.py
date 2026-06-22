@@ -15,17 +15,13 @@ from __future__ import annotations
 from ._version import __version__
 from .integrations import (
     INTEGRATION_CATALOG_SNAPSHOT,
-    default_managed_connectors,
-    get_oauth_provider_registration_defaults,
+    get_integration_catalog_entry,
     list_integration_catalog,
-    list_oauth_provider_catalog,
 )
 
 __all__ = [
     "INTEGRATION_CATALOG_SNAPSHOT",
     "__version__",
-    "default_managed_connectors",
-    "get_oauth_provider_registration_defaults",
+    "get_integration_catalog_entry",
     "list_integration_catalog",
-    "list_oauth_provider_catalog",
 ]

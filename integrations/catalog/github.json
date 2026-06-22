@@ -74,10 +74,5 @@
     "repo",
     "issues",
     "code"
-  ],
-  "oauthProvider": {
-    "description": "Source control, issues, pull requests, and developer workflows.",
-    "docsUrl": "https://docs.github.com/apps/oauth-apps/building-oauth-apps",
-    "popularityRank": 1
-  }
+  ]
 }

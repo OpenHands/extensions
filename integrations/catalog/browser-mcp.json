@@ -1,7 +1,7 @@
 {
   "id": "browser-mcp",
   "name": "Browser MCP",
-  "description": "Control your local browser tab — navigate, click, type, and read DOM contents.",
+  "description": "Control your local browser tab \u2014 navigate, click, type, and read DOM contents.",
   "docsUrl": "https://browsermcp.io/",
   "iconBg": "#0EA5E9",
   "keywords": [
@@ -30,6 +30,5 @@
         "strategy": "none"
       }
     }
-  ],
-  "oauthProvider": null
+  ]
 }

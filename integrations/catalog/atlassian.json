@@ -27,6 +27,5 @@
         "apiKeyOptional": true
       }
     }
-  ],
-  "oauthProvider": null
+  ]
 }

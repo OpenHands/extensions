@@ -54,9 +54,5 @@
     "speech",
     "voice",
     "audio"
-  ],
-  "oauthProvider": {
-    "description": "Text to speech, voices, transcription, audio generation, and agents.",
-    "docsUrl": "https://elevenlabs.io/docs/api-reference/introduction"
-  }
+  ]
 }

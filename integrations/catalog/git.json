@@ -10,7 +10,7 @@
     "diff",
     "blame"
   ],
-  "installHint": "Runs the official Python server via uvx — no setup beyond the path.",
+  "installHint": "Runs the official Python server via uvx \u2014 no setup beyond the path.",
   "kind": "mcp",
   "runtimeAvailability": "local",
   "defaultConnectionOptionId": "api",
@@ -41,6 +41,5 @@
         "strategy": "api_key"
       }
     }
-  ],
-  "oauthProvider": null
+  ]
 }

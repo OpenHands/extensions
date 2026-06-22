@@ -71,9 +71,5 @@
     "billing",
     "subscriptions",
     "finance"
-  ],
-  "oauthProvider": {
-    "description": "Payments, customers, invoices, and subscription operations.",
-    "docsUrl": "https://docs.stripe.com/connect/oauth-reference"
-  }
+  ]
 }

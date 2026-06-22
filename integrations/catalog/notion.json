@@ -85,10 +85,5 @@
     "notes",
     "wiki",
     "knowledge base"
-  ],
-  "oauthProvider": {
-    "description": "Workspace search, pages, databases, and knowledge management.",
-    "docsUrl": "https://developers.notion.com/docs/authorization",
-    "popularityRank": 4
-  }
+  ]
 }

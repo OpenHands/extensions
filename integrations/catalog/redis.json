@@ -42,6 +42,5 @@
         "strategy": "api_key"
       }
     }
-  ],
-  "oauthProvider": null
+  ]
 }

@@ -1,7 +1,7 @@
 {
   "id": "cloudflare-builds",
   "name": "Cloudflare Builds",
-  "description": "Inspect Workers Builds — logs, statuses, and rerun failed deploys.",
+  "description": "Inspect Workers Builds \u2014 logs, statuses, and rerun failed deploys.",
   "docsUrl": "https://developers.cloudflare.com/agents/model-context-protocol/",
   "iconBg": "#F38020",
   "keywords": [
@@ -27,6 +27,5 @@
         "apiKeyOptional": true
       }
     }
-  ],
-  "oauthProvider": null
+  ]
 }

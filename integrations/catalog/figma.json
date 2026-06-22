@@ -92,9 +92,5 @@
     "ui",
     "frames",
     "components"
-  ],
-  "oauthProvider": {
-    "description": "Design files, nodes, and developer handoff automation.",
-    "docsUrl": "https://www.figma.com/developers/api#oauth2"
-  }
+  ]
 }
