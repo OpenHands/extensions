@@ -58,6 +58,5 @@
     "tasks",
     "tickets"
   ],
-  "installHint": "Authenticate with a Linear API key (Linear → Settings → Security & access) — sent as a Bearer token. Optional when the endpoint accepts your OAuth session.",
-  "availability": "ready"
+  "installHint": "Authenticate with a Linear API key (Linear → Settings → Security & access) — sent as a Bearer token. Optional when the endpoint accepts your OAuth session."
 }

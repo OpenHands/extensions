@@ -65,6 +65,5 @@
     "auth",
     "storage",
     "postgres"
-  ],
-  "availability": "planned"
+  ]
 }

@@ -47,6 +47,7 @@ def test_catalog_directory_is_hand_authored_source_of_truth() -> None:
         assert "defaultConnectionOptionId" not in entry
         assert "kind" not in entry
         assert "catalogStatus" not in entry
+        assert "availability" not in entry
 
 
 def test_no_aggregate_catalog_json_exists() -> None:
@@ -78,6 +79,7 @@ def test_python_list_integration_catalog_returns_raw_entries() -> None:
         assert "authStrategy" not in entry
         assert "defaultConnectionOptionId" not in entry
         assert "catalogStatus" not in entry
+        assert "availability" not in entry
 
 
 def test_get_integration_catalog_entry_round_trip() -> None:

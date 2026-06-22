@@ -30,6 +30,5 @@
         "url": "https://mcp.datadoghq.com/api/unstable/mcp-server/mcp"
       }
     }
-  ],
-  "availability": "ready"
+  ]
 }

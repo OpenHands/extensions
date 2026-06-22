@@ -86,6 +86,5 @@
     "messaging",
     "team"
   ],
-  "installHint": "Create a Slack app with the required scopes, then paste its bot token below.",
-  "availability": "ready"
+  "installHint": "Create a Slack app with the required scopes, then paste its bot token below."
 }

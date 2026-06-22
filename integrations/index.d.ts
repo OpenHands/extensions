@@ -88,7 +88,6 @@ export interface IntegrationConnectionOption {
   auth: IntegrationAuthConfig;
 }
 
-export type IntegrationAvailability = "ready" | "planned";
 
 export interface IntegrationCatalogEntry {
   id: string;
@@ -103,7 +102,6 @@ export interface IntegrationCatalogEntry {
   keywords?: string[];
   popularityRank?: number;
   runtimeAvailability?: "all" | "local";
-  availability?: IntegrationAvailability;
   installHint?: string;
   connectionOptions: IntegrationConnectionOption[];
 }
