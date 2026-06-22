@@ -66,7 +66,7 @@
         "issues",
         "code"
       ],
-      "availability": "manual_token"
+      "availability": "ready"
     },
     {
       "id": "slack",
@@ -157,7 +157,7 @@
         "team"
       ],
       "installHint": "Create a Slack app with the required scopes, then paste its bot token below.",
-      "availability": "oauth_ready"
+      "availability": "ready"
     },
     {
       "id": "tavily",
@@ -212,7 +212,7 @@
         "Engineering"
       ],
       "appUrl": "https://linear.app",
-      "docsUrl": "https://linear.app/changelog/2025-05-01-mcp",
+      "docsUrl": "https://linear.app/docs/mcp",
       "notes": "Popular among modern product engineering teams and already useful to this repo's users.",
       "popularityRank": 86,
       "connectionOptions": [
@@ -240,16 +240,19 @@
           }
         },
         {
-          "id": "none",
+          "id": "api-key",
           "provider": "mcp",
           "transport": {
-            "kind": "sse",
-            "url": "https://mcp.linear.app/sse",
+            "kind": "shttp",
+            "url": "https://mcp.linear.app/mcp",
             "apiKeyOptional": true
           },
           "auth": {
-            "strategy": "none",
-            "apiKeyOptional": true
+            "strategy": "bearer",
+            "apiKeyOptional": true,
+            "credentialLabel": "Linear API key",
+            "credentialPlaceholder": "Paste your Linear API key",
+            "credentialHelp": "Optional when the endpoint accepts your OAuth session; otherwise sent as Authorization: Bearer <token>."
           }
         }
       ],
@@ -260,8 +263,8 @@
         "tasks",
         "tickets"
       ],
-      "installHint": "Linear's hosted MCP server uses your Linear OAuth login — no key required.",
-      "availability": "planned"
+      "installHint": "Authenticate with a Linear API key (Linear → Settings → Security & access) — sent as a Bearer token. Optional when the endpoint accepts your OAuth session.",
+      "availability": "ready"
     },
     {
       "id": "notion",
@@ -334,7 +337,7 @@
         "wiki",
         "knowledge base"
       ],
-      "availability": "oauth_ready"
+      "availability": "ready"
     },
     {
       "id": "ordinal",
@@ -367,7 +370,7 @@
           }
         }
       ],
-      "availability": "manual_token"
+      "availability": "ready"
     },
     {
       "id": "elevenlabs",
@@ -408,7 +411,7 @@
         "voice",
         "audio"
       ],
-      "availability": "manual_token"
+      "availability": "ready"
     },
     {
       "id": "bitbucket",
@@ -1077,7 +1080,7 @@
           }
         }
       ],
-      "availability": "oauth_ready"
+      "availability": "ready"
     },
     {
       "id": "canva",
@@ -1187,7 +1190,7 @@
           }
         }
       ],
-      "availability": "oauth_ready"
+      "availability": "ready"
     },
     {
       "id": "zoom",
@@ -1478,7 +1481,7 @@
           }
         }
       ],
-      "availability": "oauth_ready"
+      "availability": "ready"
     },
     {
       "id": "salesforce",
@@ -2283,7 +2286,7 @@
         "frames",
         "components"
       ],
-      "availability": "oauth_ready"
+      "availability": "ready"
     },
     {
       "id": "google-docs",
@@ -2322,7 +2325,7 @@
           }
         }
       ],
-      "availability": "manual_token"
+      "availability": "ready"
     },
     {
       "id": "apify",

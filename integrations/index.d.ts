@@ -88,7 +88,7 @@ export interface IntegrationConnectionOption {
   auth: IntegrationAuthConfig;
 }
 
-export type IntegrationAvailability = "oauth_ready" | "manual_token" | "planned";
+export type IntegrationAvailability = "ready" | "planned";
 
 export interface IntegrationCatalogEntry {
   id: string;
