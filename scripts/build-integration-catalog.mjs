@@ -12,6 +12,8 @@
  * fresh generation.
  *
  * Run `npm run build:integration-catalog` after editing the authoring source.
+ * The build writes byte-identical copies to both `integrations/integration-catalog.json`
+ * and `python/openhands_extensions/integration-catalog.json`; a parity test guards against drift.
  *
  * Shape (see buildIntegrationCatalog()):
  *   {
