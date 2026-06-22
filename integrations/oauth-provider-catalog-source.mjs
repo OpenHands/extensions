@@ -1,4 +1,4 @@
-import { getOAuthProviderRegistrationDefaults } from "./oauth-provider-registration-defaults.js";
+import { getOAuthProviderRegistrationDefaults } from "./oauth-provider-registration-defaults-source.js";
 const provider = (popularityRank, option) => {
   const registrationDefaults = getOAuthProviderRegistrationDefaults(option.slug);
 

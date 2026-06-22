@@ -12,7 +12,7 @@ build-backend = "hatchling.build"
 packages = ["python/openhands_extensions"]
 
 [tool.hatch.build.targets.wheel.force-include]
-"python/openhands_extensions/oauth-provider-catalog.json" = "openhands_extensions/oauth-provider-catalog.json"
+"python/openhands_extensions/integration-catalog.json" = "openhands_extensions/integration-catalog.json"
 
 [dependency-groups]
 test = [

@@ -59,16 +59,22 @@ See [`integrations/README.md`](integrations/README.md), [`automations/README.md`
 
 ### Python Package
 
-The OAuth provider catalog is also published as a Python package (`openhands-extensions`) so Python services can read the same catalog data as JS consumers without re-implementing it. The single source of truth is the JSON asset `integrations/oauth-provider-catalog.json`, generated from the JS authoring source by `npm run build:integration-catalog` and embedded into both packages.
+The OAuth provider catalog is also published as a Python package (`openhands-extensions`) so Python services read the same catalog data as JS consumers. The single source of truth is the unified JSON asset `integrations/integration-catalog.json`, generated from the JS authoring source by `npm run build:integration-catalog`. Both the JS package (`@openhands/extensions/integrations`) and the Python package read that same JSON asset at runtime, so the two language bindings can never drift. A CI parity test regenerates the JSON from the authoring source and asserts the checked-in copy matches.
+
+The unified catalog merges every integration into one array where each entry can carry oauth and/or mcp/http `connectionOptions` (tagged with `supportsOauth` / `supportsMcp`). Use `listIntegrationCatalog({ mcp, oauth })` (JS) or `list_integration_catalog(mcp=, oauth=)` (Python) to filter by connector type - for example only integrations that support an oauth connector.
 
 ```python
 from openhands_extensions import (
-    list_oauth_provider_catalog,                      # listOAuthProviderCatalog()
-    get_oauth_provider_registration_defaults,         # getOAuthProviderRegistrationDefaults(slug)
-    default_managed_connectors,                       # snapshot defaultManagedConnectors
-    INTEGRATION_CATALOG_SNAPSHOT,                     # { providers, defaultManagedConnectors }
+    list_integration_catalog,                        # listIntegrationCatalog({ mcp, oauth })
+    list_oauth_provider_catalog,                     # listOAuthProviderCatalog()
+    get_oauth_provider_registration_defaults,        # getOAuthProviderRegistrationDefaults(slug)
+    default_managed_connectors,                      # snapshot defaultManagedConnectors
+    INTEGRATION_CATALOG_SNAPSHOT,                    # { integrations, providers, ... }
 )
 
+all_integrations = list_integration_catalog()
+oauth_integrations = list_integration_catalog(oauth=True)      # only entries with an oauth connector
+mcp_integrations = list_integration_catalog(mcp=True)          # only entries with an mcp connector
 providers = list_oauth_provider_catalog()
 defaults = get_oauth_provider_registration_defaults("hubspot")
 defaults_connectors = default_managed_connectors()

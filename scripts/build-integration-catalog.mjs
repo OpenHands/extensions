@@ -1,29 +1,37 @@
 #!/usr/bin/env node
 /**
- * Generates the checked-in OAuth provider catalog asset
- * (integrations/oauth-provider-catalog.json). The JS package is the authoring
- * and runtime source — `integrations/oauth-provider-catalog.js` (plus
- * `oauth-provider-registration-defaults.js`) — and this script imports it to
- * emit the JSON. The Python package (`python/openhands_extensions`) reads its
- * embedded copy of that same JSON at runtime. CI asserts the checked-in JSON
- * matches a fresh generation so the two language bindings never drift.
+ * Generates the checked-in unified integration catalog asset
+ * (integrations/integration-catalog.json). The authoring source —
+ * `integrations/integration-catalog-source.mjs` (which merges the
+ * per-integration JSON files with `oauth-provider-catalog-source.mjs` and
+ * `oauth-provider-registration-defaults-source.js`) — is the ONLY place the
+ * catalog is assembled; this script imports it to emit the JSON. Both the JS
+ * package (`integrations/index.js`) and the Python package
+ * (`python/openhands_extensions`) read that same JSON asset at runtime, so the
+ * two language bindings never drift. CI asserts the checked-in JSON matches a
+ * fresh generation.
  *
- * Run `npm run build:integration-catalog` after editing the JS source files.
+ * Run `npm run build:integration-catalog` after editing the authoring source.
  *
- * Shape (mirrors listOAuthProviderCatalog()):
+ * Shape (see buildIntegrationCatalog()):
  *   {
- *     "providers": OAuthProviderCatalogOption[],
- *     "defaultManagedConnectors": ManagedConnector[]   // providers whose
- *                                                       // registrationDefaults
- *                                                       // describe a non-oauth2
- *                                                       // default managed connector
+ *     "integrations": IntegrationCatalogEntry[],          // unified; each entry
+ *                                                          // carries oauth and/or
+ *                                                          // mcp connectionOptions
+ *                                                          // + supportsOauth/supportsMcp
+ *     "providers": OAuthProviderCatalogOption[],          // oauth-provider view
+ *     "defaultManagedConnectors": ManagedConnector[],     // non-oauth2 providers
+ *     "defaultManagedConnectorSlugs": string[]
  *   }
  */
 import { writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { listOAuthProviderCatalog } from "../integrations/oauth-provider-catalog.js";
+// The authoring source. This is the ONLY place the catalog is assembled from
+// hand-authored data; the runtime modules (JS and Python) read the generated
+// JSON asset, not this source.
+import { buildIntegrationCatalog } from "../integrations/integration-catalog-source.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -31,71 +39,30 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
  * Every location the generated catalog asset must be written to. There is a
  * single generation pass (below); each path receives a byte-identical copy so
  * the Python package (which reads its embedded copy) and CI see exactly the
- * same bytes as the JS source generates. A parity test
+ * same bytes as the JS authoring source generates. A parity test
  * (tests/test_integration_catalog_in_sync.py) asserts the checked-in copies
  * stay identical, so a maintainer who edits one without re-running
  * `npm run build:integration-catalog` fails CI.
  */
 const OUTPUTS = [
-  path.resolve(__dirname, "..", "integrations", "oauth-provider-catalog.json"),
+  path.resolve(__dirname, "..", "integrations", "integration-catalog.json"),
   path.resolve(
     __dirname,
     "..",
     "python",
     "openhands_extensions",
-    "oauth-provider-catalog.json",
+    "integration-catalog.json",
   ),
 ];
 
-const isDefaultManagedConnectorProvider = (provider) => {
-  const defaults = provider.registrationDefaults;
-  if (!defaults?.authStrategy || defaults.authStrategy === "oauth2") {
-    return false;
-  }
-  if (defaults.provider === "http" && defaults.apiBaseUrl && defaults.openApiUrl) {
-    return true;
-  }
-  if (defaults.provider === "mcp" && defaults.serverUrl) {
-    return true;
-  }
-  return false;
-};
-
-const defaultManagedConnector = (provider) => {
-  const defaults = provider.registrationDefaults;
-  return {
-    slug: provider.managedConnectorSlug ?? provider.slug,
-    name: provider.name,
-    description: provider.description,
-    appUrl: provider.appUrl,
-    docsUrl: provider.docsUrl,
-    categories: provider.categories,
-    authModes:
-      defaults.authModes?.length && defaults.authModes.every(Boolean)
-        ? defaults.authModes
-        : [defaults.authStrategy],
-    authStrategy: defaults.authStrategy,
-    provider: defaults.provider,
-    credentialLabel: defaults.credentialLabel ?? `${provider.name} credential`,
-    credentialPlaceholder:
-      defaults.credentialPlaceholder ?? `Paste your ${provider.name} credential`,
-    credentialHelp: defaults.credentialHelp ?? `Credential required by ${provider.name}.`,
-    apiKeyHeaderName: defaults.apiKeyHeaderName?.trim() || undefined,
-    apiBaseUrl: defaults.apiBaseUrl,
-    openApiUrl: defaults.openApiUrl,
-    serverUrl: defaults.serverUrl,
-    oauthConfigured: true,
-  };
-};
-
+/**
+ * Build the unified integration catalog snapshot from the authoring source.
+ * This is the producer side; runtime consumers read the generated JSON asset.
+ * The shape is `{ integrations, providers, defaultManagedConnectors,
+ * defaultManagedConnectorSlugs }` (see buildIntegrationCatalog).
+ */
 export function buildCatalog() {
-  const providers = listOAuthProviderCatalog();
-  return {
-    providers,
-    defaultManagedConnectors: providers
-      .filter(isDefaultManagedConnectorProvider)
-      .map(defaultManagedConnector),
-  };
+  return buildIntegrationCatalog();
 }
 
 const isMain = process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1];
@@ -106,7 +73,8 @@ if (isMain) {
     writeFileSync(output, serialized);
   }
   console.log(
-    `Generated ${catalog.providers.length} providers and ` +
+    `Generated ${catalog.integrations.length} integrations, ` +
+      `${catalog.providers.length} oauth providers, and ` +
       `${catalog.defaultManagedConnectors.length} default managed connectors -> ` +
       OUTPUTS.map((p) => path.relative(path.resolve(__dirname, ".."), p)).join(", "),
   );
