@@ -1,5 +1,6 @@
 name: Tests
 
+# NOTE: pull_request (not pull_request_target) so checks run against the PR head.
 on:
   pull_request:
     branches: ["*"]
