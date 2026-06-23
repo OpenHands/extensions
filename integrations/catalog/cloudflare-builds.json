@@ -14,16 +14,14 @@
   ],
   "connectionOptions": [
     {
-      "id": "none",
+      "id": "oauth",
       "provider": "mcp",
       "transport": {
-        "kind": "sse",
-        "url": "https://builds.mcp.cloudflare.com/sse",
-        "apiKeyOptional": true
+        "kind": "shttp",
+        "url": "https://builds.mcp.cloudflare.com/mcp"
       },
       "auth": {
-        "strategy": "none",
-        "apiKeyOptional": true
+        "strategy": "oauth2"
       }
     }
   ]

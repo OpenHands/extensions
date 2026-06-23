@@ -35,16 +35,17 @@
       }
     },
     {
-      "id": "none",
+      "id": "api",
       "provider": "mcp",
       "transport": {
         "kind": "shttp",
-        "url": "https://mcp.stripe.com/",
-        "apiKeyOptional": true
+        "url": "https://mcp.stripe.com/"
       },
       "auth": {
-        "strategy": "none",
-        "apiKeyOptional": true
+        "strategy": "bearer",
+        "credentialLabel": "Stripe restricted key",
+        "credentialPlaceholder": "rk_live_...",
+        "credentialHelp": "Create a Stripe restricted key for MCP access and paste it here."
       }
     }
   ],

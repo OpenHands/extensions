@@ -37,16 +37,23 @@
       }
     },
     {
-      "id": "none",
+      "id": "oauth-mcp",
       "provider": "mcp",
       "transport": {
         "kind": "shttp",
-        "url": "https://mcp.sentry.dev/mcp",
-        "apiKeyOptional": true
+        "url": "https://mcp.sentry.dev/mcp"
       },
       "auth": {
-        "strategy": "none",
-        "apiKeyOptional": true
+        "strategy": "oauth2",
+        "oauth": {
+          "authorizationUrl": "https://sentry.io/oauth/authorize",
+          "tokenUrl": "https://sentry.io/oauth/token",
+          "scopes": [
+            "project:read",
+            "event:read",
+            "org:read"
+          ]
+        }
       }
     }
   ],

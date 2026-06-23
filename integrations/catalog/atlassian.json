@@ -14,16 +14,14 @@
   ],
   "connectionOptions": [
     {
-      "id": "none",
+      "id": "oauth",
       "provider": "mcp",
       "transport": {
-        "kind": "sse",
-        "url": "https://mcp.atlassian.com/v1/sse",
-        "apiKeyOptional": true
+        "kind": "shttp",
+        "url": "https://mcp.atlassian.com/v1/mcp"
       },
       "auth": {
-        "strategy": "none",
-        "apiKeyOptional": true
+        "strategy": "oauth2"
       }
     }
   ]

@@ -16,13 +16,11 @@
       "id": "none",
       "provider": "mcp",
       "transport": {
-        "kind": "sse",
-        "url": "https://docs.mcp.cloudflare.com/sse",
-        "apiKeyOptional": true
+        "kind": "shttp",
+        "url": "https://docs.mcp.cloudflare.com/mcp"
       },
       "auth": {
-        "strategy": "none",
-        "apiKeyOptional": true
+        "strategy": "none"
       }
     }
   ]
