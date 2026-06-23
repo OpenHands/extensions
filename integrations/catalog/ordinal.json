@@ -8,6 +8,7 @@
   ],
   "appUrl": "https://app.tryordinal.com",
   "docsUrl": "https://docs.tryordinal.com/api/mcp",
+  "logoUrl": "https://app.tryordinal.com/favicon.ico",
   "notes": "Official MCP server backed by Ordinal's API with API-key (Bearer) auth.",
   "popularityRank": 52,
   "connectionOptions": [
