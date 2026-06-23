@@ -1,9 +1,10 @@
 {
   "id": "kagi",
   "name": "Kagi Search",
-  "description": "Paid, privacy-first search with high signal-to-noise — great for research.",
+  "description": "Paid, privacy-first search with high signal-to-noise \u2014 great for research.",
   "docsUrl": "https://github.com/kagisearch/kagimcp",
   "iconBg": "#FFB319",
+  "logoUrl": "https://cdn.simpleicons.org/kagi/000000",
   "iconColor": "var(--oh-surface-deep)",
   "keywords": [
     "search",

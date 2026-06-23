@@ -63,6 +63,7 @@
     }
   ],
   "iconBg": "#FCB400",
+  "logoUrl": "https://cdn.simpleicons.org/airtable/000000",
   "iconColor": "var(--oh-surface-deep)",
   "keywords": [
     "spreadsheet",

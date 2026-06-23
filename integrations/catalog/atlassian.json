@@ -4,6 +4,7 @@
   "description": "Search Jira issues and Confluence pages via Atlassian's hosted MCP server.",
   "docsUrl": "https://www.atlassian.com/platform/remote-mcp-server",
   "iconBg": "#0052CC",
+  "logoUrl": "https://cdn.simpleicons.org/atlassian/FFFFFF",
   "keywords": [
     "jira",
     "confluence",

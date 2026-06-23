@@ -4,6 +4,7 @@
   "description": "Search and reference Cloudflare's developer documentation directly from the agent.",
   "docsUrl": "https://developers.cloudflare.com/agents/model-context-protocol/",
   "iconBg": "#F38020",
+  "logoUrl": "https://cdn.simpleicons.org/cloudflare/FFFFFF",
   "keywords": [
     "cloudflare",
     "docs",

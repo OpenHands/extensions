@@ -99,6 +99,7 @@ export interface IntegrationCatalogEntry {
   notes?: string;
   iconBg?: string;
   iconColor?: string;
+  logoUrl?: string;
   keywords?: string[];
   popularityRank?: number;
   installHint?: string;

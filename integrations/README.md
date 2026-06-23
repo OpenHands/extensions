@@ -32,8 +32,8 @@ old package exports were removed rather than kept as aliases.
 
 - Import `INTEGRATION_CATALOG` from `@openhands/extensions/integrations`
   instead of `MCP_CATALOG` from `@openhands/extensions/mcps`.
-- Import logo mappings from `@openhands/extensions/integrations/logos`
-  instead of `@openhands/extensions/mcps/logos`.
+- Read serializable logo metadata from each `IntegrationCatalogEntry` (`logoUrl`,
+  `iconBg`, and `iconColor`) instead of importing React-specific logo maps.
 - Use `IntegrationCatalogEntry` instead of `McpCatalogEntry`.
 - Read MCP configuration from `entry.connectionOptions[]`. Direct MCP entries
   have `provider: "mcp"` and a `transport`; entries may expose multiple
@@ -46,4 +46,4 @@ old package exports were removed rather than kept as aliases.
 The `mcps` API was intentionally broken because it was pre-release and had not
 been adopted as a stable public surface.
 
-The catalog intentionally stores only serializable data. Client applications are responsible for mapping entries to UI-specific icons or styling.
+The catalog intentionally stores only serializable data, including language-agnostic logo URLs and optional presentation colors. Client applications can render those fields directly while keeping any purely UI-specific styling local.

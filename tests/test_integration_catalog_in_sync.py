@@ -84,6 +84,17 @@ def test_python_list_integration_catalog_returns_raw_entries() -> None:
         assert "runtimeAvailability" not in entry
 
 
+def test_logo_metadata_is_serializable_and_language_agnostic() -> None:
+    entries = openhands_extensions.list_integration_catalog()
+    with_logo = [entry for entry in entries if entry.get("logoUrl")]
+    assert with_logo
+    assert any(entry["id"].startswith("cloudflare-") for entry in with_logo)
+    for entry in with_logo:
+        assert isinstance(entry["logoUrl"], str)
+        assert entry["logoUrl"].startswith("https://")
+        assert "react" not in entry["logoUrl"].lower()
+
+
 def test_get_integration_catalog_entry_round_trip() -> None:
     github = openhands_extensions.get_integration_catalog_entry("github")
     assert github is not None

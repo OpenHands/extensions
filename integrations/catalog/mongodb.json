@@ -4,6 +4,7 @@
   "description": "Query MongoDB collections, inspect schemas, and run aggregation pipelines.",
   "docsUrl": "https://www.mongodb.com/docs/mcp-server/",
   "iconBg": "#00684A",
+  "logoUrl": "https://cdn.simpleicons.org/mongodb/FFFFFF",
   "keywords": [
     "database",
     "nosql",

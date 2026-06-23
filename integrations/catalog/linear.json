@@ -52,11 +52,12 @@
     }
   ],
   "iconBg": "#5E6AD2",
+  "logoUrl": "https://cdn.simpleicons.org/linear/FFFFFF",
   "keywords": [
     "issues",
     "project management",
     "tasks",
     "tickets"
   ],
-  "installHint": "Authenticate with a Linear API key (Linear → Settings → Security & access) — sent as a Bearer token. Optional when the endpoint accepts your OAuth session."
+  "installHint": "Authenticate with a Linear API key (Linear \u2192 Settings \u2192 Security & access) \u2014 sent as a Bearer token. Optional when the endpoint accepts your OAuth session."
 }

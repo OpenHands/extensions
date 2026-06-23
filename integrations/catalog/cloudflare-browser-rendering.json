@@ -4,6 +4,7 @@
   "description": "Fetch and screenshot pages using Cloudflare's hosted browser rendering.",
   "docsUrl": "https://developers.cloudflare.com/agents/model-context-protocol/",
   "iconBg": "#F38020",
+  "logoUrl": "https://cdn.simpleicons.org/cloudflare/FFFFFF",
   "keywords": [
     "cloudflare",
     "browser",

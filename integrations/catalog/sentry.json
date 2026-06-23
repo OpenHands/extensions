@@ -51,6 +51,7 @@
     }
   ],
   "iconBg": "#362D59",
+  "logoUrl": "https://cdn.simpleicons.org/sentry/FFFFFF",
   "keywords": [
     "errors",
     "observability",

@@ -4,6 +4,7 @@
   "description": "Get, set, scan, and inspect data on a Redis or Redis-compatible instance.",
   "docsUrl": "https://github.com/redis/mcp-redis",
   "iconBg": "#DC382D",
+  "logoUrl": "https://cdn.simpleicons.org/redis/FFFFFF",
   "keywords": [
     "cache",
     "kv",

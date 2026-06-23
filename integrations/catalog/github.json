@@ -57,6 +57,7 @@
     }
   ],
   "iconBg": "var(--oh-surface)",
+  "logoUrl": "https://cdn.simpleicons.org/github/FFFFFF",
   "keywords": [
     "git",
     "pr",

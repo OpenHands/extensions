@@ -60,6 +60,7 @@
     }
   ],
   "iconBg": "#3ECF8E",
+  "logoUrl": "https://cdn.simpleicons.org/supabase/FFFFFF",
   "keywords": [
     "database",
     "auth",

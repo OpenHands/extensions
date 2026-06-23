@@ -66,6 +66,7 @@
     }
   ],
   "iconBg": "var(--oh-surface)",
+  "logoUrl": "https://cdn.simpleicons.org/figma/FFFFFF",
   "keywords": [
     "design",
     "ui",

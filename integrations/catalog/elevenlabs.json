@@ -31,6 +31,7 @@
     }
   ],
   "iconBg": "var(--oh-color-base)",
+  "logoUrl": "https://cdn.simpleicons.org/elevenlabs/FFFFFF",
   "keywords": [
     "tts",
     "speech",

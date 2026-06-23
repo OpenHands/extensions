@@ -4,6 +4,7 @@
   "description": "Manage transactions and merchant data via PayPal's MCP server.",
   "docsUrl": "https://developer.paypal.com/tools/mcp-server/",
   "iconBg": "#003087",
+  "logoUrl": "https://cdn.simpleicons.org/paypal/FFFFFF",
   "keywords": [
     "payments",
     "billing",
