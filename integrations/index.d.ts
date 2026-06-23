@@ -88,52 +88,9 @@ export interface IntegrationConnectionOption {
   auth: IntegrationAuthConfig;
 }
 
-export interface OAuthProviderRegistrationDefaults {
-  provider?: IntegrationProvider;
-  authModes?: IntegrationAuthStrategy[];
-  authStrategy?: IntegrationAuthStrategy;
-  credentialLabel?: string;
-  credentialPlaceholder?: string;
-  credentialHelp?: string;
-  apiKeyHeaderName?: string;
-  apiBaseUrl?: string;
-  serverUrl?: string;
-  openApiUrl?: string;
-  authorizationUrl?: string;
-  tokenUrl?: string;
-  scopes?: string[];
-  optionalScopes?: string[];
-  toolScopes?: string[];
-  scopeSeparator?: "space" | "comma";
-  pkce?: boolean;
-  clientAuthentication?: "basic" | "body" | "none";
-  registrationUrl?: string;
-  additionalAuthorizationParams?: Record<string, string>;
-  additionalTokenParams?: Record<string, string>;
-  toolName?: string;
-  toolDescription?: string;
-  requestMethod?: string;
-  requestPath?: string;
-}
-
-export interface OAuthProviderCatalogOption {
-  slug: string;
-  name: string;
-  description: string;
-  categories: string[];
-  authStrategy: IntegrationAuthStrategy;
-  availability: "oauth_ready" | "manual_token" | "planned";
-  managedConnectorSlug?: string;
-  appUrl?: string;
-  docsUrl?: string;
-  notes: string;
-  popularityRank: number;
-  registrationDefaults?: OAuthProviderRegistrationDefaults;
-}
 
 export interface IntegrationCatalogEntry {
   id: string;
-  kind: IntegrationProvider;
   name: string;
   description: string;
   categories?: string[];
@@ -142,28 +99,35 @@ export interface IntegrationCatalogEntry {
   notes?: string;
   iconBg?: string;
   iconColor?: string;
+  logoUrl?: string;
   keywords?: string[];
   popularityRank?: number;
-  runtimeAvailability?: "all" | "local";
-  catalogStatus?: "oauth_ready" | "manual_token" | "planned";
-  managedConnectorSlug?: string;
-  authStrategy?: IntegrationAuthStrategy;
   installHint?: string;
-  defaultConnectionOptionId?: string;
   connectionOptions: IntegrationConnectionOption[];
-  registrationDefaults?: OAuthProviderRegistrationDefaults;
+}
+
+/**
+ * Filter for {@link listIntegrationCatalog}. Each dimension is tri-state:
+ * `true` keeps only entries that support that connector type, `false` keeps
+ * only entries that do not, and `undefined` leaves that dimension unfiltered.
+ */
+export interface IntegrationCatalogFilter {
+  /** Filter on whether the entry exposes at least one `mcp` connector. */
+  mcp?: boolean;
+  /** Filter on whether the entry exposes at least one `oauth2` connector. */
+  oauth?: boolean;
 }
 
 export const INTEGRATION_CATALOG: IntegrationCatalogEntry[];
-export function listOAuthProviderCatalog(): OAuthProviderCatalogOption[];
-export function getOAuthProviderRegistrationDefaults(
-  slug: string,
-): OAuthProviderRegistrationDefaults | undefined;
-
-export const hubspotMcpServerUrl: string;
-export const hubspotMcpAuthorizationUrl: string;
-export const hubspotMcpTokenUrl: string;
-export const hubspotRequiredScopes: readonly string[];
-export const hubspotOptionalScopes: readonly string[];
-
+/**
+ * Return the full integration catalog, optionally filtered by connector type.
+ * Reads the generated static import index over `integrations/catalog/<id>.json`.
+ * Returns the cached array; callers must treat it as read-only.
+ */
+export function listIntegrationCatalog(
+  filter?: IntegrationCatalogFilter,
+): IntegrationCatalogEntry[];
+export function getIntegrationCatalogEntry(
+  id: string,
+): IntegrationCatalogEntry | undefined;
 export default INTEGRATION_CATALOG;

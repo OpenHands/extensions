@@ -1,0 +1,38 @@
+{
+  "id": "gmail",
+  "name": "Gmail",
+  "description": "Mailbox search, drafting, sending, and thread triage.",
+  "categories": [
+    "Communication",
+    "Email"
+  ],
+  "appUrl": "https://workspace.google.com/products/gmail/",
+  "docsUrl": "https://developers.google.com/identity/protocols/oauth2",
+  "notes": "Popular agent workflow target for inbox triage and drafting.",
+  "popularityRank": 8,
+  "connectionOptions": [
+    {
+      "id": "oauth",
+      "provider": "http",
+      "auth": {
+        "strategy": "oauth2",
+        "oauth": {
+          "authorizationUrl": "https://accounts.google.com/o/oauth2/v2/auth",
+          "tokenUrl": "https://oauth2.googleapis.com/token",
+          "scopes": [
+            "https://www.googleapis.com/auth/gmail.readonly"
+          ]
+        }
+      },
+      "http": {
+        "apiBaseUrl": "https://gmail.googleapis.com",
+        "defaultTool": {
+          "name": "list_messages",
+          "description": "List Gmail messages for the authenticated user.",
+          "method": "GET",
+          "path": "/gmail/v1/users/me/messages"
+        }
+      }
+    }
+  ]
+}

@@ -4,12 +4,11 @@
   "description": "Privacy-first web and local search using the Brave Search API.",
   "docsUrl": "https://github.com/brave/brave-search-mcp-server",
   "iconBg": "#FB542B",
+  "logoUrl": "https://cdn.simpleicons.org/brave/FFFFFF",
   "keywords": [
     "search",
     "web"
   ],
-  "kind": "mcp",
-  "defaultConnectionOptionId": "api",
   "connectionOptions": [
     {
       "id": "api",

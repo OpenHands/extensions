@@ -4,6 +4,7 @@
   "description": "Inspect and manage KV, D1, R2, and Durable Object bindings on your Cloudflare account.",
   "docsUrl": "https://developers.cloudflare.com/agents/model-context-protocol/",
   "iconBg": "#F38020",
+  "logoUrl": "https://cdn.simpleicons.org/cloudflare/FFFFFF",
   "keywords": [
     "cloudflare",
     "workers",
@@ -12,20 +13,16 @@
     "r2",
     "durable objects"
   ],
-  "kind": "mcp",
-  "defaultConnectionOptionId": "none",
   "connectionOptions": [
     {
-      "id": "none",
+      "id": "oauth",
       "provider": "mcp",
       "transport": {
-        "kind": "sse",
-        "url": "https://bindings.mcp.cloudflare.com/sse",
-        "apiKeyOptional": true
+        "kind": "shttp",
+        "url": "https://bindings.mcp.cloudflare.com/mcp"
       },
       "auth": {
-        "strategy": "none",
-        "apiKeyOptional": true
+        "strategy": "oauth2"
       }
     }
   ]

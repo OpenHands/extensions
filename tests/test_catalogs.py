@@ -40,10 +40,10 @@ def test_catalog_entries_have_required_fields():
         assert entry["id"]
         assert entry["name"]
         assert entry["description"]
-        assert entry["kind"] in {"mcp", "http"}
-        assert entry["iconBg"]
+        # iconBg/iconColor are optional UI styling hints (OAuth-only entries may
+        # ship without a bespoke icon background).
+        assert "iconBg" not in entry or entry["iconBg"]
         assert entry["connectionOptions"]
-        assert entry["defaultConnectionOptionId"]
         for option in entry["connectionOptions"]:
             assert option["id"]
             assert option["provider"] in {"mcp", "http"}
@@ -70,6 +70,24 @@ def test_catalog_entries_have_required_fields():
         assert entry["exampleImplementation"]
         assert isinstance(entry["popularityRank"], int)
         assert isinstance(entry["estimatedSetupMinutes"], int)
+
+
+def test_remote_no_auth_mcp_entries_are_intentionally_public():
+    public_remote_mcp_ids = {"cloudflare-docs", "deepwiki", "huggingface"}
+
+    actual = set()
+    for entry in load_catalog_entries("integrations/catalog"):
+        for option in entry["connectionOptions"]:
+            transport = option.get("transport", {})
+            if (
+                option["provider"] == "mcp"
+                and option["auth"]["strategy"] == "none"
+                and transport.get("url", "").startswith("https://")
+            ):
+                actual.add(entry["id"])
+                assert transport["kind"] == "shttp"
+
+    assert actual == public_remote_mcp_ids
 
 
 def test_credential_fields_have_helper_text_and_link():

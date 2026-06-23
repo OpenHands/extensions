@@ -1,0 +1,38 @@
+{
+  "id": "netlify",
+  "name": "Netlify",
+  "description": "Sites, builds, deploy previews, and web operations.",
+  "categories": [
+    "Deployment",
+    "Developer tools"
+  ],
+  "appUrl": "https://www.netlify.com",
+  "docsUrl": "https://docs.netlify.com/api/get-started/#oauth-applications",
+  "notes": "Common alternative hosting/deployment automation target.",
+  "popularityRank": 40,
+  "connectionOptions": [
+    {
+      "id": "oauth",
+      "provider": "http",
+      "auth": {
+        "strategy": "oauth2",
+        "oauth": {
+          "authorizationUrl": "https://app.netlify.com/authorize",
+          "tokenUrl": "https://api.netlify.com/oauth/token",
+          "scopes": [
+            "sites:read"
+          ]
+        }
+      },
+      "http": {
+        "apiBaseUrl": "https://api.netlify.com/api/v1",
+        "defaultTool": {
+          "name": "list_sites",
+          "description": "List Netlify sites available to the connected user.",
+          "method": "GET",
+          "path": "/sites"
+        }
+      }
+    }
+  ]
+}

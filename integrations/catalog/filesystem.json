@@ -10,9 +10,6 @@
     "disk"
   ],
   "installHint": "Each path is exposed read/write. Add as many as you need, separated by spaces.",
-  "kind": "mcp",
-  "runtimeAvailability": "local",
-  "defaultConnectionOptionId": "api",
   "connectionOptions": [
     {
       "id": "api",

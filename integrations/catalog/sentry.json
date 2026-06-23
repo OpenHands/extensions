@@ -2,29 +2,67 @@
   "id": "sentry",
   "name": "Sentry",
   "description": "Triage issues, inspect events, and run Seer fixes against your Sentry org.",
+  "categories": [
+    "Observability",
+    "Engineering"
+  ],
+  "appUrl": "https://sentry.io",
   "docsUrl": "https://docs.sentry.io/product/sentry-mcp/",
+  "notes": "Natural target for engineering support agents.",
+  "popularityRank": 36,
+  "connectionOptions": [
+    {
+      "id": "oauth",
+      "provider": "http",
+      "auth": {
+        "strategy": "oauth2",
+        "oauth": {
+          "authorizationUrl": "https://sentry.io/oauth/authorize",
+          "tokenUrl": "https://sentry.io/oauth/token",
+          "scopes": [
+            "project:read",
+            "event:read",
+            "org:read"
+          ]
+        }
+      },
+      "http": {
+        "apiBaseUrl": "https://sentry.io/api/0",
+        "defaultTool": {
+          "name": "list_organizations",
+          "description": "List Sentry organizations available to the connected user.",
+          "method": "GET",
+          "path": "/organizations/"
+        }
+      }
+    },
+    {
+      "id": "oauth-mcp",
+      "provider": "mcp",
+      "transport": {
+        "kind": "shttp",
+        "url": "https://mcp.sentry.dev/mcp"
+      },
+      "auth": {
+        "strategy": "oauth2",
+        "oauth": {
+          "authorizationUrl": "https://sentry.io/oauth/authorize",
+          "tokenUrl": "https://sentry.io/oauth/token",
+          "scopes": [
+            "project:read",
+            "event:read",
+            "org:read"
+          ]
+        }
+      }
+    }
+  ],
   "iconBg": "#362D59",
+  "logoUrl": "https://cdn.simpleicons.org/sentry/FFFFFF",
   "keywords": [
     "errors",
     "observability",
     "monitoring",
     "crash"
-  ],
-  "kind": "mcp",
-  "defaultConnectionOptionId": "none",
-  "connectionOptions": [
-    {
-      "id": "none",
-      "provider": "mcp",
-      "transport": {
-        "kind": "shttp",
-        "url": "https://mcp.sentry.dev/mcp",
-        "apiKeyOptional": true
-      },
-      "auth": {
-        "strategy": "none",
-        "apiKeyOptional": true
-      }
-    }
   ]
 }

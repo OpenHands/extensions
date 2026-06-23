@@ -4,13 +4,12 @@
   "description": "Send transactional and marketing emails via the Resend API.",
   "docsUrl": "https://resend.com/docs/mcp",
   "iconBg": "var(--oh-surface-deep)",
+  "logoUrl": "https://cdn.simpleicons.org/resend/FFFFFF",
   "keywords": [
     "email",
     "transactional",
     "smtp"
   ],
-  "kind": "mcp",
-  "defaultConnectionOptionId": "api",
   "connectionOptions": [
     {
       "id": "api",

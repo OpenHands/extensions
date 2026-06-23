@@ -2,31 +2,62 @@
   "id": "linear",
   "name": "Linear",
   "description": "Browse and update Linear issues, cycles, and projects from the agent.",
-  "docsUrl": "https://linear.app/changelog/2025-05-01-mcp",
+  "categories": [
+    "Project management",
+    "Engineering"
+  ],
+  "appUrl": "https://linear.app",
+  "docsUrl": "https://linear.app/docs/mcp",
+  "notes": "Popular among modern product engineering teams and already useful to this repo's users.",
+  "popularityRank": 86,
+  "connectionOptions": [
+    {
+      "id": "oauth",
+      "provider": "http",
+      "auth": {
+        "strategy": "oauth2",
+        "oauth": {
+          "authorizationUrl": "https://linear.app/oauth/authorize",
+          "tokenUrl": "https://api.linear.app/oauth/token",
+          "scopes": [
+            "read"
+          ]
+        }
+      },
+      "http": {
+        "apiBaseUrl": "https://api.linear.app",
+        "defaultTool": {
+          "name": "list_issues",
+          "description": "Query issues from Linear via GraphQL.",
+          "method": "POST",
+          "path": "/graphql"
+        }
+      }
+    },
+    {
+      "id": "api-key",
+      "provider": "mcp",
+      "transport": {
+        "kind": "shttp",
+        "url": "https://mcp.linear.app/mcp",
+        "apiKeyOptional": true
+      },
+      "auth": {
+        "strategy": "bearer",
+        "apiKeyOptional": true,
+        "credentialLabel": "Linear API key",
+        "credentialPlaceholder": "Paste your Linear API key",
+        "credentialHelp": "Optional when the endpoint accepts your OAuth session; otherwise sent as Authorization: Bearer <token>."
+      }
+    }
+  ],
   "iconBg": "#5E6AD2",
+  "logoUrl": "https://cdn.simpleicons.org/linear/FFFFFF",
   "keywords": [
     "issues",
     "project management",
     "tasks",
     "tickets"
   ],
-  "popularityRank": 86,
-  "installHint": "Linear's hosted MCP server uses your Linear OAuth login — no key required.",
-  "kind": "mcp",
-  "defaultConnectionOptionId": "none",
-  "connectionOptions": [
-    {
-      "id": "none",
-      "provider": "mcp",
-      "transport": {
-        "kind": "sse",
-        "url": "https://mcp.linear.app/sse",
-        "apiKeyOptional": true
-      },
-      "auth": {
-        "strategy": "none",
-        "apiKeyOptional": true
-      }
-    }
-  ]
+  "installHint": "Authenticate with a Linear API key (Linear \u2192 Settings \u2192 Security & access) \u2014 sent as a Bearer token. Optional when the endpoint accepts your OAuth session."
 }

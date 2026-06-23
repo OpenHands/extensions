@@ -1,0 +1,38 @@
+{
+  "id": "gitlab",
+  "name": "GitLab",
+  "description": "Repositories, issues, merge requests, pipelines, and DevSecOps.",
+  "categories": [
+    "Engineering",
+    "Source control"
+  ],
+  "appUrl": "https://about.gitlab.com",
+  "docsUrl": "https://docs.gitlab.com/integration/oauth_provider/",
+  "notes": "Major Git hosting platform and natural expansion beyond GitHub.",
+  "popularityRank": 49,
+  "connectionOptions": [
+    {
+      "id": "oauth",
+      "provider": "http",
+      "auth": {
+        "strategy": "oauth2",
+        "oauth": {
+          "authorizationUrl": "https://gitlab.com/oauth/authorize",
+          "tokenUrl": "https://gitlab.com/oauth/token",
+          "scopes": [
+            "read_api"
+          ]
+        }
+      },
+      "http": {
+        "apiBaseUrl": "https://gitlab.com/api/v4",
+        "defaultTool": {
+          "name": "get_current_user",
+          "description": "Fetch the authenticated GitLab user profile.",
+          "method": "GET",
+          "path": "/user"
+        }
+      }
+    }
+  ]
+}

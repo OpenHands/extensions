@@ -1,0 +1,38 @@
+{
+  "id": "google-sheets",
+  "name": "Google Sheets",
+  "description": "Spreadsheet reads, writes, formulas, and reporting workflows.",
+  "categories": [
+    "Spreadsheets",
+    "Analytics"
+  ],
+  "appUrl": "https://workspace.google.com/products/sheets/",
+  "docsUrl": "https://developers.google.com/identity/protocols/oauth2",
+  "notes": "High-value automation surface for agent-driven reporting and structured edits.",
+  "popularityRank": 7,
+  "connectionOptions": [
+    {
+      "id": "oauth",
+      "provider": "http",
+      "auth": {
+        "strategy": "oauth2",
+        "oauth": {
+          "authorizationUrl": "https://accounts.google.com/o/oauth2/v2/auth",
+          "tokenUrl": "https://oauth2.googleapis.com/token",
+          "scopes": [
+            "https://www.googleapis.com/auth/spreadsheets.readonly"
+          ]
+        }
+      },
+      "http": {
+        "apiBaseUrl": "https://sheets.googleapis.com",
+        "defaultTool": {
+          "name": "get_spreadsheet",
+          "description": "Fetch spreadsheet metadata and sheets by ID.",
+          "method": "GET",
+          "path": "/v4/spreadsheets/{spreadsheetId}"
+        }
+      }
+    }
+  ]
+}

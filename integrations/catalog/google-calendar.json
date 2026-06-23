@@ -1,0 +1,38 @@
+{
+  "id": "google-calendar",
+  "name": "Google Calendar",
+  "description": "Calendar search, event scheduling, and meeting coordination.",
+  "categories": [
+    "Calendar",
+    "Scheduling"
+  ],
+  "appUrl": "https://workspace.google.com/products/calendar/",
+  "docsUrl": "https://developers.google.com/identity/protocols/oauth2",
+  "notes": "Strong personal productivity use case with mature OAuth flows.",
+  "popularityRank": 9,
+  "connectionOptions": [
+    {
+      "id": "oauth",
+      "provider": "http",
+      "auth": {
+        "strategy": "oauth2",
+        "oauth": {
+          "authorizationUrl": "https://accounts.google.com/o/oauth2/v2/auth",
+          "tokenUrl": "https://oauth2.googleapis.com/token",
+          "scopes": [
+            "https://www.googleapis.com/auth/calendar.readonly"
+          ]
+        }
+      },
+      "http": {
+        "apiBaseUrl": "https://www.googleapis.com/calendar/v3",
+        "defaultTool": {
+          "name": "list_events",
+          "description": "List events from the user's primary Google Calendar.",
+          "method": "GET",
+          "path": "/calendars/primary/events"
+        }
+      }
+    }
+  ]
+}

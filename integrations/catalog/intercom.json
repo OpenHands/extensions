@@ -1,0 +1,39 @@
+{
+  "id": "intercom",
+  "name": "Intercom",
+  "description": "Customer support, conversations, inboxes, and CRM context.",
+  "categories": [
+    "Support",
+    "CRM"
+  ],
+  "appUrl": "https://www.intercom.com",
+  "docsUrl": "https://developers.intercom.com/building-apps/docs/authentication-types",
+  "notes": "Useful for customer-facing assistant workflows.",
+  "popularityRank": 27,
+  "connectionOptions": [
+    {
+      "id": "oauth",
+      "provider": "http",
+      "auth": {
+        "strategy": "oauth2",
+        "oauth": {
+          "authorizationUrl": "https://app.intercom.com/oauth",
+          "tokenUrl": "https://api.intercom.io/auth/eagle/token",
+          "scopes": [
+            "read_users",
+            "read_conversations"
+          ]
+        }
+      },
+      "http": {
+        "apiBaseUrl": "https://api.intercom.io",
+        "defaultTool": {
+          "name": "list_contacts",
+          "description": "List Intercom contacts for the connected workspace.",
+          "method": "GET",
+          "path": "/contacts"
+        }
+      }
+    }
+  ]
+}

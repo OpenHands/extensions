@@ -10,8 +10,6 @@
     "postgres",
     "serverless"
   ],
-  "kind": "mcp",
-  "defaultConnectionOptionId": "api",
   "connectionOptions": [
     {
       "id": "api",

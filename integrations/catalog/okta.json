@@ -1,0 +1,38 @@
+{
+  "id": "okta",
+  "name": "Okta",
+  "description": "Identity, users, applications, and access administration.",
+  "categories": [
+    "Identity",
+    "Enterprise"
+  ],
+  "appUrl": "https://www.okta.com",
+  "docsUrl": "https://developer.okta.com/docs/guides/implement-oauth-for-okta/main/",
+  "notes": "High-value admin and security automation surface.",
+  "popularityRank": 42,
+  "connectionOptions": [
+    {
+      "id": "oauth",
+      "provider": "http",
+      "auth": {
+        "strategy": "oauth2",
+        "oauth": {
+          "authorizationUrl": "https://{yourOktaDomain}/oauth2/v1/authorize",
+          "tokenUrl": "https://{yourOktaDomain}/oauth2/v1/token",
+          "scopes": [
+            "okta.users.read"
+          ]
+        }
+      },
+      "http": {
+        "apiBaseUrl": "https://{yourOktaDomain}/api/v1",
+        "defaultTool": {
+          "name": "list_users",
+          "description": "List Okta users for the connected org.",
+          "method": "GET",
+          "path": "/users"
+        }
+      }
+    }
+  ]
+}
