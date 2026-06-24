@@ -131,7 +131,6 @@ print("All done!")
 - [Send Message While Running](https://docs.openhands.dev/sdk/guides/convo-send-message-while-running.md): Interrupt running agents to provide additional context or corrections.
 - [Software Agent SDK](https://docs.openhands.dev/sdk.md): Build AI agents that write software. A clean, modular SDK with production-ready tools.
 - [Stuck Detector](https://docs.openhands.dev/sdk/guides/agent-stuck-detector.md): Detect and handle stuck agents automatically with timeout mechanisms.
-- [Sub-Agent Delegation](https://docs.openhands.dev/sdk/guides/agent-delegation.md): Enable parallel task execution by delegating work to multiple sub-agents that run independently and return consolidated results.
 - [Task Tool Set](https://docs.openhands.dev/sdk/guides/task-tool-set.md): Delegate complex work to specialized sub-agents that run synchronously and return results to the parent agent.
 - [Theory of Mind (TOM) Agent](https://docs.openhands.dev/sdk/guides/agent-tom-agent.md): Enable your agent to understand user intent and preferences through Theory of Mind capabilities, providing personalized guidance based on user modeling.
 - [TODO Management](https://docs.openhands.dev/sdk/guides/github-workflows/todo-management.md): Implement TODOs using OpenHands Agent
