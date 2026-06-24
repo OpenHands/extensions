@@ -130,10 +130,35 @@
     {
       "name": "bitbucket",
       "source": "./skills/bitbucket",
-      "description": "Interact with Bitbucket repositories and pull requests using the BITBUCKET_TOKEN environment variable. Use when working with code hosted on Bitbucket or managing Bitbucket resources via API.",
+      "description": "Bitbucket integration hub. Detects whether the repository is on Bitbucket Cloud or Bitbucket Data Center and directs you to the matching detailed skill (bitbucket-cloud or bitbucket-data-center). Use for any Bitbucket repository or pull request task.",
       "category": "integration",
       "keywords": [
         "bitbucket",
+        "git",
+        "pull-request"
+      ]
+    },
+    {
+      "name": "bitbucket-cloud",
+      "source": "./skills/bitbucket-cloud",
+      "description": "Bitbucket Cloud (bitbucket.org) specifics — authenticate with BITBUCKET_TOKEN, use the REST API v2, workspace/repo_slug repositories, and the create_bitbucket_pr tool. Loaded on demand by the bitbucket skill once a Cloud environment is detected.",
+      "category": "integration",
+      "keywords": [
+        "bitbucket",
+        "bitbucket-cloud",
+        "git",
+        "pull-request"
+      ]
+    },
+    {
+      "name": "bitbucket-data-center",
+      "source": "./skills/bitbucket-data-center",
+      "description": "Bitbucket Data Center (self-hosted Bitbucket Server) specifics — authenticate with BITBUCKET_DATA_CENTER_TOKEN, use the REST API 1.0, PROJECT/repo_slug repositories, scm/ git remotes, and the create_bitbucket_data_center_pr tool. Loaded on demand by the bitbucket skill once a Data Center environment is detected.",
+      "category": "integration",
+      "keywords": [
+        "bitbucket",
+        "bitbucket-data-center",
+        "bitbucket-server",
         "git",
         "pull-request"
       ]
