@@ -87,7 +87,7 @@ The JS and Python versions are kept in lock-step by `release-please` and guarded
 ## Extensions Catalog
 
 <!-- BEGIN AUTO-GENERATED CATALOG -->
-This repository contains **2 marketplace(s)** with **58 extensions** (48 skills, 10 plugins).
+This repository contains **2 marketplace(s)** with **60 extensions** (50 skills, 10 plugins).
 
 ### large-codebase
 
@@ -106,7 +106,7 @@ OpenHands skills for interacting, improving, and refactoring large codebases
 
 Official skills and plugins for OpenHands — the open-source AI software engineer.
 
-**54 extensions** (46 skills, 8 plugins)
+**56 extensions** (48 skills, 8 plugins)
 
 | Name | Type | Description | Commands |
 |------|------|-------------|----------|
@@ -116,7 +116,9 @@ Official skills and plugins for OpenHands — the open-source AI software engine
 | agent-memory | skill | Persist and retrieve repository-specific knowledge using AGENTS.md files. Use when you want to save important informa... | `/remember` |
 | agent-sdk-builder | skill | Guided workflow for building custom AI agents using the OpenHands Software Agent SDK. Use when you want to create a n... | `/agent-builder` |
 | azure-devops | skill | Interact with Azure DevOps repositories, pull requests, and APIs using the AZURE_DEVOPS_TOKEN environment variable. U... | — |
-| bitbucket | skill | Interact with Bitbucket repositories and pull requests using the BITBUCKET_TOKEN environment variable. Use when worki... | — |
+| bitbucket | skill | Bitbucket integration hub. Detects whether the repository is on Bitbucket Cloud or Bitbucket Data Center and directs ... | — |
+| bitbucket-cloud | skill | Bitbucket Cloud (bitbucket.org) specifics — authenticate with BITBUCKET_TOKEN, use the REST API v2, workspace/repo_sl... | — |
+| bitbucket-data-center | skill | Bitbucket Data Center (self-hosted Bitbucket Server) specifics — authenticate with BITBUCKET_DATA_CENTER_TOKEN, use t... | — |
 | city-weather | plugin | Get current weather, time, and precipitation forecast for any city using the free Open-Meteo API. Provides slash comm... | — |
 | code-review | skill | Rigorous code review focusing on data structures, simplicity, security, pragmatism, and risk/safety evaluation. Provi... | `/codereview`, `/codereview-roasted` |
 | code-simplifier | skill | Simplifies and refines code across three dimensions - code reuse, code quality, and efficiency - while preserving all... | `/simplify` |

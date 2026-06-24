@@ -1,0 +1,18 @@
+{
+  "name": "bitbucket-cloud",
+  "version": "1.0.0",
+  "description": "Bitbucket Cloud (bitbucket.org) specifics — authenticate with BITBUCKET_TOKEN, use the REST API v2, workspace/repo_slug repositories, and the create_bitbucket_pr tool. Loaded on demand by the bitbucket skill once a Cloud environment is detected.",
+  "author": {
+    "name": "OpenHands",
+    "email": "contact@all-hands.dev"
+  },
+  "homepage": "https://github.com/OpenHands/extensions",
+  "repository": "https://github.com/OpenHands/extensions",
+  "license": "MIT",
+  "keywords": [
+    "bitbucket",
+    "bitbucket-cloud",
+    "git",
+    "pull-request"
+  ]
+}
