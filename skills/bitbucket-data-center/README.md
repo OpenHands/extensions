@@ -14,7 +14,8 @@ it detects a Bitbucket Data Center environment (i.e. `BITBUCKET_DATA_CENTER_TOKE
 
 See [`SKILL.md`](SKILL.md) for the full content, including authenticated `scm/` git remote
 construction and pull request instructions. Note the key differences from Bitbucket Cloud:
-the REST API is version `1.0` under `https://{domain}/rest/api/1.0`, repositories are
+the host/domain comes from the `BITBUCKET_DATA_CENTER_HOST` environment variable, the REST
+API is version `1.0` under `https://${BITBUCKET_DATA_CENTER_HOST}/rest/api/1.0`, repositories are
 addressed as `PROJECT/repo_slug` (project key), git remotes use the
 `scm/{project}/{repo}.git` path, and pull requests are opened with
 `create_bitbucket_data_center_pr`.

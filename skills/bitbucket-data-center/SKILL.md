@@ -12,12 +12,29 @@ repository and the REST API.
 > present, use whichever case variant actually exists (for example
 > `bitbucket_data_center_token`). Run `env | grep -i 'bitbucket_data_center'` to find it.
 
-- REST API base URL: `https://{domain}/rest/api/1.0`
+## Finding the host/domain
+
+Because Bitbucket Data Center is self-hosted, there is no fixed domain like
+`bitbucket.org`. The `{domain}` (host) used in REST API URLs and git remotes comes from the
+**`BITBUCKET_DATA_CENTER_HOST`** environment variable. OpenHands' Bitbucket Data Center
+integration reads this same variable to build its base URL (`https://{host}/rest/api/1.0`),
+so use it as the source of truth. Resolve it before constructing any URL:
+
+```bash
+BITBUCKET_DATA_CENTER_HOST="$(env | grep -i '^bitbucket_data_center_host=' | head -n1 | cut -d= -f2-)"
+echo "${BITBUCKET_DATA_CENTER_HOST:?BITBUCKET_DATA_CENTER_HOST is not set}"
+```
+
+In the examples below, substitute the value of `${BITBUCKET_DATA_CENTER_HOST}` wherever you
+see `{domain}`. If `BITBUCKET_DATA_CENTER_HOST` is not set, ask the user for the host
+before proceeding rather than guessing.
+
+- REST API base URL: `https://${BITBUCKET_DATA_CENTER_HOST}/rest/api/1.0`
 - Repository identifier format: `PROJECT/repo_slug` (project key, slash, repo slug)
 
 You can use this token to interact with the Bitbucket Data Center REST API:
 ```bash
-curl -u "${BITBUCKET_DATA_CENTER_TOKEN}" https://{domain}/rest/api/1.0/...
+curl -u "${BITBUCKET_DATA_CENTER_TOKEN}" "https://${BITBUCKET_DATA_CENTER_HOST}/rest/api/1.0/..."
 ```
 
 <IMPORTANT>
@@ -25,7 +42,7 @@ ALWAYS use the Bitbucket Data Center API for operations instead of a web browser
 ALWAYS use the `create_bitbucket_data_center_pr` tool to open a pull request
 </IMPORTANT>
 
-If you encounter authentication issues when pushing to Bitbucket Data Center (such as password prompts or permission errors), the old token may have expired. In such case, update the remote URL to include the current token: `git remote set-url origin https://${BITBUCKET_DATA_CENTER_TOKEN}@{domain}/scm/{project_lower}/{repo}.git`
+If you encounter authentication issues when pushing to Bitbucket Data Center (such as password prompts or permission errors), the old token may have expired. In such case, update the remote URL to include the current token: `git remote set-url origin https://${BITBUCKET_DATA_CENTER_TOKEN}@${BITBUCKET_DATA_CENTER_HOST}/scm/{project_lower}/{repo}.git`
 
 The token is a `username:token` pair, so if the username or token contains characters that are reserved in URLs (such as `@`), split on the first `:` and URL-encode each part before embedding it in a remote:
 
@@ -34,7 +51,7 @@ BB_USER="${BITBUCKET_DATA_CENTER_TOKEN%%:*}" && \
 BB_PASS="${BITBUCKET_DATA_CENTER_TOKEN#*:}" && \
 ENCODED_USER=$(python3 -c 'import sys, urllib.parse; print(urllib.parse.quote(sys.argv[1], safe=""))' "$BB_USER") && \
 ENCODED_PASS=$(python3 -c 'import sys, urllib.parse; print(urllib.parse.quote(sys.argv[1], safe=""))' "$BB_PASS") && \
-git remote set-url origin "https://${ENCODED_USER}:${ENCODED_PASS}@{domain}/scm/{project_lower}/{repo}.git"
+git remote set-url origin "https://${ENCODED_USER}:${ENCODED_PASS}@${BITBUCKET_DATA_CENTER_HOST}/scm/{project_lower}/{repo}.git"
 ```
 
 Here are some instructions for pushing, but ONLY do this if the user asks you to:

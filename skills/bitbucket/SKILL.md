@@ -51,7 +51,7 @@ Bitbucket API (not a web browser) and always use the listed PR tool to open a pu
 | | Bitbucket Cloud | Bitbucket Data Center |
 |---|---|---|
 | Token env var | `BITBUCKET_TOKEN` | `BITBUCKET_DATA_CENTER_TOKEN` |
-| Host | `bitbucket.org` | self-hosted domain |
+| Host | `bitbucket.org` | self-hosted domain from `BITBUCKET_DATA_CENTER_HOST` |
 | REST API base | `https://api.bitbucket.org/2.0` | `https://<host>/rest/api/1.0` |
 | Repository identifier | `workspace/repo_slug` | `PROJECT/repo_slug` (project key) |
 | Pull request tool | `create_bitbucket_pr` | `create_bitbucket_data_center_pr` |
