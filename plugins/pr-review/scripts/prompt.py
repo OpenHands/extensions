@@ -74,7 +74,37 @@ Requirements:
 PROMPT = """{skill_trigger}
 /github-pr-review
 
-When posting a review, keep the review body brief unless your active review instructions require a longer structured format.
+## How to Post the Review (CRITICAL — read first)
+
+You MUST post your review via the **GitHub Pull Request Reviews API**, NOT the Issue Comments API. Use exactly one API call whose `comments[]` array contains one entry per finding:
+
+```bash
+gh api -X POST repos/{{owner}}/{{repo}}/pulls/{pr_number}/reviews --input /tmp/review.json
+```
+
+where `/tmp/review.json` has this shape (one entry per finding, all findings bundled into the same call):
+
+```json
+{{
+  "commit_id": "<HEAD SHA>",
+  "event": "COMMENT",
+  "body": "Brief 1–3 sentence summary. Inline comments below.",
+  "comments": [
+    {{
+      "path": "api/auth.py",
+      "line": 87,
+      "side": "RIGHT",
+      "body": "## 🟠 Important: JWT signature not verified\n\nForged tokens pass because `jwt.decode()` is called without the secret.\n\n---\n\n`jwt.decode()` requires both the secret and the allowed `algorithms` list.\n\nBest fix in this file (`api/auth.py:87`): pass `SECRET_KEY` and `algorithms=[\"HS256\"]`.\n\nNo new methods or dependencies needed.\n\n```suggestion\ntoken_data = jwt.decode(token, SECRET_KEY, algorithms=[\"HS256\"])\n```"
+    }}
+  ]
+}}
+```
+
+Each `comments[i].body` starts with `## <🔴 Critical|🟠 Important|🟡 Suggestion> <Category>`, then a one-line statement of the issue, a `---` separator, a general fix explanation, a "Best fix in this file (`<path:line>`)" anchor, a scope confirmation ("No logic changes, new methods, or dependency changes are needed."), and ends with a ` ```suggestion ``` ` block for one-click apply. Never use `🟢` priority labels — if the code is fine, do not comment on it.
+
+**Do NOT** use `gh pr comment`, `POST /issues/{{n}}/comments`, or any path that produces a single issue-level comment. That yields a blob in the PR conversation with no diff anchoring, no suggestion blocks, and no per-finding threading — it is a bug, not a stylistic choice. The Pull Request Reviews API is the only acceptable submission path. Use the `line` (1-based) and `side: "RIGHT"` of the new file as shown in the diff.
+
+When posting a review, keep the top-level `body` brief unless your active review instructions require a longer structured format.
 
 For dependency update PRs, do **NOT** approve a target version that was published less than 7 days ago. First-party packages maintained by the same organization as the reviewed repository are intentionally excluded from this 7-day waiting rule, but still scrutinize them for supply-chain risk.
 
