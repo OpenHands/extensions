@@ -122,11 +122,12 @@ export const INTEGRATION_CATALOG: IntegrationCatalogEntry[];
 /**
  * Return the full integration catalog, optionally filtered by connector type.
  * Reads the generated static import index over `integrations/catalog/<id>.json`.
- * Returns the cached array; callers must treat it as read-only.
+ * Returns an independent copy, matching the Python read API.
  */
 export function listIntegrationCatalog(
   filter?: IntegrationCatalogFilter,
 ): IntegrationCatalogEntry[];
+/** Return one integration catalog entry by id as an independent copy. */
 export function getIntegrationCatalogEntry(
   id: string,
 ): IntegrationCatalogEntry | undefined;

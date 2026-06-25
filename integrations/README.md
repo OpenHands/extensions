@@ -18,10 +18,16 @@ integrations so clients can consume one source of truth.
 Each integration carries its OAuth/MCP connection data directly. Do not add a
 separate provider catalog or per-language provider data.
 
-Consumers can import the package export:
+Consumers should use the read functions exported by the package:
 
 ```js
-import { INTEGRATION_CATALOG } from "@openhands/extensions/integrations";
+import {
+  getIntegrationCatalogEntry,
+  listIntegrationCatalog,
+} from "@openhands/extensions/integrations";
+
+const catalog = listIntegrationCatalog();
+const entry = getIntegrationCatalogEntry(catalog[0].id);
 ```
 
 ## Migration from the MCP catalog
