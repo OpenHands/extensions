@@ -59,9 +59,9 @@ See [`integrations/README.md`](integrations/README.md), [`automations/README.md`
 
 ### Python Package
 
-The integration catalog is also published as a Python package (`openhands-extensions`) so Python services read the same catalog data as JS consumers. The single source of truth is the hand-authored JSON asset `integrations/integration-catalog.json` (NOT generated from any `.mjs`/`.js` source). Each per-integration entry also exists as `integrations/catalog/<id>.json`; a CI parity test asserts the two never drift. Both the JS package (`@openhands/extensions/integrations`) and the Python package read that same JSON asset at runtime, so the two language bindings can never drift.
+The integration catalog is also published as a Python package (`openhands-extensions`) so Python services read the same catalog data as JS consumers. The single source of truth is the hand-authored JSON directory `integrations/catalog/<id>.json`; there is no separate provider file and no aggregate catalog JSON to maintain. Both the JS package (`@openhands/extensions/integrations`) and the Python package read those same per-integration JSON files and expose parallel read functions.
 
-The catalog is one array where each entry can carry oauth and/or mcp/http `connectionOptions`. `supportsOauth` / `supportsMcp` flags are derived at runtime. Use `listIntegrationCatalog({ mcp, oauth })` (JS) or `list_integration_catalog(mcp=, oauth=)` (Python) to filter by connector type - for example only integrations that support an oauth connector.
+Each catalog entry can carry oauth and/or mcp/http `connectionOptions`. `supportsOauth` / `supportsMcp` flags are derived at runtime. Use `listIntegrationCatalog({ mcp, oauth })` (JS) or `list_integration_catalog(mcp=, oauth=)` (Python) to filter by connector type - for example only integrations that support an oauth connector.
 
 ```python
 from openhands_extensions import (
@@ -73,7 +73,7 @@ from openhands_extensions import (
 all_integrations = list_integration_catalog()
 oauth_integrations = list_integration_catalog(oauth=True)      # only entries with an oauth connector
 mcp_integrations = list_integration_catalog(mcp=True)          # only entries with an mcp connector
-hubspot = get_integration_catalog_entry("hubspot")
+sample = get_integration_catalog_entry(all_integrations[0]["id"])
 ```
 
 Install from git (the hub backend consumes it this way):
