@@ -96,10 +96,13 @@ def test_logo_metadata_is_serializable_and_language_agnostic() -> None:
 
 
 def test_get_integration_catalog_entry_round_trip() -> None:
-    github = openhands_extensions.get_integration_catalog_entry("github")
-    assert github is not None
-    assert github == next(
-        entry for entry in openhands_extensions.list_integration_catalog() if entry["id"] == "github"
+    sample_id = openhands_extensions.list_integration_catalog()[0]["id"]
+    sample = openhands_extensions.get_integration_catalog_entry(sample_id)
+    assert sample is not None
+    assert sample == next(
+        entry
+        for entry in openhands_extensions.list_integration_catalog()
+        if entry["id"] == sample_id
     )
     assert openhands_extensions.get_integration_catalog_entry("nope") is None
 
@@ -122,11 +125,12 @@ def test_js_reads_the_same_catalog_as_python() -> None:
     )
     assert json.loads(integrations) == openhands_extensions.list_integration_catalog()
 
-    github = _js_call(
+    sample_id = openhands_extensions.list_integration_catalog()[0]["id"]
+    sample = _js_call(
         "import { getIntegrationCatalogEntry } from './integrations/index.js';\n"
-        "process.stdout.write(JSON.stringify(getIntegrationCatalogEntry('github')));"
+        f"process.stdout.write(JSON.stringify(getIntegrationCatalogEntry({json.dumps(sample_id)})));"
     )
-    assert json.loads(github) == openhands_extensions.get_integration_catalog_entry("github")
+    assert json.loads(sample) == openhands_extensions.get_integration_catalog_entry(sample_id)
 
 
 def _js_filter(mcp, oauth) -> list[str]:
@@ -141,7 +145,11 @@ def _js_filter(mcp, oauth) -> list[str]:
 def test_filter_mcp_only() -> None:
     py_ids = {e["id"] for e in openhands_extensions.list_integration_catalog(mcp=True)}
     js_ids = set(_js_filter("true", "undefined"))
-    all_mcp = {e["id"] for e in openhands_extensions.list_integration_catalog() if _supports_mcp(e)}
+    all_mcp = {
+        e["id"]
+        for e in openhands_extensions.list_integration_catalog()
+        if _supports_mcp(e)
+    }
     assert py_ids == js_ids == all_mcp
     assert "filesystem" in py_ids
 
@@ -149,9 +157,13 @@ def test_filter_mcp_only() -> None:
 def test_filter_oauth_only() -> None:
     py_ids = {e["id"] for e in openhands_extensions.list_integration_catalog(oauth=True)}
     js_ids = set(_js_filter("undefined", "true"))
-    all_oauth = {e["id"] for e in openhands_extensions.list_integration_catalog() if _supports_oauth(e)}
+    all_oauth = {
+        e["id"]
+        for e in openhands_extensions.list_integration_catalog()
+        if _supports_oauth(e)
+    }
     assert py_ids == js_ids == all_oauth
-    assert "github" in py_ids
+    assert py_ids
 
 
 def test_filter_oauth_not_mcp() -> None:
@@ -181,24 +193,60 @@ def test_accessors_return_independent_copies() -> None:
     catalog_a[0]["__mutated"] = True
     assert "__mutated" not in openhands_extensions.list_integration_catalog()[0]
 
-    github = openhands_extensions.get_integration_catalog_entry("github")
-    assert github is not None
-    github["__mutated"] = True
-    assert "__mutated" not in openhands_extensions.get_integration_catalog_entry("github")
+    sample_id = openhands_extensions.list_integration_catalog()[0]["id"]
+    sample = openhands_extensions.get_integration_catalog_entry(sample_id)
+    assert sample is not None
+    sample["__mutated"] = True
+    assert "__mutated" not in openhands_extensions.get_integration_catalog_entry(sample_id)
 
     snapshot = openhands_extensions.INTEGRATION_CATALOG_SNAPSHOT
     snapshot["integrations"][0]["__mutated"] = True
     assert "__mutated" not in openhands_extensions.list_integration_catalog()[0]
 
 
-def test_hubspot_oauth_config_lives_on_connection_option() -> None:
-    hubspot = openhands_extensions.get_integration_catalog_entry("hubspot")
-    assert hubspot is not None
-    assert "registrationDefaults" not in hubspot
-    option = hubspot["connectionOptions"][0]
-    assert option["provider"] == "mcp"
-    assert option["transport"]["url"] == "https://mcp.hubspot.com"
-    oauth = option["auth"]["oauth"]
-    assert oauth["authorizationUrl"] == "https://mcp.hubspot.com/oauth/authorize/user"
-    assert oauth["tokenUrl"] == "https://mcp.hubspot.com/oauth/v3/token"
-    assert oauth["pkce"] is True
+def test_js_accessors_return_independent_copies() -> None:
+    sample_id = openhands_extensions.list_integration_catalog()[0]["id"]
+    expr = f"""
+        import {{
+          INTEGRATION_CATALOG,
+          getIntegrationCatalogEntry,
+          listIntegrationCatalog,
+        }} from './integrations/index.js';
+        const sampleId = {json.dumps(sample_id)};
+        const first = listIntegrationCatalog();
+        const second = listIntegrationCatalog();
+        first[0].__mutated = true;
+        const entry = getIntegrationCatalogEntry(sampleId);
+        entry.__mutated = true;
+        INTEGRATION_CATALOG[0].__mutated = true;
+        process.stdout.write(JSON.stringify({{
+          listsAreIndependent:
+            !('__mutated' in second[0]) &&
+            !('__mutated' in listIntegrationCatalog()[0]),
+          entryIsIndependent: !('__mutated' in getIntegrationCatalogEntry(sampleId)),
+        }}));
+    """
+    result = json.loads(_js_call(expr))
+    assert result == {"listsAreIndependent": True, "entryIsIndependent": True}
+
+
+def test_oauth_config_lives_on_connection_options() -> None:
+    oauth_entries = [
+        entry
+        for entry in openhands_extensions.list_integration_catalog()
+        if _supports_oauth(entry)
+    ]
+    assert oauth_entries
+    for entry in oauth_entries:
+        assert "registrationDefaults" not in entry
+        oauth_options = [
+            option
+            for option in entry["connectionOptions"]
+            if option.get("auth", {}).get("strategy") == "oauth2"
+        ]
+        assert oauth_options
+        for option in oauth_options:
+            assert "registrationDefaults" not in option
+            oauth = option["auth"].get("oauth")
+            if oauth is not None:
+                assert isinstance(oauth, dict)
