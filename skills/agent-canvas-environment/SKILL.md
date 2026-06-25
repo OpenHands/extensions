@@ -50,10 +50,25 @@ HTTP `200` means the backend and key work.
 
 Use `POST /api/conversations` with:
 
-- current `/api/settings` as the base agent profile
+- current `/api/settings` (fetched with `X-Expose-Secrets: plaintext`) as the base agent profile
 - a fresh absolute workspace directory
 - `initial_message.run: true`
 - `worktree: false` when the workspace is already isolated
+- the default tool set injected into `agent_settings.tools` (see note below)
+
+> **Why inject tools?** The persisted profile returned by `/api/settings` stores
+> `tools: []`. The UI populates the tool list at launch time; an API-created
+> conversation gets exactly the `tools` array you send and the server adds no
+> defaults. Without injecting the defaults, the delegated agent can only call
+> built-in actions (`invoke_skill`, `think`, `finish`) and cannot run shell
+> commands, edit files, or browse. Always set `agent_settings.tools` to the
+> default tool list below (drop `browser_tool_set` if the agent does not need
+> browser access).
+>
+> **Why `X-Expose-Secrets: plaintext`?** Without it, the LLM API key comes back
+> redacted (`**********`). Echoing redacted settings into the new conversation
+> causes an `LLMAuthenticationError`. The header is safe for backend clients
+> that never log the raw response.
 
 Template:
 
@@ -70,10 +85,20 @@ test -n "$KEY" || { echo "No Agent Canvas session API key found" >&2; exit 1; }
 WORKDIR="${WORKDIR:-$HOME/workspace/delegated/$(date +%Y%m%d-%H%M%S)}"
 mkdir -p "$WORKDIR"
 
-SETTINGS_JSON="$(curl -sS -H "X-Session-API-Key: $KEY" "$BASE/api/settings")"
+# plaintext so the LLM api_key is not redacted (**********) when echoed back.
+SETTINGS_JSON="$(curl -sS -H "X-Session-API-Key: $KEY" -H "X-Expose-Secrets: plaintext" "$BASE/api/settings")"
 PROMPT='Write a complete, task-specific prompt here. Include repo, branch, constraints, validation, and expected report.'
 
-PAYLOAD="$(jq -n --argjson settings "$SETTINGS_JSON" --arg prompt "$PROMPT" --arg workdir "$WORKDIR" '
+# The profile's tools field is []; inject the default tool set the UI uses.
+DEFAULT_TOOLS='[
+  {"name":"terminal","params":{}},
+  {"name":"file_editor","params":{}},
+  {"name":"task_tracker","params":{}},
+  {"name":"canvas_ui","params":{}},
+  {"name":"browser_tool_set","params":{}}
+]'
+
+PAYLOAD="$(jq -n --argjson settings "$SETTINGS_JSON" --argjson tools "$DEFAULT_TOOLS" --arg prompt "$PROMPT" --arg workdir "$WORKDIR" '
   def agent_settings:
     ($settings.agent_settings // {})
     | del(.schema_version)
@@ -82,7 +107,8 @@ PAYLOAD="$(jq -n --argjson settings "$SETTINGS_JSON" --arg prompt "$PROMPT" --ar
           load_public_skills: true,
           load_user_skills: true,
           load_project_skills: true
-        })
+        }),
+        tools: $tools
       };
   ($settings.conversation_settings // {}) as $conv |
   {
