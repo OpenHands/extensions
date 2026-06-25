@@ -15,19 +15,18 @@ repository and the REST API.
 ## Finding the host/domain
 
 Because Bitbucket Data Center is self-hosted, there is no fixed domain like
-`bitbucket.org`. The `{domain}` (host) used in REST API URLs and git remotes comes from the
-**`BITBUCKET_DATA_CENTER_HOST`** environment variable. OpenHands' Bitbucket Data Center
-integration reads this same variable to build its base URL (`https://{host}/rest/api/1.0`),
-so use it as the source of truth. Resolve it before constructing any URL:
+`bitbucket.org`. The `{domain}` (host) used in REST API URLs and git remotes is provided to
+you as the **`BITBUCKET_DATA_CENTER_HOST`** environment variable, which OpenHands injects
+into your environment alongside `BITBUCKET_DATA_CENTER_TOKEN` — it is available even before
+(or without) cloning a repository. Resolve it before constructing any URL:
 
 ```bash
-BITBUCKET_DATA_CENTER_HOST="$(env | grep -i '^bitbucket_data_center_host=' | head -n1 | cut -d= -f2-)"
 echo "${BITBUCKET_DATA_CENTER_HOST:?BITBUCKET_DATA_CENTER_HOST is not set}"
 ```
 
 In the examples below, substitute the value of `${BITBUCKET_DATA_CENTER_HOST}` wherever you
-see `{domain}`. If `BITBUCKET_DATA_CENTER_HOST` is not set, ask the user for the host
-before proceeding rather than guessing.
+see `{domain}`. In the rare case it is not set, ask the user for the host before proceeding
+rather than guessing.
 
 - REST API base URL: `https://${BITBUCKET_DATA_CENTER_HOST}/rest/api/1.0`
 - Repository identifier format: `PROJECT/repo_slug` (project key, slash, repo slug)
