@@ -27,6 +27,14 @@ export type IntegrationTransport =
        * `key: "Authorization"` is redundant and should be avoided.
        */
       headerFields?: MarketplaceField[];
+      /**
+       * When true, the install modal renders the URL as an editable input
+       * pre-filled with `url` instead of read-only. Use for servers whose
+       * host is region/account-specific (e.g. Datadog's
+       * `https://mcp.<site>.datadoghq.com/v1/mcp`); pair with the entry's
+       * `installHint` to tell users what to change.
+       */
+      urlEditable?: boolean;
     }
   | {
       kind: "sse";
@@ -34,6 +42,8 @@ export type IntegrationTransport =
       apiKeyOptional?: boolean;
       /** See {@link IntegrationTransport} `shttp` `headerFields`. */
       headerFields?: MarketplaceField[];
+      /** See {@link IntegrationTransport} `shttp` `urlEditable`. */
+      urlEditable?: boolean;
     }
   | {
       kind: "stdio";
