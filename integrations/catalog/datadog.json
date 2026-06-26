@@ -29,6 +29,35 @@
         "kind": "shttp",
         "url": "https://mcp.datadoghq.com/api/unstable/mcp-server/mcp"
       }
+    },
+    {
+      "id": "api",
+      "provider": "mcp",
+      "auth": {
+        "strategy": "none"
+      },
+      "transport": {
+        "kind": "shttp",
+        "url": "https://mcp.datadoghq.com/api/unstable/mcp-server/mcp",
+        "headerFields": [
+          {
+            "key": "DD-API-KEY",
+            "label": "Datadog API key",
+            "type": "password",
+            "required": true,
+            "placeholder": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+            "helperText": "Created in Datadog under Organization Settings → API Keys. Used to authenticate to the Datadog MCP server. See the [setup docs](https://docs.datadoghq.com/mcp_server/setup/?tab=other#authentication)."
+          },
+          {
+            "key": "DD-APPLICATION-KEY",
+            "label": "Datadog Application key",
+            "type": "password",
+            "required": true,
+            "placeholder": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+            "helperText": "Created in Datadog under Organization Settings → Application Keys. Grants the MCP server access to your Datadog data. See the [setup docs](https://docs.datadoghq.com/mcp_server/setup/?tab=other#authentication)."
+          }
+        ]
+      }
     }
   ]
 }
