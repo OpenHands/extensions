@@ -26,12 +26,7 @@
       },
       "http": {
         "apiBaseUrl": "https://docs.googleapis.com",
-        "defaultTool": {
-          "name": "get_document",
-          "description": "Fetch a Google Docs document by ID.",
-          "method": "GET",
-          "path": "/v1/documents/{documentId}"
-        }
+        "openApiUrl": "https://www.googleapis.com/discovery/v1/apis/docs/v1/rest"
       }
     }
   ]

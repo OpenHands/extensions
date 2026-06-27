@@ -26,12 +26,7 @@
       },
       "http": {
         "apiBaseUrl": "https://{dc}.api.mailchimp.com/3.0",
-        "defaultTool": {
-          "name": "list_audiences",
-          "description": "List Mailchimp audiences for the connected account.",
-          "method": "GET",
-          "path": "/lists"
-        }
+        "openApiUrl": "https://raw.githubusercontent.com/mailchimp/mailchimp-client-lib-codegen/main/spec/marketing.json"
       }
     }
   ]

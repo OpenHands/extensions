@@ -26,12 +26,7 @@
       },
       "http": {
         "apiBaseUrl": "https://api.zoom.us/v2",
-        "defaultTool": {
-          "name": "list_meetings",
-          "description": "List Zoom meetings for the connected user.",
-          "method": "GET",
-          "path": "/users/me/meetings"
-        }
+        "openApiUrl": "https://raw.githubusercontent.com/zoom/api/master/openapi.v2.json"
       }
     }
   ]

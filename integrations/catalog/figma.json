@@ -29,12 +29,7 @@
       },
       "http": {
         "apiBaseUrl": "https://api.figma.com",
-        "defaultTool": {
-          "name": "get_file",
-          "description": "Fetch a Figma file by key.",
-          "method": "GET",
-          "path": "/v1/files/{fileKey}"
-        }
+        "openApiUrl": "https://raw.githubusercontent.com/figma/rest-api-spec/main/openapi/openapi.yaml"
       }
     },
     {

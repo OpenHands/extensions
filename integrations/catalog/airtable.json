@@ -13,7 +13,7 @@
   "connectionOptions": [
     {
       "id": "oauth",
-      "provider": "http",
+      "provider": "mcp",
       "auth": {
         "strategy": "oauth2",
         "oauth": {
@@ -25,14 +25,9 @@
           ]
         }
       },
-      "http": {
-        "apiBaseUrl": "https://api.airtable.com/v0",
-        "defaultTool": {
-          "name": "list_bases",
-          "description": "List Airtable bases the connected user granted access to.",
-          "method": "GET",
-          "path": "/meta/bases"
-        }
+      "transport": {
+        "kind": "shttp",
+        "url": "https://mcp.airtable.com/mcp"
       }
     },
     {

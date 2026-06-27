@@ -13,7 +13,7 @@
   "connectionOptions": [
     {
       "id": "oauth",
-      "provider": "http",
+      "provider": "mcp",
       "auth": {
         "strategy": "oauth2",
         "oauth": {
@@ -24,14 +24,9 @@
           ]
         }
       },
-      "http": {
-        "apiBaseUrl": "https://us.posthog.com/api",
-        "defaultTool": {
-          "name": "list_projects",
-          "description": "List PostHog projects available to the connected user.",
-          "method": "GET",
-          "path": "/projects/"
-        }
+      "transport": {
+        "kind": "shttp",
+        "url": "https://mcp.posthog.com/mcp"
       }
     }
   ]

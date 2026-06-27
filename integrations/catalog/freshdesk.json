@@ -13,7 +13,7 @@
   "connectionOptions": [
     {
       "id": "oauth",
-      "provider": "http",
+      "provider": "mcp",
       "auth": {
         "strategy": "oauth2",
         "oauth": {
@@ -24,14 +24,9 @@
           ]
         }
       },
-      "http": {
-        "apiBaseUrl": "https://{domain}.freshdesk.com/api/v2",
-        "defaultTool": {
-          "name": "list_tickets",
-          "description": "List Freshdesk tickets for the connected account.",
-          "method": "GET",
-          "path": "/tickets"
-        }
+      "transport": {
+        "kind": "shttp",
+        "url": "https://mcp.freshdesk.com/mcp"
       }
     }
   ]

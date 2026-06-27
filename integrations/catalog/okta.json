@@ -26,12 +26,7 @@
       },
       "http": {
         "apiBaseUrl": "https://{yourOktaDomain}/api/v1",
-        "defaultTool": {
-          "name": "list_users",
-          "description": "List Okta users for the connected org.",
-          "method": "GET",
-          "path": "/users"
-        }
+        "openApiUrl": "https://raw.githubusercontent.com/okta/okta-management-openapi-spec/master/dist/current/management-minimal.yaml"
       }
     }
   ]

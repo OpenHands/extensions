@@ -13,7 +13,7 @@
   "connectionOptions": [
     {
       "id": "oauth",
-      "provider": "http",
+      "provider": "mcp",
       "auth": {
         "strategy": "oauth2",
         "oauth": {
@@ -24,14 +24,9 @@
           ]
         }
       },
-      "http": {
-        "apiBaseUrl": "https://api.dropboxapi.com/2",
-        "defaultTool": {
-          "name": "list_root_folder",
-          "description": "List entries in the root Dropbox folder.",
-          "method": "POST",
-          "path": "/files/list_folder"
-        }
+      "transport": {
+        "kind": "shttp",
+        "url": "https://mcp.dropbox.com/mcp"
       }
     }
   ]

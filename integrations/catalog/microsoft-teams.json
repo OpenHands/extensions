@@ -26,12 +26,7 @@
       },
       "http": {
         "apiBaseUrl": "https://graph.microsoft.com/v1.0",
-        "defaultTool": {
-          "name": "list_teams",
-          "description": "List Microsoft Teams joined by the signed-in user.",
-          "method": "GET",
-          "path": "/me/joinedTeams"
-        }
+        "openApiUrl": "https://raw.githubusercontent.com/microsoftgraph/msgraph-metadata/master/openapi/v1.0/openapi.yaml"
       }
     }
   ]

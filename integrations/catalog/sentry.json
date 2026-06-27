@@ -28,12 +28,7 @@
       },
       "http": {
         "apiBaseUrl": "https://sentry.io/api/0",
-        "defaultTool": {
-          "name": "list_organizations",
-          "description": "List Sentry organizations available to the connected user.",
-          "method": "GET",
-          "path": "/organizations/"
-        }
+        "openApiUrl": "https://raw.githubusercontent.com/getsentry/sentry-api-schema/main/openapi-derefed.json"
       }
     },
     {

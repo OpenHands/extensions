@@ -13,7 +13,7 @@
   "connectionOptions": [
     {
       "id": "oauth",
-      "provider": "http",
+      "provider": "mcp",
       "auth": {
         "strategy": "oauth2",
         "oauth": {
@@ -24,14 +24,9 @@
           ]
         }
       },
-      "http": {
-        "apiBaseUrl": "https://api.miro.com/v2",
-        "defaultTool": {
-          "name": "list_boards",
-          "description": "List Miro boards available to the connected user.",
-          "method": "GET",
-          "path": "/boards"
-        }
+      "transport": {
+        "kind": "shttp",
+        "url": "https://mcp.miro.com/mcp"
       }
     }
   ]

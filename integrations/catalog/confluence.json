@@ -26,12 +26,7 @@
       },
       "http": {
         "apiBaseUrl": "https://api.atlassian.com/ex/confluence/{cloudId}",
-        "defaultTool": {
-          "name": "list_spaces",
-          "description": "List Confluence spaces available to the connected user.",
-          "method": "GET",
-          "path": "/wiki/api/v2/spaces"
-        }
+        "openApiUrl": "https://developer.atlassian.com/cloud/confluence/swagger.json"
       }
     }
   ]

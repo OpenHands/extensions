@@ -26,12 +26,7 @@
       },
       "http": {
         "apiBaseUrl": "https://api.atlassian.com/ex/jira/{cloudId}",
-        "defaultTool": {
-          "name": "list_projects",
-          "description": "List Jira projects available to the connected user.",
-          "method": "GET",
-          "path": "/rest/api/3/project/search"
-        }
+        "openApiUrl": "https://developer.atlassian.com/cloud/jira/platform/swagger.json"
       }
     }
   ]

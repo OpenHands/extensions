@@ -26,12 +26,7 @@
       },
       "http": {
         "apiBaseUrl": "https://app.asana.com/api/1.0",
-        "defaultTool": {
-          "name": "list_tasks",
-          "description": "List tasks visible to the connected Asana user.",
-          "method": "GET",
-          "path": "/tasks"
-        }
+        "openApiUrl": "https://raw.githubusercontent.com/Asana/openapi/master/defs/asana_oas.yaml"
       }
     }
   ]

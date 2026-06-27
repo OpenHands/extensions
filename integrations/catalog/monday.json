@@ -13,7 +13,7 @@
   "connectionOptions": [
     {
       "id": "oauth",
-      "provider": "http",
+      "provider": "mcp",
       "auth": {
         "strategy": "oauth2",
         "oauth": {
@@ -24,14 +24,9 @@
           ]
         }
       },
-      "http": {
-        "apiBaseUrl": "https://api.monday.com/v2",
-        "defaultTool": {
-          "name": "list_boards",
-          "description": "Query boards from Monday.com.",
-          "method": "POST",
-          "path": "/"
-        }
+      "transport": {
+        "kind": "shttp",
+        "url": "https://mcp.monday.com/mcp"
       }
     }
   ]

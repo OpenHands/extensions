@@ -13,7 +13,7 @@
   "connectionOptions": [
     {
       "id": "oauth",
-      "provider": "http",
+      "provider": "mcp",
       "auth": {
         "strategy": "oauth2",
         "oauth": {
@@ -22,14 +22,9 @@
           "scopes": []
         }
       },
-      "http": {
-        "apiBaseUrl": "https://api.supabase.com/v1",
-        "defaultTool": {
-          "name": "list_projects",
-          "description": "List Supabase projects available to the connected user.",
-          "method": "GET",
-          "path": "/projects"
-        }
+      "transport": {
+        "kind": "shttp",
+        "url": "https://mcp.supabase.com/mcp"
       }
     },
     {

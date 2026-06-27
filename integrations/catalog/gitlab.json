@@ -26,12 +26,7 @@
       },
       "http": {
         "apiBaseUrl": "https://gitlab.com/api/v4",
-        "defaultTool": {
-          "name": "get_current_user",
-          "description": "Fetch the authenticated GitLab user profile.",
-          "method": "GET",
-          "path": "/user"
-        }
+        "openApiUrl": "https://gitlab.com/gitlab-org/gitlab/-/raw/master/doc/api/openapi/openapi_v3.yaml"
       }
     }
   ]

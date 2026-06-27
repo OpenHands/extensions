@@ -26,12 +26,7 @@
       },
       "http": {
         "apiBaseUrl": "https://www.googleapis.com/calendar/v3",
-        "defaultTool": {
-          "name": "list_events",
-          "description": "List events from the user's primary Google Calendar.",
-          "method": "GET",
-          "path": "/calendars/primary/events"
-        }
+        "openApiUrl": "https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest"
       }
     }
   ]

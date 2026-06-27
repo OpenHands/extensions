@@ -26,12 +26,7 @@
       },
       "http": {
         "apiBaseUrl": "https://api.stripe.com/v1",
-        "defaultTool": {
-          "name": "list_customers",
-          "description": "List Stripe customers from the connected account.",
-          "method": "GET",
-          "path": "/customers"
-        }
+        "openApiUrl": "https://raw.githubusercontent.com/stripe/openapi/master/latest/openapi.spec3.json"
       }
     },
     {

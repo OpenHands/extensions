@@ -13,7 +13,7 @@
   "connectionOptions": [
     {
       "id": "oauth",
-      "provider": "http",
+      "provider": "mcp",
       "auth": {
         "strategy": "oauth2",
         "oauth": {
@@ -24,14 +24,9 @@
           ]
         }
       },
-      "http": {
-        "apiBaseUrl": "https://api.linear.app",
-        "defaultTool": {
-          "name": "list_issues",
-          "description": "Query issues from Linear via GraphQL.",
-          "method": "POST",
-          "path": "/graphql"
-        }
+      "transport": {
+        "kind": "shttp",
+        "url": "https://mcp.linear.app/mcp"
       }
     },
     {
@@ -59,5 +54,5 @@
     "tasks",
     "tickets"
   ],
-  "installHint": "Authenticate with a Linear API key (Linear \u2192 Settings \u2192 Security & access) \u2014 sent as a Bearer token. Optional when the endpoint accepts your OAuth session."
+  "installHint": "Authenticate with a Linear API key (Linear → Settings → Security & access) — sent as a Bearer token. Optional when the endpoint accepts your OAuth session."
 }

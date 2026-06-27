@@ -27,12 +27,7 @@
       },
       "http": {
         "apiBaseUrl": "https://api.bitbucket.org/2.0",
-        "defaultTool": {
-          "name": "get_current_user",
-          "description": "Fetch the authenticated Bitbucket user profile.",
-          "method": "GET",
-          "path": "/user"
-        }
+        "openApiUrl": "https://developer.atlassian.com/cloud/bitbucket/swagger.json"
       }
     }
   ]
