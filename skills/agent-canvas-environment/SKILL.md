@@ -108,24 +108,14 @@ PAYLOAD="$(jq -n --argjson settings "$SETTINGS_JSON" --arg prompt "$PROMPT" --ar
   # when sub-agents are enabled — enable_sub_agents alone does not expose the
   # delegation tool; Agent Canvas adds task_tool_set for that.
   def with_tools:
-    if .enable_sub_agents then
-      .tools = ((.tools // []) + [
-        {name: "terminal", params: {}},
-        {name: "file_editor", params: {}},
-        {name: "task_tracker", params: {}},
-        {name: "browser_tool_set", params: {}},
-        {name: "canvas_ui", params: {}},
-        {name: "task_tool_set", params: {}}
-      ] | unique_by(.name))
-    else
-      .tools = ((.tools // []) + [
-        {name: "terminal", params: {}},
-        {name: "file_editor", params: {}},
-        {name: "task_tracker", params: {}},
-        {name: "browser_tool_set", params: {}},
-        {name: "canvas_ui", params: {}}
-      ] | unique_by(.name))
-    end;
+    .tools = ((.tools // []) + [
+      {name: "terminal", params: {}},
+      {name: "file_editor", params: {}},
+      {name: "task_tracker", params: {}},
+      {name: "browser_tool_set", params: {}},
+      {name: "canvas_ui", params: {}}
+    ] + (if .enable_sub_agents then [{name: "task_tool_set", params: {}}] else [] end)
+    | unique_by(.name));
 
   # Preserve the existing agent_context and enable skill loading for the
   # delegated agent (defaults are false, so set these explicitly).
@@ -143,6 +133,9 @@ PAYLOAD="$(jq -n --argjson settings "$SETTINGS_JSON" --arg prompt "$PROMPT" --ar
     tool_module_qualnames: { canvas_ui: "canvas_ui_tool" },
     workspace: {kind: "LocalWorkspace", working_dir: $workdir},
     confirmation_policy: {kind: "NeverConfirm"},
+    # Delegated tasks usually need more than the SDK default of 80 iterations;
+    # default to the caller's conversation_settings value (1000 in Agent Canvas)
+    # so long-running tasks aren't cut off prematurely. Override per-task if needed.
     max_iterations: (($conv.max_iterations // 1000) | if . == null then 1000 else . end),
     stuck_detection: true,
     autotitle: true,
