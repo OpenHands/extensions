@@ -29,8 +29,7 @@
           "authorizationUrl": "https://miro.com/oauth/authorize",
           "tokenUrl": "https://api.miro.com/v1/oauth/token",
           "scopes": [
-            "boards:read",
-            "boards:write"
+            "boards:read"
           ]
         }
       },

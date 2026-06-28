@@ -18,7 +18,7 @@
     "search",
     "dash"
   ],
-  "installHint": "Run the Dropbox Dash MCP server locally. Create a Dropbox app to get an APP_KEY, then install the server (github.com/dropbox/mcp-server-dash).",
+  "installHint": "Runs via uvx from the official GitHub repo — no manual clone needed. Create a Dropbox app (developers.dropbox.com) to get an APP_KEY.",
   "connectionOptions": [
     {
       "id": "api",
@@ -26,10 +26,11 @@
       "transport": {
         "kind": "stdio",
         "serverName": "dropbox-dash",
-        "command": "uv",
+        "command": "uvx",
         "args": [
-          "run",
-          "src/mcp_server_dash.py"
+          "--from",
+          "git+https://github.com/dropbox/mcp-server-dash",
+          "mcp-server-dash"
         ],
         "envFields": [
           {

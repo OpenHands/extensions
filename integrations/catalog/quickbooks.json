@@ -18,7 +18,7 @@
     "invoices",
     "qbo"
   ],
-  "installHint": "Clone intuit/quickbooks-online-mcp-server, run `npm install && npm run build`, complete the OAuth handshake with `npm run auth`, then run the server locally over stdio.",
+  "installHint": "Runs via npx from the official GitHub repo. Complete the one-time OAuth handshake first (see github.com/intuit/quickbooks-online-mcp-server): clone, npm install, npm run build, npm run auth, then the server runs over stdio.",
   "connectionOptions": [
     {
       "id": "api",
@@ -26,9 +26,10 @@
       "transport": {
         "kind": "stdio",
         "serverName": "quickbooks-online",
-        "command": "node",
+        "command": "npx",
         "args": [
-          "dist/index.js"
+          "-y",
+          "github:intuit/quickbooks-online-mcp-server"
         ]
       },
       "auth": {
