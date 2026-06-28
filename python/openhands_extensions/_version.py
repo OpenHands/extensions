@@ -16,6 +16,7 @@ from importlib.metadata import PackageNotFoundError, version
 
 #: Fallback used only when the package is not installed (no dist metadata).
 #: Kept in lock-step with pyproject.toml/package.json by the version test.
+# x-release-please-update-version
 _FALLBACK_VERSION = "0.6.0"
 
 try:
