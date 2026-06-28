@@ -7,31 +7,37 @@
     "Sales"
   ],
   "appUrl": "https://www.salesforce.com",
-  "docsUrl": "https://help.salesforce.com/s/articleView?id=sf.remoteaccess_oauth_web_server_flow.htm&type=5",
+  "docsUrl": "https://developer.salesforce.com/docs/platform/hosted-mcp-servers",
   "notes": "Very common enterprise CRM and agent-assist target.",
   "popularityRank": 24,
+  "iconBg": "#00A1E0",
+  "logoUrl": "https://cdn.simpleicons.org/salesforce/FFFFFF",
+  "keywords": [
+    "crm",
+    "sales",
+    "records",
+    "enterprise"
+  ],
+  "installHint": "Activate an MCP server in Salesforce Setup (API Catalog → MCP Servers), create an External Client App, then connect. Edit the URL to match your server and org (e.g. /sandbox/ for sandboxes).",
   "connectionOptions": [
     {
       "id": "oauth",
-      "provider": "http",
+      "provider": "mcp",
       "auth": {
         "strategy": "oauth2",
         "oauth": {
           "authorizationUrl": "https://login.salesforce.com/services/oauth2/authorize",
           "tokenUrl": "https://login.salesforce.com/services/oauth2/token",
           "scopes": [
-            "api"
-          ]
+            "refresh_token"
+          ],
+          "pkce": true
         }
       },
-      "http": {
-        "apiBaseUrl": "https://{instance}.salesforce.com/services/data/v60.0",
-        "defaultTool": {
-          "name": "list_accounts",
-          "description": "List Salesforce accounts from the connected org.",
-          "method": "GET",
-          "path": "/sobjects/Account"
-        }
+      "transport": {
+        "kind": "shttp",
+        "url": "https://api.salesforce.com/platform/mcp/v1/platform/sobject-reads",
+        "urlEditable": true
       }
     }
   ]

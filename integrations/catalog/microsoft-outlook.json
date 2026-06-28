@@ -26,12 +26,7 @@
       },
       "http": {
         "apiBaseUrl": "https://graph.microsoft.com/v1.0",
-        "defaultTool": {
-          "name": "list_messages",
-          "description": "List Outlook messages for the signed-in user.",
-          "method": "GET",
-          "path": "/me/messages"
-        }
+        "openApiUrl": "https://raw.githubusercontent.com/microsoftgraph/msgraph-metadata/master/openapi/v1.0/openapi.yaml"
       }
     }
   ]

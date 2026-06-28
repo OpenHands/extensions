@@ -7,13 +7,22 @@
     "Operations"
   ],
   "appUrl": "https://monday.com",
-  "docsUrl": "https://developer.monday.com/apps/docs/oauth",
+  "docsUrl": "https://monday.com/w/mcp",
   "notes": "High-demand operations platform with rich board APIs.",
   "popularityRank": 16,
+  "iconBg": "#FF3D00",
+  "logoUrl": "https://cdn.simpleicons.org/mondaydotcom/FFFFFF",
+  "keywords": [
+    "project management",
+    "boards",
+    "work",
+    "operations"
+  ],
+  "installHint": "Connect monday.com's hosted MCP server with OAuth.",
   "connectionOptions": [
     {
       "id": "oauth",
-      "provider": "http",
+      "provider": "mcp",
       "auth": {
         "strategy": "oauth2",
         "oauth": {
@@ -24,14 +33,9 @@
           ]
         }
       },
-      "http": {
-        "apiBaseUrl": "https://api.monday.com/v2",
-        "defaultTool": {
-          "name": "list_boards",
-          "description": "Query boards from Monday.com.",
-          "method": "POST",
-          "path": "/"
-        }
+      "transport": {
+        "kind": "shttp",
+        "url": "https://mcp.monday.com/mcp"
       }
     }
   ]

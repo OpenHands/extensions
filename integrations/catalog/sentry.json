@@ -12,31 +12,6 @@
   "popularityRank": 36,
   "connectionOptions": [
     {
-      "id": "oauth",
-      "provider": "http",
-      "auth": {
-        "strategy": "oauth2",
-        "oauth": {
-          "authorizationUrl": "https://sentry.io/oauth/authorize",
-          "tokenUrl": "https://sentry.io/oauth/token",
-          "scopes": [
-            "project:read",
-            "event:read",
-            "org:read"
-          ]
-        }
-      },
-      "http": {
-        "apiBaseUrl": "https://sentry.io/api/0",
-        "defaultTool": {
-          "name": "list_organizations",
-          "description": "List Sentry organizations available to the connected user.",
-          "method": "GET",
-          "path": "/organizations/"
-        }
-      }
-    },
-    {
       "id": "oauth-mcp",
       "provider": "mcp",
       "transport": {
@@ -54,6 +29,26 @@
             "org:read"
           ]
         }
+      }
+    },
+    {
+      "id": "oauth",
+      "provider": "http",
+      "auth": {
+        "strategy": "oauth2",
+        "oauth": {
+          "authorizationUrl": "https://sentry.io/oauth/authorize",
+          "tokenUrl": "https://sentry.io/oauth/token",
+          "scopes": [
+            "project:read",
+            "event:read",
+            "org:read"
+          ]
+        }
+      },
+      "http": {
+        "apiBaseUrl": "https://sentry.io/api/0",
+        "openApiUrl": "https://raw.githubusercontent.com/getsentry/sentry/master/api-docs/openapi.json"
       }
     }
   ],

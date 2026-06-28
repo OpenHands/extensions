@@ -125,3 +125,29 @@ def test_node_package_exports_catalogs():
       if (!AUTOMATION_CATALOG.some((entry) => entry.id === 'github-pr-reviewer')) process.exit(1);
     """
     subprocess.run(["node", "--input-type=module", "-e", script], cwd=ROOT, check=True)
+
+
+def test_no_default_tool_in_catalog():
+    """The defaultTool field was removed; tools now come from MCP tools/list or
+    HTTP OpenAPI regeneration. No connection option may carry it."""
+    offenders = []
+    for entry in load_catalog_entries("integrations/catalog"):
+        for option in entry["connectionOptions"]:
+            http_cfg = option.get("http", {})
+            if "defaultTool" in http_cfg:
+                offenders.append(f"{entry['id']}.{option['id']}")
+    assert not offenders, f"defaultTool still present in: {offenders}"
+
+
+def test_http_connectors_have_openapi_url():
+    """An HTTP connector without an openApiUrl has no tool-discovery path once
+    defaultTool is gone, so every HTTP option must ship an openApiUrl."""
+    offenders = []
+    for entry in load_catalog_entries("integrations/catalog"):
+        for option in entry["connectionOptions"]:
+            if option["provider"] == "http":
+                http_cfg = option.get("http", {})
+                url = http_cfg.get("openApiUrl")
+                if not url or not url.startswith("https://"):
+                    offenders.append(f"{entry['id']}.{option['id']}")
+    assert not offenders, f"HTTP options missing openApiUrl: {offenders}"

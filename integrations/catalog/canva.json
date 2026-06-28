@@ -18,17 +18,13 @@
         "strategy": "oauth2",
         "oauth": {
           "tokenUrl": "https://api.canva.com/rest/v1/oauth/token",
-          "scopes": []
+          "scopes": [],
+          "authorizationUrl": "https://www.canva.com/api/oauth/authorize"
         }
       },
       "http": {
         "apiBaseUrl": "https://api.canva.com/rest/v1",
-        "defaultTool": {
-          "name": "list_designs",
-          "description": "List Canva designs available to the connected user.",
-          "method": "GET",
-          "path": "/designs"
-        }
+        "openApiUrl": "https://raw.githubusercontent.com/canva-sdks/canva-connect-api-starter-kit/main/openapi/spec.yml"
       }
     }
   ]

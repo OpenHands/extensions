@@ -26,12 +26,7 @@
       },
       "http": {
         "apiBaseUrl": "https://gmail.googleapis.com",
-        "defaultTool": {
-          "name": "list_messages",
-          "description": "List Gmail messages for the authenticated user.",
-          "method": "GET",
-          "path": "/gmail/v1/users/me/messages"
-        }
+        "openApiUrl": "https://api.apis.guru/v2/specs/googleapis.com/gmail/v1/openapi.json"
       }
     }
   ]

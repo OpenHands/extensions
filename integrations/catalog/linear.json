@@ -12,29 +12,6 @@
   "popularityRank": 86,
   "connectionOptions": [
     {
-      "id": "oauth",
-      "provider": "http",
-      "auth": {
-        "strategy": "oauth2",
-        "oauth": {
-          "authorizationUrl": "https://linear.app/oauth/authorize",
-          "tokenUrl": "https://api.linear.app/oauth/token",
-          "scopes": [
-            "read"
-          ]
-        }
-      },
-      "http": {
-        "apiBaseUrl": "https://api.linear.app",
-        "defaultTool": {
-          "name": "list_issues",
-          "description": "Query issues from Linear via GraphQL.",
-          "method": "POST",
-          "path": "/graphql"
-        }
-      }
-    },
-    {
       "id": "api-key",
       "provider": "mcp",
       "transport": {
@@ -59,5 +36,5 @@
     "tasks",
     "tickets"
   ],
-  "installHint": "Authenticate with a Linear API key (Linear \u2192 Settings \u2192 Security & access) \u2014 sent as a Bearer token. Optional when the endpoint accepts your OAuth session."
+  "installHint": "Authenticate with a Linear API key (Linear → Settings → Security & access) — sent as a Bearer token. Optional when the endpoint accepts your OAuth session."
 }

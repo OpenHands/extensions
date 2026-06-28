@@ -15,11 +15,35 @@ export type IntegrationTransport =
       kind: "shttp";
       url: string;
       apiKeyOptional?: boolean;
+      /**
+       * Named request headers the user must supply (e.g. Datadog's
+       * `DD-API-KEY` / `DD-APPLICATION-KEY`). Values are sent verbatim as
+       * headers on every MCP request. The direct analog of stdio's
+       * `envFields`: each entry renders one input in the install modal,
+       * `type: "password"` entries are secret-saved by default, and
+       * `required` entries are validated before submit. Composes with the
+       * `api_key`/`bearer`/`basic` auth strategies (whose Bearer token is
+       * folded into `Authorization` separately); a header field with
+       * `key: "Authorization"` is redundant and should be avoided.
+       */
+      headerFields?: MarketplaceField[];
+      /**
+       * When true, the install modal renders the URL as an editable input
+       * pre-filled with `url` instead of read-only. Use for servers whose
+       * host is region/account-specific (e.g. Datadog's
+       * `https://mcp.<site>.datadoghq.com/v1/mcp`); pair with the entry's
+       * `installHint` to tell users what to change.
+       */
+      urlEditable?: boolean;
     }
   | {
       kind: "sse";
       url: string;
       apiKeyOptional?: boolean;
+      /** See {@link IntegrationTransport} `shttp` `headerFields`. */
+      headerFields?: MarketplaceField[];
+      /** See {@link IntegrationTransport} `shttp` `urlEditable`. */
+      urlEditable?: boolean;
     }
   | {
       kind: "stdio";
@@ -66,18 +90,9 @@ export interface IntegrationAuthConfig {
   oauth?: IntegrationOAuthConfig;
 }
 
-export interface IntegrationHttpDefaultTool {
-  name: string;
-  description?: string;
-  method?: string;
-  path?: string;
-  scopes?: string[];
-}
-
 export interface IntegrationHttpConfig {
   apiBaseUrl?: string;
   openApiUrl?: string;
-  defaultTool?: IntegrationHttpDefaultTool;
 }
 
 export interface IntegrationConnectionOption {

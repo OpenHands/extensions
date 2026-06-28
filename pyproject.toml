@@ -1,6 +1,6 @@
 [project]
 name = "openhands-extensions"
-version = "0.6.0"
+version = "0.7.0"
 description = "OpenHands extensions, plugins, and skills (Python bindings for the integration catalog)"
 requires-python = ">=3.12"
 
@@ -19,6 +19,7 @@ test = [
     "pytest>=8.0",
     "requests>=2.31",
     "openhands-sdk>=0.3",
+    "jsonschema>=4.23",
 ]
 
 [tool.pytest.ini_options]

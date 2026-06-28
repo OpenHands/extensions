@@ -27,12 +27,7 @@
       },
       "http": {
         "apiBaseUrl": "https://api.intercom.io",
-        "defaultTool": {
-          "name": "list_contacts",
-          "description": "List Intercom contacts for the connected workspace.",
-          "method": "GET",
-          "path": "/contacts"
-        }
+        "openApiUrl": "https://raw.githubusercontent.com/intercom/Intercom-OpenAPI/main/descriptions/2.15/api.intercom.io.yaml"
       }
     }
   ]

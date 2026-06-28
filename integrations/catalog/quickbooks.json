@@ -1,37 +1,85 @@
 {
   "id": "quickbooks",
   "name": "QuickBooks",
-  "description": "Accounting, invoices, customers, and financial operations.",
+  "description": "Accounting, invoices, customers, and financial operations via the QuickBooks Online MCP server.",
   "categories": [
     "Finance",
     "Accounting"
   ],
   "appUrl": "https://quickbooks.intuit.com",
-  "docsUrl": "https://developer.intuit.com/app/developer/qbo/docs/develop/authentication-and-authorization/oauth-2.0",
-  "notes": "Frequent finance automation request with OAuth-based apps.",
+  "docsUrl": "https://github.com/intuit/quickbooks-online-mcp-server",
+  "notes": "Official Intuit QuickBooks Online MCP server runs locally over stdio after a one-time OAuth handshake.",
   "popularityRank": 47,
+  "iconBg": "#2CA01C",
+  "logoUrl": "https://cdn.simpleicons.org/quickbooks/FFFFFF",
+  "keywords": [
+    "accounting",
+    "finance",
+    "invoices",
+    "qbo"
+  ],
+  "installHint": "Create an app on the Intuit Developer Portal (developer.intuit.com), complete the one-time OAuth handshake (clone intuit/quickbooks-online-mcp-server, npm install, npm run build, npm run auth), then provide your Client ID/Secret, Refresh Token, and Realm ID. The server runs over stdio via npx from the official GitHub repo.",
   "connectionOptions": [
     {
-      "id": "oauth",
-      "provider": "http",
-      "auth": {
-        "strategy": "oauth2",
-        "oauth": {
-          "authorizationUrl": "https://appcenter.intuit.com/connect/oauth2",
-          "tokenUrl": "https://oauth.platform.intuit.com/oauth2/v1/tokens/bearer",
-          "scopes": [
-            "com.intuit.quickbooks.accounting"
-          ]
-        }
+      "id": "api",
+      "provider": "mcp",
+      "transport": {
+        "kind": "stdio",
+        "serverName": "quickbooks-online",
+        "command": "npx",
+        "args": [
+          "-y",
+          "github:intuit/quickbooks-online-mcp-server"
+        ],
+        "envFields": [
+          {
+            "key": "QUICKBOOKS_CLIENT_ID",
+            "label": "QuickBooks OAuth Client ID",
+            "type": "text",
+            "placeholder": "your-intuit-app-client-id",
+            "required": true,
+            "helperText": "From the Intuit Developer Portal app you created.",
+            "helperLink": "https://developer.intuit.com/"
+          },
+          {
+            "key": "QUICKBOOKS_CLIENT_SECRET",
+            "label": "QuickBooks OAuth Client Secret",
+            "type": "password",
+            "placeholder": "your-intuit-app-client-secret",
+            "required": true,
+            "helperText": "From the Intuit Developer Portal app. Stored as a secret.",
+            "helperLink": "https://developer.intuit.com/"
+          },
+          {
+            "key": "QUICKBOOKS_REFRESH_TOKEN",
+            "label": "QuickBooks Refresh Token",
+            "type": "password",
+            "placeholder": "your-refresh-token",
+            "required": true,
+            "helperText": "Obtained after the one-time OAuth handshake (npm run auth). Auto-rotates; stored as a secret.",
+            "helperLink": "https://github.com/intuit/quickbooks-online-mcp-server#authentication"
+          },
+          {
+            "key": "QUICKBOOKS_REALM_ID",
+            "label": "QuickBooks Company (Realm) ID",
+            "type": "text",
+            "placeholder": "your-company-id",
+            "required": true,
+            "helperText": "The QBO company ID to connect to.",
+            "helperLink": "https://github.com/intuit/quickbooks-online-mcp-server#authentication"
+          },
+          {
+            "key": "QUICKBOOKS_ENVIRONMENT",
+            "label": "Environment",
+            "type": "text",
+            "placeholder": "sandbox",
+            "required": false,
+            "helperText": "sandbox or production (default: sandbox)."
+          }
+        ]
       },
-      "http": {
-        "apiBaseUrl": "https://sandbox-quickbooks.api.intuit.com/v3/company/{companyId}",
-        "defaultTool": {
-          "name": "list_customers",
-          "description": "Query QuickBooks customers for the connected company.",
-          "method": "GET",
-          "path": "/query?query=SELECT%20*%20FROM%20Customer%20MAXRESULTS%2010"
-        }
+      "auth": {
+        "strategy": "none"
       }
     }
   ]

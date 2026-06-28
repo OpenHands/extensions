@@ -7,31 +7,31 @@
     "Product"
   ],
   "appUrl": "https://posthog.com",
-  "docsUrl": "https://posthog.com/docs/apps/build/oauth",
+  "docsUrl": "https://posthog.com/docs/model-context-protocol",
   "notes": "Relevant for product analytics and experimentation workflows.",
   "popularityRank": 37,
+  "iconBg": "#1D4AFF",
+  "logoUrl": "https://cdn.simpleicons.org/posthog/FFFFFF",
+  "keywords": [
+    "analytics",
+    "feature flags",
+    "product",
+    "experiments"
+  ],
+  "installHint": "Authenticate with a PostHog personal API key (PostHog → User settings → API keys, MCP Server preset) — sent as a Bearer token.",
   "connectionOptions": [
     {
-      "id": "oauth",
-      "provider": "http",
-      "auth": {
-        "strategy": "oauth2",
-        "oauth": {
-          "authorizationUrl": "https://us.posthog.com/oauth/authorize",
-          "tokenUrl": "https://us.posthog.com/oauth/token",
-          "scopes": [
-            "project:read"
-          ]
-        }
+      "id": "api-key",
+      "provider": "mcp",
+      "transport": {
+        "kind": "shttp",
+        "url": "https://mcp.posthog.com/mcp"
       },
-      "http": {
-        "apiBaseUrl": "https://us.posthog.com/api",
-        "defaultTool": {
-          "name": "list_projects",
-          "description": "List PostHog projects available to the connected user.",
-          "method": "GET",
-          "path": "/projects/"
-        }
+      "auth": {
+        "strategy": "bearer",
+        "credentialLabel": "PostHog personal API key",
+        "credentialPlaceholder": "Paste your PostHog personal API key",
+        "credentialHelp": "Create one under PostHog → User settings → API keys (MCP Server preset). Sent as Authorization: Bearer <token>."
       }
     }
   ]
