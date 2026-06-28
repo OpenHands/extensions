@@ -28,9 +28,6 @@
       "transport": {
         "kind": "shttp",
         "url": "https://api.githubcopilot.com/mcp/"
-      },
-      "http": {
-        "apiBaseUrl": "https://api.github.com"
       }
     },
     {

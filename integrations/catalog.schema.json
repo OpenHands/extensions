@@ -191,12 +191,16 @@
       "allOf": [
         {
           "if": { "properties": { "provider": { "const": "mcp" } } },
-          "then": { "required": ["transport"] }
+          "then": {
+            "required": ["transport"],
+            "not": { "required": ["http"] }
+          }
         },
         {
           "if": { "properties": { "provider": { "const": "http" } } },
           "then": {
             "required": ["http"],
+            "not": { "required": ["transport"] },
             "properties": {
               "http": {
                 "required": ["apiBaseUrl", "openApiUrl"],
