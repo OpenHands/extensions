@@ -18,7 +18,7 @@
     "invoices",
     "qbo"
   ],
-  "installHint": "Runs via npx from the official GitHub repo. Complete the one-time OAuth handshake first (see github.com/intuit/quickbooks-online-mcp-server): clone, npm install, npm run build, npm run auth, then the server runs over stdio.",
+  "installHint": "Create an app on the Intuit Developer Portal (developer.intuit.com), complete the one-time OAuth handshake (clone intuit/quickbooks-online-mcp-server, npm install, npm run build, npm run auth), then provide your Client ID/Secret, Refresh Token, and Realm ID. The server runs over stdio via npx from the official GitHub repo.",
   "connectionOptions": [
     {
       "id": "api",
@@ -30,6 +30,52 @@
         "args": [
           "-y",
           "github:intuit/quickbooks-online-mcp-server"
+        ],
+        "envFields": [
+          {
+            "key": "QUICKBOOKS_CLIENT_ID",
+            "label": "QuickBooks OAuth Client ID",
+            "type": "text",
+            "placeholder": "your-intuit-app-client-id",
+            "required": true,
+            "helperText": "From the Intuit Developer Portal app you created.",
+            "helperLink": "https://developer.intuit.com/"
+          },
+          {
+            "key": "QUICKBOOKS_CLIENT_SECRET",
+            "label": "QuickBooks OAuth Client Secret",
+            "type": "password",
+            "placeholder": "your-intuit-app-client-secret",
+            "required": true,
+            "helperText": "From the Intuit Developer Portal app. Stored as a secret.",
+            "helperLink": "https://developer.intuit.com/"
+          },
+          {
+            "key": "QUICKBOOKS_REFRESH_TOKEN",
+            "label": "QuickBooks Refresh Token",
+            "type": "password",
+            "placeholder": "your-refresh-token",
+            "required": true,
+            "helperText": "Obtained after the one-time OAuth handshake (npm run auth). Auto-rotates; stored as a secret.",
+            "helperLink": "https://github.com/intuit/quickbooks-online-mcp-server#authentication"
+          },
+          {
+            "key": "QUICKBOOKS_REALM_ID",
+            "label": "QuickBooks Company (Realm) ID",
+            "type": "text",
+            "placeholder": "your-company-id",
+            "required": true,
+            "helperText": "The QBO company ID to connect to.",
+            "helperLink": "https://github.com/intuit/quickbooks-online-mcp-server#authentication"
+          },
+          {
+            "key": "QUICKBOOKS_ENVIRONMENT",
+            "label": "Environment",
+            "type": "text",
+            "placeholder": "sandbox",
+            "required": false,
+            "helperText": "sandbox or production (default: sandbox)."
+          }
         ]
       },
       "auth": {
