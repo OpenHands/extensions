@@ -1,0 +1,39 @@
+{
+  "id": "quickbooks",
+  "name": "QuickBooks",
+  "description": "Accounting, invoices, customers, and financial operations via the QuickBooks Online MCP server.",
+  "categories": [
+    "Finance",
+    "Accounting"
+  ],
+  "appUrl": "https://quickbooks.intuit.com",
+  "docsUrl": "https://github.com/intuit/quickbooks-online-mcp-server",
+  "notes": "Official Intuit QuickBooks Online MCP server runs locally over stdio after a one-time OAuth handshake.",
+  "popularityRank": 47,
+  "iconBg": "#2CA01C",
+  "logoUrl": "https://cdn.simpleicons.org/quickbooks/FFFFFF",
+  "keywords": [
+    "accounting",
+    "finance",
+    "invoices",
+    "qbo"
+  ],
+  "installHint": "Clone intuit/quickbooks-online-mcp-server, run `npm install && npm run build`, complete the OAuth handshake with `npm run auth`, then run the server locally over stdio.",
+  "connectionOptions": [
+    {
+      "id": "api",
+      "provider": "mcp",
+      "transport": {
+        "kind": "stdio",
+        "serverName": "quickbooks-online",
+        "command": "node",
+        "args": [
+          "dist/index.js"
+        ]
+      },
+      "auth": {
+        "strategy": "none"
+      }
+    }
+  ]
+}

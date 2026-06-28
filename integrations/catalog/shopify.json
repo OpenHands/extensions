@@ -1,0 +1,40 @@
+{
+  "id": "shopify",
+  "name": "Shopify",
+  "description": "Shopify developer docs, API schemas, and app-building guidance via the Dev MCP server.",
+  "categories": [
+    "Ecommerce",
+    "Developer"
+  ],
+  "appUrl": "https://www.shopify.com",
+  "docsUrl": "https://shopify.dev/docs/apps/build/devmcp",
+  "notes": "Shopify Dev MCP runs locally over stdio and requires no authentication.",
+  "popularityRank": 29,
+  "iconBg": "#95BF47",
+  "logoUrl": "https://cdn.simpleicons.org/shopify/FFFFFF",
+  "keywords": [
+    "ecommerce",
+    "storefront",
+    "orders",
+    "dev docs"
+  ],
+  "installHint": "The Shopify Dev MCP server runs locally via npx and needs no authentication.",
+  "connectionOptions": [
+    {
+      "id": "api",
+      "provider": "mcp",
+      "transport": {
+        "kind": "stdio",
+        "serverName": "shopify-dev-mcp",
+        "command": "npx",
+        "args": [
+          "-y",
+          "@shopify/dev-mcp@latest"
+        ]
+      },
+      "auth": {
+        "strategy": "none"
+      }
+    }
+  ]
+}

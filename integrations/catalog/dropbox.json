@@ -1,0 +1,50 @@
+{
+  "id": "dropbox",
+  "name": "Dropbox",
+  "description": "Search and browse Dropbox Dash content via the Dropbox Dash MCP server.",
+  "categories": [
+    "Storage",
+    "Documents"
+  ],
+  "appUrl": "https://www.dropbox.com",
+  "docsUrl": "https://github.com/dropbox/mcp-server-dash",
+  "notes": "Official Dropbox Dash MCP server runs locally over stdio and authenticates with a Dropbox app key.",
+  "popularityRank": 18,
+  "iconBg": "#0061FF",
+  "logoUrl": "https://cdn.simpleicons.org/dropbox/FFFFFF",
+  "keywords": [
+    "storage",
+    "files",
+    "search",
+    "dash"
+  ],
+  "installHint": "Run the Dropbox Dash MCP server locally. Create a Dropbox app to get an APP_KEY, then install the server (github.com/dropbox/mcp-server-dash).",
+  "connectionOptions": [
+    {
+      "id": "api",
+      "provider": "mcp",
+      "transport": {
+        "kind": "stdio",
+        "serverName": "dropbox-dash",
+        "command": "uv",
+        "args": [
+          "run",
+          "src/mcp_server_dash.py"
+        ],
+        "envFields": [
+          {
+            "key": "APP_KEY",
+            "label": "Dropbox App Key",
+            "type": "text",
+            "placeholder": "your-dropbox-app-key",
+            "required": true,
+            "helperText": "Create a Dropbox app (developers.dropbox.com) to obtain the App Key."
+          }
+        ]
+      },
+      "auth": {
+        "strategy": "none"
+      }
+    }
+  ]
+}

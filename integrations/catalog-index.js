@@ -12,65 +12,72 @@ import entry6 from "./catalog/elevenlabs.json" with { type: "json" };
 import entry7 from "./catalog/bitbucket.json" with { type: "json" };
 import entry8 from "./catalog/gitlab.json" with { type: "json" };
 import entry9 from "./catalog/xero.json" with { type: "json" };
-import entry10 from "./catalog/okta.json" with { type: "json" };
-import entry11 from "./catalog/plaid.json" with { type: "json" };
-import entry12 from "./catalog/netlify.json" with { type: "json" };
-import entry13 from "./catalog/vercel.json" with { type: "json" };
-import entry14 from "./catalog/supabase.json" with { type: "json" };
-import entry15 from "./catalog/sentry.json" with { type: "json" };
-import entry16 from "./catalog/datadog.json" with { type: "json" };
-import entry17 from "./catalog/canva.json" with { type: "json" };
-import entry18 from "./catalog/webflow.json" with { type: "json" };
-import entry19 from "./catalog/zoom.json" with { type: "json" };
-import entry20 from "./catalog/discord.json" with { type: "json" };
-import entry21 from "./catalog/stripe.json" with { type: "json" };
-import entry22 from "./catalog/intercom.json" with { type: "json" };
-import entry23 from "./catalog/hubspot.json" with { type: "json" };
-import entry24 from "./catalog/sharepoint.json" with { type: "json" };
-import entry25 from "./catalog/onedrive.json" with { type: "json" };
-import entry26 from "./catalog/microsoft-teams.json" with { type: "json" };
-import entry27 from "./catalog/microsoft-outlook.json" with { type: "json" };
-import entry28 from "./catalog/box.json" with { type: "json" };
-import entry29 from "./catalog/airtable.json" with { type: "json" };
-import entry30 from "./catalog/trello.json" with { type: "json" };
-import entry31 from "./catalog/asana.json" with { type: "json" };
-import entry32 from "./catalog/confluence.json" with { type: "json" };
-import entry33 from "./catalog/jira.json" with { type: "json" };
-import entry34 from "./catalog/google-calendar.json" with { type: "json" };
-import entry35 from "./catalog/gmail.json" with { type: "json" };
-import entry36 from "./catalog/google-sheets.json" with { type: "json" };
-import entry37 from "./catalog/google-drive.json" with { type: "json" };
-import entry38 from "./catalog/figma.json" with { type: "json" };
-import entry39 from "./catalog/google-docs.json" with { type: "json" };
-import entry40 from "./catalog/apify.json" with { type: "json" };
-import entry41 from "./catalog/atlassian.json" with { type: "json" };
-import entry42 from "./catalog/brave-search.json" with { type: "json" };
-import entry43 from "./catalog/browser-mcp.json" with { type: "json" };
-import entry44 from "./catalog/clickhouse.json" with { type: "json" };
-import entry45 from "./catalog/cloudflare-bindings.json" with { type: "json" };
-import entry46 from "./catalog/cloudflare-browser-rendering.json" with { type: "json" };
-import entry47 from "./catalog/cloudflare-builds.json" with { type: "json" };
-import entry48 from "./catalog/cloudflare-docs.json" with { type: "json" };
-import entry49 from "./catalog/cloudflare-observability.json" with { type: "json" };
-import entry50 from "./catalog/deepwiki.json" with { type: "json" };
-import entry51 from "./catalog/everything.json" with { type: "json" };
-import entry52 from "./catalog/exa.json" with { type: "json" };
-import entry53 from "./catalog/fetch.json" with { type: "json" };
-import entry54 from "./catalog/filesystem.json" with { type: "json" };
-import entry55 from "./catalog/firecrawl.json" with { type: "json" };
-import entry56 from "./catalog/git.json" with { type: "json" };
-import entry57 from "./catalog/huggingface.json" with { type: "json" };
-import entry58 from "./catalog/kagi.json" with { type: "json" };
-import entry59 from "./catalog/memory.json" with { type: "json" };
-import entry60 from "./catalog/mongodb.json" with { type: "json" };
-import entry61 from "./catalog/neon.json" with { type: "json" };
-import entry62 from "./catalog/obsidian.json" with { type: "json" };
-import entry63 from "./catalog/paypal.json" with { type: "json" };
-import entry64 from "./catalog/playwright.json" with { type: "json" };
-import entry65 from "./catalog/redis.json" with { type: "json" };
-import entry66 from "./catalog/resend.json" with { type: "json" };
-import entry67 from "./catalog/sequential-thinking.json" with { type: "json" };
-import entry68 from "./catalog/time.json" with { type: "json" };
+import entry10 from "./catalog/quickbooks.json" with { type: "json" };
+import entry11 from "./catalog/okta.json" with { type: "json" };
+import entry12 from "./catalog/plaid.json" with { type: "json" };
+import entry13 from "./catalog/netlify.json" with { type: "json" };
+import entry14 from "./catalog/vercel.json" with { type: "json" };
+import entry15 from "./catalog/supabase.json" with { type: "json" };
+import entry16 from "./catalog/posthog.json" with { type: "json" };
+import entry17 from "./catalog/sentry.json" with { type: "json" };
+import entry18 from "./catalog/datadog.json" with { type: "json" };
+import entry19 from "./catalog/canva.json" with { type: "json" };
+import entry20 from "./catalog/miro.json" with { type: "json" };
+import entry21 from "./catalog/webflow.json" with { type: "json" };
+import entry22 from "./catalog/zoom.json" with { type: "json" };
+import entry23 from "./catalog/discord.json" with { type: "json" };
+import entry24 from "./catalog/shopify.json" with { type: "json" };
+import entry25 from "./catalog/stripe.json" with { type: "json" };
+import entry26 from "./catalog/intercom.json" with { type: "json" };
+import entry27 from "./catalog/hubspot.json" with { type: "json" };
+import entry28 from "./catalog/salesforce.json" with { type: "json" };
+import entry29 from "./catalog/sharepoint.json" with { type: "json" };
+import entry30 from "./catalog/onedrive.json" with { type: "json" };
+import entry31 from "./catalog/microsoft-teams.json" with { type: "json" };
+import entry32 from "./catalog/microsoft-outlook.json" with { type: "json" };
+import entry33 from "./catalog/box.json" with { type: "json" };
+import entry34 from "./catalog/dropbox.json" with { type: "json" };
+import entry35 from "./catalog/airtable.json" with { type: "json" };
+import entry36 from "./catalog/monday.json" with { type: "json" };
+import entry37 from "./catalog/trello.json" with { type: "json" };
+import entry38 from "./catalog/asana.json" with { type: "json" };
+import entry39 from "./catalog/confluence.json" with { type: "json" };
+import entry40 from "./catalog/jira.json" with { type: "json" };
+import entry41 from "./catalog/google-calendar.json" with { type: "json" };
+import entry42 from "./catalog/gmail.json" with { type: "json" };
+import entry43 from "./catalog/google-sheets.json" with { type: "json" };
+import entry44 from "./catalog/google-drive.json" with { type: "json" };
+import entry45 from "./catalog/figma.json" with { type: "json" };
+import entry46 from "./catalog/google-docs.json" with { type: "json" };
+import entry47 from "./catalog/apify.json" with { type: "json" };
+import entry48 from "./catalog/atlassian.json" with { type: "json" };
+import entry49 from "./catalog/brave-search.json" with { type: "json" };
+import entry50 from "./catalog/browser-mcp.json" with { type: "json" };
+import entry51 from "./catalog/clickhouse.json" with { type: "json" };
+import entry52 from "./catalog/cloudflare-bindings.json" with { type: "json" };
+import entry53 from "./catalog/cloudflare-browser-rendering.json" with { type: "json" };
+import entry54 from "./catalog/cloudflare-builds.json" with { type: "json" };
+import entry55 from "./catalog/cloudflare-docs.json" with { type: "json" };
+import entry56 from "./catalog/cloudflare-observability.json" with { type: "json" };
+import entry57 from "./catalog/deepwiki.json" with { type: "json" };
+import entry58 from "./catalog/everything.json" with { type: "json" };
+import entry59 from "./catalog/exa.json" with { type: "json" };
+import entry60 from "./catalog/fetch.json" with { type: "json" };
+import entry61 from "./catalog/filesystem.json" with { type: "json" };
+import entry62 from "./catalog/firecrawl.json" with { type: "json" };
+import entry63 from "./catalog/git.json" with { type: "json" };
+import entry64 from "./catalog/huggingface.json" with { type: "json" };
+import entry65 from "./catalog/kagi.json" with { type: "json" };
+import entry66 from "./catalog/memory.json" with { type: "json" };
+import entry67 from "./catalog/mongodb.json" with { type: "json" };
+import entry68 from "./catalog/neon.json" with { type: "json" };
+import entry69 from "./catalog/obsidian.json" with { type: "json" };
+import entry70 from "./catalog/paypal.json" with { type: "json" };
+import entry71 from "./catalog/playwright.json" with { type: "json" };
+import entry72 from "./catalog/redis.json" with { type: "json" };
+import entry73 from "./catalog/resend.json" with { type: "json" };
+import entry74 from "./catalog/sequential-thinking.json" with { type: "json" };
+import entry75 from "./catalog/time.json" with { type: "json" };
 
 export const INTEGRATION_CATALOG_ENTRIES = [
   entry0,
@@ -142,4 +149,11 @@ export const INTEGRATION_CATALOG_ENTRIES = [
   entry66,
   entry67,
   entry68,
+  entry69,
+  entry70,
+  entry71,
+  entry72,
+  entry73,
+  entry74,
+  entry75,
 ];
