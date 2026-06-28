@@ -81,7 +81,7 @@
     }
   ],
   "iconBg": "#4A154B",
-  "logoUrl": "https://cdn.simpleicons.org/slack/FFFFFF",
+  "logoUrl": "https://cdn.jsdelivr.net/gh/OpenHands/extensions/integrations/icons/slack.svg",
   "keywords": [
     "chat",
     "messaging",

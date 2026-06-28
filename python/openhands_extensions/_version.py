@@ -17,7 +17,7 @@ from importlib.metadata import PackageNotFoundError, version
 #: Fallback used only when the package is not installed (no dist metadata).
 #: Kept in lock-step with pyproject.toml/package.json by the version test.
 # x-release-please-update-version
-_FALLBACK_VERSION = "0.7.0"
+_FALLBACK_VERSION = "0.7.1"
 
 try:
     __version__: str = version("openhands-extensions")
