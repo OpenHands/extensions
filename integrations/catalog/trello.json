@@ -8,14 +8,22 @@
   ],
   "appUrl": "https://trello.com",
   "docsUrl": "https://developer.atlassian.com/cloud/trello/guides/rest-api/authorization/",
-  "notes": "Useful for SMB and cross-functional task boards, but Trello's public API auth is a special-case flow rather than a straightforward generic OAuth2 connector.",
+  "notes": "Trello now uses Atlassian OAuth2 (auth.atlassian.com) for API authorization.",
   "popularityRank": 14,
   "connectionOptions": [
     {
       "id": "oauth",
       "provider": "http",
       "auth": {
-        "strategy": "oauth2"
+        "strategy": "oauth2",
+        "oauth": {
+          "authorizationUrl": "https://auth.atlassian.com/authorize",
+          "tokenUrl": "https://api.atlassian.com/oauth/token",
+          "scopes": [
+            "read",
+            "write"
+          ]
+        }
       },
       "http": {
         "apiBaseUrl": "https://api.trello.com/1",

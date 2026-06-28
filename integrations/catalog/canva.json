@@ -18,7 +18,8 @@
         "strategy": "oauth2",
         "oauth": {
           "tokenUrl": "https://api.canva.com/rest/v1/oauth/token",
-          "scopes": []
+          "scopes": [],
+          "authorizationUrl": "https://www.canva.com/api/oauth/authorize"
         }
       },
       "http": {
