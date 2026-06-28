@@ -12,32 +12,6 @@
   "popularityRank": 5,
   "connectionOptions": [
     {
-      "id": "oauth",
-      "provider": "http",
-      "auth": {
-        "strategy": "oauth2",
-        "oauth": {
-          "authorizationUrl": "https://www.figma.com/oauth",
-          "tokenUrl": "https://api.figma.com/v1/oauth/token",
-          "scopes": [
-            "current_user:read",
-            "file_content:read",
-            "file_metadata:read",
-            "projects:read"
-          ]
-        }
-      },
-      "http": {
-        "apiBaseUrl": "https://api.figma.com",
-        "defaultTool": {
-          "name": "get_file",
-          "description": "Fetch a Figma file by key.",
-          "method": "GET",
-          "path": "/v1/files/{fileKey}"
-        }
-      }
-    },
-    {
       "id": "api",
       "provider": "mcp",
       "transport": {
@@ -62,6 +36,27 @@
       },
       "auth": {
         "strategy": "api_key"
+      }
+    },
+    {
+      "id": "oauth",
+      "provider": "http",
+      "auth": {
+        "strategy": "oauth2",
+        "oauth": {
+          "authorizationUrl": "https://www.figma.com/oauth",
+          "tokenUrl": "https://api.figma.com/v1/oauth/token",
+          "scopes": [
+            "current_user:read",
+            "file_content:read",
+            "file_metadata:read",
+            "projects:read"
+          ]
+        }
+      },
+      "http": {
+        "apiBaseUrl": "https://api.figma.com",
+        "openApiUrl": "https://raw.githubusercontent.com/figma/rest-api-spec/main/openapi/openapi.yaml"
       }
     }
   ],

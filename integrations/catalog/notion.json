@@ -12,28 +12,6 @@
   "popularityRank": 82,
   "connectionOptions": [
     {
-      "id": "oauth",
-      "provider": "http",
-      "auth": {
-        "strategy": "oauth2",
-        "oauth": {
-          "authorizationUrl": "https://api.notion.com/v1/oauth/authorize",
-          "tokenUrl": "https://api.notion.com/v1/oauth/token",
-          "scopes": []
-        }
-      },
-      "http": {
-        "apiBaseUrl": "https://api.notion.com",
-        "openApiUrl": "https://developers.notion.com/openapi.json",
-        "defaultTool": {
-          "name": "post_search",
-          "description": "Search pages and databases in the connected Notion workspace.",
-          "method": "POST",
-          "path": "/v1/search"
-        }
-      }
-    },
-    {
       "id": "api",
       "provider": "mcp",
       "transport": {
@@ -58,6 +36,22 @@
       },
       "auth": {
         "strategy": "api_key"
+      }
+    },
+    {
+      "id": "oauth",
+      "provider": "http",
+      "auth": {
+        "strategy": "oauth2",
+        "oauth": {
+          "authorizationUrl": "https://api.notion.com/v1/oauth/authorize",
+          "tokenUrl": "https://api.notion.com/v1/oauth/token",
+          "scopes": []
+        }
+      },
+      "http": {
+        "apiBaseUrl": "https://api.notion.com",
+        "openApiUrl": "https://developers.notion.com/openapi.json"
       }
     }
   ],

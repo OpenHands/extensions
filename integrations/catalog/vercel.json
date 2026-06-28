@@ -26,12 +26,7 @@
       },
       "http": {
         "apiBaseUrl": "https://api.vercel.com",
-        "defaultTool": {
-          "name": "list_projects",
-          "description": "List Vercel projects available to the connected user.",
-          "method": "GET",
-          "path": "/v9/projects"
-        }
+        "openApiUrl": "https://api.apis.guru/v2/specs/vercel.com/0.0.1/openapi.json"
       }
     }
   ]

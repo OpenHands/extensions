@@ -26,12 +26,7 @@
       },
       "http": {
         "apiBaseUrl": "https://api.xero.com/api.xro/2.0",
-        "defaultTool": {
-          "name": "list_contacts",
-          "description": "List Xero contacts for the connected tenant.",
-          "method": "GET",
-          "path": "/Contacts"
-        }
+        "openApiUrl": "https://api.apis.guru/v2/specs/xero.com/xero_accounting/2.9.4/openapi.json"
       }
     }
   ]

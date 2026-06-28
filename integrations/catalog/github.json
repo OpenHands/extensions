@@ -30,13 +30,7 @@
         "url": "https://api.githubcopilot.com/mcp/"
       },
       "http": {
-        "apiBaseUrl": "https://api.github.com",
-        "defaultTool": {
-          "name": "get_authenticated_user",
-          "description": "Fetch the authenticated GitHub user profile.",
-          "method": "GET",
-          "path": "/user"
-        }
+        "apiBaseUrl": "https://api.github.com"
       }
     },
     {

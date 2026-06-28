@@ -66,18 +66,9 @@ export interface IntegrationAuthConfig {
   oauth?: IntegrationOAuthConfig;
 }
 
-export interface IntegrationHttpDefaultTool {
-  name: string;
-  description?: string;
-  method?: string;
-  path?: string;
-  scopes?: string[];
-}
-
 export interface IntegrationHttpConfig {
   apiBaseUrl?: string;
   openApiUrl?: string;
-  defaultTool?: IntegrationHttpDefaultTool;
 }
 
 export interface IntegrationConnectionOption {

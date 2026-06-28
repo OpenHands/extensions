@@ -19,12 +19,7 @@
       },
       "http": {
         "apiBaseUrl": "https://production.plaid.com",
-        "defaultTool": {
-          "name": "get_accounts",
-          "description": "Fetch accounts for a connected Plaid item.",
-          "method": "POST",
-          "path": "/accounts/get"
-        }
+        "openApiUrl": "https://api.apis.guru/v2/specs/plaid.com/2020-09-14_1.334.0/openapi.json"
       }
     }
   ]

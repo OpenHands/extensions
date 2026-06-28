@@ -27,12 +27,7 @@
       },
       "http": {
         "apiBaseUrl": "https://discord.com/api/v10",
-        "defaultTool": {
-          "name": "list_guilds",
-          "description": "List Discord guilds available to the connected user.",
-          "method": "GET",
-          "path": "/users/@me/guilds"
-        }
+        "openApiUrl": "https://raw.githubusercontent.com/discord/discord-api-spec/main/specs/openapi.json"
       }
     }
   ]

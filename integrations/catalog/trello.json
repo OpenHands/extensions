@@ -19,12 +19,7 @@
       },
       "http": {
         "apiBaseUrl": "https://api.trello.com/1",
-        "defaultTool": {
-          "name": "list_boards",
-          "description": "List Trello boards visible to the authenticated member.",
-          "method": "GET",
-          "path": "/members/me/boards"
-        }
+        "openApiUrl": "https://developer.atlassian.com/cloud/trello/swagger.v3.json"
       }
     }
   ]

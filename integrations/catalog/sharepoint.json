@@ -26,12 +26,7 @@
       },
       "http": {
         "apiBaseUrl": "https://graph.microsoft.com/v1.0",
-        "defaultTool": {
-          "name": "get_root_site",
-          "description": "Fetch the SharePoint root site through Microsoft Graph.",
-          "method": "GET",
-          "path": "/sites/root"
-        }
+        "openApiUrl": "https://raw.githubusercontent.com/microsoftgraph/msgraph-metadata/master/openapi/v1.0/openapi.yaml"
       }
     }
   ]

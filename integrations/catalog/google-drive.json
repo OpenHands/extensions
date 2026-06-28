@@ -26,12 +26,7 @@
       },
       "http": {
         "apiBaseUrl": "https://www.googleapis.com/drive/v3",
-        "defaultTool": {
-          "name": "list_files",
-          "description": "List Drive files visible to the connected user.",
-          "method": "GET",
-          "path": "/files"
-        }
+        "openApiUrl": "https://api.apis.guru/v2/specs/googleapis.com/drive/v3/openapi.json"
       }
     }
   ]

@@ -12,27 +12,6 @@
   "popularityRank": 38,
   "connectionOptions": [
     {
-      "id": "oauth",
-      "provider": "http",
-      "auth": {
-        "strategy": "oauth2",
-        "oauth": {
-          "authorizationUrl": "https://api.supabase.com/v1/oauth/authorize",
-          "tokenUrl": "https://api.supabase.com/v1/oauth/token",
-          "scopes": []
-        }
-      },
-      "http": {
-        "apiBaseUrl": "https://api.supabase.com/v1",
-        "defaultTool": {
-          "name": "list_projects",
-          "description": "List Supabase projects available to the connected user.",
-          "method": "GET",
-          "path": "/projects"
-        }
-      }
-    },
-    {
       "id": "api",
       "provider": "mcp",
       "transport": {
@@ -56,6 +35,22 @@
       },
       "auth": {
         "strategy": "api_key"
+      }
+    },
+    {
+      "id": "oauth",
+      "provider": "http",
+      "auth": {
+        "strategy": "oauth2",
+        "oauth": {
+          "authorizationUrl": "https://api.supabase.com/v1/oauth/authorize",
+          "tokenUrl": "https://api.supabase.com/v1/oauth/token",
+          "scopes": []
+        }
+      },
+      "http": {
+        "apiBaseUrl": "https://api.supabase.com/v1",
+        "openApiUrl": "https://raw.githubusercontent.com/supabase/supabase/master/apps/docs/spec/api_v1_openapi.json"
       }
     }
   ],

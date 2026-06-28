@@ -12,6 +12,20 @@
   "popularityRank": 28,
   "connectionOptions": [
     {
+      "id": "api",
+      "provider": "mcp",
+      "transport": {
+        "kind": "shttp",
+        "url": "https://mcp.stripe.com/"
+      },
+      "auth": {
+        "strategy": "bearer",
+        "credentialLabel": "Stripe restricted key",
+        "credentialPlaceholder": "rk_live_...",
+        "credentialHelp": "Create a Stripe restricted key for MCP access and paste it here."
+      }
+    },
+    {
       "id": "oauth",
       "provider": "http",
       "auth": {
@@ -26,26 +40,7 @@
       },
       "http": {
         "apiBaseUrl": "https://api.stripe.com/v1",
-        "defaultTool": {
-          "name": "list_customers",
-          "description": "List Stripe customers from the connected account.",
-          "method": "GET",
-          "path": "/customers"
-        }
-      }
-    },
-    {
-      "id": "api",
-      "provider": "mcp",
-      "transport": {
-        "kind": "shttp",
-        "url": "https://mcp.stripe.com/"
-      },
-      "auth": {
-        "strategy": "bearer",
-        "credentialLabel": "Stripe restricted key",
-        "credentialPlaceholder": "rk_live_...",
-        "credentialHelp": "Create a Stripe restricted key for MCP access and paste it here."
+        "openApiUrl": "https://raw.githubusercontent.com/stripe/openapi/master/openapi/spec3.json"
       }
     }
   ],
