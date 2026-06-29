@@ -10,10 +10,6 @@
   "repository": "https://github.com/OpenHands/extensions",
   "license": "MIT",
   "keywords": [
-    "plain-english",
-    "content-design",
-    "writing",
-    "accessibility",
-    "clarity"
+    "plain-english"
   ]
 }
