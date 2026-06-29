@@ -12,6 +12,34 @@
   "popularityRank": 86,
   "connectionOptions": [
     {
+      "id": "oauth",
+      "provider": "mcp",
+      "auth": {
+        "strategy": "oauth2",
+        "oauth": {
+          "authorizationUrl": "https://mcp.linear.app/authorize",
+          "tokenUrl": "https://mcp.linear.app/token",
+          "registrationUrl": "https://mcp.linear.app/register",
+          "scopes": [
+            "read",
+            "write"
+          ],
+          "pkce": true,
+          "clientAuthentication": "none",
+          "additionalAuthorizationParams": {
+            "resource": "https://mcp.linear.app/mcp"
+          },
+          "additionalTokenParams": {
+            "resource": "https://mcp.linear.app/mcp"
+          }
+        }
+      },
+      "transport": {
+        "kind": "shttp",
+        "url": "https://mcp.linear.app/mcp"
+      }
+    },
+    {
       "id": "api-key",
       "provider": "mcp",
       "transport": {
@@ -36,5 +64,5 @@
     "tasks",
     "tickets"
   ],
-  "installHint": "Authenticate with a Linear API key (Linear → Settings → Security & access) — sent as a Bearer token. Optional when the endpoint accepts your OAuth session."
+  "installHint": "Prefer the OAuth MCP connection for Linear. The MCP server supports OAuth 2.1 with dynamic client registration at mcp.linear.app; a bearer-token MCP option remains available for API-key or existing OAuth-token workflows."
 }
