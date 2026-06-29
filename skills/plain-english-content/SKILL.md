@@ -9,10 +9,6 @@ description: >
 license: MIT
 triggers:
   - plain English
-  - content design
-  - public guidance
-  - accessible writing
-  - report clarity
 ---
 
 Open content up so anyone can understand it the first time they read it, without losing substance, nuance or precision. Aim to open up, not dumb down. Apply the GOV.UK style guide approach: plain English, user needs first, active voice, front-loaded structure and accessible formatting.
