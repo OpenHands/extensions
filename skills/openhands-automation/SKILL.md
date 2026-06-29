@@ -140,6 +140,7 @@ OPENHANDS_HOST="https://app.all-hands.dev"  # replace with <HOST> if provided
 |----------|--------|-------------|
 | `/api/automation/v1/preset/prompt` | POST | **Create automation from a prompt (recommended)** |
 | `/api/automation/v1/preset/plugin` | POST | **Create automation with plugins** |
+| `/api/automation/v1` | POST | Create a custom automation from an uploaded or external tarball |
 | `/api/automation/v1` | GET | List automations |
 | `/api/automation/v1/{id}` | GET | Get automation details |
 | `/api/automation/v1/{id}` | PATCH | Update automation |
@@ -178,6 +179,19 @@ Two preset endpoints simplify automation creation by handling SDK boilerplate, t
 1. **Prompt Preset** — Execute a natural language prompt (simple tasks)
 2. **Plugin Preset** — Load plugins with skills, MCP configs, and commands (extended capabilities)
 
+### Run Configuration Options
+
+These optional fields are supported by `POST /api/automation/v1/preset/prompt`, `POST /api/automation/v1/preset/plugin`, and custom `POST /api/automation/v1` unless noted:
+
+| Field | Applies to | Description |
+|-------|------------|-------------|
+| `model` | All create endpoints, PATCH | Model profile name for automation runs. If omitted, the service stores the user's active profile at creation time. |
+| `timeout` | All create endpoints, PATCH | Max execution time in seconds. Omit to use the service default (currently 600 seconds). Values must be positive and no greater than the configured max (currently 1800 seconds / 30 minutes); invalid values return HTTP 422. |
+| `keep_alive` | All create endpoints, PATCH | Sandbox cleanup policy. `true` leaves the sandbox for runtime TTL cleanup after the run finishes; `false` or `null` lets the automation service explicitly clean it up after completion or failure. |
+| `repos` | Preset endpoints only | Repositories to clone before execution (see [Repository Cloning](#repository-cloning)). |
+
+Use `timeout` for long-running jobs that legitimately need more than the default. Use `keep_alive: true` only when you intentionally want the sandbox to remain available until the runtime TTL reaper removes it, for example while debugging or inspecting run artifacts.
+
 ---
 
 ### Prompt Preset
@@ -213,8 +227,10 @@ curl -X POST "${OPENHANDS_HOST}/api/automation/v1/preset/prompt" \
 |-------|----------|-------------|
 | `name` | Yes | Name of the automation (1-500 characters) |
 | `prompt` | Yes | Natural language instructions (1-50,000 characters) |
+| `model` | No | Model profile name for automation runs; defaults to the active profile at creation time |
 | `trigger` | Yes | Trigger configuration — either `cron` or `event` (see below) |
-| `timeout` | No | Max execution time in seconds (default: system maximum) |
+| `timeout` | No | Max execution time in seconds (default 600, max 1800 unless the service is configured differently) |
+| `keep_alive` | No | `true` leaves sandbox cleanup to runtime TTL; `false` or `null` explicitly cleans up after terminal runs |
 | `repos` | No | Repositories to clone (see [Repository Cloning](#repository-cloning)) |
 
 **Cron Trigger Fields:**
@@ -260,7 +276,10 @@ Common schedules: `0 9 * * *` (daily 9 AM), `0 9 * * 1-5` (weekdays 9 AM), `0 9 
 {
   "id": "123e4567-e89b-12d3-a456-426614174000",
   "name": "My Automation Name",
+  "model": "active-profile",
   "trigger": {"type": "cron", "schedule": "0 9 * * *", "timezone": "UTC"},
+  "timeout": 600,
+  "keep_alive": null,
   "enabled": true,
   "created_at": "2025-03-25T10:00:00Z"
 }
@@ -289,7 +308,8 @@ curl -X POST "${OPENHANDS_HOST}/api/automation/v1/preset/prompt" \
     "name": "Weekly Cleanup",
     "prompt": "Clean up temporary files older than 7 days and send a summary of what was removed",
     "trigger": {"type": "cron", "schedule": "0 2 * * 0", "timezone": "UTC"},
-    "timeout": 300
+    "timeout": 300,
+    "keep_alive": false
   }'
 ```
 
@@ -659,14 +679,20 @@ curl -X POST "${OPENHANDS_HOST}/api/automation/v1/preset/plugin" \
 | Field | Required | Description |
 |-------|----------|-------------|
 | `name` | Yes | Name of the automation (1-500 characters) |
-| `plugins` | Yes | List of plugin sources (at least one required) |
+| `plugins` | Yes* | List of plugin sources (at least one required for standard plugin automations) |
 | `plugins[].source` | Yes | Plugin source: `github:owner/repo`, git URL, or local path |
 | `plugins[].ref` | No | Git ref: branch, tag, or commit SHA |
 | `plugins[].repo_path` | No | Subdirectory path for monorepos |
+| `variants` | Yes* | A/B test variants used instead of `plugins`; see `references/ab-testing.md` |
+| `experiment_id` | Yes* | Required when using `variants` |
 | `prompt` | Yes | Instructions for the automation (1-50,000 characters) |
+| `model` | No | Model profile name for automation runs; defaults to the active profile at creation time |
 | `trigger` | Yes | Trigger configuration — either `cron` or `event` (same as Prompt Preset) |
-| `timeout` | No | Max execution time in seconds (default: system maximum) |
+| `timeout` | No | Max execution time in seconds (default 600, max 1800 unless the service is configured differently) |
+| `keep_alive` | No | `true` leaves sandbox cleanup to runtime TTL; `false` or `null` explicitly cleans up after terminal runs |
 | `repos` | No | Repositories to clone (see [Repository Cloning](#repository-cloning)) |
+
+Note: Provide either `plugins` for a standard plugin automation or `variants` plus `experiment_id` for an A/B test, not both.
 
 #### Plugin Source Formats
 
@@ -683,7 +709,10 @@ curl -X POST "${OPENHANDS_HOST}/api/automation/v1/preset/plugin" \
 {
   "id": "123e4567-e89b-12d3-a456-426614174000",
   "name": "My Plugin Automation",
+  "model": "active-profile",
   "trigger": {"type": "cron", "schedule": "0 9 * * 1", "timezone": "UTC"},
+  "timeout": 600,
+  "keep_alive": null,
   "enabled": true,
   "created_at": "2025-03-25T10:00:00Z"
 }
@@ -818,11 +847,17 @@ curl "${OPENHANDS_HOST}/api/automation/v1?limit=20" \
 curl "${OPENHANDS_HOST}/api/automation/v1/{automation_id}" \
   -H "Authorization: Bearer ${OPENHANDS_API_KEY}"
 
-# Update (fields: name, trigger, enabled, timeout)
+# Update fields: name, prompt, model, trigger, tarball_path, setup_script_path, entrypoint, enabled, timeout, keep_alive
 curl -X PATCH "${OPENHANDS_HOST}/api/automation/v1/{automation_id}" \
   -H "Authorization: Bearer ${OPENHANDS_API_KEY}" \
   -H "Content-Type: application/json" \
   -d '{"enabled": false}'
+
+# Extend a run timeout and keep the sandbox around for TTL-based cleanup
+curl -X PATCH "${OPENHANDS_HOST}/api/automation/v1/{automation_id}" \
+  -H "Authorization: Bearer ${OPENHANDS_API_KEY}" \
+  -H "Content-Type: application/json" \
+  -d '{"timeout": 1200, "keep_alive": true}'
 
 # Delete
 curl -X DELETE "${OPENHANDS_HOST}/api/automation/v1/{automation_id}" \
@@ -847,7 +882,9 @@ Run status values: `PENDING` (waiting for dispatch), `RUNNING` (in progress), `C
 
 ## Run Lifecycle
 
-When a run completes, the automation service receives a callback and marks the run done. Any conversations started during the run remain accessible in the OpenHands UI — users can view the history and continue interacting. The agent server persists until it times out or is manually deleted.
+When a run completes, the automation service receives a callback and marks the run done. Any conversations started during the run remain accessible in the OpenHands UI - users can view the history and continue interacting.
+
+Sandbox cleanup depends on `keep_alive`: `false` or `null` means the automation service explicitly cleans up after terminal runs; `true` leaves cleanup to the runtime TTL reaper. Use `keep_alive: true` only when you need post-run inspection or debugging time.
 
 The automation script itself controls when the callback fires (signalling completion). For simple synchronous scripts this happens naturally on exit. For scripts that start asynchronous conversations, the callback should be deferred until the conversation reaches an idle state (see `references/custom-automation.md` for patterns).
 

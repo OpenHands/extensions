@@ -107,7 +107,8 @@ curl -X POST "${OPENHANDS_HOST}/api/automation/v1" \
     },
     "tarball_path": "oh-internal://uploads/550e8400-e29b-41d4-a716-446655440000",
     "entrypoint": "python main.py",
-    "timeout": 300
+    "timeout": 1200,
+    "keep_alive": false
   }'
 ```
 
@@ -116,13 +117,20 @@ curl -X POST "${OPENHANDS_HOST}/api/automation/v1" \
 | Field | Required | Description |
 |-------|----------|-------------|
 | `name` | Yes | Name of the automation (1-500 characters) |
-| `trigger.type` | Yes | Must be `"cron"` |
-| `trigger.schedule` | Yes | Cron expression (5 fields: min hour day month weekday) |
+| `model` | No | Model profile name for automation runs; defaults to the active profile at creation time |
+| `trigger.type` | Yes | Must be `"cron"` or `"event"` |
+| `trigger.schedule` | Yes* | Cron expression (5 fields: min hour day month weekday), required for cron triggers |
 | `trigger.timezone` | No | IANA timezone (default: `"UTC"`) |
+| `trigger.source` | Yes* | Event source such as `"github"` or a custom webhook source, required for event triggers |
+| `trigger.on` | Yes* | Event key pattern(s), required for event triggers |
+| `trigger.filter` | No | JMESPath filter expression for event triggers |
 | `tarball_path` | Yes | Path to code tarball (see Tarball Path Formats below) |
 | `entrypoint` | Yes | Command to execute (e.g., `"python main.py"`, `"uv run script.py"`) |
 | `setup_script_path` | No | Relative path to setup script inside tarball |
-| `timeout` | No | Max execution time in seconds (1-600, default: 600) |
+| `timeout` | No | Max execution time in seconds (default 600, max 1800 unless the service is configured differently) |
+| `keep_alive` | No | `true` leaves sandbox cleanup to runtime TTL; `false` or `null` explicitly cleans up after terminal runs |
+
+Note: Trigger sub-fields marked with `Yes*` are required only for that trigger type.
 
 ### Tarball Path Formats
 
@@ -144,8 +152,11 @@ curl -X POST "${OPENHANDS_HOST}/api/automation/v1" \
     "schedule": "0 9 * * 1",
     "timezone": "UTC"
   },
+  "model": "active-profile",
   "tarball_path": "oh-internal://uploads/550e8400-e29b-41d4-a716-446655440000",
   "entrypoint": "python main.py",
+  "timeout": 1200,
+  "keep_alive": false,
   "enabled": true,
   "created_at": "2025-03-25T10:00:00Z"
 }
@@ -171,11 +182,18 @@ curl "${OPENHANDS_HOST}/api/automation/v1/{automation_id}" \
 
 ### Update Automation
 
+Patchable fields include `name`, `model`, `prompt`, `trigger`, `tarball_path`, `setup_script_path`, `entrypoint`, `enabled`, `timeout`, and `keep_alive`.
+
 ```bash
 curl -X PATCH "${OPENHANDS_HOST}/api/automation/v1/{automation_id}" \
   -H "Authorization: Bearer ${OPENHANDS_API_KEY}" \
   -H "Content-Type: application/json" \
   -d '{"enabled": false}'
+
+curl -X PATCH "${OPENHANDS_HOST}/api/automation/v1/{automation_id}" \
+  -H "Authorization: Bearer ${OPENHANDS_API_KEY}" \
+  -H "Content-Type: application/json" \
+  -d '{"timeout": 1200, "keep_alive": true}'
 ```
 
 ### Delete Automation
@@ -628,7 +646,7 @@ The automation service injects these environment variables into every run:
 - **Cron schedule**: Valid 5-field cron expression
 - **Entrypoint**: Relative path, no shell metacharacters (`;`, `&`, `|`, etc.)
 - **Setup script path**: Relative path, no path traversal (`..`)
-- **Timeout**: 1-600 seconds (10 minutes max)
+- **Timeout**: Positive seconds, default 600 and max 1800 unless the service is configured differently
 - **Tarball size**: 1MB max for uploads
 
 ---

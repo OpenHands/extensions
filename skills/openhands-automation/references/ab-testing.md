@@ -59,7 +59,7 @@ curl -X POST "${OPENHANDS_HOST}/api/automation/v1/preset/plugin" \
 
 *Required only for A/B tests. Standard plugin automations use `plugins` instead.
 
-All other fields (`name`, `prompt`, `trigger`, `timeout`, `repos`, `model`) are identical to the standard plugin preset request.
+All other fields (`name`, `prompt`, `trigger`, `model`, `timeout`, `keep_alive`, `repos`) are identical to the standard plugin preset request.
 
 ### Variant Object
 
@@ -68,6 +68,7 @@ All other fields (`name`, `prompt`, `trigger`, `timeout`, `repos`, `model`) are 
 | `name` | Yes | string | Unique variant name (1–100 chars) |
 | `weight` | Yes | integer | Relative selection weight (> 0) |
 | `plugins` | Yes | array | Plugin source(s) for this variant (at least one) |
+| `model` | No | string | Model profile name for this variant; defaults to the automation-level model when omitted |
 
 ### Validation Rules
 
