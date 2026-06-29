@@ -1,0 +1,19 @@
+{
+  "name": "plain-english-content",
+  "version": "1.0.0",
+  "description": "Write and edit clear, accessible prose in a plain English content style: active voice, front-loaded content, sentence case, and accessible formatting.",
+  "author": {
+    "name": "OpenHands",
+    "email": "contact@all-hands.dev"
+  },
+  "homepage": "https://github.com/OpenHands/extensions",
+  "repository": "https://github.com/OpenHands/extensions",
+  "license": "MIT",
+  "keywords": [
+    "plain-english",
+    "content-design",
+    "writing",
+    "accessibility",
+    "clarity"
+  ]
+}
