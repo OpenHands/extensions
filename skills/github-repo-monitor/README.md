@@ -4,6 +4,10 @@ An OpenHands skill that creates a cron automation to monitor a GitHub
 repository for issue and PR comments, routing them to OpenHands conversations
 and posting results back as GitHub comments.
 
+The setup flow is written to stay cross-platform: it uses reusable helper
+scripts and the system temporary directory instead of repository-local temp
+files, bash-only `/tmp`, heredoc, or `tar` workflows.
+
 ## What it does
 
 1. **Polls** a GitHub repository for new comments on issues and PRs.
@@ -24,7 +28,9 @@ github-repo-monitor/
 ├── SKILL.md                  ← agent instructions (loaded automatically)
 ├── README.md                 ← this file
 ├── scripts/
-│   └── main.py               ← automation script template
+│   ├── main.py               ← automation script template
+│   ├── package_upload.py     ← packages/uploads a prepared build directory
+│   └── create_automation.py  ← creates the cron automation from the tarball
 └── references/
     ├── state-schema.md       ← JSON state file documentation
     └── github-api.md         ← GitHub API endpoints and rate-limit notes

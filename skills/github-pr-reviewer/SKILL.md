@@ -32,11 +32,27 @@ Verify that the following secret is set in **OpenHands Settings -> Secrets**:
 | `GITHUB_PERSONAL_ACCESS_TOKEN` | Classic PAT | `repo` for private repos or `public_repo` for public repos |
 | `GITHUB_PERSONAL_ACCESS_TOKEN` | Fine-grained PAT | Contents: Read, Metadata: Read, Pull requests: Read, Issues: Read and Write |
 
-Check with:
-```bash
-curl -s https://api.github.com/user \
-  -H "Authorization: Bearer $GITHUB_PERSONAL_ACCESS_TOKEN" \
-  | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('login') or d.get('message'))"
+Check with any shell-appropriate HTTP client or a short Python script. The
+important part is to call `GET https://api.github.com/user` with
+`Authorization: Bearer <token>` and inspect either the authenticated login or
+an error message.
+
+Example Python snippet:
+```python
+import json
+import urllib.request
+
+token = "<GITHUB_PERSONAL_ACCESS_TOKEN>"
+req = urllib.request.Request(
+    "https://api.github.com/user",
+    headers={
+        "Authorization": f"Bearer {token}",
+        "Accept": "application/vnd.github+json",
+    },
+)
+with urllib.request.urlopen(req) as response:
+    data = json.load(response)
+print(data.get("login") or data.get("message"))
 ```
 
 If the token is missing or invalid, inform the user and stop.
@@ -49,7 +65,7 @@ Follow these steps in order.
 
 ### Step 1 - Verify `GITHUB_PERSONAL_ACCESS_TOKEN`
 
-Run the `curl` check above.
+Run the check above.
 
 - If absent: *"GITHUB_PERSONAL_ACCESS_TOKEN is not set. Please add it in
   OpenHands Settings -> Secrets."* Stop.
@@ -61,18 +77,30 @@ Run the `curl` check above.
 Ask: *"Which GitHub repository should be monitored?
 (Format: `owner/repo`, e.g. `myorg/backend`)"*
 
-Validate access:
-```bash
-curl -s "https://api.github.com/repos/{owner}/{repo}" \
-  -H "Authorization: Bearer $GITHUB_PERSONAL_ACCESS_TOKEN" \
-  | python3 -c "
-import json, sys
-d = json.load(sys.stdin)
-if 'message' in d:
-    print('ERROR:', d['message'])
+Validate access with any shell-appropriate HTTP client or Python. The
+important part is to call `GET https://api.github.com/repos/{owner}/{repo}`
+with the same bearer token and inspect either `message` or `permissions`.
+
+Example Python snippet:
+```python
+import json
+import urllib.request
+
+owner_repo = "{owner}/{repo}"
+token = "<GITHUB_PERSONAL_ACCESS_TOKEN>"
+req = urllib.request.Request(
+    f"https://api.github.com/repos/{owner_repo}",
+    headers={
+        "Authorization": f"Bearer {token}",
+        "Accept": "application/vnd.github+json",
+    },
+)
+with urllib.request.urlopen(req) as response:
+    data = json.load(response)
+if "message" in data:
+    print("ERROR:", data["message"])
 else:
-    print(f\"Accessible. Private: {d.get('private')}. Permissions: {d.get('permissions')}\")
-"
+    print(f"Accessible. Private: {data.get('private')}. Permissions: {data.get('permissions')}")
 ```
 
 Record `REPO = "{owner}/{repo}"`.
@@ -132,15 +160,15 @@ substitutions near the top of the file:
 Use a safe string writer such as `json.dumps(value)` when inserting user-provided
 repository names, labels, or style instructions into Python string literals.
 
-Write the customized script to a temporary build directory:
-```bash
-mkdir -p /tmp/pr-reviewer-build
-# write the customized main.py to /tmp/pr-reviewer-build/main.py
-```
+Write the customized script to a build directory under the system temporary
+directory, for example `Path(tempfile.gettempdir()) / "github-pr-reviewer-build" / "main.py"`
+in Python. Use the file editor or a short Python helper so the path works on
+Windows, macOS, and Linux without leaving temp files in the repository.
 
-Validate syntax before packaging:
-```bash
-python3 -m py_compile /tmp/pr-reviewer-build/main.py && echo "Syntax OK"
+Validate syntax before packaging using the current environment's Python
+launcher (`python`, `python3`, or `py`):
+```text
+<python-launcher> -m py_compile <build-dir>/main.py
 ```
 
 Fix any syntax errors before proceeding.
@@ -152,35 +180,28 @@ block in your system context:
 - **OPENHANDS_HOST**: the Automation backend `url_from_agent`
 - **Auth**: `X-Session-API-Key: $OPENHANDS_AUTOMATION_API_KEY`
 
-```bash
-tar -czf /tmp/pr-reviewer.tar.gz -C /tmp/pr-reviewer-build .
+Prefer the reusable helper script at `scripts/package_upload.py`. It creates
+the tarball under the system temporary directory and prints JSON containing the
+remote `tarball_path` plus the local tarball path for debugging.
 
-TARBALL_PATH=$(curl -s -X POST \
-  "${OPENHANDS_HOST}/api/automation/v1/uploads?name=github-pr-reviewer" \
-  -H "X-Session-API-Key: $OPENHANDS_AUTOMATION_API_KEY" \
-  -H "Content-Type: application/gzip" \
-  --data-binary @/tmp/pr-reviewer.tar.gz \
-  | python3 -c "import json,sys; print(json.load(sys.stdin)['tarball_path'])")
-
-echo "Uploaded: $TARBALL_PATH"
+```text
+<python-launcher> skills/github-pr-reviewer/scripts/package_upload.py --build-dir <build-dir> --openhands-host <automation-url-from-runtime-services> --upload-name github-pr-reviewer
 ```
+
+Record the returned `tarball_path` as `TARBALL_PATH`.
 
 ### Step 8 - Register the automation
 
-```bash
-curl -s -X POST "${OPENHANDS_HOST}/api/automation/v1" \
-  -H "X-Session-API-Key: $OPENHANDS_AUTOMATION_API_KEY" \
-  -H "Content-Type: application/json" \
-  -d "{
-    \"name\": \"GitHub PR Reviewer: {owner}/{repo} label {trigger_label}\",
-    \"trigger\": {\"type\": \"cron\", \"schedule\": \"{cron_schedule}\"},
-    \"tarball_path\": \"$TARBALL_PATH\",
-    \"entrypoint\": \"python3 main.py\",
-    \"timeout\": 300
-  }" | python3 -m json.tool
+Set `entrypoint` to the same launcher that worked in Step 6 (for example
+`python main.py`, `python3 main.py`, or `py -3 main.py`). Then call the
+reusable helper script at `scripts/create_automation.py`:
+
+```text
+<python-launcher> skills/github-pr-reviewer/scripts/create_automation.py --openhands-host <automation-url-from-runtime-services> --name "GitHub PR Reviewer: {owner}/{repo} label {trigger_label}" --schedule "{cron_schedule}" --tarball-path <TARBALL_PATH> --entrypoint "<python-launcher> main.py" --timeout 300
 ```
 
-Record the returned `id`.
+Use shell-appropriate quoting for arguments that contain spaces. Record the
+returned `id`.
 
 ### Step 9 - Confirm
 
@@ -236,6 +257,10 @@ Each cron run executes `main.py`, which:
   review lifecycle diagram.
 - **`scripts/main.py`** - The complete automation script. Customize the five
   constants at the top before packaging.
+- **`scripts/package_upload.py`** - Packages a prepared build directory, writes
+  the tarball to the system temporary directory, and uploads it.
+- **`scripts/create_automation.py`** - Registers the automation from the
+  uploaded tarball metadata.
 
 ---
 

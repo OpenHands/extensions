@@ -17,12 +17,13 @@ Bundle ALL comments into a **single review API call**. Do not post comments indi
 
 Use the GitHub CLI (`gh`) with a JSON input file. The `GITHUB_TOKEN` is automatically available.
 
-**Important**: Always use `--input` with a JSON file instead of `-F` flags. This avoids shell quoting issues with special characters in comment bodies (quotes, backticks, newlines, etc.) and eliminates the need for complex heredoc scripts.
+**Important**: Always use `--input` with a JSON file instead of inline `-F` flags. This avoids shell quoting issues with special characters in comment bodies (quotes, backticks, newlines, etc.) and eliminates the need for bash-only heredoc scripts.
 
 ### Step 1: Create a JSON file
 
-```bash
-cat > /tmp/review.json << 'EOF'
+Write the review payload to a JSON file under the system temporary directory (for example `<system-temp>/review.json`). Use the file editor or any shell-appropriate file-writing command. Replace `<system-temp>` with an absolute path for the current OS temp directory.
+
+```json
 {
   "commit_id": "{commit_sha}",
   "event": "COMMENT",
@@ -42,13 +43,12 @@ cat > /tmp/review.json << 'EOF'
     }
   ]
 }
-EOF
 ```
 
 ### Step 2: Post the review
 
-```bash
-gh api -X POST repos/{owner}/{repo}/pulls/{pr_number}/reviews --input /tmp/review.json
+```text
+gh api -X POST repos/{owner}/{repo}/pulls/{pr_number}/reviews --input <system-temp>/review.json
 ```
 
 ### Parameters
@@ -145,7 +145,7 @@ Writing the wrong combination of `start_line`/`line` and suggestion body is what
 
 For every comment that contains a ` ```suggestion ``` ` block, do this check before adding it to the review JSON:
 
-1. Read the actual file lines that will be replaced: `sed -n '<start_line>,<line>p' <path>` (or `sed -n '<line>p' <path>` for a single-line target).
+1. Read the actual file lines that will be replaced using the file editor, your code editor, or another shell-appropriate file-view command.
 2. Mentally apply the suggestion: drop those lines, splice in the suggestion body, and look at the result in context.
 3. Confirm the resulting code matches **exactly** what your prose description promises — no extra duplicated line above/below, no original line accidentally dropped, no off-by-one.
 4. If the change cannot be expressed cleanly as a contiguous replacement (e.g., it touches non-adjacent lines, or it depends on edits elsewhere in the file), do **not** use a suggestion block — describe the change in prose instead.
@@ -154,31 +154,21 @@ If you are not 100% sure the suggestion will produce the exact code you describe
 
 ## Finding Line Numbers
 
-```bash
-# From diff header: @@ -old_start,old_count +new_start,new_count @@
-# Count from new_start for added/modified lines
-
-grep -n "pattern" filename     # Find line number
-head -n 42 filename | tail -1  # Verify line content
-```
+Use the file editor, your code editor's line numbers, or another shell-appropriate search command. Verify the exact lines to be replaced before posting a suggestion; do not rely on POSIX-only `grep`, `sed`, or `head | tail` snippets.
 
 ## Fallback: curl
 
-If `gh` is unavailable, use curl with the JSON file:
+If `gh` is unavailable, use any HTTP client that can POST the saved JSON file. Example:
 
-```bash
-curl -X POST \
-  -H "Authorization: token $GITHUB_TOKEN" \
-  -H "Accept: application/vnd.github+json" \
-  "https://api.github.com/repos/{owner}/{repo}/pulls/{pr_number}/reviews" \
-  -d @/tmp/review.json
+```text
+curl -X POST -H "Authorization: token $GITHUB_TOKEN" -H "Accept: application/vnd.github+json" -H "Content-Type: application/json" https://api.github.com/repos/{owner}/{repo}/pulls/{pr_number}/reviews --data-binary @<system-temp>/review.json
 ```
 
 ## Summary
 
 1. Analyze the code and identify important issues (minimize nits)
-2. Write review data to a JSON file (e.g., `/tmp/review.json`)
-3. Post **ONE** review using `gh api --input /tmp/review.json`
+2. Write review data to a JSON file under the system temporary directory (for example `<system-temp>/review.json`)
+3. Post **ONE** review using `gh api --input <system-temp>/review.json`
 4. Use priority labels (🔴🟠🟡) on every comment
 5. Do NOT post comments for code that is acceptable — only comment when action is needed
 6. Use suggestion syntax for concrete code changes, but only after verifying the resulting code matches your description (see "How Suggestions Actually Work")

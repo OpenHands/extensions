@@ -18,6 +18,8 @@ This skill is activated by:
 - Uses a real cloned checkout and full PR context instead of only a truncated diff
 - Posts acknowledgement and final review comments with AI disclosure
 - Configurable review tone and polling schedule
+- Uses reusable helper scripts for packaging and automation creation
+- Keeps generated build files in the system temporary directory instead of the repository
 
 ## Prerequisites
 
@@ -34,6 +36,12 @@ Ask OpenHands:
 
 After setup, apply the configured label to a pull request to queue a review. To
 request another review later, remove and re-apply the label.
+
+## Helper Scripts
+
+- `scripts/main.py` - automation script template to customize before upload
+- `scripts/package_upload.py` - packages and uploads a prepared build directory
+- `scripts/create_automation.py` - creates the cron automation from the uploaded tarball
 
 ## See Also
 
