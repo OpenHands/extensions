@@ -49,11 +49,11 @@ before proceeding:
 | `GITHUB_PERSONAL_ACCESS_TOKEN` | Fine-grained PAT | Issues: Read and Write |
 
 Check with:
-```bash
+```sh
 curl -s https://api.github.com/user \
-  -H "Authorization: Bearer $GITHUB_PERSONAL_ACCESS_TOKEN" \
+  -H "Authorization: Bearer {GITHUB_PERSONAL_ACCESS_TOKEN}" \
   -H "Accept: application/vnd.github+json" \
-  | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('login') or d.get('message'))"
+  | python -c "import json,sys; d=json.load(sys.stdin); print(d.get('login') or d.get('message'))"
 ```
 
 If the token is missing, inform the user and stop — the automation cannot
@@ -66,6 +66,19 @@ function without GitHub credentials.
 | `OPENHANDS_URL` | `http://localhost:8000` | Base URL used to build conversation links in GitHub comments |
 
 ---
+
+## Cross-platform command conventions
+
+- In command examples, replace `python` with the available Python launcher:
+  `py -3` on native Windows, or `python` / `python3` on macOS and Linux.
+- Write generated files into a workspace-local build directory such as
+  `github-monitor-build/`; do not assume `/tmp` exists.
+- Use Python for small file-system and archive operations when possible. That
+  avoids shell-specific commands such as `mkdir -p` and `tar -czf`.
+- If using PowerShell and `curl` resolves to a PowerShell alias, call `curl.exe`
+  or use another HTTP client with the same method, headers, and body.
+- Examples use `{PLACEHOLDER}` values for secrets or runtime URLs when shell
+  environment-variable syntax differs across platforms.
 
 ## Setup Workflow
 
@@ -90,11 +103,11 @@ Ask the user: *"Which GitHub repository should be monitored?
 
 Validate access and write permissions:
 
-```bash
+```sh
 curl -s "https://api.github.com/repos/{owner}/{repo}" \
-  -H "Authorization: Bearer $GITHUB_PERSONAL_ACCESS_TOKEN" \
+  -H "Authorization: Bearer {GITHUB_PERSONAL_ACCESS_TOKEN}" \
   -H "Accept: application/vnd.github+json" \
-  | python3 -c "
+  | python -c "
 import json, sys
 d = json.load(sys.stdin)
 if 'message' in d:
@@ -180,15 +193,15 @@ constant substitutions near the top of the file:
 | `ALLOWED_GITHUB_LOGINS = ["<TOKEN_OWNER>"]` | `ALLOWED_GITHUB_LOGINS = {allowed_logins_list}` |
 | `DEFAULT_OPENHANDS_URL = "http://localhost:8000"` | `DEFAULT_OPENHANDS_URL = "{url}"` (keep default if the user has no preference) |
 
-Write the customised script to a temporary build directory:
-```bash
-mkdir -p /tmp/github-monitor-build
-# (write the customised main.py to /tmp/github-monitor-build/main.py)
+Write the customised script to a workspace-local build directory:
+```sh
+python -c "from pathlib import Path; Path('github-monitor-build').mkdir(exist_ok=True)"
+# write the customised main.py to github-monitor-build/main.py
 ```
 
 Validate syntax before packaging:
-```bash
-python3 -m py_compile /tmp/github-monitor-build/main.py && echo "Syntax OK"
+```sh
+python -m py_compile github-monitor-build/main.py
 ```
 
 Fix any syntax errors before proceeding.
@@ -203,35 +216,41 @@ block in your system context:
 If no Automation backend is listed in `<RUNTIME_SERVICES>`, stop and tell
 the user to start the full automation stack.
 
-```bash
-tar -czf /tmp/github-monitor.tar.gz -C /tmp/github-monitor-build .
+```sh
+python -c "import tarfile; from pathlib import Path; build=Path('github-monitor-build'); out=Path('github-monitor.tar.gz'); f=tarfile.open(out, 'w:gz'); [f.add(p, p.relative_to(build)) for p in build.rglob('*') if p.is_file()]; f.close()"
+```
 
-# OPENHANDS_HOST: read from <RUNTIME_SERVICES> Automation backend url_from_agent
-OPENHANDS_HOST="<automation-url-from-runtime-services>"
+Read `{OPENHANDS_HOST}` from the `<RUNTIME_SERVICES>` Automation backend
+`url_from_agent`.
 
-TARBALL_PATH=$(curl -s -X POST \
-  "${OPENHANDS_HOST}/api/automation/v1/uploads?name=github-repo-monitor" \
-  -H "X-Session-API-Key: $OPENHANDS_AUTOMATION_API_KEY" \
+Upload the archive and record the `tarball_path` value from the JSON response:
+```sh
+curl -s -X POST \
+  "{OPENHANDS_HOST}/api/automation/v1/uploads?name=github-repo-monitor" \
+  -H "X-Session-API-Key: {OPENHANDS_AUTOMATION_API_KEY}" \
   -H "Content-Type: application/gzip" \
-  --data-binary @/tmp/github-monitor.tar.gz \
-  | python3 -c "import json,sys; print(json.load(sys.stdin)['tarball_path'])")
-
-echo "Uploaded: $TARBALL_PATH"
+  --data-binary @github-monitor.tar.gz
 ```
 
 ### Step 9  -  Create the automation
 
-```bash
-curl -s -X POST "${OPENHANDS_HOST}/api/automation/v1" \
-  -H "X-Session-API-Key: $OPENHANDS_AUTOMATION_API_KEY" \
+Create `automation.json` in the current workspace:
+```json
+{
+  "name": "GitHub Monitor: {owner}/{repo}",
+  "trigger": {"type": "cron", "schedule": "{cron_schedule}"},
+  "tarball_path": "{tarball_path_from_upload_response}",
+  "entrypoint": "python main.py",
+  "timeout": 55
+}
+```
+
+Then create the automation:
+```sh
+curl -s -X POST "{OPENHANDS_HOST}/api/automation/v1" \
+  -H "X-Session-API-Key: {OPENHANDS_AUTOMATION_API_KEY}" \
   -H "Content-Type: application/json" \
-  -d "{
-    \"name\": \"GitHub Monitor: {owner}/{repo}\",
-    \"trigger\": {\"type\": \"cron\", \"schedule\": \"{cron_schedule}\"},
-    \"tarball_path\": \"$TARBALL_PATH\",
-    \"entrypoint\": \"python3 main.py\",
-    \"timeout\": 55
-  }" | python3 -m json.tool
+  --data-binary @automation.json
 ```
 
 Record the returned `id`.

@@ -21,8 +21,11 @@ Use the GitHub CLI (`gh`) with a JSON input file. The `GITHUB_TOKEN` is automati
 
 ### Step 1: Create a JSON file
 
-```bash
-cat > /tmp/review.json << 'EOF'
+Create `review.json` in the current workspace using the editor or file-writing
+tool available to the agent. Do not rely on bash heredocs or `/tmp`, because
+those are not available in every Windows, macOS, and Linux environment.
+
+```json
 {
   "commit_id": "{commit_sha}",
   "event": "COMMENT",
@@ -42,13 +45,12 @@ cat > /tmp/review.json << 'EOF'
     }
   ]
 }
-EOF
 ```
 
 ### Step 2: Post the review
 
-```bash
-gh api -X POST repos/{owner}/{repo}/pulls/{pr_number}/reviews --input /tmp/review.json
+```sh
+gh api -X POST repos/{owner}/{repo}/pulls/{pr_number}/reviews --input review.json
 ```
 
 ### Parameters
@@ -145,7 +147,7 @@ Writing the wrong combination of `start_line`/`line` and suggestion body is what
 
 For every comment that contains a ` ```suggestion ``` ` block, do this check before adding it to the review JSON:
 
-1. Read the actual file lines that will be replaced: `sed -n '<start_line>,<line>p' <path>` (or `sed -n '<line>p' <path>` for a single-line target).
+1. Read the actual file lines that will be replaced. Use the editor, file viewer, or a platform-appropriate command to inspect the target lines before suggesting a replacement.
 2. Mentally apply the suggestion: drop those lines, splice in the suggestion body, and look at the result in context.
 3. Confirm the resulting code matches **exactly** what your prose description promises — no extra duplicated line above/below, no original line accidentally dropped, no off-by-one.
 4. If the change cannot be expressed cleanly as a contiguous replacement (e.g., it touches non-adjacent lines, or it depends on edits elsewhere in the file), do **not** use a suggestion block — describe the change in prose instead.
@@ -154,31 +156,31 @@ If you are not 100% sure the suggestion will produce the exact code you describe
 
 ## Finding Line Numbers
 
-```bash
+```sh
 # From diff header: @@ -old_start,old_count +new_start,new_count @@
 # Count from new_start for added/modified lines
 
-grep -n "pattern" filename     # Find line number
-head -n 42 filename | tail -1  # Verify line content
+rg -n "pattern" filename       # Find line number when ripgrep is available
+python -c "from pathlib import Path; print(Path('filename').read_text().splitlines()[41])"
 ```
 
 ## Fallback: curl
 
 If `gh` is unavailable, use curl with the JSON file:
 
-```bash
+```sh
 curl -X POST \
-  -H "Authorization: token $GITHUB_TOKEN" \
+  -H "Authorization: token {GITHUB_TOKEN}" \
   -H "Accept: application/vnd.github+json" \
   "https://api.github.com/repos/{owner}/{repo}/pulls/{pr_number}/reviews" \
-  -d @/tmp/review.json
+  -d @review.json
 ```
 
 ## Summary
 
 1. Analyze the code and identify important issues (minimize nits)
-2. Write review data to a JSON file (e.g., `/tmp/review.json`)
-3. Post **ONE** review using `gh api --input /tmp/review.json`
+2. Write review data to a JSON file (e.g., `review.json` in the current workspace)
+3. Post **ONE** review using `gh api --input review.json`
 4. Use priority labels (🔴🟠🟡) on every comment
 5. Do NOT post comments for code that is acceptable — only comment when action is needed
 6. Use suggestion syntax for concrete code changes, but only after verifying the resulting code matches your description (see "How Suggestions Actually Work")

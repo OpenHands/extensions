@@ -33,15 +33,28 @@ Verify that the following secret is set in **OpenHands Settings -> Secrets**:
 | `GITHUB_PERSONAL_ACCESS_TOKEN` | Fine-grained PAT | Contents: Read, Metadata: Read, Pull requests: Read, Issues: Read and Write |
 
 Check with:
-```bash
+```sh
 curl -s https://api.github.com/user \
-  -H "Authorization: Bearer $GITHUB_PERSONAL_ACCESS_TOKEN" \
-  | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('login') or d.get('message'))"
+  -H "Authorization: Bearer {GITHUB_PERSONAL_ACCESS_TOKEN}" \
+  | python -c "import json,sys; d=json.load(sys.stdin); print(d.get('login') or d.get('message'))"
 ```
 
 If the token is missing or invalid, inform the user and stop.
 
 ---
+
+## Cross-platform command conventions
+
+- In command examples, replace `python` with the available Python launcher:
+  `py -3` on native Windows, or `python` / `python3` on macOS and Linux.
+- Write generated files into a workspace-local build directory such as
+  `pr-reviewer-build/`; do not assume `/tmp` exists.
+- Use Python for small file-system and archive operations when possible. That
+  avoids shell-specific commands such as `mkdir -p` and `tar -czf`.
+- If using PowerShell and `curl` resolves to a PowerShell alias, call `curl.exe`
+  or use another HTTP client with the same method, headers, and body.
+- Examples use `{PLACEHOLDER}` values for secrets or runtime URLs when shell
+  environment-variable syntax differs across platforms.
 
 ## Setup Workflow
 
@@ -62,10 +75,10 @@ Ask: *"Which GitHub repository should be monitored?
 (Format: `owner/repo`, e.g. `myorg/backend`)"*
 
 Validate access:
-```bash
+```sh
 curl -s "https://api.github.com/repos/{owner}/{repo}" \
-  -H "Authorization: Bearer $GITHUB_PERSONAL_ACCESS_TOKEN" \
-  | python3 -c "
+  -H "Authorization: Bearer {GITHUB_PERSONAL_ACCESS_TOKEN}" \
+  | python -c "
 import json, sys
 d = json.load(sys.stdin)
 if 'message' in d:
@@ -132,15 +145,15 @@ substitutions near the top of the file:
 Use a safe string writer such as `json.dumps(value)` when inserting user-provided
 repository names, labels, or style instructions into Python string literals.
 
-Write the customized script to a temporary build directory:
-```bash
-mkdir -p /tmp/pr-reviewer-build
-# write the customized main.py to /tmp/pr-reviewer-build/main.py
+Write the customized script to a workspace-local build directory:
+```sh
+python -c "from pathlib import Path; Path('pr-reviewer-build').mkdir(exist_ok=True)"
+# write the customized main.py to pr-reviewer-build/main.py
 ```
 
 Validate syntax before packaging:
-```bash
-python3 -m py_compile /tmp/pr-reviewer-build/main.py && echo "Syntax OK"
+```sh
+python -m py_compile pr-reviewer-build/main.py
 ```
 
 Fix any syntax errors before proceeding.
@@ -152,32 +165,38 @@ block in your system context:
 - **OPENHANDS_HOST**: the Automation backend `url_from_agent`
 - **Auth**: `X-Session-API-Key: $OPENHANDS_AUTOMATION_API_KEY`
 
-```bash
-tar -czf /tmp/pr-reviewer.tar.gz -C /tmp/pr-reviewer-build .
+```sh
+python -c "import tarfile; from pathlib import Path; build=Path('pr-reviewer-build'); out=Path('pr-reviewer.tar.gz'); f=tarfile.open(out, 'w:gz'); [f.add(p, p.relative_to(build)) for p in build.rglob('*') if p.is_file()]; f.close()"
+```
 
-TARBALL_PATH=$(curl -s -X POST \
-  "${OPENHANDS_HOST}/api/automation/v1/uploads?name=github-pr-reviewer" \
-  -H "X-Session-API-Key: $OPENHANDS_AUTOMATION_API_KEY" \
+Upload the archive and record the `tarball_path` value from the JSON response:
+```sh
+curl -s -X POST \
+  "{OPENHANDS_HOST}/api/automation/v1/uploads?name=github-pr-reviewer" \
+  -H "X-Session-API-Key: {OPENHANDS_AUTOMATION_API_KEY}" \
   -H "Content-Type: application/gzip" \
-  --data-binary @/tmp/pr-reviewer.tar.gz \
-  | python3 -c "import json,sys; print(json.load(sys.stdin)['tarball_path'])")
-
-echo "Uploaded: $TARBALL_PATH"
+  --data-binary @pr-reviewer.tar.gz
 ```
 
 ### Step 8 - Register the automation
 
-```bash
-curl -s -X POST "${OPENHANDS_HOST}/api/automation/v1" \
-  -H "X-Session-API-Key: $OPENHANDS_AUTOMATION_API_KEY" \
+Create `automation.json` in the current workspace:
+```json
+{
+  "name": "GitHub PR Reviewer: {owner}/{repo} label {trigger_label}",
+  "trigger": {"type": "cron", "schedule": "{cron_schedule}"},
+  "tarball_path": "{tarball_path_from_upload_response}",
+  "entrypoint": "python main.py",
+  "timeout": 300
+}
+```
+
+Then register it:
+```sh
+curl -s -X POST "{OPENHANDS_HOST}/api/automation/v1" \
+  -H "X-Session-API-Key: {OPENHANDS_AUTOMATION_API_KEY}" \
   -H "Content-Type: application/json" \
-  -d "{
-    \"name\": \"GitHub PR Reviewer: {owner}/{repo} label {trigger_label}\",
-    \"trigger\": {\"type\": \"cron\", \"schedule\": \"{cron_schedule}\"},
-    \"tarball_path\": \"$TARBALL_PATH\",
-    \"entrypoint\": \"python3 main.py\",
-    \"timeout\": 300
-  }" | python3 -m json.tool
+  --data-binary @automation.json
 ```
 
 Record the returned `id`.
