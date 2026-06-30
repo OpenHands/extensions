@@ -1,0 +1,14 @@
+{
+  "id": "jira-create-pr",
+  "name": "Jira to GitHub PR creator",
+  "category": "Project management",
+  "description": "Watch a Jira Cloud project for issues with a configurable label and automatically open a GitHub pull request for each new issue found.",
+  "requiredIntegrationIds": [
+    "jira",
+    "github"
+  ],
+  "popularityRank": 85,
+  "estimatedSetupMinutes": 5,
+  "prompt": "Set up a Jira automation to create pull requests",
+  "exampleImplementation": "Trigger: cron polling (e.g. every 5 minutes)\nRequired secrets: Jira API token, GitHub personal access token (repo + workflow scope)\n\n1. Collect Jira base URL, email, API token secret name, target GitHub repo, label to watch, and cron schedule from the user.\n2. Poll POST /rest/api/3/search/jql on the Jira Cloud instance to find open issues carrying the configured label.\n3. Deduplicate against a KV-store-backed set of already-processed issue keys so re-runs never create duplicate PRs.\n4. For each new issue, start an independent OpenHands agent conversation that clones the GitHub repo, creates a branch named after the Jira key, implements or scaffolds the requested change, and opens a pull request.\n5. Persist the processed issue key immediately after dispatching so the next poll skips it."
+}

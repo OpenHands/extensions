@@ -737,6 +737,21 @@
       "keywords": [
         "plain-english"
       ]
+    },
+    {
+      "name": "jira-create-pr",
+      "source": "./skills/jira-create-pr",
+      "description": "Deploy a cron-based OpenHands automation that watches a Jira Cloud project for issues labeled with a configurable label (default: create-pr) and spawns an agent conversation to create a GitHub pull request for each new issue found.",
+      "category": "productivity",
+      "keywords": [
+        "jira",
+        "github",
+        "pull-request",
+        "automation",
+        "cron",
+        "create-pr",
+        "atlassian"
+      ]
     }
   ]
 }
