@@ -9,8 +9,6 @@
     "timezone",
     "date"
   ],
-  "kind": "mcp",
-  "defaultConnectionOptionId": "none",
   "connectionOptions": [
     {
       "id": "none",

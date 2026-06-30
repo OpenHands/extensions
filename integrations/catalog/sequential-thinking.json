@@ -9,8 +9,6 @@
     "planning",
     "thoughts"
   ],
-  "kind": "mcp",
-  "defaultConnectionOptionId": "none",
   "connectionOptions": [
     {
       "id": "none",

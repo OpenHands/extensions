@@ -1,12 +1,27 @@
 [project]
-name = "extensions"
-version = "0.5.0"
-description = "OpenHands extensions, plugins, and skills"
+name = "openhands-extensions"
+version = "0.8.0"
+description = "OpenHands extensions, plugins, and skills (Python bindings for the integration catalog)"
 requires-python = ">=3.12"
+
+[build-system]
+requires = ["hatchling>=1.21"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["python/openhands_extensions"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"integrations/catalog" = "openhands_extensions/catalog"
 
 [dependency-groups]
 test = [
     "pytest>=8.0",
     "requests>=2.31",
     "openhands-sdk>=0.3",
+    "jsonschema>=4.23",
 ]
+
+[tool.pytest.ini_options]
+pythonpath = ["python"]
+testpaths = ["tests"]

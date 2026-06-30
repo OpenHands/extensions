@@ -2,41 +2,40 @@
   "id": "elevenlabs",
   "name": "ElevenLabs",
   "description": "Generate speech, clone voices, and transcribe audio via ElevenLabs.",
+  "categories": [
+    "Audio",
+    "AI"
+  ],
+  "appUrl": "https://elevenlabs.io",
   "docsUrl": "https://elevenlabs.io/docs/api-reference/mcp",
+  "notes": "Official API-key connector backed by ElevenLabs' published OpenAPI spec.",
+  "popularityRank": 51,
+  "connectionOptions": [
+    {
+      "id": "api",
+      "provider": "http",
+      "auth": {
+        "strategy": "api_key",
+        "authModes": [
+          "api_key"
+        ],
+        "credentialLabel": "ElevenLabs API key",
+        "credentialPlaceholder": "Paste your ElevenLabs API key",
+        "credentialHelp": "Personal or workspace ElevenLabs API key sent in the xi-api-key header.",
+        "apiKeyHeaderName": "xi-api-key"
+      },
+      "http": {
+        "apiBaseUrl": "https://api.elevenlabs.io",
+        "openApiUrl": "https://api.elevenlabs.io/openapi.json"
+      }
+    }
+  ],
   "iconBg": "var(--oh-color-base)",
+  "logoUrl": "https://cdn.simpleicons.org/elevenlabs/FFFFFF",
   "keywords": [
     "tts",
     "speech",
     "voice",
     "audio"
-  ],
-  "kind": "mcp",
-  "defaultConnectionOptionId": "api",
-  "connectionOptions": [
-    {
-      "id": "api",
-      "provider": "mcp",
-      "transport": {
-        "kind": "stdio",
-        "serverName": "elevenlabs",
-        "command": "uvx",
-        "args": [
-          "elevenlabs-mcp"
-        ],
-        "envFields": [
-          {
-            "key": "ELEVENLABS_API_KEY",
-            "label": "ElevenLabs API key",
-            "type": "password",
-            "required": true,
-            "helperText": "API key from your ElevenLabs account settings.",
-            "helperLink": "https://elevenlabs.io/app/settings/api-keys"
-          }
-        ]
-      },
-      "auth": {
-        "strategy": "api_key"
-      }
-    }
   ]
 }

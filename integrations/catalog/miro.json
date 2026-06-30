@@ -1,0 +1,42 @@
+{
+  "id": "miro",
+  "name": "Miro",
+  "description": "Whiteboards, diagrams, notes, and workshop collaboration.",
+  "categories": [
+    "Whiteboard",
+    "Collaboration"
+  ],
+  "appUrl": "https://miro.com",
+  "docsUrl": "https://developers.miro.com/docs/mcp-intro",
+  "notes": "Strong visual collaboration target for design and product teams.",
+  "popularityRank": 33,
+  "iconBg": "#FFD02F",
+  "logoUrl": "https://cdn.simpleicons.org/miro/05003B",
+  "keywords": [
+    "whiteboard",
+    "collaboration",
+    "diagrams",
+    "visual"
+  ],
+  "installHint": "Connect Miro's hosted MCP server with OAuth.",
+  "connectionOptions": [
+    {
+      "id": "oauth",
+      "provider": "mcp",
+      "auth": {
+        "strategy": "oauth2",
+        "oauth": {
+          "authorizationUrl": "https://miro.com/oauth/authorize",
+          "tokenUrl": "https://api.miro.com/v1/oauth/token",
+          "scopes": [
+            "boards:read"
+          ]
+        }
+      },
+      "transport": {
+        "kind": "shttp",
+        "url": "https://mcp.miro.com/"
+      }
+    }
+  ]
+}

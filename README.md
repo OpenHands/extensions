@@ -57,10 +57,37 @@ import marketplace from "@openhands/extensions/marketplaces/openhands-extensions
 
 See [`integrations/README.md`](integrations/README.md), [`automations/README.md`](automations/README.md), and [`MIGRATION.md`](MIGRATION.md) for catalog-specific details.
 
+### Python Package
+
+The integration catalog is also published as a Python package (`openhands-extensions`) so Python services read the same catalog data as JS consumers. The single source of truth is the hand-authored JSON directory `integrations/catalog/<id>.json`; there is no separate provider file and no aggregate catalog JSON to maintain. Both the JS package (`@openhands/extensions/integrations`) and the Python package read those same per-integration JSON files and expose parallel read functions.
+
+Each catalog entry can carry oauth and/or mcp/http `connectionOptions`. `supportsOauth` / `supportsMcp` flags are derived at runtime. Use `listIntegrationCatalog({ mcp, oauth })` (JS) or `list_integration_catalog(mcp=, oauth=)` (Python) to filter by connector type - for example only integrations that support an oauth connector.
+
+```python
+from openhands_extensions import (
+    list_integration_catalog,                        # listIntegrationCatalog({ mcp, oauth })
+    get_integration_catalog_entry,                   # getIntegrationCatalogEntry(id)
+    INTEGRATION_CATALOG_SNAPSHOT,                    # { integrations }
+)
+
+all_integrations = list_integration_catalog()
+oauth_integrations = list_integration_catalog(oauth=True)      # only entries with an oauth connector
+mcp_integrations = list_integration_catalog(mcp=True)          # only entries with an mcp connector
+sample = get_integration_catalog_entry(all_integrations[0]["id"])
+```
+
+Install from git (the hub backend consumes it this way):
+
+```bash
+pip install git+https://github.com/OpenHands/extensions.git
+```
+
+The JS and Python versions are kept in lock-step by `release-please` and guarded by `tests/test_version_alignment.py`.
+
 ## Extensions Catalog
 
 <!-- BEGIN AUTO-GENERATED CATALOG -->
-This repository contains **2 marketplace(s)** with **58 extensions** (48 skills, 10 plugins).
+This repository contains **2 marketplace(s)** with **61 extensions** (51 skills, 10 plugins).
 
 ### large-codebase
 
@@ -79,7 +106,7 @@ OpenHands skills for interacting, improving, and refactoring large codebases
 
 Official skills and plugins for OpenHands — the open-source AI software engineer.
 
-**54 extensions** (46 skills, 8 plugins)
+**57 extensions** (49 skills, 8 plugins)
 
 | Name | Type | Description | Commands |
 |------|------|-------------|----------|
@@ -89,7 +116,9 @@ Official skills and plugins for OpenHands — the open-source AI software engine
 | agent-memory | skill | Persist and retrieve repository-specific knowledge using AGENTS.md files. Use when you want to save important informa... | `/remember` |
 | agent-sdk-builder | skill | Guided workflow for building custom AI agents using the OpenHands Software Agent SDK. Use when you want to create a n... | `/agent-builder` |
 | azure-devops | skill | Interact with Azure DevOps repositories, pull requests, and APIs using the AZURE_DEVOPS_TOKEN environment variable. U... | — |
-| bitbucket | skill | Interact with Bitbucket repositories and pull requests using the BITBUCKET_TOKEN environment variable. Use when worki... | — |
+| bitbucket | skill | Bitbucket integration hub. Detects whether the repository is on Bitbucket Cloud or Bitbucket Data Center and directs ... | — |
+| bitbucket-cloud | skill | Bitbucket Cloud (bitbucket.org) specifics — authenticate with BITBUCKET_TOKEN, use the REST API v2, workspace/repo_sl... | — |
+| bitbucket-data-center | skill | Bitbucket Data Center (self-hosted Bitbucket Server) specifics — authenticate with BITBUCKET_DATA_CENTER_TOKEN, use t... | — |
 | city-weather | plugin | Get current weather, time, and precipitation forecast for any city using the free Open-Meteo API. Provides slash comm... | — |
 | code-review | skill | Rigorous code review focusing on data structures, simplicity, security, pragmatism, and risk/safety evaluation. Provi... | `/codereview`, `/codereview-roasted` |
 | code-simplifier | skill | Simplifies and refines code across three dimensions - code reuse, code quality, and efficiency - while preserving all... | `/simplify` |
@@ -118,10 +147,11 @@ Official skills and plugins for OpenHands — the open-source AI software engine
 | npm | skill | Handle npm package installation in non-interactive environments by piping confirmations. Use when installing Node.js ... | — |
 | onboarding | plugin | Assess repository agent-readiness across five pillars, propose high-impact fixes, and generate repo-specific AGENTS.m... | — |
 | openhands | plugin | Unified OpenHands plugin — bundles Cloud CLI, REST API (openhands-api), and Automations (openhands-automation) into a... | `/openhands-cloud` |
-| openhands-api | skill | Use the OpenHands Cloud REST API (V1) to create and manage app conversations, including multi-conversation delegation... | — |
+| openhands-api | skill | Use the OpenHands Cloud REST API (V1) and agent-server APIs to create and manage Cloud or local backend conversations... | — |
 | openhands-automation | skill | Create and manage OpenHands automations - scheduled tasks that run in sandboxes. Use the prompt preset to create auto... | `/automation:create` |
 | openhands-sdk | skill | Reference skill for the OpenHands Software Agent SDK - build AI agents with custom tools, LLM configuration, conversa... | `/sdk` |
 | pdflatex | skill | Install and use pdflatex to compile LaTeX documents into PDFs on Linux. Use when generating academic papers, research... | — |
+| plain-english-content | skill | Write and edit clear, accessible prose in a plain English content style: active voice, front-loaded content, sentence... | — |
 | pr-review | plugin | Automated PR code review — analyzes diffs and posts inline review comments via the GitHub API. | — |
 | prd | skill | Generate a Product Requirements Document (PRD) for a new feature through an interactive clarifying-question workflow.... | `/prd` |
 | qa-changes | plugin | Validate pull request changes by actually running the code — setting up the environment, exercising changed behavior,... | — |

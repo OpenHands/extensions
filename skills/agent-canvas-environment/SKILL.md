@@ -50,27 +50,29 @@ HTTP `200` means the backend and key work.
 
 Use `POST /api/conversations` with:
 
-- current `/api/settings` (fetched with `X-Expose-Secrets: plaintext`) as the base agent profile
+- the **encrypted** `agent_settings` from `GET /api/settings` (with `X-Expose-Secrets: encrypted`), which carries the real Fernet-encrypted `llm.api_key`, the existing `agent_context`, and the agent kind — so you never handle plaintext credentials and you don't drop the caller's skill/context config
+- `secrets_encrypted: true` so the agent-server decrypts that `api_key` server-side
+- the exec tool set merged into `agent_settings.tools` (and `task_tool_set` when you enable sub-agents)
+- omit `browser_tool_set` only when the delegated task does not need browser access
+- `tool_module_qualnames` for any non-SDK tools (e.g. `canvas_ui`)
+- `agent_context.load_public_skills`/`load_user_skills`/`load_project_skills` set to `true` if the delegated agent should inherit bundled/user/project skills
 - a fresh absolute workspace directory
 - `initial_message.run: true`
 - `worktree: false` when the workspace is already isolated
-- the default tool set injected into `agent_settings.tools` (see note below)
 
-> **Why inject tools?** The persisted profile returned by `/api/settings` stores
-> `tools: []`. The UI populates the tool list at launch time; an API-created
-> conversation gets exactly the `tools` array you send and the server adds no
-> defaults. Without injecting the defaults, the delegated agent can only call
-> built-in actions (`invoke_skill`, `think`, `finish`) and cannot run shell
-> commands, edit files, or browse. Always set `agent_settings.tools` to the
-> default tool list below (drop `browser_tool_set` if the agent does not need
-> browser access).
->
-> **Why `X-Expose-Secrets: plaintext`?** Without it, the LLM API key comes back
-> redacted (`**********`). Echoing redacted settings into the new conversation
-> causes an `LLMAuthenticationError`. The header is safe for backend clients
-> that never log the raw response.
+### Credential handling — important
 
-Template:
+`GET /api/settings` (default) **masks** every credential — `llm.api_key` comes back as the literal string `"**********"`. If you forward that verbatim, the new conversation authenticates with the placeholder and fails immediately with `LLMAuthenticationError` (`You must provide an API key`).
+
+The supported way to obtain forwardable credentials is the **`X-Expose-Secrets: encrypted`** request header. With it, `/api/settings` returns the real `llm.api_key` as a **Fernet-encrypted token** (starts with `gAAAAA`) intended to be sent back to the server with `secrets_encrypted: true`; the agent-server's `decrypt_incoming_llm_secrets` decrypts it server-side. Do **not** read `~/.openhands/profiles/*.json` directly — that is brittle (the caller may not share the backend's home directory, `active_profile` may be null, the profile store may live elsewhere).
+
+Two working approaches:
+
+1. **`agent_profile_id` (simplest, but no tools)** — send only `agent_profile_id: "<uuid>"` (from `GET /api/agent-profiles` → the profile whose `id` equals `active_agent_profile_id` from `/api/settings`). The server resolves the LLM key + agent kind from the profile. Mutually exclusive with `agent`/`agent_settings`, and the `openhands` agent-profile schema forbids `tools`/`include_default_tools`, so the conversation gets **zero exec tools** this way. Use only when the task needs no tools.
+
+2. **Encrypted `agent_settings` (full tools, preserves context)** — start from the encrypted `/api/settings` `agent_settings` payload, drop `schema_version` and `mcp_config` (to avoid MCP-connection failures at creation time), merge in the exec tool set and `load_*_skills` flags, and send with `secrets_encrypted: true`. This is the pattern for real delegated work.
+
+Template (full tools, preserves context):
 
 ```bash
 set -euo pipefail
@@ -85,37 +87,57 @@ test -n "$KEY" || { echo "No Agent Canvas session API key found" >&2; exit 1; }
 WORKDIR="${WORKDIR:-$HOME/workspace/delegated/$(date +%Y%m%d-%H%M%S)}"
 mkdir -p "$WORKDIR"
 
-# plaintext so the LLM api_key is not redacted (**********) when echoed back.
-SETTINGS_JSON="$(curl -sS -H "X-Session-API-Key: $KEY" -H "X-Expose-Secrets: plaintext" "$BASE/api/settings")"
+# Fetch the agent_settings with ENCRYPTED secrets exposed. This returns the
+# real llm.api_key as a Fernet token (gAAAAA...) plus the existing
+# agent_context/agent kind, so we preserve the caller's config and never
+# handle plaintext credentials.
+SETTINGS_JSON="$(curl -sS -H "X-Session-API-Key: $KEY" -H "X-Expose-Secrets: encrypted" "$BASE/api/settings")"
+
 PROMPT='Write a complete, task-specific prompt here. Include repo, branch, constraints, validation, and expected report.'
 
-# The profile's tools field is []; inject the default tool set the UI uses.
-DEFAULT_TOOLS='[
-  {"name":"terminal","params":{}},
-  {"name":"file_editor","params":{}},
-  {"name":"task_tracker","params":{}},
-  {"name":"canvas_ui","params":{}},
-  {"name":"browser_tool_set","params":{}}
-]'
-
-PAYLOAD="$(jq -n --argjson settings "$SETTINGS_JSON" --argjson tools "$DEFAULT_TOOLS" --arg prompt "$PROMPT" --arg workdir "$WORKDIR" '
-  def agent_settings:
+PAYLOAD="$(jq -n --argjson settings "$SETTINGS_JSON" --arg prompt "$PROMPT" --arg workdir "$WORKDIR" '
+  # Start from the encrypted agent_settings so llm.api_key (Fernet token),
+  # agent_kind, and agent_context are preserved. Drop schema_version and
+  # mcp_config (MCP servers can fail to connect at creation time; the profile
+  # can be re-resolved later if needed).
+  def base_agent_settings:
     ($settings.agent_settings // {})
     | del(.schema_version)
-    | . + {
-        agent_context: ((.agent_context // {}) + {
-          load_public_skills: true,
-          load_user_skills: true,
-          load_project_skills: true
-        }),
-        tools: $tools
-      };
+    | del(.mcp_config);
+
+  # Merge the exec tool set into the existing tools list. Include task_tool_set
+  # when sub-agents are enabled — enable_sub_agents alone does not expose the
+  # delegation tool; Agent Canvas adds task_tool_set for that.
+  def with_tools:
+    .tools = ((.tools // []) + [
+      {name: "terminal", params: {}},
+      {name: "file_editor", params: {}},
+      {name: "task_tracker", params: {}},
+      {name: "browser_tool_set", params: {}},
+      {name: "canvas_ui", params: {}}
+    ] + (if .enable_sub_agents then [{name: "task_tool_set", params: {}}] else [] end)
+    | unique_by(.name));
+
+  # Preserve the existing agent_context and enable skill loading for the
+  # delegated agent (defaults are false, so set these explicitly).
+  def with_skill_loading:
+    .agent_context = ((.agent_context // {}) + {
+      load_public_skills: true,
+      load_user_skills: true,
+      load_project_skills: true
+    });
+
   ($settings.conversation_settings // {}) as $conv |
   {
-    agent_settings: agent_settings,
+    secrets_encrypted: true,
+    agent_settings: (base_agent_settings | with_tools | with_skill_loading),
+    tool_module_qualnames: { canvas_ui: "canvas_ui_tool" },
     workspace: {kind: "LocalWorkspace", working_dir: $workdir},
     confirmation_policy: {kind: "NeverConfirm"},
-    max_iterations: (($conv.max_iterations // 80) | if . == null then 80 else . end),
+    # Delegated tasks usually need more than the SDK default of 80 iterations;
+    # default to the caller's conversation_settings value (1000 in Agent Canvas)
+    # so long-running tasks aren't cut off prematurely. Override per-task if needed.
+    max_iterations: (($conv.max_iterations // 1000) | if . == null then 1000 else . end),
     stuck_detection: true,
     autotitle: true,
     worktree: false,
@@ -132,6 +154,20 @@ curl -sS -X POST "$BASE/api/conversations" \
   -H "X-Session-API-Key: $KEY" \
   --data-binary "$PAYLOAD" | jq '{id, title, execution_status, workspace}'
 ```
+
+Verify the new conversation actually has tools and is running (not errored):
+
+```bash
+CID="<conversation_id>"
+curl -sS -H "X-Session-API-Key: $KEY" "$BASE/api/conversations/$CID" \
+  | jq '{execution_status, tools: [.agent.tools[]?.name]}'
+curl -sS -H "X-Session-API-Key: $KEY" "$BASE/api/conversations/$CID/events/search?limit=20" \
+  | jq '[.events[]? | select(.kind=="ConversationErrorEvent") | .code] // []'
+```
+
+`execution_status` should be `running`/`idle`/`finished` (not `error`), `tools` should list the exec tools, and there should be no `ConversationErrorEvent`.
+
+If MCP servers configured in the profile are unreachable, conversation creation can fail with `MCP Connection Failure`; the template drops `mcp_config` from the forwarded `agent_settings` to avoid that.
 
 Report both links:
 

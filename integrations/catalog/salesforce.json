@@ -1,0 +1,44 @@
+{
+  "id": "salesforce",
+  "name": "Salesforce",
+  "description": "CRM records, accounts, opportunities, and sales operations.",
+  "categories": [
+    "CRM",
+    "Sales"
+  ],
+  "appUrl": "https://www.salesforce.com",
+  "docsUrl": "https://developer.salesforce.com/docs/platform/hosted-mcp-servers",
+  "notes": "Very common enterprise CRM and agent-assist target.",
+  "popularityRank": 24,
+  "iconBg": "#00A1E0",
+  "logoUrl": "https://cdn.jsdelivr.net/gh/OpenHands/extensions/integrations/icons/salesforce.svg",
+  "keywords": [
+    "crm",
+    "sales",
+    "records",
+    "enterprise"
+  ],
+  "installHint": "Activate an MCP server in Salesforce Setup (API Catalog → MCP Servers), create an External Client App, then connect. Edit the URL to match your server and org (e.g. /sandbox/ for sandboxes).",
+  "connectionOptions": [
+    {
+      "id": "oauth",
+      "provider": "mcp",
+      "auth": {
+        "strategy": "oauth2",
+        "oauth": {
+          "authorizationUrl": "https://login.salesforce.com/services/oauth2/authorize",
+          "tokenUrl": "https://login.salesforce.com/services/oauth2/token",
+          "scopes": [
+            "refresh_token"
+          ],
+          "pkce": true
+        }
+      },
+      "transport": {
+        "kind": "shttp",
+        "url": "https://api.salesforce.com/platform/mcp/v1/platform/sobject-reads",
+        "urlEditable": true
+      }
+    }
+  ]
+}

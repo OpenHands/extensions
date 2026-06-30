@@ -2,17 +2,14 @@
   "id": "airtable",
   "name": "Airtable",
   "description": "List bases, query records, and update fields across your Airtable workspace.",
-  "docsUrl": "https://github.com/domdomegg/airtable-mcp-server",
-  "iconBg": "#FCB400",
-  "iconColor": "var(--oh-surface-deep)",
-  "keywords": [
-    "spreadsheet",
-    "database",
-    "records",
-    "bases"
+  "categories": [
+    "Database",
+    "Operations"
   ],
-  "kind": "mcp",
-  "defaultConnectionOptionId": "api",
+  "appUrl": "https://airtable.com",
+  "docsUrl": "https://github.com/domdomegg/airtable-mcp-server",
+  "notes": "Very common internal-tools and operations automation surface.",
+  "popularityRank": 17,
   "connectionOptions": [
     {
       "id": "api",
@@ -40,5 +37,14 @@
         "strategy": "api_key"
       }
     }
+  ],
+  "iconBg": "#FCB400",
+  "logoUrl": "https://cdn.simpleicons.org/airtable/000000",
+  "iconColor": "var(--oh-surface-deep)",
+  "keywords": [
+    "spreadsheet",
+    "database",
+    "records",
+    "bases"
   ]
 }

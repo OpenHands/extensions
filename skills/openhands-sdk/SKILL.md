@@ -86,18 +86,21 @@ print("All done!")
 - [Browser Session Recording](https://docs.openhands.dev/sdk/guides/browser-session-recording.md): Record and replay your agent's browser sessions using rrweb.
 - [Browser Use](https://docs.openhands.dev/sdk/guides/agent-browser-use.md): Enable web browsing and interaction capabilities for your agent.
 - [Context Condenser](https://docs.openhands.dev/sdk/guides/context-condenser.md): Manage agent memory by condensing conversation history to save tokens.
+- [Conversation Goals](https://docs.openhands.dev/sdk/guides/agent-server/conversation-goals.md): Add a resumable goal strategy to a normal agent-server conversation.
 - [Conversation with Async](https://docs.openhands.dev/sdk/guides/convo-async.md): Use async/await for concurrent agent operations and non-blocking execution.
 - [Creating Custom Agent](https://docs.openhands.dev/sdk/guides/agent-custom.md): Learn how to design specialized agents with custom tool sets
 - [Critic (Experimental)](https://docs.openhands.dev/sdk/guides/critic.md): Real-time evaluation of agent actions using an LLM-based critic model, with built-in iterative refinement.
 - [Custom Tools](https://docs.openhands.dev/sdk/guides/custom-tools.md): Tools define what agents can do. The SDK includes built-in tools for common operations and supports creating custom tools for specialized needs.
 - [Custom Tools with Remote Agent Server](https://docs.openhands.dev/sdk/guides/agent-server/custom-tools.md): Learn how to use custom tools with a remote agent server by building a custom base image that includes your tool implementations.
 - [Custom Visualizer](https://docs.openhands.dev/sdk/guides/convo-custom-visualizer.md): Customize conversation visualization by creating custom visualizers or configuring the default visualizer.
+- [Deferred Init (Warm-Pool)](https://docs.openhands.dev/sdk/guides/agent-server/deferred-init.md): Pre-warm agent-server pods before a user is matched, then activate them at runtime with POST /api/init.
 - [Docker Sandbox](https://docs.openhands.dev/sdk/guides/agent-server/docker-sandbox.md): Run agent server in isolated Docker containers for security and reproducibility.
 - [Exception Handling](https://docs.openhands.dev/sdk/guides/llm-error-handling.md): Provider‑agnostic exceptions raised by the SDK and recommended patterns for handling them.
 - [FAQ](https://docs.openhands.dev/sdk/faq.md): Frequently asked questions about the OpenHands SDK
 - [File-Based Agents](https://docs.openhands.dev/sdk/guides/agent-file-based.md): Define specialized sub-agents as simple Markdown files with YAML frontmatter — no Python code required.
 - [Fork a Conversation](https://docs.openhands.dev/sdk/guides/convo-fork.md): Branch off an existing conversation for follow-up exploration without contaminating the original.
 - [Getting Started](https://docs.openhands.dev/sdk/getting-started.md): Install the OpenHands SDK and build AI agents that write software.
+- [Goal Completion Loop](https://docs.openhands.dev/sdk/guides/convo-goal.md): Drive a conversation toward a verifiable objective with a judge-driven, self-continuing completion loop.
 - [GPT-5 Preset (ApplyPatchTool)](https://docs.openhands.dev/sdk/guides/llm-gpt5-preset.md): Use the GPT-5 preset to build an agent that swaps the standard FileEditorTool for ApplyPatchTool.
 - [Hello World](https://docs.openhands.dev/sdk/guides/hello-world.md): The simplest possible OpenHands agent - configure an LLM, create an agent, and complete a task.
 - [Hooks](https://docs.openhands.dev/sdk/guides/hooks.md): Use lifecycle hooks to observe, log, and customize agent execution.
@@ -109,11 +112,12 @@ print("All done!")
 - [LLM Registry](https://docs.openhands.dev/sdk/guides/llm-registry.md): Dynamically select and configure language models using the LLM registry.
 - [LLM Streaming](https://docs.openhands.dev/sdk/guides/llm-streaming.md): Stream LLM responses token-by-token for real-time display and interactive user experiences.
 - [LLM Subscriptions](https://docs.openhands.dev/sdk/guides/llm-subscriptions.md): Use your ChatGPT Plus/Pro subscription to access Codex models without consuming API credits.
-- [Local Agent Server](https://docs.openhands.dev/sdk/guides/agent-server/local-server.md): Run agents through a local HTTP server with RemoteConversation for client-server architecture.
+- [Local Agent Server](https://docs.openhands.dev/sdk/guides/agent-server/local-server.md): Install and run an OpenHands Agent Server on your machine, then connect to it from the SDK.
 - [Metrics Tracking](https://docs.openhands.dev/sdk/guides/metrics.md): Track token usage, costs, and latency metrics for your agents.
 - [Model Context Protocol](https://docs.openhands.dev/sdk/guides/mcp.md): Model Context Protocol (MCP) enables dynamic tool integration from external servers. Agents can discover and use MCP-provided tools automatically.
 - [Model Routing](https://docs.openhands.dev/sdk/guides/llm-routing.md): Route agent's LLM requests to different models.
 - [Observability & Tracing](https://docs.openhands.dev/sdk/guides/observability.md): Enable OpenTelemetry tracing to monitor and debug your agent's execution with tools like Laminar, MLflow, Honeycomb, or any OTLP-compatible backend.
+- [OpenAI-Compatible Endpoint](https://docs.openhands.dev/sdk/guides/agent-server/openai-gateway.md): Call an OpenHands agent-server through the OpenAI Chat Completions protocol.
 - [OpenHands Cloud Workspace](https://docs.openhands.dev/sdk/guides/agent-server/cloud-workspace.md): Connect to OpenHands Cloud for fully managed sandbox environments with optional SaaS credential inheritance.
 - [Overview](https://docs.openhands.dev/sdk/guides/agent-server/overview.md): Run agents on remote servers with isolated workspaces for production deployments.
 - [Parallel Tool Execution](https://docs.openhands.dev/sdk/guides/parallel-tool-execution.md): Execute multiple tools concurrently within a single LLM response to improve throughput for independent operations.
@@ -127,7 +131,6 @@ print("All done!")
 - [Send Message While Running](https://docs.openhands.dev/sdk/guides/convo-send-message-while-running.md): Interrupt running agents to provide additional context or corrections.
 - [Software Agent SDK](https://docs.openhands.dev/sdk.md): Build AI agents that write software. A clean, modular SDK with production-ready tools.
 - [Stuck Detector](https://docs.openhands.dev/sdk/guides/agent-stuck-detector.md): Detect and handle stuck agents automatically with timeout mechanisms.
-- [Sub-Agent Delegation](https://docs.openhands.dev/sdk/guides/agent-delegation.md): Enable parallel task execution by delegating work to multiple sub-agents that run independently and return consolidated results.
 - [Task Tool Set](https://docs.openhands.dev/sdk/guides/task-tool-set.md): Delegate complex work to specialized sub-agents that run synchronously and return results to the parent agent.
 - [Theory of Mind (TOM) Agent](https://docs.openhands.dev/sdk/guides/agent-tom-agent.md): Enable your agent to understand user intent and preferences through Theory of Mind capabilities, providing personalized guidance based on user modeling.
 - [TODO Management](https://docs.openhands.dev/sdk/guides/github-workflows/todo-management.md): Implement TODOs using OpenHands Agent
@@ -180,7 +183,6 @@ Source: [`examples/`](https://github.com/OpenHands/software-agent-sdk/tree/main/
 - [`40_acp_agent_example.py`](https://github.com/OpenHands/software-agent-sdk/blob/main/examples/01_standalone_sdk/40_acp_agent_example.py)
 - [`41_task_tool_set.py`](https://github.com/OpenHands/software-agent-sdk/blob/main/examples/01_standalone_sdk/41_task_tool_set.py)
 - [`42_file_based_subagents.py`](https://github.com/OpenHands/software-agent-sdk/blob/main/examples/01_standalone_sdk/42_file_based_subagents.py)
-- [`43_mixed_marketplace_skills`](https://github.com/OpenHands/software-agent-sdk/tree/main/examples/01_standalone_sdk/43_mixed_marketplace_skills)
 - [`44_model_switching_in_convo.py`](https://github.com/OpenHands/software-agent-sdk/blob/main/examples/01_standalone_sdk/44_model_switching_in_convo.py)
 - [`45_parallel_tool_execution.py`](https://github.com/OpenHands/software-agent-sdk/blob/main/examples/01_standalone_sdk/45_parallel_tool_execution.py)
 - [`46_agent_settings.py`](https://github.com/OpenHands/software-agent-sdk/blob/main/examples/01_standalone_sdk/46_agent_settings.py)
@@ -232,4 +234,5 @@ Source: [`examples/`](https://github.com/OpenHands/software-agent-sdk/tree/main/
 - [`01_loading_agentskills`](https://github.com/OpenHands/software-agent-sdk/tree/main/examples/05_skills_and_plugins/01_loading_agentskills)
 - [`02_loading_plugins`](https://github.com/OpenHands/software-agent-sdk/tree/main/examples/05_skills_and_plugins/02_loading_plugins)
 - [`03_managing_installed_skills`](https://github.com/OpenHands/software-agent-sdk/tree/main/examples/05_skills_and_plugins/03_managing_installed_skills)
+- [`04_mixed_marketplace_skills`](https://github.com/OpenHands/software-agent-sdk/tree/main/examples/05_skills_and_plugins/04_mixed_marketplace_skills)
 

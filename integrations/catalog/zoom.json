@@ -1,0 +1,33 @@
+{
+  "id": "zoom",
+  "name": "Zoom",
+  "description": "Meetings, recordings, webinars, and scheduling operations.",
+  "categories": [
+    "Meetings",
+    "Calendar"
+  ],
+  "appUrl": "https://zoom.us",
+  "docsUrl": "https://developers.zoom.us/docs/integrations/oauth/",
+  "notes": "Frequently requested for scheduling and meeting summaries.",
+  "popularityRank": 31,
+  "connectionOptions": [
+    {
+      "id": "oauth",
+      "provider": "http",
+      "auth": {
+        "strategy": "oauth2",
+        "oauth": {
+          "authorizationUrl": "https://zoom.us/oauth/authorize",
+          "tokenUrl": "https://zoom.us/oauth/token",
+          "scopes": [
+            "meeting:read:user"
+          ]
+        }
+      },
+      "http": {
+        "apiBaseUrl": "https://api.zoom.us/v2",
+        "openApiUrl": "https://api.apis.guru/v2/specs/zoom.us/2.0.0/openapi.json"
+      }
+    }
+  ]
+}

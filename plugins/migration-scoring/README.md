@@ -34,7 +34,7 @@ uv run python -m lc_sdk_examples.migration_scoring \
 plugins/migration-scoring/
 ├── README.md                              # This file
 └── skills/                                # Workflow phase skills
-    ├── migration-scoring-overview/        # Plugin overview
+    ├── migration-scoring/                 # Plugin overview
     │   └── SKILL.md
     ├── migration-mapping/                 # Phase 1: Source-to-target mapping
     │   └── SKILL.md

@@ -4,6 +4,7 @@
   "description": "Search Jira issues and Confluence pages via Atlassian's hosted MCP server.",
   "docsUrl": "https://www.atlassian.com/platform/remote-mcp-server",
   "iconBg": "#0052CC",
+  "logoUrl": "https://cdn.simpleicons.org/atlassian/FFFFFF",
   "keywords": [
     "jira",
     "confluence",
@@ -11,20 +12,16 @@
     "wiki",
     "issues"
   ],
-  "kind": "mcp",
-  "defaultConnectionOptionId": "none",
   "connectionOptions": [
     {
-      "id": "none",
+      "id": "oauth",
       "provider": "mcp",
       "transport": {
-        "kind": "sse",
-        "url": "https://mcp.atlassian.com/v1/sse",
-        "apiKeyOptional": true
+        "kind": "shttp",
+        "url": "https://mcp.atlassian.com/v1/mcp"
       },
       "auth": {
-        "strategy": "none",
-        "apiKeyOptional": true
+        "strategy": "oauth2"
       }
     }
   ]
