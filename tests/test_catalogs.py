@@ -79,9 +79,14 @@ def test_remote_no_auth_mcp_entries_are_intentionally_public():
     for entry in load_catalog_entries("integrations/catalog"):
         for option in entry["connectionOptions"]:
             transport = option.get("transport", {})
+            # An option with `headerFields` still requires the user to supply
+            # credentials (just via named headers, e.g. Datadog's
+            # DD-API-KEY/DD-APPLICATION-KEY), so it is NOT "public/no-auth".
+            has_header_credentials = bool(transport.get("headerFields"))
             if (
                 option["provider"] == "mcp"
                 and option["auth"]["strategy"] == "none"
+                and not has_header_credentials
                 and transport.get("url", "").startswith("https://")
             ):
                 actual.add(entry["id"])
@@ -98,7 +103,7 @@ def test_credential_fields_have_helper_text_and_link():
     for entry in load_catalog_entries("integrations/catalog"):
         for option in entry["connectionOptions"]:
             transport = option.get("transport", {})
-            for field_group in ("envFields", "argFields"):
+            for field_group in ("envFields", "argFields", "headerFields"):
                 for field in transport.get(field_group, []):
                     if field.get("type") == "password":
                         field_key = field.get("key", "<unknown>")
