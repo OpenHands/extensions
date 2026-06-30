@@ -21,6 +21,7 @@ This skill is activated by keywords:
 - **Custom webhooks**: Register webhooks for any service (Stripe, Slack, Linear, etc.)
 - **JMESPath filters**: Match events based on payload content (labels, mentions, repos)
 - **Automation management**: List, update, enable/disable, and delete automations
+- **Run configuration**: Set model profiles, execution timeouts, and sandbox cleanup behavior
 - **Manual dispatch**: Trigger automation runs on-demand
 - **Custom automations**: For advanced users who need full control (see [references/custom-automation.md](references/custom-automation.md))
 
