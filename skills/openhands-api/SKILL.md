@@ -11,6 +11,7 @@ triggers:
 ---
 
 This skill documents the **OpenHands Cloud API** (V1), commonly used **agent-server APIs**, and small, easy-to-copy clients.
+Windows PowerShell equivalents for the shell examples in this skill are in `references/windows.md`.
 
 It is intentionally focused on common OpenHands API workflows:
 

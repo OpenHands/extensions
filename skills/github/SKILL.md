@@ -19,6 +19,8 @@ Examples:
 - `gh pr checks 200 --watch --interval 10` to check until completed.
 </IMPORTANT>
 
+Windows PowerShell equivalents for the multi-line shell snippets below are in `references/windows.md`.
+
 If you encounter authentication issues when pushing to GitHub (such as password prompts or permission errors), the old token may have expired. In such case, update the remote URL to include the current token: `git remote set-url origin https://${GITHUB_TOKEN}@github.com/username/repo.git`
 
 Here are some instructions for pushing, but ONLY do this if the user asks you to:

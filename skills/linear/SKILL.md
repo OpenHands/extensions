@@ -9,6 +9,8 @@ triggers:
 
 # Linear
 
+Windows PowerShell equivalents for the repeated Linear GraphQL `curl` and environment-variable snippets are in `references/windows.md`.
+
 <IMPORTANT>
 Before performing any Linear operations, check if the required environment variable is set:
 

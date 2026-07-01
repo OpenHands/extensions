@@ -49,6 +49,8 @@ Use this skill when implementing or automating Discord integrations.
 
 ## Quick recipes
 
+The shell snippets below use POSIX-style environment variables and line continuations. On Windows PowerShell, use `curl.exe` for the shown flags and `$env:DISCORD_WEBHOOK_URL` / `$env:DISCORD_BOT_TOKEN` for environment variables, or translate the request to `Invoke-RestMethod`.
+
 ### Post a message via an incoming webhook (recommended)
 
 Discord requires at least one of `content`, `embeds`, `components`, `file`, or `poll`.
