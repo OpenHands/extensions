@@ -6,11 +6,13 @@ config.json fields:
   jira_email             Atlassian account email used for Basic auth
   jira_token_secret      Name of the OpenHands secret holding the Jira API token
   jira_label             Label to watch for (default: "create-pr")
+  max_new_per_run        Max conversations dispatched per run (default: 5)
 
 The target GitHub repository is NOT configured here. Each Jira ticket body must include
 the repo in "owner/repo" format; the spawned agent extracts it from the ticket text.
 """
-import base64, json, os, sys, tempfile, urllib.error, urllib.request
+import base64, json, os, re, sys, tempfile, urllib.error, urllib.request
+from datetime import datetime, timezone
 from pathlib import Path
 
 # ── Load config ───────────────────────────────────────────────────────────────
@@ -22,6 +24,7 @@ JIRA_BASE_URL      = _cfg["jira_base_url"].rstrip("/")
 JIRA_EMAIL         = _cfg["jira_email"]
 JIRA_TOKEN_SECRET  = _cfg.get("jira_token_secret", "JIRA_CLOUD_KEY")
 JIRA_LABEL         = _cfg.get("jira_label", "create-pr")
+MAX_NEW_PER_RUN    = int(_cfg.get("max_new_per_run", 5))
 
 # ── KV store helpers ──────────────────────────────────────────────────────────
 _KV_TOKEN  = os.environ.get("AUTOMATION_KV_TOKEN", "")
@@ -148,7 +151,7 @@ def fetch_labeled_issues(auth_header):
     url  = f"{JIRA_BASE_URL}/rest/api/3/search/jql"
     body = json.dumps({
         "jql":        f'labels = "{JIRA_LABEL}" AND statusCategory != Done',
-        "fields":     ["key", "summary", "description", "status"],
+        "fields":     ["key", "summary", "description", "status", "updated"],
         "maxResults": 50,
     }).encode()
     req = urllib.request.Request(
@@ -196,6 +199,13 @@ def post_jira_comment(issue_key, auth_header, text):
         print(f"Warning: failed to post Jira comment on {issue_key} ({exc.code}): {body_text[:200]}")
 
 
+# ── Timestamp helpers ─────────────────────────────────────────────────────────
+def _parse_ts(ts):
+    """Parse an ISO-8601 timestamp, normalising +HHMM → +HH:MM for Python < 3.11."""
+    normalized = re.sub(r'([+-])(\d{2})(\d{2})$', r'\1\2:\3', ts)
+    return datetime.fromisoformat(normalized)
+
+
 # ── Main ──────────────────────────────────────────────────────────────────────
 try:
     jira_token  = get_secret(JIRA_TOKEN_SECRET)
@@ -206,12 +216,32 @@ try:
     state          = load_state()
     processed_keys = set(state.get("processed_keys", []))
 
+    # On the very first run there is no baseline timestamp.  Record one now so
+    # that all pre-existing issues (created before this moment) are silently
+    # skipped — preventing a thundering-herd of conversations on first deploy.
+    if "first_run_at" not in state:
+        state["first_run_at"] = datetime.now(timezone.utc).isoformat()
+        save_state(state)
+        print(f"First run — baseline recorded at {state['first_run_at']}; "
+              "issues created before this timestamp will be skipped.")
+
+    first_run_at = _parse_ts(state["first_run_at"])
+
     print(f"Polling {JIRA_BASE_URL} for issues labeled '{JIRA_LABEL}'…")
     issues = fetch_labeled_issues(auth_header)
     print(f"Total matching issues : {len(issues)}")
 
-    new_issues = [i for i in issues if i["key"] not in processed_keys]
-    print(f"New (unprocessed)     : {len(new_issues)}")
+    new_issues = [
+        i for i in issues
+        if i["key"] not in processed_keys
+        and _parse_ts(i["fields"]["updated"]) >= first_run_at
+    ]
+    print(f"New (unprocessed, after baseline) : {len(new_issues)}")
+
+    if len(new_issues) > MAX_NEW_PER_RUN:
+        print(f"Capping at {MAX_NEW_PER_RUN} per run "
+              f"({len(new_issues)} available); remainder picked up on next run.")
+        new_issues = new_issues[:MAX_NEW_PER_RUN]
 
     if not new_issues:
         save_state(state)

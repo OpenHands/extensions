@@ -23,8 +23,13 @@ starts, it also posts a comment on the Jira ticket: "I'm on it: &lt;conversation
 
 1. **Poll** - every N minutes, `POST /rest/api/3/search/jql` on the Jira Cloud instance
    to find open issues with the configured label.
-2. **Deduplicate** - compare results against a KV-store-backed set of already-processed
-   issue keys; skip anything already handled.
+2. **Deduplicate** - on the very first run the script records a `first_run_at` baseline
+   timestamp in the KV store; any issue whose `updated` timestamp predates that baseline
+   is skipped (no backfill blast on first deploy). Using `updated` rather than `created`
+   means an old issue that has its label added after the automation is deployed will still
+   be picked up. Subsequent runs filter by both `first_run_at` and a KV-backed set of
+   already-processed issue keys. A `max_new_per_run` cap (default 5) limits conversations
+   started per cron firing as additional defense-in-depth.
 3. **Dispatch** - for each new issue, call `POST /api/conversations` on the agent server
    to start an independent agent conversation with a PR-creation prompt. The prompt
    instructs the agent to extract the target GitHub repository (`owner/repo`) from the
@@ -59,6 +64,7 @@ Gather the following from the user before proceeding:
 | `jira_email` | `alice@acme.com` | Atlassian account email for Basic auth |
 | `jira_token_secret` | `JIRA_CLOUD_KEY` | Name of the OpenHands secret holding the API token |
 | `jira_label` | `create-pr` | Label to watch for (optional, defaults to `create-pr`) |
+| `max_new_per_run` | `5` | Max conversations dispatched per cron firing (optional, defaults to `5`) |
 | `cron_schedule` | `*/5 * * * *` | Polling frequency in cron syntax |
 
 > **Note**: The GitHub repository is not configured here. Each Jira ticket body must include
@@ -74,7 +80,8 @@ Create `config.json` next to `scripts/main.py` when packaging:
   "jira_base_url":     "https://acme.atlassian.net",
   "jira_email":        "alice@acme.com",
   "jira_token_secret": "JIRA_CLOUD_KEY",
-  "jira_label":        "create-pr"
+  "jira_label":        "create-pr",
+  "max_new_per_run":   5
 }
 ```
 
@@ -169,7 +176,9 @@ The automation script lives at `scripts/main.py`. Key behaviors:
 
 - **No SDK dependencies** - pure Python stdlib; no `setup.sh` or `uv` install needed.
 - **Config file** - reads all parameters from `config.json` co-located with the script.
-- **KV store** - persists `{"processed_keys": [...]}` between runs; falls back to a local file in dev environments where `AUTOMATION_KV_TOKEN` is absent.
+- **First-run baseline** - on the very first execution the script writes `first_run_at` (UTC timestamp) into the KV store and exits without dispatching; issues whose `updated` timestamp predates that baseline are skipped on all subsequent runs. Using `updated` (not `created`) means an old issue that has its label applied after deployment is correctly treated as new.
+- **Per-run cap** - `max_new_per_run` (default 5) limits how many conversations are started per cron firing; any remaining new issues are dispatched on the next run.
+- **KV store** - persists `{"processed_keys": [...], "first_run_at": "..."}` between runs; falls back to a local file in dev environments where `AUTOMATION_KV_TOKEN` is absent.
 - **Jira API** - uses `POST /rest/api/3/search/jql` (the current non-deprecated endpoint).
 - **Conversation dispatch** - calls `POST /api/conversations` on the agent server with the current user's LLM/agent settings forwarded to the new conversation.
 - **Error transparency** - captures Jira HTTP response bodies in error messages for fast diagnosis.
