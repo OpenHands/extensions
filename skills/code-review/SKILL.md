@@ -116,7 +116,7 @@ Require:
 8. **Dependency Changes**
 If dependency lock changes have downgraded a dependency, comment pointing that out to make sure it was intentional.
 
-When a PR adds a new dependency or bumps an existing one, review the upstream release for supply chain risk. If any target version was published less than 7 days ago, do **NOT** approve the PR yet — leave a blocking review comment and wait until the version is at least 7 days old. Read `references/supply-chain-security.md` for the full verification checklist including risk-based scrutiny tiers, concrete commands for checking release provenance, and escalation guidance.
+When a PR adds a new dependency or bumps an existing one, review the upstream release for supply chain risk. If any target version was published less than 7 days ago, do **NOT** approve the PR yet — leave a blocking review comment and wait until the version is at least 7 days old. First-party packages maintained by the same organization as the reviewed repository are intentionally excluded from the 7-day waiting rule, but still scrutinize them for supply-chain risk using the checklist. Read `references/supply-chain-security.md` for the full verification checklist including risk-based scrutiny tiers, concrete commands for checking release provenance, and escalation guidance.
 
 9. **Risk and Safety Evaluation**
 Read `references/risk-evaluation.md` for the full risk evaluation framework including risk levels (🟢 Low / 🟡 Medium / 🔴 High), risk factors, escalation guidance, and repo-specific risk rules.

@@ -15,11 +15,35 @@ export type IntegrationTransport =
       kind: "shttp";
       url: string;
       apiKeyOptional?: boolean;
+      /**
+       * Named request headers the user must supply (e.g. Datadog's
+       * `DD-API-KEY` / `DD-APPLICATION-KEY`). Values are sent verbatim as
+       * headers on every MCP request. The direct analog of stdio's
+       * `envFields`: each entry renders one input in the install modal,
+       * `type: "password"` entries are secret-saved by default, and
+       * `required` entries are validated before submit. Composes with the
+       * `api_key`/`bearer`/`basic` auth strategies (whose Bearer token is
+       * folded into `Authorization` separately); a header field with
+       * `key: "Authorization"` is redundant and should be avoided.
+       */
+      headerFields?: MarketplaceField[];
+      /**
+       * When true, the install modal renders the URL as an editable input
+       * pre-filled with `url` instead of read-only. Use for servers whose
+       * host is region/account-specific (e.g. Datadog's
+       * `https://mcp.<site>.datadoghq.com/v1/mcp`); pair with the entry's
+       * `installHint` to tell users what to change.
+       */
+      urlEditable?: boolean;
     }
   | {
       kind: "sse";
       url: string;
       apiKeyOptional?: boolean;
+      /** See {@link IntegrationTransport} `shttp` `headerFields`. */
+      headerFields?: MarketplaceField[];
+      /** See {@link IntegrationTransport} `shttp` `urlEditable`. */
+      urlEditable?: boolean;
     }
   | {
       kind: "stdio";
@@ -66,18 +90,9 @@ export interface IntegrationAuthConfig {
   oauth?: IntegrationOAuthConfig;
 }
 
-export interface IntegrationHttpDefaultTool {
-  name: string;
-  description?: string;
-  method?: string;
-  path?: string;
-  scopes?: string[];
-}
-
 export interface IntegrationHttpConfig {
   apiBaseUrl?: string;
   openApiUrl?: string;
-  defaultTool?: IntegrationHttpDefaultTool;
 }
 
 export interface IntegrationConnectionOption {
@@ -88,52 +103,9 @@ export interface IntegrationConnectionOption {
   auth: IntegrationAuthConfig;
 }
 
-export interface OAuthProviderRegistrationDefaults {
-  provider?: IntegrationProvider;
-  authModes?: IntegrationAuthStrategy[];
-  authStrategy?: IntegrationAuthStrategy;
-  credentialLabel?: string;
-  credentialPlaceholder?: string;
-  credentialHelp?: string;
-  apiKeyHeaderName?: string;
-  apiBaseUrl?: string;
-  serverUrl?: string;
-  openApiUrl?: string;
-  authorizationUrl?: string;
-  tokenUrl?: string;
-  scopes?: string[];
-  optionalScopes?: string[];
-  toolScopes?: string[];
-  scopeSeparator?: "space" | "comma";
-  pkce?: boolean;
-  clientAuthentication?: "basic" | "body" | "none";
-  registrationUrl?: string;
-  additionalAuthorizationParams?: Record<string, string>;
-  additionalTokenParams?: Record<string, string>;
-  toolName?: string;
-  toolDescription?: string;
-  requestMethod?: string;
-  requestPath?: string;
-}
-
-export interface OAuthProviderCatalogOption {
-  slug: string;
-  name: string;
-  description: string;
-  categories: string[];
-  authStrategy: IntegrationAuthStrategy;
-  availability: "oauth_ready" | "manual_token" | "planned";
-  managedConnectorSlug?: string;
-  appUrl?: string;
-  docsUrl?: string;
-  notes: string;
-  popularityRank: number;
-  registrationDefaults?: OAuthProviderRegistrationDefaults;
-}
 
 export interface IntegrationCatalogEntry {
   id: string;
-  kind: IntegrationProvider;
   name: string;
   description: string;
   categories?: string[];
@@ -142,28 +114,36 @@ export interface IntegrationCatalogEntry {
   notes?: string;
   iconBg?: string;
   iconColor?: string;
+  logoUrl?: string;
   keywords?: string[];
   popularityRank?: number;
-  runtimeAvailability?: "all" | "local";
-  catalogStatus?: "oauth_ready" | "manual_token" | "planned";
-  managedConnectorSlug?: string;
-  authStrategy?: IntegrationAuthStrategy;
   installHint?: string;
-  defaultConnectionOptionId?: string;
   connectionOptions: IntegrationConnectionOption[];
-  registrationDefaults?: OAuthProviderRegistrationDefaults;
+}
+
+/**
+ * Filter for {@link listIntegrationCatalog}. Each dimension is tri-state:
+ * `true` keeps only entries that support that connector type, `false` keeps
+ * only entries that do not, and `undefined` leaves that dimension unfiltered.
+ */
+export interface IntegrationCatalogFilter {
+  /** Filter on whether the entry exposes at least one `mcp` connector. */
+  mcp?: boolean;
+  /** Filter on whether the entry exposes at least one `oauth2` connector. */
+  oauth?: boolean;
 }
 
 export const INTEGRATION_CATALOG: IntegrationCatalogEntry[];
-export function listOAuthProviderCatalog(): OAuthProviderCatalogOption[];
-export function getOAuthProviderRegistrationDefaults(
-  slug: string,
-): OAuthProviderRegistrationDefaults | undefined;
-
-export const hubspotMcpServerUrl: string;
-export const hubspotMcpAuthorizationUrl: string;
-export const hubspotMcpTokenUrl: string;
-export const hubspotRequiredScopes: readonly string[];
-export const hubspotOptionalScopes: readonly string[];
-
+/**
+ * Return the full integration catalog, optionally filtered by connector type.
+ * Reads the generated static import index over `integrations/catalog/<id>.json`.
+ * Returns an independent copy, matching the Python read API.
+ */
+export function listIntegrationCatalog(
+  filter?: IntegrationCatalogFilter,
+): IntegrationCatalogEntry[];
+/** Return one integration catalog entry by id as an independent copy. */
+export function getIntegrationCatalogEntry(
+  id: string,
+): IntegrationCatalogEntry | undefined;
 export default INTEGRATION_CATALOG;

@@ -4,6 +4,7 @@
   "description": "Search models, datasets, and Spaces on the Hugging Face Hub from your agent.",
   "docsUrl": "https://huggingface.co/docs/huggingface_hub/en/guides/mcp",
   "iconBg": "#FFD21E",
+  "logoUrl": "https://cdn.simpleicons.org/huggingface/000000",
   "iconColor": "#000000",
   "keywords": [
     "ml",
@@ -12,8 +13,6 @@
     "ai",
     "hub"
   ],
-  "kind": "mcp",
-  "defaultConnectionOptionId": "none",
   "connectionOptions": [
     {
       "id": "none",

@@ -76,7 +76,7 @@ Creates a transformation guide without modifying code:
 
 ### Phase 3: Mainframe Removal
 
-See [../mainfraime-removal/SKILL.md](../mainfraime-removal/SKILL.md)
+See [../mainframe-removal/SKILL.md](../mainframe-removal/SKILL.md)
 
 Applies the transformation guide:
 - Replaces EXEC CICS commands with file I/O

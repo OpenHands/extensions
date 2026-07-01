@@ -2,19 +2,30 @@
   "id": "notion",
   "name": "Notion",
   "description": "Read and edit Notion pages, databases, and blocks via Notion's MCP server.",
-  "docsUrl": "https://developers.notion.com/docs/mcp",
-  "iconBg": "#FFFFFF",
-  "iconColor": "#000000",
-  "keywords": [
-    "docs",
-    "notes",
-    "wiki",
-    "knowledge base"
+  "categories": [
+    "Knowledge base",
+    "Documentation"
   ],
+  "appUrl": "https://www.notion.so",
+  "docsUrl": "https://developers.notion.com/docs/mcp",
   "popularityRank": 82,
-  "kind": "mcp",
-  "defaultConnectionOptionId": "api",
   "connectionOptions": [
+    {
+      "id": "oauth",
+      "provider": "http",
+      "auth": {
+        "strategy": "oauth2",
+        "oauth": {
+          "authorizationUrl": "https://api.notion.com/v1/oauth/authorize",
+          "tokenUrl": "https://api.notion.com/v1/oauth/token",
+          "scopes": []
+        }
+      },
+      "http": {
+        "apiBaseUrl": "https://api.notion.com",
+        "openApiUrl": "https://developers.notion.com/openapi.json"
+      }
+    },
     {
       "id": "api",
       "provider": "mcp",
@@ -42,5 +53,14 @@
         "strategy": "api_key"
       }
     }
+  ],
+  "iconBg": "#FFFFFF",
+  "logoUrl": "https://cdn.simpleicons.org/notion/000000",
+  "iconColor": "#000000",
+  "keywords": [
+    "docs",
+    "notes",
+    "wiki",
+    "knowledge base"
   ]
 }

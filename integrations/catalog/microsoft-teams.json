@@ -1,0 +1,33 @@
+{
+  "id": "microsoft-teams",
+  "name": "Microsoft Teams",
+  "description": "Chats, channels, meetings, and collaboration via Microsoft Graph.",
+  "categories": [
+    "Communication",
+    "Enterprise"
+  ],
+  "appUrl": "https://www.microsoft.com/microsoft-teams/group-chat-software",
+  "docsUrl": "https://learn.microsoft.com/graph/auth-v2-user",
+  "notes": "Common enterprise chat target alongside Outlook.",
+  "popularityRank": 21,
+  "connectionOptions": [
+    {
+      "id": "oauth",
+      "provider": "http",
+      "auth": {
+        "strategy": "oauth2",
+        "oauth": {
+          "authorizationUrl": "https://login.microsoftonline.com/common/oauth2/v2.0/authorize",
+          "tokenUrl": "https://login.microsoftonline.com/common/oauth2/v2.0/token",
+          "scopes": [
+            "Team.ReadBasic.All"
+          ]
+        }
+      },
+      "http": {
+        "apiBaseUrl": "https://graph.microsoft.com/v1.0",
+        "openApiUrl": "https://raw.githubusercontent.com/microsoftgraph/msgraph-metadata/master/openapi/v1.0/openapi.yaml"
+      }
+    }
+  ]
+}

@@ -10,8 +10,6 @@
     "web",
     "markdown"
   ],
-  "kind": "mcp",
-  "defaultConnectionOptionId": "api",
   "connectionOptions": [
     {
       "id": "api",

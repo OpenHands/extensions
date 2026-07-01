@@ -10,9 +10,6 @@
     "chrome",
     "playwright"
   ],
-  "kind": "mcp",
-  "runtimeAvailability": "local",
-  "defaultConnectionOptionId": "none",
   "connectionOptions": [
     {
       "id": "none",

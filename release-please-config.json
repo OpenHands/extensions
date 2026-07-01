@@ -9,7 +9,8 @@
       "include-component-in-tag": false,
       "skip-changelog": true,
       "extra-files": [
-        { "type": "toml", "path": "pyproject.toml", "jsonpath": "$.project.version" }
+        { "type": "toml", "path": "pyproject.toml", "jsonpath": "$.project.version" },
+        "python/openhands_extensions/_version.py"
       ]
     }
   }

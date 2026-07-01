@@ -1,0 +1,33 @@
+{
+  "id": "jira",
+  "name": "Jira",
+  "description": "Issue tracking, sprint workflows, and engineering program management.",
+  "categories": [
+    "Project management",
+    "Engineering"
+  ],
+  "appUrl": "https://www.atlassian.com/software/jira",
+  "docsUrl": "https://developer.atlassian.com/cloud/jira/platform/oauth-2-3lo-apps/",
+  "notes": "Very common MCP target for software teams and ticket automation.",
+  "popularityRank": 10,
+  "connectionOptions": [
+    {
+      "id": "oauth",
+      "provider": "http",
+      "auth": {
+        "strategy": "oauth2",
+        "oauth": {
+          "authorizationUrl": "https://auth.atlassian.com/authorize",
+          "tokenUrl": "https://auth.atlassian.com/oauth/token",
+          "scopes": [
+            "read:jira-work"
+          ]
+        }
+      },
+      "http": {
+        "apiBaseUrl": "https://api.atlassian.com/ex/jira/{cloudId}",
+        "openApiUrl": "https://developer.atlassian.com/cloud/jira/platform/swagger.v3.json"
+      }
+    }
+  ]
+}

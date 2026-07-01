@@ -1,0 +1,33 @@
+{
+  "id": "vercel",
+  "name": "Vercel",
+  "description": "Deployments, projects, domains, and preview environment workflows.",
+  "categories": [
+    "Developer tools",
+    "Deployment"
+  ],
+  "appUrl": "https://vercel.com",
+  "docsUrl": "https://vercel.com/docs/rest-api#oauth-apps",
+  "notes": "Especially relevant to this repo's deployment model.",
+  "popularityRank": 39,
+  "connectionOptions": [
+    {
+      "id": "oauth",
+      "provider": "http",
+      "auth": {
+        "strategy": "oauth2",
+        "oauth": {
+          "authorizationUrl": "https://vercel.com/oauth/authorize",
+          "tokenUrl": "https://api.vercel.com/v2/oauth/access_token",
+          "scopes": [
+            "project:read"
+          ]
+        }
+      },
+      "http": {
+        "apiBaseUrl": "https://api.vercel.com",
+        "openApiUrl": "https://api.apis.guru/v2/specs/vercel.com/0.0.1/openapi.json"
+      }
+    }
+  ]
+}

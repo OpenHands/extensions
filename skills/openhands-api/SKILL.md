@@ -1,6 +1,6 @@
 ---
 name: openhands-api
-description: Reference skill for the OpenHands Cloud REST API (V1), including how to start additional cloud conversations for fresh-context or delegated work. Use when you need to automate common OpenHands Cloud actions; don't use for general sandbox/dev tasks unrelated to the OpenHands API.
+description: Reference skill for the OpenHands Cloud REST API (V1) and agent-server APIs, including how to start additional cloud or local backend conversations for fresh-context or delegated work.
 triggers:
 - openhands-api
 - openhands-api-v1
@@ -10,15 +10,16 @@ triggers:
 - oh-cloud-api-v1
 ---
 
-This skill documents the **OpenHands Cloud API** (V1) and provides small, easy-to-copy clients.
+This skill documents the **OpenHands Cloud API** (V1), commonly used **agent-server APIs**, and small, easy-to-copy clients.
 Windows PowerShell equivalents for the shell examples in this skill are in `references/windows.md`.
 
-It is intentionally focused on common OpenHands Cloud workflows:
+It is intentionally focused on common OpenHands API workflows:
 
 - Defaults to OpenHands Cloud (`https://app.all-hands.dev`).
 - Targets the **V1 app server REST API** under `/api/v1/...`.
 - Includes a few **agent server** endpoints (inside a sandbox) that use `X-Session-API-Key`.
 - Covers the **multi-conversation delegation pattern**: start separate Cloud conversations when you want fresh context windows or background work.
+- Covers **local Agent Canvas backend conversations**: start or inspect conversations by calling a local agent server directly.
 
 ## When to use this skill
 
@@ -29,6 +30,7 @@ Use this skill when you need to:
 - monitor execution status for long-running jobs
 - create separate Cloud conversations for parallel or background work
 - access sandbox agent-server endpoints once a conversation is running
+- start or inspect conversations on a local Agent Canvas backend or local agent server
 
 ## Auth
 
@@ -73,6 +75,72 @@ agent_server_url = conversation_url.rsplit("/api/conversations", 1)[0]
 
 
 If those fields are not present on the conversation record, list/search sandboxes (`GET /api/v1/sandboxes/search`) and use the sandbox referenced by the conversation to locate the agent server URL + session key.
+
+### Local Agent Canvas backend
+
+Use the local backend flow only for local Agent Canvas / agent-server development, such as `agent-canvas`, `agent-canvas --backend-only`, or `npm run dev` with ingress at `http://localhost:8000`. This calls the agent server directly with `X-Session-API-Key`. It is not an automation, and it is different from OpenHands Cloud delegation through `POST /api/v1/app-conversations`, which uses Bearer auth against the Cloud app API and may return asynchronous start-task records.
+
+When Agent Canvas runs locally, the launcher uses `LOCAL_BACKEND_API_KEY` when it is set. Otherwise it generates and persists the session API key at `~/.openhands/agent-canvas/api-key.txt`. Set `OH_SESSION_API_KEY_PATH` to override the persisted key path. Never print, log, or paste the actual key; use command substitution or an environment variable in examples and scripts.
+
+```bash
+LOCAL_AGENT_SERVER_URL="${LOCAL_AGENT_SERVER_URL:-http://localhost:8000}"
+SESSION_API_KEY="${LOCAL_BACKEND_API_KEY:-$(cat "${OH_SESSION_API_KEY_PATH:-$HOME/.openhands/agent-canvas/api-key.txt}")}"
+```
+
+Check the local server before creating a backend conversation:
+
+```bash
+curl -sS "${LOCAL_AGENT_SERVER_URL}/server_info" \
+  -H "X-Session-API-Key: ${SESSION_API_KEY}"
+```
+
+Start a backend conversation with `POST /api/conversations`. Include the agent settings and workspace expected by that backend. Local agent-server calls use an explicit `workspace` such as `{"kind": "LocalWorkspace", "working_dir": "/workspace"}`; Cloud app-conversation delegation instead uses app-server fields such as `selected_repository` and `selected_branch`. If you are starting the conversation from an existing Agent Canvas session, pass through the current configured settings or encrypted settings rather than hard-coding secrets into scripts.
+
+```bash
+CONVERSATION_JSON=$(curl -sS -X POST "${LOCAL_AGENT_SERVER_URL}/api/conversations" \
+  -H "X-Session-API-Key: ${SESSION_API_KEY}" \
+  -H "Content-Type: application/json" \
+  -d @- <<'JSON'
+{
+  "agent": {
+    "kind": "Agent",
+    "llm": {
+      "model": "your-model-provider/your-model-name",
+      "api_key": "**********"
+    },
+    "tools": [
+      {"name": "terminal"},
+      {"name": "file_editor"},
+      {"name": "task_tracker"}
+    ]
+  },
+  "workspace": {"kind": "LocalWorkspace", "working_dir": "/workspace"},
+  "initial_message": {
+    "content": [{"text": "Summarize the current workspace."}],
+    "run": true
+  }
+}
+JSON
+)
+CONVERSATION_ID=$(python3 -c 'import json,sys; print(json.load(sys.stdin)["id"])' <<<"${CONVERSATION_JSON}")
+printf 'Conversation: %s/api/conversations/%s\n' "${LOCAL_AGENT_SERVER_URL}" "${CONVERSATION_ID}"
+```
+
+Poll status and inspect recent events:
+
+```bash
+curl -sS "${LOCAL_AGENT_SERVER_URL}/api/conversations/${CONVERSATION_ID}" \
+  -H "X-Session-API-Key: ${SESSION_API_KEY}"
+
+curl -sS "${LOCAL_AGENT_SERVER_URL}/api/conversations/${CONVERSATION_ID}/events/search?limit=20&sort_order=TIMESTAMP_DESC" \
+  -H "X-Session-API-Key: ${SESSION_API_KEY}"
+```
+
+If the same base URL serves the Agent Canvas UI, the browser route is:
+
+```bash
+printf '%s/conversations/%s\n' "${LOCAL_AGENT_SERVER_URL}" "${CONVERSATION_ID}"
+```
 
 ## Common V1 app server endpoints
 
@@ -390,11 +458,12 @@ See also:
 
 ## Source of truth
 
-This skill is aligned against the current V1 docs and implementation:
+This skill is aligned against the current OpenHands API docs and implementation:
 
 - `OpenHands/docs/openhands/usage/cloud/cloud-api.mdx`
+- `OpenHands/docs/openhands/usage/agent-canvas/backend-setup/local.mdx`
+- `OpenHands/docs/sdk/arch/agent-server.mdx`
 - `OpenHands/docs/openhands/usage/api/v1.mdx`
 - `OpenHands/OpenHands/openhands/app_server/v1_router.py`
 - `OpenHands/OpenHands/openhands/app_server/app_conversation/app_conversation_router.py`
 - `OpenHands/OpenHands/openhands/app_server/app_conversation/app_conversation_models.py`
-

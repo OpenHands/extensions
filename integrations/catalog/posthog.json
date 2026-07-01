@@ -1,0 +1,38 @@
+{
+  "id": "posthog",
+  "name": "PostHog",
+  "description": "Product analytics, feature flags, and session insights.",
+  "categories": [
+    "Analytics",
+    "Product"
+  ],
+  "appUrl": "https://posthog.com",
+  "docsUrl": "https://posthog.com/docs/model-context-protocol",
+  "notes": "Relevant for product analytics and experimentation workflows.",
+  "popularityRank": 37,
+  "iconBg": "#1D4AFF",
+  "logoUrl": "https://cdn.simpleicons.org/posthog/FFFFFF",
+  "keywords": [
+    "analytics",
+    "feature flags",
+    "product",
+    "experiments"
+  ],
+  "installHint": "Authenticate with a PostHog personal API key (PostHog → User settings → API keys, MCP Server preset) — sent as a Bearer token.",
+  "connectionOptions": [
+    {
+      "id": "api-key",
+      "provider": "mcp",
+      "transport": {
+        "kind": "shttp",
+        "url": "https://mcp.posthog.com/mcp"
+      },
+      "auth": {
+        "strategy": "bearer",
+        "credentialLabel": "PostHog personal API key",
+        "credentialPlaceholder": "Paste your PostHog personal API key",
+        "credentialHelp": "Create one under PostHog → User settings → API keys (MCP Server preset). Sent as Authorization: Bearer <token>."
+      }
+    }
+  ]
+}

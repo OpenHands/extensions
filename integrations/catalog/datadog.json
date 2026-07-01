@@ -1,0 +1,65 @@
+{
+  "id": "datadog",
+  "name": "Datadog",
+  "description": "Logs, metrics, monitors, incidents, and observability workflows.",
+  "categories": [
+    "Observability",
+    "Operations"
+  ],
+  "appUrl": "https://www.datadoghq.com",
+  "docsUrl": "https://docs.datadoghq.com/bits_ai/mcp_server/setup/",
+  "notes": "Uses Datadog's official hosted MCP server. The MCP endpoint host is site-specific: use https://mcp.<site>.datadoghq.com/v1/mcp for your Datadog site (e.g. mcp.us5.datadoghq.com for US5). The default URL below targets US1 and can be edited in the install dialog.",
+  "popularityRank": 35,
+  "installHint": "The Datadog MCP URL is site-specific. Edit the URL to https://mcp.<site>.datadoghq.com/v1/mcp for your Datadog site (for example https://mcp.us5.datadoghq.com/v1/mcp for US5, https://mcp.eu.datadoghq.com/v1/mcp for EU). Find your site at Organization Settings → Site in Datadog.",
+  "connectionOptions": [
+    {
+      "id": "oauth",
+      "provider": "mcp",
+      "auth": {
+        "strategy": "oauth2",
+        "oauth": {
+          "authorizationUrl": "https://app.datadoghq.com/oauth2/v1/authorize",
+          "tokenUrl": "https://api.datadoghq.com/oauth2/v1/token",
+          "scopes": [
+            "dashboards_read",
+            "monitors_read"
+          ]
+        }
+      },
+      "transport": {
+        "kind": "shttp",
+        "url": "https://mcp.datadoghq.com/v1/mcp"
+      }
+    },
+    {
+      "id": "api",
+      "provider": "mcp",
+      "auth": {
+        "strategy": "none"
+      },
+      "transport": {
+        "kind": "shttp",
+        "url": "https://mcp.datadoghq.com/v1/mcp",
+        "urlEditable": true,
+        "headerFields": [
+          {
+            "key": "DD-API-KEY",
+            "label": "Datadog API key",
+            "type": "password",
+            "required": true,
+            "placeholder": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+            "helperText": "Created in Datadog under Organization Settings → API Keys. Used to authenticate to the Datadog MCP server. See the [setup docs](https://docs.datadoghq.com/mcp_server/setup/?tab=other#authentication)."
+          },
+          {
+            "key": "DD-APPLICATION-KEY",
+            "label": "Datadog Application key",
+            "type": "password",
+            "required": true,
+            "placeholder": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+            "helperText": "Created in Datadog under Organization Settings → Application Keys. Grants the MCP server access to your Datadog data. See the [setup docs](https://docs.datadoghq.com/mcp_server/setup/?tab=other#authentication)."
+          }
+        ]
+      }
+    }
+  ]
+}

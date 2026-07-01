@@ -2,16 +2,13 @@
   "id": "figma",
   "name": "Figma",
   "description": "Read Figma frames, components, and styles to ground UI work in your designs.",
-  "docsUrl": "https://github.com/GLips/Figma-Context-MCP",
-  "iconBg": "var(--oh-surface)",
-  "keywords": [
-    "design",
-    "ui",
-    "frames",
-    "components"
+  "categories": [
+    "Design",
+    "Frontend"
   ],
-  "kind": "mcp",
-  "defaultConnectionOptionId": "api",
+  "appUrl": "https://www.figma.com",
+  "docsUrl": "https://github.com/GLips/Figma-Context-MCP",
+  "popularityRank": 5,
   "connectionOptions": [
     {
       "id": "api",
@@ -39,6 +36,35 @@
       "auth": {
         "strategy": "api_key"
       }
+    },
+    {
+      "id": "oauth",
+      "provider": "http",
+      "auth": {
+        "strategy": "oauth2",
+        "oauth": {
+          "authorizationUrl": "https://www.figma.com/oauth",
+          "tokenUrl": "https://api.figma.com/v1/oauth/token",
+          "scopes": [
+            "current_user:read",
+            "file_content:read",
+            "file_metadata:read",
+            "projects:read"
+          ]
+        }
+      },
+      "http": {
+        "apiBaseUrl": "https://api.figma.com",
+        "openApiUrl": "https://raw.githubusercontent.com/figma/rest-api-spec/main/openapi/openapi.yaml"
+      }
     }
+  ],
+  "iconBg": "var(--oh-surface)",
+  "logoUrl": "https://cdn.simpleicons.org/figma/FFFFFF",
+  "keywords": [
+    "design",
+    "ui",
+    "frames",
+    "components"
   ]
 }

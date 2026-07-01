@@ -76,7 +76,7 @@ PROMPT = """{skill_trigger}
 
 When posting a review, keep the review body brief unless your active review instructions require a longer structured format.
 
-For dependency update PRs, do **NOT** approve a target version that was published less than 7 days ago.
+For dependency update PRs, do **NOT** approve a target version that was published less than 7 days ago. First-party packages maintained by the same organization as the reviewed repository are intentionally excluded from this 7-day waiting rule, but still scrutinize them for supply-chain risk.
 
 Review the PR changes below and identify issues that need to be addressed.
 

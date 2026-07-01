@@ -4,25 +4,22 @@
   "description": "Manage transactions and merchant data via PayPal's MCP server.",
   "docsUrl": "https://developer.paypal.com/tools/mcp-server/",
   "iconBg": "#003087",
+  "logoUrl": "https://cdn.simpleicons.org/paypal/FFFFFF",
   "keywords": [
     "payments",
     "billing",
     "finance"
   ],
-  "kind": "mcp",
-  "defaultConnectionOptionId": "none",
   "connectionOptions": [
     {
-      "id": "none",
+      "id": "oauth",
       "provider": "mcp",
       "transport": {
-        "kind": "sse",
-        "url": "https://mcp.paypal.com/sse",
-        "apiKeyOptional": true
+        "kind": "shttp",
+        "url": "https://mcp.paypal.com/mcp"
       },
       "auth": {
-        "strategy": "none",
-        "apiKeyOptional": true
+        "strategy": "oauth2"
       }
     }
   ]
