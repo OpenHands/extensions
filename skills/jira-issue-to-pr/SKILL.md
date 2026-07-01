@@ -201,9 +201,15 @@ its key is not yet in `processed_keys`.
 is the Jira changelog API (`GET /rest/api/3/issue/{key}/changelog`), which requires an
 extra HTTP call per issue. To avoid that overhead, keep the automation's scope narrow:
 use a label that is exclusively added as a PR-creation signal and is not already present
-on issues at the time of deployment. In practice, the risk window closes as soon as an
-issue is processed — its key enters `processed_keys` and it is never re-dispatched
-regardless of future updates.
+on issues at the time of deployment.
+
+Once an issue is successfully dispatched its key is written to `processed_keys` in the
+KV store and is **permanently skipped on every future run** — regardless of subsequent
+label changes, comments, or any other updates to the issue. The only way to re-trigger a
+previously processed issue is to manually clear the KV store or delete and recreate the
+automation. This means the risk window described above is finite: as soon as the
+automation processes a pre-existing issue (even accidentally), it will never dispatch
+that issue again.
 
 ## Additional Resources
 
