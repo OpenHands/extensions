@@ -58,8 +58,11 @@ Navigate to **Settings → Secrets** and store the token under the name `GITHUB_
 | `jira_base_url` | ✅ | - | Full URL of your Atlassian instance, e.g. `https://acme.atlassian.net` |
 | `jira_email` | ✅ | - | Email address of the Atlassian account that owns the API token |
 | `jira_token_secret` | ❌ | `"JIRA_CLOUD_KEY"` | Name of the OpenHands secret holding the Jira API token |
-| `github_repo` | ✅ | - | Target repository in `owner/repo` format |
 | `jira_label` | ❌ | `"create-pr"` | Jira issue label to watch for |
+
+> **GitHub repo**: not a config field. The target repository is read from the body of each
+> Jira ticket. Ticket authors must include the repo in `owner/repo` format or as a full
+> GitHub URL (e.g. `https://github.com/acme-org/backend`).
 
 ---
 
@@ -161,7 +164,7 @@ automation ID), so processed-key sets do not cross-contaminate.
 
 Example: two automations, one per project:
 
-| Automation name | `jira_base_url` | `jira_label` | `github_repo` |
+| Automation name | `jira_base_url` | `jira_label` | GitHub repo (in ticket body) |
 |---|---|---|---|
-| `Jira create-pr - frontend` | `https://acme.atlassian.net` | `create-pr` | `acme/frontend` |
-| `Jira create-pr - backend` | `https://acme.atlassian.net` | `create-pr-backend` | `acme/backend` |
+| `Jira issue-to-PR - frontend` | `https://acme.atlassian.net` | `create-pr` | `acme/frontend` (written by ticket author) |
+| `Jira issue-to-PR - backend` | `https://acme.atlassian.net` | `create-pr-backend` | `acme/backend` (written by ticket author) |

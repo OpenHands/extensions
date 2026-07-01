@@ -739,9 +739,9 @@
       ]
     },
     {
-      "name": "jira-create-pr",
-      "source": "./skills/jira-create-pr",
-      "description": "Deploy a cron-based OpenHands automation that watches a Jira Cloud project for issues labeled with a configurable label (default: create-pr) and spawns an agent conversation to create a GitHub pull request for each new issue found.",
+      "name": "jira-issue-to-pr",
+      "source": "./skills/jira-issue-to-pr",
+      "description": "Deploy a cron-based OpenHands automation that watches a Jira Cloud project for issues labeled with a configurable label (default: create-pr) and spawns an agent conversation to create a GitHub pull request for each new issue found. The target GitHub repo is read from the ticket body - no repo parameter required at deploy time.",
       "category": "productivity",
       "keywords": [
         "jira",

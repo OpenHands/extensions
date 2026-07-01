@@ -1,12 +1,14 @@
 """
-Jira create-pr poller — reads all configuration from config.json in the same directory.
+Jira issue-to-PR poller — reads all configuration from config.json in the same directory.
 
 config.json fields:
   jira_base_url          e.g. "https://yourcompany.atlassian.net"
   jira_email             Atlassian account email used for Basic auth
   jira_token_secret      Name of the OpenHands secret holding the Jira API token
-  github_repo            "owner/repo" target for pull requests
   jira_label             Label to watch for (default: "create-pr")
+
+The target GitHub repository is NOT configured here. Each Jira ticket body must include
+the repo in "owner/repo" format; the spawned agent extracts it from the ticket text.
 """
 import base64, json, os, sys, tempfile, urllib.error, urllib.request
 from pathlib import Path
@@ -19,7 +21,6 @@ with open(_HERE / "config.json") as _f:
 JIRA_BASE_URL      = _cfg["jira_base_url"].rstrip("/")
 JIRA_EMAIL         = _cfg["jira_email"]
 JIRA_TOKEN_SECRET  = _cfg.get("jira_token_secret", "JIRA_CLOUD_KEY")
-GITHUB_REPO        = _cfg["github_repo"]
 JIRA_LABEL         = _cfg.get("jira_label", "create-pr")
 
 # ── KV store helpers ──────────────────────────────────────────────────────────
@@ -166,6 +167,35 @@ def fetch_labeled_issues(auth_header):
         raise RuntimeError(f"Jira search failed {exc.code}: {body_text[:500]}") from exc
 
 
+def post_jira_comment(issue_key, auth_header, text):
+    """Post a plain-text comment on a Jira issue using ADF."""
+    url  = f"{JIRA_BASE_URL}/rest/api/3/issue/{issue_key}/comment"
+    body = json.dumps({
+        "body": {
+            "type":    "doc",
+            "version": 1,
+            "content": [{
+                "type":    "paragraph",
+                "content": [{"type": "text", "text": text}],
+            }],
+        }
+    }).encode()
+    req = urllib.request.Request(
+        url, data=body,
+        headers={
+            "Authorization": auth_header,
+            "Content-Type":  "application/json",
+            "Accept":        "application/json",
+        },
+    )
+    try:
+        with urllib.request.urlopen(req) as r:
+            r.read()
+    except urllib.error.HTTPError as exc:
+        body_text = exc.read().decode(errors="replace")
+        print(f"Warning: failed to post Jira comment on {issue_key} ({exc.code}): {body_text[:200]}")
+
+
 # ── Main ──────────────────────────────────────────────────────────────────────
 try:
     jira_token  = get_secret(JIRA_TOKEN_SECRET)
@@ -223,15 +253,20 @@ Summary    : {summary}
 Description: {description or "No description provided."}
 
 Steps:
-1. Clone https://github.com/{GITHUB_REPO}
-2. Create branch `{branch}` from the default branch.
-3. Implement the changes described in the issue.
+1. Find the target GitHub repository in the Description above. Look for a reference in
+   "owner/repo" format (e.g. "acme-org/backend") or a full GitHub URL
+   (e.g. "https://github.com/acme-org/backend"). Use that repository.
+   If no repository is mentioned, create a file `jira/{key}/notes.md` with the issue
+   details and print a message explaining that no GitHub repo was found in the ticket.
+2. Clone the repository (e.g. https://github.com/<owner>/<repo>).
+3. Create branch `{branch}` from the default branch.
+4. Implement the changes described in the issue.
    If the description is vague or missing, create `jira/{key}/notes.md`
    with the issue key, summary, and description as a placeholder.
-4. Commit, push the branch, and open a Pull Request:
+5. Commit, push the branch, and open a Pull Request:
    - Title : [{key}] {summary}
    - Body  : Reference the Jira issue key and describe the changes made.
-5. Print the PR URL when done.
+6. Print the PR URL when done.
 """
         workdir = tempfile.mkdtemp(prefix=f"jira-{key.lower()}-")
         payload = {
@@ -257,7 +292,11 @@ Steps:
         with urllib.request.urlopen(conv_req) as r:
             conv = json.loads(r.read())
 
-        print(f"✓ Conversation started for {key}: id={conv.get('id')}")
+        conv_id  = conv.get("id")
+        conv_url = f"{agent_url}/conversations/{conv_id}"
+        print(f"✓ Conversation started for {key}: id={conv_id}")
+
+        post_jira_comment(key, auth_header, f"I'm on it: {conv_url}")
 
         processed_keys.add(key)
         state["processed_keys"] = list(processed_keys)

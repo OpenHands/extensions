@@ -1,21 +1,23 @@
 ---
-name: jira-create-pr
+name: jira-issue-to-pr
 description: >
   This skill should be used when the user asks to "set up a Jira automation to create pull requests",
   "poll Jira for create-pr issues", "automatically create GitHub PRs from Jira tickets",
-  "deploy a Jira create-pr automation", "create a Jira to GitHub PR workflow",
+  "deploy a Jira issue-to-PR automation", "create a Jira to GitHub PR workflow",
   or mentions automating GitHub PR creation from a Jira label.
   Deploys a cron-based OpenHands automation that watches a Jira Cloud project for issues
   labeled with a configurable label (default: "create-pr") and spawns an agent conversation
-  to create a GitHub pull request for each new issue found.
+  to create a GitHub pull request for each new issue found. The target GitHub repository
+  is read from the body of the Jira ticket - no repo parameter is required at deploy time.
 ---
 
 # Jira → GitHub PR Automation
 
 Deploys a cron automation that polls a Jira Cloud instance for open issues carrying a
 configurable label and, for each new issue, starts an OpenHands agent conversation that
-clones a target GitHub repository, creates a branch, implements or placeholders the
-requested change, and opens a pull request.
+clones the GitHub repository specified in the ticket body, creates a branch, implements
+or placeholders the requested change, and opens a pull request. Once the conversation
+starts, it also posts a comment on the Jira ticket: "I'm on it: &lt;conversation URL&gt;".
 
 ## How It Works
 
@@ -24,8 +26,12 @@ requested change, and opens a pull request.
 2. **Deduplicate** - compare results against a KV-store-backed set of already-processed
    issue keys; skip anything already handled.
 3. **Dispatch** - for each new issue, call `POST /api/conversations` on the agent server
-   to start an independent agent conversation with a PR-creation prompt.
-4. **Persist** - record the processed issue key immediately so re-runs never duplicate work.
+   to start an independent agent conversation with a PR-creation prompt. The prompt
+   instructs the agent to extract the target GitHub repository (`owner/repo`) from the
+   ticket body.
+4. **Comment** - immediately after the conversation is created, post a Jira comment on the
+   issue: `I'm on it: <conversation URL>`.
+5. **Persist** - record the processed issue key so re-runs never duplicate work.
 
 The polling run is lightweight (stdlib only, no SDK install); LLM costs are incurred only
 when new issues are actually found.
@@ -52,9 +58,12 @@ Gather the following from the user before proceeding:
 | `jira_base_url` | `https://acme.atlassian.net` | No trailing slash |
 | `jira_email` | `alice@acme.com` | Atlassian account email for Basic auth |
 | `jira_token_secret` | `JIRA_CLOUD_KEY` | Name of the OpenHands secret holding the API token |
-| `github_repo` | `acme-org/backend` | `owner/repo` format |
 | `jira_label` | `create-pr` | Label to watch for (optional, defaults to `create-pr`) |
 | `cron_schedule` | `*/5 * * * *` | Polling frequency in cron syntax |
+
+> **Note**: The GitHub repository is not configured here. Each Jira ticket body must include
+> a reference to the target GitHub repo in `owner/repo` format (e.g. `acme-org/backend`).
+> The spawned agent extracts it from the ticket text.
 
 ### Step 2 - Create config.json
 
@@ -65,7 +74,6 @@ Create `config.json` next to `scripts/main.py` when packaging:
   "jira_base_url":     "https://acme.atlassian.net",
   "jira_email":        "alice@acme.com",
   "jira_token_secret": "JIRA_CLOUD_KEY",
-  "github_repo":       "acme-org/backend",
   "jira_label":        "create-pr"
 }
 ```
@@ -78,7 +86,7 @@ Copy `scripts/main.py` from this skill and package it with the `config.json`:
 WORK=$(mktemp -d)
 cp <skill-dir>/scripts/main.py "$WORK/main.py"
 # write config.json into $WORK/config.json (see Step 2)
-tar -czf /tmp/jira-create-pr.tar.gz -C "$WORK" .
+tar -czf /tmp/jira-issue-to-pr.tar.gz -C "$WORK" .
 python3 -m py_compile "$WORK/main.py"   # validate syntax before uploading
 ```
 
@@ -86,10 +94,10 @@ python3 -m py_compile "$WORK/main.py"   # validate syntax before uploading
 
 ```bash
 TARBALL_PATH=$(curl -s -X POST \
-  "http://localhost:8000/api/automation/v1/uploads?name=jira-create-pr" \
+  "http://localhost:8000/api/automation/v1/uploads?name=jira-issue-to-pr" \
   -H "X-Session-API-Key: $OPENHANDS_AUTOMATION_API_KEY" \
   -H "Content-Type: application/gzip" \
-  --data-binary @/tmp/jira-create-pr.tar.gz \
+  --data-binary @/tmp/jira-issue-to-pr.tar.gz \
   | python3 -c "import sys,json; print(json.load(sys.stdin)['tarball_path'])")
 ```
 
@@ -100,7 +108,7 @@ curl -s -X POST "http://localhost:8000/api/automation/v1" \
   -H "X-Session-API-Key: $OPENHANDS_AUTOMATION_API_KEY" \
   -H "Content-Type: application/json" \
   -d "{
-    \"name\": \"Jira create-pr Poller - acme-org/backend\",
+    \"name\": \"Jira issue-to-PR Poller\",
     \"trigger\": {
       \"type\":     \"cron\",
       \"schedule\": \"*/5 * * * *\",

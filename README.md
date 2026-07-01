@@ -137,7 +137,7 @@ Official skills and plugins for OpenHands — the open-source AI software engine
 | gitlab | skill | Interact with GitLab repositories, merge requests, and APIs using the GITLAB_TOKEN environment variable. Use when wor... | — |
 | incident-retrospective | skill | Create an automation that drafts incident retrospectives by gathering incident-channel messages from Slack, collectin... | `/incident-retro:setup` |
 | iterate | skill | Iterate on a GitHub pull request — drive it through CI, code review, and QA until merge-ready. Monitors state, fixes ... | `/iterate`, `/verify`, `/babysit` |
-| jira-create-pr | skill | Deploy a cron-based OpenHands automation that watches a Jira Cloud project for issues labeled with a configurable lab... | — |
+| jira-issue-to-pr | skill | Deploy a cron-based OpenHands automation that watches a Jira Cloud project for issues labeled with a configurable lab... | — |
 | jupyter | skill | Read, modify, execute, and convert Jupyter notebooks programmatically. Use when working with .ipynb files for data sc... | — |
 | kubernetes | skill | Set up and manage local Kubernetes clusters using KIND (Kubernetes IN Docker). Use when testing Kubernetes applicatio... | — |
 | learn-from-code-review | skill | Distill code review feedback from GitHub PRs into reusable skills and guidelines. Use when users ask to learn from co... | `/learn-from-reviews` |
