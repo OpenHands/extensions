@@ -1,0 +1,86 @@
+{
+  "id": "azure-devops",
+  "name": "Azure DevOps",
+  "description": "Manage work items, repos, pull requests, pipelines, wikis, and test plans via the official Microsoft Azure DevOps MCP Server.",
+  "categories": [
+    "Engineering",
+    "Project management"
+  ],
+  "appUrl": "https://azure.microsoft.com/en-us/products/devops",
+  "docsUrl": "https://github.com/microsoft/azure-devops-mcp",
+  "notes": "Azure DevOps is already a recognized git/auth provider in OpenHands. This entry surfaces the official Microsoft Azure DevOps MCP Server so agents can act on work items, repos, pipelines, wikis, and test plans. The remote server (recommended, public preview) is Azure DevOps-hosted and authenticates with Microsoft Entra ID (OAuth); the local stdio server authenticates with an Azure DevOps Personal Access Token.",
+  "iconBg": "#0078D4",
+  "logoUrl": "https://cdn.jsdelivr.net/gh/OpenHands/extensions/integrations/icons/azure-devops.svg",
+  "keywords": [
+    "ado",
+    "devops",
+    "work items",
+    "pipelines",
+    "repos",
+    "boards",
+    "azure"
+  ],
+  "popularityRank": 80,
+  "installHint": "Prefer the Remote (OAuth) connection: it is hosted by Azure DevOps and needs no local install. For the Local (PAT) path, the organization name is passed as a CLI argument and the Personal Access Token is supplied via the PERSONAL_ACCESS_TOKEN environment variable as a base64-encoded \"<any-string>:<PAT>\" value.",
+  "connectionOptions": [
+    {
+      "id": "remote",
+      "provider": "mcp",
+      "auth": {
+        "strategy": "oauth2",
+        "oauth": {
+          "authorizationUrl": "https://login.microsoftonline.com/common/oauth2/v2.0/authorize",
+          "tokenUrl": "https://login.microsoftonline.com/common/oauth2/v2.0/token",
+          "scopes": [
+            "499b84ac-1321-427f-aa17-267ca697acd9/.default"
+          ],
+          "pkce": true,
+          "clientAuthentication": "none"
+        }
+      },
+      "transport": {
+        "kind": "shttp",
+        "url": "https://mcp.dev.azure.com/{organization}",
+        "urlEditable": true
+      }
+    },
+    {
+      "id": "pat",
+      "provider": "mcp",
+      "auth": {
+        "strategy": "api_key"
+      },
+      "transport": {
+        "kind": "stdio",
+        "serverName": "azure-devops",
+        "command": "npx",
+        "args": [
+          "-y",
+          "@azure-devops/mcp",
+          "--authentication",
+          "pat"
+        ],
+        "argFields": [
+          {
+            "key": "organization",
+            "label": "Organization name",
+            "placeholder": "contoso",
+            "required": true,
+            "helperText": "Your Azure DevOps organization name (e.g. 'contoso' for https://dev.azure.com/contoso). Passed as the first CLI argument."
+          }
+        ],
+        "envFields": [
+          {
+            "key": "PERSONAL_ACCESS_TOKEN",
+            "label": "Personal Access Token",
+            "type": "password",
+            "placeholder": "base64-encoded :PAT",
+            "required": true,
+            "helperText": "Base64-encode the value \"<any-string>:<PAT>\" (for example `echo -n \"user:YOUR_PAT\" | base64`) and store it here. Create a PAT at User Settings → Personal Access Tokens in Azure DevOps. See the [local setup docs](https://github.com/microsoft/azure-devops-mcp).",
+            "helperLink": "https://learn.microsoft.com/en-us/azure/devops/organizations/accounts/use-personal-access-tokens-to-authenticate"
+          }
+        ]
+      }
+    }
+  ]
+}
