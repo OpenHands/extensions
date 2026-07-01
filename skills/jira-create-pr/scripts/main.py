@@ -192,17 +192,23 @@ try:
     agent_url   = os.environ.get("AGENT_SERVER_URL", "").rstrip("/")
     session_key = os.environ.get("SESSION_API_KEY") or os.environ.get("OH_SESSION_API_KEYS_0", "")
 
+    # Fetch settings with encrypted secrets so llm.api_key is a Fernet token
+    # (starts with gAAAAA) rather than the masked "**********" placeholder.
+    # The conversation payload must include secrets_encrypted: True so the
+    # agent-server decrypts it server-side; we never handle the plaintext key.
     with urllib.request.urlopen(urllib.request.Request(
         f"{agent_url}/api/settings",
-        headers={"X-Session-API-Key": session_key},
+        headers={"X-Session-API-Key": session_key, "X-Expose-Secrets": "encrypted"},
     )) as r:
         settings = json.loads(r.read())
 
     agent_settings = settings.get("agent_settings", {})
     agent_settings.pop("schema_version", None)
+    # Drop mcp_config to avoid MCP connection failures at conversation creation time.
+    agent_settings.pop("mcp_config", None)
     ctx = agent_settings.setdefault("agent_context", {})
     ctx.update({"load_public_skills": True, "load_user_skills": True, "load_project_skills": True})
-    max_iterations = (settings.get("conversation_settings") or {}).get("max_iterations") or 80
+    max_iterations = (settings.get("conversation_settings") or {}).get("max_iterations") or 1000
 
     for issue in new_issues:
         key         = issue["key"]
@@ -229,6 +235,7 @@ Steps:
 """
         workdir = tempfile.mkdtemp(prefix=f"jira-{key.lower()}-")
         payload = {
+            "secrets_encrypted":   True,
             "agent_settings":      agent_settings,
             "workspace":           {"kind": "LocalWorkspace", "working_dir": workdir},
             "confirmation_policy": {"kind": "NeverConfirm"},
