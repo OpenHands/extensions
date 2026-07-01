@@ -156,3 +156,49 @@ def test_http_connectors_have_openapi_url():
                 if not url or not url.startswith("https://"):
                     offenders.append(f"{entry['id']}.{option['id']}")
     assert not offenders, f"HTTP options missing openApiUrl: {offenders}"
+
+
+def _entry_by_id(entry_id: str) -> dict:
+    for entry in load_catalog_entries("integrations/catalog"):
+        if entry["id"] == entry_id:
+            return entry
+    raise AssertionError(f"catalog entry '{entry_id}' not found")
+
+
+def test_azure_devops_entry_contract():
+    """The Azure DevOps MCP integration (issue #929) surfaces the official
+    Microsoft Azure DevOps MCP Server with a hosted remote (OAuth) connection
+    and a local PAT-based stdio fallback, plus a logo asset."""
+    entry = _entry_by_id("azure-devops")
+    assert entry["name"] == "Azure DevOps"
+    assert entry["logoUrl"].startswith("https://")
+    assert entry["iconBg"]
+
+    options = {option["id"]: option for option in entry["connectionOptions"]}
+    assert {"remote", "pat"} <= set(options)
+
+    remote = options["remote"]
+    assert remote["provider"] == "mcp"
+    assert remote["auth"]["strategy"] == "oauth2"
+    assert remote["transport"]["kind"] == "shttp"
+    assert remote["transport"]["url"] == "https://mcp.dev.azure.com/{organization}"
+    # The organization segment is account-specific, so the URL must be editable.
+    assert remote["transport"].get("urlEditable") is True
+
+    pat = options["pat"]
+    assert pat["provider"] == "mcp"
+    assert pat["auth"]["strategy"] == "api_key"
+    assert pat["transport"]["kind"] == "stdio"
+    assert pat["transport"]["command"] == "npx"
+    assert "@azure-devops/mcp" in pat["transport"]["args"]
+    assert "--authentication" in pat["transport"]["args"]
+    assert "pat" in pat["transport"]["args"]
+    # The PAT is supplied via the documented PERSONAL_ACCESS_TOKEN env var.
+    env_fields = {field["key"]: field for field in pat["transport"]["envFields"]}
+    assert "PERSONAL_ACCESS_TOKEN" in env_fields
+    assert env_fields["PERSONAL_ACCESS_TOKEN"]["type"] == "password"
+    assert env_fields["PERSONAL_ACCESS_TOKEN"].get("required") is True
+    # The organization name is passed as a CLI positional argument.
+    arg_fields = {field["key"]: field for field in pat["transport"]["argFields"]}
+    assert "organization" in arg_fields
+    assert arg_fields["organization"].get("required") is True
