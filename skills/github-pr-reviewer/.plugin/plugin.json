@@ -1,0 +1,20 @@
+{
+  "name": "github-pr-reviewer",
+  "version": "1.0.0",
+  "description": "Create an automation that reviews GitHub pull requests when a configurable trigger label is applied. It starts one OpenHands review conversation per label event, inspects full PR and repository context, and posts the final review comment back to GitHub.",
+  "author": {
+    "name": "OpenHands",
+    "email": "contact@all-hands.dev"
+  },
+  "homepage": "https://github.com/OpenHands/extensions",
+  "repository": "https://github.com/OpenHands/extensions",
+  "license": "MIT",
+  "keywords": [
+    "github",
+    "pull-request",
+    "review",
+    "code-review",
+    "automation",
+    "integration"
+  ]
+}

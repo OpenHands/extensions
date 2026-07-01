@@ -1,0 +1,34 @@
+{
+  "id": "discord",
+  "name": "Discord",
+  "description": "Guilds, channels, messages, and community operations.",
+  "categories": [
+    "Communication",
+    "Community"
+  ],
+  "appUrl": "https://discord.com",
+  "docsUrl": "https://discord.com/developers/docs/topics/oauth2",
+  "notes": "Useful for community automation and bot-assisted workflows.",
+  "popularityRank": 30,
+  "connectionOptions": [
+    {
+      "id": "oauth",
+      "provider": "http",
+      "auth": {
+        "strategy": "oauth2",
+        "oauth": {
+          "authorizationUrl": "https://discord.com/oauth2/authorize",
+          "tokenUrl": "https://discord.com/api/oauth2/token",
+          "scopes": [
+            "identify",
+            "guilds"
+          ]
+        }
+      },
+      "http": {
+        "apiBaseUrl": "https://discord.com/api/v10",
+        "openApiUrl": "https://raw.githubusercontent.com/discord/discord-api-spec/main/specs/openapi.json"
+      }
+    }
+  ]
+}

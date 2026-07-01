@@ -18,20 +18,97 @@ triggers:
 
 # OpenHands Automations
 
-Create and manage automations that run in OpenHands Cloud sandboxes — triggered by cron schedules or webhook events (GitHub, custom services).
+Create and manage automations that run inside an OpenHands agent server — triggered by cron schedules or webhook events (GitHub, custom services).
+
+## Automation Creation Process
+The agent must follow these steps when creating an automation:
+* Quickly check that you can access the correct automations backend using the auth mechanism below
+* Quickly check that you can access any necessary integrations (e.g. GitHub, Slack); if access fails, inform the user and stop
+* Ask the user for any necessary information, e.g. if you need the name of a Slack channel or GitHub repo to proceed
+* Write the code or prompt that will be sent to the automations backend _inside the current workspace_
+* Show the code to the user with the `canvas_ui` tool if available, otherwise present it in a fenced code block in your reply
+* Message the user with a concise summary of how the automation will behave, and ask if they are ready to deploy it
+
+## Architecture
+
+Two components work together to run automations:
+
+**Automation Service** (API at `OPENHANDS_HOST/api/automation/v1`)
+Manages the *when*: holds automation definitions, schedules cron-triggered runs, dispatches webhook-triggered runs, and receives completion callbacks to mark runs as done. This is the API you call to create, update, and manage automations.
+
+**Agent Server** (accessible as `AGENT_SERVER_URL` inside script runs)
+Manages the *what*: the runtime environment where automation scripts execute and where conversations (AI agent interactions with tools, bash, file editing, etc.) run. When a run is triggered, the automation service uploads the automation's tarball to the agent server, which unpacks and runs the entrypoint script. The script connects back to the agent server using `AGENT_SERVER_URL` and a session API key to start, monitor, and stop conversations.
+
+The agent server typically runs inside a **sandbox** (a Docker or Kubernetes container). Some deployments use sandboxless mode, where the agent server runs directly on a host.
+
+**Key environment variables:**
+
+| Variable | Availability | Description |
+|---|---|---|
+| `RUNTIME_URL` | Ambient in cloud environments | Public-facing URL of the **agent server** sandbox. Use this to determine whether external webhook delivery is possible — if unset or local, webhooks cannot be received. The automation service may run at a separate URL (see Determining the API Host). |
+| `AGENT_SERVER_URL` | Injected into scripts at run time only | Internal URL of the agent server. Available inside script execution context; **not** an ambient environment variable outside of a running script. |
+| `OPENHANDS_HOST` | Shell convention only — set manually | Base URL for the automation service API. **Not a real environment variable.** Set it from the `<HOST>` system-prompt value, or default to `https://app.all-hands.dev`. Used in all `curl` examples throughout this skill. |
 
 > **⚠️ CRITICAL — Agent behavior rules:**
 >
-> 1. **ALWAYS use preset endpoints** to create automations. They handle all SDK boilerplate, tarball packaging, and upload automatically:
->    - **Prompt preset** (`POST /v1/preset/prompt`) — for simple tasks with a natural language prompt
+> 0. **Does this task need an LLM at all? Check first.** Before picking a preset, ask whether the task actually requires reasoning, judgment, summarization, or open-ended tool use. If it is fully deterministic — fixed data transforms, scheduled HTTP calls, healthcheck pings, file rotation, picking from a known list, posting a templated message — an LLM-driven preset is overkill. Every run will consume LLM tokens, which adds up fast at high frequencies (every 5 min ≈ 288 runs/day). Surface the trade-off to the user and offer the custom-script path (see `references/custom-automation.md`) as the cheaper, more reliable option. Be especially careful for cron schedules tighter than hourly.
+>
+>    **Instant-recognition patterns — these are always deterministic, never use an LLM preset:**
+>    - "post a quote / message / fact every N minutes" (rotating from a list)
+>    - "send a scheduled reminder / standup / digest"
+>    - "ping a health-check URL on a schedule"
+>    - "post to Slack / webhook every N minutes"
+>    - Any task where the full output could be written as a static template right now
+>
+> 1. **For LLM-appropriate work, default to preset endpoints.** They handle all SDK boilerplate, tarball packaging, and upload automatically:
+>    - **Prompt preset** (`POST /v1/preset/prompt`) — for tasks expressed as a natural language prompt that benefit from agent reasoning
 >    - **Plugin preset** (`POST /v1/preset/plugin`) — when plugins with skills, MCP configs, or commands are needed
-> 2. **NEVER write custom SDK scripts or create tarballs.** Do not generate Python SDK code, `setup.sh` files, or tarball uploads unless the user explicitly asks for it.
-> 3. **If neither preset can satisfy the requirement**, do NOT silently fall back to custom automation. Instead, explain the available options to the user:
->    - **Prompt preset** — simple natural language prompt execution
+> 2. **Do not silently create custom scripts.** Do not generate Python code, `setup.sh` files, or tarball uploads without user consent. But *do* proactively recommend the custom path (per rule 0) when the task is deterministic or high-frequency — surface the option and let the user choose.
+> 3. **If neither preset is the right fit**, do NOT silently fall back to custom automation. Instead, explain the available options to the user:
+>    - **Prompt preset** — natural language prompt execution (LLM-driven)
 >    - **Plugin preset** — load plugins with extended capabilities (skills, MCP, hooks, commands)
->    - **Custom SDK script** — full control over code; point them to `references/custom-automation.md`
+>    - **Custom script** — full control over code, with or without LLM; point them to `references/custom-automation.md`
 >    - Let the user choose which approach to use.
-> 4. **Only create custom SDK scripts if the user explicitly requests it.** Refer to `references/custom-automation.md` for the full reference.
+> 4. **Only create custom scripts after the user agrees to that path.** Refer to `references/custom-automation.md` for the full reference.
+> 5. **Before suggesting event-triggered (webhook) automations, check whether the deployment is publicly reachable.** Check `RUNTIME_URL`. Webhooks require an internet-accessible URL so that external services (GitHub, Slack, Linear, etc.) can deliver events to the automation service. If `RUNTIME_URL` is unset, empty, or resolves to a local or private address (`localhost`, `127.0.0.1`, `0.0.0.0`, or any RFC 1918 range: `10.x.x.x`, `192.168.x.x`, `172.16–31.x.x`), the service cannot receive inbound webhook traffic from the public internet. In that case:
+>    - **Recommend a cron-based polling automation instead.** Have the automation run on a schedule and call the external service's API (e.g., the GitHub REST API) to check for new events since the last run.
+>    - Explain the limitation clearly to the user: "Because this is a local deployment, external services can't reach the webhook endpoint. I'll set up a polling automation using a cron schedule instead."
+
+### No-LLM Script Helpers
+
+When building a deterministic custom script, these two stdlib-only functions are required. Copy them verbatim — they use `AGENT_SERVER_URL` and `SESSION_API_KEY` injected by the automation service.
+
+```python
+import json, os, urllib.request
+
+def get_secret(name):
+    """Fetch a named secret stored in the agent server."""
+    url = os.environ.get("AGENT_SERVER_URL", "").rstrip("/")
+    key = os.environ.get("SESSION_API_KEY") or os.environ.get("OH_SESSION_API_KEYS_0", "")
+    with urllib.request.urlopen(urllib.request.Request(
+        f"{url}/api/settings/secrets/{name}", headers={"X-Session-API-Key": key}
+    )) as r:
+        return r.read().decode().strip()
+
+def fire_callback(status="COMPLETED", error=None):
+    """Signal run completion. MUST be called on every exit path — success AND error."""
+    url = os.environ.get("AUTOMATION_CALLBACK_URL", "")
+    if not url: return
+    body = {"status": status, "run_id": os.environ.get("AUTOMATION_RUN_ID", "")}
+    if error: body["error"] = error
+    try:
+        urllib.request.urlopen(urllib.request.Request(url, data=json.dumps(body).encode(), headers={
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {os.environ.get('AUTOMATION_CALLBACK_API_KEY', '')}",
+        }))
+    except Exception as e: print(f"Callback error: {e}")
+```
+
+Entrypoint must be `python3 main.py` (no `setup.sh` needed). Wrap your main logic in `try/except` and call `fire_callback("FAILED", str(e))` in the except block.
+
+**State persistence between runs** — polling automations that track a "last processed" timestamp or active conversation IDs must use the built-in KV store rather than local files. Local files are lost when a run ends on a cloud pod. The KV store is available when `AUTOMATION_KV_TOKEN` is injected into the run environment. See `references/custom-automation.md#state-persistence-kv-store` for ready-to-copy `kv_get` / `kv_set` / `load_state` / `save_state` helpers.
+
+---
 
 ## Authentication
 
@@ -47,9 +124,15 @@ All requests require Bearer authentication:
 
 **Before making API calls, determine the correct host:**
 
-Look for a `<HOST>` value in the system prompt. If present, use that URL. Otherwise, default to `https://app.all-hands.dev`.
+The automation service may run at a different URL from the agent server. In the examples throughout this skill, `${OPENHANDS_HOST}` is a shell-variable convention for the automation service base URL — it is **not** a real environment variable. Set it from context before running any curl command:
 
-This ensures the correct host is used for the deployment environment (e.g., `https://staging.all-hands.dev` for staging, `https://app.all-hands.dev` for production).
+- Look for a `<HOST>` value in the system prompt. If present, use that URL.
+- Otherwise default to `https://app.all-hands.dev`.
+
+```bash
+OPENHANDS_HOST="https://app.all-hands.dev"  # replace with <HOST> if provided
+```
+
 
 ### Automation Endpoints
 
@@ -84,7 +167,7 @@ Automations support two trigger types:
 | Trigger Type | Use Case |
 |--------------|----------|
 | **Cron** | Run on a schedule (daily, weekly, hourly, etc.) |
-| **Event** | Run when a webhook event occurs (GitHub PR opened, issue commented, etc.) |
+| **Event** | Run when a webhook event occurs (GitHub PR opened, issue commented, etc.) — **requires a publicly reachable deployment** |
 
 ---
 
@@ -104,8 +187,8 @@ Use the **preset/prompt endpoint** for simple automations. Provide a natural lan
 #### How It Works
 
 1. Send a prompt describing the task (e.g., "Generate a weekly status report")
-2. The service generates SDK boilerplate that connects to the user's OpenHands Cloud account, fetches their LLM config, secrets, and MCP server configuration, creates an AI agent conversation with the prompt, and reports completion
-3. The service packages the code into a tarball, uploads it, and creates the automation
+2. The automation service generates a Python script that: fetches LLM config and secrets from the agent server, starts an AI agent conversation with your prompt, and sends a completion callback when done
+3. The script is packaged as a tarball and the automation is registered; on each trigger, the automation service uploads the tarball to the agent server, which unpacks and runs the script inside its environment
 
 #### Request
 
@@ -209,6 +292,21 @@ curl -X POST "${OPENHANDS_HOST}/api/automation/v1/preset/prompt" \
     "timeout": 300
   }'
 ```
+
+---
+
+## Polling as a Webhook Alternative
+
+When the deployment cannot receive inbound webhook traffic (see rule 5), use a cron-triggered automation that calls the external service’s API on a schedule to check for new events.
+
+### Polling vs. Webhooks at a Glance
+
+| | Webhooks (Event trigger) | Polling (Cron trigger) |
+|---|---|---|
+| **Requires public URL** | Yes | No — works locally |
+| **Latency** | Near-instant | Up to one poll interval |
+| **API calls** | Only on real events | Every poll interval |
+| **Best for** | Cloud / public deployments | Local or private deployments |
 
 ---
 
@@ -747,24 +845,33 @@ Run status values: `PENDING` (waiting for dispatch), `RUNNING` (in progress), `C
 
 ---
 
-## Sandbox Lifecycle
+## Run Lifecycle
 
-After a run completes, the sandbox is **kept alive** by default — users can view the conversation history in the OpenHands UI and continue interacting. The sandbox persists until it times out or is manually deleted.
+When a run completes, the automation service receives a callback and marks the run done. Any conversations started during the run remain accessible in the OpenHands UI — users can view the history and continue interacting. The agent server persists until it times out or is manually deleted.
+
+The automation script itself controls when the callback fires (signalling completion). For simple synchronous scripts this happens naturally on exit. For scripts that start asynchronous conversations, the callback should be deferred until the conversation reaches an idle state (see `references/custom-automation.md` for patterns).
 
 ---
 
 ## Choosing the Right Preset
 
-| Use Case | Recommended Preset |
-|----------|-------------------|
-| Simple tasks with natural language prompt | **Prompt Preset** |
-| Need plugin skills, MCP configs, or commands | **Plugin Preset** |
-| Custom dependencies or non-Python entrypoint | **Custom Automation** (see below) |
+Pick based on **what the task needs**, not just **what is technically possible**. An LLM-driven preset can do almost anything, so "the preset can satisfy this" is not by itself a good reason to pick it — every run costs tokens and sandbox time.
 
-The **prompt preset** covers most use cases. Use the **plugin preset** when you need extended capabilities from plugins (skills, MCP configurations, hooks, commands). The plugin preset fetches plugins at runtime from their sources and loads them into the conversation.
+| Use Case | Recommended |
+|----------|-------------|
+| Reasoning, summarization, triage, code review, or open-ended tool use | **Prompt Preset** |
+| Needs plugin commands / skills / MCP configs / hooks | **Plugin Preset** |
+| Compare plugin versions or configurations across runs | **Plugin Preset with A/B testing** — see `references/ab-testing.md` |
+| **Deterministic task** (fixed data + scheduled action, e.g. healthcheck, Slack notification, rotating from a known list) — especially if it runs frequently | **Custom script, no LLM** — see `references/custom-automation.md#deterministic-script-no-llm` |
+| Custom Python dependencies, multi-file project, or direct SDK lifecycle control | **Custom script with SDK** — see `references/custom-automation.md#sdk-based-scripts` |
 
-**When neither preset is sufficient** (e.g., custom Python dependencies, non-Python entrypoint, multi-file project structure, direct SDK lifecycle control), explain the options to the user and let them decide. Do not attempt custom automation without explicit user request. If they choose the custom route, refer to `references/custom-automation.md`.
+The **prompt preset** is the right default for genuinely agent-shaped work — anything that benefits from reasoning over context, calling tools dynamically, or producing a non-templated output. Use the **plugin preset** when you need extended capabilities from plugins (skills, MCP configurations, hooks, commands).
+
+**Watch for deterministic, high-frequency patterns.** Requests like "send a daily standup reminder", "ping a healthcheck URL every minute", "post a random quote every 5 minutes", or "rotate a fact-of-the-day message" do not need an LLM. Surface this to the user explicitly with a rough cost framing (e.g. "this schedule will invoke your LLM ~288 times/day") before defaulting to a preset. As a rule of thumb, any cron tighter than hourly deserves a deliberate "should this really be agent-driven?" check.
+
+**When neither preset is the right fit** (deterministic task, custom Python dependencies, non-Python entrypoint, multi-file project structure, direct SDK lifecycle control), explain the options to the user and let them decide. Do not attempt custom automation without explicit user agreement. If they choose the custom route, refer to `references/custom-automation.md`.
 
 ## Reference Files
 
-- **`references/custom-automation.md`** — Detailed guide for custom automations: tarball uploads, SDK code structure, environment variables, validation rules, and complete examples. Only use when the user explicitly requests a custom automation.
+- **`references/custom-automation.md`** — Detailed guide for custom automations: tarball uploads, code structure (SDK and no-LLM), state persistence via the KV store, environment variables, validation rules, and complete examples. Consult this whenever you need to evaluate or recommend the custom path (including for deterministic / cost-sensitive tasks per rule 0). Only *implement* a custom automation after the user agrees to that path.
+- **`references/ab-testing.md`** — A/B testing for plugin automations: defining variants with weights, experiment configuration, variant selection logic, observability via conversation tags, and complete examples. Consult this when a user wants to compare plugin versions or configurations.

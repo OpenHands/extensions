@@ -1,33 +1,57 @@
 ---
 name: bitbucket
-description: Interact with Bitbucket repositories and pull requests using the BITBUCKET_TOKEN environment variable. Use when working with code hosted on Bitbucket or managing Bitbucket resources via API.
+description: Bitbucket integration hub. Detects whether the repository is on Bitbucket Cloud or Bitbucket Data Center and directs you to the matching detailed skill (bitbucket-cloud or bitbucket-data-center). Use for any Bitbucket repository or pull request task.
 triggers:
 - bitbucket
 - git
 ---
 
-You have access to an environment variable, `BITBUCKET_TOKEN`, which allows you to interact with
-the Bitbucket API.
+You are working with **Bitbucket**, which ships as two distinct products that behave
+differently:
 
-<IMPORTANT>
-You can use `curl` with the `BITBUCKET_TOKEN` to interact with Bitbucket's API.
-ALWAYS use the Bitbucket API for operations instead of a web browser.
-ALWAYS use the `create_bitbucket_pr` tool to open a pull request
-</IMPORTANT>
+- **Bitbucket Cloud** (`bitbucket.org`) — authenticates with the `BITBUCKET_TOKEN`
+  environment variable.
+- **Bitbucket Data Center** (self-hosted Bitbucket Server) — authenticates with the
+  `BITBUCKET_DATA_CENTER_TOKEN` environment variable.
 
-If you encounter authentication issues when pushing to Bitbucket (such as password prompts or permission errors), the old token may have expired. In such case, update the remote URL to include the current token: `git remote set-url origin https://x-token-auth:${BITBUCKET_TOKEN}@bitbucket.org/username/repo.git`
+They use different REST APIs, repository identifiers, git remote URL formats, and pull
+request tools, so you must first determine which one you are on, then load the matching
+detailed skill for full instructions.
 
-Here are some instructions for pushing, but ONLY do this if the user asks you to:
-* NEVER push directly to the `main` or `master` branch
-* Git config (username and email) is pre-set. Do not modify.
-* You may already be on a branch starting with `openhands-workspace`. Create a new branch with a better name before pushing.
-* Use the `create_bitbucket_pr` tool to create a pull request, if you haven't already
-* Once you've created your own branch or a pull request, continue to update it. Do NOT create a new one unless you are explicitly asked to. Update the PR title and description as necessary, but don't change the branch name.
-* Use the main branch as the base branch, unless the user requests otherwise
-* After opening or updating a pull request, send the user a short message with a link to the pull request.
-* Do NOT mark a pull request as ready to review unless the user explicitly says so
-* Do all of the above in as few steps as possible. E.g. you could push changes with one step by running the following bash commands:
+## Step 1 — Detect which Bitbucket you are on
+
+Check which token environment variable is present. Environment variable names are
+case-sensitive, so look for it case-insensitively:
+
 ```bash
-git remote -v && git branch # to find the current org, repo and branch
-git checkout -b create-widget && git add . && git commit -m "Create widget" && git push -u origin create-widget
+env | grep -i 'bitbucket' || echo "no bitbucket token found"
 ```
+
+- If a **`BITBUCKET_DATA_CENTER_TOKEN`** variable is set (in any letter case) → you are on
+  **Bitbucket Data Center**.
+- Otherwise, if a **`BITBUCKET_TOKEN`** variable is set → you are on **Bitbucket Cloud**.
+- If neither is set, ask the user how they authenticate to Bitbucket before proceeding.
+
+When you reference the token later, use the exact variable name (and letter case) that
+actually exists in the environment.
+
+## Step 2 — Load the detailed skill
+
+Once you know the environment, use the `invoke_skill` tool to load the matching skill for
+full instructions on API calls, authenticated git remotes, and opening pull requests:
+
+- Bitbucket Cloud → invoke the **`bitbucket-cloud`** skill.
+- Bitbucket Data Center → invoke the **`bitbucket-data-center`** skill.
+
+## Quick reference (fallback)
+
+If you are unable to load the detailed skill, these are the essentials. Always use the
+Bitbucket API (not a web browser) and always use the listed PR tool to open a pull request.
+
+| | Bitbucket Cloud | Bitbucket Data Center |
+|---|---|---|
+| Token env var | `BITBUCKET_TOKEN` | `BITBUCKET_DATA_CENTER_TOKEN` |
+| Host | `bitbucket.org` | self-hosted domain |
+| REST API base | `https://api.bitbucket.org/2.0` | `https://<host>/rest/api/1.0` |
+| Repository identifier | `workspace/repo_slug` | `PROJECT/repo_slug` (project key) |
+| Pull request tool | `create_bitbucket_pr` | `create_bitbucket_data_center_pr` |

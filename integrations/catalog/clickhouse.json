@@ -1,0 +1,55 @@
+{
+  "id": "clickhouse",
+  "name": "ClickHouse",
+  "description": "Run analytical SQL queries against a ClickHouse cluster.",
+  "docsUrl": "https://github.com/ClickHouse/mcp-clickhouse",
+  "iconBg": "#FFFF00",
+  "logoUrl": "https://cdn.simpleicons.org/clickhouse/000000",
+  "iconColor": "var(--oh-surface-deep)",
+  "keywords": [
+    "analytics",
+    "olap",
+    "database",
+    "sql"
+  ],
+  "connectionOptions": [
+    {
+      "id": "api",
+      "provider": "mcp",
+      "transport": {
+        "kind": "stdio",
+        "serverName": "clickhouse",
+        "command": "uvx",
+        "args": [
+          "mcp-clickhouse"
+        ],
+        "envFields": [
+          {
+            "key": "CLICKHOUSE_HOST",
+            "label": "Host",
+            "type": "text",
+            "placeholder": "clickhouse.example.com",
+            "required": true
+          },
+          {
+            "key": "CLICKHOUSE_USER",
+            "label": "Username",
+            "type": "text",
+            "required": true
+          },
+          {
+            "key": "CLICKHOUSE_PASSWORD",
+            "label": "Password",
+            "type": "password",
+            "required": true,
+            "helperText": "Password for your ClickHouse user.",
+            "helperLink": "https://clickhouse.com/docs/operations/access-rights"
+          }
+        ]
+      },
+      "auth": {
+        "strategy": "api_key"
+      }
+    }
+  ]
+}

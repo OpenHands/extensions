@@ -1,0 +1,68 @@
+{
+  "id": "linear",
+  "name": "Linear",
+  "description": "Browse and update Linear issues, cycles, and projects from the agent.",
+  "categories": [
+    "Project management",
+    "Engineering"
+  ],
+  "appUrl": "https://linear.app",
+  "docsUrl": "https://linear.app/docs/mcp",
+  "notes": "Popular among modern product engineering teams and already useful to this repo's users.",
+  "popularityRank": 86,
+  "connectionOptions": [
+    {
+      "id": "oauth",
+      "provider": "mcp",
+      "auth": {
+        "strategy": "oauth2",
+        "oauth": {
+          "authorizationUrl": "https://mcp.linear.app/authorize",
+          "tokenUrl": "https://mcp.linear.app/token",
+          "registrationUrl": "https://mcp.linear.app/register",
+          "scopes": [
+            "read",
+            "write"
+          ],
+          "pkce": true,
+          "clientAuthentication": "none",
+          "additionalAuthorizationParams": {
+            "resource": "https://mcp.linear.app/mcp"
+          },
+          "additionalTokenParams": {
+            "resource": "https://mcp.linear.app/mcp"
+          }
+        }
+      },
+      "transport": {
+        "kind": "shttp",
+        "url": "https://mcp.linear.app/mcp"
+      }
+    },
+    {
+      "id": "api-key",
+      "provider": "mcp",
+      "transport": {
+        "kind": "shttp",
+        "url": "https://mcp.linear.app/mcp",
+        "apiKeyOptional": true
+      },
+      "auth": {
+        "strategy": "bearer",
+        "apiKeyOptional": true,
+        "credentialLabel": "Linear API key",
+        "credentialPlaceholder": "Paste your Linear API key",
+        "credentialHelp": "Optional when the endpoint accepts your OAuth session; otherwise sent as Authorization: Bearer <token>."
+      }
+    }
+  ],
+  "iconBg": "#5E6AD2",
+  "logoUrl": "https://cdn.simpleicons.org/linear/FFFFFF",
+  "keywords": [
+    "issues",
+    "project management",
+    "tasks",
+    "tickets"
+  ],
+  "installHint": "Prefer the OAuth MCP connection for Linear. The MCP server supports OAuth 2.1 with dynamic client registration at mcp.linear.app; a bearer-token MCP option remains available for API-key or existing OAuth-token workflows."
+}

@@ -1,0 +1,255 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/OpenHands/extensions/integrations/catalog.schema.json",
+  "title": "IntegrationCatalogEntry",
+  "description": "Strict schema for integrations/catalog/*.json. Mirrors integrations/index.d.ts and encodes the cross-field connectability rules the catalog contract depends on.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "name", "description", "connectionOptions"],
+  "properties": {
+    "id": { "type": "string", "minLength": 1 },
+    "name": { "type": "string", "minLength": 1 },
+    "description": { "type": "string", "minLength": 1 },
+    "categories": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    },
+    "appUrl": { "type": "string", "pattern": "^https://", "minLength": 8 },
+    "docsUrl": { "type": "string", "pattern": "^https://", "minLength": 8 },
+    "notes": { "type": "string", "minLength": 1 },
+    "iconBg": { "type": "string", "minLength": 1 },
+    "iconColor": { "type": "string", "minLength": 1 },
+    "logoUrl": { "type": "string", "pattern": "^https://", "minLength": 8 },
+    "keywords": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    },
+    "popularityRank": { "type": "integer", "minimum": 0 },
+    "installHint": { "type": "string", "minLength": 1 },
+    "connectionOptions": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/connectionOption" }
+    }
+  },
+  "$defs": {
+    "marketplaceField": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["key", "label"],
+      "properties": {
+        "key": { "type": "string", "minLength": 1 },
+        "label": { "type": "string", "minLength": 1 },
+        "type": { "enum": ["text", "password"] },
+        "placeholder": { "type": "string" },
+        "helperText": { "type": "string" },
+        "helperLink": { "type": "string", "pattern": "^https://" },
+        "required": { "type": "boolean" }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "type": { "const": "password" } } },
+          "then": {
+            "required": ["helperText"],
+            "properties": { "helperText": { "minLength": 1 } }
+          }
+        }
+      ]
+    },
+    "oauthConfig": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "authorizationUrl": { "type": "string", "pattern": "^https://", "minLength": 8 },
+        "tokenUrl": { "type": "string", "pattern": "^https://", "minLength": 8 },
+        "scopes": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "optionalScopes": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "toolScopes": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "scopeSeparator": { "enum": ["space", "comma"] },
+        "pkce": { "type": "boolean" },
+        "clientAuthentication": { "enum": ["basic", "body", "none"] },
+        "registrationUrl": { "type": "string", "pattern": "^https://", "minLength": 8 },
+        "additionalAuthorizationParams": {
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        },
+        "additionalTokenParams": {
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        }
+      }
+    },
+    "authConfig": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["strategy"],
+      "properties": {
+        "strategy": { "enum": ["none", "api_key", "bearer", "basic", "oauth2"] },
+        "authModes": {
+          "type": "array",
+          "items": { "enum": ["none", "api_key", "bearer", "basic", "oauth2"] },
+          "minItems": 1
+        },
+        "credentialLabel": { "type": "string", "minLength": 1 },
+        "credentialPlaceholder": { "type": "string", "minLength": 1 },
+        "credentialHelp": { "type": "string", "minLength": 1 },
+        "credentialSecretName": { "type": "string", "minLength": 1 },
+        "saveCredentialAsSecretByDefault": { "type": "boolean" },
+        "apiKeyHeaderName": { "type": "string", "minLength": 1 },
+        "apiKeyOptional": { "type": "boolean" },
+        "oauth": { "$ref": "#/$defs/oauthConfig" }
+      }
+    },
+    "httpConfig": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "apiBaseUrl": { "type": "string", "pattern": "^https://", "minLength": 8 },
+        "openApiUrl": { "type": "string", "pattern": "^https://", "minLength": 8 }
+      }
+    },
+    "transport": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "url"],
+          "properties": {
+            "kind": { "const": "shttp" },
+            "url": { "type": "string", "pattern": "^https://", "minLength": 8 },
+            "apiKeyOptional": { "type": "boolean" },
+            "headerFields": {
+              "type": "array",
+              "items": { "$ref": "#/$defs/marketplaceField" }
+            },
+            "urlEditable": { "type": "boolean" }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "url"],
+          "properties": {
+            "kind": { "const": "sse" },
+            "url": { "type": "string", "pattern": "^https://", "minLength": 8 },
+            "apiKeyOptional": { "type": "boolean" },
+            "headerFields": {
+              "type": "array",
+              "items": { "$ref": "#/$defs/marketplaceField" }
+            },
+            "urlEditable": { "type": "boolean" }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "serverName", "command", "args"],
+          "properties": {
+            "kind": { "const": "stdio" },
+            "serverName": { "type": "string", "minLength": 1 },
+            "command": { "type": "string", "minLength": 1 },
+            "args": {
+              "type": "array",
+              "items": { "type": "string" },
+              "minItems": 0
+            },
+            "envFields": {
+              "type": "array",
+              "items": { "$ref": "#/$defs/marketplaceField" }
+            },
+            "argFields": {
+              "type": "array",
+              "items": { "$ref": "#/$defs/marketplaceField" }
+            }
+          }
+        }
+      ]
+    },
+    "connectionOption": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "provider", "auth"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "provider": { "enum": ["mcp", "http"] },
+        "transport": { "$ref": "#/$defs/transport" },
+        "http": { "$ref": "#/$defs/httpConfig" },
+        "auth": { "$ref": "#/$defs/authConfig" }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "provider": { "const": "mcp" } } },
+          "then": {
+            "required": ["transport"],
+            "not": { "required": ["http"] }
+          }
+        },
+        {
+          "if": { "properties": { "provider": { "const": "http" } } },
+          "then": {
+            "required": ["http"],
+            "not": { "required": ["transport"] },
+            "properties": {
+              "http": {
+                "required": ["apiBaseUrl", "openApiUrl"],
+                "properties": {
+                  "apiBaseUrl": { "type": "string", "minLength": 8 },
+                  "openApiUrl": { "type": "string", "minLength": 8 }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "provider": { "const": "http" },
+              "auth": { "properties": { "strategy": { "const": "api_key" } } }
+            }
+          },
+          "then": {
+            "properties": {
+              "auth": { "required": ["apiKeyHeaderName"] }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "provider": { "const": "http" },
+              "auth": { "properties": { "strategy": { "const": "oauth2" } } }
+            }
+          },
+          "then": {
+            "properties": {
+              "auth": {
+                "required": ["oauth"],
+                "properties": {
+                  "oauth": {
+                    "required": ["authorizationUrl", "tokenUrl"],
+                    "properties": {
+                      "authorizationUrl": { "type": "string", "minLength": 8 },
+                      "tokenUrl": { "type": "string", "minLength": 8 }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

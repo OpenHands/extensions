@@ -1,0 +1,31 @@
+{
+  "id": "memory",
+  "name": "Memory",
+  "description": "Persistent key-value memory for the agent across conversations.",
+  "docsUrl": "https://github.com/modelcontextprotocol/servers/tree/main/src/memory",
+  "iconBg": "#7C3AED",
+  "keywords": [
+    "memory",
+    "kv",
+    "state",
+    "persistence"
+  ],
+  "connectionOptions": [
+    {
+      "id": "none",
+      "provider": "mcp",
+      "transport": {
+        "kind": "stdio",
+        "serverName": "memory",
+        "command": "npx",
+        "args": [
+          "-y",
+          "@modelcontextprotocol/server-memory"
+        ]
+      },
+      "auth": {
+        "strategy": "none"
+      }
+    }
+  ]
+}

@@ -29,10 +29,65 @@ They live under `plugins/`, **one directory per plugin**:
 
 Browse available plugins in [`plugins/`](plugins/).
 
+### NPM Package
+
+This repository also publishes catalog data through the `@openhands/extensions` package. It requires Node.js 18.20.0 or newer because the catalog entry points import JSON modules with import attributes.
+
+```js
+import { AUTOMATION_CATALOG, INTEGRATION_CATALOG } from "@openhands/extensions";
+import { INTEGRATION_CATALOG as MCP_MARKETPLACE } from "@openhands/extensions/integrations";
+import { AUTOMATION_CATALOG as RECOMMENDED_AUTOMATIONS } from "@openhands/extensions/automations";
+```
+
+React logo components are isolated behind a separate export so data-only consumers do not need React peer dependencies:
+
+```js
+import { INTEGRATION_LOGOS } from "@openhands/extensions/integrations/logos";
+```
+
+The package ships the whole repo, so the `skills/`, `plugins/`, and `marketplaces/` trees are available from the installed package. Resolve content files to a path, or import JSON manifests directly:
+
+```js
+// .md / .py / etc.: resolve to a path, then read with fs
+const skillPath = import.meta.resolve("@openhands/extensions/skills/code-review/SKILL.md");
+
+// .json: import directly
+import marketplace from "@openhands/extensions/marketplaces/openhands-extensions.json" with { type: "json" };
+```
+
+See [`integrations/README.md`](integrations/README.md), [`automations/README.md`](automations/README.md), and [`MIGRATION.md`](MIGRATION.md) for catalog-specific details.
+
+### Python Package
+
+The integration catalog is also published as a Python package (`openhands-extensions`) so Python services read the same catalog data as JS consumers. The single source of truth is the hand-authored JSON directory `integrations/catalog/<id>.json`; there is no separate provider file and no aggregate catalog JSON to maintain. Both the JS package (`@openhands/extensions/integrations`) and the Python package read those same per-integration JSON files and expose parallel read functions.
+
+Each catalog entry can carry oauth and/or mcp/http `connectionOptions`. `supportsOauth` / `supportsMcp` flags are derived at runtime. Use `listIntegrationCatalog({ mcp, oauth })` (JS) or `list_integration_catalog(mcp=, oauth=)` (Python) to filter by connector type - for example only integrations that support an oauth connector.
+
+```python
+from openhands_extensions import (
+    list_integration_catalog,                        # listIntegrationCatalog({ mcp, oauth })
+    get_integration_catalog_entry,                   # getIntegrationCatalogEntry(id)
+    INTEGRATION_CATALOG_SNAPSHOT,                    # { integrations }
+)
+
+all_integrations = list_integration_catalog()
+oauth_integrations = list_integration_catalog(oauth=True)      # only entries with an oauth connector
+mcp_integrations = list_integration_catalog(mcp=True)          # only entries with an mcp connector
+sample = get_integration_catalog_entry(all_integrations[0]["id"])
+```
+
+Install from git (the hub backend consumes it this way):
+
+```bash
+pip install git+https://github.com/OpenHands/extensions.git
+```
+
+The JS and Python versions are kept in lock-step by `release-please` and guarded by `tests/test_version_alignment.py`.
+
 ## Extensions Catalog
 
 <!-- BEGIN AUTO-GENERATED CATALOG -->
-This repository contains **2 marketplace(s)** with **53 extensions** (42 skills, 11 plugins).
+This repository contains **2 marketplace(s)** with **66 extensions** (55 skills, 11 plugins).
 
 ### large-codebase
 
@@ -49,18 +104,21 @@ OpenHands skills for interacting, improving, and refactoring large codebases
 
 ### openhands-extensions
 
-Official skills and plugins for OpenHands - the open-source AI software engineer.
+Official skills and plugins for OpenHands — the open-source AI software engineer.
 
-**49 extensions** (40 skills, 9 plugins)
+**62 extensions** (53 skills, 9 plugins)
 
 | Name | Type | Description | Commands |
 |------|------|-------------|----------|
 | add-skill | skill | Add (import) an OpenHands skill from a GitHub repository into the current workspace. | — |
-| agent-creator | skill | Create file-based sub-agents as Markdown files - no Python code required. Guides the user through a structured interv... | `/agent-creator` |
+| agent-canvas-environment | skill | Work effectively inside a local Agent Canvas environment, including local agent-server auth, safe workspace hygiene, ... | — |
+| agent-creator | skill | Create file-based sub-agents as Markdown files — no Python code required. Guides the user through a structured interv... | `/agent-creator` |
 | agent-memory | skill | Persist and retrieve repository-specific knowledge using AGENTS.md files. Use when you want to save important informa... | `/remember` |
 | agent-sdk-builder | skill | Guided workflow for building custom AI agents using the OpenHands Software Agent SDK. Use when you want to create a n... | `/agent-builder` |
 | azure-devops | skill | Interact with Azure DevOps repositories, pull requests, and APIs using the AZURE_DEVOPS_TOKEN environment variable. U... | — |
-| bitbucket | skill | Interact with Bitbucket repositories and pull requests using the BITBUCKET_TOKEN environment variable. Use when worki... | — |
+| bitbucket | skill | Bitbucket integration hub. Detects whether the repository is on Bitbucket Cloud or Bitbucket Data Center and directs ... | — |
+| bitbucket-cloud | skill | Bitbucket Cloud (bitbucket.org) specifics — authenticate with BITBUCKET_TOKEN, use the REST API v2, workspace/repo_sl... | — |
+| bitbucket-data-center | skill | Bitbucket Data Center (self-hosted Bitbucket Server) specifics — authenticate with BITBUCKET_DATA_CENTER_TOKEN, use t... | — |
 | city-weather | plugin | Get current weather, time, and precipitation forecast for any city using the free Open-Meteo API. Provides slash comm... | — |
 | code-review | skill | Rigorous code review focusing on data structures, simplicity, security, pragmatism, and risk/safety evaluation. Provi... | `/codereview`, `/codereview-roasted` |
 | code-simplifier | skill | Simplifies and refines code across three dimensions - code reuse, code quality, and efficiency - while preserving all... | `/simplify` |
@@ -68,31 +126,41 @@ Official skills and plugins for OpenHands - the open-source AI software engineer
 | deno | skill | Common project operations using Deno (tasks, run/test/lint/fmt, and dependency management). | — |
 | discord | skill | Build and automate Discord integrations (bots, webhooks, slash commands, and REST API workflows). Use when the user m... | — |
 | docker | skill | Run Docker commands within a container environment, including starting the Docker daemon and managing containers. Use... | — |
+| evidence-based-citations | skill | Back factual claims and field values with official, verifiable sources. Use when the user asks to fill fields, answer... | — |
 | flarglebargle | skill | A test skill that responds to the magic word 'flarglebargle' with a compliment. Use for testing skill activation and ... | — |
 | frontend-design | skill | Create distinctive, production-grade frontend interfaces with high design quality. Use this skill when the user asks ... | — |
 | github | skill | Interact with GitHub repositories, pull requests, issues, and workflows using the GITHUB_TOKEN environment variable a... | — |
+| github-actions | skill | Create, debug, and test GitHub Actions workflows and custom actions. Use when building CI/CD pipelines, automating wo... | — |
 | github-pr-review | skill | Post structured PR reviews to GitHub with inline comments/suggestions in a single API call. | `/github-pr-review` |
+| github-pr-reviewer | skill | Create an automation that reviews GitHub pull requests when they are opened or updated. Inspects the diff, changed fi... | `/pr-reviewer:setup` |
+| github-repo-monitor | skill | Create a cron automation that polls a GitHub repository for issue and PR comments containing a configurable trigger p... | `/github-monitor:poll` |
 | gitlab | skill | Interact with GitLab repositories, merge requests, and APIs using the GITLAB_TOKEN environment variable. Use when wor... | — |
-| iterate | skill | Iterate on a GitHub pull request - drive it through CI, code review, and QA until merge-ready. Monitors state, fixes ... | `/iterate`, `/verify`, `/babysit` |
+| incident-retrospective | skill | Create an automation that drafts incident retrospectives by gathering incident-channel messages from Slack, collectin... | `/incident-retro:setup` |
+| iterate | skill | Iterate on a GitHub pull request — drive it through CI, code review, and QA until merge-ready. Monitors state, fixes ... | `/iterate`, `/verify`, `/babysit` |
 | jupyter | skill | Read, modify, execute, and convert Jupyter notebooks programmatically. Use when working with .ipynb files for data sc... | — |
 | kubernetes | skill | Set up and manage local Kubernetes clusters using KIND (Kubernetes IN Docker). Use when testing Kubernetes applicatio... | — |
 | learn-from-code-review | skill | Distill code review feedback from GitHub PRs into reusable skills and guidelines. Use when users ask to learn from co... | `/learn-from-reviews` |
 | linear | skill | Interact with Linear project management - query issues, update status, create tickets using the Linear GraphQL API. | — |
+| linear-triage | skill | Create an automation that triages new Linear issues by inspecting title, description, team, and recent related issues... | `/linear-triage:setup` |
 | magic-test | plugin | A simple test plugin for verifying plugin loading. Triggers on magic words (alakazam, abracadabra) and returns a spec... | — |
 | notion | skill | Create, search, and update Notion pages/databases using the Notion API. Use for documenting work, generating runbooks... | — |
 | npm | skill | Handle npm package installation in non-interactive environments by piping confirmations. Use when installing Node.js ... | — |
 | onboarding | plugin | Assess repository agent-readiness across five pillars, propose high-impact fixes, and generate repo-specific AGENTS.m... | — |
-| openhands | plugin | Unified OpenHands plugin - bundles Cloud CLI, REST API (openhands-api), and Automations (openhands-automation) into a... | `/openhands-cloud` |
-| openhands-api | skill | Use the OpenHands Cloud REST API (V1) to create and manage app conversations, including multi-conversation delegation... | — |
+| openhands | plugin | Unified OpenHands plugin — bundles Cloud CLI, REST API (openhands-api), and Automations (openhands-automation) into a... | `/openhands-cloud` |
+| openhands-api | skill | Use the OpenHands Cloud REST API (V1) and agent-server APIs to create and manage Cloud or local backend conversations... | — |
 | openhands-automation | skill | Create and manage OpenHands automations - scheduled tasks that run in sandboxes. Use the prompt preset to create auto... | `/automation:create` |
 | openhands-sdk | skill | Reference skill for the OpenHands Software Agent SDK - build AI agents with custom tools, LLM configuration, conversa... | `/sdk` |
 | pdflatex | skill | Install and use pdflatex to compile LaTeX documents into PDFs on Linux. Use when generating academic papers, research... | — |
-| pr-review | plugin | Automated PR code review - analyzes diffs and posts inline review comments via the GitHub API. | — |
+| plain-english-content | skill | Write and edit clear, accessible prose in a plain English content style: active voice, front-loaded content, sentence... | — |
+| pr-review | plugin | Automated PR code review — analyzes diffs and posts inline review comments via the GitHub API. | — |
 | prd | skill | Generate a Product Requirements Document (PRD) for a new feature through an interactive clarifying-question workflow.... | `/prd` |
 | qa-changes | plugin | Validate pull request changes by actually running the code — setting up the environment, exercising changed behavior,... | — |
 | release-notes | plugin | Generate consistent, well-structured release notes from git history. Produces categorized changelog with breaking cha... | `/release-notes` |
+| research-brief | skill | Create a recurring automation that researches a topic using Tavily web search and publishes a structured brief to Not... | `/research-brief:setup` |
 | security | skill | Security best practices for secure coding, authentication, authorization, and data protection. Use when developing fe... | — |
 | skill-creator | skill | Guide for creating effective skills. This skill should be used when users want to create a new skill (or update an ex... | — |
+| slack-channel-monitor | skill | Create a cron automation that polls up to 10 Slack channels every minute and starts an OpenHands conversation when a ... | `/slack-monitor:poll` |
+| slack-standup-digest | skill | Create an automation that generates an async standup digest from Slack. Searches selected channels for messages since... | `/standup-digest:setup` |
 | ssh | skill | Establish and manage SSH connections to remote machines, including key generation, configuration, and file transfers.... | — |
 | swift-linux | skill | Install and configure Swift programming language on Debian Linux for server-side development. Use when building Swift... | — |
 | test-improvement | plugin | Bundle the test-improvement workflow, prioritization, validation, and execution-pattern skills into one installable p... | — |

@@ -1,0 +1,104 @@
+name: Publish to PyPI
+
+on:
+  workflow_dispatch:
+  release:
+    types: [published]
+
+concurrency:
+  group: pypi-publish-${{ github.event.release.tag_name || github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build Python distributions
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Extract version
+        id: extract_version
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: |
+          if [ "${{ github.event_name }}" = "release" ]; then
+            VERSION="${RELEASE_TAG#v}"
+          else
+            VERSION=$(python - <<'PY'
+          import tomllib
+          from pathlib import Path
+
+          print(tomllib.loads(Path("pyproject.toml").read_text())["project"]["version"])
+          PY
+          )
+          fi
+
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "📦 Version: $VERSION"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7
+        with:
+          version: latest
+          python-version: '3.12'
+
+      - name: Validate package version matches release tag
+        if: github.event_name == 'release'
+        env:
+          VERSION: ${{ steps.extract_version.outputs.version }}
+        run: |
+          PACKAGE_VERSION=$(python - <<'PY'
+          import tomllib
+          from pathlib import Path
+
+          print(tomllib.loads(Path("pyproject.toml").read_text())["project"]["version"])
+          PY
+          )
+
+          echo "Package version: $PACKAGE_VERSION"
+          echo "Release tag version: $VERSION"
+          if [ "$PACKAGE_VERSION" != "$VERSION" ]; then
+            echo "Error: pyproject.toml version ($PACKAGE_VERSION) doesn't match release tag ($VERSION)"
+            exit 1
+          fi
+
+      - name: Build package
+        run: uv build
+
+      - name: Upload distributions
+        uses: actions/upload-artifact@v6
+        with:
+          name: python-package-distributions
+          path: dist/
+          if-no-files-found: error
+
+  publish:
+    name: Publish openhands-extensions to PyPI
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      !github.event.release.prerelease
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    environment:
+      name: pypi
+      url: https://pypi.org/p/openhands-extensions
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Download distributions
+        uses: actions/download-artifact@v6
+        with:
+          name: python-package-distributions
+          path: dist/
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1

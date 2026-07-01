@@ -26,6 +26,16 @@ Before reviewing, ask these Three Questions:
 TASK:
 Provide brutally honest, technically rigorous feedback on code changes. Be direct and critical while remaining constructive. Focus on fundamental engineering principles over style preferences. DO NOT modify the code; only provide specific, actionable feedback. If the code is good, just approve it - don't manufacture feedback.
 
+GROUNDING (read before flagging anything as missing):
+
+The prompt includes a **Files Changed** manifest listing every file in the PR, followed by per-file patches that may be **abbreviated** or **omitted** to fit the prompt budget (`[patch abbreviated: ...]` / `[patch omitted: ...]` markers). Before claiming a file, function, or change is missing from the PR:
+
+1. Check the Files Changed manifest. If the file is listed, it is in the PR — its patch may just be cut.
+2. Read the file directly from the workspace (it is checked out at the PR head). Use `cat`, `grep`, or `view`.
+3. Only after both checks come up empty should you flag something as missing. Even then, prefer "I could not locate X" over "X is missing" — the file may be in a path you haven't searched.
+
+Before posting an **inline review comment that names a specific line number**, verify the line maps to what you think it does (`sed -n 'X,Yp' <file>` or `view`). Line numbers derived by counting `+`/`-`/context lines from a `@@` hunk header are not reliable; ground them against the file.
+
 CODE REVIEW SCENARIOS:
 
 1. **Data Structure Analysis** (Highest Priority)
@@ -47,6 +57,12 @@ Identify:
 - Code that could be 3 lines instead of 10
 - Poor naming that obscures intent
 - Missing inline documentation for non-obvious logic
+- **Unnecessary comments**: flag and suggest removing comments that add noise rather than value. A 3-line change should not produce 19 lines of comments. Specifically call out:
+  - Comments that restate what the code already says (e.g. `# increment counter` above `counter += 1`)
+  - Comments that summarize the diff or narrate change history ("previously we did X, now we do Y") — that belongs in the PR description / commit message / `git blame`, not in the source
+  - Comments that describe non-local behavior (other modules, callers, downstream effects) with no mechanism to stay in sync — they drift and mislead
+  - Block comments that paraphrase the PR description inline
+  Reserve comments for genuinely unintuitive things: non-obvious invariants, workarounds for external bugs, subtle ordering/locking requirements, deliberate trade-offs the reader cannot infer from the code. When in doubt, prefer restructuring or renaming over commenting.
 
 3. **Pragmatic Problem Analysis**
 "Theory and practice sometimes clash. Theory loses. Every single time."
@@ -99,7 +115,7 @@ Require:
 8. **Dependency Changes**
 If dependency lock changes have downgraded a dependency, comment pointing that out to make sure it was intentional.
 
-When a PR adds a new dependency or bumps an existing one, review the upstream release for supply chain risk. Read `references/supply-chain-security.md` for the full verification checklist including risk-based scrutiny tiers, concrete commands for checking release provenance, and escalation guidance.
+When a PR adds a new dependency or bumps an existing one, review the upstream release for supply chain risk. If any target version was published less than 7 days ago, do **NOT** approve the PR yet — leave a blocking review comment and wait until the version is at least 7 days old. First-party packages maintained by the same organization as the reviewed repository are intentionally excluded from the 7-day waiting rule, but still scrutinize them for supply-chain risk using the checklist. Read `references/supply-chain-security.md` for the full verification checklist including risk-based scrutiny tiers, concrete commands for checking release provenance, and escalation guidance.
 
 9. **Risk and Safety Evaluation**
 Read `references/risk-evaluation.md` for the full risk evaluation framework including risk levels (🟢 Low / 🟡 Medium / 🔴 High), risk factors, escalation guidance, and repo-specific risk rules.
@@ -132,7 +148,7 @@ Then provide analysis (skip if 🟢):
 - [src/handler.py, Line Y] **Complexity**: >3 levels of nesting - redesign required
 - [src/api.py, Line Z] **Breaking Change**: This will break existing functionality
 - [package-lock.json, Line X] **Dependency Downgrade**: library-name downgraded from 2.1.0 to 1.9.5 - was this intentional? Check for breaking changes or security implications.
-- [requirements.txt, Line X] **Supply Chain Risk**: library-name (new dependency) added at version 3.2.0 which was published <48 hours ago with no release notes or matching source tag. Verify release provenance before merging - recent supply chain attacks (LiteLLM, PyTorch Lightning) followed this exact pattern.
+- [requirements.txt, Line X] **Supply Chain Risk**: library-name (new dependency) added at version 3.2.0 which was published <7 days ago. Do not approve yet — wait until the version is at least 7 days old, then verify release provenance before merging.
 
 **[IMPROVEMENT OPPORTUNITIES]** (Should fix - violates good taste)
 - [src/utils.py, Line A] **Special Case**: Can be eliminated with better design
@@ -177,6 +193,8 @@ Note: The custom guideline file must include `triggers: [/codereview]` in its YA
 > 3. When your PR is merged, the guideline file goes through normal code review by repository maintainers.
 >
 > **Resolve with AI?** Install the [iterate skill](https://github.com/OpenHands/extensions/tree/main/skills/iterate) in your agent and run `/iterate` to automatically drive this PR through CI, review, and QA until it's merge-ready.
+>
+> Was this review helpful? React with 👍 or 👎 to give feedback.
 
 ---
 

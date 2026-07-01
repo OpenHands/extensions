@@ -1,0 +1,59 @@
+{
+  "id": "github",
+  "name": "GitHub",
+  "description": "Search code, manage issues and pull requests, and inspect repos via the GitHub API.",
+  "categories": [
+    "Engineering",
+    "Source control"
+  ],
+  "appUrl": "https://github.com",
+  "docsUrl": "https://github.com/github/github-mcp-server",
+  "notes": "Current managed connector works with bearer tokens today; GitHub OAuth is a strong candidate for a future one-click connect flow.",
+  "popularityRank": 100,
+  "connectionOptions": [
+    {
+      "id": "oauth",
+      "provider": "mcp",
+      "auth": {
+        "strategy": "oauth2",
+        "oauth": {
+          "authorizationUrl": "https://github.com/login/oauth/authorize",
+          "tokenUrl": "https://github.com/login/oauth/access_token",
+          "scopes": [
+            "read:user",
+            "repo"
+          ]
+        }
+      },
+      "transport": {
+        "kind": "shttp",
+        "url": "https://api.githubcopilot.com/mcp/"
+      }
+    },
+    {
+      "id": "api",
+      "provider": "mcp",
+      "transport": {
+        "kind": "shttp",
+        "url": "https://api.githubcopilot.com/mcp/"
+      },
+      "auth": {
+        "strategy": "api_key",
+        "credentialLabel": "Personal access token",
+        "credentialPlaceholder": "github_pat_...",
+        "credentialHelp": "Classic or fine-grained personal access token from GitHub settings.",
+        "credentialSecretName": "GITHUB_PERSONAL_ACCESS_TOKEN",
+        "saveCredentialAsSecretByDefault": true
+      }
+    }
+  ],
+  "iconBg": "var(--oh-surface)",
+  "logoUrl": "https://cdn.simpleicons.org/github/FFFFFF",
+  "keywords": [
+    "git",
+    "pr",
+    "repo",
+    "issues",
+    "code"
+  ]
+}

@@ -37,6 +37,37 @@ from lmnr import Laminar, LaminarClient
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 logger = logging.getLogger(__name__)
 
+FEEDBACK_COMMENT_MARKER = "<!-- openhands-pr-review-feedback -->"
+
+REVIEWS_QUERY = """
+query($owner: String!, $repo: String!, $pr_number: Int!, $cursor: String) {
+  repository(owner: $owner, name: $repo) {
+    pullRequest(number: $pr_number) {
+      reviews(first: 100, after: $cursor) {
+        pageInfo {
+          hasNextPage
+          endCursor
+        }
+        nodes {
+          id
+          body
+          state
+          submittedAt
+          author { login }
+          reactionGroups {
+            content
+            users {
+              totalCount
+            }
+          }
+        }
+      }
+    }
+  }
+}
+"""
+
+
 
 def _get_required_env(name: str) -> str:
     """Get a required environment variable or raise an error."""
@@ -60,9 +91,12 @@ def _get_agent_usernames() -> set[str]:
     """Get the set of agent usernames to identify agent comments.
 
     Configurable via AGENT_USERNAMES environment variable (comma-separated).
-    Defaults to 'openhands-agent,all-hands-bot'.
+    Defaults to 'openhands-agent,all-hands-bot,github-actions[bot]'.
     """
-    usernames = os.getenv("AGENT_USERNAMES", "openhands-agent,all-hands-bot")
+    usernames = os.getenv(
+        "AGENT_USERNAMES",
+        "openhands-agent,all-hands-bot,github-actions[bot]",
+    )
     return set(name.strip() for name in usernames.split(",") if name.strip())
 
 
@@ -101,16 +135,95 @@ def fetch_pr_issue_comments(repo: str, pr_number: str) -> list[dict]:
         return []
 
 
-def fetch_pr_reviews(repo: str, pr_number: str) -> list[dict]:
-    """Fetch all reviews on a PR (approve, request changes, comment)."""
-    url = f"https://api.github.com/repos/{repo}/pulls/{pr_number}/reviews"
-    request = urllib.request.Request(url, headers=_get_github_headers())
+def _call_github_graphql(query: str, variables: dict) -> dict:
+    """Execute a GitHub GraphQL query and return the `data` payload."""
+    request = urllib.request.Request(
+        "https://api.github.com/graphql",
+        headers=_get_github_headers(),
+        method="POST",
+        data=json.dumps({"query": query, "variables": variables}).encode("utf-8"),
+    )
+    request.add_header("Content-Type", "application/json")
     try:
         with urllib.request.urlopen(request, timeout=60) as response:
-            return json.loads(response.read().decode("utf-8"))
+            payload = json.loads(response.read().decode("utf-8"))
     except urllib.error.HTTPError as e:
-        _handle_github_api_error(e, "fetch reviews")
-        return []
+        _handle_github_api_error(e, "fetch GraphQL data")
+        return {}
+
+    if payload.get("errors"):
+        logger.error("GitHub GraphQL returned errors: %s", payload["errors"])
+        return {}
+
+    return payload.get("data") or {}
+
+
+def _normalize_review_reactions(reaction_groups: list[dict] | None) -> dict[str, int]:
+    """Map GraphQL reaction groups to GitHub-style thumbs-up/down counters."""
+    thumbs_up = 0
+    thumbs_down = 0
+
+    for group in reaction_groups or []:
+        total_count = ((group.get("users") or {}).get("totalCount")) or 0
+        content = group.get("content")
+        if content == "THUMBS_UP":
+            thumbs_up = total_count
+        elif content == "THUMBS_DOWN":
+            thumbs_down = total_count
+
+    return {
+        "+1": thumbs_up,
+        "-1": thumbs_down,
+        "total_count": thumbs_up + thumbs_down,
+    }
+
+
+def fetch_pr_reviews(repo: str, pr_number: str) -> list[dict]:
+    """Fetch all reviews on a PR, including thumbs-up/down reaction counts."""
+    owner, repo_name = repo.split("/", 1)
+    reviews = []
+    cursor = None
+
+    while True:
+        data = _call_github_graphql(
+            REVIEWS_QUERY,
+            {
+                "owner": owner,
+                "repo": repo_name,
+                "pr_number": int(pr_number),
+                "cursor": cursor,
+            },
+        )
+        reviews_data = (
+            data.get("repository", {})
+            .get("pullRequest", {})
+            .get("reviews", {})
+        )
+        nodes = reviews_data.get("nodes") or []
+
+        for review in nodes:
+            author = review.get("author") or {}
+            reviews.append(
+                {
+                    "id": review.get("id"),
+                    "user": {"login": author.get("login")},
+                    "body": review.get("body") or "",
+                    "state": review.get("state"),
+                    "submitted_at": review.get("submittedAt"),
+                    "reactions": _normalize_review_reactions(
+                        review.get("reactionGroups")
+                    ),
+                }
+            )
+
+        page_info = reviews_data.get("pageInfo") or {}
+        if not page_info.get("hasNextPage"):
+            break
+        cursor = page_info.get("endCursor")
+        if not cursor:
+            break
+
+    return reviews
 
 
 def fetch_pr_diff(repo: str, pr_number: str) -> str:
@@ -231,6 +344,36 @@ def extract_human_responses(
     return human_responses
 
 
+def extract_review_feedback(
+    issue_comments: list[dict], reviews: list[dict] | None = None
+) -> list[dict]:
+    """Extract thumbs-up/down feedback from review bodies or legacy comments."""
+    agent_users = _get_agent_usernames()
+    feedback = []
+
+    for comment in [*issue_comments, *(reviews or [])]:
+        if FEEDBACK_COMMENT_MARKER not in (comment.get("body") or ""):
+            continue
+        if comment.get("user", {}).get("login") not in agent_users:
+            continue
+
+        reactions = comment.get("reactions") or {}
+        thumbs_up = reactions.get("+1", 0) or 0
+        thumbs_down = reactions.get("-1", 0) or 0
+        feedback.append(
+            {
+                "comment_id": comment.get("id"),
+                "created_at": comment.get("created_at")
+                or comment.get("submitted_at"),
+                "thumbs_up": thumbs_up,
+                "thumbs_down": thumbs_down,
+                "total": thumbs_up + thumbs_down,
+            }
+        )
+
+    return feedback
+
+
 def truncate_text(text: str, max_chars: int = 50000) -> str:
     """Truncate text to stay within reasonable API payload limits.
 
@@ -298,9 +441,11 @@ def fetch_pr_data(repo: str, pr_number: str) -> dict:
 
     agent_comments = extract_agent_comments(review_comments, issue_comments, reviews)
     human_responses = extract_human_responses(review_comments, issue_comments)
+    review_feedback = extract_review_feedback(issue_comments, reviews)
 
     logger.info(f"Agent made {len(agent_comments)} comments")
     logger.info(f"Humans made {len(human_responses)} responses")
+    logger.info(f"Found {len(review_feedback)} review feedback prompts")
 
     return {
         "review_comments": review_comments,
@@ -310,6 +455,7 @@ def fetch_pr_data(repo: str, pr_number: str) -> dict:
         "pr_info": pr_info,
         "agent_comments": agent_comments,
         "human_responses": human_responses,
+        "review_feedback": review_feedback,
     }
 
 
@@ -372,6 +518,7 @@ def create_evaluation_span(
         "original_trace_id": trace_info.get("trace_id"),
         "agent_comments": pr_data["agent_comments"],
         "human_responses": pr_data["human_responses"],
+        "review_feedback": pr_data["review_feedback"],
         "final_diff": truncate_text(pr_data["final_diff"]),
         "total_review_comments": len(pr_data["review_comments"]),
         "total_issue_comments": len(pr_data["issue_comments"]),
@@ -398,6 +545,7 @@ def create_evaluation_span(
             "merged": pr_merged,
             "agent_comments_count": len(pr_data["agent_comments"]),
             "human_responses_count": len(pr_data["human_responses"]),
+            "review_feedback": pr_data["review_feedback"],
             "diff_length": len(pr_data["final_diff"]),
         }
         logger.info(f"Evaluation summary: {json.dumps(summary)}")
@@ -439,6 +587,7 @@ def main(trace_file_path: str | None = None):
     original_trace_id = trace_info.get("trace_id")
     agent_comments = pr_data["agent_comments"]
     human_responses = pr_data["human_responses"]
+    review_feedback = pr_data["review_feedback"]
 
     # Score engagement on the original trace for immediate feedback
     if original_trace_id:
@@ -456,6 +605,7 @@ def main(trace_file_path: str | None = None):
                     "agent_comments": len(agent_comments),
                     "human_responses": len(human_responses),
                     "pr_merged": pr_merged,
+                    "review_feedback": review_feedback,
                     "score_type": "engagement",
                 },
             )
@@ -476,6 +626,10 @@ def main(trace_file_path: str | None = None):
     print(f"Merged: {pr_merged}")
     print(f"Agent Comments: {len(agent_comments)}")
     print(f"Human Responses: {len(human_responses)}")
+    if review_feedback:
+        thumbs_up = sum(item["thumbs_up"] for item in review_feedback)
+        thumbs_down = sum(item["thumbs_down"] for item in review_feedback)
+        print(f"Review Feedback: 👍 {thumbs_up} / 👎 {thumbs_down}")
     if original_trace_id:
         print(f"Original Review Trace: {original_trace_id}")
     if eval_trace_id:

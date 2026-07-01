@@ -69,7 +69,7 @@ Add the following secrets in your repository settings (**Settings → Secrets an
 | `GITHUB_TOKEN` | Auto | Provided automatically by GitHub Actions |
 | `LMNR_SKILLS_API_KEY` | No | Laminar API key (org-level secret; mapped to `LMNR_PROJECT_API_KEY` env var in workflows) |
 
-**Note**: For repositories that need to post review comments from a bot account, use `ALLHANDS_BOT_GITHUB_PAT` instead of `GITHUB_TOKEN`.
+**Note**: To post review comments from a bot account instead of `GITHUB_TOKEN`, use a bot token scoped to the repository's trust boundary. On **public** repositories, use `OPENHANDS_BOT_GITHUB_PAT_PUBLIC` — a fine-grained token limited to public repositories. On **private** repositories, use a bot token scoped to that repository. Never give a public repository a token that can reach private repositories.
 
 ### 3. Customize the Workflow (Optional)
 
@@ -217,6 +217,7 @@ PR reviews are automatically triggered when:
 | `review-style` | No | `roasted` | **[DEPRECATED]** Previously chose between `standard` and `roasted` review styles. Now ignored — the styles have been merged into a single unified skill. |
 | `require-evidence` | No | `'false'` | Require the reviewer to enforce an `Evidence` section in the PR description with end-to-end proof: screenshots/videos for frontend work, commands and runtime output for backend or scripts, and an agent conversation link when applicable. Test output alone does not qualify. |
 | `use-sub-agents` | No | `'false'` | Enable sub-agent delegation for file-level reviews in `openhands` mode. The main agent acts as a coordinator that delegates per-file review work to `file_reviewer` sub-agents via the SDK TaskToolSet, then consolidates findings into a single PR review. Useful for large PRs with many changed files. **Disabled by default** due to high token costs and potential timeouts (see [#208](https://github.com/OpenHands/extensions/issues/208)). Set to `'true'` to opt in. Ignored in ACP mode. |
+| `collect-feedback` | No | `'true'` | Append a short feedback footer to the main automated review body asking maintainers to react with thumbs up/down. The evaluation workflow records these reaction counts for analysis. |
 | `extensions-repo` | No | `OpenHands/extensions` | Extensions repository |
 | `extensions-version` | No | `main` | Git ref (tag, branch, or SHA) |
 | `openhands-sdk-package` | No | `openhands-sdk` | Package spec passed to `uv --with`; override only when pinning a specific SDK build for testing or rollout control |
@@ -271,6 +272,7 @@ One model is randomly selected for each review. When Laminar observability is en
 
 - **Review Trace**: Full agent execution including diff analysis, review generation, and comment posting
 - **Metadata**: PR number, repository, review style, model used
+- **Feedback**: Optional thumbs up/down reactions on the footer appended to the generated PR review body
 - **Evaluation Trace**: (Optional) Created when PR is closed/merged to measure review effectiveness
 
 ### Review Evaluation

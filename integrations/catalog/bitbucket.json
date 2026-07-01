@@ -1,0 +1,34 @@
+{
+  "id": "bitbucket",
+  "name": "Bitbucket",
+  "description": "Repositories, pull requests, and Atlassian engineering workflows.",
+  "categories": [
+    "Engineering",
+    "Source control"
+  ],
+  "appUrl": "https://bitbucket.org",
+  "docsUrl": "https://developer.atlassian.com/cloud/bitbucket/oauth-2/",
+  "notes": "Popular in Atlassian-centric teams and complements Jira/Confluence.",
+  "popularityRank": 50,
+  "connectionOptions": [
+    {
+      "id": "oauth",
+      "provider": "http",
+      "auth": {
+        "strategy": "oauth2",
+        "oauth": {
+          "authorizationUrl": "https://bitbucket.org/site/oauth2/authorize",
+          "tokenUrl": "https://bitbucket.org/site/oauth2/access_token",
+          "scopes": [
+            "account",
+            "repository"
+          ]
+        }
+      },
+      "http": {
+        "apiBaseUrl": "https://api.bitbucket.org/2.0",
+        "openApiUrl": "https://developer.atlassian.com/cloud/bitbucket/swagger.v3.json"
+      }
+    }
+  ]
+}

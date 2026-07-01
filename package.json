@@ -1,0 +1,55 @@
+{
+  "name": "@openhands/extensions",
+  "version": "0.8.0",
+  "description": "Public OpenHands extension catalogs for skills, plugins, integrations, and automation templates.",
+  "license": "MIT",
+  "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/OpenHands/extensions"
+  },
+  "scripts": {
+    "build:skills": "node scripts/build-skills-catalog.mjs",
+    "build:integrations": "node scripts/build-integration-catalog.mjs",
+    "build": "npm run build:skills && npm run build:integrations"
+  },
+  "engines": {
+    "node": ">=18.20.0"
+  },
+  "peerDependencies": {
+    "lucide-react": ">=0.400.0",
+    "react": ">=18.0.0",
+    "react-icons": ">=5.0.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "exports": {
+    ".": {
+      "types": "./index.d.ts",
+      "import": "./index.js",
+      "default": "./index.js"
+    },
+    "./automations": {
+      "types": "./automations/index.d.ts",
+      "import": "./automations/index.js",
+      "default": "./automations/index.js"
+    },
+    "./automations/catalog/*.json": "./automations/catalog/*.json",
+    "./integrations": {
+      "types": "./integrations/index.d.ts",
+      "import": "./integrations/index.js",
+      "default": "./integrations/index.js"
+    },
+    "./integrations/catalog/*.json": "./integrations/catalog/*.json",
+    "./skills": {
+      "types": "./skills/index.d.ts",
+      "import": "./skills/index.js",
+      "default": "./skills/index.js"
+    },
+    "./skills/*": "./skills/*",
+    "./plugins/*": "./plugins/*",
+    "./marketplaces/*.json": "./marketplaces/*.json",
+    "./package.json": "./package.json"
+  }
+}

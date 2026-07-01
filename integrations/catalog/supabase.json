@@ -1,0 +1,65 @@
+{
+  "id": "supabase",
+  "name": "Supabase",
+  "description": "Query and manage your Supabase project, including database, auth, and storage.",
+  "categories": [
+    "Database",
+    "Developer tools"
+  ],
+  "appUrl": "https://supabase.com",
+  "docsUrl": "https://supabase.com/docs/guides/getting-started/mcp",
+  "notes": "Popular developer platform with broad automation value and a documented management-API OAuth integration flow.",
+  "popularityRank": 38,
+  "connectionOptions": [
+    {
+      "id": "api",
+      "provider": "mcp",
+      "transport": {
+        "kind": "stdio",
+        "serverName": "supabase",
+        "command": "npx",
+        "args": [
+          "-y",
+          "@supabase/mcp-server-supabase@latest"
+        ],
+        "envFields": [
+          {
+            "key": "SUPABASE_ACCESS_TOKEN",
+            "label": "Supabase access token",
+            "type": "password",
+            "required": true,
+            "helperText": "Personal access token from your Supabase dashboard.",
+            "helperLink": "https://supabase.com/dashboard/account/tokens"
+          }
+        ]
+      },
+      "auth": {
+        "strategy": "api_key"
+      }
+    },
+    {
+      "id": "oauth",
+      "provider": "http",
+      "auth": {
+        "strategy": "oauth2",
+        "oauth": {
+          "authorizationUrl": "https://api.supabase.com/v1/oauth/authorize",
+          "tokenUrl": "https://api.supabase.com/v1/oauth/token",
+          "scopes": []
+        }
+      },
+      "http": {
+        "apiBaseUrl": "https://api.supabase.com/v1",
+        "openApiUrl": "https://raw.githubusercontent.com/supabase/supabase/master/apps/docs/spec/api_v1_openapi.json"
+      }
+    }
+  ],
+  "iconBg": "#3ECF8E",
+  "logoUrl": "https://cdn.simpleicons.org/supabase/FFFFFF",
+  "keywords": [
+    "database",
+    "auth",
+    "storage",
+    "postgres"
+  ]
+}

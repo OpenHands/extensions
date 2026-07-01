@@ -1,0 +1,34 @@
+{
+  "id": "hubspot",
+  "name": "HubSpot",
+  "description": "CRM, marketing, tickets, and customer lifecycle workflows.",
+  "categories": [
+    "CRM",
+    "Marketing"
+  ],
+  "appUrl": "https://www.hubspot.com",
+  "docsUrl": "https://developers.hubspot.com/docs/apps/developer-platform/build-apps/integrate-with-the-remote-hubspot-mcp-server",
+  "notes": "Uses HubSpot's official remote MCP server plus MCP auth apps with PKCE.",
+  "popularityRank": 25,
+  "connectionOptions": [
+    {
+      "id": "oauth",
+      "provider": "mcp",
+      "auth": {
+        "strategy": "oauth2",
+        "credentialHelp": "Use the client ID and secret from a HubSpot MCP auth app (Development → MCP Auth Apps). Standard HubSpot OAuth apps and private apps will not authenticate with mcp.hubspot.com.",
+        "oauth": {
+          "authorizationUrl": "https://mcp.hubspot.com/oauth/authorize/user",
+          "tokenUrl": "https://mcp.hubspot.com/oauth/v3/token",
+          "scopes": [],
+          "pkce": true,
+          "clientAuthentication": "body"
+        }
+      },
+      "transport": {
+        "kind": "shttp",
+        "url": "https://mcp.hubspot.com"
+      }
+    }
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "id": "onedrive",
+  "name": "OneDrive",
+  "description": "Cloud file access and document workflows through Microsoft Graph.",
+  "categories": [
+    "Storage",
+    "Documents"
+  ],
+  "appUrl": "https://www.microsoft.com/microsoft-365/onedrive/online-cloud-storage",
+  "docsUrl": "https://learn.microsoft.com/graph/auth-v2-user",
+  "notes": "Useful for enterprise file automation and search.",
+  "popularityRank": 22,
+  "connectionOptions": [
+    {
+      "id": "oauth",
+      "provider": "http",
+      "auth": {
+        "strategy": "oauth2",
+        "oauth": {
+          "authorizationUrl": "https://login.microsoftonline.com/common/oauth2/v2.0/authorize",
+          "tokenUrl": "https://login.microsoftonline.com/common/oauth2/v2.0/token",
+          "scopes": [
+            "Files.Read"
+          ]
+        }
+      },
+      "http": {
+        "apiBaseUrl": "https://graph.microsoft.com/v1.0",
+        "openApiUrl": "https://raw.githubusercontent.com/microsoftgraph/msgraph-metadata/master/openapi/v1.0/openapi.yaml"
+      }
+    }
+  ]
+}

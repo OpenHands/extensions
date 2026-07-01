@@ -1,0 +1,21 @@
+{
+  "name": "slack-channel-monitor",
+  "version": "1.0.0",
+  "description": "Create a cron automation that polls up to 10 Slack channels every minute and starts an OpenHands conversation when a configurable trigger phrase is detected. Forwards thread replies to running conversations and posts summaries back to Slack when the agent finishes.",
+  "author": {
+    "name": "OpenHands",
+    "email": "contact@all-hands.dev"
+  },
+  "homepage": "https://github.com/OpenHands/extensions",
+  "repository": "https://github.com/OpenHands/extensions",
+  "license": "MIT",
+  "keywords": [
+    "slack",
+    "monitor",
+    "channel",
+    "trigger",
+    "cron",
+    "automation",
+    "integration"
+  ]
+}

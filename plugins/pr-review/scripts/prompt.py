@@ -51,10 +51,32 @@ When checking the PR description:
 If the change is substantive and this evidence is missing or weak, call it out as a must-fix issue in your review. Do not invent evidence that is not present in the PR description.
 """
 
+FEEDBACK_COMMENT_MARKER = "<!-- openhands-pr-review-feedback -->"
+
+_FEEDBACK_FOOTER_SECTION = """
+## Review Feedback Footer
+
+When you submit the top-level GitHub review body, append this exact footer at the end of that same review body so maintainers can react without creating a separate PR comment:
+
+```md
+---
+Was this automated review useful? React with 👍 or 👎 to this review to help us measure review quality.
+Workflow run: {review_run_url}
+{feedback_comment_marker}
+```
+
+Requirements:
+- Put this footer in the main review body, not in a separate issue comment.
+- Keep the rest of the review body concise.
+- If you would otherwise post only inline comments, still include a short top-level review body so this footer has somewhere to live.
+"""
+
 PROMPT = """{skill_trigger}
 /github-pr-review
 
 When posting a review, keep the review body brief unless your active review instructions require a longer structured format.
+
+For dependency update PRs, do **NOT** approve a target version that was published less than 7 days ago. First-party packages maintained by the same organization as the reviewed repository are intentionally excluded from this 7-day waiting rule, but still scrutinize them for supply-chain risk.
 
 Review the PR changes below and identify issues that need to be addressed.
 
@@ -68,9 +90,11 @@ Review the PR changes below and identify issues that need to be addressed.
 - **PR Number**: {pr_number}
 - **Commit ID**: {commit_id}
 
-{review_context_section}{evidence_requirements_section}
+{review_context_section}{evidence_requirements_section}{feedback_footer_section}
+{files_manifest}
+## Patches
 
-## Git Diff
+The fenced block below contains the per-file patches. Individual patches may be **abbreviated** (look for `[patch abbreviated: ...]`) or **omitted** (look for `[patch omitted: ...]`) when they exceed the per-file or total budget. Files that appear in the manifest above but whose patch is missing or short here are still present in the PR — read the file from the workspace to inspect them. Do not flag them as missing from the PR.
 
 ```diff
 {diff}
@@ -162,8 +186,11 @@ def format_prompt(
     pr_number: str,
     commit_id: str,
     diff: str,
+    files_manifest: str = "",
     review_context: str = "",
     require_evidence: bool = False,
+    collect_feedback: bool = False,
+    review_run_url: str = "",
     use_sub_agents: bool = False,
 ) -> str:
     """Format the PR review prompt with all parameters.
@@ -182,6 +209,9 @@ def format_prompt(
                         the review context section is omitted from the prompt.
         require_evidence: Whether to instruct the reviewer to enforce PR description
                           evidence showing the code works.
+        collect_feedback: Whether to instruct the reviewer to append the feedback
+                          footer to the main review body.
+        review_run_url: Workflow run URL to embed in the feedback footer.
         use_sub_agents: When True, the agent gets the TaskToolSet and decides
                         at runtime whether to delegate file-level reviews to
                         sub-agents based on diff size and complexity.
@@ -201,6 +231,13 @@ def format_prompt(
         _EVIDENCE_REQUIREMENT_SECTION if require_evidence else ""
     )
 
+    feedback_footer_section = ""
+    if collect_feedback:
+        feedback_footer_section = _FEEDBACK_FOOTER_SECTION.format(
+            review_run_url=review_run_url or "unavailable",
+            feedback_comment_marker=FEEDBACK_COMMENT_MARKER,
+        )
+
     prompt = PROMPT.format(
         skill_trigger=skill_trigger,
         title=title,
@@ -212,6 +249,8 @@ def format_prompt(
         commit_id=commit_id,
         review_context_section=review_context_section,
         evidence_requirements_section=evidence_requirements_section,
+        feedback_footer_section=feedback_footer_section,
+        files_manifest=files_manifest,
         diff=diff,
     )
 

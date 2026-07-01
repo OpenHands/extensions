@@ -1,0 +1,41 @@
+{
+  "id": "kagi",
+  "name": "Kagi Search",
+  "description": "Paid, privacy-first search with high signal-to-noise \u2014 great for research.",
+  "docsUrl": "https://github.com/kagisearch/kagimcp",
+  "iconBg": "#FFB319",
+  "logoUrl": "https://cdn.simpleicons.org/kagi/000000",
+  "iconColor": "var(--oh-surface-deep)",
+  "keywords": [
+    "search",
+    "web",
+    "privacy"
+  ],
+  "connectionOptions": [
+    {
+      "id": "api",
+      "provider": "mcp",
+      "transport": {
+        "kind": "stdio",
+        "serverName": "kagi",
+        "command": "uvx",
+        "args": [
+          "kagimcp"
+        ],
+        "envFields": [
+          {
+            "key": "KAGI_API_KEY",
+            "label": "Kagi API key",
+            "type": "password",
+            "required": true,
+            "helperText": "API key from your Kagi account settings.",
+            "helperLink": "https://kagi.com/settings?p=api"
+          }
+        ]
+      },
+      "auth": {
+        "strategy": "api_key"
+      }
+    }
+  ]
+}

@@ -54,6 +54,7 @@ Executable code (Python/Bash/etc.) for tasks that require deterministic reliabil
 - **Example**: `scripts/rotate_pdf.py` for PDF rotation tasks
 - **Benefits**: Token efficient, deterministic, may be executed without loading into context
 - **Note**: Scripts may still need to be read by OpenHands for patching or environment-specific adjustments
+- **Python dependencies**: Use `uv` instead of `pip` or `pip3` for all Python dependency installs. `uv` is cross-platform, faster, and avoids the `pip`/`pip3` naming inconsistency across environments. Example: `uv venv .venv --quiet && uv pip install --quiet <package>`
 
 ##### References (`references/`)
 
@@ -505,6 +506,7 @@ Good for: Complex domains with validation utilities
 - Reference supporting files clearly
 - Provide working examples
 - Create utility scripts for common operations
+- Use `uv` for Python dependency installs in scripts (`uv venv .venv --quiet && uv pip install --quiet <pkg>`)
 
 ❌ **DON'T:**
 - Use second person anywhere
@@ -514,6 +516,7 @@ Good for: Complex domains with validation utilities
 - Leave resources unreferenced
 - Include broken or incomplete examples
 - Skip validation
+- Use `pip` or `pip3` directly — `uv` is the cross-platform standard
 
 ## Additional Resources
 

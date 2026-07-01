@@ -1,0 +1,91 @@
+{
+  "id": "slack",
+  "name": "Slack",
+  "description": "Read channels, post messages, and search workspace history from your agent.",
+  "categories": [
+    "Communication",
+    "Operations"
+  ],
+  "appUrl": "https://slack.com",
+  "docsUrl": "https://github.com/zencoderai/slack-mcp-server",
+  "notes": "Uses Slack's official hosted MCP server with confidential OAuth user-token auth.",
+  "popularityRank": 95,
+  "connectionOptions": [
+    {
+      "id": "oauth",
+      "provider": "mcp",
+      "auth": {
+        "strategy": "oauth2",
+        "oauth": {
+          "authorizationUrl": "https://slack.com/oauth/v2_user/authorize",
+          "tokenUrl": "https://slack.com/api/oauth.v2.user.access",
+          "scopes": [
+            "search:read.public",
+            "search:read.private",
+            "search:read.mpim",
+            "search:read.im",
+            "search:read.files",
+            "search:read.users",
+            "chat:write",
+            "channels:history",
+            "groups:history",
+            "mpim:history",
+            "im:history",
+            "canvases:read",
+            "canvases:write",
+            "users:read",
+            "users:read.email"
+          ],
+          "pkce": true,
+          "clientAuthentication": "body"
+        }
+      },
+      "transport": {
+        "kind": "shttp",
+        "url": "https://mcp.slack.com/mcp"
+      }
+    },
+    {
+      "id": "api",
+      "provider": "mcp",
+      "transport": {
+        "kind": "stdio",
+        "serverName": "slack",
+        "command": "npx",
+        "args": [
+          "-y",
+          "@zencoderai/slack-mcp-server"
+        ],
+        "envFields": [
+          {
+            "key": "SLACK_TEAM_ID",
+            "label": "Team / Workspace ID",
+            "type": "text",
+            "placeholder": "T01234567",
+            "helperText": "First get your [Slack URL](https://slack.com/help/articles/221769328-Locate-your-Slack-URL-or-ID#find-your-url). Then use that to get your [Workspace ID](https://slack.com/help/articles/221769328-Locate-your-Slack-URL-or-ID#find-your-workspace-or-org-id).",
+            "required": true
+          },
+          {
+            "key": "SLACK_BOT_TOKEN",
+            "label": "Bot token",
+            "type": "password",
+            "placeholder": "xoxb-...",
+            "required": true,
+            "helperText": "You'll need to create or have access to a [Slack App](https://github.com/zencoderai/slack-mcp-server#slack-bot-setup) to get a Bot token."
+          }
+        ]
+      },
+      "auth": {
+        "strategy": "api_key"
+      }
+    }
+  ],
+  "iconBg": "#4A154B",
+  "logoUrl": "https://cdn.jsdelivr.net/gh/OpenHands/extensions/integrations/icons/slack.svg",
+  "keywords": [
+    "chat",
+    "messaging",
+    "team"
+  ],
+  "installHint": "Create a Slack app with the required scopes, then paste its bot token below."
+}

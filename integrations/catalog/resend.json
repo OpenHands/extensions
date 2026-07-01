@@ -1,0 +1,48 @@
+{
+  "id": "resend",
+  "name": "Resend",
+  "description": "Send transactional and marketing emails via the Resend API.",
+  "docsUrl": "https://resend.com/docs/mcp",
+  "iconBg": "var(--oh-surface-deep)",
+  "logoUrl": "https://cdn.simpleicons.org/resend/FFFFFF",
+  "keywords": [
+    "email",
+    "transactional",
+    "smtp"
+  ],
+  "connectionOptions": [
+    {
+      "id": "api",
+      "provider": "mcp",
+      "transport": {
+        "kind": "stdio",
+        "serverName": "resend",
+        "command": "npx",
+        "args": [
+          "-y",
+          "mcp-send-email"
+        ],
+        "envFields": [
+          {
+            "key": "RESEND_API_KEY",
+            "label": "Resend API key",
+            "type": "password",
+            "required": true,
+            "helperText": "API key from your Resend dashboard.",
+            "helperLink": "https://resend.com/api-keys"
+          },
+          {
+            "key": "SENDER_EMAIL_ADDRESS",
+            "label": "From address",
+            "type": "text",
+            "placeholder": "you@example.com",
+            "required": true
+          }
+        ]
+      },
+      "auth": {
+        "strategy": "api_key"
+      }
+    }
+  ]
+}
