@@ -183,6 +183,28 @@ The automation script lives at `scripts/main.py`. Key behaviors:
 - **Conversation dispatch** - calls `POST /api/conversations` on the agent server with the current user's LLM/agent settings forwarded to the new conversation.
 - **Error transparency** - captures Jira HTTP response bodies in error messages for fast diagnosis.
 
+## Known Limitations
+
+### Pre-existing issues updated after deployment
+
+The deduplication filter compares each issue's `fields.updated` timestamp against
+`first_run_at`. `updated` is Jira's last-modified timestamp for the issue as a whole —
+it advances whenever **any** field changes (comments, priority, description, status, etc.),
+not only when the `create-pr` label is applied.
+
+This means a pre-existing issue that already carried the label at deployment time can
+slip through the filter if it is later updated for an unrelated reason (e.g. someone adds
+a comment), because its `updated` timestamp will have advanced past `first_run_at` while
+its key is not yet in `processed_keys`.
+
+**Workaround:** The only fully reliable way to detect exactly when a label was applied
+is the Jira changelog API (`GET /rest/api/3/issue/{key}/changelog`), which requires an
+extra HTTP call per issue. To avoid that overhead, keep the automation's scope narrow:
+use a label that is exclusively added as a PR-creation signal and is not already present
+on issues at the time of deployment. In practice, the risk window closes as soon as an
+issue is processed — its key enters `processed_keys` and it is never re-dispatched
+regardless of future updates.
+
 ## Additional Resources
 
 - **`references/setup.md`** - Jira API token creation, GitHub token scopes, cron schedule reference, and troubleshooting guide.
