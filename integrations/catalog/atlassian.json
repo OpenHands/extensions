@@ -19,7 +19,7 @@
     "sprint"
   ],
   "popularityRank": 88,
-  "installHint": "Paste your Jira and/or Confluence URL and API token. The mcp-atlassian package runs via uvx \u2014 no install needed.",
+  "installHint": "Paste your Jira and/or Confluence URL and API token. The mcp-atlassian package runs via uvx - no install needed.",
   "connectionOptions": [
     {
       "id": "oauth",
