@@ -1,6 +1,6 @@
 {
   "name": "@openhands/extensions",
-  "version": "0.8.0",
+  "version": "0.9.0",
   "description": "Public OpenHands extension catalogs for skills, plugins, integrations, and automation templates.",
   "license": "MIT",
   "type": "module",
