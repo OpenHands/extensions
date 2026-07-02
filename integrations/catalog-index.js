@@ -73,7 +73,8 @@ import entry67 from "./catalog/playwright.json" with { type: "json" };
 import entry68 from "./catalog/redis.json" with { type: "json" };
 import entry69 from "./catalog/resend.json" with { type: "json" };
 import entry70 from "./catalog/sequential-thinking.json" with { type: "json" };
-import entry71 from "./catalog/time.json" with { type: "json" };
+import entry71 from "./catalog/superhuman-mail.json" with { type: "json" };
+import entry72 from "./catalog/time.json" with { type: "json" };
 
 export const INTEGRATION_CATALOG_ENTRIES = [
   entry0,
@@ -148,4 +149,5 @@ export const INTEGRATION_CATALOG_ENTRIES = [
   entry69,
   entry70,
   entry71,
+  entry72,
 ];
