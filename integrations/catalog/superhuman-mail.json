@@ -18,7 +18,10 @@
         "url": "https://mcp.mail.superhuman.com/mcp"
       },
       "auth": {
-        "strategy": "oauth2"
+        "strategy": "oauth2",
+        "oauth": {
+          "clientAuthentication": "none"
+        }
       }
     }
   ],
