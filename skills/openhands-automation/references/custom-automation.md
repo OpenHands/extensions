@@ -272,6 +272,26 @@ with OpenHandsCloudWorkspace(
 # OpenHandsCloudWorkspace.__exit__ fires the completion callback here.
 ```
 
+### Selecting an LLM profile
+
+The automation service injects an `AUTOMATION_MODEL` environment variable holding the **LLM profile name** the automation should run with. This is the profile a user selects when editing the automation, or — when none is selected — a snapshot of the user's active profile taken when the automation was created. To honor it on every run, read `AUTOMATION_MODEL` and pass it to `workspace.get_llm(profile_name=...)`:
+
+```python
+# AUTOMATION_MODEL is the selected profile name (absent when none was chosen).
+model_profile = os.environ.get("AUTOMATION_MODEL") or None
+try:
+    llm = workspace.get_llm(profile_name=model_profile)
+except FileNotFoundError:
+    # The profile was renamed or deleted after the automation was created;
+    # fall back to the user's default LLM rather than failing the run.
+    if not model_profile:
+        raise
+    print(f"profile {model_profile!r} not found; falling back to default profile")
+    llm = workspace.get_llm()
+```
+
+Calling `workspace.get_llm()` with no `profile_name` always uses the user's default LLM. The built-in prompt and plugin presets already follow the pattern above; custom scripts should too so the selected profile is honored regardless of trigger type or execution backend.
+
 ### Conversation Persistence
 
 Conversations started during a run remain accessible in the OpenHands UI after the run completes — users can view the history and continue interacting. By default, `Conversation` does not delete the conversation on close:
