@@ -102,6 +102,20 @@
       ]
     },
     {
+      "name": "arxiv-literature-search",
+      "source": "./skills/arxiv-literature-search",
+      "description": "Plan and execute academic literature searches with arXiv, OpenAlex, and Semantic Scholar while respecting API rate limits, using browser-based fallback only when APIs are insufficient.",
+      "category": "data-science",
+      "keywords": [
+        "arxiv",
+        "openalex",
+        "semantic-scholar",
+        "literature-search",
+        "academic-research",
+        "rate-limits"
+      ]
+    },
+    {
       "name": "openhands-sdk",
       "source": "./skills/openhands-sdk",
       "description": "Reference skill for the OpenHands Software Agent SDK - build AI agents with custom tools, LLM configuration, conversations, sub-agent delegation, MCP integration, security, and persistence.",
@@ -141,7 +155,7 @@
     {
       "name": "bitbucket-cloud",
       "source": "./skills/bitbucket-cloud",
-      "description": "Bitbucket Cloud (bitbucket.org) specifics — authenticate with BITBUCKET_TOKEN, use the REST API v2, workspace/repo_slug repositories, and the create_bitbucket_pr tool. Loaded on demand by the bitbucket skill once a Cloud environment is detected.",
+      "description": "Bitbucket Cloud (bitbucket.org) specifics ? authenticate with BITBUCKET_TOKEN, use the REST API v2, workspace/repo_slug repositories, and the create_bitbucket_pr tool. Loaded on demand by the bitbucket skill once a Cloud environment is detected.",
       "category": "integration",
       "keywords": [
         "bitbucket",
@@ -153,7 +167,7 @@
     {
       "name": "bitbucket-data-center",
       "source": "./skills/bitbucket-data-center",
-      "description": "Bitbucket Data Center (self-hosted Bitbucket Server) specifics — authenticate with BITBUCKET_DATA_CENTER_TOKEN, use the REST API 1.0, PROJECT/repo_slug repositories, scm/ git remotes, and the create_bitbucket_data_center_pr tool. Loaded on demand by the bitbucket skill once a Data Center environment is detected.",
+      "description": "Bitbucket Data Center (self-hosted Bitbucket Server) specifics ? authenticate with BITBUCKET_DATA_CENTER_TOKEN, use the REST API 1.0, PROJECT/repo_slug repositories, scm/ git remotes, and the create_bitbucket_data_center_pr tool. Loaded on demand by the bitbucket skill once a Data Center environment is detected.",
       "category": "integration",
       "keywords": [
         "bitbucket",
