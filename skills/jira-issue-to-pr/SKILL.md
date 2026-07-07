@@ -180,7 +180,7 @@ The automation script lives at `scripts/main.py`. Key behaviors:
 - **Per-run cap** - `max_new_per_run` (default 5) limits how many conversations are started per cron firing; any remaining new issues are dispatched on the next run.
 - **KV store** - persists `{"processed_keys": [...], "first_run_at": "..."}` between runs; falls back to a local file in dev environments where `AUTOMATION_KV_TOKEN` is absent.
 - **Jira API** - uses `POST /rest/api/3/search/jql` (the current non-deprecated endpoint).
-- **Conversation dispatch** - calls `POST /api/conversations` on the agent server. The agent is configured with `terminal` and `file_editor` tools explicitly - without them the SDK Agent defaults to think+finish only and cannot clone repos or create files. User secrets are forwarded as `LookupSecret` references so the spawned conversation can access `GITHUB_TOKEN` and other secrets.
+- **Conversation dispatch** - calls `POST /api/conversations` on the agent server. Uses `X-Expose-Secrets: encrypted` to obtain the LLM `api_key` as a Fernet token that is decrypted server-side (`secrets_encrypted: True`), so the real key is never present in the network payload. `terminal` and `file_editor` tools are merged into `agent_settings` explicitly - without them the SDK Agent defaults to think+finish only and cannot clone repos or create files. User secrets are forwarded as `LookupSecret` references so the spawned conversation can access `GITHUB_TOKEN` and other secrets.
 - **Error transparency** - captures Jira HTTP response bodies in error messages for fast diagnosis.
 
 ## Known Limitations

@@ -252,25 +252,31 @@ try:
     agent_url   = os.environ.get("AGENT_SERVER_URL", "").rstrip("/")
     session_key = os.environ.get("SESSION_API_KEY") or os.environ.get("OH_SESSION_API_KEYS_0", "")
 
-    # X-Expose-Secrets: plaintext returns the real LLM api_key instead of "**********".
+    # X-Expose-Secrets: encrypted returns llm.api_key as a Fernet token (gAAAAA…)
+    # rather than the masked "**********". The token is decrypted server-side when
+    # the conversation is created (secrets_encrypted: True in the payload), so the
+    # real API key is never present in the network payload.
     with urllib.request.urlopen(urllib.request.Request(
         f"{agent_url}/api/settings",
-        headers={"X-Session-API-Key": session_key, "X-Expose-Secrets": "plaintext"},
+        headers={"X-Session-API-Key": session_key, "X-Expose-Secrets": "encrypted"},
     )) as r:
         settings = json.loads(r.read())
 
-    raw_agent = settings.get("agent_settings", {})
-    # Use the 'agent' key (not 'agent_settings') to avoid a double-registration bug in
-    # the agent server, and always include default tools explicitly — without them the
-    # SDK Agent defaults to think+finish only and cannot execute bash or edit files.
-    agent_dict = {
-        "kind": "Agent",
-        "llm": raw_agent.get("llm", {}),
-        "tools": [{"name": "terminal"}, {"name": "file_editor"}],
-    }
-    mcp_config = raw_agent.get("mcp_config")
+    agent_settings = settings.get("agent_settings", {})
+    agent_settings.pop("schema_version", None)
+    # Drop mcp_config here; forward it separately below to avoid MCP connection
+    # failures at conversation-creation time.
+    mcp_config = agent_settings.pop("mcp_config", None)
     if not (isinstance(mcp_config, dict) and mcp_config.get("mcpServers")):
         mcp_config = None
+    # Add default tools explicitly — without them the SDK Agent defaults to
+    # think+finish only and cannot execute bash or edit files.
+    _have = {t["name"] for t in agent_settings.get("tools", [])}
+    for _t in [{"name": "terminal"}, {"name": "file_editor"}]:
+        if _t["name"] not in _have:
+            agent_settings.setdefault("tools", []).append(_t)
+    ctx = agent_settings.setdefault("agent_context", {})
+    ctx.update({"load_public_skills": True, "load_user_skills": True, "load_project_skills": True})
 
     # Build LookupSecret references so the spawned conversation can access the user's secrets.
     try:
@@ -329,12 +335,18 @@ Steps:
 """
         workdir = tempfile.mkdtemp(prefix=f"jira-{key.lower()}-")
         payload: dict = {
-            "agent":               agent_dict,
-            "workspace":           {"working_dir": workdir},
+            "secrets_encrypted":   True,
+            "agent_settings":      agent_settings,
+            "workspace":           {"kind": "LocalWorkspace", "working_dir": workdir},
             "confirmation_policy": {"kind": "NeverConfirm"},
             "max_iterations":      max_iterations,
+            "stuck_detection":     True,
+            "autotitle":           True,
+            "worktree":            False,
             "initial_message": {
+                "role":    "user",
                 "content": [{"type": "text", "text": prompt}],
+                "run":     True,
             },
         }
         if secrets_payload:
