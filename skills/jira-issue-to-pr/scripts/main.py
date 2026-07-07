@@ -252,22 +252,50 @@ try:
     agent_url   = os.environ.get("AGENT_SERVER_URL", "").rstrip("/")
     session_key = os.environ.get("SESSION_API_KEY") or os.environ.get("OH_SESSION_API_KEYS_0", "")
 
-    # Fetch settings with encrypted secrets so llm.api_key is a Fernet token
-    # (starts with gAAAAA) rather than the masked "**********" placeholder.
-    # The conversation payload must include secrets_encrypted: True so the
-    # agent-server decrypts it server-side; we never handle the plaintext key.
     with urllib.request.urlopen(urllib.request.Request(
         f"{agent_url}/api/settings",
-        headers={"X-Session-API-Key": session_key, "X-Expose-Secrets": "encrypted"},
+        headers={"X-Session-API-Key": session_key},
     )) as r:
         settings = json.loads(r.read())
 
-    agent_settings = settings.get("agent_settings", {})
-    agent_settings.pop("schema_version", None)
-    # Drop mcp_config to avoid MCP connection failures at conversation creation time.
-    agent_settings.pop("mcp_config", None)
-    ctx = agent_settings.setdefault("agent_context", {})
-    ctx.update({"load_public_skills": True, "load_user_skills": True, "load_project_skills": True})
+    raw_agent = settings.get("agent_settings", {})
+    # Use the 'agent' key (not 'agent_settings') to avoid a double-registration bug in
+    # the agent server, and always include default tools explicitly — without them the
+    # SDK Agent defaults to think+finish only and cannot execute bash or edit files.
+    agent_dict = {
+        "kind": "Agent",
+        "llm": raw_agent.get("llm", {}),
+        "tools": [{"name": "terminal"}, {"name": "file_editor"}],
+    }
+    mcp_config = raw_agent.get("mcp_config")
+    if not (isinstance(mcp_config, dict) and mcp_config.get("mcpServers")):
+        mcp_config = None
+
+    # Build LookupSecret references so the spawned conversation can access the user's secrets.
+    try:
+        with urllib.request.urlopen(urllib.request.Request(
+            f"{agent_url}/api/settings/secrets",
+            headers={"X-Session-API-Key": session_key},
+        )) as r:
+            secrets_list = json.loads(r.read()).get("secrets", [])
+    except Exception as exc:
+        print(f"Warning: could not list secrets: {exc}")
+        secrets_list = []
+
+    secrets_payload: dict = {}
+    for s in secrets_list:
+        name = s.get("name", "")
+        if not name:
+            continue
+        entry: dict = {
+            "kind": "LookupSecret",
+            "url": f"/api/settings/secrets/{name}",
+            "headers": {"X-Session-API-Key": session_key},
+        }
+        if s.get("description"):
+            entry["description"] = s["description"]
+        secrets_payload[name] = entry
+
     max_iterations = (settings.get("conversation_settings") or {}).get("max_iterations") or 1000
 
     for issue in new_issues:
@@ -299,21 +327,19 @@ Steps:
 6. Print the PR URL when done.
 """
         workdir = tempfile.mkdtemp(prefix=f"jira-{key.lower()}-")
-        payload = {
-            "secrets_encrypted":   True,
-            "agent_settings":      agent_settings,
-            "workspace":           {"kind": "LocalWorkspace", "working_dir": workdir},
+        payload: dict = {
+            "agent":               agent_dict,
+            "workspace":           {"working_dir": workdir},
             "confirmation_policy": {"kind": "NeverConfirm"},
             "max_iterations":      max_iterations,
-            "stuck_detection":     True,
-            "autotitle":           True,
-            "worktree":            False,
             "initial_message": {
-                "role":    "user",
                 "content": [{"type": "text", "text": prompt}],
-                "run":     True,
             },
         }
+        if secrets_payload:
+            payload["secrets"] = secrets_payload
+        if mcp_config:
+            payload["mcp_config"] = mcp_config
         conv_req = urllib.request.Request(
             f"{agent_url}/api/conversations",
             data=json.dumps(payload).encode(),
