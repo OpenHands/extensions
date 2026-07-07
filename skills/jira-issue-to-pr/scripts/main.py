@@ -252,9 +252,10 @@ try:
     agent_url   = os.environ.get("AGENT_SERVER_URL", "").rstrip("/")
     session_key = os.environ.get("SESSION_API_KEY") or os.environ.get("OH_SESSION_API_KEYS_0", "")
 
+    # X-Expose-Secrets: plaintext returns the real LLM api_key instead of "**********".
     with urllib.request.urlopen(urllib.request.Request(
         f"{agent_url}/api/settings",
-        headers={"X-Session-API-Key": session_key},
+        headers={"X-Session-API-Key": session_key, "X-Expose-Secrets": "plaintext"},
     )) as r:
         settings = json.loads(r.read())
 
