@@ -10,12 +10,12 @@ Five sync tasks, runnable individually or all at once:
      marketplace, or a marketplace entry points to a missing directory.
   4. **symlinks**  — enforce ``.plugin/`` as the canonical manifest directory
      with vendor symlinks (``.claude-plugin``, ``.codex-plugin``).
-  5. **root-marketplace** — keep real ``marketplace.json`` copies at the
-     repository root under ``.claude-plugin/``, ``.codex-plugin/``, and
-     ``.plugin/`` so consumers that fetch the catalog over the GitHub raw
-     URL (e.g. ``github://openhands/extensions``) can read it. Git symlinks
-     are stored as blobs and ``raw.githubusercontent.com`` does not
-     dereference them through directory paths, so these must be real files.
+  5. **root-marketplace** — keep a real ``marketplace.json`` copy at the
+     repository root under ``.plugin/`` so consumers that fetch the catalog
+     over the GitHub raw URL (e.g. ``github://openhands/extensions``) can
+     read it. Git symlinks are stored as blobs and
+     ``raw.githubusercontent.com`` does not dereference them (it serves the
+     literal target text), so the root catalog must be a real file.
 
 Usage:
     python scripts/sync_extensions.py                   # run all, write changes
@@ -44,13 +44,17 @@ README_PATH = REPO_ROOT / "README.md"
 SKILL_DIRS = [REPO_ROOT / "skills", REPO_ROOT / "plugins"]
 MARKETPLACES_DIR = REPO_ROOT / "marketplaces"
 # The canonical marketplace catalog that the registry publishes. The
-# repository root exposes copies of this file (not symlinks) under the
-# vendor directories below so that consumers fetching the catalog over the
+# repository root exposes a real (non-symlink) copy of this file at
+# ``.plugin/marketplace.json`` so consumers that fetch the catalog over the
 # GitHub raw URL (``github://openhands/extensions``) can read it.
 PRIMARY_MARKETPLACE = MARKETPLACES_DIR / "openhands-extensions.json"
 # Vendor directories at the repository root that must each contain a real
 # (non-symlink) ``marketplace.json`` copy of ``PRIMARY_MARKETPLACE``.
-ROOT_MARKETPLACE_DIRS = [".claude-plugin", ".codex-plugin", ".plugin"]
+# ``.plugin/`` is the canonical manifest directory for this repo, so the root
+# catalog lives there. Other vendor aliases (``.claude-plugin/``,
+# ``.codex-plugin/``) are intentionally NOT mirrored at the repo root —
+# consumers must fetch the catalog from ``.plugin/marketplace.json``.
+ROOT_MARKETPLACE_DIRS = [".plugin"]
 # Max description length in the catalog table.  120 chars fits GitHub's
 # diff viewer and rendered Markdown tables without horizontal scroll.
 MAX_DESC_LEN = 120
@@ -456,16 +460,20 @@ def sync_root_marketplace(*, check: bool) -> list[str]:
     ``marketplaces/openhands-extensions.json``. Historically the root exposed
     it through a double symlink chain (``.claude-plugin`` -> ``.plugin`` and
     ``.plugin/marketplace.json`` -> the canonical file). ``raw.githubusercontent.com``
-    serves git symlinks as their literal target text and does not traverse
-    symlinked directory paths, so consumers fetching
-    ``.claude-plugin/marketplace.json`` over the raw URL (e.g. the
-    plugin-directory with ``MARKETPLACE_SOURCE=github://openhands/extensions``)
-    received a 404 (or the literal symlink body) and saw an empty catalog.
+    serves git symlinks as their literal target text and does not dereference
+    them (file or directory), so consumers fetching the catalog over the raw
+    URL (e.g. the plugin-directory with
+    ``MARKETPLACE_SOURCE=github://openhands/extensions``) received a 404 (for
+    symlinked directory paths) or the literal symlink body (for symlinked
+    files) and saw an empty catalog.
 
-    This sync replaces those symlinks with real directory + file copies that
-    mirror the canonical catalog byte-for-byte, so the catalog is reachable
-    at every standard ``.claude-plugin/marketplace.json`` path while staying
-    in sync with the single source of truth.
+    This sync keeps a single real ``marketplace.json`` copy at
+    ``.plugin/marketplace.json`` (this repo's canonical manifest directory)
+    that mirrors the canonical catalog byte-for-byte. The catalog is reachable
+    at ``.plugin/marketplace.json`` over the raw URL while staying in sync
+    with the single source of truth. Other vendor aliases
+    (``.claude-plugin/``, ``.codex-plugin/``) are not mirrored at the repo
+    root; consumers must fetch ``.plugin/marketplace.json``.
     """
     if not PRIMARY_MARKETPLACE.is_file():
         return [f"canonical marketplace missing: {PRIMARY_MARKETPLACE.relative_to(REPO_ROOT)}"]
