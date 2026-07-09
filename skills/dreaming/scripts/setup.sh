@@ -7,7 +7,7 @@
 # do NOT survive into the entrypoint (`bash run.sh`).
 #
 # Env knob (optional):
-#   OPENHANDS_DREAMING_VERSION  npm version to pin (default: latest)
+#   OPENHANDS_DREAMING_VERSION  npm version to pin (default: 0.1.3)
 set -euo pipefail
 
 if ! command -v bun >/dev/null 2>&1 && [ ! -x "$HOME/.bun/bin/bun" ]; then
@@ -17,7 +17,7 @@ if ! command -v bun >/dev/null 2>&1 && [ ! -x "$HOME/.bun/bin/bun" ]; then
 fi
 export PATH="$HOME/.bun/bin:$PATH"
 
-DREAMING_VERSION="${OPENHANDS_DREAMING_VERSION:-latest}"
+DREAMING_VERSION="${OPENHANDS_DREAMING_VERSION:-0.1.3}"
 
 # Absolute paths baked into the wrapper below (bun may be preinstalled
 # somewhere other than ~/.bun, e.g. via a system package).

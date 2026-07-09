@@ -15,5 +15,6 @@ exec ./openhands-dreaming run \
   --repo "__TARGET_REPO__" \
   --model "__MODEL__" \
   --to "__TO_PATH__" \
-  --lookback "__LOOKBACK_MINUTES__" \
+  --conversations-dir "__CONVERSATIONS_DIR__" \
+  --conversation-id "__CONVERSATION_ID__" \
   --json

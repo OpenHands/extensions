@@ -1,8 +1,8 @@
 ---
 name: dreaming
 description: >
-  Create an automation that periodically distills your local OpenHands Agent
-  Canvas coding sessions into a target repository's AGENTS.md via Letta memory
+  Create an automation that periodically distills a chosen local OpenHands
+  conversation into a target repository's AGENTS.md via Letta memory
   reflection and opens or updates a pull request with the result.
 triggers:
   - /dreaming:setup
@@ -10,10 +10,13 @@ triggers:
 
 # Dreaming Automation
 
-Create a cron automation that sweeps your **local OpenHands Agent Canvas**
-conversations, feeds the new ones to a persistent Letta "dreamer" agent for
-memory reflection, and turns what it learned into a pull request against the
-target repository's `AGENTS.md` (or another doc path you choose).
+Create a cron automation that dreams over **one chosen local OpenHands
+conversation**: on each run it feeds whatever is new in that conversation to a
+persistent Letta "dreamer" agent for memory reflection and turns what it
+learned into a pull request against the target repository's `AGENTS.md` (or
+another doc path you choose). Users pick the conversation by NAME; this skill
+resolves it to a conversation id. To dream over several conversations, set up
+one automation per conversation.
 
 The extension is a thin wrapper: the automation tarball contains only two
 small scripts (`setup.sh` + `run.sh`). All logic lives in the pinned npm
@@ -48,31 +51,25 @@ at run time):
 
 Follow these steps in order.
 
-Note: the automation shell executes one command per invocation. Combine
-snippets with `&&` or `;` when needed, but never combine a heredoc
-(`python3 - <<'PY'`) with another command - run heredocs alone or rewrite
-them as a `python3 -c` one-liner.
+Note: the shell executes ONE command per tool call. Every fenced block in
+this skill is already a single `&&`-chained invocation - run each block as
+its own call, never paste two blocks together, and never combine a heredoc
+with anything else (rewrite heredocs as `python3 -c` one-liners).
 
 ### Step 1 - Collect and validate the target repository
 
 Ask: *"Which GitHub repository should Dreaming open AGENTS.md PRs against?
 (Format: `owner/repo`, e.g. `myorg/backend`)"*
 
-First confirm `GITHUB_TOKEN` is present:
+Validate the token and push permission in one call (prints three lines on
+success, `MISSING_GITHUB_TOKEN_OR_API_ERROR` otherwise):
 
 ```bash
-test -n "$GITHUB_TOKEN" && echo "GITHUB_TOKEN set" || echo "MISSING_GITHUB_TOKEN"
+test -n "$GITHUB_TOKEN" && curl -sm 60 "https://api.github.com/repos/{owner}/{repo}" -H "Authorization: Bearer $GITHUB_TOKEN" -H "Accept: application/vnd.github+json" | python3 -c "import json,sys; d=json.load(sys.stdin); print('message:', d.get('message')); print('private:', d.get('private')); print('push:', (d.get('permissions') or {}).get('push'))" || echo "MISSING_GITHUB_TOKEN_OR_API_ERROR"
 ```
 
-If missing: *"GITHUB_TOKEN is not set. Please add it in OpenHands Settings ->
-Secrets."* Stop.
-
-Then validate access and push permission (single pipeline; prints three lines):
-
-```bash
-curl -sm 60 "https://api.github.com/repos/{owner}/{repo}" -H "Authorization: Bearer $GITHUB_TOKEN" -H "Accept: application/vnd.github+json" | python3 -c "import json,sys; d=json.load(sys.stdin); print('message:', d.get('message')); print('private:', d.get('private')); print('push:', (d.get('permissions') or {}).get('push'))"
-```
-
+- `MISSING_GITHUB_TOKEN_OR_API_ERROR`: tell the user to add `GITHUB_TOKEN` in
+  OpenHands Settings -> Secrets (or report the network error) and stop.
 - `message:` non-None (e.g. `Not Found`, `Bad credentials`): report it and stop.
 - `push:` must print `True`; otherwise tell the user the token cannot push to
   this repo (Dreaming needs to push a branch and open a PR) and stop.
@@ -106,7 +103,28 @@ secret exists as an environment variable:
 Note: the model is baked into the dreamer agent when it is first created.
 Changing `MODEL` later does not re-model an existing dreamer agent.
 
-### Step 3 - Collect doc path and schedule, compute lookback
+### Step 3 - Pick the conversation, doc path, and schedule
+
+Ask: *"Which conversation should Dreaming reflect over? Give me its name as
+shown in OpenHands (or part of it)."*
+
+Users know conversation names, not ids. Resolve the name yourself: each local
+conversation directory has a `meta.json` with a `title`. List them:
+
+```bash
+python3 -c "import json,glob,os; [print(os.path.basename(os.path.dirname(p)), '|', (json.load(open(p)).get('title') or '(untitled)')) for p in glob.glob(os.path.expanduser('~/.openhands/agent-canvas/dev_conversations/*/meta.json'))]"
+```
+
+Match the user's answer against the titles (case-insensitive substring). If
+several match, show the candidates and ask the user to pick one. Record the
+directory basename as `CONVERSATION_ID` and the title as `CONVERSATION_TITLE`;
+record `CONVERSATIONS_DIR` as the ABSOLUTE conversations root (expand `~` -
+e.g. `/Users/you/.openhands/agent-canvas/dev_conversations`): tildes do not
+expand inside the double quotes in `run.sh`.
+
+If the user's conversation lives in a different root (for example imported
+Claude Code sessions under `~/.openhands/claude-transcripts`), run the same
+listing against that root and record it as `CONVERSATIONS_DIR` instead.
 
 Ask: *"Which doc file should Dreaming maintain in the repo?
 (Press Enter for the default: `AGENTS.md`)"*
@@ -114,24 +132,12 @@ Ask: *"Which doc file should Dreaming maintain in the repo?
 Record as `TO_PATH` (default `AGENTS.md`).
 
 Ask: *"How often should Dreaming run?
-(Press Enter for the default: weekly, Mondays at 04:00 -> `0 4 * * 1`.
-Use any cron expression for a different cadence, e.g. `0 4 * * *` = daily)"*
+(Press Enter for the default: daily at 04:00 UTC -> `0 4 * * *`.
+Use any cron expression for a different cadence)"*
 
-Record as `CRON_SCHEDULE` (default `0 4 * * 1`).
-
-**Compute `LOOKBACK_MINUTES` - do not ask the user for it.** Derive
-`cadence_minutes` (the interval between consecutive runs of `CRON_SCHEDULE`),
-then:
-
-```
-LOOKBACK_MINUTES = min(cadence_minutes + 5, 1440)
-```
-
-Example: the default weekly `0 4 * * 1` has a 10080-minute cadence, so
-`LOOKBACK_MINUTES = 1440` (the cap).
-
-The lookback only bounds the first sweep (before a cursor exists); after that
-the automation resumes from its stored cursor.
+Record as `CRON_SCHEDULE` (default `0 4 * * *`). Every run re-checks the
+pinned conversation; runs where nothing new happened are cheap no-ops (Letta
+deduplicates already-reflected messages).
 
 ### Step 4 - Build the payload
 
@@ -139,9 +145,7 @@ Copy this skill's two scripts into a temporary build directory and substitute
 the placeholders in `run.sh`:
 
 ```bash
-mkdir -p /tmp/dreaming-build
-cp {skill_dir}/scripts/setup.sh /tmp/dreaming-build/setup.sh
-cp {skill_dir}/scripts/run.sh   /tmp/dreaming-build/run.sh
+mkdir -p /tmp/dreaming-build && cp {skill_dir}/scripts/setup.sh /tmp/dreaming-build/setup.sh && cp {skill_dir}/scripts/run.sh /tmp/dreaming-build/run.sh
 ```
 
 | Placeholder in `run.sh` | Replace with |
@@ -149,7 +153,8 @@ cp {skill_dir}/scripts/run.sh   /tmp/dreaming-build/run.sh
 | `__TARGET_REPO__` | `TARGET_REPO` |
 | `__MODEL__` | `MODEL` |
 | `__TO_PATH__` | `TO_PATH` |
-| `__LOOKBACK_MINUTES__` | computed `LOOKBACK_MINUTES` |
+| `__CONVERSATIONS_DIR__` | `CONVERSATIONS_DIR` |
+| `__CONVERSATION_ID__` | `CONVERSATION_ID` |
 
 Validate each substituted value against `^[A-Za-z0-9._/-]+$` and re-ask on
 mismatch (the placeholders sit inside double quotes in a bash script).
@@ -172,9 +177,7 @@ If the current environment can run bash and reach the network, dry-run the
 install and the read-only preflight from the build directory:
 
 ```bash
-cd /tmp/dreaming-build
-bash setup.sh
-./openhands-dreaming doctor --repo "{owner}/{repo}" --model "{model}"
+cd /tmp/dreaming-build && bash setup.sh && ./openhands-dreaming doctor --repo "{owner}/{repo}" --model "{model}" --conversations-dir "{conversations_dir}"
 ```
 
 `doctor` mutates nothing; it checks the token, repo write access, the
@@ -191,16 +194,7 @@ block in your system context:
 - **Auth**: `X-Session-API-Key: $OPENHANDS_AUTOMATION_API_KEY`
 
 ```bash
-tar -czf /tmp/dreaming.tar.gz -C /tmp/dreaming-build setup.sh run.sh
-
-TARBALL_PATH=$(curl -sm 60 -X POST \
-  "${OPENHANDS_HOST}/api/automation/v1/uploads?name=dreaming" \
-  -H "X-Session-API-Key: $OPENHANDS_AUTOMATION_API_KEY" \
-  -H "Content-Type: application/gzip" \
-  --data-binary @/tmp/dreaming.tar.gz \
-  | python3 -c "import json,sys; print(json.load(sys.stdin)['tarball_path'])")
-
-echo "Uploaded: $TARBALL_PATH"
+tar -czf /tmp/dreaming.tar.gz -C /tmp/dreaming-build setup.sh run.sh && TARBALL_PATH=$(curl -sm 60 -X POST "${OPENHANDS_HOST}/api/automation/v1/uploads?name=dreaming" -H "X-Session-API-Key: $OPENHANDS_AUTOMATION_API_KEY" -H "Content-Type: application/gzip" --data-binary @/tmp/dreaming.tar.gz | python3 -c "import json,sys; print(json.load(sys.stdin)['tarball_path'])") && echo "Uploaded: $TARBALL_PATH"
 ```
 
 Note: the tarball intentionally contains only `setup.sh` and `run.sh` (the
@@ -217,7 +211,7 @@ curl -sm 60 -X POST "${OPENHANDS_HOST}/api/automation/v1" \
   -H "X-Session-API-Key: $OPENHANDS_AUTOMATION_API_KEY" \
   -H "Content-Type: application/json" \
   -d "{
-    \"name\": \"Dreaming: {owner}/{repo}\",
+    \"name\": \"Dreaming: \\\"{conversation_title}\\\" -> {owner}/{repo}\",
     \"trigger\": {\"type\": \"cron\", \"schedule\": \"{cron_schedule}\"},
     \"tarball_path\": \"$TARBALL_PATH\",
     \"entrypoint\": \"bash run.sh\",
@@ -242,8 +236,8 @@ curl -sm 60 "${OPENHANDS_HOST}/api/automation/v1/${AUTOMATION_ID}/runs" \
 ```
 
 The CLI emits structured `--json` output; surface the PR link to the user if
-one was opened or updated. If no recent conversations were found, tell the
-user that is normal on a quiet first run.
+one was opened or updated. A `noop` PR result means the reflection produced
+no doc changes - normal when the conversation has little durable content yet.
 
 On the first run the CLI auto-creates the dreamer Letta agent (tagged
 `openhands-dreaming` and `repo:{owner}/{repo}`); it is reused on every
@@ -256,35 +250,37 @@ Tell the user:
 > **Dreaming** is set up!
 >
 > - Automation ID: `{automation_id}`
+> - Automation name: `Dreaming: "{conversation_title}" -> {owner}/{repo}`
+> - Conversation: `{conversation_title}` (`{conversation_id}`)
 > - Target repo: `{owner}/{repo}`
 > - Model: `{model}`
 > - Schedule: `{cron_schedule}`
 > - Doc path: `{to_path}`
-> - State: sweep cursor lives in the OpenHands KV store under
->   `dreaming-cursor:{automation_id}:{owner__repo}`; the dreamer agent's
->   memory lives in its Letta memory filesystem and accumulates across runs.
+> - The dreamer agent's memory lives in its Letta memory filesystem and
+>   accumulates across runs.
 >
-> Each run sweeps new local Agent Canvas conversations, reflects on them, and
-> opens or updates a PR when `{to_path}` changes. Nothing happens on runs
-> with no new conversations or no doc changes.
+> Each run reflects over whatever is new in the conversation and opens or
+> updates a PR when `{to_path}` changes. Runs with nothing new or no doc
+> changes are cheap no-ops.
 
 ---
 
 ## Runtime behaviour (per run)
 
 Each cron run executes `bash run.sh`, which execs
-`openhands-dreaming run --repo ... --model ... --to ... --lookback ... --json`:
+`openhands-dreaming run --repo ... --model ... --to ... --conversations-dir
+... --conversation-id ... --json`:
 
-1. Reads the sweep cursor from the OpenHands KV store and acquires a lock.
-2. Discovers local Agent Canvas conversations newer than the cursor (first
-   run bounded by the computed lookback).
+1. Acquires the repo-scoped lock (automations sharing a repo never overlap).
+2. Selects the pinned conversation (a missing conversation fails the run
+   loudly - it is a configuration error, not an empty sweep).
 3. Finds or creates the dreamer Letta agent by tags.
-4. Shallow-clones the target repo and runs `letta dream` to reflect the new
-   conversations into the doc.
+4. Shallow-clones the target repo and runs `letta dream` to reflect whatever
+   is new in the conversation into the doc (Letta deduplicates
+   already-reflected messages, so quiet runs are cheap no-ops).
 5. If the doc changed: commits as the token owner (with a
    `Co-authored-by: Letta Code <noreply@letta.com>` trailer), pushes the
    dream branch, and opens or updates the PR.
-6. Advances the cursor only on full end-to-end success.
 
 ---
 
@@ -296,7 +292,6 @@ installed) with the same env the automation uses:
 | Symptom | Try |
 |---|---|
 | Run fails at preflight or setup | `openhands-dreaming doctor --repo {owner}/{repo} --model {model}` - read-only report of token, repo access, provider key, dirs, and Letta binary |
-| Want to see what the sweep will pick up next | `openhands-dreaming cursor get` |
-| Need to replay conversations after a bad run | `openhands-dreaming cursor reset` (safe: Letta dedupes re-fed conversations) |
+| Run fails with "pinned conversation not found" | The conversation dir moved or the id is wrong - re-run the Step 3 listing and update `run.sh` |
 | Model provider errors at run time | Confirm the provider API key is a named secret (OpenHands chat LLM config is separate) |
 | PR never appears | Check the run logs for the `--json` result; no doc change means no PR by design |
