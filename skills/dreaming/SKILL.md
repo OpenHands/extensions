@@ -70,7 +70,7 @@ Secrets."* Stop.
 Then validate access and push permission (single pipeline; prints three lines):
 
 ```bash
-curl -s "https://api.github.com/repos/{owner}/{repo}" -H "Authorization: Bearer $GITHUB_TOKEN" -H "Accept: application/vnd.github+json" | python3 -c "import json,sys; d=json.load(sys.stdin); print('message:', d.get('message')); print('private:', d.get('private')); print('push:', (d.get('permissions') or {}).get('push'))"
+curl -sm 60 "https://api.github.com/repos/{owner}/{repo}" -H "Authorization: Bearer $GITHUB_TOKEN" -H "Accept: application/vnd.github+json" | python3 -c "import json,sys; d=json.load(sys.stdin); print('message:', d.get('message')); print('private:', d.get('private')); print('push:', (d.get('permissions') or {}).get('push'))"
 ```
 
 - `message:` non-None (e.g. `Not Found`, `Bad credentials`): report it and stop.
@@ -193,7 +193,7 @@ block in your system context:
 ```bash
 tar -czf /tmp/dreaming.tar.gz -C /tmp/dreaming-build setup.sh run.sh
 
-TARBALL_PATH=$(curl -s -X POST \
+TARBALL_PATH=$(curl -sm 60 -X POST \
   "${OPENHANDS_HOST}/api/automation/v1/uploads?name=dreaming" \
   -H "X-Session-API-Key: $OPENHANDS_AUTOMATION_API_KEY" \
   -H "Content-Type: application/gzip" \
@@ -213,7 +213,7 @@ The entrypoint must contain no shell metacharacters (hence `bash run.sh`).
 There is no arbitrary `env` field: configuration is baked into `run.sh`.
 
 ```bash
-curl -s -X POST "${OPENHANDS_HOST}/api/automation/v1" \
+curl -sm 60 -X POST "${OPENHANDS_HOST}/api/automation/v1" \
   -H "X-Session-API-Key: $OPENHANDS_AUTOMATION_API_KEY" \
   -H "Content-Type: application/json" \
   -d "{
@@ -230,14 +230,14 @@ Record the returned `id` as `AUTOMATION_ID`.
 ### Step 8 - Dispatch a first run and surface the PR
 
 ```bash
-curl -s -X POST "${OPENHANDS_HOST}/api/automation/v1/${AUTOMATION_ID}/dispatch" \
+curl -sm 60 -X POST "${OPENHANDS_HOST}/api/automation/v1/${AUTOMATION_ID}/dispatch" \
   -H "X-Session-API-Key: $OPENHANDS_AUTOMATION_API_KEY" | python3 -m json.tool
 ```
 
 Watch the run until it completes:
 
 ```bash
-curl -s "${OPENHANDS_HOST}/api/automation/v1/${AUTOMATION_ID}/runs" \
+curl -sm 60 "${OPENHANDS_HOST}/api/automation/v1/${AUTOMATION_ID}/runs" \
   -H "X-Session-API-Key: $OPENHANDS_AUTOMATION_API_KEY" | python3 -m json.tool
 ```
 
