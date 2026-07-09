@@ -48,6 +48,11 @@ at run time):
 
 Follow these steps in order.
 
+Note: the automation shell executes one command per invocation. Combine
+snippets with `&&` or `;` when needed, but never combine a heredoc
+(`python3 - <<'PY'`) with another command - run heredocs alone or rewrite
+them as a `python3 -c` one-liner.
+
 ### Step 1 - Collect and validate the target repository
 
 Ask: *"Which GitHub repository should Dreaming open AGENTS.md PRs against?
