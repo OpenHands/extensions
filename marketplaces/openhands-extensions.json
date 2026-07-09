@@ -5,7 +5,7 @@
     "email": "contact@all-hands.dev"
   },
   "metadata": {
-    "description": "Official skills and plugins for OpenHands \u2014 the open-source AI software engineer.",
+    "description": "Official skills and plugins for OpenHands — the open-source AI software engineer.",
     "maintainer": "OpenHands",
     "homepage": "https://github.com/OpenHands/extensions"
   },
@@ -13,7 +13,7 @@
     {
       "name": "agent-creator",
       "source": "./skills/agent-creator",
-      "description": "Create file-based sub-agents as Markdown files \u2014 no Python code required. Guides the user through a structured interview and generates a ready-to-deploy .md agent file following the OpenHands SDK specification.",
+      "description": "Create file-based sub-agents as Markdown files — no Python code required. Guides the user through a structured interview and generates a ready-to-deploy .md agent file following the OpenHands SDK specification.",
       "category": "development",
       "keywords": [
         "agent",
@@ -429,7 +429,7 @@
     {
       "name": "openhands",
       "source": "./plugins/openhands",
-      "description": "Unified OpenHands plugin \u2014 bundles Cloud CLI, REST API (openhands-api), and Automations (openhands-automation) into a single plugin.",
+      "description": "Unified OpenHands plugin — bundles Cloud CLI, REST API (openhands-api), and Automations (openhands-automation) into a single plugin.",
       "category": "openhands",
       "keywords": [
         "openhands",
@@ -470,7 +470,7 @@
     {
       "name": "pr-review",
       "source": "./plugins/pr-review",
-      "description": "Automated PR code review \u2014 analyzes diffs and posts inline review comments via the GitHub API.",
+      "description": "Automated PR code review — analyzes diffs and posts inline review comments via the GitHub API.",
       "category": "code-quality",
       "keywords": [
         "pr-review",
@@ -482,7 +482,7 @@
     {
       "name": "qa-changes",
       "source": "./plugins/qa-changes",
-      "description": "Validate pull request changes by actually running the code \u2014 setting up the environment, exercising changed behavior, and posting a structured QA report.",
+      "description": "Validate pull request changes by actually running the code — setting up the environment, exercising changed behavior, and posting a structured QA report.",
       "category": "quality-assurance",
       "keywords": [
         "qa",
@@ -631,7 +631,7 @@
     {
       "name": "iterate",
       "source": "./skills/iterate",
-      "description": "Iterate on a GitHub pull request \u2014 drive it through CI, code review, and QA until merge-ready. Monitors state, fixes failures, addresses review feedback, retries flaky checks, and pushes fixes in one continuous loop.",
+      "description": "Iterate on a GitHub pull request — drive it through CI, code review, and QA until merge-ready. Monitors state, fixes failures, addresses review feedback, retries flaky checks, and pushes fixes in one continuous loop.",
       "category": "productivity",
       "keywords": [
         "github",
@@ -746,6 +746,20 @@
       "keywords": [
         "jira",
         "atlassian"
+      ]
+    },
+    {
+      "name": "dreaming",
+      "source": "./skills/dreaming",
+      "description": "Create an automation that periodically distills your local OpenHands Agent Canvas coding sessions into a target repository's AGENTS.md via Letta memory reflection and opens or updates a pull request with the result.",
+      "category": "productivity",
+      "keywords": [
+        "letta",
+        "memory",
+        "reflection",
+        "agents-md",
+        "dreaming",
+        "automation"
       ]
     }
   ]

@@ -1,0 +1,20 @@
+{
+  "name": "dreaming",
+  "version": "1.0.0",
+  "description": "Create an automation that periodically distills your local OpenHands Agent Canvas coding sessions into a target repository's AGENTS.md via Letta memory reflection and opens or updates a pull request with the result.",
+  "author": {
+    "name": "OpenHands",
+    "email": "contact@all-hands.dev"
+  },
+  "homepage": "https://github.com/OpenHands/extensions",
+  "repository": "https://github.com/OpenHands/extensions",
+  "license": "MIT",
+  "keywords": [
+    "letta",
+    "memory",
+    "reflection",
+    "agents-md",
+    "dreaming",
+    "automation"
+  ]
+}

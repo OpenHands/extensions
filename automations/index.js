@@ -6,6 +6,7 @@ import linear_triage_assistant from "./catalog/linear-triage-assistant.json" wit
 import research_brief_writer from "./catalog/research-brief-writer.json" with { type: "json" };
 import incident_retrospective_drafter from "./catalog/incident-retrospective-drafter.json" with { type: "json" };
 import jira_issue_to_pr from "./catalog/jira-issue-to-pr.json" with { type: "json" };
+import dreaming from "./catalog/dreaming.json" with { type: "json" };
 
 export const AUTOMATION_CATALOG = [
   github_pr_reviewer,
@@ -16,5 +17,6 @@ export const AUTOMATION_CATALOG = [
   research_brief_writer,
   incident_retrospective_drafter,
   jira_issue_to_pr,
+  dreaming,
 ];
 export default AUTOMATION_CATALOG;
