@@ -1,0 +1,42 @@
+{
+  "id": "xquik",
+  "name": "Xquik",
+  "description": "Search X data and manage X workflows through Xquik's remote MCP server.",
+  "categories": [
+    "Social media",
+    "Automation"
+  ],
+  "appUrl": "https://xquik.com",
+  "docsUrl": "https://docs.xquik.com/mcp/overview",
+  "iconBg": "#5C3327",
+  "logoUrl": "https://xquik.com/icons/mcp/xquik.png",
+  "keywords": [
+    "x",
+    "twitter",
+    "social",
+    "tweets",
+    "monitoring"
+  ],
+  "installHint": "Paste your Xquik API key from the dashboard. It is sent as a Bearer token in the Authorization header.",
+  "connectionOptions": [
+    {
+      "id": "api",
+      "provider": "mcp",
+      "transport": {
+        "kind": "shttp",
+        "url": "https://xquik.com/mcp"
+      },
+      "auth": {
+        "strategy": "bearer",
+        "authModes": [
+          "bearer"
+        ],
+        "credentialLabel": "Xquik API key",
+        "credentialPlaceholder": "Paste your Xquik API key",
+        "credentialHelp": "API key from the Xquik dashboard account page. Sent as Authorization: Bearer <token>.",
+        "credentialSecretName": "XQUIK_API_KEY",
+        "saveCredentialAsSecretByDefault": true
+      }
+    }
+  ]
+}
