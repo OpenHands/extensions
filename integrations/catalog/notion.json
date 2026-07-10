@@ -13,6 +13,19 @@
     {
       "id": "oauth",
       "provider": "http",
+      "connectionModel": {
+        "principalType": "user",
+        "credentialScope": "resource",
+        "resourceType": "workspace",
+        "resourceCardinality": "one",
+        "selectionMode": "automatic",
+        "identityMapping": {
+          "source": "oauth_token_response",
+          "externalPrincipalIdPath": "owner.user.id",
+          "externalResourceIdPath": "workspace_id",
+          "resourceNamePath": "workspace_name"
+        }
+      },
       "auth": {
         "strategy": "oauth2",
         "oauth": {

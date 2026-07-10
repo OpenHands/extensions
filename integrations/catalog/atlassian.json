@@ -24,6 +24,19 @@
     {
       "id": "oauth",
       "provider": "mcp",
+      "connectionModel": {
+        "principalType": "user",
+        "credentialScope": "account",
+        "resourceType": "site",
+        "resourceCardinality": "many",
+        "selectionMode": "post_auth",
+        "resourceDiscovery": {
+          "endpoint": "https://api.atlassian.com/oauth/token/accessible-resources",
+          "externalResourceIdPath": "id",
+          "resourceNamePath": "name",
+          "resourceUrlPath": "url"
+        }
+      },
       "transport": {
         "kind": "shttp",
         "url": "https://mcp.atlassian.com/v1/mcp"
