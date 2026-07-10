@@ -14,6 +14,19 @@
     {
       "id": "oauth",
       "provider": "http",
+      "connectionModel": {
+        "principalType": "user",
+        "credentialScope": "tenant",
+        "resourceType": "tenant",
+        "resourceCardinality": "one",
+        "selectionMode": "automatic",
+        "identityMapping": {
+          "source": "access_token_claims",
+          "externalPrincipalIdPath": "oid",
+          "externalTenantIdPath": "tid",
+          "externalResourceIdPath": "tid"
+        }
+      },
       "auth": {
         "strategy": "oauth2",
         "oauth": {

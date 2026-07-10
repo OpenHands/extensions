@@ -18,6 +18,25 @@ integrations so clients can consume one source of truth.
 Each integration carries its OAuth/MCP connection data directly. Do not add a
 separate provider catalog or per-language provider data.
 
+Connection options may also carry an optional `connectionModel`. This metadata
+lets consumers distinguish the authenticated principal from the external
+resource the credential can reach:
+
+- `principalType` describes who or what authenticated.
+- `credentialScope` describes the provider boundary enforced by the credential.
+- `resourceType` and `resourceCardinality` describe whether the grant represents
+  one workspace/site/tenant or can enumerate several.
+- `selectionMode` tells clients whether the resource is known during auth,
+  selected immediately after auth, or supplied at runtime.
+- `identityMapping` contains constrained dot paths for identity values returned
+  by OAuth, access-token claims, or a provider identity endpoint.
+- `resourceDiscovery` describes a read-only endpoint used to enumerate resources
+  when one grant covers several of them.
+
+These fields are descriptive; they never broaden the scopes enforced by the
+provider credential. Consumers must not claim resource-level isolation when a
+provider token is only account- or tenant-scoped.
+
 Consumers should use the read functions exported by the package:
 
 ```js

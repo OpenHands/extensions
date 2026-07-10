@@ -45,3 +45,30 @@ def test_catalog_entry_validates_against_schema(entry_path: Path) -> None:
 def test_schema_file_is_valid_draft_2020_12() -> None:
     """The schema itself must be a valid Draft 2020-12 document."""
     Draft202012Validator.check_schema(_SCHEMA)
+
+
+@pytest.mark.parametrize(
+    ("entry_id", "resource_type", "cardinality", "selection_mode"),
+    [
+        ("slack", "workspace", "one", "automatic"),
+        ("notion", "workspace", "one", "automatic"),
+        ("microsoft-teams", "tenant", "one", "automatic"),
+        ("atlassian", "site", "many", "post_auth"),
+        ("github", "organization", "many", "post_auth"),
+    ],
+)
+def test_oauth_connection_model_examples(
+    entry_id: str,
+    resource_type: str,
+    cardinality: str,
+    selection_mode: str,
+) -> None:
+    entry = json.loads((CATALOG_DIR / f"{entry_id}.json").read_text())
+    oauth_option = next(
+        option for option in entry["connectionOptions"] if option["id"] == "oauth"
+    )
+    model = oauth_option["connectionModel"]
+
+    assert model["resourceType"] == resource_type
+    assert model["resourceCardinality"] == cardinality
+    assert model["selectionMode"] == selection_mode
