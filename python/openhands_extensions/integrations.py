@@ -14,10 +14,15 @@ from importlib import resources
 from pathlib import Path
 from typing import Any, Iterable
 
+from .integration_models import IntegrationCatalogEntry
+
+
 __all__ = [
     "INTEGRATION_CATALOG_SNAPSHOT",
     "get_integration_catalog_entry",
+    "get_integration_catalog_entry_model",
     "list_integration_catalog",
+    "list_integration_catalog_models",
 ]
 
 
@@ -81,10 +86,32 @@ def list_integration_catalog(
     return result
 
 
+def list_integration_catalog_models(
+    mcp: bool | None = None,
+    oauth: bool | None = None,
+) -> list[IntegrationCatalogEntry]:
+    """Return typed, validated integration catalog entries.
+
+    ``list_integration_catalog`` remains available for callers that need the
+    original JSON-compatible dictionaries. New Python consumers should prefer
+    this function for a stable, validated contract.
+    """
+    return [
+        IntegrationCatalogEntry.model_validate(entry)
+        for entry in list_integration_catalog(mcp=mcp, oauth=oauth)
+    ]
+
+
 def get_integration_catalog_entry(id: str) -> dict[str, Any] | None:
     """Return one integration catalog entry by id, or ``None``."""
     entry = _integration_by_id().get(id)
     return copy.deepcopy(entry) if entry is not None else None
+
+
+def get_integration_catalog_entry_model(id: str) -> IntegrationCatalogEntry | None:
+    """Return one typed catalog entry, or ``None`` when it does not exist."""
+    entry = get_integration_catalog_entry(id)
+    return IntegrationCatalogEntry.model_validate(entry) if entry is not None else None
 
 
 INTEGRATION_CATALOG_SNAPSHOT: dict[str, Any] = {

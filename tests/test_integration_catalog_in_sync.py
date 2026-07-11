@@ -7,6 +7,8 @@ import subprocess
 from pathlib import Path
 
 import openhands_extensions
+import pytest
+from pydantic import ValidationError
 
 ROOT = Path(__file__).resolve().parents[1]
 CATALOG_DIR = ROOT / "integrations" / "catalog"
@@ -82,6 +84,27 @@ def test_python_list_integration_catalog_returns_raw_entries() -> None:
         assert "catalogStatus" not in entry
         assert "availability" not in entry
         assert "runtimeAvailability" not in entry
+
+
+def test_python_list_integration_catalog_models_returns_typed_entries() -> None:
+    entries = openhands_extensions.list_integration_catalog()
+    models = openhands_extensions.list_integration_catalog_models()
+
+    assert [model.model_dump(exclude_none=True) for model in models] == entries
+    assert all(
+        isinstance(model, openhands_extensions.IntegrationCatalogEntry)
+        for model in models
+    )
+    assert (
+        openhands_extensions.get_integration_catalog_entry_model(entries[0]["id"])
+        == models[0]
+    )
+    assert openhands_extensions.get_integration_catalog_entry_model("missing") is None
+
+    with pytest.raises(ValidationError):
+        openhands_extensions.IntegrationCatalogEntry.model_validate(
+            {**entries[0], "unexpected": True}
+        )
 
 
 def test_logo_metadata_is_serializable_and_language_agnostic() -> None:
