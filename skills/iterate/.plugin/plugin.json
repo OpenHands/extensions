@@ -1,6 +1,6 @@
 {
   "name": "iterate",
-  "version": "1.1.0",
+  "version": "1.0.0",
   "description": "Iterate on a GitHub pull request — drive it through CI, code review, and QA until it is merge-ready.",
   "author": {
     "name": "OpenHands",
