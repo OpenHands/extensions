@@ -18,6 +18,12 @@ integrations so clients can consume one source of truth.
 Each integration carries its OAuth/MCP connection data directly. Do not add a
 separate provider catalog or per-language provider data.
 
+Every entry must include `docsUrl`. Marketplace input fields must explicitly
+declare both their `type` and whether they are `required`, rather than relying
+on client defaults. When connection metadata includes an `identityMapping`, it
+must also identify the external principal. These requirements keep catalogs
+actionable and prevent clients from guessing security- or UX-relevant defaults.
+
 Connection options may also carry an optional `connectionModel`. This metadata
 lets consumers distinguish the authenticated principal from the external
 resource the credential can reach:

@@ -8,13 +8,17 @@ contract defined by ``integrations/catalog.schema.json`` and
 
 from __future__ import annotations
 
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
 NonEmptyString = Annotated[str, Field(min_length=1)]
 HttpsUrl = Annotated[str, Field(pattern=r"^https://", min_length=8)]
+IdentityPath = Annotated[
+    str,
+    Field(pattern=r"^[A-Za-z0-9_-]+(?:\.[A-Za-z0-9_-]+)*$", min_length=1),
+]
 IntegrationAuthStrategy = Literal["none", "api_key", "bearer", "basic", "oauth2"]
 IntegrationProvider = Literal["mcp", "http"]
 
@@ -24,15 +28,30 @@ class CatalogModel(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
+    @model_validator(mode="before")
+    @classmethod
+    def reject_explicit_nulls(cls, values: Any) -> Any:
+        """Match the JSON Schema: optional fields may be omitted, never null."""
+        if not isinstance(values, dict):
+            return values
+
+        null_fields = [field for field, value in values.items() if value is None]
+        if null_fields:
+            raise ValueError(
+                "Catalog fields must be omitted instead of set to null: "
+                f"{', '.join(null_fields)}"
+            )
+        return values
+
 
 class MarketplaceField(CatalogModel):
     key: NonEmptyString
     label: NonEmptyString
-    type: Literal["text", "password"] | None = None
+    type: Literal["text", "password"]
     placeholder: str | None = None
     helperText: str | None = None
     helperLink: HttpsUrl | None = None
-    required: bool | None = None
+    required: bool
 
     @model_validator(mode="after")
     def password_fields_have_help(self) -> MarketplaceField:
@@ -88,7 +107,7 @@ class IntegrationOAuthConfig(CatalogModel):
 
 class IntegrationAuthConfig(CatalogModel):
     strategy: IntegrationAuthStrategy
-    authModes: list[IntegrationAuthStrategy] | None = None
+    authModes: list[IntegrationAuthStrategy] | None = Field(default=None, min_length=1)
     credentialLabel: NonEmptyString | None = None
     credentialPlaceholder: NonEmptyString | None = None
     credentialHelp: NonEmptyString | None = None
@@ -107,11 +126,11 @@ class IntegrationHttpConfig(CatalogModel):
 class IntegrationIdentityMapping(CatalogModel):
     source: Literal["oauth_token_response", "access_token_claims", "identity_api"]
     endpoint: HttpsUrl | None = None
-    externalPrincipalIdPath: NonEmptyString | None = None
-    externalTenantIdPath: NonEmptyString | None = None
-    externalResourceIdPath: NonEmptyString | None = None
-    resourceNamePath: NonEmptyString | None = None
-    resourceUrlPath: NonEmptyString | None = None
+    externalPrincipalIdPath: IdentityPath
+    externalTenantIdPath: IdentityPath | None = None
+    externalResourceIdPath: IdentityPath | None = None
+    resourceNamePath: IdentityPath | None = None
+    resourceUrlPath: IdentityPath | None = None
 
     @model_validator(mode="after")
     def identity_api_requires_endpoint(self) -> IntegrationIdentityMapping:
@@ -124,10 +143,10 @@ class IntegrationIdentityMapping(CatalogModel):
 
 class IntegrationResourceDiscovery(CatalogModel):
     endpoint: HttpsUrl
-    itemsPath: NonEmptyString | None = None
-    externalResourceIdPath: NonEmptyString
-    resourceNamePath: NonEmptyString | None = None
-    resourceUrlPath: NonEmptyString | None = None
+    itemsPath: IdentityPath | None = None
+    externalResourceIdPath: IdentityPath
+    resourceNamePath: IdentityPath | None = None
+    resourceUrlPath: IdentityPath | None = None
 
 
 class IntegrationConnectionModel(CatalogModel):
@@ -172,9 +191,9 @@ class IntegrationCatalogEntry(CatalogModel):
     id: NonEmptyString
     name: NonEmptyString
     description: NonEmptyString
-    categories: list[NonEmptyString] | None = None
+    categories: list[NonEmptyString] | None = Field(default=None, min_length=1)
     appUrl: HttpsUrl | None = None
-    docsUrl: HttpsUrl | None = None
+    docsUrl: HttpsUrl
     notes: NonEmptyString | None = None
     iconBg: NonEmptyString | None = None
     iconColor: NonEmptyString | None = None

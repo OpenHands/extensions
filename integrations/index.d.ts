@@ -3,11 +3,11 @@ export type MarketplaceFieldType = "text" | "password";
 export interface MarketplaceField {
   key: string;
   label: string;
-  type?: MarketplaceFieldType;
+  type: MarketplaceFieldType;
   placeholder?: string;
   helperText?: string;
   helperLink?: string;
-  required?: boolean;
+  required: boolean;
 }
 
 export type IntegrationTransport =
@@ -115,7 +115,7 @@ export type IntegrationIdentitySource =
 export interface IntegrationIdentityMapping {
   source: IntegrationIdentitySource;
   endpoint?: string;
-  externalPrincipalIdPath?: string;
+  externalPrincipalIdPath: string;
   externalTenantIdPath?: string;
   externalResourceIdPath?: string;
   resourceNamePath?: string;
@@ -156,7 +156,7 @@ export interface IntegrationCatalogEntry {
   description: string;
   categories?: string[];
   appUrl?: string;
-  docsUrl?: string;
+  docsUrl: string;
   notes?: string;
   iconBg?: string;
   iconColor?: string;

@@ -140,6 +140,54 @@ def test_http_catalog_options_require_both_urls() -> None:
             openhands_extensions.IntegrationCatalogEntry.model_validate(invalid)
 
 
+def test_catalog_models_require_connectability_and_install_metadata() -> None:
+    entry = next(entry for entry in _catalog_entries() if entry["id"] == "slack")
+
+    missing_docs = deepcopy(entry)
+    missing_docs.pop("docsUrl")
+    with pytest.raises(ValidationError, match="docsUrl"):
+        openhands_extensions.IntegrationCatalogEntry.model_validate(missing_docs)
+
+    missing_field_type = deepcopy(entry)
+    missing_field_type["connectionOptions"][1]["transport"]["envFields"][0].pop("type")
+    with pytest.raises(ValidationError, match="type"):
+        openhands_extensions.IntegrationCatalogEntry.model_validate(missing_field_type)
+
+    missing_required_marker = deepcopy(entry)
+    missing_required_marker["connectionOptions"][1]["transport"]["envFields"][0].pop(
+        "required"
+    )
+    with pytest.raises(ValidationError, match="required"):
+        openhands_extensions.IntegrationCatalogEntry.model_validate(
+            missing_required_marker
+        )
+
+    missing_principal_mapping = deepcopy(entry)
+    missing_principal_mapping["connectionOptions"][0]["connectionModel"][
+        "identityMapping"
+    ].pop("externalPrincipalIdPath")
+    with pytest.raises(ValidationError, match="externalPrincipalIdPath"):
+        openhands_extensions.IntegrationCatalogEntry.model_validate(
+            missing_principal_mapping
+        )
+
+    null_instead_of_omission = deepcopy(entry)
+    null_instead_of_omission["notes"] = None
+    with pytest.raises(ValidationError, match="must be omitted"):
+        openhands_extensions.IntegrationCatalogEntry.model_validate(
+            null_instead_of_omission
+        )
+
+    invalid_identity_path = deepcopy(entry)
+    invalid_identity_path["connectionOptions"][0]["connectionModel"]["identityMapping"][
+        "externalPrincipalIdPath"
+    ] = "not/a/path"
+    with pytest.raises(ValidationError, match="pattern"):
+        openhands_extensions.IntegrationCatalogEntry.model_validate(
+            invalid_identity_path
+        )
+
+
 def test_logo_metadata_is_serializable_and_language_agnostic() -> None:
     entries = openhands_extensions.list_integration_catalog()
     with_logo = [entry for entry in entries if entry.get("logoUrl")]
