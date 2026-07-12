@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import subprocess
+from copy import deepcopy
 from pathlib import Path
 
 import openhands_extensions
@@ -25,7 +26,17 @@ def _catalog_files() -> dict[str, dict]:
 
 def _catalog_entries() -> list[dict]:
     entries = list(_catalog_files().values())
-    return sorted(entries, key=lambda entry: (-(entry.get("popularityRank") if entry.get("popularityRank") is not None else -1), entry["id"]))
+    return sorted(
+        entries,
+        key=lambda entry: (
+            -(
+                entry.get("popularityRank")
+                if entry.get("popularityRank") is not None
+                else -1
+            ),
+            entry["id"],
+        ),
+    )
 
 
 def _supports_mcp(entry: dict) -> bool:
@@ -33,8 +44,10 @@ def _supports_mcp(entry: dict) -> bool:
 
 
 def _supports_oauth(entry: dict) -> bool:
-    return any(option.get("auth", {}).get("strategy") == "oauth2" for option in entry["connectionOptions"])
-
+    return any(
+        option.get("auth", {}).get("strategy") == "oauth2"
+        for option in entry["connectionOptions"]
+    )
 
 
 def test_catalog_directory_is_hand_authored_source_of_truth() -> None:
@@ -107,6 +120,26 @@ def test_python_list_integration_catalog_models_returns_typed_entries() -> None:
         )
 
 
+def test_http_catalog_options_require_both_urls() -> None:
+    entry = next(
+        entry
+        for entry in _catalog_entries()
+        if any(option["provider"] == "http" for option in entry["connectionOptions"])
+    )
+    option = next(
+        option for option in entry["connectionOptions"] if option["provider"] == "http"
+    )
+
+    for field in ("apiBaseUrl", "openApiUrl"):
+        invalid = deepcopy(entry)
+        invalid_option = next(
+            item for item in invalid["connectionOptions"] if item["id"] == option["id"]
+        )
+        invalid_option["http"].pop(field)
+        with pytest.raises(ValidationError, match=field):
+            openhands_extensions.IntegrationCatalogEntry.model_validate(invalid)
+
+
 def test_logo_metadata_is_serializable_and_language_agnostic() -> None:
     entries = openhands_extensions.list_integration_catalog()
     with_logo = [entry for entry in entries if entry.get("logoUrl")]
@@ -153,7 +186,9 @@ def test_js_reads_the_same_catalog_as_python() -> None:
         "import { getIntegrationCatalogEntry } from './integrations/index.js';\n"
         f"process.stdout.write(JSON.stringify(getIntegrationCatalogEntry({json.dumps(sample_id)})));"
     )
-    assert json.loads(sample) == openhands_extensions.get_integration_catalog_entry(sample_id)
+    assert json.loads(sample) == openhands_extensions.get_integration_catalog_entry(
+        sample_id
+    )
 
 
 def _js_filter(mcp, oauth) -> list[str]:
@@ -178,7 +213,9 @@ def test_filter_mcp_only() -> None:
 
 
 def test_filter_oauth_only() -> None:
-    py_ids = {e["id"] for e in openhands_extensions.list_integration_catalog(oauth=True)}
+    py_ids = {
+        e["id"] for e in openhands_extensions.list_integration_catalog(oauth=True)
+    }
     js_ids = set(_js_filter("undefined", "true"))
     all_oauth = {
         e["id"]
@@ -191,7 +228,8 @@ def test_filter_oauth_only() -> None:
 
 def test_filter_oauth_not_mcp() -> None:
     py_ids = {
-        e["id"] for e in openhands_extensions.list_integration_catalog(oauth=True, mcp=False)
+        e["id"]
+        for e in openhands_extensions.list_integration_catalog(oauth=True, mcp=False)
     }
     js_ids = set(_js_filter("false", "true"))
     expected = {
@@ -220,7 +258,9 @@ def test_accessors_return_independent_copies() -> None:
     sample = openhands_extensions.get_integration_catalog_entry(sample_id)
     assert sample is not None
     sample["__mutated"] = True
-    assert "__mutated" not in openhands_extensions.get_integration_catalog_entry(sample_id)
+    assert "__mutated" not in openhands_extensions.get_integration_catalog_entry(
+        sample_id
+    )
 
     snapshot = openhands_extensions.INTEGRATION_CATALOG_SNAPSHOT
     snapshot["integrations"][0]["__mutated"] = True

@@ -100,8 +100,8 @@ class IntegrationAuthConfig(CatalogModel):
 
 
 class IntegrationHttpConfig(CatalogModel):
-    apiBaseUrl: HttpsUrl | None = None
-    openApiUrl: HttpsUrl | None = None
+    apiBaseUrl: HttpsUrl
+    openApiUrl: HttpsUrl
 
 
 class IntegrationIdentityMapping(CatalogModel):
@@ -161,12 +161,6 @@ class HttpConnectionOption(CatalogModel):
     auth: IntegrationAuthConfig
     connectionModel: IntegrationConnectionModel | None = None
 
-    @model_validator(mode="after")
-    def http_connections_have_openapi_urls(self) -> HttpConnectionOption:
-        if not self.http.apiBaseUrl or not self.http.openApiUrl:
-            raise ValueError("HTTP connections require apiBaseUrl and openApiUrl.")
-        return self
-
 
 IntegrationConnectionOption = Annotated[
     McpConnectionOption | HttpConnectionOption,
@@ -204,7 +198,9 @@ class IntegrationCatalogEntry(CatalogModel):
         for option in self.connectionOptions:
             if option.provider == "http" and option.auth.strategy == "api_key":
                 if not option.auth.apiKeyHeaderName:
-                    raise ValueError("HTTP API-key connections require apiKeyHeaderName.")
+                    raise ValueError(
+                        "HTTP API-key connections require apiKeyHeaderName."
+                    )
             if option.provider == "http" and option.auth.strategy == "oauth2":
                 oauth = option.auth.oauth
                 if not oauth or not oauth.authorizationUrl or not oauth.tokenUrl:
