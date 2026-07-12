@@ -5,7 +5,7 @@
   "description": "Strict schema for integrations/catalog/*.json. Mirrors integrations/index.d.ts and encodes the cross-field connectability rules the catalog contract depends on.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["id", "name", "description", "connectionOptions"],
+  "required": ["id", "name", "description", "docsUrl", "connectionOptions"],
   "properties": {
     "id": { "type": "string", "minLength": 1 },
     "name": { "type": "string", "minLength": 1 },
@@ -39,7 +39,7 @@
     "marketplaceField": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["key", "label"],
+      "required": ["key", "label", "type", "required"],
       "properties": {
         "key": { "type": "string", "minLength": 1 },
         "label": { "type": "string", "minLength": 1 },
@@ -99,7 +99,7 @@
     "identityMapping": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["source"],
+      "required": ["source", "externalPrincipalIdPath"],
       "properties": {
         "source": {
           "enum": ["oauth_token_response", "access_token_claims", "identity_api"]
