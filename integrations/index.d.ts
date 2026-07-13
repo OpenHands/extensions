@@ -17,7 +17,7 @@ export type IntegrationTransport =
       apiKeyOptional?: boolean;
       /**
        * Named request headers the user must supply (e.g. Datadog's
-       * `DD-API-KEY` / `DD-APPLICATION-KEY`). Values are sent verbatim as
+       * `DD_API_KEY` / `DD_APPLICATION_KEY`). Values are sent verbatim as
        * headers on every MCP request. The direct analog of stdio's
        * `envFields`: each entry renders one input in the install modal,
        * `type: "password"` entries are secret-saved by default, and
