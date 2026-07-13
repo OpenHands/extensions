@@ -126,6 +126,7 @@ Official skills and plugins for OpenHands — the open-source AI software engine
 | deno | skill | Common project operations using Deno (tasks, run/test/lint/fmt, and dependency management). | — |
 | discord | skill | Build and automate Discord integrations (bots, webhooks, slash commands, and REST API workflows). Use when the user m... | — |
 | docker | skill | Run Docker commands within a container environment, including starting the Docker daemon and managing containers. Use... | — |
+| dreaming | skill | Create an automation that periodically distills your local OpenHands Agent Canvas coding sessions into a target repos... | `/dreaming:setup` |
 | evidence-based-citations | skill | Back factual claims and field values with official, verifiable sources. Use when the user asks to fill fields, answer... | — |
 | flarglebargle | skill | A test skill that responds to the magic word 'flarglebargle' with a compliment. Use for testing skill activation and ... | — |
 | frontend-design | skill | Create distinctive, production-grade frontend interfaces with high design quality. Use this skill when the user asks ... | — |
