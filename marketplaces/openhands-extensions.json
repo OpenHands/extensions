@@ -730,6 +730,15 @@
       ]
     },
     {
+      "name": "technical-writing",
+      "source": "./skills/technical-writing",
+      "description": "Write and revise technical explanations in flowing, direct, conversational prose that stays concise without becoming fragmented or vague.",
+      "category": "productivity",
+      "keywords": [
+        "technical-writing"
+      ]
+    },
+    {
       "name": "plain-english-content",
       "source": "./skills/plain-english-content",
       "description": "Write and edit clear, accessible prose in a plain English content style: active voice, front-loaded content, sentence case, and accessible formatting.",
