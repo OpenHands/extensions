@@ -7,6 +7,8 @@ triggers:
 
 # Notion
 
+Windows PowerShell equivalents for the repeated Notion REST `curl`, environment-variable, and JSON-body snippets are in `references/windows.md`.
+
 <IMPORTANT>
 If authenticated Notion MCP tools are available in the environment, use them first. MCP tools do not require passing `NOTION_INTEGRATION_KEY` as a tool argument; authentication is handled by the configured MCP integration.
 

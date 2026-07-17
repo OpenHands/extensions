@@ -14,6 +14,7 @@ triggers:
 Create a cron automation that watches a GitHub repository for pull requests
 with a review trigger label, starts an OpenHands review conversation once per
 label event, and posts the AI review as a GitHub comment.
+Windows PowerShell equivalents for the setup, packaging, upload, and API-check shell snippets are in `references/windows.md`.
 
 The automation script is deterministic: PR discovery, label-event tracking,
 state persistence, stale-result suppression, and GitHub comment posting are

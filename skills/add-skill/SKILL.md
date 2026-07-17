@@ -38,6 +38,8 @@ python3 scripts/fetch_skill.py "https://github.com/OpenHands/extensions/tree/mai
 ls /path/to/workspace/.agents/skills/codereview/SKILL.md
 ```
 
+On Windows, use `python` if `python3` is not available and verify with PowerShell, for example: `Test-Path C:\path\to\workspace\.agents\skills\codereview\SKILL.md`.
+
 Response: "✅ Added `codereview` to your workspace. The skill is now available."
 
 ## Notes

@@ -35,6 +35,7 @@ The prompt includes a **Files Changed** manifest listing every file in the PR, f
 3. Only after both checks come up empty should you flag something as missing. Even then, prefer "I could not locate X" over "X is missing" — the file may be in a path you haven't searched.
 
 Before posting an **inline review comment that names a specific line number**, verify the line maps to what you think it does (`sed -n 'X,Yp' <file>` or `view`). Line numbers derived by counting `+`/`-`/context lines from a `@@` hunk header are not reliable; ground them against the file.
+On Windows PowerShell, use `Get-Content`, `Select-String`, or `(Get-Content <file>)[($start - 1)..($end - 1)]` for the same file and line checks.
 
 CODE REVIEW SCENARIOS:
 

@@ -85,6 +85,8 @@ curl -s -X POST "${OPENHANDS_HOST}/api/automation/v1/preset/prompt" \
   }'
 ```
 
+PowerShell note: use `curl.exe` for this exact flag syntax, and replace `${OPENHANDS_HOST}` / `$OPENHANDS_AUTOMATION_API_KEY` with `$env:OPENHANDS_HOST` / `$env:OPENHANDS_AUTOMATION_API_KEY` if running it natively.
+
 ### Step 5 — Confirm
 
 Tell the user:

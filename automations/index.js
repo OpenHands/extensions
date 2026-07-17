@@ -5,6 +5,7 @@ import slack_channel_monitor from "./catalog/slack-channel-monitor.json" with { 
 import linear_triage_assistant from "./catalog/linear-triage-assistant.json" with { type: "json" };
 import research_brief_writer from "./catalog/research-brief-writer.json" with { type: "json" };
 import incident_retrospective_drafter from "./catalog/incident-retrospective-drafter.json" with { type: "json" };
+import jira_issue_to_pr from "./catalog/jira-issue-to-pr.json" with { type: "json" };
 
 export const AUTOMATION_CATALOG = [
   github_pr_reviewer,
@@ -14,5 +15,6 @@ export const AUTOMATION_CATALOG = [
   linear_triage_assistant,
   research_brief_writer,
   incident_retrospective_drafter,
+  jira_issue_to_pr,
 ];
 export default AUTOMATION_CATALOG;

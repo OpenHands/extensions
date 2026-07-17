@@ -3,11 +3,11 @@ export type MarketplaceFieldType = "text" | "password";
 export interface MarketplaceField {
   key: string;
   label: string;
-  type?: MarketplaceFieldType;
+  type: MarketplaceFieldType;
   placeholder?: string;
   helperText?: string;
   helperLink?: string;
-  required?: boolean;
+  required: boolean;
 }
 
 export type IntegrationTransport =
@@ -95,12 +95,58 @@ export interface IntegrationHttpConfig {
   openApiUrl?: string;
 }
 
+export type IntegrationPrincipalType =
+  | "user"
+  | "bot"
+  | "service_account"
+  | "application";
+
+export type IntegrationCredentialScope =
+  | "account"
+  | "tenant"
+  | "organization"
+  | "resource";
+
+export type IntegrationIdentitySource =
+  | "oauth_token_response"
+  | "access_token_claims"
+  | "identity_api";
+
+export interface IntegrationIdentityMapping {
+  source: IntegrationIdentitySource;
+  endpoint?: string;
+  externalPrincipalIdPath: string;
+  externalTenantIdPath?: string;
+  externalResourceIdPath?: string;
+  resourceNamePath?: string;
+  resourceUrlPath?: string;
+}
+
+export interface IntegrationResourceDiscovery {
+  endpoint: string;
+  itemsPath?: string;
+  externalResourceIdPath: string;
+  resourceNamePath?: string;
+  resourceUrlPath?: string;
+}
+
+export interface IntegrationConnectionModel {
+  principalType: IntegrationPrincipalType;
+  credentialScope: IntegrationCredentialScope;
+  resourceType: string;
+  resourceCardinality: "one" | "many";
+  selectionMode: "automatic" | "post_auth" | "runtime";
+  identityMapping?: IntegrationIdentityMapping;
+  resourceDiscovery?: IntegrationResourceDiscovery;
+}
+
 export interface IntegrationConnectionOption {
   id: "oauth" | "api" | "none" | string;
   provider: IntegrationProvider;
   transport?: IntegrationTransport;
   http?: IntegrationHttpConfig;
   auth: IntegrationAuthConfig;
+  connectionModel?: IntegrationConnectionModel;
 }
 
 
@@ -110,7 +156,7 @@ export interface IntegrationCatalogEntry {
   description: string;
   categories?: string[];
   appUrl?: string;
-  docsUrl?: string;
+  docsUrl: string;
   notes?: string;
   iconBg?: string;
   iconColor?: string;

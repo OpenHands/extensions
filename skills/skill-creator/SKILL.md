@@ -6,6 +6,7 @@ description: This skill should be used when the user wants to "create a skill", 
 # Skill Creator
 
 This skill provides guidance for creating effective skills.
+Windows PowerShell equivalents for the Unix shell commands used in examples are in `references/windows.md`.
 
 ## About Skills
 

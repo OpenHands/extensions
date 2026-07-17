@@ -5,7 +5,7 @@
   "description": "Strict schema for integrations/catalog/*.json. Mirrors integrations/index.d.ts and encodes the cross-field connectability rules the catalog contract depends on.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["id", "name", "description", "connectionOptions"],
+  "required": ["id", "name", "description", "docsUrl", "connectionOptions"],
   "properties": {
     "id": { "type": "string", "minLength": 1 },
     "name": { "type": "string", "minLength": 1 },
@@ -39,7 +39,7 @@
     "marketplaceField": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["key", "label"],
+      "required": ["key", "label", "type", "required"],
       "properties": {
         "key": { "type": "string", "minLength": 1 },
         "label": { "type": "string", "minLength": 1 },
@@ -90,6 +90,72 @@
           "additionalProperties": { "type": "string" }
         }
       }
+    },
+    "identityPath": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_-]+(?:\\.[A-Za-z0-9_-]+)*$",
+      "minLength": 1
+    },
+    "identityMapping": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source", "externalPrincipalIdPath"],
+      "properties": {
+        "source": {
+          "enum": ["oauth_token_response", "access_token_claims", "identity_api"]
+        },
+        "endpoint": { "type": "string", "pattern": "^https://", "minLength": 8 },
+        "externalPrincipalIdPath": { "$ref": "#/$defs/identityPath" },
+        "externalTenantIdPath": { "$ref": "#/$defs/identityPath" },
+        "externalResourceIdPath": { "$ref": "#/$defs/identityPath" },
+        "resourceNamePath": { "$ref": "#/$defs/identityPath" },
+        "resourceUrlPath": { "$ref": "#/$defs/identityPath" }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "source": { "const": "identity_api" } } },
+          "then": { "required": ["endpoint"] },
+          "else": { "not": { "required": ["endpoint"] } }
+        }
+      ]
+    },
+    "resourceDiscovery": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["endpoint", "externalResourceIdPath"],
+      "properties": {
+        "endpoint": { "type": "string", "pattern": "^https://", "minLength": 8 },
+        "itemsPath": { "$ref": "#/$defs/identityPath" },
+        "externalResourceIdPath": { "$ref": "#/$defs/identityPath" },
+        "resourceNamePath": { "$ref": "#/$defs/identityPath" },
+        "resourceUrlPath": { "$ref": "#/$defs/identityPath" }
+      }
+    },
+    "connectionModel": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "principalType",
+        "credentialScope",
+        "resourceType",
+        "resourceCardinality",
+        "selectionMode"
+      ],
+      "properties": {
+        "principalType": { "enum": ["user", "bot", "service_account", "application"] },
+        "credentialScope": { "enum": ["account", "tenant", "organization", "resource"] },
+        "resourceType": { "type": "string", "minLength": 1 },
+        "resourceCardinality": { "enum": ["one", "many"] },
+        "selectionMode": { "enum": ["automatic", "post_auth", "runtime"] },
+        "identityMapping": { "$ref": "#/$defs/identityMapping" },
+        "resourceDiscovery": { "$ref": "#/$defs/resourceDiscovery" }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "selectionMode": { "const": "post_auth" } } },
+          "then": { "required": ["resourceDiscovery"] }
+        }
+      ]
     },
     "authConfig": {
       "type": "object",
@@ -186,7 +252,8 @@
         "provider": { "enum": ["mcp", "http"] },
         "transport": { "$ref": "#/$defs/transport" },
         "http": { "$ref": "#/$defs/httpConfig" },
-        "auth": { "$ref": "#/$defs/authConfig" }
+        "auth": { "$ref": "#/$defs/authConfig" },
+        "connectionModel": { "$ref": "#/$defs/connectionModel" }
       },
       "allOf": [
         {
