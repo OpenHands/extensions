@@ -61,7 +61,7 @@
         "strategy": "api_key",
         "credentialLabel": "Personal access token",
         "credentialPlaceholder": "github_pat_...",
-        "credentialHelp": "Classic or fine-grained personal access token from GitHub settings.",
+        "credentialHelp": "Create a token in [GitHub settings](https://github.com/settings/personal-access-tokens): classic tokens need the repo and read:user scopes; fine-grained tokens need read access to Contents, Issues, and Pull requests for the repositories you use.",
         "credentialSecretName": "GITHUB_PERSONAL_ACCESS_TOKEN",
         "saveCredentialAsSecretByDefault": true
       }

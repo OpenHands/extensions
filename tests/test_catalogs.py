@@ -156,3 +156,70 @@ def test_http_connectors_have_openapi_url():
                 if not url or not url.startswith("https://"):
                     offenders.append(f"{entry['id']}.{option['id']}")
     assert not offenders, f"HTTP options missing openApiUrl: {offenders}"
+
+
+def _installable_option(entry):
+    """First option a local Agent Canvas install can use — the GUI filters out
+    provider-OAuth options (isLocallyInstallableMcpOption in agent-canvas)."""
+    for option in entry["connectionOptions"]:
+        if option["auth"]["strategy"] != "oauth2":
+            return option
+    raise AssertionError(f"{entry['id']}: no locally installable connection option")
+
+
+def test_daily_workflow_entries_are_locally_installable():
+    """GitHub, Linear, and Slack back the daily-workflow release (OSS-5193):
+    each must keep a non-OAuth MCP option that local Agent Canvas can install,
+    with the connectivity details its Test-connection probe relies on."""
+    entries = {e["id"]: e for e in load_catalog_entries("integrations/catalog")}
+
+    for entry_id, option_id in (("github", "api"), ("linear", "api-key"), ("slack", "api")):
+        entry = entries[entry_id]
+        assert entry["docsUrl"].startswith("https://")
+        option = _installable_option(entry)
+        assert option["id"] == option_id
+        assert option["provider"] == "mcp"
+
+    github = _installable_option(entries["github"])
+    assert github["transport"]["kind"] == "shttp"
+    assert github["transport"]["url"] == "https://api.githubcopilot.com/mcp/"
+    assert github["auth"]["credentialSecretName"] == "GITHUB_PERSONAL_ACCESS_TOKEN"
+
+    linear = _installable_option(entries["linear"])
+    assert linear["transport"]["kind"] == "shttp"
+    assert linear["transport"]["url"] == "https://mcp.linear.app/mcp"
+
+    slack = _installable_option(entries["slack"])
+    assert slack["transport"]["kind"] == "stdio"
+    assert slack["transport"]["command"] == "npx"
+    required_env = {
+        field["key"] for field in slack["transport"]["envFields"] if field.get("required")
+    }
+    assert required_env == {"SLACK_TEAM_ID", "SLACK_BOT_TOKEN"}
+
+
+def test_daily_workflow_entries_state_scopes_and_setup_paths():
+    """The locally installable options must state the required scopes and link a
+    public setup path (OSS-5193). The OAuth options' scope lists never reach a
+    local Canvas install, so this metadata has to live on these options."""
+    entries = {e["id"]: e for e in load_catalog_entries("integrations/catalog")}
+
+    github_help = _installable_option(entries["github"])["auth"]["credentialHelp"]
+    assert re.search(r"\brepo\b", github_help)
+    assert "read:user" in github_help
+    assert re.search(r"\[.+?\]\(https://github\.com/settings[^)]*\)", github_help)
+
+    linear_help = _installable_option(entries["linear"])["auth"]["credentialHelp"]
+    assert "Bearer" in linear_help
+    assert re.search(r"\[.+?\]\(https://linear\.app/settings[^)]*\)", linear_help)
+
+    slack_hint = entries["slack"]["installHint"]
+    for scope in (
+        "channels:history",
+        "channels:read",
+        "chat:write",
+        "reactions:write",
+        "users:read",
+        "users.profile:read",
+    ):
+        assert scope in slack_hint, f"slack installHint missing bot scope {scope}"
