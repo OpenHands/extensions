@@ -52,7 +52,7 @@
         "apiKeyOptional": true,
         "credentialLabel": "Linear API key",
         "credentialPlaceholder": "Paste your Linear API key",
-        "credentialHelp": "Optional when the endpoint accepts your OAuth session; otherwise sent as Authorization: Bearer <token>."
+        "credentialHelp": "Create a personal API key (grant at least read access) under Security & access in [Linear settings](https://linear.app/settings/account/security). Sent as Authorization: Bearer <token>; optional when the endpoint accepts your OAuth session."
       }
     }
   ],
