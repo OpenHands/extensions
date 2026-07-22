@@ -136,6 +136,49 @@ def test_credential_fields_have_helper_text_and_link():
                         )
 
 
+def test_posthog_catalog_prefers_oauth_with_safe_mcp_defaults():
+    posthog = next(
+        entry for entry in load_catalog_entries("integrations/catalog")
+        if entry["id"] == "posthog"
+    )
+
+    assert [option["id"] for option in posthog["connectionOptions"]] == [
+        "oauth",
+        "api-key",
+    ]
+
+    oauth = posthog["connectionOptions"][0]
+    assert oauth["provider"] == "mcp"
+    assert oauth["transport"] == {
+        "kind": "shttp",
+        "url": "https://mcp.posthog.com/mcp?readonly=true",
+        "urlEditable": True,
+    }
+    oauth_config = oauth["auth"]["oauth"]
+    assert oauth_config["authorizationUrl"] == (
+        "https://oauth.posthog.com/oauth/authorize/"
+    )
+    assert oauth_config["tokenUrl"] == "https://oauth.posthog.com/oauth/token/"
+    assert oauth_config["registrationUrl"] == (
+        "https://oauth.posthog.com/oauth/register/"
+    )
+    assert oauth_config["pkce"] is True
+    assert oauth_config["clientAuthentication"] == "none"
+    assert oauth_config["additionalAuthorizationParams"] == {
+        "resource": "https://mcp.posthog.com/mcp"
+    }
+    assert oauth_config["additionalTokenParams"] == {
+        "resource": "https://mcp.posthog.com/mcp"
+    }
+    assert "query:read" in oauth_config["scopes"]
+    assert all(not scope.endswith(":write") for scope in oauth_config["scopes"])
+
+    api_key = posthog["connectionOptions"][1]
+    assert api_key["auth"]["strategy"] == "bearer"
+    assert api_key["auth"]["credentialSecretName"] == "POSTHOG_PERSONAL_API_KEY"
+    assert api_key["auth"]["saveCredentialAsSecretByDefault"] is True
+
+
 def test_node_package_exports_catalogs():
     script = """
       import { INTEGRATION_CATALOG, AUTOMATION_CATALOG } from './index.js';
