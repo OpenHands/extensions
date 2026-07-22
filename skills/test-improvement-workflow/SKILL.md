@@ -14,8 +14,10 @@ version: 1.0.0
 metadata:
   openhands:
     requires:
-      bins: ["grep", "pytest"]
+      bins: ["grep"]
 ---
+
+> **Note**: This skill uses Python and pytest in examples. Adapt all commands, code patterns, and tooling references to match your codebase's language and test framework (e.g., Jest, Mocha, RSpec, Go test, etc.).
 
 # Test Improvement Workflow
 

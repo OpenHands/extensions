@@ -12,8 +12,10 @@ version: 1.0.0
 metadata:
   openhands:
     requires:
-      bins: ["pytest", "git"]
+      bins: ["git"]
 ---
+
+> **Note**: This skill uses Python and pytest in examples. Adapt all commands, code patterns, and tooling references to match your codebase's language and test framework (e.g., Jest, Mocha, RSpec, Go test, etc.).
 
 # Test Improvement Patterns
 
@@ -31,7 +33,7 @@ Use this skill after the user approves validated improvements. It focuses on how
 ### TDD loop for new behavior
 
 ```bash
-# 1. Write a failing test
+# 1. Write a failing test (adapt to your test framework)
 pytest test_file.py::TestClass::test_method -v
 
 # 2. Implement the minimum code to pass
@@ -47,7 +49,7 @@ git add -A && git commit -m "feat: add helper method"
 # 1. Save the known-good state
 git add -A && git commit -m "checkpoint: before refactoring"
 
-# 2. Make behavior-preserving changes
+# 2. Make behavior-preserving changes (adapt to your test framework)
 pytest test_file.py -v
 
 # 3. Commit the refactor
@@ -67,6 +69,8 @@ git add -A && git commit -m "refactor: consolidate tests with parameterization"
 Keep imports at the top of the file. Do not hide imports inside individual tests unless delayed import behavior is the subject of the test.
 
 ## Common improvement patterns
+
+> **Note**: The following patterns show Python/pytest examples. Adapt the code patterns to your language and test framework.
 
 ### Pattern 0: Replace session-scoped mutable fixtures
 

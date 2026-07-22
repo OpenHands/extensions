@@ -15,6 +15,8 @@ metadata:
       bins: ["grep"]
 ---
 
+> **Note**: This skill uses Python in examples. Adapt all commands, code patterns, and tooling references to match your codebase's language and test framework (e.g., Jest, Mocha, RSpec, Go test, etc.).
+
 # Test Validation Checklist
 
 Use this skill after you have a proposed improvement list and before you start editing code. Its purpose is to prevent work on phantom problems.
@@ -41,10 +43,10 @@ Possible outcomes:
 
 ## Validation checklist by improvement type
 
-| Improvement type | Validation method | What to confirm |
+| Improvement type | Validation method (Python example) | What to confirm |
 |---|---|---|
-| Remove duplicate class or helper | `grep -n "class X\|def X" file.py` | whether the symbol really appears multiple times |
-| Add missing comments | `grep -n "# \|\"\"\"" file.py` | whether comments or docstrings are already present |
+| Remove duplicate class or helper | `grep -n "class X\|def X" file.py` (adapt to your language) | whether the symbol really appears multiple times |
+| Add missing comments | `grep -n "# \|\"\"\"" file.py` (adapt to your language) | whether comments or docstrings are already present |
 | Consolidate fixtures | compare fixture definitions side by side | whether they differ in meaningful data or behavior |
 | Extract a repeated pattern | search for exact or near-exact repetition | whether the pattern is repeated enough to justify extraction |
 | Remove redundant tests | inspect assertions and setup intent | whether the tests cover genuinely distinct behaviors |
@@ -60,11 +62,11 @@ For each item in the prioritized table:
 4. Mark the item as Valid, Invalid, or Partial.
 5. Update the improvement list before any implementation begins.
 
-## Example workflow
+## Example workflow (Python)
 
 ```text
 Claim: TestMainOutputMessages is duplicated at lines 262 and 1372.
-Check: grep -n "class TestMainOutputMessages" tests/test_cli.py
+Check: grep -n "class TestMainOutputMessages" tests/test_cli.py (adapt to your language)
 Result:
 - one match -> Invalid
 - two or more matches -> Valid

@@ -9,7 +9,13 @@ triggers:
   - test prioritization framework
   - rank test issues
 version: 1.0.0
+metadata:
+  openhands:
+    requires:
+      bins: ["grep"]
 ---
+
+> **Note**: This skill uses Python and pytest in examples. Adapt all commands, code patterns, and tooling references to match your codebase's language and test framework (e.g., Jest, Mocha, RSpec, Go test, etc.).
 
 # Test Prioritization Framework
 
@@ -42,13 +48,15 @@ Properties most often involved:
 - Atomic
 - Repeatable
 
-Common examples:
+Common examples (Python/pytest):
 
 - state leakage from `scope='session'` or other shared fixtures
 - test order dependencies
 - shared mutable class or module state
 - non-deterministic time or randomness
 - tests that only pass when run with neighboring tests
+
+Adapt to your framework: look for equivalent concepts like Jest's `beforeAll`, Mocha's `before`, RSpec's `before(:all)`, or similar shared setup mechanisms.
 
 ### HIGH - Visible quality issues
 
@@ -88,12 +96,14 @@ Common examples:
 
 Flag these patterns as CRITICAL even if the initial audit did not emphasize them:
 
-| Pattern | Why it is risky | What to verify |
+| Pattern (Python/pytest) | Why it is risky | What to verify |
 |---|---|---|
 | `scope='session'` fixture with mutable state | state can leak across the entire suite | whether resources persist between tests |
 | `scope='module'` fixture with mutable state | state can leak within a file | whether teardown resets state |
 | shared class-level variables | one test may depend on another test's mutation | whether tests write to shared objects |
 | missing cleanup for autouse fixtures | setup side effects may survive the test | whether teardown is guaranteed |
+
+Adapt to your framework: identify equivalent patterns like Jest's `beforeAll`, Mocha's `before`, or similar shared state mechanisms.
 
 ## Ordering rule
 
@@ -164,12 +174,12 @@ Every CRITICAL item should include:
 3. one or more verification commands
 4. a conservative recommendation to investigate first
 
-Example:
+Example (Python/pytest):
 
 ```text
 Issue: `mock_api_client` uses `scope='session'`
 Risk: state may persist across tests and mask failures.
-Verification steps:
+Verification steps (adapt to your test framework):
   pytest test/unit/ -p random_order --random-order-seed=12345
   pytest test/unit/test_billing.py::TestBilling::test_billing_full_lifecycle -v
 ```
