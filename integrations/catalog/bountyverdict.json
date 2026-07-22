@@ -1,0 +1,27 @@
+{
+  "id": "bountyverdict",
+  "name": "BountyVerdict Agent Decision Tools",
+  "description": "Remote, account-free MCP server for preflight decisions on public GitHub bounties, coding-agent repository instructions, GitHub Actions failures, flaky retries, and MCP tool-catalog changes. Six read-only tools return evidence-linked verdicts. A valid first unsigned call cannot charge and returns a structured selection preview plus the exact x402 USDC quote.",
+  "appUrl": "https://mimirs402.github.io/bountyverdict/",
+  "docsUrl": "https://mimirs402.github.io/bountyverdict/agents.html",
+  "keywords": [
+    "github",
+    "ci",
+    "agent-safety",
+    "mcp",
+    "x402"
+  ],
+  "connectionOptions": [
+    {
+      "id": "none",
+      "provider": "mcp",
+      "transport": {
+        "kind": "shttp",
+        "url": "https://bountyverdict-agent-production.mimirslab.workers.dev/mcp?source=openhands-integrations"
+      },
+      "auth": {
+        "strategy": "none"
+      }
+    }
+  ]
+}
