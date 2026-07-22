@@ -1,0 +1,19 @@
+{
+  "name": "test-prioritization-framework",
+  "version": "1.0.0",
+  "description": "Reliability-first framework for consolidating and prioritizing test audit findings into CRITICAL, HIGH, and MEDIUM work.",
+  "author": {
+    "name": "OpenHands",
+    "email": "contact@all-hands.dev"
+  },
+  "homepage": "https://github.com/OpenHands/extensions",
+  "repository": "https://github.com/OpenHands/extensions",
+  "license": "MIT",
+  "keywords": [
+    "testing",
+    "prioritization",
+    "test-quality",
+    "audit",
+    "reliability"
+  ]
+}
