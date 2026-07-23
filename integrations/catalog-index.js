@@ -71,12 +71,13 @@ import entry65 from "./catalog/mongodb.json" with { type: "json" };
 import entry66 from "./catalog/neon.json" with { type: "json" };
 import entry67 from "./catalog/obsidian.json" with { type: "json" };
 import entry68 from "./catalog/paypal.json" with { type: "json" };
-import entry69 from "./catalog/playwright.json" with { type: "json" };
-import entry70 from "./catalog/redis.json" with { type: "json" };
-import entry71 from "./catalog/resend.json" with { type: "json" };
-import entry72 from "./catalog/sequential-thinking.json" with { type: "json" };
-import entry73 from "./catalog/superhuman-mail.json" with { type: "json" };
-import entry74 from "./catalog/time.json" with { type: "json" };
+import entry69 from "./catalog/pixeltable.json" with { type: "json" };
+import entry70 from "./catalog/playwright.json" with { type: "json" };
+import entry71 from "./catalog/redis.json" with { type: "json" };
+import entry72 from "./catalog/resend.json" with { type: "json" };
+import entry73 from "./catalog/sequential-thinking.json" with { type: "json" };
+import entry74 from "./catalog/superhuman-mail.json" with { type: "json" };
+import entry75 from "./catalog/time.json" with { type: "json" };
 
 export const INTEGRATION_CATALOG_ENTRIES = [
   entry0,
@@ -154,4 +155,5 @@ export const INTEGRATION_CATALOG_ENTRIES = [
   entry72,
   entry73,
   entry74,
+  entry75,
 ];
