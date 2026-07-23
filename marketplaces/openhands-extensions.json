@@ -11,6 +11,31 @@
   },
   "plugins": [
     {
+      "name": "add-skill",
+      "source": "./skills/add-skill",
+      "description": "Add (import) an OpenHands skill from a GitHub repository into the current workspace.",
+      "category": "productivity",
+      "keywords": [
+        "skill",
+        "import",
+        "github",
+        "sparse-checkout"
+      ]
+    },
+    {
+      "name": "agent-canvas-environment",
+      "source": "./skills/agent-canvas-environment",
+      "description": "Work effectively inside a local Agent Canvas environment, including local agent-server auth, safe workspace hygiene, and local conversation delegation.",
+      "category": "development",
+      "keywords": [
+        "agent-canvas",
+        "openhands",
+        "local",
+        "conversation",
+        "delegation"
+      ]
+    },
+    {
       "name": "agent-creator",
       "source": "./skills/agent-creator",
       "description": "Create file-based sub-agents as Markdown files \u2014 no Python code required. Guides the user through a structured interview and generates a ready-to-deploy .md agent file following the OpenHands SDK specification.",
@@ -22,18 +47,6 @@
         "markdown",
         "no-code",
         "create"
-      ]
-    },
-    {
-      "name": "add-skill",
-      "source": "./skills/add-skill",
-      "description": "Add (import) an OpenHands skill from a GitHub repository into the current workspace.",
-      "category": "productivity",
-      "keywords": [
-        "skill",
-        "import",
-        "github",
-        "sparse-checkout"
       ]
     },
     {
@@ -58,61 +71,6 @@
         "sdk",
         "builder",
         "openhands"
-      ]
-    },
-    {
-      "name": "code-simplifier",
-      "source": "./skills/code-simplifier",
-      "description": "Simplifies and refines code across three dimensions - code reuse, code quality, and efficiency - while preserving all functionality. Analyzes recently modified code and provides actionable improvement suggestions.",
-      "category": "development",
-      "keywords": [
-        "simplify",
-        "refine",
-        "cleanup",
-        "code-quality",
-        "reuse",
-        "efficiency",
-        "refactor"
-      ]
-    },
-    {
-      "name": "openhands-automation",
-      "source": "./skills/openhands-automation",
-      "description": "Create and manage OpenHands automations - scheduled tasks that run in sandboxes. Use the prompt preset to create automations from natural language, or manage existing automations.",
-      "category": "integration",
-      "keywords": [
-        "automation",
-        "cron",
-        "scheduled-task",
-        "sandbox",
-        "openhands"
-      ]
-    },
-    {
-      "name": "agent-canvas-environment",
-      "source": "./skills/agent-canvas-environment",
-      "description": "Work effectively inside a local Agent Canvas environment, including local agent-server auth, safe workspace hygiene, and local conversation delegation.",
-      "category": "development",
-      "keywords": [
-        "agent-canvas",
-        "openhands",
-        "local",
-        "conversation",
-        "delegation"
-      ]
-    },
-    {
-      "name": "openhands-sdk",
-      "source": "./skills/openhands-sdk",
-      "description": "Reference skill for the OpenHands Software Agent SDK - build AI agents with custom tools, LLM configuration, conversations, sub-agent delegation, MCP integration, security, and persistence.",
-      "category": "development",
-      "keywords": [
-        "sdk",
-        "agent",
-        "openhands",
-        "tools",
-        "llm",
-        "conversation"
       ]
     },
     {
@@ -141,7 +99,7 @@
     {
       "name": "bitbucket-cloud",
       "source": "./skills/bitbucket-cloud",
-      "description": "Bitbucket Cloud (bitbucket.org) specifics — authenticate with BITBUCKET_TOKEN, use the REST API v2, workspace/repo_slug repositories, and the create_bitbucket_pr tool. Loaded on demand by the bitbucket skill once a Cloud environment is detected.",
+      "description": "Bitbucket Cloud (bitbucket.org) specifics \u2014 authenticate with BITBUCKET_TOKEN, use the REST API v2, workspace/repo_slug repositories, and the create_bitbucket_pr tool. Loaded on demand by the bitbucket skill once a Cloud environment is detected.",
       "category": "integration",
       "keywords": [
         "bitbucket",
@@ -153,7 +111,7 @@
     {
       "name": "bitbucket-data-center",
       "source": "./skills/bitbucket-data-center",
-      "description": "Bitbucket Data Center (self-hosted Bitbucket Server) specifics — authenticate with BITBUCKET_DATA_CENTER_TOKEN, use the REST API 1.0, PROJECT/repo_slug repositories, scm/ git remotes, and the create_bitbucket_data_center_pr tool. Loaded on demand by the bitbucket skill once a Data Center environment is detected.",
+      "description": "Bitbucket Data Center (self-hosted Bitbucket Server) specifics \u2014 authenticate with BITBUCKET_DATA_CENTER_TOKEN, use the REST API 1.0, PROJECT/repo_slug repositories, scm/ git remotes, and the create_bitbucket_data_center_pr tool. Loaded on demand by the bitbucket skill once a Data Center environment is detected.",
       "category": "integration",
       "keywords": [
         "bitbucket",
@@ -188,6 +146,21 @@
         "security",
         "style",
         "risk"
+      ]
+    },
+    {
+      "name": "code-simplifier",
+      "source": "./skills/code-simplifier",
+      "description": "Simplifies and refines code across three dimensions - code reuse, code quality, and efficiency - while preserving all functionality. Analyzes recently modified code and provides actionable improvement suggestions.",
+      "category": "development",
+      "keywords": [
+        "simplify",
+        "refine",
+        "cleanup",
+        "code-quality",
+        "reuse",
+        "efficiency",
+        "refactor"
       ]
     },
     {
@@ -236,6 +209,20 @@
         "docker",
         "container",
         "images"
+      ]
+    },
+    {
+      "name": "evidence-based-citations",
+      "source": "./skills/evidence-based-citations",
+      "description": "Back factual claims and field values with official, verifiable sources. Use when the user asks to fill fields, answer questions, or make claims that must be supported by an exact quote and an official link.",
+      "category": "productivity",
+      "keywords": [
+        "evidence",
+        "citations",
+        "sources",
+        "verification",
+        "documentation",
+        "official"
       ]
     },
     {
@@ -302,6 +289,20 @@
       ]
     },
     {
+      "name": "github-pr-reviewer",
+      "source": "./skills/github-pr-reviewer",
+      "description": "Create an automation that reviews GitHub pull requests when they are opened or updated. Inspects the diff, changed files, tests, and existing discussion via GitHub MCP, then posts a concise review highlighting risks, security issues, missing tests, and next steps.",
+      "category": "productivity",
+      "keywords": [
+        "github",
+        "pull-request",
+        "review",
+        "code-review",
+        "automation",
+        "integration"
+      ]
+    },
+    {
       "name": "github-repo-monitor",
       "source": "./skills/github-repo-monitor",
       "description": "Create a cron automation that polls a GitHub repository for issue and PR comments containing a configurable trigger phrase (@OpenHands by default). Starts an OpenHands conversation with full issue/PR context, posts acknowledgement comments with a conversation link, and summarises results back to the issue/PR when the agent finishes.",
@@ -326,6 +327,45 @@
         "gitlab",
         "git",
         "merge-request"
+      ]
+    },
+    {
+      "name": "incident-retrospective",
+      "source": "./skills/incident-retrospective",
+      "description": "Create an automation that drafts incident retrospectives by gathering incident-channel messages from Slack, collecting linked tickets from Linear, and publishing a retrospective draft to Notion with timeline, impact summary, root-cause hypotheses, and action items.",
+      "category": "productivity",
+      "keywords": [
+        "incident",
+        "retrospective",
+        "postmortem",
+        "slack",
+        "linear",
+        "notion",
+        "automation"
+      ]
+    },
+    {
+      "name": "iterate",
+      "source": "./skills/iterate",
+      "description": "Iterate on a GitHub pull request \u2014 drive it through CI, code review, and QA until merge-ready. Monitors state, fixes failures, addresses review feedback, retries flaky checks, and pushes fixes in one continuous loop.",
+      "category": "productivity",
+      "keywords": [
+        "github",
+        "ci",
+        "review",
+        "qa",
+        "pull-request",
+        "iterate"
+      ]
+    },
+    {
+      "name": "jira-issue-to-pr",
+      "source": "./skills/jira-issue-to-pr",
+      "description": "Deploy a cron-based OpenHands automation that watches a Jira Cloud project for issues labeled with a configurable label (default: create-pr) and spawns an agent conversation to create a GitHub pull request for each new issue found. The target GitHub repo is read from the ticket body - no repo parameter required at deploy time.",
+      "category": "productivity",
+      "keywords": [
+        "jira",
+        "atlassian"
       ]
     },
     {
@@ -376,6 +416,21 @@
         "issue",
         "project-management",
         "graphql"
+      ]
+    },
+    {
+      "name": "linear-triage",
+      "source": "./skills/linear-triage",
+      "description": "Create an automation that triages new Linear issues by inspecting title, description, team, and recent related issues. Suggests labels, priority, likely owner, and potential duplicates, then posts a clarifying comment.",
+      "category": "productivity",
+      "keywords": [
+        "linear",
+        "triage",
+        "issues",
+        "labels",
+        "priority",
+        "automation",
+        "integration"
       ]
     },
     {
@@ -456,6 +511,33 @@
       ]
     },
     {
+      "name": "openhands-automation",
+      "source": "./skills/openhands-automation",
+      "description": "Create and manage OpenHands automations - scheduled tasks that run in sandboxes. Use the prompt preset to create automations from natural language, or manage existing automations.",
+      "category": "integration",
+      "keywords": [
+        "automation",
+        "cron",
+        "scheduled-task",
+        "sandbox",
+        "openhands"
+      ]
+    },
+    {
+      "name": "openhands-sdk",
+      "source": "./skills/openhands-sdk",
+      "description": "Reference skill for the OpenHands Software Agent SDK - build AI agents with custom tools, LLM configuration, conversations, sub-agent delegation, MCP integration, security, and persistence.",
+      "category": "development",
+      "keywords": [
+        "sdk",
+        "agent",
+        "openhands",
+        "tools",
+        "llm",
+        "conversation"
+      ]
+    },
+    {
       "name": "pdflatex",
       "source": "./skills/pdflatex",
       "description": "Install and use pdflatex to compile LaTeX documents into PDFs on Linux. Use when generating academic papers, research publications, or any documents written in LaTeX.",
@@ -468,6 +550,31 @@
       ]
     },
     {
+      "name": "pixeltable",
+      "source": "./skills/pixeltable",
+      "description": "Build multimodal AI applications with Pixeltable \u2014 declarative tables, computed columns, embedding indexes, and 25+ AI provider integrations. Use for RAG, video/image/document pipelines, and agent memory.",
+      "category": "data",
+      "keywords": [
+        "pixeltable",
+        "multimodal",
+        "rag",
+        "embeddings",
+        "computed-columns",
+        "video",
+        "documents",
+        "agents"
+      ]
+    },
+    {
+      "name": "plain-english-content",
+      "source": "./skills/plain-english-content",
+      "description": "Write and edit clear, accessible prose in a plain English content style: active voice, front-loaded content, sentence case, and accessible formatting.",
+      "category": "productivity",
+      "keywords": [
+        "plain-english"
+      ]
+    },
+    {
       "name": "pr-review",
       "source": "./plugins/pr-review",
       "description": "Automated PR code review \u2014 analyzes diffs and posts inline review comments via the GitHub API.",
@@ -476,19 +583,6 @@
         "pr-review",
         "code-review",
         "github",
-        "automation"
-      ]
-    },
-    {
-      "name": "qa-changes",
-      "source": "./plugins/qa-changes",
-      "description": "Validate pull request changes by actually running the code \u2014 setting up the environment, exercising changed behavior, and posting a structured QA report.",
-      "category": "quality-assurance",
-      "keywords": [
-        "qa",
-        "testing",
-        "pull-request",
-        "validation",
         "automation"
       ]
     },
@@ -506,6 +600,19 @@
       ]
     },
     {
+      "name": "qa-changes",
+      "source": "./plugins/qa-changes",
+      "description": "Validate pull request changes by actually running the code \u2014 setting up the environment, exercising changed behavior, and posting a structured QA report.",
+      "category": "quality-assurance",
+      "keywords": [
+        "qa",
+        "testing",
+        "pull-request",
+        "validation",
+        "automation"
+      ]
+    },
+    {
       "name": "release-notes",
       "source": "./plugins/release-notes",
       "description": "Generate consistent, well-structured release notes from git history. Produces categorized changelog with breaking changes, features, fixes, and contributor attribution.",
@@ -515,6 +622,20 @@
         "changelog",
         "git",
         "semver"
+      ]
+    },
+    {
+      "name": "research-brief",
+      "source": "./skills/research-brief",
+      "description": "Create a recurring automation that researches a topic using Tavily web search and publishes a structured brief to Notion with executive summary, key findings, implications, and source citations.",
+      "category": "productivity",
+      "keywords": [
+        "research",
+        "brief",
+        "tavily",
+        "notion",
+        "web-search",
+        "automation"
       ]
     },
     {
@@ -556,6 +677,21 @@
       ]
     },
     {
+      "name": "slack-standup-digest",
+      "source": "./skills/slack-standup-digest",
+      "description": "Create an automation that generates an async standup digest from Slack. Searches selected channels for messages since the previous workday, groups updates by project, highlights blockers and decisions, and posts a summary to a target channel.",
+      "category": "productivity",
+      "keywords": [
+        "slack",
+        "standup",
+        "digest",
+        "summary",
+        "daily",
+        "cron",
+        "automation"
+      ]
+    },
+    {
       "name": "ssh",
       "source": "./skills/ssh",
       "description": "Establish and manage SSH connections to remote machines, including key generation, configuration, and file transfers. Use when connecting to remote servers, executing remote commands, or transferring files via SCP.",
@@ -576,6 +712,15 @@
         "swift",
         "linux",
         "server-side"
+      ]
+    },
+    {
+      "name": "technical-writing",
+      "source": "./skills/technical-writing",
+      "description": "Write and revise technical explanations in flowing, direct, conversational prose that stays concise without becoming fragmented or vague.",
+      "category": "productivity",
+      "keywords": [
+        "technical-writing"
       ]
     },
     {
@@ -626,135 +771,6 @@
         "remediation",
         "scanning",
         "automation"
-      ]
-    },
-    {
-      "name": "iterate",
-      "source": "./skills/iterate",
-      "description": "Iterate on a GitHub pull request \u2014 drive it through CI, code review, and QA until merge-ready. Monitors state, fixes failures, addresses review feedback, retries flaky checks, and pushes fixes in one continuous loop.",
-      "category": "productivity",
-      "keywords": [
-        "github",
-        "ci",
-        "review",
-        "qa",
-        "pull-request",
-        "iterate"
-      ]
-    },
-    {
-      "name": "evidence-based-citations",
-      "source": "./skills/evidence-based-citations",
-      "description": "Back factual claims and field values with official, verifiable sources. Use when the user asks to fill fields, answer questions, or make claims that must be supported by an exact quote and an official link.",
-      "category": "productivity",
-      "keywords": [
-        "evidence",
-        "citations",
-        "sources",
-        "verification",
-        "documentation",
-        "official"
-      ]
-    },
-    {
-      "name": "github-pr-reviewer",
-      "source": "./skills/github-pr-reviewer",
-      "description": "Create an automation that reviews GitHub pull requests when they are opened or updated. Inspects the diff, changed files, tests, and existing discussion via GitHub MCP, then posts a concise review highlighting risks, security issues, missing tests, and next steps.",
-      "category": "productivity",
-      "keywords": [
-        "github",
-        "pull-request",
-        "review",
-        "code-review",
-        "automation",
-        "integration"
-      ]
-    },
-    {
-      "name": "incident-retrospective",
-      "source": "./skills/incident-retrospective",
-      "description": "Create an automation that drafts incident retrospectives by gathering incident-channel messages from Slack, collecting linked tickets from Linear, and publishing a retrospective draft to Notion with timeline, impact summary, root-cause hypotheses, and action items.",
-      "category": "productivity",
-      "keywords": [
-        "incident",
-        "retrospective",
-        "postmortem",
-        "slack",
-        "linear",
-        "notion",
-        "automation"
-      ]
-    },
-    {
-      "name": "linear-triage",
-      "source": "./skills/linear-triage",
-      "description": "Create an automation that triages new Linear issues by inspecting title, description, team, and recent related issues. Suggests labels, priority, likely owner, and potential duplicates, then posts a clarifying comment.",
-      "category": "productivity",
-      "keywords": [
-        "linear",
-        "triage",
-        "issues",
-        "labels",
-        "priority",
-        "automation",
-        "integration"
-      ]
-    },
-    {
-      "name": "research-brief",
-      "source": "./skills/research-brief",
-      "description": "Create a recurring automation that researches a topic using Tavily web search and publishes a structured brief to Notion with executive summary, key findings, implications, and source citations.",
-      "category": "productivity",
-      "keywords": [
-        "research",
-        "brief",
-        "tavily",
-        "notion",
-        "web-search",
-        "automation"
-      ]
-    },
-    {
-      "name": "slack-standup-digest",
-      "source": "./skills/slack-standup-digest",
-      "description": "Create an automation that generates an async standup digest from Slack. Searches selected channels for messages since the previous workday, groups updates by project, highlights blockers and decisions, and posts a summary to a target channel.",
-      "category": "productivity",
-      "keywords": [
-        "slack",
-        "standup",
-        "digest",
-        "summary",
-        "daily",
-        "cron",
-        "automation"
-      ]
-    },
-    {
-      "name": "technical-writing",
-      "source": "./skills/technical-writing",
-      "description": "Write and revise technical explanations in flowing, direct, conversational prose that stays concise without becoming fragmented or vague.",
-      "category": "productivity",
-      "keywords": [
-        "technical-writing"
-      ]
-    },
-    {
-      "name": "plain-english-content",
-      "source": "./skills/plain-english-content",
-      "description": "Write and edit clear, accessible prose in a plain English content style: active voice, front-loaded content, sentence case, and accessible formatting.",
-      "category": "productivity",
-      "keywords": [
-        "plain-english"
-      ]
-    },
-    {
-      "name": "jira-issue-to-pr",
-      "source": "./skills/jira-issue-to-pr",
-      "description": "Deploy a cron-based OpenHands automation that watches a Jira Cloud project for issues labeled with a configurable label (default: create-pr) and spawns an agent conversation to create a GitHub pull request for each new issue found. The target GitHub repo is read from the ticket body - no repo parameter required at deploy time.",
-      "category": "productivity",
-      "keywords": [
-        "jira",
-        "atlassian"
       ]
     }
   ]
