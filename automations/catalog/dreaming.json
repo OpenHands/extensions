@@ -1,0 +1,13 @@
+{
+  "id": "dreaming",
+  "name": "Letta dreaming agent",
+  "category": "Agent memory",
+  "description": "Give your coding agents a memory that compounds: Letta reflects over a chosen OpenHands conversation on a schedule, learning your codebase, conventions, and preferences over time.",
+  "requiredIntegrationIds": [
+    "github"
+  ],
+  "popularityRank": 84,
+  "estimatedSetupMinutes": 5,
+  "prompt": "/dreaming:setup",
+  "exampleImplementation": "Trigger: cron, daily by default (configurable)\nRequired secrets: GITHUB_TOKEN (repo write) and the model provider API key\n\n1. At setup, the user names a conversation; the skill resolves it to a conversation id from local conversation metadata.\n2. On each cron run, feed whatever is new in that conversation to a persistent Letta dreamer agent; letta dream reflects it into AGENTS.md in a temporary shallow checkout of the target repo. Already-reflected messages are deduplicated, so quiet runs are cheap no-ops.\n3. If the doc changed, commit as the token owner with a Letta Code co-author trailer and push the dream branch.\n4. Open or update the pull request with a summary of the doc changes.\n5. To dream over several conversations, set up one automation per conversation; automations targeting the same repo share a lock and never overlap."
+}
