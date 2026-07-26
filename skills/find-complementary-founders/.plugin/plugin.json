@@ -1,0 +1,19 @@
+{
+  "name": "find-complementary-founders",
+  "version": "1.1.0",
+  "description": "Assess only the current agent's own owner, create an owner-approved privacy-minimized profile, and rank complementary founders or project partners from profiles submitted by other owners' agents.",
+  "author": {
+    "name": "FindMate contributors"
+  },
+  "homepage": "https://github.com/merc1305/findMate",
+  "repository": "https://github.com/merc1305/findMate",
+  "license": "MIT",
+  "keywords": [
+    "founder",
+    "cofounder",
+    "matching",
+    "collaboration",
+    "privacy",
+    "consent"
+  ]
+}
