@@ -134,9 +134,15 @@ class TestCodegenEndToEnd:
             skill_dir.mkdir()
             (skill_dir / "SKILL.md").write_text(content)
 
+        # Empty marketplaces dir: isolates fixtures from the real manifests so a
+        # future fixture named after a real skill (e.g. "docker") can't pick up
+        # its real category or trip the real conflict/unknown-category checks.
+        markets_dir = tmp_path / "marketplaces"
+        markets_dir.mkdir()
+
         script = textwrap.dedent(f"""\
             import {{ buildCatalog }} from './scripts/build-skills-catalog.mjs';
-            const entries = buildCatalog({json.dumps(str(skills_dir))});
+            const entries = buildCatalog({json.dumps(str(skills_dir))}, {json.dumps(str(markets_dir))});
             process.stdout.write(JSON.stringify(entries));
         """)
         result = run_node(script)
@@ -173,9 +179,13 @@ class TestCodegenEndToEnd:
         (skills_dir / "bad").mkdir()
         (skills_dir / "bad" / "SKILL.md").write_text("No frontmatter here")
 
+        # Empty marketplaces dir: isolates this fixture from the real manifests.
+        markets_dir = tmp_path / "marketplaces"
+        markets_dir.mkdir()
+
         script = textwrap.dedent(f"""\
             import {{ buildCatalog }} from './scripts/build-skills-catalog.mjs';
-            buildCatalog({json.dumps(str(skills_dir))});
+            buildCatalog({json.dumps(str(skills_dir))}, {json.dumps(str(markets_dir))});
         """)
         result = run_node(script)
         assert "Warning" in result.stderr
@@ -198,11 +208,15 @@ class TestCodegenEndToEnd:
                 f"---\nname: {name}\ndescription: {name} desc\n---\nBody {name}"
             )
 
+        # Empty marketplaces dir: isolates this fixture from the real manifests.
+        markets_dir = tmp_path / "marketplaces"
+        markets_dir.mkdir()
+
         output = tmp_path / "output.js"
         script = textwrap.dedent(f"""\
             import {{ writeFileSync }} from "node:fs";
             import {{ buildCatalog }} from './scripts/build-skills-catalog.mjs';
-            const entries = buildCatalog({json.dumps(str(skills_dir))});
+            const entries = buildCatalog({json.dumps(str(skills_dir))}, {json.dumps(str(markets_dir))});
             const src = "export const SKILLS_CATALOG = " + JSON.stringify(entries) + ";\\nexport default SKILLS_CATALOG;\\n";
             writeFileSync({json.dumps(str(output))}, src);
         """)
@@ -246,9 +260,13 @@ class TestCodegenEndToEnd:
         (skills_dir / "has-skill" / "SKILL.md").write_text("---\nname: ok\ndescription: d\n---\nBody")
         (skills_dir / "no-skill").mkdir()  # no SKILL.md
 
+        # Empty marketplaces dir: isolates this fixture from the real manifests.
+        markets_dir = tmp_path / "marketplaces"
+        markets_dir.mkdir()
+
         script = textwrap.dedent(f"""\
             import {{ buildCatalog }} from './scripts/build-skills-catalog.mjs';
-            const entries = buildCatalog({json.dumps(str(skills_dir))});
+            const entries = buildCatalog({json.dumps(str(skills_dir))}, {json.dumps(str(markets_dir))});
             process.stdout.write(JSON.stringify(entries));
         """)
         result = run_node(script)
@@ -491,6 +509,9 @@ class TestCategoryJoin:
         )
         assert result.returncode != 0
         assert "docker" in result.stderr
+        assert "Conflicting categories" in result.stderr
+        assert "environment" in result.stderr  # the first manifest's value
+        assert "design" in result.stderr  # the second manifest's conflicting value
 
     def test_skill_without_an_entry_gets_other_and_warns(self, tmp_path):
         result = self._build(

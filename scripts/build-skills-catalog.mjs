@@ -115,7 +115,15 @@ export function parseFrontmatter(raw) {
   };
 }
 
-/** Build the catalog from SKILL.md files in the given directory. */
+/**
+ * Build the catalog from SKILL.md files in the given directory.
+ *
+ * Callers building from ephemeral fixtures should pass an explicit,
+ * isolated `marketplacesDir` (e.g. an empty temp dir) — otherwise the
+ * default joins against this repo's real manifests, and a fixture skill
+ * that happens to share a name with a real one picks up its real
+ * category or trips the real conflict/unknown-category checks.
+ */
 export function buildCatalog(skillsDir, marketplacesDir = MARKETPLACES_DIR) {
   const entries = [];
   const categories = buildCategoryMap(marketplacesDir);
