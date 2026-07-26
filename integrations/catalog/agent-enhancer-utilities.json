@@ -1,0 +1,38 @@
+{
+  "id": "agent-enhancer-utilities",
+  "name": "Agent Enhancer Utilities",
+  "description": "Add planning, checkpoints, duplicate-action protection, recovery, and evidence tools to existing agent workflows.",
+  "categories": [
+    "AI",
+    "Developer tools"
+  ],
+  "appUrl": "https://liberated.site",
+  "docsUrl": "https://liberated.site/docs",
+  "notes": "No account or API key is required. Security: https://liberated.site/security Status: https://liberated.site/status Effectiveness: https://liberated.site/effectiveness",
+  "iconBg": "#07120F",
+  "logoUrl": "https://github.com/artiehinz/Agent-Enhancer-Utilities/releases/download/v1.5.0/agents.png",
+  "keywords": [
+    "agent",
+    "reliability",
+    "orchestration",
+    "planning",
+    "checkpoint",
+    "idempotency",
+    "recovery",
+    "evidence",
+    "mcp"
+  ],
+  "connectionOptions": [
+    {
+      "id": "none",
+      "provider": "mcp",
+      "transport": {
+        "kind": "shttp",
+        "url": "https://liberated.site/mcp?source=openhands-catalog"
+      },
+      "auth": {
+        "strategy": "none"
+      }
+    }
+  ]
+}
