@@ -334,3 +334,91 @@ class TestGeneratedSkillsIndex:
         subprocess.run(["node", str(SCRIPT)], cwd=str(ROOT), check=True, capture_output=True)
         after = SKILLS_INDEX.read_text()
         assert before == after, "skills/index.js is out of date — run: node scripts/build-skills-catalog.mjs"
+
+
+# ---------------------------------------------------------------------------
+# Marketplace skill categories (consumed by the agent-canvas /skills rail)
+# ---------------------------------------------------------------------------
+
+MARKETPLACES_DIR = ROOT / "marketplaces"
+
+SKILL_CATEGORY_IDS = {
+    "automations",
+    "environment",
+    "code-hosting",
+    "agent-authoring",
+    "code-quality",
+    "integrations",
+    "writing",
+    "design",
+    "other",
+}
+
+# Skills with no marketplace entry. They cannot be added without also creating
+# .plugin/plugin.json and vendor symlinks (see test_skill_plugin_loading.py),
+# which would publish them as Codex/Claude Code plugins. They fall back to
+# "other" in the generated catalog.
+SKILLS_WITHOUT_MARKETPLACE_ENTRY = {"qa-changes", "release-notes"}
+
+EXPECTED_CATEGORY_COUNTS = {
+    "environment": 10,
+    "automations": 9,
+    "code-hosting": 8,
+    "agent-authoring": 8,
+    "code-quality": 6,
+    "integrations": 5,
+    "writing": 4,
+    "design": 2,
+    "other": 1,
+}
+
+
+def _marketplace_skill_categories() -> dict[str, str]:
+    """Map skill directory name -> category, across every marketplace manifest."""
+    result: dict[str, str] = {}
+    for path in sorted(MARKETPLACES_DIR.glob("*.json")):
+        manifest = json.loads(path.read_text())
+        for entry in manifest.get("plugins", []):
+            source = entry.get("source", "")
+            if not source.startswith("./skills/"):
+                continue
+            result[source.split("/")[-1]] = entry.get("category")
+    return result
+
+
+class TestMarketplaceSkillCategories:
+    def test_every_skill_entry_uses_a_known_category(self):
+        bad = {
+            name: category
+            for name, category in _marketplace_skill_categories().items()
+            if category not in SKILL_CATEGORY_IDS
+        }
+        assert bad == {}, f"Unknown categories: {bad}"
+
+    def test_uncovered_skills_are_exactly_the_known_exceptions(self):
+        dirs = {
+            d.name
+            for d in (ROOT / "skills").iterdir()
+            if d.is_dir() and not d.name.startswith(".")
+        }
+        uncovered = dirs - set(_marketplace_skill_categories())
+        assert uncovered == SKILLS_WITHOUT_MARKETPLACE_ENTRY
+
+    def test_category_distribution_is_balanced(self):
+        from collections import Counter
+
+        counts = dict(Counter(_marketplace_skill_categories().values()))
+        assert counts == EXPECTED_CATEGORY_COUNTS
+
+    def test_plugin_entries_keep_their_own_taxonomy(self):
+        """Plugin entries are for Claude Code browsing and must not be rewritten."""
+        categories = set()
+        for path in sorted(MARKETPLACES_DIR.glob("*.json")):
+            manifest = json.loads(path.read_text())
+            for entry in manifest.get("plugins", []):
+                if entry.get("source", "").startswith("./skills/"):
+                    continue
+                categories.add(entry.get("category"))
+        assert categories - SKILL_CATEGORY_IDS, (
+            "Plugin entries appear to have been rewritten to the skill taxonomy"
+        )
