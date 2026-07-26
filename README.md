@@ -179,7 +179,10 @@ Official skills and plugins for OpenHands — the open-source AI software engine
 2. Create a new directory: `skills/<your-skill-name>/`
 3. Add `skills/<your-skill-name>/SKILL.md`
 4. (Optional) Add `README.md`, `references/`, `scripts/`, etc.
-5. Submit a pull request
+5. Add an entry to `marketplaces/openhands-extensions.json` with a `category` — this is what the OpenHands Skills page uses to group the skill. Skills with no entry are grouped as "Uncategorized". Marketplace entries also require `.plugin/plugin.json` and vendor symlinks.
+6. Submit a pull request
+
+Valid skill categories: `automations`, `environment`, `code-hosting`, `agent-authoring`, `code-quality`, `integrations`, `writing`, `design`, `other`.
 
 ### Adding a Plugin
 

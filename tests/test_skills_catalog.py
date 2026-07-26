@@ -422,3 +422,112 @@ class TestMarketplaceSkillCategories:
         assert categories - SKILL_CATEGORY_IDS, (
             "Plugin entries appear to have been rewritten to the skill taxonomy"
         )
+
+
+class TestCategoryJoin:
+    """buildCatalog joins marketplace categories onto skill entries."""
+
+    def _build(self, tmp_path, skills: dict[str, str], manifests: dict[str, dict], check: bool = True):
+        skills_dir = tmp_path / "skills"
+        skills_dir.mkdir()
+        for name, content in skills.items():
+            (skills_dir / name).mkdir()
+            (skills_dir / name / "SKILL.md").write_text(content)
+
+        markets_dir = tmp_path / "marketplaces"
+        markets_dir.mkdir()
+        for filename, manifest in manifests.items():
+            (markets_dir / filename).write_text(json.dumps(manifest))
+
+        script = textwrap.dedent(f"""\
+            import {{ buildCatalog }} from './scripts/build-skills-catalog.mjs';
+            const entries = buildCatalog({json.dumps(str(skills_dir))}, {json.dumps(str(markets_dir))});
+            process.stdout.write(JSON.stringify(entries));
+        """)
+        return run_node(script, check=check)
+
+    def test_category_is_joined_from_the_manifest(self, tmp_path):
+        result = self._build(
+            tmp_path,
+            {"docker": "---\nname: docker\ndescription: d\n---\nBody"},
+            {"m.json": {"plugins": [{"name": "docker", "source": "./skills/docker", "category": "environment"}]}},
+        )
+        entries = json.loads(result.stdout)
+        assert entries[0]["category"] == "environment"
+
+    def test_plugin_entries_are_ignored_when_building_the_map(self, tmp_path):
+        result = self._build(
+            tmp_path,
+            {"docker": "---\nname: docker\ndescription: d\n---\nBody"},
+            {"m.json": {"plugins": [
+                {"name": "some-plugin", "source": "./plugins/some-plugin", "category": "utilities"},
+                {"name": "docker", "source": "./skills/docker", "category": "environment"},
+            ]}},
+        )
+        entries = json.loads(result.stdout)
+        assert entries[0]["category"] == "environment"
+
+    def test_unknown_category_throws_naming_the_skill(self, tmp_path):
+        result = self._build(
+            tmp_path,
+            {"docker": "---\nname: docker\ndescription: d\n---\nBody"},
+            {"m.json": {"plugins": [{"name": "docker", "source": "./skills/docker", "category": "code-hostig"}]}},
+            check=False,
+        )
+        assert result.returncode != 0
+        assert "docker" in result.stderr
+        assert "code-hostig" in result.stderr
+        assert "environment" in result.stderr  # the legal set is printed
+
+    def test_conflicting_categories_across_manifests_throws(self, tmp_path):
+        result = self._build(
+            tmp_path,
+            {"docker": "---\nname: docker\ndescription: d\n---\nBody"},
+            {
+                "a.json": {"plugins": [{"name": "docker", "source": "./skills/docker", "category": "environment"}]},
+                "b.json": {"plugins": [{"name": "docker", "source": "./skills/docker", "category": "design"}]},
+            },
+            check=False,
+        )
+        assert result.returncode != 0
+        assert "docker" in result.stderr
+
+    def test_skill_without_an_entry_gets_other_and_warns(self, tmp_path):
+        result = self._build(
+            tmp_path,
+            {"lonely": "---\nname: lonely\ndescription: d\n---\nBody"},
+            {"m.json": {"plugins": []}},
+        )
+        entries = json.loads(result.stdout)
+        assert entries[0]["category"] == "other"
+        assert "lonely" in result.stderr
+
+
+class TestGeneratedCategories:
+    """Validate the checked-in skills/index.js categories."""
+
+    def test_every_entry_has_a_known_category(self):
+        script = textwrap.dedent("""\
+            import { SKILLS_CATALOG, SKILL_CATEGORY_IDS } from './skills/index.js';
+            const legal = new Set(SKILL_CATEGORY_IDS);
+            for (const entry of SKILLS_CATALOG) {
+              if (!legal.has(entry.category)) {
+                console.error('Bad category for ' + entry.name + ': ' + entry.category);
+                process.exit(1);
+              }
+            }
+        """)
+        run_node(script)
+
+    def test_uncovered_skills_land_in_other(self):
+        script = textwrap.dedent(f"""\
+            import {{ SKILLS_CATALOG }} from './skills/index.js';
+            const expected = {json.dumps(sorted(SKILLS_WITHOUT_MARKETPLACE_ENTRY))};
+            const actual = SKILLS_CATALOG.filter(e => e.category === 'other').map(e => e.name).sort();
+            const extra = actual.filter(n => !expected.includes(n) && n !== 'flarglebargle');
+            if (extra.length) {{
+              console.error('Unexpected uncategorized skills: ' + extra.join(', '));
+              process.exit(1);
+            }}
+        """)
+        run_node(script)
