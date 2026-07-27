@@ -1,5 +1,5 @@
 {
-  "description": "Reference responses for the capabilities endpoint a manifest discovers at stage 2. The endpoint does not exist yet - defining it is OpenHands/automation#262 (OSS-5800). Field names here are the contract the manifests' capabilities.requires and capabilities.bindings are written against.",
+  "description": "Reference responses for the capabilities endpoint a manifest discovers at stage 2. The endpoint does not exist yet - defining it is OpenHands/automation#262. Field names here are the contract the manifests' capabilities.requires and capabilities.bindings are written against.",
   "endpoint": {
     "method": "GET",
     "path": "/v1/capabilities"
