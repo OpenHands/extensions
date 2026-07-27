@@ -1,0 +1,92 @@
+{
+  "description": "Reference responses for the capabilities endpoint a manifest discovers at stage 2. The endpoint does not exist yet - defining it is OpenHands/automation#262 (OSS-5800). Field names here are the contract the manifests' capabilities.requires and capabilities.bindings are written against.",
+  "endpoint": {
+    "method": "GET",
+    "path": "/v1/capabilities"
+  },
+  "responses": {
+    "supported": {
+      "description": "A deployment that is publicly reachable and can run every archetype.",
+      "status": 200,
+      "body": {
+        "ready": true,
+        "triggerKinds": ["cron", "event"],
+        "eventSources": ["github"],
+        "eventTypes": [
+          "issue_comment.created",
+          "pull_request.opened",
+          "pull_request.labeled",
+          "pull_request_review_comment.created",
+          "push"
+        ],
+        "triggers": {
+          "cron": {
+            "minIntervalSeconds": 300,
+            "timezones": [
+              "UTC",
+              "America/Los_Angeles",
+              "America/New_York",
+              "Asia/Tokyo",
+              "Europe/London"
+            ]
+          },
+          "event": {
+            "filterLanguage": "jmespath",
+            "filterFunctions": [
+              "contains",
+              "ends_with",
+              "glob",
+              "icontains",
+              "lower",
+              "regex",
+              "starts_with",
+              "upper"
+            ]
+          }
+        },
+        "features": [
+          "conversationDispatch",
+          "mcpTools",
+          "presetPlugin",
+          "presetPrompt",
+          "repoClone",
+          "webhookDelivery"
+        ]
+      }
+    },
+    "cronOnly": {
+      "description": "A deployment that is not reachable from the public internet, so external services cannot deliver webhooks to it. Scheduled polling is the documented alternative - see skills/openhands-automation/SKILL.md.",
+      "status": 200,
+      "body": {
+        "ready": true,
+        "triggerKinds": ["cron"],
+        "eventSources": [],
+        "eventTypes": [],
+        "triggers": {
+          "cron": {
+            "minIntervalSeconds": 300,
+            "timezones": ["UTC"]
+          }
+        },
+        "features": [
+          "conversationDispatch",
+          "mcpTools",
+          "presetPrompt",
+          "repoClone"
+        ]
+      }
+    },
+    "notReady": {
+      "description": "The automation service is reachable but not accepting work. Every manifest requiring ready: true is blocked.",
+      "status": 200,
+      "body": {
+        "ready": false,
+        "triggerKinds": [],
+        "eventSources": [],
+        "eventTypes": [],
+        "triggers": {},
+        "features": []
+      }
+    }
+  }
+}

@@ -36,6 +36,9 @@
       "default": "./automations/index.js"
     },
     "./automations/catalog/*.json": "./automations/catalog/*.json",
+    "./automations/manifest.schema.json": "./automations/manifest.schema.json",
+    "./automations/manifests/*.json": "./automations/manifests/*.json",
+    "./automations/fixtures/*.json": "./automations/fixtures/*.json",
     "./integrations": {
       "types": "./integrations/index.d.ts",
       "import": "./integrations/index.js",

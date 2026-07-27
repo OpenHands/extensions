@@ -13,7 +13,48 @@ export {
   type OAuthProviderCatalogOption,
   type OAuthProviderRegistrationDefaults,
 } from "./integrations/index.js";
-export { AUTOMATION_CATALOG } from "./automations/index.js";
-export type { RecommendedAutomation } from "./automations/index.js";
+export {
+  AUTOMATION_CAPABILITIES_FIXTURE,
+  AUTOMATION_CATALOG,
+  AUTOMATION_CONTRACT_FIXTURES,
+  AUTOMATION_MANIFESTS,
+} from "./automations/index.js";
+export type {
+  AutomationAnalytics,
+  AutomationAnalyticsEvent,
+  AutomationAnalyticsStage,
+  AutomationAssistedSubmit,
+  AutomationCapabilities,
+  AutomationCapabilitiesFixture,
+  AutomationCapabilityBinding,
+  AutomationCapabilityRequirements,
+  AutomationContractFixtures,
+  AutomationContractScenario,
+  AutomationDirectSubmit,
+  AutomationFieldConstraints,
+  AutomationFieldOption,
+  AutomationFieldType,
+  AutomationFormField,
+  AutomationGitProvider,
+  AutomationIntegrationRequirement,
+  AutomationLocalValidationResult,
+  AutomationManifest,
+  AutomationManifestRoute,
+  AutomationPayloadValue,
+  AutomationPreflight,
+  AutomationPreflightError,
+  AutomationPrerequisites,
+  AutomationRequestBody,
+  AutomationReview,
+  AutomationReviewRow,
+  AutomationSecretRequirement,
+  AutomationSetupMode,
+  AutomationSubmit,
+  AutomationSubmitOnError,
+  AutomationSubmitOnSuccess,
+  AutomationTriggerKind,
+  AutomationValidation,
+  RecommendedAutomation,
+} from "./automations/index.js";
 export { SKILLS_CATALOG } from "./skills/index.js";
 export type { SkillCatalogEntry } from "./skills/index.js";

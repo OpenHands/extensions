@@ -1,0 +1,512 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/OpenHands/extensions/automations/manifest.schema.json",
+  "title": "AutomationManifest",
+  "description": "Strict schema for automations/manifests/*.json. A manifest defines the extension-owned configuration experience for one automation: discovery metadata, prerequisites, form fields, validation and error states, the request mapping, and analytics. It is data, not code - the schema admits no executable JavaScript, no markup in copy, no free-form URLs, and no secret values.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "manifestVersion",
+    "id",
+    "name",
+    "category",
+    "description",
+    "setupMode",
+    "routes",
+    "form",
+    "review",
+    "submit",
+    "analytics"
+  ],
+  "properties": {
+    "manifestVersion": {
+      "const": "1.0",
+      "description": "Selects the schema this manifest is validated against. A future format ships a sibling schema file and a new constant."
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+      "description": "Stable identifier. Must equal the filename stem and match an automations/catalog entry id."
+    },
+    "name": { "$ref": "#/$defs/copy" },
+    "category": { "$ref": "#/$defs/copy" },
+    "description": { "$ref": "#/$defs/copy" },
+    "setupMode": {
+      "enum": ["direct", "assisted"],
+      "description": "direct - the form produces a request body. assisted - the form seeds an agent conversation that finishes setup."
+    },
+    "routes": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/route" }
+    },
+    "capabilities": { "$ref": "#/$defs/capabilities" },
+    "requires": { "$ref": "#/$defs/requires" },
+    "form": { "$ref": "#/$defs/form" },
+    "validation": { "$ref": "#/$defs/validation" },
+    "review": { "$ref": "#/$defs/review" },
+    "submit": { "type": "object" },
+    "analytics": { "$ref": "#/$defs/analytics" }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": { "setupMode": { "const": "direct" } },
+        "required": ["setupMode"]
+      },
+      "then": {
+        "properties": { "submit": { "$ref": "#/$defs/directSubmit" } },
+        "required": ["validation"]
+      }
+    },
+    {
+      "if": {
+        "properties": { "setupMode": { "const": "assisted" } },
+        "required": ["setupMode"]
+      },
+      "then": {
+        "properties": { "submit": { "$ref": "#/$defs/assistedSubmit" } }
+      }
+    }
+  ],
+  "$defs": {
+    "copy": {
+      "description": "Literal user-visible copy. Carries no markup, because a manifest must never inject HTML into the host.",
+      "type": "string",
+      "minLength": 1,
+      "not": { "pattern": "<[A-Za-z/!]" }
+    },
+    "placeholders": {
+      "$comment": "Every {{ must open a known placeholder namespace and close immediately.",
+      "not": {
+        "pattern": "\\{\\{(?!(form|manifest|response|capabilities|submit)\\.[A-Za-z0-9_.]+\\}\\})"
+      }
+    },
+    "templateCopy": {
+      "description": "User-visible copy that may embed {{namespace.key}} placeholders.",
+      "allOf": [
+        { "$ref": "#/$defs/copy" },
+        { "$ref": "#/$defs/placeholders" }
+      ]
+    },
+    "templateValue": {
+      "description": "A request-body string that may embed placeholders. Not rendered, so expression syntax such as a JMESPath filter is allowed.",
+      "type": "string",
+      "minLength": 1,
+      "allOf": [{ "$ref": "#/$defs/placeholders" }]
+    },
+    "payloadValue": {
+      "description": "A value in a request body. Nesting is allowed; there is nowhere to put code.",
+      "oneOf": [
+        { "$ref": "#/$defs/templateValue" },
+        { "type": ["number", "boolean", "null"] },
+        { "type": "array", "items": { "$ref": "#/$defs/payloadValue" } },
+        {
+          "type": "object",
+          "additionalProperties": { "$ref": "#/$defs/payloadValue" }
+        }
+      ]
+    },
+    "requestBody": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": { "$ref": "#/$defs/payloadValue" }
+    },
+    "servicePath": {
+      "description": "Service-relative path. The deployment base path is resolved by the host, so a manifest cannot express an arbitrary request.",
+      "type": "string",
+      "pattern": "^/v1/[A-Za-z0-9/_-]*$"
+    },
+    "route": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "page"],
+      "properties": {
+        "path": { "type": "string", "pattern": "^/[A-Za-z0-9/_-]*$" },
+        "page": { "enum": ["setup"] }
+      }
+    },
+    "capabilities": {
+      "description": "Stage 2. What the deployment must support for this automation to be offered at all.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["discovery", "requires", "onUnsupported"],
+      "properties": {
+        "discovery": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["method", "path"],
+          "properties": {
+            "method": { "enum": ["GET"] },
+            "path": { "$ref": "#/$defs/servicePath" }
+          }
+        },
+        "requires": {
+          "type": "object",
+          "additionalProperties": false,
+          "minProperties": 1,
+          "properties": {
+            "triggerKinds": {
+              "type": "array",
+              "minItems": 1,
+              "uniqueItems": true,
+              "items": { "enum": ["cron", "event"] }
+            },
+            "eventSources": {
+              "type": "array",
+              "minItems": 1,
+              "uniqueItems": true,
+              "items": { "type": "string", "minLength": 1 }
+            },
+            "eventTypes": {
+              "type": "array",
+              "minItems": 1,
+              "uniqueItems": true,
+              "items": { "type": "string", "minLength": 1 }
+            },
+            "features": {
+              "type": "array",
+              "minItems": 1,
+              "uniqueItems": true,
+              "items": { "type": "string", "minLength": 1 }
+            },
+            "ready": { "const": true }
+          }
+        },
+        "bindings": {
+          "description": "Feeds deployment values into form field constraints, so the form offers only what the deployment accepts.",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["field", "constraint", "from"],
+            "properties": {
+              "field": { "type": "string", "minLength": 1 },
+              "constraint": { "enum": ["options", "minIntervalSeconds"] },
+              "from": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9_]+(\\.[A-Za-z0-9_]+)*$"
+              }
+            }
+          }
+        },
+        "onUnsupported": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["behavior", "message"],
+          "properties": {
+            "behavior": { "const": "block" },
+            "message": { "$ref": "#/$defs/copy" }
+          }
+        }
+      }
+    },
+    "requires": {
+      "description": "Stages 3 and 4. Integrations that must be connected and credentials that must be present.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["integrations", "secrets", "onUnmet"],
+      "properties": {
+        "integrations": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "reason", "enforcement"],
+            "properties": {
+              "id": {
+                "type": "string",
+                "minLength": 1,
+                "description": "Must resolve to an integrations/catalog entry id."
+              },
+              "reason": { "$ref": "#/$defs/copy" },
+              "enforcement": { "enum": ["block", "warn"] }
+            }
+          }
+        },
+        "secrets": {
+          "description": "Credential names only. additionalProperties is false, so there is nowhere to put a value.",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["key", "label", "help", "required"],
+            "properties": {
+              "key": { "type": "string", "pattern": "^[A-Z][A-Z0-9_]*$" },
+              "label": { "$ref": "#/$defs/copy" },
+              "help": { "$ref": "#/$defs/copy" },
+              "required": { "type": "boolean" }
+            }
+          }
+        },
+        "onUnmet": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["behavior", "message"],
+          "properties": {
+            "behavior": { "const": "block" },
+            "message": { "$ref": "#/$defs/copy" }
+          }
+        },
+        "onWarn": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["behavior", "message"],
+          "properties": {
+            "behavior": { "const": "continue" },
+            "message": { "$ref": "#/$defs/copy" }
+          }
+        }
+      }
+    },
+    "form": {
+      "description": "Stage 5. The inputs the user is asked for. These constraints also drive the host's local validation.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["fields"],
+      "properties": {
+        "note": { "$ref": "#/$defs/copy" },
+        "fields": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/formField" }
+        }
+      }
+    },
+    "formField": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "type", "label", "help", "required"],
+      "properties": {
+        "name": { "type": "string", "pattern": "^[a-z][A-Za-z0-9]*$" },
+        "type": {
+          "description": "Semantic field types. The host renders a cron field without knowing what cron means to an automation.",
+          "enum": ["text", "textarea", "select", "cron", "repo-picker"]
+        },
+        "label": { "$ref": "#/$defs/copy" },
+        "help": { "$ref": "#/$defs/copy" },
+        "placeholder": { "$ref": "#/$defs/copy" },
+        "default": { "type": "string" },
+        "required": { "type": "boolean" },
+        "provider": { "enum": ["github", "gitlab", "bitbucket"] },
+        "options": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["value", "label"],
+            "properties": {
+              "value": { "type": "string", "minLength": 1 },
+              "label": { "$ref": "#/$defs/copy" }
+            }
+          }
+        },
+        "constraints": {
+          "type": "object",
+          "additionalProperties": false,
+          "minProperties": 1,
+          "properties": {
+            "minLength": { "type": "integer", "minimum": 0 },
+            "maxLength": { "type": "integer", "minimum": 1 },
+            "format": {
+              "description": "A host-implemented check, named from a closed set. Manifests cannot supply their own regex, so a manifest cannot hand the host a pathological pattern. safeExpressionLiteral marks a value that is interpolated into a filter expression string literal, so quotes and backslashes must be rejected before they can break the expression.",
+              "enum": ["safeExpressionLiteral"]
+            }
+          }
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": { "type": { "const": "repo-picker" } },
+            "required": ["type"]
+          },
+          "then": { "required": ["provider"] }
+        },
+        {
+          "if": {
+            "properties": { "type": { "not": { "const": "select" } } },
+            "required": ["type"]
+          },
+          "then": { "not": { "required": ["options"] } }
+        }
+      ]
+    },
+    "validation": {
+      "description": "Stage 6. Omit preflight to declare that local validation is the only check available before submit.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["onInvalid"],
+      "properties": {
+        "preflight": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["method", "path", "runOn", "body"],
+          "properties": {
+            "method": { "enum": ["POST"] },
+            "path": { "$ref": "#/$defs/servicePath" },
+            "runOn": {
+              "type": "array",
+              "minItems": 1,
+              "uniqueItems": true,
+              "items": { "enum": ["fieldBlur", "beforeSubmit"] }
+            },
+            "debounceMs": { "type": "integer", "minimum": 0, "maximum": 5000 },
+            "body": { "$ref": "#/$defs/requestBody" }
+          }
+        },
+        "onInvalid": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["behavior", "errorTarget"],
+          "properties": {
+            "behavior": { "const": "blockSubmit" },
+            "errorTarget": { "enum": ["field", "form"] },
+            "errorMap": {
+              "description": "Payload path to form field name. An array maps one payload path back to every field that built it.",
+              "type": "object",
+              "minProperties": 1,
+              "additionalProperties": {
+                "oneOf": [
+                  { "type": "string", "minLength": 1 },
+                  {
+                    "type": "array",
+                    "minItems": 1,
+                    "uniqueItems": true,
+                    "items": { "type": "string", "minLength": 1 }
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "review": {
+      "description": "Stage 7. The plain-language summary the user confirms before anything is created.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["title", "summary", "confirmLabel"],
+      "properties": {
+        "title": { "$ref": "#/$defs/copy" },
+        "note": { "$ref": "#/$defs/copy" },
+        "emptyValueText": { "$ref": "#/$defs/copy" },
+        "summary": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["label", "value"],
+            "properties": {
+              "label": { "$ref": "#/$defs/copy" },
+              "value": { "$ref": "#/$defs/templateCopy" }
+            }
+          }
+        },
+        "confirmLabel": { "$ref": "#/$defs/copy" }
+      }
+    },
+    "directSubmit": {
+      "description": "Stage 8, direct. Map form values into a request body and post it to an allowlisted capability.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["action", "endpoint", "payload", "onSuccess", "onError"],
+      "properties": {
+        "action": { "const": "automation.create" },
+        "endpoint": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["method", "path"],
+          "properties": {
+            "method": { "enum": ["POST"] },
+            "path": { "$ref": "#/$defs/servicePath" }
+          }
+        },
+        "payload": { "$ref": "#/$defs/requestBody" },
+        "onSuccess": { "$ref": "#/$defs/onSuccess" },
+        "onError": { "$ref": "#/$defs/onError" }
+      }
+    },
+    "assistedSubmit": {
+      "description": "Stage 8, assisted. Hand the collected values to an agent conversation that finishes setup.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["action", "message", "onSuccess", "onError"],
+      "properties": {
+        "action": { "const": "conversation.start" },
+        "message": {
+          "description": "Setup context only. Capped so this never becomes a channel for runtime instructions.",
+          "allOf": [{ "$ref": "#/$defs/templateCopy" }, { "maxLength": 2000 }]
+        },
+        "onSuccess": { "$ref": "#/$defs/onSuccess" },
+        "onError": { "$ref": "#/$defs/onError" }
+      }
+    },
+    "onSuccess": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["behavior", "to"],
+      "properties": {
+        "behavior": { "const": "navigate" },
+        "to": {
+          "description": "In-app destination only.",
+          "allOf": [{ "$ref": "#/$defs/templateCopy" }, { "pattern": "^/" }]
+        }
+      }
+    },
+    "onError": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["behavior", "errorTarget"],
+      "properties": {
+        "behavior": { "const": "stayOnForm" },
+        "errorTarget": { "enum": ["field", "form"] },
+        "reuseErrorMap": { "type": "boolean" },
+        "message": { "$ref": "#/$defs/copy" }
+      }
+    },
+    "analytics": {
+      "description": "Stage names and properties the host emits through its consent-aware telemetry service. Never user data.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["consent", "stages"],
+      "properties": {
+        "consent": { "const": "required" },
+        "stages": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "on", "properties"],
+            "properties": {
+              "id": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
+              "on": {
+                "enum": [
+                  "route.entered",
+                  "capabilities.resolved",
+                  "validation.succeeded",
+                  "submit.succeeded",
+                  "submit.failed"
+                ]
+              },
+              "properties": {
+                "type": "object",
+                "minProperties": 1,
+                "propertyNames": { "pattern": "^[a-z][a-z0-9_]*$" },
+                "additionalProperties": {
+                  "oneOf": [
+                    { "$ref": "#/$defs/templateValue" },
+                    { "type": ["number", "boolean"] }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

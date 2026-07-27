@@ -1,0 +1,99 @@
+{
+  "manifestId": "incident-retrospective-drafter",
+  "description": "Assisted conversation setup. There is no create request in this archetype - at the end of the flow no automation exists yet, because the agent creates it during the conversation. That is the defining property of assisted setup, and the reason validation.preflight is absent from the manifest.",
+  "capabilities": "supported",
+  "blockedBy": ["notReady"],
+  "scenarios": [
+    {
+      "id": "partial-seed-with-notion-warning",
+      "description": "Slack and Linear are connected, Notion is not. Notion is declared enforcement warn, so setup continues and the agent resolves it. The user fills two fields and leaves the rest for the agent.",
+      "integrationState": {
+        "slack": "connected",
+        "linear": "connected",
+        "notion": "missing"
+      },
+      "expectedPrerequisiteOutcome": {
+        "behavior": "continue",
+        "message": "Notion is not connected yet. The agent will help you connect it or choose another destination."
+      },
+      "formValues": {
+        "incidentChannel": "#incidents",
+        "linearTeam": "Reliability",
+        "notionDestination": "",
+        "triggerPreference": "undecided",
+        "notes": ""
+      },
+      "expectedReviewSummary": [
+        { "label": "Incident channel", "value": "#incidents" },
+        { "label": "Linear team", "value": "Reliability" },
+        { "label": "Publishes to", "value": "the agent will ask" },
+        { "label": "Preferred trigger", "value": "undecided" }
+      ],
+      "conversation": {
+        "request": {
+          "action": "conversation.start",
+          "message": "/incident-retro:setup\n\nThe user supplied these starting points. Confirm each one, ask about anything left blank, then create the automation.\n\n- Incident channel: #incidents\n- Linear team: Reliability\n- Notion destination: \n- Preferred trigger: undecided\n- Notes: \n\nStill undecided and required before creation: the incident identifier format and the approved Notion retrospective template."
+        },
+        "response": {
+          "status": 201,
+          "body": {
+            "conversation_id": "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+          }
+        }
+      },
+      "expectedNavigation": "/conversations/f47ac10b-58cc-4372-a567-0e02b2c3d479"
+    },
+    {
+      "id": "nothing-filled-in",
+      "description": "Every field is optional, so local validation passes with an empty form. The review screen substitutes emptyValueText and the seed message carries only the standing questions.",
+      "integrationState": {
+        "slack": "connected",
+        "linear": "connected",
+        "notion": "connected"
+      },
+      "formValues": {
+        "incidentChannel": "",
+        "linearTeam": "",
+        "notionDestination": "",
+        "triggerPreference": "undecided",
+        "notes": ""
+      },
+      "localValidation": {
+        "valid": true,
+        "errors": []
+      },
+      "expectedReviewSummary": [
+        { "label": "Incident channel", "value": "the agent will ask" },
+        { "label": "Linear team", "value": "the agent will ask" },
+        { "label": "Publishes to", "value": "the agent will ask" },
+        { "label": "Preferred trigger", "value": "undecided" }
+      ],
+      "conversation": {
+        "request": {
+          "action": "conversation.start",
+          "message": "/incident-retro:setup\n\nThe user supplied these starting points. Confirm each one, ask about anything left blank, then create the automation.\n\n- Incident channel: \n- Linear team: \n- Notion destination: \n- Preferred trigger: undecided\n- Notes: \n\nStill undecided and required before creation: the incident identifier format and the approved Notion retrospective template."
+        },
+        "response": {
+          "status": 201,
+          "body": {
+            "conversation_id": "0b1d9e77-3c42-4a18-9f65-8ac2e1b4d090"
+          }
+        }
+      },
+      "expectedNavigation": "/conversations/0b1d9e77-3c42-4a18-9f65-8ac2e1b4d090"
+    },
+    {
+      "id": "required-integration-missing-blocks",
+      "description": "Slack is declared enforcement block, so setup stops before the form renders. Contrast with Notion above - assisted setup can start with a gap the agent will close, but not with a gap that leaves the agent no data to read.",
+      "integrationState": {
+        "slack": "missing",
+        "linear": "connected",
+        "notion": "connected"
+      },
+      "expectedPrerequisiteOutcome": {
+        "behavior": "block",
+        "message": "Connect Slack and Linear before continuing. Notion can be connected later during setup."
+      }
+    }
+  ]
+}
