@@ -92,5 +92,5 @@ Steps:
 - Keep ranges narrow enough to locate the relevant code.
 - Name symbols and affected callers when possible.
 - Label inferences as inferences.
-- Do not paste large code blocks or implementation-ready replacements.
+- Do not paste code blocks, executable pseudocode, or implementation-ready replacements.
 - Keep finding IDs and proposal IDs stable so an implementation agent can reference them.
