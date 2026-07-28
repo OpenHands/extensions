@@ -75,6 +75,31 @@ This is the most important phase. **Actually use the software** the way a real u
 - Verify the visual change renders correctly. Take screenshots as evidence.
 - Test user interactions (clicks, form submissions, navigation).
 - Try at least one edge case (empty state, long text, missing data).
+- Then capture visual evidence and attach it to the PR (see next step).
+
+**Capture visual evidence (frontend PRs only):**
+
+If the PR has frontend work, run the affected screens from the branch's final
+state and record what a reviewer would otherwise have to imagine from the diff.
+The goal: the change can be reviewed **by observation, not by reading code.**
+
+1. **Screenshot each relevant state** of every affected screen — whichever
+   apply: *empty*, *loading*, *error*, and *populated*. Skip states the screen
+   genuinely cannot reach.
+2. **Record a GIF (or short video) of the key interaction end to end** — the
+   main flow the PR changes, driven the way a user would (e.g. via Playwright's
+   video/tracing or a screen recorder).
+3. **Where behavior changes, capture before/after** — the same state/interaction
+   on the base branch and on the PR branch, side by side, so the delta is
+   visible.
+4. **Attach it all to the PR.** Embed the images and GIF directly in the QA
+   report so they render inline. If your environment can't upload attachments
+   through the API, commit the media to the branch under `.pr/` and reference
+   them by their raw URLs. Label each clearly (screen → state, or before/after).
+
+Keep it proportional: capture the screens the PR actually touches, not the whole
+app. If you cannot render a screen (missing data, an unreachable state, no
+browser), say so in the report rather than faking it.
 
 **For CLI changes:**
 - Run the CLI command with realistic arguments. Capture stdout and stderr.
@@ -181,6 +206,15 @@ prior state rather than reproducing a failure.}
 
 </details>
 
+<details><summary>Visual Evidence</summary>
+
+{Frontend PRs only. Embed the screenshots (per screen → state: empty,
+loading, error, populated) and the GIF/video of the key interaction so
+they render inline. Where behavior changed, show before/after. Label
+each clearly. Omit this section entirely for non-frontend PRs.}
+
+</details>
+
 <details><summary>Unable to Verify</summary>
 
 {What could not be verified, what was attempted, and suggested
@@ -221,6 +255,7 @@ was verified.}
 - **Run the code, not the tests.** Execute the actual software — start servers, run CLI commands, make HTTP requests, open browsers. Do not run `pytest`, `npm test`, or equivalent test suites. That is CI's job.
 - **Do not analyze code.** Reading files and commenting on style, structure, or logic is code review's job. Your job is to exercise behavior, not read source files.
 - **Set a high bar.** If the change affects a UI, open it in a real browser. If it affects a CLI, run the actual CLI with real inputs. If it affects an API, make real HTTP requests.
+- **Make frontend changes reviewable by observation.** For UI PRs, attach screenshots of each relevant state and a GIF of the key interaction (before/after where behavior changes) so a reviewer can see the change, not infer it from the diff.
 - **Test what the PR claims.** The PR description is the specification. Verify the claim, not hypothetical scenarios.
 - **Leave CI to CI.** Do not re-run tests, linters, formatters, or type checkers. Note CI status, then focus entirely on functional verification that CI cannot do.
 - **Report evidence, not opinions.** Include exact commands, outputs, and error messages — inside collapsible blocks.
