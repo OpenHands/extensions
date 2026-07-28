@@ -87,19 +87,20 @@ The JS and Python versions are kept in lock-step by `release-please` and guarded
 ## Extensions Catalog
 
 <!-- BEGIN AUTO-GENERATED CATALOG -->
-This repository contains **2 marketplace(s)** with **63 extensions** (53 skills, 10 plugins).
+This repository contains **2 marketplace(s)** with **64 extensions** (54 skills, 10 plugins).
 
 ### large-codebase
 
 OpenHands skills for interacting, improving, and refactoring large codebases
 
-**4 extensions** (2 skills, 2 plugins)
+**5 extensions** (3 skills, 2 plugins)
 
 | Name | Type | Description | Commands |
 |------|------|-------------|----------|
 | add-javadoc | skill | Add comprehensive JavaDoc documentation to Java classes and methods. Use when documenting Java code, adding API docum... | — |
 | cobol-modernization | plugin | End-to-end COBOL to Java migration workflow. Handles build setup, mainframe dependency removal, and code migration wi... | — |
 | migration-scoring | plugin | Evaluate code migration quality with coverage, correctness, and style scoring. Generates executive reports with actio... | — |
+| refactoring-advisor | skill | Analyze codebases for structural problems and produce concrete, prioritized refactoring plans without implementing ch... | — |
 | spark-version-upgrade | skill | Upgrade Apache Spark applications between major versions (2.x→3.x, 3.x→4.x). Covers build files, deprecated APIs, con... | — |
 
 ### openhands-extensions
