@@ -27,6 +27,13 @@ def run_node(script: str, *, cwd: str | Path = ROOT, check: bool = True) -> subp
     )
 
 
+def empty_marketplaces(tmp_path: Path) -> Path:
+    """Isolates fixtures from the real manifests, so a fixture named after a real skill can't inherit its category."""
+    path = tmp_path / "marketplaces"
+    path.mkdir()
+    return path
+
+
 # ---------------------------------------------------------------------------
 # parseFrontmatter unit tests (via Node subprocess)
 # ---------------------------------------------------------------------------
@@ -134,11 +141,7 @@ class TestCodegenEndToEnd:
             skill_dir.mkdir()
             (skill_dir / "SKILL.md").write_text(content)
 
-        # Empty marketplaces dir: isolates fixtures from the real manifests so a
-        # future fixture named after a real skill (e.g. "docker") can't pick up
-        # its real category or trip the real conflict/unknown-category checks.
-        markets_dir = tmp_path / "marketplaces"
-        markets_dir.mkdir()
+        markets_dir = empty_marketplaces(tmp_path)
 
         script = textwrap.dedent(f"""\
             import {{ buildCatalog }} from './scripts/build-skills-catalog.mjs';
@@ -179,9 +182,7 @@ class TestCodegenEndToEnd:
         (skills_dir / "bad").mkdir()
         (skills_dir / "bad" / "SKILL.md").write_text("No frontmatter here")
 
-        # Empty marketplaces dir: isolates this fixture from the real manifests.
-        markets_dir = tmp_path / "marketplaces"
-        markets_dir.mkdir()
+        markets_dir = empty_marketplaces(tmp_path)
 
         script = textwrap.dedent(f"""\
             import {{ buildCatalog }} from './scripts/build-skills-catalog.mjs';
@@ -208,9 +209,7 @@ class TestCodegenEndToEnd:
                 f"---\nname: {name}\ndescription: {name} desc\n---\nBody {name}"
             )
 
-        # Empty marketplaces dir: isolates this fixture from the real manifests.
-        markets_dir = tmp_path / "marketplaces"
-        markets_dir.mkdir()
+        markets_dir = empty_marketplaces(tmp_path)
 
         output = tmp_path / "output.js"
         script = textwrap.dedent(f"""\
@@ -260,9 +259,7 @@ class TestCodegenEndToEnd:
         (skills_dir / "has-skill" / "SKILL.md").write_text("---\nname: ok\ndescription: d\n---\nBody")
         (skills_dir / "no-skill").mkdir()  # no SKILL.md
 
-        # Empty marketplaces dir: isolates this fixture from the real manifests.
-        markets_dir = tmp_path / "marketplaces"
-        markets_dir.mkdir()
+        markets_dir = empty_marketplaces(tmp_path)
 
         script = textwrap.dedent(f"""\
             import {{ buildCatalog }} from './scripts/build-skills-catalog.mjs';
@@ -372,10 +369,8 @@ SKILL_CATEGORY_IDS = {
     "other",
 }
 
-# Skills with no marketplace entry. They cannot be added without also creating
-# .plugin/plugin.json and vendor symlinks (see test_skill_plugin_loading.py),
-# which would publish them as Codex/Claude Code plugins. They fall back to
-# "other" in the generated catalog.
+# Skills with no marketplace entry, so they fall back to "other".
+# Adding entries would mean creating .plugin/plugin.json and vendor symlinks (see test_skill_plugin_loading.py), which publishes them as Codex/Claude Code plugins.
 SKILLS_WITHOUT_MARKETPLACE_ENTRY = {"qa-changes", "release-notes"}
 
 EXPECTED_CATEGORY_COUNTS = {
@@ -443,8 +438,6 @@ class TestMarketplaceSkillCategories:
 
 
 class TestCategoryJoin:
-    """buildCatalog joins marketplace categories onto skill entries."""
-
     def _build(self, tmp_path, skills: dict[str, str], manifests: dict[str, dict], check: bool = True):
         skills_dir = tmp_path / "skills"
         skills_dir.mkdir()
@@ -525,8 +518,6 @@ class TestCategoryJoin:
 
 
 class TestGeneratedCategories:
-    """Validate the checked-in skills/index.js categories."""
-
     def test_every_entry_has_a_known_category(self):
         script = textwrap.dedent("""\
             import { SKILLS_CATALOG, SKILL_CATEGORY_IDS } from './skills/index.js';
@@ -541,6 +532,7 @@ class TestGeneratedCategories:
         run_node(script)
 
     def test_uncovered_skills_land_in_other(self):
+        # flarglebargle is the one skill whose marketplace entry sets "other" on purpose: it is a trigger-testing skill, not a real category member.
         script = textwrap.dedent(f"""\
             import {{ SKILLS_CATALOG }} from './skills/index.js';
             const expected = {json.dumps(sorted(SKILLS_WITHOUT_MARKETPLACE_ENTRY))};

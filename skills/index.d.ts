@@ -1,15 +1,8 @@
 /**
- * Categories consumed by the agent-canvas /skills facet rail.
+ * Categories for skill entries, consumed by the agent-canvas /skills facet rail.
  *
- * Sourced from the `category` field on marketplace entries whose `source`
- * starts with `./skills/`. This is NOT the same taxonomy as the `category` on
- * marketplace *plugin* entries, which serves Claude Code marketplace browsing.
- *
- * Two assignments look inconsistent when skimmed and are deliberate:
- * `add-javadoc` is `code-quality` rather than `writing` because its subject is
- * code, and `github-pr-review` is `code-hosting` (GitHub API mechanics) while
- * the adjacently-named `github-pr-reviewer` is `automations` (it deploys a
- * cron job).
+ * Sourced from the `category` field on marketplace entries whose `source` starts with `./skills/`.
+ * Distinct from the `category` on marketplace *plugin* entries, which serves Claude Code marketplace browsing.
  */
 export type SkillCategoryId =
   | "automations"

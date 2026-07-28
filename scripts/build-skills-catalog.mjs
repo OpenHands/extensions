@@ -18,17 +18,9 @@ const MARKETPLACES_DIR = join(__dirname, "..", "marketplaces");
 const SKILL_SOURCE_PREFIX = "./skills/";
 
 /**
- * Categories consumed by the agent-canvas /skills facet rail.
+ * Categories for skill entries, consumed by the agent-canvas /skills facet rail.
  *
- * Two assignments look inconsistent when skimmed and are deliberate:
- * `add-javadoc` is code-quality rather than writing because its subject is
- * code, and `github-pr-review` is code-hosting (GitHub API mechanics) while
- * the adjacently-named `github-pr-reviewer` is automations (it deploys a cron
- * job).
- *
- * This is NOT the same taxonomy as the `category` on marketplace *plugin*
- * entries, which serves Claude Code marketplace browsing and keeps its own
- * values.
+ * Distinct from the `category` on marketplace *plugin* entries, which serves Claude Code marketplace browsing and keeps its own values.
  */
 export const SKILL_CATEGORY_IDS = [
   "automations",
@@ -118,11 +110,7 @@ export function parseFrontmatter(raw) {
 /**
  * Build the catalog from SKILL.md files in the given directory.
  *
- * Callers building from ephemeral fixtures should pass an explicit,
- * isolated `marketplacesDir` (e.g. an empty temp dir) — otherwise the
- * default joins against this repo's real manifests, and a fixture skill
- * that happens to share a name with a real one picks up its real
- * category or trips the real conflict/unknown-category checks.
+ * Pass an isolated `marketplacesDir` when building from fixtures; the default reads this repo's real manifests.
  */
 export function buildCatalog(skillsDir, marketplacesDir = MARKETPLACES_DIR) {
   const entries = [];
