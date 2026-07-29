@@ -15,60 +15,32 @@
   "setup": {
     "version": "1.0",
     "mode": "assisted",
-    "routes": [
-      {
-        "path": "/automations/new/incident-retrospective-drafter",
-        "page": "setup"
-      }
-    ],
-    "capabilities": {
-      "discovery": {
-        "method": "GET",
-        "path": "/v1/capabilities"
-      },
-      "requires": {
-        "features": [
-          "mcpTools",
-          "conversationDispatch"
-        ],
-        "ready": true
-      },
-      "onUnsupported": {
-        "behavior": "block",
-        "message": "This deployment cannot run automations that call MCP tools, so the incident retrospective drafter is unavailable here."
-      }
-    },
     "requires": {
       "integrations": [
         {
           "id": "slack",
-          "reason": "Reads incident discussion and timestamps.",
-          "enforcement": "block"
+          "message": "Reads incident discussion and timestamps.",
+          "required": true
         },
         {
           "id": "linear",
-          "reason": "Reads follow-up tickets, owners, and status.",
-          "enforcement": "block"
+          "message": "Reads follow-up tickets, owners, and status.",
+          "required": true
         },
         {
           "id": "notion",
-          "reason": "Publishes the drafted retrospective.",
-          "enforcement": "warn"
+          "message": "Publishes the drafted retrospective. Can be connected later during setup.",
+          "required": false
         }
       ],
-      "secrets": [],
-      "onUnmet": {
-        "behavior": "block",
-        "message": "Connect Slack and Linear before continuing. Notion can be connected later during setup."
-      },
-      "onWarn": {
-        "behavior": "continue",
-        "message": "Notion is not connected yet. The agent will help you connect it or choose another destination."
-      }
+      "features": [
+        "mcpTools",
+        "conversationDispatch"
+      ]
     },
     "form": {
       "note": "These answers start the conversation. Anything left blank is something the agent will ask about.",
-      "fields": [
+      "args": [
         {
           "name": "incidentChannel",
           "type": "text",

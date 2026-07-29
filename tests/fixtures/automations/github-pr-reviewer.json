@@ -202,7 +202,7 @@
     },
     {
       "id": "short-repo-url-without-provider-is-rejected",
-      "description": "The mapping bug this fixture set exists to prevent. A short owner/repo URL without an explicit provider is a hard 422, because CreatePromptAutomationRequest is extra-forbid and RepoSource requires the provider. The manifest's payload always sets it; this records what happens if that is ever dropped.",
+      "description": "The mapping bug this fixture set exists to prevent. A short owner/repo URL without an explicit provider is a hard 422, because CreatePromptAutomationRequest is extra-forbid and RepoSource requires the provider. The setup block's payload always sets it; this records what happens if that is ever dropped.",
       "formValues": {
         "repository": "OpenHands/agent-server-gui",
         "baseRef": "main",

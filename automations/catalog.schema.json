@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/OpenHands/extensions/automations/catalog.schema.json",
   "title": "AutomationCatalogEntry",
-  "description": "Strict schema for automations/catalog/*.json. Mirrors automations/index.d.ts. An entry carries the card metadata Agent Canvas renders plus, optionally, the extension-owned setup contract for that automation.",
+  "description": "Strict schema for automations/catalog/<id>/manifest.json. Mirrors automations/index.d.ts. An entry carries the card metadata Agent Canvas renders plus, optionally, the extension-owned setup contract for that automation.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -20,7 +20,7 @@
     "id": {
       "type": "string",
       "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
-      "description": "Stable identifier. Must equal the filename stem."
+      "description": "Stable identifier. Must equal the name of the directory holding this manifest."
     },
     "name": { "type": "string", "minLength": 1 },
     "category": { "type": "string", "minLength": 1 },
@@ -54,7 +54,6 @@
       "required": [
         "version",
         "mode",
-        "routes",
         "form",
         "review",
         "submit",
@@ -69,12 +68,6 @@
           "enum": ["direct", "assisted"],
           "description": "direct - the form produces a request body. assisted - the form seeds an agent conversation that finishes setup."
         },
-        "routes": {
-          "type": "array",
-          "minItems": 1,
-          "items": { "$ref": "#/$defs/route" }
-        },
-        "capabilities": { "$ref": "#/$defs/capabilities" },
         "requires": { "$ref": "#/$defs/requires" },
         "form": { "$ref": "#/$defs/form" },
         "validation": { "$ref": "#/$defs/validation" },
@@ -151,161 +144,68 @@
       "type": "string",
       "pattern": "^/v1/[A-Za-z0-9/_-]*$"
     },
-    "route": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["path", "page"],
-      "properties": {
-        "path": { "type": "string", "pattern": "^/[A-Za-z0-9/_-]*$" },
-        "page": { "enum": ["setup"] }
-      }
-    },
-    "capabilities": {
-      "description": "Stage 2. What the deployment must support for this automation to be offered at all.",
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["discovery", "requires", "onUnsupported"],
-      "properties": {
-        "discovery": {
-          "type": "object",
-          "additionalProperties": false,
-          "required": ["method", "path"],
-          "properties": {
-            "method": { "enum": ["GET"] },
-            "path": { "$ref": "#/$defs/servicePath" }
-          }
-        },
-        "requires": {
-          "type": "object",
-          "additionalProperties": false,
-          "minProperties": 1,
-          "properties": {
-            "triggerKinds": {
-              "type": "array",
-              "minItems": 1,
-              "uniqueItems": true,
-              "items": { "enum": ["cron", "event"] }
-            },
-            "eventSources": {
-              "type": "array",
-              "minItems": 1,
-              "uniqueItems": true,
-              "items": { "type": "string", "minLength": 1 }
-            },
-            "eventTypes": {
-              "type": "array",
-              "minItems": 1,
-              "uniqueItems": true,
-              "items": { "type": "string", "minLength": 1 }
-            },
-            "features": {
-              "type": "array",
-              "minItems": 1,
-              "uniqueItems": true,
-              "items": { "type": "string", "minLength": 1 }
-            },
-            "ready": { "const": true }
-          }
-        },
-        "bindings": {
-          "description": "Feeds deployment values into form field constraints, so the form offers only what the deployment accepts.",
-          "type": "array",
-          "items": {
-            "type": "object",
-            "additionalProperties": false,
-            "required": ["field", "constraint", "from"],
-            "properties": {
-              "field": { "type": "string", "minLength": 1 },
-              "constraint": { "enum": ["options", "minIntervalSeconds"] },
-              "from": {
-                "type": "string",
-                "pattern": "^[A-Za-z0-9_]+(\\.[A-Za-z0-9_]+)*$"
-              }
-            }
-          }
-        },
-        "onUnsupported": {
-          "type": "object",
-          "additionalProperties": false,
-          "required": ["behavior", "message"],
-          "properties": {
-            "behavior": { "const": "block" },
-            "message": { "$ref": "#/$defs/copy" }
-          }
-        }
-      }
-    },
     "requires": {
-      "description": "Stages 3 and 4. Integrations that must be connected and credentials that must be present.",
+      "description": "Stage 2. What the deployment must offer and what must be connected before setup can start. The host decides what to do when a requirement is unmet; an entry only states the requirement and why it exists.",
       "type": "object",
       "additionalProperties": false,
-      "required": ["integrations", "secrets", "onUnmet"],
+      "required": ["integrations"],
       "properties": {
         "integrations": {
           "type": "array",
           "items": {
             "type": "object",
             "additionalProperties": false,
-            "required": ["id", "reason", "enforcement"],
+            "required": ["id", "message", "required"],
             "properties": {
               "id": {
                 "type": "string",
                 "minLength": 1,
                 "description": "Must resolve to an integrations/catalog entry id."
               },
-              "reason": { "$ref": "#/$defs/copy" },
-              "enforcement": { "enum": ["block", "warn"] }
+              "message": { "$ref": "#/$defs/copy" },
+              "required": {
+                "type": "boolean",
+                "description": "true blocks setup until the integration is connected. false lets setup continue without it."
+              }
             }
           }
         },
-        "secrets": {
-          "description": "Credential names only. additionalProperties is false, so there is nowhere to put a value.",
+        "features": {
+          "description": "Deployment capabilities this automation cannot run without. Names are matched against the capabilities endpoint the host queries.",
           "type": "array",
-          "items": {
-            "type": "object",
-            "additionalProperties": false,
-            "required": ["key", "label", "help", "required"],
-            "properties": {
-              "key": { "type": "string", "pattern": "^[A-Z][A-Z0-9_]*$" },
-              "label": { "$ref": "#/$defs/copy" },
-              "help": { "$ref": "#/$defs/copy" },
-              "required": { "type": "boolean" }
-            }
-          }
-        },
-        "onUnmet": {
-          "type": "object",
-          "additionalProperties": false,
-          "required": ["behavior", "message"],
-          "properties": {
-            "behavior": { "const": "block" },
-            "message": { "$ref": "#/$defs/copy" }
-          }
-        },
-        "onWarn": {
-          "type": "object",
-          "additionalProperties": false,
-          "required": ["behavior", "message"],
-          "properties": {
-            "behavior": { "const": "continue" },
-            "message": { "$ref": "#/$defs/copy" }
-          }
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1 }
         }
       }
     },
     "form": {
-      "description": "Stage 5. The inputs the user is asked for. These constraints also drive the host's local validation.",
+      "description": "Stage 3. The inputs the user is asked for. These constraints also drive the host's local validation.",
       "type": "object",
       "additionalProperties": false,
-      "required": ["fields"],
+      "required": ["args"],
       "properties": {
         "note": { "$ref": "#/$defs/copy" },
-        "fields": {
-          "type": "array",
-          "minItems": 1,
-          "items": { "$ref": "#/$defs/formField" }
+        "triggers": {
+          "description": "Inputs that decide when the automation runs, keyed by trigger kind. The key set is the trigger kinds the deployment must support, so it is not restated anywhere else.",
+          "type": "object",
+          "additionalProperties": false,
+          "minProperties": 1,
+          "properties": {
+            "cron": { "$ref": "#/$defs/formFields" },
+            "event": { "$ref": "#/$defs/formFields" }
+          }
+        },
+        "args": {
+          "description": "Every other input: the arguments to the automation itself.",
+          "$ref": "#/$defs/formFields"
         }
       }
+    },
+    "formFields": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/formField" }
     },
     "formField": {
       "type": "object",
@@ -314,8 +214,15 @@
       "properties": {
         "name": { "type": "string", "pattern": "^[a-z][A-Za-z0-9]*$" },
         "type": {
-          "description": "Semantic field types. The host renders a cron field without knowing what cron means to an automation.",
-          "enum": ["text", "textarea", "select", "cron", "repo-picker"]
+          "description": "Semantic field types. The host renders a cron field without knowing what cron means to an automation, and resolves the deployment's schedule limits and timezone list for the cron and timezone types, so an entry never restates them.",
+          "enum": [
+            "text",
+            "textarea",
+            "select",
+            "cron",
+            "timezone",
+            "repo-picker"
+          ]
         },
         "label": { "$ref": "#/$defs/copy" },
         "help": { "$ref": "#/$defs/copy" },
@@ -368,7 +275,7 @@
       ]
     },
     "validation": {
-      "description": "Stage 6. Omit preflight to declare that local validation is the only check available before submit.",
+      "description": "Stage 4. Omit preflight to declare that local validation is the only check available before submit.",
       "type": "object",
       "additionalProperties": false,
       "required": ["onInvalid"],
@@ -418,7 +325,7 @@
       }
     },
     "review": {
-      "description": "Stage 7. The plain-language summary the user confirms before anything is created.",
+      "description": "Stage 5. The plain-language summary the user confirms before anything is created.",
       "type": "object",
       "additionalProperties": false,
       "required": ["title", "summary", "confirmLabel"],
@@ -443,7 +350,7 @@
       }
     },
     "directSubmit": {
-      "description": "Stage 8, direct. Map form values into a request body and post it to an allowlisted capability.",
+      "description": "Stage 6, direct. Map form values into a request body and post it to an allowlisted capability.",
       "type": "object",
       "additionalProperties": false,
       "required": ["action", "endpoint", "payload", "onSuccess", "onError"],
@@ -464,7 +371,7 @@
       }
     },
     "assistedSubmit": {
-      "description": "Stage 8, assisted. Hand the collected values to an agent conversation that finishes setup.",
+      "description": "Stage 6, assisted. Hand the collected values to an agent conversation that finishes setup.",
       "type": "object",
       "additionalProperties": false,
       "required": ["action", "message", "onSuccess", "onError"],

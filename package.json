@@ -36,7 +36,7 @@
       "import": "./automations/index.js",
       "default": "./automations/index.js"
     },
-    "./automations/catalog/*.json": "./automations/catalog/*.json",
+    "./automations/catalog/*": "./automations/catalog/*",
     "./automations/catalog.schema.json": "./automations/catalog.schema.json",
     "./integrations": {
       "types": "./integrations/index.d.ts",

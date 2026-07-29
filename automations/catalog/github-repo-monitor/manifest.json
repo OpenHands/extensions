@@ -13,63 +13,57 @@
   "setup": {
     "version": "1.0",
     "mode": "direct",
-    "routes": [
-      {
-        "path": "/automations/new/github-repo-monitor",
-        "page": "setup"
-      }
-    ],
-    "capabilities": {
-      "discovery": {
-        "method": "GET",
-        "path": "/v1/capabilities"
-      },
-      "requires": {
-        "triggerKinds": [
-          "event"
-        ],
-        "eventSources": [
-          "github"
-        ],
-        "eventTypes": [
-          "issue_comment.created",
-          "pull_request_review_comment.created"
-        ],
-        "features": [
-          "repoClone",
-          "presetPrompt",
-          "webhookDelivery"
-        ],
-        "ready": true
-      },
-      "onUnsupported": {
-        "behavior": "block",
-        "message": "This deployment cannot receive GitHub webhook events, so the repository monitor is unavailable here. A scheduled automation that polls the GitHub API is the alternative."
-      }
-    },
     "requires": {
       "integrations": [
         {
           "id": "github",
-          "reason": "Used to read issue and pull request comments and post replies.",
-          "enforcement": "block"
-        }
-      ],
-      "secrets": [
-        {
-          "key": "GITHUB_PERSONAL_ACCESS_TOKEN",
-          "label": "GitHub personal access token",
-          "help": "Needs read access to the repository and permission to comment on issues and pull requests.",
+          "message": "Used to read issue and pull request comments and post replies.",
           "required": true
         }
       ],
-      "onUnmet": {
-        "behavior": "block",
-        "message": "Connect GitHub and provide an access token before continuing."
-      }
+      "features": [
+        "repoClone",
+        "presetPrompt",
+        "webhookDelivery"
+      ]
     },
     "form": {
-      "fields": [
+      "triggers": {
+        "event": [
+          {
+            "name": "eventType",
+            "type": "select",
+            "label": "Respond to",
+            "help": "Which GitHub comment event starts a conversation.",
+            "default": "issue_comment.created",
+            "required": true,
+            "options": [
+              {
+                "value": "issue_comment.created",
+                "label": "Comments on issues and pull requests"
+              },
+              {
+                "value": "pull_request_review_comment.created",
+                "label": "Pull request review comments only"
+              }
+            ]
+          },
+          {
+            "name": "triggerPhrase",
+            "type": "text",
+            "label": "Trigger phrase",
+            "help": "Only comments containing this phrase start a conversation. Matched case-insensitively. Quotes and backslashes are not allowed, because the phrase becomes part of the event filter expression.",
+            "default": "@openhands",
+            "required": true,
+            "constraints": {
+              "minLength": 2,
+              "maxLength": 50,
+              "format": "safeExpressionLiteral"
+            }
+          }
+        ]
+      },
+      "args": [
         {
           "name": "repository",
           "type": "repo-picker",
@@ -88,37 +82,6 @@
           "constraints": {
             "minLength": 1,
             "maxLength": 255
-          }
-        },
-        {
-          "name": "eventType",
-          "type": "select",
-          "label": "Respond to",
-          "help": "Which GitHub comment event starts a conversation.",
-          "default": "issue_comment.created",
-          "required": true,
-          "options": [
-            {
-              "value": "issue_comment.created",
-              "label": "Comments on issues and pull requests"
-            },
-            {
-              "value": "pull_request_review_comment.created",
-              "label": "Pull request review comments only"
-            }
-          ]
-        },
-        {
-          "name": "triggerPhrase",
-          "type": "text",
-          "label": "Trigger phrase",
-          "help": "Only comments containing this phrase start a conversation. Matched case-insensitively. Quotes and backslashes are not allowed, because the phrase becomes part of the event filter expression.",
-          "default": "@openhands",
-          "required": true,
-          "constraints": {
-            "minLength": 2,
-            "maxLength": 50,
-            "format": "safeExpressionLiteral"
           }
         }
       ]

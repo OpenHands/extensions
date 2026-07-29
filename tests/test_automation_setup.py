@@ -1,4 +1,4 @@
-"""Contract tests for the `setup` block in automations/catalog/*.json.
+"""Contract tests for the `setup` block in automations/catalog/*/manifest.json.
 
 Two things are checked here that nothing else can catch:
 
@@ -47,16 +47,20 @@ def _load(path: Path) -> dict:
     return json.loads(path.read_text())
 
 
+def _manifests():
+    return sorted(CATALOG_DIR.glob("*/manifest.json"))
+
+
 def _catalog_paths():
-    for path in sorted(CATALOG_DIR.glob("*.json")):
-        yield pytest.param(path, id=path.stem)
+    for path in _manifests():
+        yield pytest.param(path, id=path.parent.name)
 
 
 def _setup_paths():
     """Only the entries that ship a setup block. It is optional by design."""
-    for path in sorted(CATALOG_DIR.glob("*.json")):
+    for path in _manifests():
         if "setup" in _load(path):
-            yield pytest.param(path, id=path.stem)
+            yield pytest.param(path, id=path.parent.name)
 
 
 def _fixture_bundles():
@@ -67,7 +71,7 @@ def _fixture_bundles():
 
 
 def _entry_for(bundle: dict) -> dict:
-    return _load(CATALOG_DIR / f"{bundle['automationId']}.json")
+    return _load(CATALOG_DIR / bundle["automationId"] / "manifest.json")
 
 
 def _integration_catalog_ids() -> set[str]:
@@ -141,8 +145,16 @@ def _payload_path_exists(payload, path: str) -> bool:
     return True
 
 
+def _fields(setup: dict) -> list[dict]:
+    """Every input the form declares, whichever half of it they belong to."""
+    triggers = setup["form"].get("triggers", {})
+    return [
+        field for group in triggers.values() for field in group
+    ] + setup["form"]["args"]
+
+
 def _field_names(setup: dict) -> set[str]:
-    return {field["name"] for field in setup["form"]["fields"]}
+    return {field["name"] for field in _fields(setup)}
 
 
 def _join_loc(parts: list[str]) -> str:
@@ -208,14 +220,14 @@ def _reported_fields(entry: dict, scenario: dict) -> dict[str, str]:
     return reported
 
 
-def _capabilities_satisfied(requires: dict, deployment: dict) -> bool:
-    if requires.get("ready") and not deployment.get("ready"):
+def _capabilities_satisfied(setup: dict, deployment: dict) -> bool:
+    """A deployment can run this automation when it offers every feature the
+    setup requires and every trigger kind the form configures."""
+    needed_features = set(setup.get("requires", {}).get("features", []))
+    if not needed_features.issubset(set(deployment.get("features", []))):
         return False
-    for key in ("triggerKinds", "eventSources", "eventTypes", "features"):
-        needed = set(requires.get(key, []))
-        if needed and not needed.issubset(set(deployment.get(key, []))):
-            return False
-    return True
+    needed_kinds = set(setup["form"].get("triggers", {}))
+    return needed_kinds.issubset(set(deployment.get("triggerKinds", [])))
 
 
 def _iter_strings(node):
@@ -266,15 +278,9 @@ def test_schema_rejects_content_a_setup_block_must_never_carry() -> None:
     These are the mutations that would turn it into code, an arbitrary request,
     or a credential leak.
     """
-    entry = _load(CATALOG_DIR / "github-pr-reviewer.json")
+    entry = _load(CATALOG_DIR / "github-pr-reviewer" / "manifest.json")
 
     rejected: list[tuple[str, dict]] = []
-
-    with_secret_value = deepcopy(entry)
-    with_secret_value["setup"]["requires"]["secrets"][0]["value"] = (
-        "ghp_notarealtokenvalue00"
-    )
-    rejected.append(("value", with_secret_value))
 
     with_markup = deepcopy(entry)
     with_markup["setup"]["review"]["title"] = "Review <script>steal()</script>"
@@ -340,38 +346,19 @@ def test_form_placeholders_reference_declared_fields(entry_path: Path) -> None:
 
 
 @pytest.mark.parametrize("entry_path", list(_setup_paths()))
-def test_select_fields_offer_options_inline_or_from_a_capability(
-    entry_path: Path,
-) -> None:
-    """A select with neither is an empty dropdown the user cannot get past."""
+def test_select_fields_offer_options(entry_path: Path) -> None:
+    """A select without options is an empty dropdown the user cannot get past.
+    A field whose options come from the deployment declares a semantic type
+    instead, so the host knows to fill it."""
     setup = _load(entry_path)["setup"]
-    bound = {
-        binding["field"]
-        for binding in setup.get("capabilities", {}).get("bindings", [])
-        if binding["constraint"] == "options"
-    }
 
     unusable = [
         field["name"]
-        for field in setup["form"]["fields"]
-        if field["type"] == "select"
-        and "options" not in field
-        and field["name"] not in bound
+        for field in _fields(setup)
+        if field["type"] == "select" and "options" not in field
     ]
 
     assert unusable == []
-
-
-@pytest.mark.parametrize("entry_path", list(_setup_paths()))
-def test_capability_bindings_target_declared_fields(entry_path: Path) -> None:
-    setup = _load(entry_path)["setup"]
-    fields = _field_names(setup)
-
-    bound = {
-        binding["field"] for binding in setup.get("capabilities", {}).get("bindings", [])
-    }
-
-    assert bound - fields == set()
 
 
 @pytest.mark.parametrize("entry_path", list(_setup_paths()))
@@ -385,9 +372,7 @@ def test_error_map_connects_real_payload_paths_to_real_fields(entry_path: Path) 
         pytest.skip("entry declares no errorMap")
 
     fields = _field_names(setup)
-    defaults = {
-        field["name"]: field.get("default", "x") for field in setup["form"]["fields"]
-    }
+    defaults = {field["name"]: field.get("default", "x") for field in _fields(setup)}
     payload = _render_payload(entry, defaults)
 
     for path, target in error_map.items():
@@ -478,21 +463,20 @@ def test_error_map_turns_rejections_into_highlighted_inputs(
 def test_blocked_by_lists_exactly_the_unsatisfiable_deployments(
     fixture_path: Path,
 ) -> None:
-    """Keeps capabilities.requires honest: an entry that claims to work
-    everywhere would silently offer a card the deployment cannot run."""
+    """Keeps requires honest: an entry that claims to work everywhere would
+    silently offer a card the deployment cannot run."""
     bundle = _load(fixture_path)
     setup = _entry_for(bundle)["setup"]
-    requires = setup.get("capabilities", {}).get("requires", {})
     responses = _load(CAPABILITIES_PATH)["responses"]
 
     unsatisfiable = {
         name
         for name, response in responses.items()
-        if not _capabilities_satisfied(requires, response["body"])
+        if not _capabilities_satisfied(setup, response["body"])
     }
 
     assert unsatisfiable == set(bundle["blockedBy"])
-    assert _capabilities_satisfied(requires, responses[bundle["capabilities"]]["body"])
+    assert _capabilities_satisfied(setup, responses[bundle["capabilities"]]["body"])
 
 
 def test_generated_catalog_index_is_up_to_date() -> None:
@@ -507,9 +491,10 @@ def test_generated_catalog_index_is_up_to_date() -> None:
 
 
 def test_no_catalog_entry_or_fixture_carries_a_credential_value() -> None:
-    """Entries name the secrets an automation needs; they never contain one."""
+    """Credentials come from a connected integration, so no entry or fixture
+    has any reason to carry one."""
     offenders = []
-    for path in sorted(CATALOG_DIR.glob("*.json")) + sorted(FIXTURE_DIR.glob("*.json")):
+    for path in _manifests() + sorted(FIXTURE_DIR.glob("*.json")):
         for value in _iter_strings(_load(path)):
             if CREDENTIAL_VALUE_RE.search(value):
                 offenders.append(f"{path.name}: {value[:40]}")

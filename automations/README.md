@@ -1,20 +1,21 @@
 # Automations
 
-`catalog/<id>.json` is the single hand-authored source of truth for one automation. It carries the card
-metadata Agent Canvas renders today and, optionally, a nested `setup` block: the extension-owned
-configuration experience for that automation.
+`catalog/<id>/` is one automation. Its `manifest.json` is the single hand-authored source of truth: the
+card metadata Agent Canvas renders today and, optionally, a nested `setup` block, the extension-owned
+configuration experience for that automation. Anything else an automation ships, such as a script that is
+uploaded to the automations service as a `.tar.gz`, belongs in the same directory.
 
 ```
-catalog/*.json         one automation per file - card metadata plus an optional `setup` block
-catalog.schema.json    the contract, JSON Schema draft 2020-12
-catalog-index.js       generated from catalog/ - do not edit by hand
-index.js               the stable API for Node.js and bundlers
-index.d.ts             the public TypeScript shape
+catalog/<id>/manifest.json   one automation per directory - card metadata plus an optional `setup` block
+catalog.schema.json          the contract, JSON Schema draft 2020-12
+catalog-index.js             generated from catalog/ - do not edit by hand
+index.js                     the stable API for Node.js and bundlers
+index.d.ts                   the public TypeScript shape
 ```
 
-Adding or changing an automation should require changing exactly one JSON file in `catalog/`. Run
+Adding or changing an automation should require changing exactly one JSON file. Run
 `npm run build:automations` afterwards to regenerate `catalog-index.js`, which statically imports each
-individual JSON file for the JS package.
+individual manifest for the JS package.
 
 ```js
 import {
@@ -29,10 +30,10 @@ match entries in `integrations/catalog/*.json`.
 
 ## The `setup` block
 
-`setup` defines **the configuration experience for one automation**: how it is discovered, what must be
-connected first, what the user is asked, how a draft is validated, what request is sent, and which
-analytics stages are emitted. It never defines what the automation *does* at runtime - that is the preset,
-owned by `OpenHands/automation`.
+`setup` defines **the configuration experience for one automation**: what must be available before it can
+be offered, what the user is asked, how a draft is validated, what request is sent, and which analytics
+stages are emitted. It never defines what the automation *does* at runtime - that is the preset, owned by
+`OpenHands/automation`.
 
 It is optional. Three of eight entries carry one today.
 
@@ -40,13 +41,35 @@ The split it exists to serve:
 
 | Repo | Owns |
 | --- | --- |
-| `OpenHands/extensions` | All per-automation information: identifiers, routes, copy, fields, validation semantics, request mappings, analytics |
+| `OpenHands/extensions` | All per-automation information: copy, fields, validation semantics, request mappings, analytics |
 | `OpenHands/agent-canvas` | Only the domain-neutral registry, renderer, workflow orchestration, and constrained action bridge |
 | `OpenHands/automation` | Capabilities, authoritative preflight validation, creation APIs, runtime semantics |
 
 `setup` never repeats `id`, `name`, `category`, or `description` - the entry already carries them, and one
-record cannot drift from another. `setup.version` selects how the block is interpreted; a future format
-ships a new constant.
+record cannot drift from another. The same rule governs everything else in the block: nothing is stated
+that the host can derive.
+
+| Derived, so not declared | Where it comes from |
+| --- | --- |
+| The setup route | `/automations/new/<id>` |
+| The capabilities endpoint | The host queries it for every automation, so it is not per-entry |
+| The trigger kinds a deployment must support | The keys of `form.triggers` |
+| The schedule limits and timezone list a form must respect | The `cron` and `timezone` field types |
+| What to show when a requirement is unmet | `requires.integrations[].message` plus `required` |
+
+`setup.version` selects how the block is interpreted; a future format ships a new constant.
+
+### Triggers and args
+
+`form` separates the two things a user is configuring:
+
+- **`form.triggers`** decides *when* the automation runs. It is keyed by trigger kind (`cron` or `event`),
+  and each key holds the inputs that kind needs. `github-pr-reviewer` asks for a schedule and a timezone;
+  `github-repo-monitor` asks which GitHub event to answer and which phrase to match.
+- **`form.args`** is everything else: the arguments to the automation itself, such as the repository to
+  clone and the tone of the review.
+
+An assisted entry declares no triggers, because the trigger is settled during the conversation.
 
 ### Format constraints
 
@@ -58,8 +81,8 @@ trust boundary. It enforces:
   never rendered - that is what lets an event filter carry expression syntax.
 - **No arbitrary requests.** `submit.action` is a closed enum of allowlisted capabilities, and every path
   is service-relative (`^/v1/`). The deployment base path is resolved by the host.
-- **No credentials.** `requires.secrets[]` names a credential and closes the object, so there is nowhere to
-  put a value. The host observes readiness only.
+- **No credentials.** There is no key for a credential at all. An automation names the integrations it
+  needs; the credential comes from the connection the user already made.
 - **No supplied regex.** `constraints.format` names a host-implemented check from a closed set, so an entry
   cannot hand the host a pathological pattern.
 
@@ -91,19 +114,17 @@ a `setup` block belongs to whoever promotes this to production.
 
 ### Stage order
 
-Stages 1 and 9 are host responsibilities. A stage in between runs if and only if its key is present, which
+Stages 1 and 7 are host responsibilities. A stage in between runs if and only if its key is present, which
 is why there is no `workflow` block listing them:
 
 ```
 1. Load and validate the entry ........ host        <- catalog.schema.json
-2. Capabilities check ................. host        -> GET  /v1/capabilities      (setup.capabilities)
-3. Prerequisite check ................. host                                      (setup.requires.integrations)
-4. Credential readiness ............... host                                      (setup.requires.secrets)
-5. Render form and validate locally ... host                                      (setup.form.fields)
-6. Preflight validation ............... host        -> POST /v1/validate          (setup.validation.preflight)
-7. Review screen ...................... host                                      (setup.review)
-8. Map values and execute the action .. host        -> setup.submit.action        (setup.submit)
-9. Show the outcome ................... host                                      (setup.submit.onSuccess/onError)
+2. Availability check ................. host        -> GET  /v1/capabilities      (setup.requires)
+3. Render form and validate locally ... host                                      (setup.form)
+4. Preflight validation ............... host        -> POST /v1/validate          (setup.validation.preflight)
+5. Review screen ...................... host                                      (setup.review)
+6. Map values and execute the action .. host        -> setup.submit.action        (setup.submit)
+7. Show the outcome ................... host                                      (setup.submit.onSuccess/onError)
 ```
 
 ## Contract fixtures
@@ -150,9 +171,9 @@ Two findings came out of that check and are baked into the entries:
 | `GET /v1/capabilities` | Does not exist. Defining it is OpenHands/automation#262 |
 | `POST /v1/validate` | Does not exist. Defining it is OpenHands/automation#262 |
 
-The two proposed paths follow the service's existing `/v1` router prefix. They appear only in
-`setup.capabilities.discovery.path` and `setup.validation.preflight.path`, so settling on a different path
-is a one-line change per entry.
+The two proposed paths follow the service's existing `/v1` router prefix. The capabilities path is the
+host's, and the preflight path appears only in `setup.validation.preflight.path`, so settling on a
+different path is a one-line change per entry.
 
 ## Deviations from the project reference document
 
@@ -162,10 +183,18 @@ questions to this work. What changed and why:
 | Proposed | Decision |
 | --- | --- |
 | A separate manifest file per automation | Merged into the catalog entry as `setup`, so there is one hand-authored record per automation and nothing to keep in sync. |
+| `routes` | Removed. The only route is `/automations/new/<id>`, which the id already gives. |
+| `capabilities` | Removed. The discovery call is the same for every automation, and the block's only entry-specific content was a feature list, now `requires.features`. |
+| `capabilities.bindings` | Removed. It existed to say that a schedule field respects the deployment's minimum interval and a timezone field offers the deployment's timezones. The `cron` and `timezone` field types say that on their own. |
+| `requires.secrets` | Removed. An automation that needs GitHub declares the GitHub integration; the credential comes with the connection rather than being asked for twice. |
+| `requires.onUnmet` / `onWarn` | Removed. What to do about an unmet requirement follows from `required`, and the copy follows from the integration's `message`. |
+| `enforcement: "block" \| "warn"` | Replaced by `required: true \| false`. Two values, so a boolean says it, and `required` is already the word used for form fields. |
+| `reason` / `help` / `message` | Unified on `message`. Three words for one thing. |
+| `form.fields` | Split into `form.triggers` and `form.args`, so what decides *when* an automation runs is separate from what it is told to do. |
 | `workflow.steps` | Removed. It restated which keys were present, creating a second source of truth that could contradict the file. |
 | `form.intent: "seed"` | Removed. Derivable from `setup.mode: "assisted"`. |
 | `validation.mode: "localOnly"` | Removed. Expressed by omitting `validation.preflight`. |
-| `triggerKindsAnyOf` | Removed. Two near-identical keys invite mistakes. The assisted entry constrains no trigger kind and requires the `conversationDispatch` feature instead. |
+| `triggerKindsAnyOf` | Removed. The keys of `form.triggers` are the trigger kinds, so nothing restates them. |
 | `submit.handoff` | Removed. Nothing consumes it, and the contract it gestured at does not exist yet. See the open questions below. |
 | `{{form.filledCount}}` | Removed. It overloaded the `form` namespace with a computed value that names no field. |
 | `errorMap` values | Widened to a string or an array of strings, so a payload path built from several fields maps back to all of them. |
@@ -183,8 +212,9 @@ Recorded rather than resolved, because they need an owner outside this contract:
 - **Distribution.** Agent Canvas pins `@openhands/extensions`, so changing an entry still needs a version
   bump and a dependency update. Delivering "change automation UI without a Canvas release" needs runtime
   loading.
-- **Readiness-only credentials.** Agent Canvas currently collects secret values. Observing only a boolean
-  needs a different mechanism, not a rename.
+- **Integration credentials at runtime.** Dropping `requires.secrets` assumes a created automation can use
+  the credential behind a connected integration. Whether the automations service receives it, and how, is
+  not settled here.
 - **Assisted-setup completion.** The assisted flow ends at a conversation, so the host cannot emit a
   completion event. Until something reports back, the ratio of direct to assisted setup is not measurable.
 - **Edit and delete routes.** Only the `new` route is modelled here.

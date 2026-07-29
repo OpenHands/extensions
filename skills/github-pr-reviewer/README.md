@@ -7,7 +7,7 @@ trigger label is applied.
 
 This skill is activated by:
 
-- `/pr-reviewer:setup`
+- `/github-pr-reviewer:setup`
 
 ## Features
 

@@ -1,7 +1,7 @@
 /**
  * Runtime automation catalog.
  *
- * The source of truth is the hand-authored `automations/catalog/<id>.json`
+ * The source of truth is the hand-authored `automations/catalog/<id>/manifest.json`
  * directory. `catalog-index.js` is generated from that directory so the JS
  * package can statically import each JSON file without an aggregate JSON asset.
  */

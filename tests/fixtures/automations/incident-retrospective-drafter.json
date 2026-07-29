@@ -1,12 +1,12 @@
 {
   "automationId": "incident-retrospective-drafter",
-  "description": "Assisted conversation setup. There is no create request in this archetype - at the end of the flow no automation exists yet, because the agent creates it during the conversation. That is the defining property of assisted setup, and the reason validation.preflight is absent from the manifest.",
+  "description": "Assisted conversation setup. There is no create request in this archetype - at the end of the flow no automation exists yet, because the agent creates it during the conversation. That is the defining property of assisted setup, and the reason validation.preflight is absent from the setup block.",
   "capabilities": "supported",
   "blockedBy": ["notReady"],
   "scenarios": [
     {
       "id": "partial-seed-with-notion-warning",
-      "description": "Slack and Linear are connected, Notion is not. Notion is declared enforcement warn, so setup continues and the agent resolves it. The user fills two fields and leaves the rest for the agent.",
+      "description": "Slack and Linear are connected, Notion is not. Notion is declared required false, so setup continues and the agent resolves it. The user fills two fields and leaves the rest for the agent.",
       "integrationState": {
         "slack": "connected",
         "linear": "connected",
@@ -14,7 +14,7 @@
       },
       "expectedPrerequisiteOutcome": {
         "behavior": "continue",
-        "message": "Notion is not connected yet. The agent will help you connect it or choose another destination."
+        "unmet": ["notion"]
       },
       "formValues": {
         "incidentChannel": "#incidents",
@@ -84,7 +84,7 @@
     },
     {
       "id": "required-integration-missing-blocks",
-      "description": "Slack is declared enforcement block, so setup stops before the form renders. Contrast with Notion above - assisted setup can start with a gap the agent will close, but not with a gap that leaves the agent no data to read.",
+      "description": "Slack is declared required, so setup stops before the form renders. Contrast with Notion above - assisted setup can start with a gap the agent will close, but not with a gap that leaves the agent no data to read.",
       "integrationState": {
         "slack": "missing",
         "linear": "connected",

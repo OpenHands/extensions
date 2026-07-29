@@ -7,18 +7,24 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def load_catalog_entries(relative_path: str):
+def load_catalog_entries(relative_path: str, pattern: str = "*.json"):
+    """Integrations are `<id>.json`; automations are `<id>/manifest.json`."""
     entries = []
-    for entry_path in sorted((ROOT / relative_path).glob("*.json")):
+    for entry_path in sorted((ROOT / relative_path).glob(pattern)):
         entry = json.loads(entry_path.read_text())
-        assert entry["id"] == entry_path.stem
+        expected_id = (
+            entry_path.parent.name
+            if entry_path.name == "manifest.json"
+            else entry_path.stem
+        )
+        assert entry["id"] == expected_id
         entries.append(entry)
     return entries
 
 
 def test_catalog_ids_are_unique_and_automations_reference_existing_integrations():
     integrations = load_catalog_entries("integrations/catalog")
-    automations = load_catalog_entries("automations/catalog")
+    automations = load_catalog_entries("automations/catalog", "*/manifest.json")
 
     integration_ids = [entry["id"] for entry in integrations]
     automation_ids = [entry["id"] for entry in automations]
@@ -63,7 +69,7 @@ def test_catalog_entries_have_required_fields():
                 else:
                     assert option["transport"]["url"].startswith("https://")
 
-    for entry in load_catalog_entries("automations/catalog"):
+    for entry in load_catalog_entries("automations/catalog", "*/manifest.json"):
         assert entry["id"]
         assert entry["name"]
         assert entry["prompt"]

@@ -6,7 +6,7 @@ description: >
   OpenHands review conversation per label event, inspects full repository and
   PR context, and posts the final review comment back to GitHub.
 triggers:
-  - /pr-reviewer:setup
+  - /github-pr-reviewer:setup
 ---
 
 # GitHub PR Reviewer Automation

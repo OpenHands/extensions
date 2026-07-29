@@ -1,5 +1,5 @@
 {
-  "description": "Reference responses for the capabilities endpoint a manifest discovers at stage 2. The endpoint does not exist yet - defining it is OpenHands/automation#262. Field names here are the contract the manifests' capabilities.requires and capabilities.bindings are written against.",
+  "description": "Reference responses for the capabilities endpoint the host queries at stage 2. The endpoint does not exist yet - defining it is OpenHands/automation#262. Field names here are the contract that setup.requires.features, the trigger kinds in setup.form.triggers, and the cron and timezone field types are written against.",
   "endpoint": {
     "method": "GET",
     "path": "/v1/capabilities"
@@ -77,7 +77,7 @@
       }
     },
     "notReady": {
-      "description": "The automation service is reachable but not accepting work. Every manifest requiring ready: true is blocked.",
+      "description": "The automation service is reachable but not accepting work. It offers no features and no trigger kinds, so every setup block is blocked.",
       "status": 200,
       "body": {
         "ready": false,

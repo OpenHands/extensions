@@ -8,72 +8,46 @@
   ],
   "popularityRank": 100,
   "estimatedSetupMinutes": 4,
-  "prompt": "/pr-reviewer:setup",
+  "prompt": "/github-pr-reviewer:setup",
   "exampleImplementation": "Trigger: cron polling for open GitHub PRs with a configured label such as openhands-review\nRequired secret: GITHUB_PERSONAL_ACCESS_TOKEN\n\n1. Read repository, trigger label, review tone, and polling schedule from setup.\n2. List open PRs and find the latest matching GitHub labeled issue event for each labeled PR.\n3. Deduplicate on the label event ID so every label application queues exactly one review.\n4. Start an OpenHands conversation that clones the repo, checks out the exact PR head SHA, and inspects PR discussion, review comments, changed files, diff, and surrounding code.\n5. Post an acknowledgement with the conversation link, then post the final AI review comment only if the PR is still open and the head SHA has not changed.",
   "setup": {
     "version": "1.0",
     "mode": "direct",
-    "routes": [
-      {
-        "path": "/automations/new/github-pr-reviewer",
-        "page": "setup"
-      }
-    ],
-    "capabilities": {
-      "discovery": {
-        "method": "GET",
-        "path": "/v1/capabilities"
-      },
-      "requires": {
-        "triggerKinds": [
-          "cron"
-        ],
-        "features": [
-          "repoClone",
-          "presetPrompt"
-        ],
-        "ready": true
-      },
-      "bindings": [
-        {
-          "field": "schedule",
-          "constraint": "minIntervalSeconds",
-          "from": "triggers.cron.minIntervalSeconds"
-        },
-        {
-          "field": "timezone",
-          "constraint": "options",
-          "from": "triggers.cron.timezones"
-        }
-      ],
-      "onUnsupported": {
-        "behavior": "block",
-        "message": "This deployment cannot run scheduled automations, so the code review agent is unavailable here."
-      }
-    },
     "requires": {
       "integrations": [
         {
           "id": "github",
-          "reason": "Used to read pull requests and post review comments.",
-          "enforcement": "block"
-        }
-      ],
-      "secrets": [
-        {
-          "key": "GITHUB_PERSONAL_ACCESS_TOKEN",
-          "label": "GitHub personal access token",
-          "help": "Needs read access to the repository and permission to comment on pull requests.",
+          "message": "Used to read pull requests and post review comments.",
           "required": true
         }
       ],
-      "onUnmet": {
-        "behavior": "block",
-        "message": "Connect GitHub and provide an access token before continuing."
-      }
+      "features": [
+        "repoClone",
+        "presetPrompt"
+      ]
     },
     "form": {
-      "fields": [
+      "triggers": {
+        "cron": [
+          {
+            "name": "schedule",
+            "type": "cron",
+            "label": "Check frequency",
+            "help": "How often to look for newly labelled pull requests.",
+            "default": "*/15 * * * *",
+            "required": true
+          },
+          {
+            "name": "timezone",
+            "type": "timezone",
+            "label": "Timezone",
+            "help": "Timezone the schedule is interpreted in.",
+            "default": "UTC",
+            "required": true
+          }
+        ]
+      },
+      "args": [
         {
           "name": "repository",
           "type": "repo-picker",
@@ -123,22 +97,6 @@
               "label": "Thorough"
             }
           ]
-        },
-        {
-          "name": "schedule",
-          "type": "cron",
-          "label": "Check frequency",
-          "help": "How often to look for newly labelled pull requests.",
-          "default": "*/15 * * * *",
-          "required": true
-        },
-        {
-          "name": "timezone",
-          "type": "select",
-          "label": "Timezone",
-          "help": "Timezone the schedule is interpreted in. Options come from the deployment.",
-          "default": "UTC",
-          "required": true
         }
       ]
     },

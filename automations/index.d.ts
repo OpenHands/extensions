@@ -26,6 +26,7 @@ export type AutomationFieldType =
   | "textarea"
   | "select"
   | "cron"
+  | "timezone"
   | "repo-picker";
 export type AutomationGitProvider = "github" | "gitlab" | "bitbucket";
 export type AutomationTriggerKind = "cron" | "event";
@@ -55,51 +56,29 @@ export interface AutomationFormField {
   constraints?: AutomationFieldConstraints;
 }
 
-export interface AutomationSetupRoute {
-  path: string;
-  page: "setup";
-}
-
-export interface AutomationCapabilityRequirements {
-  triggerKinds?: AutomationTriggerKind[];
-  eventSources?: string[];
-  eventTypes?: string[];
-  features?: string[];
-  ready?: true;
-}
-
-export interface AutomationCapabilityBinding {
-  field: string;
-  constraint: "options" | "minIntervalSeconds";
-  from: string;
-}
-
-export interface AutomationCapabilities {
-  discovery: { method: "GET"; path: string };
-  requires: AutomationCapabilityRequirements;
-  bindings?: AutomationCapabilityBinding[];
-  onUnsupported: { behavior: "block"; message: string };
-}
-
 export interface AutomationIntegrationRequirement {
   id: string;
-  reason: string;
-  enforcement: "block" | "warn";
-}
-
-/** Credential names only. A setup block never carries a credential value. */
-export interface AutomationSecretRequirement {
-  key: string;
-  label: string;
-  help: string;
+  message: string;
+  /** false lets setup continue while the integration is still unconnected. */
   required: boolean;
 }
 
 export interface AutomationPrerequisites {
   integrations: AutomationIntegrationRequirement[];
-  secrets: AutomationSecretRequirement[];
-  onUnmet: { behavior: "block"; message: string };
-  onWarn?: { behavior: "continue"; message: string };
+  /** Deployment capabilities this automation cannot run without. */
+  features?: string[];
+}
+
+/** The inputs that decide when the automation runs, keyed by trigger kind. */
+export type AutomationTriggerForm = Partial<
+  Record<AutomationTriggerKind, AutomationFormField[]>
+>;
+
+export interface AutomationForm {
+  note?: string;
+  triggers?: AutomationTriggerForm;
+  /** Every other input: the arguments to the automation itself. */
+  args: AutomationFormField[];
 }
 
 export type AutomationPayloadValue =
@@ -198,10 +177,8 @@ export interface AutomationAnalytics {
 export interface AutomationSetup {
   version: "1.0";
   mode: AutomationSetupMode;
-  routes: AutomationSetupRoute[];
-  capabilities?: AutomationCapabilities;
   requires?: AutomationPrerequisites;
-  form: { note?: string; fields: AutomationFormField[] };
+  form: AutomationForm;
   validation?: AutomationValidation;
   review: AutomationReview;
   submit: AutomationSubmit;
@@ -211,7 +188,7 @@ export interface AutomationSetup {
 export const AUTOMATION_CATALOG: RecommendedAutomation[];
 /**
  * Return the full automation catalog.
- * Reads the generated static import index over `automations/catalog/<id>.json`.
+ * Reads the generated static import index over `automations/catalog/<id>/manifest.json`.
  * Returns an independent copy.
  */
 export function listAutomationCatalog(): RecommendedAutomation[];
