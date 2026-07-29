@@ -3,46 +3,35 @@
   "name": "Incident retrospective drafter",
   "category": "Reliability",
   "description": "Collect incident chatter and issue updates, then draft a timeline and follow-up checklist.",
-  "requiredIntegrationIds": [
-    "slack",
-    "linear",
-    "notion"
-  ],
+  "requires": {
+    "integrations": {
+      "slack": {
+        "message": "Reads incident discussion and timestamps."
+      },
+      "linear": {
+        "message": "Reads follow-up tickets, owners, and status."
+      },
+      "notion": {
+        "message": "Publishes the drafted retrospective. Can be connected later during setup.",
+        "required": false
+      }
+    },
+    "features": [
+      "mcpTools",
+      "conversationDispatch"
+    ]
+  },
   "popularityRank": 78,
   "estimatedSetupMinutes": 8,
-  "prompt": "/incident-retro:setup",
+  "skill": "incident-retrospective",
   "exampleImplementation": "Trigger: manual, cron, or incident label added\nRequired MCPs: Slack, Linear, Notion\n\n1. Gather incident messages, timestamps, and linked issue references.\n2. Pull Linear follow-up tickets, owners, and status.\n3. TODO: define the incident identifier format and approved Notion template.\n4. Build a timeline, impact summary, root-cause hypotheses, and action items.\n5. Publish a draft retrospective and notify the incident owner.",
   "setup": {
     "version": "1.0",
     "mode": "assisted",
-    "requires": {
-      "integrations": [
-        {
-          "id": "slack",
-          "message": "Reads incident discussion and timestamps.",
-          "required": true
-        },
-        {
-          "id": "linear",
-          "message": "Reads follow-up tickets, owners, and status.",
-          "required": true
-        },
-        {
-          "id": "notion",
-          "message": "Publishes the drafted retrospective. Can be connected later during setup.",
-          "required": false
-        }
-      ],
-      "features": [
-        "mcpTools",
-        "conversationDispatch"
-      ]
-    },
     "form": {
       "note": "These answers start the conversation. Anything left blank is something the agent will ask about.",
-      "args": [
-        {
-          "name": "incidentChannel",
+      "args": {
+        "incidentChannel": {
           "type": "text",
           "label": "Incident channel",
           "help": "The Slack channel where incidents are discussed.",
@@ -52,8 +41,7 @@
             "maxLength": 100
           }
         },
-        {
-          "name": "linearTeam",
+        "linearTeam": {
           "type": "text",
           "label": "Linear team",
           "help": "The team whose follow-up tickets belong in the retrospective.",
@@ -62,8 +50,7 @@
             "maxLength": 100
           }
         },
-        {
-          "name": "notionDestination",
+        "notionDestination": {
           "type": "text",
           "label": "Notion destination",
           "help": "Page or database where drafts should be published. Leave blank to decide during setup.",
@@ -72,8 +59,7 @@
             "maxLength": 200
           }
         },
-        {
-          "name": "triggerPreference",
+        "triggerPreference": {
           "type": "select",
           "label": "How should it run?",
           "help": "A starting preference only. The agent confirms the exact trigger before creating anything.",
@@ -98,8 +84,7 @@
             }
           ]
         },
-        {
-          "name": "notes",
+        "notes": {
           "type": "textarea",
           "label": "Anything else the agent should know?",
           "help": "Incident naming conventions, an existing retro template, who should be notified.",
@@ -108,87 +93,8 @@
             "maxLength": 2000
           }
         }
-      ]
-    },
-    "validation": {
-      "onInvalid": {
-        "behavior": "blockSubmit",
-        "errorTarget": "field"
       }
     },
-    "review": {
-      "title": "Start the setup conversation",
-      "note": "Setup finishes in a conversation with an agent. You can change any of this while you talk to it.",
-      "emptyValueText": "the agent will ask",
-      "summary": [
-        {
-          "label": "Incident channel",
-          "value": "{{form.incidentChannel}}"
-        },
-        {
-          "label": "Linear team",
-          "value": "{{form.linearTeam}}"
-        },
-        {
-          "label": "Publishes to",
-          "value": "{{form.notionDestination}}"
-        },
-        {
-          "label": "Preferred trigger",
-          "value": "{{form.triggerPreference}}"
-        }
-      ],
-      "confirmLabel": "Start setup conversation"
-    },
-    "submit": {
-      "action": "conversation.start",
-      "message": "/incident-retro:setup\n\nThe user supplied these starting points. Confirm each one, ask about anything left blank, then create the automation.\n\n- Incident channel: {{form.incidentChannel}}\n- Linear team: {{form.linearTeam}}\n- Notion destination: {{form.notionDestination}}\n- Preferred trigger: {{form.triggerPreference}}\n- Notes: {{form.notes}}\n\nStill undecided and required before creation: the incident identifier format and the approved Notion retrospective template.",
-      "onSuccess": {
-        "behavior": "navigate",
-        "to": "/conversations/{{response.conversation_id}}"
-      },
-      "onError": {
-        "behavior": "stayOnForm",
-        "errorTarget": "form",
-        "message": "The setup conversation could not be started. Nothing was created."
-      }
-    },
-    "analytics": {
-      "consent": "required",
-      "stages": [
-        {
-          "id": "setup_opened",
-          "on": "route.entered",
-          "properties": {
-            "automation_id": "{{automation.id}}",
-            "setup_mode": "assisted"
-          }
-        },
-        {
-          "id": "capabilities_checked",
-          "on": "capabilities.resolved",
-          "properties": {
-            "automation_id": "{{automation.id}}",
-            "supported": "{{capabilities.supported}}"
-          }
-        },
-        {
-          "id": "setup_handed_off",
-          "on": "submit.succeeded",
-          "properties": {
-            "automation_id": "{{automation.id}}",
-            "setup_mode": "assisted"
-          }
-        },
-        {
-          "id": "setup_failed",
-          "on": "submit.failed",
-          "properties": {
-            "automation_id": "{{automation.id}}",
-            "setup_mode": "assisted"
-          }
-        }
-      ]
-    }
+    "message": "The user supplied these starting points. Confirm each one, ask about anything left blank, then create the automation.\n\n- Incident channel: {{form.incidentChannel}}\n- Linear team: {{form.linearTeam}}\n- Notion destination: {{form.notionDestination}}\n- Preferred trigger: {{form.triggerPreference}}\n- Notes: {{form.notes}}\n\nStill undecided and required before creation: the incident identifier format and the approved Notion retrospective template."
   }
 }

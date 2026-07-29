@@ -22,7 +22,7 @@ def load_catalog_entries(relative_path: str, pattern: str = "*.json"):
     return entries
 
 
-def test_catalog_ids_are_unique_and_automations_reference_existing_integrations():
+def test_catalog_ids_are_unique_and_automations_reference_things_that_exist():
     integrations = load_catalog_entries("integrations/catalog")
     automations = load_catalog_entries("automations/catalog", "*/manifest.json")
 
@@ -34,11 +34,16 @@ def test_catalog_ids_are_unique_and_automations_reference_existing_integrations(
 
     known_integration_ids = set(integration_ids)
     for automation in automations:
-        assert automation["requiredIntegrationIds"]
-        missing_ids = (
-            set(automation["requiredIntegrationIds"]) - known_integration_ids
+        required = automation["requires"]["integrations"]
+        assert required
+        assert set(required) - known_integration_ids == set()
+
+        # The launch command is looked up from this skill rather than stored on
+        # the entry, so a broken link is a card that launches nothing.
+        skill = automation.get("skill", automation["id"])
+        assert (ROOT / "skills" / skill / "SKILL.md").is_file(), (
+            f"{automation['id']}: skill '{skill}' has no SKILL.md"
         )
-        assert missing_ids == set()
 
 
 def test_catalog_entries_have_required_fields():
@@ -72,7 +77,6 @@ def test_catalog_entries_have_required_fields():
     for entry in load_catalog_entries("automations/catalog", "*/manifest.json"):
         assert entry["id"]
         assert entry["name"]
-        assert entry["prompt"]
         assert entry["exampleImplementation"]
         assert isinstance(entry["popularityRank"], int)
         assert isinstance(entry["estimatedSetupMinutes"], int)

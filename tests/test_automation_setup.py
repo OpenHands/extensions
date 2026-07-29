@@ -1,11 +1,15 @@
 """Contract tests for the `setup` block in automations/catalog/*/manifest.json.
 
-Two things are checked here that nothing else can catch:
+Three things are checked here that nothing else can catch:
 
 1. Every catalog entry validates against automations/catalog.schema.json, the way
    integration catalog entries validate against integrations/catalog.schema.json.
 2. Running a fixture's form values through an entry's declared mapping reproduces
    the fixture's request body, byte for byte.
+3. The parts of that request an entry no longer declares - the preflight body and
+   the payload-path-to-field mapping - still come out right when derived. An entry
+   states only what varies between automations; everything else is the same code
+   for every automation, and these tests are where that code is pinned.
 
 (2) is the point of the fixtures. Form shape and API shape genuinely differ, the
 create endpoint is declared extra="forbid", and a mapping mistake is a 422 that
@@ -31,6 +35,11 @@ CATALOG_INDEX = ROOT / "automations" / "catalog-index.js"
 BUILD_SCRIPT = ROOT / "scripts" / "build-automation-catalog.mjs"
 FIXTURE_DIR = ROOT / "tests" / "fixtures" / "automations"
 CAPABILITIES_PATH = FIXTURE_DIR / "capabilities.json"
+
+# The standardized parts of a direct setup, identical for every automation and
+# therefore not declared in any entry.
+CREATE_PATH = "/v1/preset/prompt"
+PREFLIGHT_PATH = "/v1/validate"
 
 _SCHEMA = json.loads(SCHEMA_PATH.read_text())
 VALIDATOR = Draft202012Validator(_SCHEMA)
@@ -91,12 +100,7 @@ def _resolve(namespace: str, key: str, context: dict):
 
 
 def _interpolate(node, context: dict):
-    """Apply placeholder substitution to a setup fragment.
-
-    A string that is exactly one placeholder resolves to the referenced value
-    with its type intact, so {{submit.payload}} yields the payload object rather
-    than its string repr. Placeholders embedded in longer strings are stringified.
-    """
+    """Apply placeholder substitution to a setup fragment."""
     if isinstance(node, dict):
         return {key: _interpolate(value, context) for key, value in node.items()}
     if isinstance(node, list):
@@ -119,19 +123,50 @@ def _context(entry: dict, form_values: dict) -> dict:
 
 def _render_payload(entry: dict, form_values: dict):
     """The request body this entry's setup produces for these form values."""
-    return _interpolate(
-        entry["setup"]["submit"]["payload"], _context(entry, form_values)
-    )
+    return _interpolate(entry["setup"]["payload"], _context(entry, form_values))
 
 
-def _render_preflight_body(entry: dict, form_values: dict):
-    payload = _render_payload(entry, form_values)
-    context = _context(entry, form_values) | {"submit": {"payload": payload}}
-    return _interpolate(entry["setup"]["validation"]["preflight"]["body"], context)
+def _derive_preflight_body(entry: dict, form_values: dict) -> dict:
+    """The preflight body the host sends. The same shape for every automation,
+    so no entry declares it."""
+    return {
+        "automationId": entry["id"],
+        "endpoint": CREATE_PATH,
+        "draft": _render_payload(entry, form_values),
+    }
+
+
+def _derive_error_map(entry: dict) -> dict[str, list[str]]:
+    """Which form fields built each payload path.
+
+    Preflight and the create endpoint reject a draft by payload path, and the
+    host has to turn that back into a highlighted input. Walking the payload
+    template recovers the mapping exactly, so an entry does not declare it.
+    """
+    mapping: dict[str, list[str]] = {}
+
+    def walk(node, path: str) -> None:
+        if isinstance(node, dict):
+            for key, value in node.items():
+                walk(value, f"{path}.{key}" if path else key)
+        elif isinstance(node, list):
+            for index, item in enumerate(node):
+                walk(item, f"{path}[{index}]")
+        elif isinstance(node, str):
+            names = [
+                key
+                for namespace, key in PLACEHOLDER_RE.findall(node)
+                if namespace == "form"
+            ]
+            if names:
+                mapping[path] = list(dict.fromkeys(names))
+
+    walk(entry["setup"].get("payload", {}), "")
+    return mapping
 
 
 def _payload_path_exists(payload, path: str) -> bool:
-    """Whether an errorMap key such as `repos[0].ref` addresses the payload."""
+    """Whether an error path such as `repos[0].ref` addresses the payload."""
     node = payload
     for segment in path.split("."):
         name, _, indexes = segment.partition("[")
@@ -145,16 +180,17 @@ def _payload_path_exists(payload, path: str) -> bool:
     return True
 
 
-def _fields(setup: dict) -> list[dict]:
-    """Every input the form declares, whichever half of it they belong to."""
-    triggers = setup["form"].get("triggers", {})
-    return [
-        field for group in triggers.values() for field in group
-    ] + setup["form"]["args"]
+def _fields(setup: dict) -> dict[str, dict]:
+    """Every input the form declares, keyed by name, whichever half it is in."""
+    fields = {}
+    for group in setup["form"].get("triggers", {}).values():
+        fields.update(group)
+    fields.update(setup["form"]["args"])
+    return fields
 
 
 def _field_names(setup: dict) -> set[str]:
-    return {field["name"] for field in _fields(setup)}
+    return set(_fields(setup))
 
 
 def _join_loc(parts: list[str]) -> str:
@@ -168,7 +204,7 @@ def _join_loc(parts: list[str]) -> str:
 
 
 def _loc_to_payload_path(loc: list, payload) -> str:
-    """Turn a 422 `loc` into the payload path an errorMap is keyed by.
+    """Turn a 422 `loc` into the payload path an error is keyed by.
 
     FastAPI prefixes `body`, and Pydantic inserts the discriminated-union tag,
     so an invalid cron arrives as ["body", "trigger", "cron", "schedule"] while
@@ -188,12 +224,12 @@ def _loc_to_payload_path(loc: list, payload) -> str:
 
 
 def _reported_fields(entry: dict, scenario: dict) -> dict[str, str]:
-    """Apply errorMap to whatever rejected this scenario, whoever rejected it."""
+    """Apply the derived error map to whatever rejected this scenario."""
     setup = entry["setup"]
-    error_map = setup.get("validation", {}).get("onInvalid", {}).get("errorMap", {})
+    error_map = _derive_error_map(entry)
     payload = (
         _render_payload(entry, scenario["formValues"])
-        if "payload" in setup["submit"] and "formValues" in scenario
+        if "payload" in setup and "formValues" in scenario
         else {}
     )
 
@@ -205,28 +241,26 @@ def _reported_fields(entry: dict, scenario: dict) -> dict[str, str]:
     for error in scenario.get("preflight", {}).get("response", {}).get("body", {}).get(
         "errors", []
     ):
-        target = error_map.get(error["field"], error["field"])
-        for name in [target] if isinstance(target, str) else target:
+        for name in error_map.get(error["field"], [error["field"]]):
             reported[name] = error["message"]
 
     response = scenario.get("create", {}).get("response", {})
     if response.get("status") == 422:
         for detail in response["body"]["detail"]:
             path = _loc_to_payload_path(detail["loc"], payload)
-            target = error_map.get(path, path)
-            for name in [target] if isinstance(target, str) else target:
+            for name in error_map.get(path, [path]):
                 reported[name] = detail["msg"]
 
     return reported
 
 
-def _capabilities_satisfied(setup: dict, deployment: dict) -> bool:
+def _capabilities_satisfied(entry: dict, deployment: dict) -> bool:
     """A deployment can run this automation when it offers every feature the
-    setup requires and every trigger kind the form configures."""
-    needed_features = set(setup.get("requires", {}).get("features", []))
+    entry requires and every trigger kind the form configures."""
+    needed_features = set(entry["requires"].get("features", []))
     if not needed_features.issubset(set(deployment.get("features", []))):
         return False
-    needed_kinds = set(setup["form"].get("triggers", {}))
+    needed_kinds = set(entry.get("setup", {}).get("form", {}).get("triggers", {}))
     return needed_kinds.issubset(set(deployment.get("triggerKinds", [])))
 
 
@@ -264,7 +298,7 @@ def test_catalog_entry_validates_against_schema(entry_path: Path) -> None:
             f"  - at {'/'.join(map(str, error.path)) or '<root>'}: {error.message}"
             for error in errors
         )
-        pytest.fail(f"{entry_path.stem} failed schema validation:\n{rendered}")
+        pytest.fail(f"{entry_path.parent.name} failed schema validation:\n{rendered}")
 
 
 def test_schema_file_is_valid_draft_2020_12() -> None:
@@ -274,59 +308,39 @@ def test_schema_file_is_valid_draft_2020_12() -> None:
 def test_schema_rejects_content_a_setup_block_must_never_carry() -> None:
     """The format constraints are the trust boundary, so they are asserted here.
 
-    A setup block is data that tells the host to make HTTP calls and render copy.
-    These are the mutations that would turn it into code, an arbitrary request,
-    or a credential leak.
+    A setup block is data that tells the host what to render and what request to
+    build. These are the mutations that would turn it into code, an arbitrary
+    request, or a credential leak.
     """
     entry = _load(CATALOG_DIR / "github-pr-reviewer" / "manifest.json")
 
     rejected: list[tuple[str, dict]] = []
 
     with_markup = deepcopy(entry)
-    with_markup["setup"]["review"]["title"] = "Review <script>steal()</script>"
+    with_markup["setup"]["form"]["args"]["repository"]["label"] = (
+        "Repository <script>steal()</script>"
+    )
     rejected.append(("<script>steal()</script>", with_markup))
 
-    with_absolute_url = deepcopy(entry)
-    with_absolute_url["setup"]["submit"]["endpoint"]["path"] = (
-        "https://elsewhere.example/v1/x"
-    )
-    rejected.append(("https://elsewhere.example/v1/x", with_absolute_url))
-
-    with_external_redirect = deepcopy(entry)
-    with_external_redirect["setup"]["submit"]["onSuccess"]["to"] = (
-        "https://elsewhere.example"
-    )
-    rejected.append(("https://elsewhere.example", with_external_redirect))
-
-    with_unknown_action = deepcopy(entry)
-    with_unknown_action["setup"]["submit"]["action"] = "shell.exec"
-    rejected.append(("automation.create", with_unknown_action))
-
     with_unknown_placeholder = deepcopy(entry)
-    with_unknown_placeholder["setup"]["submit"]["payload"]["name"] = (
-        "{{env.GITHUB_TOKEN}}"
-    )
+    with_unknown_placeholder["setup"]["payload"]["name"] = "{{env.GITHUB_TOKEN}}"
     rejected.append(("{{env.GITHUB_TOKEN}}", with_unknown_placeholder))
+
+    with_secret_value = deepcopy(entry)
+    with_secret_value["requires"]["integrations"]["github"]["value"] = (
+        "ghp_notarealtokenvalue00"
+    )
+    rejected.append(("value", with_secret_value))
+
+    with_repeated_identity = deepcopy(entry)
+    with_repeated_identity["setup"]["description"] = "a second description"
+    rejected.append(("description", with_repeated_identity))
 
     for expected_fragment, invalid in rejected:
         errors = list(VALIDATOR.iter_errors(invalid))
         assert any(expected_fragment in error.message for error in errors), (
             f"schema accepted an entry it must reject ({expected_fragment}): {errors}"
         )
-
-
-@pytest.mark.parametrize("entry_path", list(_setup_paths()))
-def test_required_integrations_exist_in_the_integration_catalog(
-    entry_path: Path,
-) -> None:
-    setup = _load(entry_path)["setup"]
-    known = _integration_catalog_ids()
-
-    required = {
-        entry["id"] for entry in setup.get("requires", {}).get("integrations", [])
-    }
-
-    assert required - known == set()
 
 
 @pytest.mark.parametrize("entry_path", list(_setup_paths()))
@@ -353,64 +367,36 @@ def test_select_fields_offer_options(entry_path: Path) -> None:
     setup = _load(entry_path)["setup"]
 
     unusable = [
-        field["name"]
-        for field in _fields(setup)
+        name
+        for name, field in _fields(setup).items()
         if field["type"] == "select" and "options" not in field
     ]
 
     assert unusable == []
 
 
-@pytest.mark.parametrize("entry_path", list(_setup_paths()))
-def test_error_map_connects_real_payload_paths_to_real_fields(entry_path: Path) -> None:
-    """Preflight validates the mapped payload, so errors come back keyed by
-    payload path. errorMap is what turns those back into highlighted inputs."""
-    entry = _load(entry_path)
-    setup = entry["setup"]
-    error_map = setup.get("validation", {}).get("onInvalid", {}).get("errorMap")
-    if not error_map:
-        pytest.skip("entry declares no errorMap")
-
-    fields = _field_names(setup)
-    defaults = {field["name"]: field.get("default", "x") for field in _fields(setup)}
-    payload = _render_payload(entry, defaults)
-
-    for path, target in error_map.items():
-        assert _payload_path_exists(payload, path), (
-            f"errorMap key '{path}' addresses nothing in submit.payload"
-        )
-        targets = [target] if isinstance(target, str) else target
-        assert set(targets) <= fields, f"errorMap '{path}' names unknown fields"
-
-
 @pytest.mark.parametrize(("bundle", "scenario"), list(_scenarios("create")))
-def test_submit_payload_reproduces_the_create_request(
-    bundle: dict, scenario: dict
-) -> None:
+def test_payload_reproduces_the_create_request(bundle: dict, scenario: dict) -> None:
     entry = _entry_for(bundle)
 
     rendered = _render_payload(entry, scenario["formValues"])
 
     assert rendered == scenario["create"]["request"]["body"]
-    assert (
-        scenario["create"]["request"]["path"]
-        == entry["setup"]["submit"]["endpoint"]["path"]
-    )
+    assert scenario["create"]["request"]["path"] == CREATE_PATH
 
 
 @pytest.mark.parametrize(("bundle", "scenario"), list(_scenarios("preflight")))
-def test_preflight_body_reproduces_the_preflight_request(
+def test_derived_preflight_body_reproduces_the_preflight_request(
     bundle: dict, scenario: dict
 ) -> None:
+    """No entry declares the preflight call any more. It has to come out of the
+    entry id and the payload, and this is where that is pinned."""
     entry = _entry_for(bundle)
 
-    rendered = _render_preflight_body(entry, scenario["formValues"])
+    derived = _derive_preflight_body(entry, scenario["formValues"])
 
-    assert rendered == scenario["preflight"]["request"]["body"]
-    assert (
-        scenario["preflight"]["request"]["path"]
-        == entry["setup"]["validation"]["preflight"]["path"]
-    )
+    assert derived == scenario["preflight"]["request"]["body"]
+    assert scenario["preflight"]["request"]["path"] == PREFLIGHT_PATH
 
 
 @pytest.mark.parametrize(("bundle", "scenario"), list(_scenarios("conversation")))
@@ -420,37 +406,19 @@ def test_seed_message_reproduces_the_conversation_request(
     entry = _entry_for(bundle)
 
     rendered = _interpolate(
-        entry["setup"]["submit"]["message"], _context(entry, scenario["formValues"])
+        entry["setup"]["message"], _context(entry, scenario["formValues"])
     )
 
     assert rendered == scenario["conversation"]["request"]["message"]
 
 
-@pytest.mark.parametrize(
-    ("bundle", "scenario"), list(_scenarios("expectedReviewSummary"))
-)
-def test_review_summary_substitutes_empty_values(bundle: dict, scenario: dict) -> None:
-    """Optional fields left blank must read as the declared emptyValueText,
-    not as a blank row the user cannot interpret."""
-    entry = _entry_for(bundle)
-    review = entry["setup"]["review"]
-    empty_text = review.get("emptyValueText")
-    context = _context(entry, scenario["formValues"])
-
-    rendered = []
-    for row in review["summary"]:
-        value = _interpolate(row["value"], context)
-        rendered.append({"label": row["label"], "value": value.strip() or empty_text})
-
-    assert rendered == scenario["expectedReviewSummary"]
-
-
 @pytest.mark.parametrize(("bundle", "scenario"), list(_scenarios("expectedFieldErrors")))
-def test_error_map_turns_rejections_into_highlighted_inputs(
+def test_derived_error_map_turns_rejections_into_highlighted_inputs(
     bundle: dict, scenario: dict
 ) -> None:
     """The whole two-tier validation design rests on this translation: whoever
-    rejects the draft, the user must end up looking at the input at fault."""
+    rejects the draft, the user must end up looking at the input at fault. The
+    mapping is derived from the payload, so it cannot drift from it."""
     entry = _entry_for(bundle)
 
     reported = _reported_fields(entry, scenario)
@@ -466,17 +434,17 @@ def test_blocked_by_lists_exactly_the_unsatisfiable_deployments(
     """Keeps requires honest: an entry that claims to work everywhere would
     silently offer a card the deployment cannot run."""
     bundle = _load(fixture_path)
-    setup = _entry_for(bundle)["setup"]
+    entry = _entry_for(bundle)
     responses = _load(CAPABILITIES_PATH)["responses"]
 
     unsatisfiable = {
         name
         for name, response in responses.items()
-        if not _capabilities_satisfied(setup, response["body"])
+        if not _capabilities_satisfied(entry, response["body"])
     }
 
     assert unsatisfiable == set(bundle["blockedBy"])
-    assert _capabilities_satisfied(setup, responses[bundle["capabilities"]]["body"])
+    assert _capabilities_satisfied(entry, responses[bundle["capabilities"]]["body"])
 
 
 def test_generated_catalog_index_is_up_to_date() -> None:

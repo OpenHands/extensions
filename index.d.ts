@@ -15,32 +15,21 @@ export {
 } from "./integrations/index.js";
 export { AUTOMATION_CATALOG } from "./automations/index.js";
 export type {
-  AutomationAnalytics,
-  AutomationAnalyticsEvent,
-  AutomationAnalyticsStage,
-  AutomationAssistedSubmit,
-  AutomationDirectSubmit,
   AutomationFieldConstraints,
   AutomationFieldOption,
   AutomationFieldType,
   AutomationForm,
   AutomationFormField,
+  AutomationFormFields,
   AutomationGitProvider,
   AutomationIntegrationRequirement,
   AutomationPayloadValue,
-  AutomationPreflight,
   AutomationPrerequisites,
   AutomationRequestBody,
-  AutomationReview,
-  AutomationReviewRow,
   AutomationSetup,
   AutomationSetupMode,
-  AutomationSubmit,
-  AutomationSubmitOnError,
-  AutomationSubmitOnSuccess,
   AutomationTriggerForm,
   AutomationTriggerKind,
-  AutomationValidation,
   RecommendedAutomation,
 } from "./automations/index.js";
 export { SKILLS_CATALOG } from "./skills/index.js";

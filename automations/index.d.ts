@@ -3,11 +3,16 @@ export interface RecommendedAutomation {
   name: string;
   category: string;
   description: string;
-  prompt: string;
-  exampleImplementation: string;
-  requiredIntegrationIds: string[];
+  requires: AutomationPrerequisites;
   popularityRank: number;
   estimatedSetupMinutes: number;
+  /**
+   * The `skills/` directory that builds this automation today. Defaults to
+   * `id`; present only where the two differ. Look the launch command up from
+   * that skill's entry in `SKILLS_CATALOG` rather than storing it here.
+   */
+  skill?: string;
+  exampleImplementation: string;
   /** Present when this automation ships an extension-owned setup experience. */
   setup?: AutomationSetup;
 }
@@ -18,6 +23,13 @@ export interface RecommendedAutomation {
  * Mirrors the `setup` block in `automations/catalog.schema.json`, which is
  * authoritative. It describes how an automation is *configured*; it never
  * describes what the automation does at runtime.
+ *
+ * It states only what varies between automations, and states each of those
+ * things once. Everything else is the same for every automation and is the
+ * host's to generate: the slash command (`/<id>:setup`), the setup route
+ * (`/automations/new/<id>`), the capabilities check, the preflight call, the
+ * mapping from a rejected payload path back to the input at fault, the review
+ * screen, the navigation after a success, and the analytics stages.
  */
 
 export type AutomationSetupMode = "direct" | "assisted";
@@ -44,7 +56,6 @@ export interface AutomationFieldConstraints {
 }
 
 export interface AutomationFormField {
-  name: string;
   type: AutomationFieldType;
   label: string;
   help: string;
@@ -56,29 +67,33 @@ export interface AutomationFormField {
   constraints?: AutomationFieldConstraints;
 }
 
+/** Keyed by field name, which is what `{{form.<name>}}` resolves against. */
+export type AutomationFormFields = Record<string, AutomationFormField>;
+
 export interface AutomationIntegrationRequirement {
-  id: string;
-  message: string;
-  /** false lets setup continue while the integration is still unconnected. */
-  required: boolean;
+  /** Why this automation needs it. Omitted when there is no setup flow to show it in. */
+  message?: string;
+  /** Defaults to true. `false` lets setup continue while it is unconnected. */
+  required?: false;
 }
 
 export interface AutomationPrerequisites {
-  integrations: AutomationIntegrationRequirement[];
+  /** Keyed by integration catalog id. */
+  integrations: Record<string, AutomationIntegrationRequirement>;
   /** Deployment capabilities this automation cannot run without. */
   features?: string[];
 }
 
 /** The inputs that decide when the automation runs, keyed by trigger kind. */
 export type AutomationTriggerForm = Partial<
-  Record<AutomationTriggerKind, AutomationFormField[]>
+  Record<AutomationTriggerKind, AutomationFormFields>
 >;
 
 export interface AutomationForm {
   note?: string;
   triggers?: AutomationTriggerForm;
   /** Every other input: the arguments to the automation itself. */
-  args: AutomationFormField[];
+  args: AutomationFormFields;
 }
 
 export type AutomationPayloadValue =
@@ -93,96 +108,14 @@ export interface AutomationRequestBody {
   [key: string]: AutomationPayloadValue;
 }
 
-export interface AutomationPreflight {
-  method: "POST";
-  path: string;
-  runOn: ("fieldBlur" | "beforeSubmit")[];
-  debounceMs?: number;
-  body: AutomationRequestBody;
-}
-
-export interface AutomationValidation {
-  /** Omitted when local validation is the only check available before submit. */
-  preflight?: AutomationPreflight;
-  onInvalid: {
-    behavior: "blockSubmit";
-    errorTarget: "field" | "form";
-    /** Payload path to the form field, or fields, that produced it. */
-    errorMap?: Record<string, string | string[]>;
-  };
-}
-
-export interface AutomationReviewRow {
-  label: string;
-  value: string;
-}
-
-export interface AutomationReview {
-  title: string;
-  note?: string;
-  emptyValueText?: string;
-  summary: AutomationReviewRow[];
-  confirmLabel: string;
-}
-
-export interface AutomationSubmitOnSuccess {
-  behavior: "navigate";
-  to: string;
-}
-
-export interface AutomationSubmitOnError {
-  behavior: "stayOnForm";
-  errorTarget: "field" | "form";
-  reuseErrorMap?: boolean;
-  message?: string;
-}
-
-export interface AutomationDirectSubmit {
-  action: "automation.create";
-  endpoint: { method: "POST"; path: string };
-  payload: AutomationRequestBody;
-  onSuccess: AutomationSubmitOnSuccess;
-  onError: AutomationSubmitOnError;
-}
-
-export interface AutomationAssistedSubmit {
-  action: "conversation.start";
-  message: string;
-  onSuccess: AutomationSubmitOnSuccess;
-  onError: AutomationSubmitOnError;
-}
-
-export type AutomationSubmit =
-  | AutomationDirectSubmit
-  | AutomationAssistedSubmit;
-
-export type AutomationAnalyticsEvent =
-  | "route.entered"
-  | "capabilities.resolved"
-  | "validation.succeeded"
-  | "submit.succeeded"
-  | "submit.failed";
-
-export interface AutomationAnalyticsStage {
-  id: string;
-  on: AutomationAnalyticsEvent;
-  properties: Record<string, string | number | boolean>;
-}
-
-export interface AutomationAnalytics {
-  consent: "required";
-  stages: AutomationAnalyticsStage[];
-}
-
 export interface AutomationSetup {
   version: "1.0";
   mode: AutomationSetupMode;
-  requires?: AutomationPrerequisites;
   form: AutomationForm;
-  validation?: AutomationValidation;
-  review: AutomationReview;
-  submit: AutomationSubmit;
-  analytics: AutomationAnalytics;
+  /** direct only. The request body the form values are mapped into. */
+  payload?: AutomationRequestBody;
+  /** assisted only. Setup context for the conversation that finishes setup. */
+  message?: string;
 }
 
 export const AUTOMATION_CATALOG: RecommendedAutomation[];

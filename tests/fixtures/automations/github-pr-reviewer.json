@@ -2,7 +2,9 @@
   "automationId": "github-pr-reviewer",
   "description": "Direct scheduled setup. Every create request body below is verified against the live CreatePromptAutomationRequest model in OpenHands/automation (openhands/automation/preset_router.py).",
   "capabilities": "supported",
-  "blockedBy": ["notReady"],
+  "blockedBy": [
+    "notReady"
+  ],
   "scenarios": [
     {
       "id": "happy-path",
@@ -94,8 +96,7 @@
             "updated_at": "2026-07-27T12:00:00Z"
           }
         }
-      },
-      "expectedNavigation": "/automations/6f1b8e64-2f6a-4f0e-9a1c-2b7d0c4e5f11"
+      }
     },
     {
       "id": "interval-below-deployment-minimum",
@@ -189,7 +190,12 @@
             "detail": [
               {
                 "type": "value_error",
-                "loc": ["body", "trigger", "cron", "schedule"],
+                "loc": [
+                  "body",
+                  "trigger",
+                  "cron",
+                  "schedule"
+                ],
                 "msg": "Value error, Cron expression cannot produce any future fire times: 0 0 31 2 *"
               }
             ]
@@ -237,7 +243,11 @@
             "detail": [
               {
                 "type": "value_error",
-                "loc": ["body", "repos", 0],
+                "loc": [
+                  "body",
+                  "repos",
+                  0
+                ],
                 "msg": "Value error, Short URL format 'OpenHands/agent-server-gui' requires explicit 'provider' field. Use: {\"url\": \"owner/repo\", \"provider\": \"github\"} or provide a full URL like https://github.com/owner/repo"
               }
             ]

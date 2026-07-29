@@ -3,61 +3,51 @@
   "name": "GitHub Code Review Agent",
   "category": "Code review",
   "description": "Watch for a configurable label on GitHub pull requests, inspect full PR and repository context, and post an AI review comment once per label event.",
-  "requiredIntegrationIds": [
-    "github"
-  ],
+  "requires": {
+    "integrations": {
+      "github": {
+        "message": "Used to read pull requests and post review comments."
+      }
+    },
+    "features": [
+      "repoClone",
+      "presetPrompt"
+    ]
+  },
   "popularityRank": 100,
   "estimatedSetupMinutes": 4,
-  "prompt": "/github-pr-reviewer:setup",
   "exampleImplementation": "Trigger: cron polling for open GitHub PRs with a configured label such as openhands-review\nRequired secret: GITHUB_PERSONAL_ACCESS_TOKEN\n\n1. Read repository, trigger label, review tone, and polling schedule from setup.\n2. List open PRs and find the latest matching GitHub labeled issue event for each labeled PR.\n3. Deduplicate on the label event ID so every label application queues exactly one review.\n4. Start an OpenHands conversation that clones the repo, checks out the exact PR head SHA, and inspects PR discussion, review comments, changed files, diff, and surrounding code.\n5. Post an acknowledgement with the conversation link, then post the final AI review comment only if the PR is still open and the head SHA has not changed.",
   "setup": {
     "version": "1.0",
     "mode": "direct",
-    "requires": {
-      "integrations": [
-        {
-          "id": "github",
-          "message": "Used to read pull requests and post review comments.",
-          "required": true
-        }
-      ],
-      "features": [
-        "repoClone",
-        "presetPrompt"
-      ]
-    },
     "form": {
       "triggers": {
-        "cron": [
-          {
-            "name": "schedule",
+        "cron": {
+          "schedule": {
             "type": "cron",
             "label": "Check frequency",
             "help": "How often to look for newly labelled pull requests.",
             "default": "*/15 * * * *",
             "required": true
           },
-          {
-            "name": "timezone",
+          "timezone": {
             "type": "timezone",
             "label": "Timezone",
             "help": "Timezone the schedule is interpreted in.",
             "default": "UTC",
             "required": true
           }
-        ]
+        }
       },
-      "args": [
-        {
-          "name": "repository",
+      "args": {
+        "repository": {
           "type": "repo-picker",
           "label": "Repository",
           "help": "The repository whose pull requests will be reviewed.",
           "provider": "github",
           "required": true
         },
-        {
-          "name": "baseRef",
+        "baseRef": {
           "type": "text",
           "label": "Base branch",
           "help": "Branch checked out when the review runs.",
@@ -68,8 +58,7 @@
             "maxLength": 255
           }
         },
-        {
-          "name": "triggerLabel",
+        "triggerLabel": {
           "type": "text",
           "label": "Trigger label",
           "help": "Only pull requests carrying this label are reviewed.",
@@ -80,8 +69,7 @@
             "maxLength": 50
           }
         },
-        {
-          "name": "reviewTone",
+        "reviewTone": {
           "type": "select",
           "label": "Review tone",
           "help": "How detailed the review comments should be.",
@@ -98,138 +86,23 @@
             }
           ]
         }
-      ]
-    },
-    "validation": {
-      "preflight": {
-        "method": "POST",
-        "path": "/v1/validate",
-        "runOn": [
-          "fieldBlur",
-          "beforeSubmit"
-        ],
-        "debounceMs": 400,
-        "body": {
-          "automationId": "{{automation.id}}",
-          "endpoint": "/v1/preset/prompt",
-          "draft": "{{submit.payload}}"
-        }
-      },
-      "onInvalid": {
-        "behavior": "blockSubmit",
-        "errorTarget": "field",
-        "errorMap": {
-          "name": "repository",
-          "repos[0].url": "repository",
-          "repos[0].ref": "baseRef",
-          "trigger.schedule": "schedule",
-          "trigger.timezone": "timezone",
-          "prompt": [
-            "triggerLabel",
-            "reviewTone",
-            "repository"
-          ]
-        }
       }
     },
-    "review": {
-      "title": "Review before creating",
-      "summary": [
+    "payload": {
+      "name": "PR Reviewer - {{form.repository}}",
+      "prompt": "Review pull requests labeled '{{form.triggerLabel}}' in {{form.repository}}. Review tone: {{form.reviewTone}}.",
+      "repos": [
         {
-          "label": "Repository",
-          "value": "{{form.repository}} ({{form.baseRef}})"
-        },
-        {
-          "label": "Reviews pull requests labelled",
-          "value": "{{form.triggerLabel}}"
-        },
-        {
-          "label": "Tone",
-          "value": "{{form.reviewTone}}"
-        },
-        {
-          "label": "Runs",
-          "value": "{{form.schedule}} ({{form.timezone}})"
+          "url": "{{form.repository}}",
+          "ref": "{{form.baseRef}}",
+          "provider": "github"
         }
       ],
-      "confirmLabel": "Create automation"
-    },
-    "submit": {
-      "action": "automation.create",
-      "endpoint": {
-        "method": "POST",
-        "path": "/v1/preset/prompt"
-      },
-      "payload": {
-        "name": "PR Reviewer - {{form.repository}}",
-        "prompt": "Review pull requests labeled '{{form.triggerLabel}}' in {{form.repository}}. Review tone: {{form.reviewTone}}.",
-        "repos": [
-          {
-            "url": "{{form.repository}}",
-            "ref": "{{form.baseRef}}",
-            "provider": "github"
-          }
-        ],
-        "trigger": {
-          "type": "cron",
-          "schedule": "{{form.schedule}}",
-          "timezone": "{{form.timezone}}"
-        }
-      },
-      "onSuccess": {
-        "behavior": "navigate",
-        "to": "/automations/{{response.id}}"
-      },
-      "onError": {
-        "behavior": "stayOnForm",
-        "errorTarget": "field",
-        "reuseErrorMap": true
+      "trigger": {
+        "type": "cron",
+        "schedule": "{{form.schedule}}",
+        "timezone": "{{form.timezone}}"
       }
-    },
-    "analytics": {
-      "consent": "required",
-      "stages": [
-        {
-          "id": "setup_opened",
-          "on": "route.entered",
-          "properties": {
-            "automation_id": "{{automation.id}}",
-            "setup_mode": "direct"
-          }
-        },
-        {
-          "id": "capabilities_checked",
-          "on": "capabilities.resolved",
-          "properties": {
-            "automation_id": "{{automation.id}}",
-            "supported": "{{capabilities.supported}}"
-          }
-        },
-        {
-          "id": "setup_validated",
-          "on": "validation.succeeded",
-          "properties": {
-            "automation_id": "{{automation.id}}"
-          }
-        },
-        {
-          "id": "setup_submitted",
-          "on": "submit.succeeded",
-          "properties": {
-            "automation_id": "{{automation.id}}",
-            "setup_mode": "direct",
-            "trigger_kind": "cron"
-          }
-        },
-        {
-          "id": "setup_failed",
-          "on": "submit.failed",
-          "properties": {
-            "automation_id": "{{automation.id}}",
-            "setup_mode": "direct"
-          }
-        }
-      ]
     }
   }
 }

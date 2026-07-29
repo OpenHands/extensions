@@ -2,7 +2,10 @@
   "automationId": "github-repo-monitor",
   "description": "Direct GitHub-event setup. Every create request body below is verified against the live CreatePromptAutomationRequest model, and every filter expression against validate_filter() in OpenHands/automation.",
   "capabilities": "supported",
-  "blockedBy": ["cronOnly", "notReady"],
+  "blockedBy": [
+    "cronOnly",
+    "notReady"
+  ],
   "scenarios": [
     {
       "id": "happy-path",
@@ -95,8 +98,7 @@
             "updated_at": "2026-07-27T12:00:00Z"
           }
         }
-      },
-      "expectedNavigation": "/automations/b2d47c10-5a91-4e3f-8c62-1d7a9f0e4c33"
+      }
     },
     {
       "id": "quote-in-trigger-phrase-blocked-locally",
