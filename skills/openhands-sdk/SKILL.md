@@ -123,6 +123,7 @@ print("All done!")
 - [Parallel Tool Execution](https://docs.openhands.dev/sdk/guides/parallel-tool-execution.md): Execute multiple tools concurrently within a single LLM response to improve throughput for independent operations.
 - [Pause and Resume](https://docs.openhands.dev/sdk/guides/convo-pause-and-resume.md): Pause agent execution, perform operations, and resume without losing state.
 - [Persistence](https://docs.openhands.dev/sdk/guides/convo-persistence.md): Save and restore conversation state for multi-session workflows.
+- [Persistent Memory](https://docs.openhands.dev/sdk/guides/persistent-memory.md): Give agents opt-in, two-tier memory that survives across conversations.
 - [Plugins](https://docs.openhands.dev/sdk/guides/plugins.md): Plugins bundle skills, hooks, MCP servers, agents, and commands into reusable packages that extend agent capabilities.
 - [PR Review](https://docs.openhands.dev/sdk/guides/github-workflows/pr-review.md): Use OpenHands Agent to generate meaningful pull request review
 - [Reasoning](https://docs.openhands.dev/sdk/guides/llm-reasoning.md): Access model reasoning traces from Anthropic extended thinking and OpenAI responses API.
@@ -194,6 +195,7 @@ Source: [`examples/`](https://github.com/OpenHands/software-agent-sdk/tree/main/
 - [`52_dynamic_workflow.py`](https://github.com/OpenHands/software-agent-sdk/blob/main/examples/01_standalone_sdk/52_dynamic_workflow.py)
 - [`53_client_defined_tools.py`](https://github.com/OpenHands/software-agent-sdk/blob/main/examples/01_standalone_sdk/53_client_defined_tools.py)
 - [`54_goal_completion_loop.py`](https://github.com/OpenHands/software-agent-sdk/blob/main/examples/01_standalone_sdk/54_goal_completion_loop.py)
+- [`55_persistent_memory.py`](https://github.com/OpenHands/software-agent-sdk/blob/main/examples/01_standalone_sdk/55_persistent_memory.py)
 
 ### [`02_remote_agent_server/`](https://github.com/OpenHands/software-agent-sdk/tree/main/examples/02_remote_agent_server)
 
