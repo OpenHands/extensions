@@ -16,6 +16,17 @@ const integrations = await Promise.all(
   })),
 );
 
+const fileByIntegrationId = new Map();
+for (const { entry, file } of integrations) {
+  const existingFile = fileByIntegrationId.get(entry.id);
+  if (existingFile !== undefined) {
+    throw new Error(
+      `Duplicate integration id "${entry.id}" in ${existingFile} and ${file}.`,
+    );
+  }
+  fileByIntegrationId.set(entry.id, file);
+}
+
 integrations.sort((left, right) => {
   const rank = (right.entry.popularityRank ?? -1) - (left.entry.popularityRank ?? -1);
   return rank || left.entry.id.localeCompare(right.entry.id);
