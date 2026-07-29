@@ -1,5 +1,5 @@
 {
-  "manifestId": "incident-retrospective-drafter",
+  "automationId": "incident-retrospective-drafter",
   "description": "Assisted conversation setup. There is no create request in this archetype - at the end of the flow no automation exists yet, because the agent creates it during the conversation. That is the defining property of assisted setup, and the reason validation.preflight is absent from the manifest.",
   "capabilities": "supported",
   "blockedBy": ["notReady"],

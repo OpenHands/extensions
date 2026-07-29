@@ -11,7 +11,8 @@
   "scripts": {
     "build:skills": "node scripts/build-skills-catalog.mjs",
     "build:integrations": "node scripts/build-integration-catalog.mjs",
-    "build": "npm run build:skills && npm run build:integrations"
+    "build:automations": "node scripts/build-automation-catalog.mjs",
+    "build": "npm run build:skills && npm run build:integrations && npm run build:automations"
   },
   "engines": {
     "node": ">=18.20.0"
@@ -36,9 +37,7 @@
       "default": "./automations/index.js"
     },
     "./automations/catalog/*.json": "./automations/catalog/*.json",
-    "./automations/manifest.schema.json": "./automations/manifest.schema.json",
-    "./automations/manifests/*.json": "./automations/manifests/*.json",
-    "./automations/fixtures/*.json": "./automations/fixtures/*.json",
+    "./automations/catalog.schema.json": "./automations/catalog.schema.json",
     "./integrations": {
       "types": "./integrations/index.d.ts",
       "import": "./integrations/index.js",
@@ -53,6 +52,7 @@
     "./skills/*": "./skills/*",
     "./plugins/*": "./plugins/*",
     "./marketplaces/*.json": "./marketplaces/*.json",
+    "./testing/automations/*.json": "./tests/fixtures/automations/*.json",
     "./package.json": "./package.json"
   }
 }

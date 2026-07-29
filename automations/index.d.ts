@@ -8,14 +8,16 @@ export interface RecommendedAutomation {
   requiredIntegrationIds: string[];
   popularityRank: number;
   estimatedSetupMinutes: number;
+  /** Present when this automation ships an extension-owned setup experience. */
+  setup?: AutomationSetup;
 }
 
 /**
  * The extension-owned configuration experience for one automation.
  *
- * Mirrors `automations/manifest.schema.json`, which is authoritative. A manifest
- * describes how an automation is *configured*; it never describes what the
- * automation does at runtime.
+ * Mirrors the `setup` block in `automations/catalog.schema.json`, which is
+ * authoritative. It describes how an automation is *configured*; it never
+ * describes what the automation does at runtime.
  */
 
 export type AutomationSetupMode = "direct" | "assisted";
@@ -36,7 +38,7 @@ export interface AutomationFieldOption {
 export interface AutomationFieldConstraints {
   minLength?: number;
   maxLength?: number;
-  /** Host-implemented check, named from a closed set. Manifests supply no regex. */
+  /** Host-implemented check, named from a closed set. Entries supply no regex. */
   format?: "safeExpressionLiteral";
 }
 
@@ -53,7 +55,7 @@ export interface AutomationFormField {
   constraints?: AutomationFieldConstraints;
 }
 
-export interface AutomationManifestRoute {
+export interface AutomationSetupRoute {
   path: string;
   page: "setup";
 }
@@ -85,7 +87,7 @@ export interface AutomationIntegrationRequirement {
   enforcement: "block" | "warn";
 }
 
-/** Credential names only. A manifest never carries a credential value. */
+/** Credential names only. A setup block never carries a credential value. */
 export interface AutomationSecretRequirement {
   key: string;
   label: string;
@@ -193,14 +195,10 @@ export interface AutomationAnalytics {
   stages: AutomationAnalyticsStage[];
 }
 
-export interface AutomationManifest {
-  manifestVersion: "1.0";
-  id: string;
-  name: string;
-  category: string;
-  description: string;
-  setupMode: AutomationSetupMode;
-  routes: AutomationManifestRoute[];
+export interface AutomationSetup {
+  version: "1.0";
+  mode: AutomationSetupMode;
+  routes: AutomationSetupRoute[];
   capabilities?: AutomationCapabilities;
   requires?: AutomationPrerequisites;
   form: { note?: string; fields: AutomationFormField[] };
@@ -210,76 +208,15 @@ export interface AutomationManifest {
   analytics: AutomationAnalytics;
 }
 
-/**
- * Worked request and response examples for one manifest. Contract inputs for
- * OpenHands/agent-canvas and OpenHands/automation - nothing installs or runs them.
- */
-
-export interface AutomationPreflightError {
-  field: string;
-  code?: string;
-  message: string;
-}
-
-export interface AutomationLocalValidationResult {
-  valid: boolean;
-  errors: { field: string; constraint?: string; message: string }[];
-}
-
-export interface AutomationContractScenario {
-  id: string;
-  description: string;
-  /** What the user typed. Running it through the manifest's submit mapping must reproduce the request below. */
-  formValues?: Record<string, string>;
-  integrationState?: Record<string, "connected" | "missing">;
-  expectedPrerequisiteOutcome?: {
-    behavior: "block" | "continue";
-    message: string;
-  };
-  localValidation?: AutomationLocalValidationResult;
-  preflight?: {
-    request: { method: "POST"; path: string; body: AutomationRequestBody };
-    response: {
-      status: number;
-      body: { valid: boolean; errors: AutomationPreflightError[] };
-    };
-  };
-  create?: {
-    request: { method: "POST"; path: string; body: AutomationRequestBody };
-    response: { status: number; body: Record<string, unknown> };
-  };
-  conversation?: {
-    request: { action: "conversation.start"; message: string };
-    response: { status: number; body: { conversation_id: string } };
-  };
-  expectedFieldErrors?: Record<string, string>;
-  expectedReviewSummary?: AutomationReviewRow[];
-  expectedNavigation?: string;
-  /** Present and false when the scenario deliberately shows a request the manifest does not produce. */
-  matchesManifestPayload?: boolean;
-}
-
-export interface AutomationContractFixtures {
-  manifestId: string;
-  description: string;
-  /** Names a response in AUTOMATION_CAPABILITIES_FIXTURE under which these scenarios hold. */
-  capabilities: string;
-  /** Capability responses that make this manifest's requirements unsatisfiable. */
-  blockedBy: string[];
-  scenarios: AutomationContractScenario[];
-}
-
-export interface AutomationCapabilitiesFixture {
-  description: string;
-  endpoint: { method: "GET"; path: string };
-  responses: Record<
-    string,
-    { description: string; status: number; body: Record<string, unknown> }
-  >;
-}
-
 export const AUTOMATION_CATALOG: RecommendedAutomation[];
-export const AUTOMATION_MANIFESTS: AutomationManifest[];
-export const AUTOMATION_CAPABILITIES_FIXTURE: AutomationCapabilitiesFixture;
-export const AUTOMATION_CONTRACT_FIXTURES: AutomationContractFixtures[];
+/**
+ * Return the full automation catalog.
+ * Reads the generated static import index over `automations/catalog/<id>.json`.
+ * Returns an independent copy.
+ */
+export function listAutomationCatalog(): RecommendedAutomation[];
+/** Return one automation catalog entry by id as an independent copy. */
+export function getAutomationCatalogEntry(
+  id: string,
+): RecommendedAutomation | undefined;
 export default AUTOMATION_CATALOG;

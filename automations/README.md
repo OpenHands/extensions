@@ -1,37 +1,40 @@
 # Automations
 
-This directory holds two things: the catalog of recommended automations that Agent Canvas renders today,
-and the reference manifests and API contract fixtures that define the extension-owned Automation UI.
+`catalog/<id>.json` is the single hand-authored source of truth for one automation. It carries the card
+metadata Agent Canvas renders today and, optionally, a nested `setup` block: the extension-owned
+configuration experience for that automation.
 
 ```
-catalog/*.json         one recommended automation per file (the card metadata Canvas shows today)
-manifest.schema.json   the manifest contract, JSON Schema draft 2020-12
-manifests/*.json       reference manifests, one per setup archetype
-fixtures/*.json        worked request and response examples for each manifest
-index.js               assembles and exports everything for Node.js and bundlers
+catalog/*.json         one automation per file - card metadata plus an optional `setup` block
+catalog.schema.json    the contract, JSON Schema draft 2020-12
+catalog-index.js       generated from catalog/ - do not edit by hand
+index.js               the stable API for Node.js and bundlers
 index.d.ts             the public TypeScript shape
 ```
 
-Consumers import the package export:
+Adding or changing an automation should require changing exactly one JSON file in `catalog/`. Run
+`npm run build:automations` afterwards to regenerate `catalog-index.js`, which statically imports each
+individual JSON file for the JS package.
 
 ```js
 import {
   AUTOMATION_CATALOG,
-  AUTOMATION_MANIFESTS,
-  AUTOMATION_CONTRACT_FIXTURES,
-  AUTOMATION_CAPABILITIES_FIXTURE,
+  listAutomationCatalog,
+  getAutomationCatalogEntry,
 } from "@openhands/extensions/automations";
 ```
 
-Each catalog entry references required integrations by ID. Those IDs should match entries in
-`integrations/catalog/*.json`.
+All three return independent copies. Each entry references required integrations by ID; those IDs must
+match entries in `integrations/catalog/*.json`.
 
-## Manifests
+## The `setup` block
 
-A manifest defines **the configuration experience for one automation**: how it is discovered, what must be
+`setup` defines **the configuration experience for one automation**: how it is discovered, what must be
 connected first, what the user is asked, how a draft is validated, what request is sent, and which
-analytics stages are emitted. It never defines what the automation *does* at runtime - that is the
-preset, owned by `OpenHands/automation`.
+analytics stages are emitted. It never defines what the automation *does* at runtime - that is the preset,
+owned by `OpenHands/automation`.
+
+It is optional. Three of eight entries carry one today.
 
 The split it exists to serve:
 
@@ -41,12 +44,15 @@ The split it exists to serve:
 | `OpenHands/agent-canvas` | Only the domain-neutral registry, renderer, workflow orchestration, and constrained action bridge |
 | `OpenHands/automation` | Capabilities, authoritative preflight validation, creation APIs, runtime semantics |
 
+`setup` never repeats `id`, `name`, `category`, or `description` - the entry already carries them, and one
+record cannot drift from another. `setup.version` selects how the block is interpreted; a future format
+ships a new constant.
+
 ### Format constraints
 
-A manifest is data authored in one repo that instructs another repo to make HTTP calls and render copy, so
-the schema is the trust boundary. It enforces:
+A setup block is data that instructs another repo to make HTTP calls and render copy, so the schema is the
+trust boundary. It enforces:
 
-- **Versioned.** `manifestVersion` selects the schema. A future format ships a sibling schema file.
 - **No code.** There is no key that accepts JavaScript, and no free-form value that is executed.
 - **No markup.** Every user-visible copy field rejects HTML. Request-body strings do not, because they are
   never rendered - that is what lets an event filter carry expression syntax.
@@ -54,20 +60,34 @@ the schema is the trust boundary. It enforces:
   is service-relative (`^/v1/`). The deployment base path is resolved by the host.
 - **No credentials.** `requires.secrets[]` names a credential and closes the object, so there is nowhere to
   put a value. The host observes readiness only.
-- **No manifest-supplied regex.** `constraints.format` names a host-implemented check from a closed set, so
-  a manifest cannot hand the host a pathological pattern.
+- **No supplied regex.** `constraints.format` names a host-implemented check from a closed set, so an entry
+  cannot hand the host a pathological pattern.
+
+Placeholders are namespaced and the schema rejects any other namespace: `{{form.*}}`, `{{automation.*}}`
+(the entry itself), `{{response.*}}`, `{{capabilities.*}}`, and `{{submit.payload}}`. There is deliberately
+no secrets namespace.
 
 ### The three archetypes
 
-| File | Archetype | Trigger | Submits |
+| Entry | Archetype | Trigger | Submits |
 | --- | --- | --- | --- |
-| `manifests/github-pr-reviewer.json` | Direct scheduled | `cron` | `POST /v1/preset/prompt` |
-| `manifests/github-repo-monitor.json` | Direct GitHub-event | `event` on `github` with a JMESPath filter | `POST /v1/preset/prompt` |
-| `manifests/incident-retrospective-drafter.json` | Assisted conversation | decided during the conversation | `conversation.start` |
+| `github-pr-reviewer` | Direct scheduled | `cron` | `POST /v1/preset/prompt` |
+| `github-repo-monitor` | Direct GitHub-event | `event` on `github` with a JMESPath filter | `POST /v1/preset/prompt` |
+| `incident-retrospective-drafter` | Assisted conversation | decided during the conversation | `conversation.start` |
 
 The assisted archetype has no `validation.preflight` and no create request, because at the end of its flow
 no automation exists yet. The agent creates it during the conversation, and the service validates it there.
 That is the defining property of the archetype, not an omission.
+
+### Two generations in one entry
+
+`prompt` and `exampleImplementation` describe the **current** path: Agent Canvas sends the slash command to
+an agent, which builds the automation. `setup` describes the **declarative** path that replaces it.
+
+They can differ in more than wording. `github-repo-monitor`'s skill polls GitHub on a cron and states that
+a webhook variant is out of scope, while its `setup` block creates the webhook form the service already
+supports. Both statements are accurate about their own generation. Retiring `prompt` for entries that ship
+a `setup` block belongs to whoever promotes this to production.
 
 ### Stage order
 
@@ -75,30 +95,38 @@ Stages 1 and 9 are host responsibilities. A stage in between runs if and only if
 is why there is no `workflow` block listing them:
 
 ```
-1. Load and validate the manifest ..... host        <- manifest.schema.json
-2. Capabilities check ................. host        -> GET  /v1/capabilities      (capabilities)
-3. Prerequisite check ................. host                                      (requires.integrations)
-4. Credential readiness ............... host                                      (requires.secrets)
-5. Render form and validate locally ... host                                      (form.fields)
-6. Preflight validation ............... host        -> POST /v1/validate          (validation.preflight)
-7. Review screen ...................... host                                      (review)
-8. Map values and execute the action .. host        -> submit.action              (submit)
-9. Show the outcome ................... host                                      (submit.onSuccess/onError)
+1. Load and validate the entry ........ host        <- catalog.schema.json
+2. Capabilities check ................. host        -> GET  /v1/capabilities      (setup.capabilities)
+3. Prerequisite check ................. host                                      (setup.requires.integrations)
+4. Credential readiness ............... host                                      (setup.requires.secrets)
+5. Render form and validate locally ... host                                      (setup.form.fields)
+6. Preflight validation ............... host        -> POST /v1/validate          (setup.validation.preflight)
+7. Review screen ...................... host                                      (setup.review)
+8. Map values and execute the action .. host        -> setup.submit.action        (setup.submit)
+9. Show the outcome ................... host                                      (setup.submit.onSuccess/onError)
 ```
 
-## Fixtures
+## Contract fixtures
 
-`fixtures/<manifest-id>.json` pairs the values a user types with the exact request that must result. That
-pairing is the contract: form shape and API shape genuinely differ, the create endpoint is declared
-`extra="forbid"`, and a mapping mistake is a 422 discovered only at creation time.
+The fixtures are independent test vectors, not part of the runtime catalog. They live in
+`tests/fixtures/automations/*.json` and are not required for every automation. Downstream contract tests
+reach them through an explicit testing subpath:
+
+```js
+import scenarios from "@openhands/extensions/testing/automations/github-pr-reviewer.json";
+```
+
+`tests/fixtures/automations/<automation-id>.json` pairs the values a user types with the exact request that
+must result. That pairing is the contract: form shape and API shape genuinely differ, the create endpoint
+is declared `extra="forbid"`, and a mapping mistake is a 422 discovered only at creation time.
 
 Each scenario carries whichever blocks apply: `formValues`, `integrationState`, `localValidation`,
 `preflight`, `create`, `conversation`, `expectedFieldErrors`, `expectedReviewSummary`,
-`expectedNavigation`. `fixtures/capabilities.json` holds three deployment shapes so the unsupported paths
-have coverage too.
+`expectedNavigation`. `capabilities.json` holds three deployment shapes so the unsupported paths have
+coverage too.
 
-`tests/test_automation_manifests.py` runs every manifest against the schema and every fixture's form values
-through its manifest's mapping. Beyond that, every request body here has been checked against the live
+`tests/test_automation_setup.py` runs every catalog entry against the schema and every fixture's form
+values through its entry's mapping. Beyond that, every request body here has been checked against the live
 Pydantic models in `OpenHands/automation`:
 
 - each `201` body validates against `CreatePromptAutomationRequest`
@@ -106,7 +134,7 @@ Pydantic models in `OpenHands/automation`:
 - each response `trigger` matches what `model_dump()` stores, so defaults such as `timezone` are present
 - each event filter compiles under `validate_filter()`
 
-Two findings came out of that check and are baked into the manifests:
+Two findings came out of that check and are baked into the entries:
 
 - **`repos[].provider` is required** for short `owner/repo` URLs. Without it the create request is a hard
   422, not a silently dropped field. Recorded as the `short-repo-url-without-provider-is-rejected` scenario.
@@ -123,24 +151,25 @@ Two findings came out of that check and are baked into the manifests:
 | `POST /v1/validate` | Does not exist. Defining it is OpenHands/automation#262 |
 
 The two proposed paths follow the service's existing `/v1` router prefix. They appear only in
-`capabilities.discovery.path` and `validation.preflight.path`, so settling on a different path is a
-one-line change per manifest.
+`setup.capabilities.discovery.path` and `setup.validation.preflight.path`, so settling on a different path
+is a one-line change per entry.
 
 ## Deviations from the project reference document
 
-The manifest shape sketched in the project reference document is marked as a proposal, and hands several
-open questions to this work. What changed and why:
+The shape sketched in the project reference document is marked as a proposal, and hands several open
+questions to this work. What changed and why:
 
 | Proposed | Decision |
 | --- | --- |
+| A separate manifest file per automation | Merged into the catalog entry as `setup`, so there is one hand-authored record per automation and nothing to keep in sync. |
 | `workflow.steps` | Removed. It restated which keys were present, creating a second source of truth that could contradict the file. |
-| `form.intent: "seed"` | Removed. Derivable from `setupMode: "assisted"`. |
+| `form.intent: "seed"` | Removed. Derivable from `setup.mode: "assisted"`. |
 | `validation.mode: "localOnly"` | Removed. Expressed by omitting `validation.preflight`. |
-| `triggerKindsAnyOf` | Removed. Two near-identical keys invite mistakes. The assisted manifest constrains no trigger kind and requires the `conversationDispatch` feature instead. |
+| `triggerKindsAnyOf` | Removed. Two near-identical keys invite mistakes. The assisted entry constrains no trigger kind and requires the `conversationDispatch` feature instead. |
 | `submit.handoff` | Removed. Nothing consumes it, and the contract it gestured at does not exist yet. See the open questions below. |
 | `{{form.filledCount}}` | Removed. It overloaded the `form` namespace with a computed value that names no field. |
 | `errorMap` values | Widened to a string or an array of strings, so a payload path built from several fields maps back to all of them. |
-| `submit.endpoint.path` | Constrained to `^/v1/`, so a manifest cannot express a request to an arbitrary host. |
+| `submit.endpoint.path` | Constrained to `^/v1/`, so an entry cannot express a request to an arbitrary host. |
 | `submit.message` | Capped at 2000 characters, so seed messages cannot grow back into the giant runtime prompts that recommended automation cards were already fixed to stop sending. |
 | Analytics properties | snake_case, matching the properties Agent Canvas already emits (`automation_id`, `automation_name`). |
 
@@ -148,16 +177,16 @@ open questions to this work. What changed and why:
 
 Recorded rather than resolved, because they need an owner outside this contract:
 
-- **Localization.** Manifests carry literal copy, because the ownership split assigns copy to this repo.
+- **Localization.** Entries carry literal copy, because the ownership split assigns copy to this repo.
   Agent Canvas ships 15 languages. Shipping i18n keys instead would move the copy back into Canvas, so the
   gap is real and unsolved.
-- **Distribution.** Agent Canvas pins `@openhands/extensions`, so changing a manifest still needs a version
+- **Distribution.** Agent Canvas pins `@openhands/extensions`, so changing an entry still needs a version
   bump and a dependency update. Delivering "change automation UI without a Canvas release" needs runtime
-  manifest loading.
+  loading.
 - **Readiness-only credentials.** Agent Canvas currently collects secret values. Observing only a boolean
   needs a different mechanism, not a rename.
 - **Assisted-setup completion.** The assisted flow ends at a conversation, so the host cannot emit a
   completion event. Until something reports back, the ratio of direct to assisted setup is not measurable.
 - **Edit and delete routes.** Only the `new` route is modelled here.
-- **`github-repo-monitor`'s catalog entry** still describes cron polling, while its manifest describes the
-  webhook form. Promoting these manifests to production should reconcile the two.
+- **Types from the schema.** `index.d.ts` is hand-written and mirrors `catalog.schema.json`. Generating it
+  would remove that second source of truth.

@@ -1,11 +1,11 @@
-"""Contract tests for automations/manifests/*.json and automations/fixtures/*.json.
+"""Contract tests for the `setup` block in automations/catalog/*.json.
 
 Two things are checked here that nothing else can catch:
 
-1. Every manifest validates against automations/manifest.schema.json, the way
+1. Every catalog entry validates against automations/catalog.schema.json, the way
    integration catalog entries validate against integrations/catalog.schema.json.
-2. Running a fixture's form values through its manifest's declared mapping
-   reproduces the fixture's request body, byte for byte.
+2. Running a fixture's form values through an entry's declared mapping reproduces
+   the fixture's request body, byte for byte.
 
 (2) is the point of the fixtures. Form shape and API shape genuinely differ, the
 create endpoint is declared extra="forbid", and a mapping mistake is a 422 that
@@ -16,6 +16,7 @@ contract.
 
 import json
 import re
+import subprocess
 from copy import deepcopy
 from pathlib import Path
 
@@ -24,11 +25,12 @@ from jsonschema import Draft202012Validator
 
 
 ROOT = Path(__file__).resolve().parents[1]
-SCHEMA_PATH = ROOT / "automations" / "manifest.schema.json"
-MANIFEST_DIR = ROOT / "automations" / "manifests"
-FIXTURE_DIR = ROOT / "automations" / "fixtures"
+SCHEMA_PATH = ROOT / "automations" / "catalog.schema.json"
+CATALOG_DIR = ROOT / "automations" / "catalog"
+CATALOG_INDEX = ROOT / "automations" / "catalog-index.js"
+BUILD_SCRIPT = ROOT / "scripts" / "build-automation-catalog.mjs"
+FIXTURE_DIR = ROOT / "tests" / "fixtures" / "automations"
 CAPABILITIES_PATH = FIXTURE_DIR / "capabilities.json"
-AUTOMATION_INDEX = ROOT / "automations" / "index.js"
 
 _SCHEMA = json.loads(SCHEMA_PATH.read_text())
 VALIDATOR = Draft202012Validator(_SCHEMA)
@@ -41,9 +43,20 @@ CREDENTIAL_VALUE_RE = re.compile(
 )
 
 
-def _manifests():
-    for path in sorted(MANIFEST_DIR.glob("*.json")):
+def _load(path: Path) -> dict:
+    return json.loads(path.read_text())
+
+
+def _catalog_paths():
+    for path in sorted(CATALOG_DIR.glob("*.json")):
         yield pytest.param(path, id=path.stem)
+
+
+def _setup_paths():
+    """Only the entries that ship a setup block. It is optional by design."""
+    for path in sorted(CATALOG_DIR.glob("*.json")):
+        if "setup" in _load(path):
+            yield pytest.param(path, id=path.stem)
 
 
 def _fixture_bundles():
@@ -53,16 +66,12 @@ def _fixture_bundles():
         yield pytest.param(path, id=path.stem)
 
 
-def _load(path: Path) -> dict:
-    return json.loads(path.read_text())
+def _entry_for(bundle: dict) -> dict:
+    return _load(CATALOG_DIR / f"{bundle['automationId']}.json")
 
 
-def _manifest_for(bundle: dict) -> dict:
-    return _load(MANIFEST_DIR / f"{bundle['manifestId']}.json")
-
-
-def _catalog_ids(relative_path: str) -> set[str]:
-    return {path.stem for path in (ROOT / relative_path).glob("*.json")}
+def _integration_catalog_ids() -> set[str]:
+    return {path.stem for path in (ROOT / "integrations" / "catalog").glob("*.json")}
 
 
 def _resolve(namespace: str, key: str, context: dict):
@@ -78,7 +87,7 @@ def _resolve(namespace: str, key: str, context: dict):
 
 
 def _interpolate(node, context: dict):
-    """Apply placeholder substitution to a manifest fragment.
+    """Apply placeholder substitution to a setup fragment.
 
     A string that is exactly one placeholder resolves to the referenced value
     with its type intact, so {{submit.payload}} yields the payload object rather
@@ -99,20 +108,22 @@ def _interpolate(node, context: dict):
     )
 
 
-def _render_payload(manifest: dict, form_values: dict):
-    """The request body the manifest produces for these form values."""
-    context = {"form": form_values, "manifest": manifest}
-    return _interpolate(manifest["submit"]["payload"], context)
+def _context(entry: dict, form_values: dict) -> dict:
+    """`automation` resolves against the catalog entry the setup block sits in."""
+    return {"form": form_values, "automation": entry}
 
 
-def _render_preflight_body(manifest: dict, form_values: dict):
-    payload = _render_payload(manifest, form_values)
-    context = {
-        "form": form_values,
-        "manifest": manifest,
-        "submit": {"payload": payload},
-    }
-    return _interpolate(manifest["validation"]["preflight"]["body"], context)
+def _render_payload(entry: dict, form_values: dict):
+    """The request body this entry's setup produces for these form values."""
+    return _interpolate(
+        entry["setup"]["submit"]["payload"], _context(entry, form_values)
+    )
+
+
+def _render_preflight_body(entry: dict, form_values: dict):
+    payload = _render_payload(entry, form_values)
+    context = _context(entry, form_values) | {"submit": {"payload": payload}}
+    return _interpolate(entry["setup"]["validation"]["preflight"]["body"], context)
 
 
 def _payload_path_exists(payload, path: str) -> bool:
@@ -130,8 +141,8 @@ def _payload_path_exists(payload, path: str) -> bool:
     return True
 
 
-def _field_names(manifest: dict) -> set[str]:
-    return {field["name"] for field in manifest["form"]["fields"]}
+def _field_names(setup: dict) -> set[str]:
+    return {field["name"] for field in setup["form"]["fields"]}
 
 
 def _join_loc(parts: list[str]) -> str:
@@ -164,12 +175,13 @@ def _loc_to_payload_path(loc: list, payload) -> str:
     return _join_loc(parts)
 
 
-def _reported_fields(manifest: dict, scenario: dict) -> dict[str, str]:
+def _reported_fields(entry: dict, scenario: dict) -> dict[str, str]:
     """Apply errorMap to whatever rejected this scenario, whoever rejected it."""
-    error_map = manifest.get("validation", {}).get("onInvalid", {}).get("errorMap", {})
+    setup = entry["setup"]
+    error_map = setup.get("validation", {}).get("onInvalid", {}).get("errorMap", {})
     payload = (
-        _render_payload(manifest, scenario["formValues"])
-        if "payload" in manifest["submit"] and "formValues" in scenario
+        _render_payload(entry, scenario["formValues"])
+        if "payload" in setup["submit"] and "formValues" in scenario
         else {}
     )
 
@@ -225,103 +237,101 @@ def _scenarios(kind: str):
             continue
         bundle = _load(path)
         for scenario in bundle["scenarios"]:
-            if kind in scenario and scenario.get("matchesManifestPayload", True):
-                yield pytest.param(
-                    bundle, scenario, id=f"{path.stem}-{scenario['id']}"
-                )
+            if kind in scenario and scenario.get("matchesSetupPayload", True):
+                yield pytest.param(bundle, scenario, id=f"{path.stem}-{scenario['id']}")
 
 
-@pytest.mark.parametrize("manifest_path", list(_manifests()))
-def test_manifest_validates_against_schema(manifest_path: Path) -> None:
-    manifest = _load(manifest_path)
+@pytest.mark.parametrize("entry_path", list(_catalog_paths()))
+def test_catalog_entry_validates_against_schema(entry_path: Path) -> None:
+    entry = _load(entry_path)
 
-    errors = sorted(VALIDATOR.iter_errors(manifest), key=lambda e: list(e.path))
+    errors = sorted(VALIDATOR.iter_errors(entry), key=lambda e: list(e.path))
 
     if errors:
         rendered = "\n".join(
             f"  - at {'/'.join(map(str, error.path)) or '<root>'}: {error.message}"
             for error in errors
         )
-        pytest.fail(f"{manifest_path.stem} failed schema validation:\n{rendered}")
+        pytest.fail(f"{entry_path.stem} failed schema validation:\n{rendered}")
 
 
 def test_schema_file_is_valid_draft_2020_12() -> None:
     Draft202012Validator.check_schema(_SCHEMA)
 
 
-def test_schema_rejects_content_a_manifest_must_never_carry() -> None:
+def test_schema_rejects_content_a_setup_block_must_never_carry() -> None:
     """The format constraints are the trust boundary, so they are asserted here.
 
-    A manifest is data authored in another repo that tells the host to make HTTP
-    calls and render copy. These are the mutations that would turn it into code,
-    an arbitrary request, or a credential leak.
+    A setup block is data that tells the host to make HTTP calls and render copy.
+    These are the mutations that would turn it into code, an arbitrary request,
+    or a credential leak.
     """
-    manifest = _load(MANIFEST_DIR / "github-pr-reviewer.json")
+    entry = _load(CATALOG_DIR / "github-pr-reviewer.json")
 
     rejected: list[tuple[str, dict]] = []
 
-    with_secret_value = deepcopy(manifest)
-    with_secret_value["requires"]["secrets"][0]["value"] = "ghp_notarealtokenvalue00"
+    with_secret_value = deepcopy(entry)
+    with_secret_value["setup"]["requires"]["secrets"][0]["value"] = (
+        "ghp_notarealtokenvalue00"
+    )
     rejected.append(("value", with_secret_value))
 
-    with_markup = deepcopy(manifest)
-    with_markup["review"]["title"] = "Review <script>steal()</script>"
+    with_markup = deepcopy(entry)
+    with_markup["setup"]["review"]["title"] = "Review <script>steal()</script>"
     rejected.append(("<script>steal()</script>", with_markup))
 
-    with_absolute_url = deepcopy(manifest)
-    with_absolute_url["submit"]["endpoint"]["path"] = "https://elsewhere.example/v1/x"
+    with_absolute_url = deepcopy(entry)
+    with_absolute_url["setup"]["submit"]["endpoint"]["path"] = (
+        "https://elsewhere.example/v1/x"
+    )
     rejected.append(("https://elsewhere.example/v1/x", with_absolute_url))
 
-    with_external_redirect = deepcopy(manifest)
-    with_external_redirect["submit"]["onSuccess"]["to"] = "https://elsewhere.example"
+    with_external_redirect = deepcopy(entry)
+    with_external_redirect["setup"]["submit"]["onSuccess"]["to"] = (
+        "https://elsewhere.example"
+    )
     rejected.append(("https://elsewhere.example", with_external_redirect))
 
-    with_unknown_action = deepcopy(manifest)
-    with_unknown_action["submit"]["action"] = "shell.exec"
+    with_unknown_action = deepcopy(entry)
+    with_unknown_action["setup"]["submit"]["action"] = "shell.exec"
     rejected.append(("automation.create", with_unknown_action))
 
-    with_unknown_placeholder = deepcopy(manifest)
-    with_unknown_placeholder["submit"]["payload"]["name"] = "{{env.GITHUB_TOKEN}}"
+    with_unknown_placeholder = deepcopy(entry)
+    with_unknown_placeholder["setup"]["submit"]["payload"]["name"] = (
+        "{{env.GITHUB_TOKEN}}"
+    )
     rejected.append(("{{env.GITHUB_TOKEN}}", with_unknown_placeholder))
 
     for expected_fragment, invalid in rejected:
         errors = list(VALIDATOR.iter_errors(invalid))
         assert any(expected_fragment in error.message for error in errors), (
-            f"schema accepted a manifest it must reject ({expected_fragment}): {errors}"
+            f"schema accepted an entry it must reject ({expected_fragment}): {errors}"
         )
 
 
-@pytest.mark.parametrize("manifest_path", list(_manifests()))
-def test_manifest_id_matches_filename_and_a_catalog_entry(manifest_path: Path) -> None:
-    manifest = _load(manifest_path)
-
-    assert manifest["id"] == manifest_path.stem
-    assert manifest["id"] in _catalog_ids("automations/catalog")
-
-
-@pytest.mark.parametrize("manifest_path", list(_manifests()))
+@pytest.mark.parametrize("entry_path", list(_setup_paths()))
 def test_required_integrations_exist_in_the_integration_catalog(
-    manifest_path: Path,
+    entry_path: Path,
 ) -> None:
-    manifest = _load(manifest_path)
-    known = _catalog_ids("integrations/catalog")
+    setup = _load(entry_path)["setup"]
+    known = _integration_catalog_ids()
 
     required = {
-        entry["id"] for entry in manifest.get("requires", {}).get("integrations", [])
+        entry["id"] for entry in setup.get("requires", {}).get("integrations", [])
     }
 
     assert required - known == set()
 
 
-@pytest.mark.parametrize("manifest_path", list(_manifests()))
-def test_form_placeholders_reference_declared_fields(manifest_path: Path) -> None:
+@pytest.mark.parametrize("entry_path", list(_setup_paths()))
+def test_form_placeholders_reference_declared_fields(entry_path: Path) -> None:
     """A {{form.x}} that names no field renders as an empty value at runtime."""
-    manifest = _load(manifest_path)
-    fields = _field_names(manifest)
+    setup = _load(entry_path)["setup"]
+    fields = _field_names(setup)
 
     referenced = {
         key
-        for value in _iter_strings(manifest)
+        for value in _iter_strings(setup)
         for namespace, key in PLACEHOLDER_RE.findall(value)
         if namespace == "form"
     }
@@ -329,21 +339,21 @@ def test_form_placeholders_reference_declared_fields(manifest_path: Path) -> Non
     assert referenced - fields == set()
 
 
-@pytest.mark.parametrize("manifest_path", list(_manifests()))
+@pytest.mark.parametrize("entry_path", list(_setup_paths()))
 def test_select_fields_offer_options_inline_or_from_a_capability(
-    manifest_path: Path,
+    entry_path: Path,
 ) -> None:
     """A select with neither is an empty dropdown the user cannot get past."""
-    manifest = _load(manifest_path)
+    setup = _load(entry_path)["setup"]
     bound = {
         binding["field"]
-        for binding in manifest.get("capabilities", {}).get("bindings", [])
+        for binding in setup.get("capabilities", {}).get("bindings", [])
         if binding["constraint"] == "options"
     }
 
     unusable = [
         field["name"]
-        for field in manifest["form"]["fields"]
+        for field in setup["form"]["fields"]
         if field["type"] == "select"
         and "options" not in field
         and field["name"] not in bound
@@ -352,36 +362,33 @@ def test_select_fields_offer_options_inline_or_from_a_capability(
     assert unusable == []
 
 
-@pytest.mark.parametrize("manifest_path", list(_manifests()))
-def test_capability_bindings_target_declared_fields(manifest_path: Path) -> None:
-    manifest = _load(manifest_path)
-    fields = _field_names(manifest)
+@pytest.mark.parametrize("entry_path", list(_setup_paths()))
+def test_capability_bindings_target_declared_fields(entry_path: Path) -> None:
+    setup = _load(entry_path)["setup"]
+    fields = _field_names(setup)
 
     bound = {
-        binding["field"]
-        for binding in manifest.get("capabilities", {}).get("bindings", [])
+        binding["field"] for binding in setup.get("capabilities", {}).get("bindings", [])
     }
 
     assert bound - fields == set()
 
 
-@pytest.mark.parametrize("manifest_path", list(_manifests()))
-def test_error_map_connects_real_payload_paths_to_real_fields(
-    manifest_path: Path,
-) -> None:
+@pytest.mark.parametrize("entry_path", list(_setup_paths()))
+def test_error_map_connects_real_payload_paths_to_real_fields(entry_path: Path) -> None:
     """Preflight validates the mapped payload, so errors come back keyed by
     payload path. errorMap is what turns those back into highlighted inputs."""
-    manifest = _load(manifest_path)
-    error_map = manifest.get("validation", {}).get("onInvalid", {}).get("errorMap")
+    entry = _load(entry_path)
+    setup = entry["setup"]
+    error_map = setup.get("validation", {}).get("onInvalid", {}).get("errorMap")
     if not error_map:
-        pytest.skip("manifest declares no errorMap")
+        pytest.skip("entry declares no errorMap")
 
-    fields = _field_names(manifest)
+    fields = _field_names(setup)
     defaults = {
-        field["name"]: field.get("default", "x")
-        for field in manifest["form"]["fields"]
+        field["name"]: field.get("default", "x") for field in setup["form"]["fields"]
     }
-    payload = _render_payload(manifest, defaults)
+    payload = _render_payload(entry, defaults)
 
     for path, target in error_map.items():
         assert _payload_path_exists(payload, path), (
@@ -395,26 +402,29 @@ def test_error_map_connects_real_payload_paths_to_real_fields(
 def test_submit_payload_reproduces_the_create_request(
     bundle: dict, scenario: dict
 ) -> None:
-    manifest = _manifest_for(bundle)
+    entry = _entry_for(bundle)
 
-    rendered = _render_payload(manifest, scenario["formValues"])
+    rendered = _render_payload(entry, scenario["formValues"])
 
     assert rendered == scenario["create"]["request"]["body"]
-    assert scenario["create"]["request"]["path"] == manifest["submit"]["endpoint"]["path"]
+    assert (
+        scenario["create"]["request"]["path"]
+        == entry["setup"]["submit"]["endpoint"]["path"]
+    )
 
 
 @pytest.mark.parametrize(("bundle", "scenario"), list(_scenarios("preflight")))
 def test_preflight_body_reproduces_the_preflight_request(
     bundle: dict, scenario: dict
 ) -> None:
-    manifest = _manifest_for(bundle)
+    entry = _entry_for(bundle)
 
-    rendered = _render_preflight_body(manifest, scenario["formValues"])
+    rendered = _render_preflight_body(entry, scenario["formValues"])
 
     assert rendered == scenario["preflight"]["request"]["body"]
     assert (
         scenario["preflight"]["request"]["path"]
-        == manifest["validation"]["preflight"]["path"]
+        == entry["setup"]["validation"]["preflight"]["path"]
     )
 
 
@@ -422,30 +432,30 @@ def test_preflight_body_reproduces_the_preflight_request(
 def test_seed_message_reproduces_the_conversation_request(
     bundle: dict, scenario: dict
 ) -> None:
-    manifest = _manifest_for(bundle)
+    entry = _entry_for(bundle)
 
     rendered = _interpolate(
-        manifest["submit"]["message"],
-        {"form": scenario["formValues"], "manifest": manifest},
+        entry["setup"]["submit"]["message"], _context(entry, scenario["formValues"])
     )
 
     assert rendered == scenario["conversation"]["request"]["message"]
 
 
-@pytest.mark.parametrize(("bundle", "scenario"), list(_scenarios("expectedReviewSummary")))
+@pytest.mark.parametrize(
+    ("bundle", "scenario"), list(_scenarios("expectedReviewSummary"))
+)
 def test_review_summary_substitutes_empty_values(bundle: dict, scenario: dict) -> None:
     """Optional fields left blank must read as the declared emptyValueText,
     not as a blank row the user cannot interpret."""
-    manifest = _manifest_for(bundle)
-    empty_text = manifest["review"].get("emptyValueText")
-    context = {"form": scenario["formValues"], "manifest": manifest}
+    entry = _entry_for(bundle)
+    review = entry["setup"]["review"]
+    empty_text = review.get("emptyValueText")
+    context = _context(entry, scenario["formValues"])
 
     rendered = []
-    for row in manifest["review"]["summary"]:
+    for row in review["summary"]:
         value = _interpolate(row["value"], context)
-        rendered.append(
-            {"label": row["label"], "value": value.strip() or empty_text}
-        )
+        rendered.append({"label": row["label"], "value": value.strip() or empty_text})
 
     assert rendered == scenario["expectedReviewSummary"]
 
@@ -456,11 +466,11 @@ def test_error_map_turns_rejections_into_highlighted_inputs(
 ) -> None:
     """The whole two-tier validation design rests on this translation: whoever
     rejects the draft, the user must end up looking at the input at fault."""
-    manifest = _manifest_for(bundle)
+    entry = _entry_for(bundle)
 
-    reported = _reported_fields(manifest, scenario)
+    reported = _reported_fields(entry, scenario)
 
-    assert set(reported) <= _field_names(manifest)
+    assert set(reported) <= _field_names(entry["setup"])
     assert reported == scenario["expectedFieldErrors"]
 
 
@@ -468,11 +478,11 @@ def test_error_map_turns_rejections_into_highlighted_inputs(
 def test_blocked_by_lists_exactly_the_unsatisfiable_deployments(
     fixture_path: Path,
 ) -> None:
-    """Keeps capabilities.requires honest: a manifest that claims to work
+    """Keeps capabilities.requires honest: an entry that claims to work
     everywhere would silently offer a card the deployment cannot run."""
     bundle = _load(fixture_path)
-    manifest = _manifest_for(bundle)
-    requires = manifest.get("capabilities", {}).get("requires", {})
+    setup = _entry_for(bundle)["setup"]
+    requires = setup.get("capabilities", {}).get("requires", {})
     responses = _load(CAPABILITIES_PATH)["responses"]
 
     unsatisfiable = {
@@ -485,26 +495,21 @@ def test_blocked_by_lists_exactly_the_unsatisfiable_deployments(
     assert _capabilities_satisfied(requires, responses[bundle["capabilities"]]["body"])
 
 
-def test_every_manifest_has_fixtures_and_both_are_exported() -> None:
-    """automations/index.js is hand-maintained, so a new file can otherwise
-    ship to npm missing from the package export and no test would notice."""
-    manifest_ids = {path.stem for path in MANIFEST_DIR.glob("*.json")}
-    fixture_ids = {
-        path.stem for path in FIXTURE_DIR.glob("*.json") if path != CAPABILITIES_PATH
-    }
-    index_source = AUTOMATION_INDEX.read_text()
-
-    assert manifest_ids == fixture_ids
-    for manifest_id in sorted(manifest_ids):
-        assert f'"./manifests/{manifest_id}.json"' in index_source
-        assert f'"./fixtures/{manifest_id}.json"' in index_source
-    assert '"./fixtures/capabilities.json"' in index_source
+def test_generated_catalog_index_is_up_to_date() -> None:
+    """Re-running the codegen script should produce identical output."""
+    before = CATALOG_INDEX.read_text()
+    subprocess.run(
+        ["node", str(BUILD_SCRIPT)], cwd=str(ROOT), check=True, capture_output=True
+    )
+    assert CATALOG_INDEX.read_text() == before, (
+        "automations/catalog-index.js is out of date - run: npm run build:automations"
+    )
 
 
-def test_no_manifest_or_fixture_carries_a_credential_value() -> None:
-    """Manifests name the secrets an automation needs; they never contain one."""
+def test_no_catalog_entry_or_fixture_carries_a_credential_value() -> None:
+    """Entries name the secrets an automation needs; they never contain one."""
     offenders = []
-    for path in sorted(MANIFEST_DIR.glob("*.json")) + sorted(FIXTURE_DIR.glob("*.json")):
+    for path in sorted(CATALOG_DIR.glob("*.json")) + sorted(FIXTURE_DIR.glob("*.json")):
         for value in _iter_strings(_load(path)):
             if CREDENTIAL_VALUE_RE.search(value):
                 offenders.append(f"{path.name}: {value[:40]}")

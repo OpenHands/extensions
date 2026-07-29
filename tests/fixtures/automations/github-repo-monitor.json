@@ -1,5 +1,5 @@
 {
-  "manifestId": "github-repo-monitor",
+  "automationId": "github-repo-monitor",
   "description": "Direct GitHub-event setup. Every create request body below is verified against the live CreatePromptAutomationRequest model, and every filter expression against validate_filter() in OpenHands/automation.",
   "capabilities": "supported",
   "blockedBy": ["cronOnly", "notReady"],
@@ -18,7 +18,7 @@
           "method": "POST",
           "path": "/v1/validate",
           "body": {
-            "manifestId": "github-repo-monitor",
+            "automationId": "github-repo-monitor",
             "endpoint": "/v1/preset/prompt",
             "draft": {
               "name": "Mention responder - OpenHands/agent-server-gui",
@@ -135,7 +135,7 @@
           "method": "POST",
           "path": "/v1/validate",
           "body": {
-            "manifestId": "github-repo-monitor",
+            "automationId": "github-repo-monitor",
             "endpoint": "/v1/preset/prompt",
             "draft": {
               "name": "Mention responder - OpenHands/agent-server-gui",

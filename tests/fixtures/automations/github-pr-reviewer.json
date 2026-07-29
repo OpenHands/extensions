@@ -1,5 +1,5 @@
 {
-  "manifestId": "github-pr-reviewer",
+  "automationId": "github-pr-reviewer",
   "description": "Direct scheduled setup. Every create request body below is verified against the live CreatePromptAutomationRequest model in OpenHands/automation (openhands/automation/preset_router.py).",
   "capabilities": "supported",
   "blockedBy": ["notReady"],
@@ -20,7 +20,7 @@
           "method": "POST",
           "path": "/v1/validate",
           "body": {
-            "manifestId": "github-pr-reviewer",
+            "automationId": "github-pr-reviewer",
             "endpoint": "/v1/preset/prompt",
             "draft": {
               "name": "PR Reviewer - OpenHands/agent-server-gui",
@@ -113,7 +113,7 @@
           "method": "POST",
           "path": "/v1/validate",
           "body": {
-            "manifestId": "github-pr-reviewer",
+            "automationId": "github-pr-reviewer",
             "endpoint": "/v1/preset/prompt",
             "draft": {
               "name": "PR Reviewer - OpenHands/agent-server-gui",
@@ -244,7 +244,7 @@
           }
         }
       },
-      "matchesManifestPayload": false
+      "matchesSetupPayload": false
     }
   ]
 }

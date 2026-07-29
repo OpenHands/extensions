@@ -1,85 +1,119 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://github.com/OpenHands/extensions/automations/manifest.schema.json",
-  "title": "AutomationManifest",
-  "description": "Strict schema for automations/manifests/*.json. A manifest defines the extension-owned configuration experience for one automation: discovery metadata, prerequisites, form fields, validation and error states, the request mapping, and analytics. It is data, not code - the schema admits no executable JavaScript, no markup in copy, no free-form URLs, and no secret values.",
+  "$id": "https://github.com/OpenHands/extensions/automations/catalog.schema.json",
+  "title": "AutomationCatalogEntry",
+  "description": "Strict schema for automations/catalog/*.json. Mirrors automations/index.d.ts. An entry carries the card metadata Agent Canvas renders plus, optionally, the extension-owned setup contract for that automation.",
   "type": "object",
   "additionalProperties": false,
   "required": [
-    "manifestVersion",
     "id",
     "name",
     "category",
     "description",
-    "setupMode",
-    "routes",
-    "form",
-    "review",
-    "submit",
-    "analytics"
+    "requiredIntegrationIds",
+    "popularityRank",
+    "estimatedSetupMinutes",
+    "prompt",
+    "exampleImplementation"
   ],
   "properties": {
-    "manifestVersion": {
-      "const": "1.0",
-      "description": "Selects the schema this manifest is validated against. A future format ships a sibling schema file and a new constant."
-    },
     "id": {
       "type": "string",
       "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
-      "description": "Stable identifier. Must equal the filename stem and match an automations/catalog entry id."
+      "description": "Stable identifier. Must equal the filename stem."
     },
-    "name": { "$ref": "#/$defs/copy" },
-    "category": { "$ref": "#/$defs/copy" },
-    "description": { "$ref": "#/$defs/copy" },
-    "setupMode": {
-      "enum": ["direct", "assisted"],
-      "description": "direct - the form produces a request body. assisted - the form seeds an agent conversation that finishes setup."
-    },
-    "routes": {
+    "name": { "type": "string", "minLength": 1 },
+    "category": { "type": "string", "minLength": 1 },
+    "description": { "type": "string", "minLength": 1 },
+    "requiredIntegrationIds": {
+      "description": "Each id must resolve to an integrations/catalog entry.",
       "type": "array",
       "minItems": 1,
-      "items": { "$ref": "#/$defs/route" }
+      "uniqueItems": true,
+      "items": { "type": "string", "minLength": 1 }
     },
-    "capabilities": { "$ref": "#/$defs/capabilities" },
-    "requires": { "$ref": "#/$defs/requires" },
-    "form": { "$ref": "#/$defs/form" },
-    "validation": { "$ref": "#/$defs/validation" },
-    "review": { "$ref": "#/$defs/review" },
-    "submit": { "type": "object" },
-    "analytics": { "$ref": "#/$defs/analytics" }
+    "popularityRank": { "type": "integer", "minimum": 0 },
+    "estimatedSetupMinutes": { "type": "integer", "minimum": 1 },
+    "prompt": {
+      "description": "The slash command Agent Canvas sends when the card is launched today.",
+      "type": "string",
+      "minLength": 1
+    },
+    "exampleImplementation": {
+      "description": "What the skill behind `prompt` builds. Documentation for authors; Agent Canvas does not render it.",
+      "type": "string",
+      "minLength": 1
+    },
+    "setup": { "$ref": "#/$defs/setup" }
   },
-  "allOf": [
-    {
-      "if": {
-        "properties": { "setupMode": { "const": "direct" } },
-        "required": ["setupMode"]
-      },
-      "then": {
-        "properties": { "submit": { "$ref": "#/$defs/directSubmit" } },
-        "required": ["validation"]
-      }
-    },
-    {
-      "if": {
-        "properties": { "setupMode": { "const": "assisted" } },
-        "required": ["setupMode"]
-      },
-      "then": {
-        "properties": { "submit": { "$ref": "#/$defs/assistedSubmit" } }
-      }
-    }
-  ],
   "$defs": {
+    "setup": {
+      "description": "The extension-owned configuration experience for this automation: what the deployment must support, what must be connected first, what the user is asked, how a draft is validated, what request is sent, and which analytics stages are emitted. It never describes what the automation does at runtime - that is the preset, owned by OpenHands/automation. It is data, not code - there is no key that accepts JavaScript, no markup in copy, no free-form URL, and no secret value.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "version",
+        "mode",
+        "routes",
+        "form",
+        "review",
+        "submit",
+        "analytics"
+      ],
+      "properties": {
+        "version": {
+          "const": "1.0",
+          "description": "Selects how this block is interpreted. A future format ships a new constant."
+        },
+        "mode": {
+          "enum": ["direct", "assisted"],
+          "description": "direct - the form produces a request body. assisted - the form seeds an agent conversation that finishes setup."
+        },
+        "routes": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/route" }
+        },
+        "capabilities": { "$ref": "#/$defs/capabilities" },
+        "requires": { "$ref": "#/$defs/requires" },
+        "form": { "$ref": "#/$defs/form" },
+        "validation": { "$ref": "#/$defs/validation" },
+        "review": { "$ref": "#/$defs/review" },
+        "submit": { "type": "object" },
+        "analytics": { "$ref": "#/$defs/analytics" }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": { "mode": { "const": "direct" } },
+            "required": ["mode"]
+          },
+          "then": {
+            "properties": { "submit": { "$ref": "#/$defs/directSubmit" } },
+            "required": ["validation"]
+          }
+        },
+        {
+          "if": {
+            "properties": { "mode": { "const": "assisted" } },
+            "required": ["mode"]
+          },
+          "then": {
+            "properties": { "submit": { "$ref": "#/$defs/assistedSubmit" } }
+          }
+        }
+      ]
+    },
     "copy": {
-      "description": "Literal user-visible copy. Carries no markup, because a manifest must never inject HTML into the host.",
+      "description": "Literal user-visible copy. Carries no markup, because a setup block must never inject HTML into the host.",
       "type": "string",
       "minLength": 1,
       "not": { "pattern": "<[A-Za-z/!]" }
     },
     "placeholders": {
-      "$comment": "Every {{ must open a known placeholder namespace and close immediately.",
+      "$comment": "Every {{ must open a known placeholder namespace and close immediately. `automation` resolves against the catalog entry this setup block belongs to.",
       "not": {
-        "pattern": "\\{\\{(?!(form|manifest|response|capabilities|submit)\\.[A-Za-z0-9_.]+\\}\\})"
+        "pattern": "\\{\\{(?!(form|automation|response|capabilities|submit)\\.[A-Za-z0-9_.]+\\}\\})"
       }
     },
     "templateCopy": {
@@ -113,7 +147,7 @@
       "additionalProperties": { "$ref": "#/$defs/payloadValue" }
     },
     "servicePath": {
-      "description": "Service-relative path. The deployment base path is resolved by the host, so a manifest cannot express an arbitrary request.",
+      "description": "Service-relative path. The deployment base path is resolved by the host, so a setup block cannot express an arbitrary request.",
       "type": "string",
       "pattern": "^/v1/[A-Za-z0-9/_-]*$"
     },
@@ -310,7 +344,7 @@
             "minLength": { "type": "integer", "minimum": 0 },
             "maxLength": { "type": "integer", "minimum": 1 },
             "format": {
-              "description": "A host-implemented check, named from a closed set. Manifests cannot supply their own regex, so a manifest cannot hand the host a pathological pattern. safeExpressionLiteral marks a value that is interpolated into a filter expression string literal, so quotes and backslashes must be rejected before they can break the expression.",
+              "description": "A host-implemented check, named from a closed set. Setup blocks cannot supply their own regex, so one cannot hand the host a pathological pattern. safeExpressionLiteral marks a value that is interpolated into a filter expression string literal, so quotes and backslashes must be rejected before they can break the expression.",
               "enum": ["safeExpressionLiteral"]
             }
           }
