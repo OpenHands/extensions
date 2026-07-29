@@ -96,24 +96,14 @@ export interface AutomationForm {
   args: AutomationFormFields;
 }
 
-export type AutomationPayloadValue =
-  | string
-  | number
-  | boolean
-  | null
-  | AutomationPayloadValue[]
-  | { [key: string]: AutomationPayloadValue };
-
-export interface AutomationRequestBody {
-  [key: string]: AutomationPayloadValue;
-}
-
 export interface AutomationSetup {
   version: "1.0";
   mode: AutomationSetupMode;
   form: AutomationForm;
-  /** direct only. The request body the form values are mapped into. */
-  payload?: AutomationRequestBody;
+  /** direct only. What the automation is told to do. */
+  prompt?: string;
+  /** direct only, event trigger only. Which delivered events belong to it. */
+  filter?: string;
   /** assisted only. Setup context for the conversation that finishes setup. */
   message?: string;
 }

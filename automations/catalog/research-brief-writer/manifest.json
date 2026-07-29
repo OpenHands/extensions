@@ -5,8 +5,12 @@
   "description": "Monitor a topic, gather sources from the web, and publish a short brief for your team.",
   "requires": {
     "integrations": {
-      "tavily": {},
-      "notion": {}
+      "tavily": {
+        "message": "Searches the web for sources on the topic."
+      },
+      "notion": {
+        "message": "Publishes the finished brief."
+      }
     }
   },
   "popularityRank": 84,

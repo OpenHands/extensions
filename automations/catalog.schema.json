@@ -59,12 +59,16 @@
           "description": "direct - the form produces a request body. assisted - the form seeds an agent conversation that finishes setup."
         },
         "form": { "$ref": "#/$defs/form" },
-        "payload": {
-          "description": "direct only. The request body the form values are mapped into. Everything around it is the same for every automation and is not restated: which endpoint receives it, how a draft is validated first, what the review screen shows, where a success navigates, and which analytics stages are emitted.",
-          "$ref": "#/$defs/requestBody"
+        "prompt": {
+          "description": "direct only. What the automation is told to do. The rest of the create request restates the form, so it is not written here: the automation's name comes from this entry, the repository from the repo-picker field, and the trigger from the key and fields under form.triggers.",
+          "$ref": "#/$defs/templateValue"
+        },
+        "filter": {
+          "description": "direct only, and only for an event trigger. The expression deciding whether a delivered event belongs to this automation. It composes form values into a JMESPath expression, which is the one part of an event trigger that cannot be read off the form.",
+          "$ref": "#/$defs/templateValue"
         },
         "message": {
-          "description": "assisted only. Setup context handed to the agent conversation that finishes setup. The slash command that opens it is derived from the entry id, so it is not repeated here. Capped so this never becomes a channel for runtime instructions.",
+          "description": "assisted only. Setup context handed to the agent conversation that finishes setup. The command that opens it comes from the skill, so it is not repeated here. Capped so this never becomes a channel for runtime instructions.",
           "allOf": [{ "$ref": "#/$defs/templateCopy" }, { "maxLength": 2000 }]
         }
       },
@@ -75,7 +79,7 @@
             "required": ["mode"]
           },
           "then": {
-            "required": ["payload"],
+            "required": ["prompt"],
             "not": { "required": ["message"] }
           }
         },
@@ -86,8 +90,25 @@
           },
           "then": {
             "required": ["message"],
-            "not": { "required": ["payload"] }
+            "allOf": [
+              { "not": { "required": ["prompt"] } },
+              { "not": { "required": ["filter"] } }
+            ]
           }
+        },
+        {
+          "if": {
+            "properties": {
+              "form": {
+                "properties": {
+                  "triggers": { "not": { "required": ["event"] } }
+                },
+                "required": ["triggers"]
+              }
+            },
+            "required": ["form"]
+          },
+          "then": { "not": { "required": ["filter"] } }
         }
       ]
     },
@@ -116,23 +137,6 @@
       "minLength": 1,
       "allOf": [{ "$ref": "#/$defs/placeholders" }]
     },
-    "payloadValue": {
-      "description": "A value in a request body. Nesting is allowed; there is nowhere to put code.",
-      "oneOf": [
-        { "$ref": "#/$defs/templateValue" },
-        { "type": ["number", "boolean", "null"] },
-        { "type": "array", "items": { "$ref": "#/$defs/payloadValue" } },
-        {
-          "type": "object",
-          "additionalProperties": { "$ref": "#/$defs/payloadValue" }
-        }
-      ]
-    },
-    "requestBody": {
-      "type": "object",
-      "minProperties": 1,
-      "additionalProperties": { "$ref": "#/$defs/payloadValue" }
-    },
     "requires": {
       "description": "What must be connected, and what the deployment must offer, for this automation to be usable. Every entry carries it, whether or not it ships a setup block, so the integrations an automation needs are recorded in exactly one place. The host decides what to do when a requirement is unmet; an entry only states the requirement and why it exists.",
       "type": "object",
@@ -147,9 +151,10 @@
           "additionalProperties": {
             "type": "object",
             "additionalProperties": false,
+            "required": ["message"],
             "properties": {
               "message": {
-                "description": "Why this automation needs the integration. Omitted when the automation has no setup flow to show it in.",
+                "description": "Why this automation needs the integration. Required, so an integration is never listed without saying what it is for.",
                 "$ref": "#/$defs/copy"
               },
               "required": {

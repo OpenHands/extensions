@@ -12,9 +12,9 @@
       "description": "Watch issue and pull request comments for the default mention phrase.",
       "formValues": {
         "repository": "OpenHands/agent-server-gui",
-        "baseRef": "main",
-        "eventType": "issue_comment.created",
-        "triggerPhrase": "@openhands"
+        "triggerPhrase": "@openhands",
+        "on": "issue_comment.created",
+        "ref": "main"
       },
       "preflight": {
         "request": {
@@ -24,7 +24,7 @@
             "automationId": "github-repo-monitor",
             "endpoint": "/v1/preset/prompt",
             "draft": {
-              "name": "Mention responder - OpenHands/agent-server-gui",
+              "name": "GitHub repository monitor - OpenHands/agent-server-gui",
               "prompt": "A comment in OpenHands/agent-server-gui mentions '@openhands'. Read the surrounding issue or pull request context from the event payload, then post a helpful reply as a comment on the same thread.",
               "repos": [
                 {
@@ -55,7 +55,7 @@
           "method": "POST",
           "path": "/v1/preset/prompt",
           "body": {
-            "name": "Mention responder - OpenHands/agent-server-gui",
+            "name": "GitHub repository monitor - OpenHands/agent-server-gui",
             "prompt": "A comment in OpenHands/agent-server-gui mentions '@openhands'. Read the surrounding issue or pull request context from the event payload, then post a helpful reply as a comment on the same thread.",
             "repos": [
               {
@@ -79,7 +79,7 @@
             "user_id": "1a2b3c4d-0000-4000-8000-000000000001",
             "org_id": "1a2b3c4d-0000-4000-8000-000000000002",
             "model": null,
-            "name": "Mention responder - OpenHands/agent-server-gui",
+            "name": "GitHub repository monitor - OpenHands/agent-server-gui",
             "prompt": "A comment in OpenHands/agent-server-gui mentions '@openhands'. Read the surrounding issue or pull request context from the event payload, then post a helpful reply as a comment on the same thread.",
             "trigger": {
               "type": "event",
@@ -105,9 +105,9 @@
       "description": "The trigger phrase is interpolated into a JMESPath string literal, so an apostrophe would break the expression. The field's safeExpressionLiteral constraint rejects it before any request is made. Without that constraint the service returns 422 with: Bad jmespath expression: Unknown token.",
       "formValues": {
         "repository": "OpenHands/agent-server-gui",
-        "baseRef": "main",
-        "eventType": "issue_comment.created",
-        "triggerPhrase": "@open'hands"
+        "triggerPhrase": "@open'hands",
+        "on": "issue_comment.created",
+        "ref": "main"
       },
       "localValidation": {
         "valid": false,
@@ -128,9 +128,9 @@
       "description": "Preflight rejects an event type the deployment does not receive. Nothing is created, so there is no half-broken automation to clean up.",
       "formValues": {
         "repository": "OpenHands/agent-server-gui",
-        "baseRef": "main",
-        "eventType": "pull_request_review_comment.created",
-        "triggerPhrase": "@openhands"
+        "triggerPhrase": "@openhands",
+        "on": "pull_request_review_comment.created",
+        "ref": "main"
       },
       "preflight": {
         "request": {
@@ -140,7 +140,7 @@
             "automationId": "github-repo-monitor",
             "endpoint": "/v1/preset/prompt",
             "draft": {
-              "name": "Mention responder - OpenHands/agent-server-gui",
+              "name": "GitHub repository monitor - OpenHands/agent-server-gui",
               "prompt": "A comment in OpenHands/agent-server-gui mentions '@openhands'. Read the surrounding issue or pull request context from the event payload, then post a helpful reply as a comment on the same thread.",
               "repos": [
                 {
@@ -173,7 +173,7 @@
         }
       },
       "expectedFieldErrors": {
-        "eventType": "No GitHub webhook delivering pull_request_review_comment.created is registered for this organization."
+        "on": "No GitHub webhook delivering pull_request_review_comment.created is registered for this organization."
       }
     }
   ]

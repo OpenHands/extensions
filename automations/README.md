@@ -43,7 +43,10 @@ two records of the same fact from drifting apart, and it is why the file is as s
 | Schedule limits and the timezone list | The `cron` and `timezone` field types |
 | Local validation rules | The `required` flag and `constraints` on each field |
 | The preflight call | `POST /v1/validate` with the entry id, the create endpoint, and the rendered payload |
-| Which input a rejected payload path belongs to | Walking `setup.payload` for `{{form.*}}` placeholders |
+| The created automation's name | The entry's `name`, plus the repository that was picked |
+| `repos` in the create request | The repo-picker field, its declared `provider`, and a field named `ref` if there is one |
+| `trigger` in the create request | The key under `form.triggers`, and the fields under it named after trigger properties |
+| Which input a rejected payload path belongs to | Rebuilding that body with each field standing in for its own value |
 | The review screen | The fields and their labels |
 | The create endpoint | `POST /v1/preset/prompt` |
 | Where a success navigates | The created automation, or the started conversation |
@@ -72,17 +75,18 @@ checks them against the recorded fixtures, so these deletions stay honest rather
     "mode": "direct",
     "form": {
       "triggers": { "cron": { "schedule": {...}, "timezone": {...} } },
-      "args": { "repository": {...}, "baseRef": {...}, "triggerLabel": {...}, "reviewTone": {...} }
+      "args": { "repository": {...}, "triggerLabel": {...}, "reviewTone": {...} }
     },
-    "payload": { "name": "...", "prompt": "...", "repos": [...], "trigger": {...} }
+    "prompt": "Review pull requests labeled '{{form.triggerLabel}}' in {{form.repository}}. ..."
   }
 }
 ```
 
 `requires` sits on the entry, not inside `setup`, because a card lists the integrations it needs whether or
 not it ships a setup flow. Integrations are keyed by id, and each id must match an entry in
-`integrations/catalog/*.json`. `required` defaults to true; state `false` only for an integration setup can
-proceed without.
+`integrations/catalog/*.json`. Every one carries a `message` saying what it is for, so an integration is
+never listed with nothing attached. `required` defaults to true; state `false` only for an integration
+setup can proceed without.
 
 `skill` names the `skills/` directory that builds this automation today, and defaults to `id`, so only the
 three entries whose names differ from their skill state it. The command that launches that skill is **not**
@@ -106,11 +110,17 @@ An assisted entry declares no triggers, because the trigger is settled during th
 
 ### What the form produces
 
-- **`mode: "direct"`** declares a `payload`: the request body the form values are mapped into, posted to
-  the create endpoint.
+- **`mode: "direct"`** declares a `prompt`: what the automation is told to do. The rest of the create
+  request restates the form, so it is not written out. An event trigger also declares a `filter`, because
+  composing form values into a JMESPath expression is the one part of an event trigger that cannot be read
+  off the form.
 - **`mode: "assisted"`** declares a `message`: setup context handed to an agent conversation that finishes
-  the job. The slash command that opens that conversation is derived from the id, so it is not repeated in
-  the message.
+  the job. The command that opens that conversation comes from the skill, so it is not repeated here.
+
+A form field is named after the property it fills. `schedule` and `timezone` under `triggers.cron` become
+`trigger.schedule` and `trigger.timezone`; `on` under `triggers.event` becomes `trigger.on`; a field named
+`ref` becomes `repos[].ref`. Any other field under a trigger kind, such as a phrase to match, is an input
+to `filter` rather than a trigger property.
 
 ### Format constraints
 
@@ -217,7 +227,8 @@ questions to this work. What changed and why:
 | `form.fields` | Split into `form.triggers` and `form.args`, and both keyed by field name so the name is the key rather than a repeated property. |
 | `validation` | Removed. The preflight call has the same shape for every automation, and the payload-path mapping is recovered by walking `payload`. |
 | `review` | Removed. The confirmation screen is the declared fields and their labels. |
-| `submit` | Reduced to the one thing that varies: `payload` for direct, `message` for assisted. The action, endpoint, success navigation, and error handling are identical everywhere. |
+| `submit` | Reduced to the parts that vary: `prompt` and, for an event trigger, `filter` for direct; `message` for assisted. The action, endpoint, success navigation, and error handling are identical everywhere. |
+| `submit.payload` | Removed. `name`, `repos` and `trigger` all restated the form, so they are rebuilt from it. What is left is the prompt and the event filter. |
 | `analytics` | Removed. The same stages fire for every automation, so they belong in shared host code. |
 | `workflow.steps` | Removed. It restated which keys were present, creating a second source of truth that could contradict the file. |
 | `form.intent: "seed"` | Removed. Derivable from `setup.mode: "assisted"`. |

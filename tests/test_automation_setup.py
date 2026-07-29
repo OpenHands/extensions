@@ -41,6 +41,10 @@ CAPABILITIES_PATH = FIXTURE_DIR / "capabilities.json"
 CREATE_PATH = "/v1/preset/prompt"
 PREFLIGHT_PATH = "/v1/validate"
 
+# The trigger properties the service accepts, per kind. A form field named
+# after one of them fills it; the rest are inputs to the declared filter.
+TRIGGER_PROPERTIES = {"cron": ("schedule", "timezone"), "event": ("on",)}
+
 _SCHEMA = json.loads(SCHEMA_PATH.read_text())
 VALIDATOR = Draft202012Validator(_SCHEMA)
 
@@ -121,9 +125,50 @@ def _context(entry: dict, form_values: dict) -> dict:
     return {"form": form_values, "automation": entry}
 
 
-def _render_payload(entry: dict, form_values: dict):
-    """The request body this entry's setup produces for these form values."""
-    return _interpolate(entry["setup"]["payload"], _context(entry, form_values))
+def _repo_picker(setup: dict) -> tuple[str | None, dict | None]:
+    for name, field in _fields(setup).items():
+        if field["type"] == "repo-picker":
+            return name, field
+    return None, None
+
+
+def _render_payload(entry: dict, form_values: dict) -> dict:
+    """The create request body these form values produce.
+
+    No entry declares this. `name` comes from the entry, `repos` from the
+    repo-picker field and its provider, and `trigger` from the key and fields
+    under `form.triggers`. Only `prompt` and an event `filter` are declared,
+    because only they cannot be read off the form.
+    """
+    setup = entry["setup"]
+    context = _context(entry, form_values)
+    repo_name, repo_field = _repo_picker(setup)
+    repo = form_values.get(repo_name) if repo_name else None
+
+    body: dict = {
+        "name": f"{entry['name']} - {repo}" if repo else entry["name"],
+        "prompt": _interpolate(setup["prompt"], context),
+    }
+
+    if repo:
+        source = {"url": repo, "provider": repo_field["provider"]}
+        if "ref" in form_values:
+            source["ref"] = form_values["ref"]
+        body["repos"] = [source]
+
+    kind, trigger_fields = next(iter(setup["form"]["triggers"].items()))
+    trigger = {"type": kind}
+    # A field under a trigger kind fills the trigger property of the same name.
+    # Anything else there, such as a phrase to match, is an input to `filter`.
+    for name in trigger_fields:
+        if name in TRIGGER_PROPERTIES[kind]:
+            trigger[name] = form_values[name]
+    if kind == "event":
+        trigger["source"] = repo_field["provider"]
+        trigger["filter"] = _interpolate(setup["filter"], context)
+    body["trigger"] = trigger
+
+    return body
 
 
 def _derive_preflight_body(entry: dict, form_values: dict) -> dict:
@@ -140,10 +185,16 @@ def _derive_error_map(entry: dict) -> dict[str, list[str]]:
     """Which form fields built each payload path.
 
     Preflight and the create endpoint reject a draft by payload path, and the
-    host has to turn that back into a highlighted input. Walking the payload
-    template recovers the mapping exactly, so an entry does not declare it.
+    host has to turn that back into a highlighted input. Building the body with
+    each field standing in for its own value recovers the mapping exactly, so
+    an entry does not declare it.
     """
     mapping: dict[str, list[str]] = {}
+    if "prompt" not in entry["setup"]:
+        return mapping
+
+    stand_ins = {name: f"{{{{form.{name}}}}}" for name in _field_names(entry["setup"])}
+    template = _render_payload(entry, stand_ins)
 
     def walk(node, path: str) -> None:
         if isinstance(node, dict):
@@ -161,7 +212,7 @@ def _derive_error_map(entry: dict) -> dict[str, list[str]]:
             if names:
                 mapping[path] = list(dict.fromkeys(names))
 
-    walk(entry["setup"].get("payload", {}), "")
+    walk(template, "")
     return mapping
 
 
@@ -229,7 +280,7 @@ def _reported_fields(entry: dict, scenario: dict) -> dict[str, str]:
     error_map = _derive_error_map(entry)
     payload = (
         _render_payload(entry, scenario["formValues"])
-        if "payload" in setup and "formValues" in scenario
+        if "prompt" in setup and "formValues" in scenario
         else {}
     )
 
@@ -323,7 +374,7 @@ def test_schema_rejects_content_a_setup_block_must_never_carry() -> None:
     rejected.append(("<script>steal()</script>", with_markup))
 
     with_unknown_placeholder = deepcopy(entry)
-    with_unknown_placeholder["setup"]["payload"]["name"] = "{{env.GITHUB_TOKEN}}"
+    with_unknown_placeholder["setup"]["prompt"] = "Use {{env.GITHUB_TOKEN}}"
     rejected.append(("{{env.GITHUB_TOKEN}}", with_unknown_placeholder))
 
     with_secret_value = deepcopy(entry)
@@ -376,12 +427,17 @@ def test_select_fields_offer_options(entry_path: Path) -> None:
 
 
 @pytest.mark.parametrize(("bundle", "scenario"), list(_scenarios("create")))
-def test_payload_reproduces_the_create_request(bundle: dict, scenario: dict) -> None:
+def test_derived_body_reproduces_the_create_request(
+    bundle: dict, scenario: dict
+) -> None:
+    """An entry declares the prompt and, for an event trigger, the filter. The
+    name, the repository and the trigger come out of the form, and this is
+    where that reconstruction is pinned to a body the service accepts."""
     entry = _entry_for(bundle)
 
-    rendered = _render_payload(entry, scenario["formValues"])
+    derived = _render_payload(entry, scenario["formValues"])
 
-    assert rendered == scenario["create"]["request"]["body"]
+    assert derived == scenario["create"]["request"]["body"]
     assert scenario["create"]["request"]["path"] == CREATE_PATH
 
 

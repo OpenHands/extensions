@@ -47,17 +47,6 @@
           "provider": "github",
           "required": true
         },
-        "baseRef": {
-          "type": "text",
-          "label": "Base branch",
-          "help": "Branch checked out when the review runs.",
-          "default": "main",
-          "required": true,
-          "constraints": {
-            "minLength": 1,
-            "maxLength": 255
-          }
-        },
         "triggerLabel": {
           "type": "text",
           "label": "Trigger label",
@@ -88,21 +77,6 @@
         }
       }
     },
-    "payload": {
-      "name": "PR Reviewer - {{form.repository}}",
-      "prompt": "Review pull requests labeled '{{form.triggerLabel}}' in {{form.repository}}. Review tone: {{form.reviewTone}}.",
-      "repos": [
-        {
-          "url": "{{form.repository}}",
-          "ref": "{{form.baseRef}}",
-          "provider": "github"
-        }
-      ],
-      "trigger": {
-        "type": "cron",
-        "schedule": "{{form.schedule}}",
-        "timezone": "{{form.timezone}}"
-      }
-    }
+    "prompt": "Review pull requests labeled '{{form.triggerLabel}}' in {{form.repository}}. Review tone: {{form.reviewTone}}."
   }
 }

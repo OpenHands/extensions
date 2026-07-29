@@ -5,8 +5,12 @@
   "description": "Watch a Jira Cloud project for issues with a configurable label and automatically open a GitHub pull request for each new issue found. The target GitHub repo is read from the ticket body - no repo parameter required at deploy time.",
   "requires": {
     "integrations": {
-      "jira": {},
-      "github": {}
+      "jira": {
+        "message": "Reads the project for issues carrying the trigger label."
+      },
+      "github": {
+        "message": "Opens a pull request on the repository named in the ticket."
+      }
     }
   },
   "popularityRank": 85,

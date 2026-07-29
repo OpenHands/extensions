@@ -11,7 +11,6 @@
       "description": "Defaults plus a repository and a thorough review tone. Preflight passes, the automation is created.",
       "formValues": {
         "repository": "OpenHands/agent-server-gui",
-        "baseRef": "main",
         "triggerLabel": "openhands-review",
         "reviewTone": "thorough",
         "schedule": "*/15 * * * *",
@@ -25,12 +24,11 @@
             "automationId": "github-pr-reviewer",
             "endpoint": "/v1/preset/prompt",
             "draft": {
-              "name": "PR Reviewer - OpenHands/agent-server-gui",
+              "name": "GitHub Code Review Agent - OpenHands/agent-server-gui",
               "prompt": "Review pull requests labeled 'openhands-review' in OpenHands/agent-server-gui. Review tone: thorough.",
               "repos": [
                 {
                   "url": "OpenHands/agent-server-gui",
-                  "ref": "main",
                   "provider": "github"
                 }
               ],
@@ -55,12 +53,11 @@
           "method": "POST",
           "path": "/v1/preset/prompt",
           "body": {
-            "name": "PR Reviewer - OpenHands/agent-server-gui",
+            "name": "GitHub Code Review Agent - OpenHands/agent-server-gui",
             "prompt": "Review pull requests labeled 'openhands-review' in OpenHands/agent-server-gui. Review tone: thorough.",
             "repos": [
               {
                 "url": "OpenHands/agent-server-gui",
-                "ref": "main",
                 "provider": "github"
               }
             ],
@@ -78,7 +75,7 @@
             "user_id": "1a2b3c4d-0000-4000-8000-000000000001",
             "org_id": "1a2b3c4d-0000-4000-8000-000000000002",
             "model": null,
-            "name": "PR Reviewer - OpenHands/agent-server-gui",
+            "name": "GitHub Code Review Agent - OpenHands/agent-server-gui",
             "prompt": "Review pull requests labeled 'openhands-review' in OpenHands/agent-server-gui. Review tone: thorough.",
             "trigger": {
               "type": "cron",
@@ -103,7 +100,6 @@
       "description": "A one-minute schedule. The create model accepts it, so only the deployment can reject it - this is precisely why preflight exists and why local validation is not authoritative.",
       "formValues": {
         "repository": "OpenHands/agent-server-gui",
-        "baseRef": "main",
         "triggerLabel": "openhands-review",
         "reviewTone": "concise",
         "schedule": "*/1 * * * *",
@@ -117,12 +113,11 @@
             "automationId": "github-pr-reviewer",
             "endpoint": "/v1/preset/prompt",
             "draft": {
-              "name": "PR Reviewer - OpenHands/agent-server-gui",
+              "name": "GitHub Code Review Agent - OpenHands/agent-server-gui",
               "prompt": "Review pull requests labeled 'openhands-review' in OpenHands/agent-server-gui. Review tone: concise.",
               "repos": [
                 {
                   "url": "OpenHands/agent-server-gui",
-                  "ref": "main",
                   "provider": "github"
                 }
               ],
@@ -157,7 +152,6 @@
       "description": "31 February. Syntactically valid, so a local check passes, but the service rejects it. Shows the real 422 body: detail is a list and the loc path carries the trigger discriminator tag.",
       "formValues": {
         "repository": "OpenHands/agent-server-gui",
-        "baseRef": "main",
         "triggerLabel": "openhands-review",
         "reviewTone": "concise",
         "schedule": "0 0 31 2 *",
@@ -168,12 +162,11 @@
           "method": "POST",
           "path": "/v1/preset/prompt",
           "body": {
-            "name": "PR Reviewer - OpenHands/agent-server-gui",
+            "name": "GitHub Code Review Agent - OpenHands/agent-server-gui",
             "prompt": "Review pull requests labeled 'openhands-review' in OpenHands/agent-server-gui. Review tone: concise.",
             "repos": [
               {
                 "url": "OpenHands/agent-server-gui",
-                "ref": "main",
                 "provider": "github"
               }
             ],
@@ -211,7 +204,6 @@
       "description": "The mapping bug this fixture set exists to prevent. A short owner/repo URL without an explicit provider is a hard 422, because CreatePromptAutomationRequest is extra-forbid and RepoSource requires the provider. The setup block's payload always sets it; this records what happens if that is ever dropped.",
       "formValues": {
         "repository": "OpenHands/agent-server-gui",
-        "baseRef": "main",
         "triggerLabel": "openhands-review",
         "reviewTone": "concise",
         "schedule": "*/15 * * * *",
@@ -222,12 +214,11 @@
           "method": "POST",
           "path": "/v1/preset/prompt",
           "body": {
-            "name": "PR Reviewer - OpenHands/agent-server-gui",
+            "name": "GitHub Code Review Agent - OpenHands/agent-server-gui",
             "prompt": "Review pull requests labeled 'openhands-review' in OpenHands/agent-server-gui. Review tone: concise.",
             "repos": [
               {
-                "url": "OpenHands/agent-server-gui",
-                "ref": "main"
+                "url": "OpenHands/agent-server-gui"
               }
             ],
             "trigger": {

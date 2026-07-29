@@ -24,7 +24,7 @@
     "form": {
       "triggers": {
         "event": {
-          "eventType": {
+          "on": {
             "type": "select",
             "label": "Respond to",
             "help": "Which GitHub comment event starts a conversation.",
@@ -59,11 +59,11 @@
         "repository": {
           "type": "repo-picker",
           "label": "Repository",
-          "help": "The repository to watch for mentions.",
+          "help": "The repository or repositories to watch for mentions.",
           "provider": "github",
           "required": true
         },
-        "baseRef": {
+        "ref": {
           "type": "text",
           "label": "Base branch",
           "help": "Branch checked out when the agent responds.",
@@ -76,22 +76,7 @@
         }
       }
     },
-    "payload": {
-      "name": "Mention responder - {{form.repository}}",
-      "prompt": "A comment in {{form.repository}} mentions '{{form.triggerPhrase}}'. Read the surrounding issue or pull request context from the event payload, then post a helpful reply as a comment on the same thread.",
-      "repos": [
-        {
-          "url": "{{form.repository}}",
-          "ref": "{{form.baseRef}}",
-          "provider": "github"
-        }
-      ],
-      "trigger": {
-        "type": "event",
-        "source": "github",
-        "on": "{{form.eventType}}",
-        "filter": "icontains(comment.body, '{{form.triggerPhrase}}') && glob(repository.full_name, '{{form.repository}}')"
-      }
-    }
+    "prompt": "A comment in {{form.repository}} mentions '{{form.triggerPhrase}}'. Read the surrounding issue or pull request context from the event payload, then post a helpful reply as a comment on the same thread.",
+    "filter": "icontains(comment.body, '{{form.triggerPhrase}}') && glob(repository.full_name, '{{form.repository}}')"
   }
 }

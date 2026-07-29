@@ -5,7 +5,9 @@
   "description": "Classify new Linear issues, suggest labels, find duplicates, and ask clarifying questions.",
   "requires": {
     "integrations": {
-      "linear": {}
+      "linear": {
+        "message": "Reads new issues and applies labels, comments, and duplicate links."
+      }
     }
   },
   "popularityRank": 90,

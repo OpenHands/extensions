@@ -5,7 +5,9 @@
   "description": "Watch Slack channels for @openhands mentions, open a conversation with the message context, reply when the agent finishes, and continue the same conversation from triggered Slack thread follow-ups.",
   "requires": {
     "integrations": {
-      "slack": {}
+      "slack": {
+        "message": "Reads channel messages and posts replies back to the thread."
+      }
     }
   },
   "popularityRank": 92,

@@ -5,7 +5,9 @@
   "description": "Summarize yesterday’s Slack activity into an async standup note with blockers, decisions, and owners.",
   "requires": {
     "integrations": {
-      "slack": {}
+      "slack": {
+        "message": "Reads recent channel activity and posts the digest."
+      }
     }
   },
   "popularityRank": 94,
