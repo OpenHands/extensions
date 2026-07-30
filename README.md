@@ -61,20 +61,22 @@ See [`integrations/README.md`](integrations/README.md), [`automations/README.md`
 
 The integration catalog is also published as a Python package (`openhands-extensions`) so Python services read the same catalog data as JS consumers. The single source of truth is the hand-authored JSON directory `integrations/catalog/<id>.json`; there is no separate provider file and no aggregate catalog JSON to maintain. Both the JS package (`@openhands/extensions/integrations`) and the Python package read those same per-integration JSON files and expose parallel read functions.
 
-Each catalog entry can carry oauth and/or mcp/http `connectionOptions`. `supportsOauth` / `supportsMcp` flags are derived at runtime. Use `listIntegrationCatalog({ mcp, oauth })` (JS) or `list_integration_catalog(mcp=, oauth=)` (Python) to filter by connector type - for example only integrations that support an oauth connector.
+Each catalog entry can carry oauth and/or mcp/http `connectionOptions`. `supportsOauth` / `supportsMcp` flags are derived at runtime. Use `listIntegrationCatalog({ mcp, oauth })` (JS) or `list_integration_catalog_models(mcp=, oauth=)` (Python) to filter by connector type - for example only integrations that support an oauth connector.
 
 ```python
 from openhands_extensions import (
-    list_integration_catalog,                        # listIntegrationCatalog({ mcp, oauth })
-    get_integration_catalog_entry,                   # getIntegrationCatalogEntry(id)
+    list_integration_catalog_models,                 # listIntegrationCatalog({ mcp, oauth })
+    get_integration_catalog_entry_model,             # getIntegrationCatalogEntry(id)
     INTEGRATION_CATALOG_SNAPSHOT,                    # { integrations }
 )
 
-all_integrations = list_integration_catalog()
-oauth_integrations = list_integration_catalog(oauth=True)      # only entries with an oauth connector
-mcp_integrations = list_integration_catalog(mcp=True)          # only entries with an mcp connector
-sample = get_integration_catalog_entry(all_integrations[0]["id"])
+all_integrations = list_integration_catalog_models()
+oauth_integrations = list_integration_catalog_models(oauth=True)  # only entries with an oauth connector
+mcp_integrations = list_integration_catalog_models(mcp=True)      # only entries with an mcp connector
+sample = get_integration_catalog_entry_model(all_integrations[0].id)
 ```
+
+The Python functions return validated `IntegrationCatalogEntry` models. The raw-dictionary accessors `list_integration_catalog` / `get_integration_catalog_entry` were deprecated in 0.10.0 and removed in 0.12.0; see [`MIGRATION.md`](MIGRATION.md).
 
 Install from git (the hub backend consumes it this way):
 
