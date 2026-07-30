@@ -16,8 +16,9 @@ from importlib.metadata import PackageNotFoundError, version
 
 #: Fallback used only when the package is not installed (no dist metadata).
 #: Kept in lock-step with pyproject.toml/package.json by the version test.
-# x-release-please-version
-_FALLBACK_VERSION = "0.11.0"
+#: release-please only rewrites a semver found on the annotated line itself, so
+#: the annotation must stay on the assignment; on its own line it is a no-op.
+_FALLBACK_VERSION = "0.12.0"  # x-release-please-version
 
 try:
     __version__: str = version("openhands-extensions")
