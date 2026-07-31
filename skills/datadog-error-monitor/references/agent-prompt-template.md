@@ -93,11 +93,11 @@ The prompt size is bounded by these configurable limits:
 | Parameter | Default | Controls |
 |---|---|---|
 | `MAX_UNKNOWN_LOGS` | 100 | Max uncategorized log messages included in the prompt |
-| `EXAMPLES_PER_PATTERN` | 5 | Max example logs shown per spiking pattern |
+| `EXAMPLES_PER_PATTERN` | 3 | Max example logs shown per spiking pattern |
 | `MAX_LOG_MESSAGE_CHARS` | 500 | Max chars per log message in the prompt |
 
-At defaults with 100 unknown logs and 5 spiking patterns with 5 examples each,
-the prompt is roughly 60–80 KB — comfortably within context limits for modern LLMs.
+At defaults with 100 unknown logs and 5 spiking patterns with 3 examples each,
+the prompt is roughly 50–70 KB — comfortably within context limits for modern LLMs.
 
 If a query is returning a very high volume of uncategorized logs every run,
 reduce `MAX_UNKNOWN_LOGS` during setup, or tighten the Datadog query filter

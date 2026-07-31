@@ -1,0 +1,27 @@
+{
+  "id": "datadog",
+  "name": "Datadog",
+  "description": "Query logs, metrics, APM traces, and monitors via the Datadog REST API.",
+  "docsUrl": "https://docs.datadoghq.com/api/latest/",
+  "iconBg": "#632CA6",
+  "keywords": [
+    "monitoring",
+    "logs",
+    "metrics",
+    "observability",
+    "apm",
+    "errors",
+    "alerts"
+  ],
+  "kind": "http",
+  "defaultConnectionOptionId": "api",
+  "connectionOptions": [
+    {
+      "id": "api",
+      "provider": "http",
+      "auth": {
+        "strategy": "api_key"
+      }
+    }
+  ]
+}

@@ -224,7 +224,7 @@ Ask about the following settings. Offer the defaults and accept Enter to keep th
 | Parameter | Default | Prompt |
 |---|---|---|
 | `MAX_UNKNOWN_LOGS` | `100` | *"Max uncategorized log samples to send to the agent per run?"* |
-| `EXAMPLES_PER_PATTERN` | `5` | *"How many example logs to keep per error pattern?"* |
+| `EXAMPLES_PER_PATTERN` | `3` | *"How many example logs to keep per error pattern?"* |
 | `SPIKE_MULTIPLIER` | `3.0` | *"Spike threshold — alert when count exceeds this multiple of the rolling 3-run average?"* |
 
 ### Step 7 — Dry run confirmation
@@ -253,7 +253,7 @@ Apply exactly the following constant substitutions near the top of the file:
 | `SLACK_CHANNEL_ID = "C0123456789"` | `SLACK_CHANNEL_ID = "{channel_id}"` |
 | `REPO_CONFIGS: list[dict] = []` | `REPO_CONFIGS: list[dict] = {repo_configs_literal}` |
 | `MAX_UNKNOWN_LOGS = 100` | `MAX_UNKNOWN_LOGS = {max_unknown}` |
-| `EXAMPLES_PER_PATTERN = 5` | `EXAMPLES_PER_PATTERN = {examples_per}` |
+| `EXAMPLES_PER_PATTERN = 3` | `EXAMPLES_PER_PATTERN = {examples_per}` |
 | `SPIKE_MULTIPLIER = 3.0` | `SPIKE_MULTIPLIER = {multiplier}` |
 | `DEFAULT_OPENHANDS_URL = "http://localhost:8000"` | `DEFAULT_OPENHANDS_URL = "{url}"` (keep default if user has no preference) |
 
