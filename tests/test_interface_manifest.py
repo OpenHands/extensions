@@ -71,8 +71,8 @@ def test_featured_automations_resolve_to_catalog_entries():
             lambda doc: doc.update(dashboards=[]),
         ),
         (
-            "constraints on a non-number edit field",
-            lambda doc: doc["edit"]["fields"]["name"].update(
+            "constraints on a non-number attribute",
+            lambda doc: doc["attributes"]["name"].update(
                 constraints={"max": 50}
             ),
         ),

@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/OpenHands/extensions/automations/interface.schema.json",
   "title": "AutomationInterfaceManifest",
-  "description": "Strict schema for automations/interface.json. Mirrors the AutomationInterfaceManifest types in automations/index.d.ts. The catalog states what varies per automation; this file states the domain-level facts of the production Automation interface - routes, navigation, page-identity copy, the edit form, the import/export envelope, the service-relative endpoints, and the featured and responder id lists. The host renders it; it is data, not code - no markup in copy, no free-form URL, no host name, method, or credential.",
+  "description": "Strict schema for automations/interface.json. Mirrors the AutomationInterfaceManifest types in automations/index.d.ts. The catalog states what varies per automation; this file states the domain-level facts of the production Automation interface - routes, navigation, page-identity copy, the settable attributes of an automation, the import/export envelope, the service-relative endpoints, and the featured and responder id lists. The host renders it; it is data, not code - no markup in copy, no free-form URL, no host name, method, or credential.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -11,7 +11,7 @@
     "navigation",
     "pages",
     "docsUrl",
-    "edit",
+    "attributes",
     "importExport",
     "endpoints",
     "featuredAutomationIds",
@@ -60,7 +60,7 @@
       "description": "Page-identity copy. Generic chrome - buttons, toasts, empty states, validation sentences - stays host copy, rendered through the host's translations.",
       "type": "object",
       "additionalProperties": false,
-      "required": ["list", "detail"],
+      "required": ["list", "detail", "edit"],
       "properties": {
         "list": {
           "type": "object",
@@ -76,6 +76,12 @@
           "additionalProperties": false,
           "required": ["backLabel"],
           "properties": { "backLabel": { "$ref": "#/$defs/copy" } }
+        },
+        "edit": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["title"],
+          "properties": { "title": { "$ref": "#/$defs/copy" } }
         }
       }
     },
@@ -84,25 +90,17 @@
       "type": "string",
       "pattern": "^https://docs\\.openhands\\.dev/[A-Za-z0-9/._-]*$"
     },
-    "edit": {
-      "description": "The edit dialog: which Automation properties it offers, keyed by the property each field edits. The closed key set is the editable surface of the runtime model; schedule is a semantic type whose frequency/weekday/time composite the host owns, like the setup form's cron type.",
+    "attributes": {
+      "description": "The input surface of an existing Automation: which attributes can be set after creation, keyed by the runtime-model property the host sends. The closed key set is the settable surface of the runtime model; how a client offers them - Agent Canvas renders an edit dialog, an agent sends them over the API - is the client's choice, not stated here. schedule is a semantic type whose frequency/weekday/time composite the host owns, like the setup form's cron type.",
       "type": "object",
       "additionalProperties": false,
-      "required": ["title", "fields"],
+      "minProperties": 1,
       "properties": {
-        "title": { "$ref": "#/$defs/copy" },
-        "fields": {
-          "type": "object",
-          "additionalProperties": false,
-          "minProperties": 1,
-          "properties": {
-            "name": { "$ref": "#/$defs/editField" },
-            "prompt": { "$ref": "#/$defs/editField" },
-            "model": { "$ref": "#/$defs/editField" },
-            "timeout": { "$ref": "#/$defs/editField" },
-            "schedule": { "$ref": "#/$defs/editField" }
-          }
-        }
+        "name": { "$ref": "#/$defs/attribute" },
+        "prompt": { "$ref": "#/$defs/attribute" },
+        "model": { "$ref": "#/$defs/attribute" },
+        "timeout": { "$ref": "#/$defs/attribute" },
+        "schedule": { "$ref": "#/$defs/attribute" }
       }
     },
     "importExport": {
@@ -203,7 +201,8 @@
         { "pattern": "^[^{}]*\\{id\\}[^{}]*$" }
       ]
     },
-    "editField": {
+    "attribute": {
+      "description": "How one settable attribute is offered: a semantic input type, user-visible copy, and value constraints. Only a number attribute carries constraints.",
       "type": "object",
       "additionalProperties": false,
       "required": ["type", "label", "required"],

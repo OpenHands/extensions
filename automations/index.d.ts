@@ -118,9 +118,10 @@ export interface AutomationSetup {
  * Mirrors `automations/interface.schema.json`, which is authoritative. The
  * catalog states what varies per automation; this states the domain-level
  * facts of the interface itself: routes, navigation, page-identity copy, the
- * edit form, the import/export envelope, the service-relative endpoints, and
- * the featured and responder id lists. The host validates it at admission and
- * falls back to its built-in defaults when it is absent or rejected.
+ * settable attributes of an automation, the import/export envelope, the
+ * service-relative endpoints, and the featured and responder id lists. The
+ * host validates it at admission and falls back to its built-in defaults when
+ * it is absent or rejected.
  */
 
 export interface AutomationInterfaceRoutes {
@@ -139,42 +140,47 @@ export interface AutomationInterfaceNavigation {
 export interface AutomationInterfacePages {
   list: { title: string; subtitle: string };
   detail: { backLabel: string };
+  edit: { title: string };
 }
 
-export type AutomationEditFieldType =
+export type AutomationAttributeType =
   | "text"
   | "textarea"
   | "number"
   | "llm-profile"
   | "schedule";
 
-/** The closed set of Automation properties the edit dialog may offer. */
-export type AutomationEditableProperty =
+/** The closed set of runtime-model properties a client may offer for setting. */
+export type AutomationAttributeName =
   | "name"
   | "prompt"
   | "model"
   | "timeout"
   | "schedule";
 
-export interface AutomationEditFieldConstraints {
+export interface AutomationAttributeConstraints {
   min?: number;
   max?: number;
 }
 
-export interface AutomationEditField {
-  type: AutomationEditFieldType;
+/** How one settable attribute of an existing Automation is offered. */
+export interface AutomationAttribute {
+  type: AutomationAttributeType;
   label: string;
   help?: string;
   required: boolean;
-  /** Only a `number` field carries constraints. */
-  constraints?: AutomationEditFieldConstraints;
+  /** Only a `number` attribute carries constraints. */
+  constraints?: AutomationAttributeConstraints;
 }
 
-export interface AutomationInterfaceEdit {
-  title: string;
-  /** Keyed by the Automation property each field edits. */
-  fields: Partial<Record<AutomationEditableProperty, AutomationEditField>>;
-}
+/**
+ * The input surface of an existing Automation, keyed by the runtime-model
+ * property the host sends. How a client offers these - Agent Canvas renders
+ * an edit dialog - is the client's choice, not stated here.
+ */
+export type AutomationInterfaceAttributes = Partial<
+  Record<AutomationAttributeName, AutomationAttribute>
+>;
 
 export interface AutomationImportDefaults {
   /** Provider inferred for short owner/repo repository URLs on import. */
@@ -214,7 +220,7 @@ export interface AutomationInterfaceManifest {
   navigation: AutomationInterfaceNavigation;
   pages: AutomationInterfacePages;
   docsUrl: string;
-  edit: AutomationInterfaceEdit;
+  attributes: AutomationInterfaceAttributes;
   importExport: AutomationInterfaceImportExport;
   endpoints: AutomationInterfaceEndpoints;
   featuredAutomationIds: string[];

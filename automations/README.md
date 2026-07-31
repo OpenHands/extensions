@@ -181,14 +181,15 @@ falling back to its built-in defaults when the manifest is absent or fails admis
   declared shape, so admission verifies they match what it mounted; the manifest is the single source for
   link construction.
 - **`navigation`** - the sidebar entry and the command-menu entry.
-- **`pages`** - page-identity copy: the list title and subtitle, the detail back label. Generic chrome -
-  buttons, toasts, empty states, validation sentences - stays host copy, rendered through the host's
-  translations.
+- **`pages`** - page-identity copy: the list title and subtitle, the detail back label, the edit-dialog
+  title. Generic chrome - buttons, toasts, empty states, validation sentences - stays host copy, rendered
+  through the host's translations.
 - **`docsUrl`** - the automations documentation link, prefix-pinned to docs.openhands.dev by schema.
-- **`edit`** - which Automation properties the edit dialog offers, keyed by the property each field edits
-  (`name`, `prompt`, `model`, `timeout`, `schedule`), with labels, help, and numeric bounds. `schedule` is
-  a semantic type: the host owns the frequency/weekday/time composite it renders, as it owns the setup
-  form's `cron` type.
+- **`attributes`** - the input surface of an existing Automation: which attributes can be set after
+  creation, keyed by the runtime-model property the host sends (`name`, `prompt`, `model`, `timeout`,
+  `schedule`), with labels, help, and numeric bounds. How a client offers them - Agent Canvas renders an
+  edit dialog - is the client's choice, not stated here. `schedule` is a semantic type: the host owns the
+  frequency/weekday/time composite it renders, as it owns the setup form's `cron` type.
 - **`importExport`** - the export file envelope (`kind`, `version`, filename suffix) and the two facts an
   import cannot derive from the file: the provider inferred for short repository URLs, and the placeholder
   event source that keeps a half-imported automation inert until its real trigger is applied.
@@ -300,7 +301,7 @@ Recorded rather than resolved, because they need an owner outside this contract:
 - **Assisted-setup completion.** The assisted flow ends at a conversation, so the host cannot emit a
   completion event. Until something reports back, the ratio of direct to assisted setup is not measurable.
 - **Delete confirmation and per-run views.** `interface.json` models the list, setup, and detail routes
-  and the edit dialog's fields; deletion, run logs, and the dashboard sub-pages remain host-owned surfaces
+  and the settable attributes; deletion, run logs, and the dashboard sub-pages remain host-owned surfaces
   with no manifest data of their own yet.
 - **Types from the schema.** `index.d.ts` is hand-written and mirrors `catalog.schema.json`. Generating it
   would remove that second source of truth.
