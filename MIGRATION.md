@@ -1,5 +1,36 @@
 # Migration Guide
 
+## Python raw-dict catalog accessors removed in 0.12.0
+
+`openhands_extensions.list_integration_catalog` and
+`openhands_extensions.get_integration_catalog_entry` were deprecated in 0.10.0
+with `removed_in="0.12.0"` and are removed in 0.12.0, per the two-minor-release
+runway enforced by `scripts/check_deprecations.py`. Replace them with the typed
+accessors, which validate every entry against `IntegrationCatalogEntry`:
+
+```diff
+-from openhands_extensions import get_integration_catalog_entry, list_integration_catalog
++from openhands_extensions import (
++    get_integration_catalog_entry_model,
++    list_integration_catalog_models,
++)
+
+-entries = list_integration_catalog(oauth=True)
+-entry = get_integration_catalog_entry("github")
+-entry_id = entry["id"]
++entries = list_integration_catalog_models(oauth=True)
++entry = get_integration_catalog_entry_model("github")
++entry_id = entry.id
+```
+
+The filter arguments (`mcp=`, `oauth=`) and the `None` returned for an unknown
+id are unchanged; only the element type differs. Callers that genuinely need
+JSON-compatible dictionaries can call `model.model_dump(exclude_none=True)`,
+which reproduces the hand-authored entry exactly, or read the unchanged
+`INTEGRATION_CATALOG_SNAPSHOT`. The JavaScript API is unaffected:
+`listIntegrationCatalog` / `getIntegrationCatalogEntry` keep returning plain
+objects.
+
 ## MCP catalog to integration catalog
 
 This package version is still `0.0.0`, and the MCP catalog was an experimental

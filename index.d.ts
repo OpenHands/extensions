@@ -14,6 +14,21 @@ export {
   type OAuthProviderRegistrationDefaults,
 } from "./integrations/index.js";
 export { AUTOMATION_CATALOG } from "./automations/index.js";
-export type { RecommendedAutomation } from "./automations/index.js";
+export type {
+  AutomationFieldConstraints,
+  AutomationFieldOption,
+  AutomationFieldType,
+  AutomationForm,
+  AutomationFormField,
+  AutomationFormFields,
+  AutomationGitProvider,
+  AutomationIntegrationRequirement,
+  AutomationPrerequisites,
+  AutomationSetup,
+  AutomationSetupMode,
+  AutomationTriggerForm,
+  AutomationTriggerKind,
+  RecommendedAutomation,
+} from "./automations/index.js";
 export { SKILLS_CATALOG } from "./skills/index.js";
 export type { SkillCatalogEntry } from "./skills/index.js";

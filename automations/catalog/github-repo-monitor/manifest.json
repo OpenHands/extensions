@@ -1,0 +1,82 @@
+{
+  "id": "github-repo-monitor",
+  "name": "GitHub repository monitor",
+  "category": "Developer tools",
+  "description": "Watch a repository for @OpenHands mentions in issues and PR comments, start a conversation, and post the agent's reply back to GitHub.",
+  "requires": {
+    "integrations": {
+      "github": {
+        "message": "Used to read issue and pull request comments and post replies."
+      }
+    },
+    "features": [
+      "repoClone",
+      "presetPrompt",
+      "webhookDelivery"
+    ]
+  },
+  "popularityRank": 98,
+  "estimatedSetupMinutes": 5,
+  "exampleImplementation": "Trigger: cron, every minute (configurable)\nRequired secret: GITHUB_PERSONAL_ACCESS_TOKEN\n\n1. Poll GitHub for new issue and PR comments since the last run.\n2. Match comments containing the trigger phrase (case-insensitive, default: @OpenHands).\n3. Post an acknowledgment comment with a link to the new OpenHands conversation.\n4. Forward follow-up replies in the same thread to the running conversation.\n5. Post the agent's final response back to GitHub when the conversation completes.",
+  "setup": {
+    "version": "1.0",
+    "mode": "direct",
+    "form": {
+      "triggers": {
+        "event": {
+          "on": {
+            "type": "select",
+            "label": "Respond to",
+            "help": "Which GitHub comment event starts a conversation.",
+            "default": "issue_comment.created",
+            "required": true,
+            "options": [
+              {
+                "value": "issue_comment.created",
+                "label": "Comments on issues and pull requests"
+              },
+              {
+                "value": "pull_request_review_comment.created",
+                "label": "Pull request review comments only"
+              }
+            ]
+          },
+          "triggerPhrase": {
+            "type": "text",
+            "label": "Trigger phrase",
+            "help": "Only comments containing this phrase start a conversation. Matched case-insensitively. Quotes and backslashes are not allowed, because the phrase becomes part of the event filter expression.",
+            "default": "@openhands",
+            "required": true,
+            "constraints": {
+              "minLength": 2,
+              "maxLength": 50,
+              "format": "safeExpressionLiteral"
+            }
+          }
+        }
+      },
+      "args": {
+        "repository": {
+          "type": "repo-picker",
+          "label": "Repository",
+          "help": "The repository or repositories to watch for mentions.",
+          "provider": "github",
+          "required": true
+        },
+        "ref": {
+          "type": "text",
+          "label": "Base branch",
+          "help": "Branch checked out when the agent responds.",
+          "default": "main",
+          "required": true,
+          "constraints": {
+            "minLength": 1,
+            "maxLength": 255
+          }
+        }
+      }
+    },
+    "prompt": "A comment in {{form.repository}} mentions '{{form.triggerPhrase}}'. Read the surrounding issue or pull request context from the event payload, then post a helpful reply as a comment on the same thread.",
+    "filter": "icontains(comment.body, '{{form.triggerPhrase}}') && glob(repository.full_name, '{{form.repository}}')"
+  }
+}

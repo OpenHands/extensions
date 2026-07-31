@@ -1,0 +1,180 @@
+{
+  "automationId": "github-repo-monitor",
+  "description": "Direct GitHub-event setup. Every create request body below is verified against the live CreatePromptAutomationRequest model, and every filter expression against validate_filter() in OpenHands/automation.",
+  "capabilities": "supported",
+  "blockedBy": [
+    "cronOnly",
+    "notReady"
+  ],
+  "scenarios": [
+    {
+      "id": "happy-path",
+      "description": "Watch issue and pull request comments for the default mention phrase.",
+      "formValues": {
+        "repository": "OpenHands/agent-server-gui",
+        "triggerPhrase": "@openhands",
+        "on": "issue_comment.created",
+        "ref": "main"
+      },
+      "preflight": {
+        "request": {
+          "method": "POST",
+          "path": "/v1/validate",
+          "body": {
+            "automationId": "github-repo-monitor",
+            "endpoint": "/v1/preset/prompt",
+            "draft": {
+              "name": "GitHub repository monitor - OpenHands/agent-server-gui",
+              "prompt": "A comment in OpenHands/agent-server-gui mentions '@openhands'. Read the surrounding issue or pull request context from the event payload, then post a helpful reply as a comment on the same thread.",
+              "repos": [
+                {
+                  "url": "OpenHands/agent-server-gui",
+                  "ref": "main",
+                  "provider": "github"
+                }
+              ],
+              "trigger": {
+                "type": "event",
+                "source": "github",
+                "on": "issue_comment.created",
+                "filter": "icontains(comment.body, '@openhands') && glob(repository.full_name, 'OpenHands/agent-server-gui')"
+              }
+            }
+          }
+        },
+        "response": {
+          "status": 200,
+          "body": {
+            "valid": true,
+            "errors": []
+          }
+        }
+      },
+      "create": {
+        "request": {
+          "method": "POST",
+          "path": "/v1/preset/prompt",
+          "body": {
+            "name": "GitHub repository monitor - OpenHands/agent-server-gui",
+            "prompt": "A comment in OpenHands/agent-server-gui mentions '@openhands'. Read the surrounding issue or pull request context from the event payload, then post a helpful reply as a comment on the same thread.",
+            "repos": [
+              {
+                "url": "OpenHands/agent-server-gui",
+                "ref": "main",
+                "provider": "github"
+              }
+            ],
+            "trigger": {
+              "type": "event",
+              "source": "github",
+              "on": "issue_comment.created",
+              "filter": "icontains(comment.body, '@openhands') && glob(repository.full_name, 'OpenHands/agent-server-gui')"
+            }
+          }
+        },
+        "response": {
+          "status": 201,
+          "body": {
+            "id": "b2d47c10-5a91-4e3f-8c62-1d7a9f0e4c33",
+            "user_id": "1a2b3c4d-0000-4000-8000-000000000001",
+            "org_id": "1a2b3c4d-0000-4000-8000-000000000002",
+            "model": null,
+            "name": "GitHub repository monitor - OpenHands/agent-server-gui",
+            "prompt": "A comment in OpenHands/agent-server-gui mentions '@openhands'. Read the surrounding issue or pull request context from the event payload, then post a helpful reply as a comment on the same thread.",
+            "trigger": {
+              "type": "event",
+              "source": "github",
+              "on": "issue_comment.created",
+              "filter": "icontains(comment.body, '@openhands') && glob(repository.full_name, 'OpenHands/agent-server-gui')"
+            },
+            "tarball_path": "oh-internal://uploads/c41e7b28-9d05-4a6b-8f13-2e5c7a90d146",
+            "setup_script_path": "setup.sh",
+            "entrypoint": ".venv/bin/python main.py",
+            "timeout": 600,
+            "keep_alive": null,
+            "enabled": true,
+            "last_triggered_at": null,
+            "created_at": "2026-07-27T12:00:00Z",
+            "updated_at": "2026-07-27T12:00:00Z"
+          }
+        }
+      }
+    },
+    {
+      "id": "quote-in-trigger-phrase-blocked-locally",
+      "description": "The trigger phrase is interpolated into a JMESPath string literal, so an apostrophe would break the expression. The field's safeExpressionLiteral constraint rejects it before any request is made. Without that constraint the service returns 422 with: Bad jmespath expression: Unknown token.",
+      "formValues": {
+        "repository": "OpenHands/agent-server-gui",
+        "triggerPhrase": "@open'hands",
+        "on": "issue_comment.created",
+        "ref": "main"
+      },
+      "localValidation": {
+        "valid": false,
+        "errors": [
+          {
+            "field": "triggerPhrase",
+            "constraint": "format",
+            "message": "Quotes and backslashes are not allowed in the trigger phrase."
+          }
+        ]
+      },
+      "expectedFieldErrors": {
+        "triggerPhrase": "Quotes and backslashes are not allowed in the trigger phrase."
+      }
+    },
+    {
+      "id": "event-type-not-delivered-by-deployment",
+      "description": "Preflight rejects an event type the deployment does not receive. Nothing is created, so there is no half-broken automation to clean up.",
+      "formValues": {
+        "repository": "OpenHands/agent-server-gui",
+        "triggerPhrase": "@openhands",
+        "on": "pull_request_review_comment.created",
+        "ref": "main"
+      },
+      "preflight": {
+        "request": {
+          "method": "POST",
+          "path": "/v1/validate",
+          "body": {
+            "automationId": "github-repo-monitor",
+            "endpoint": "/v1/preset/prompt",
+            "draft": {
+              "name": "GitHub repository monitor - OpenHands/agent-server-gui",
+              "prompt": "A comment in OpenHands/agent-server-gui mentions '@openhands'. Read the surrounding issue or pull request context from the event payload, then post a helpful reply as a comment on the same thread.",
+              "repos": [
+                {
+                  "url": "OpenHands/agent-server-gui",
+                  "ref": "main",
+                  "provider": "github"
+                }
+              ],
+              "trigger": {
+                "type": "event",
+                "source": "github",
+                "on": "pull_request_review_comment.created",
+                "filter": "icontains(comment.body, '@openhands') && glob(repository.full_name, 'OpenHands/agent-server-gui')"
+              }
+            }
+          }
+        },
+        "response": {
+          "status": 200,
+          "body": {
+            "valid": false,
+            "errors": [
+              {
+                "field": "trigger.on",
+                "code": "event_type_not_delivered",
+                "message": "No GitHub webhook delivering pull_request_review_comment.created is registered for this organization."
+              }
+            ]
+          }
+        }
+      },
+      "expectedFieldErrors": {
+        "on": "No GitHub webhook delivering pull_request_review_comment.created is registered for this organization."
+      }
+    }
+  ]
+}

@@ -1,6 +1,6 @@
 {
   "name": "@openhands/extensions",
-  "version": "0.11.0",
+  "version": "0.12.0",
   "description": "Public OpenHands extension catalogs for skills, plugins, integrations, and automation templates.",
   "license": "MIT",
   "type": "module",
@@ -11,7 +11,8 @@
   "scripts": {
     "build:skills": "node scripts/build-skills-catalog.mjs",
     "build:integrations": "node scripts/build-integration-catalog.mjs",
-    "build": "npm run build:skills && npm run build:integrations"
+    "build:automations": "node scripts/build-automation-catalog.mjs",
+    "build": "npm run build:skills && npm run build:integrations && npm run build:automations"
   },
   "engines": {
     "node": ">=18.20.0"
@@ -35,7 +36,8 @@
       "import": "./automations/index.js",
       "default": "./automations/index.js"
     },
-    "./automations/catalog/*.json": "./automations/catalog/*.json",
+    "./automations/catalog/*": "./automations/catalog/*",
+    "./automations/catalog.schema.json": "./automations/catalog.schema.json",
     "./integrations": {
       "types": "./integrations/index.d.ts",
       "import": "./integrations/index.js",
@@ -50,6 +52,7 @@
     "./skills/*": "./skills/*",
     "./plugins/*": "./plugins/*",
     "./marketplaces/*.json": "./marketplaces/*.json",
+    "./testing/automations/*.json": "./tests/fixtures/automations/*.json",
     "./package.json": "./package.json"
   }
 }

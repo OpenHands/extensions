@@ -1,20 +1,23 @@
-import github_pr_reviewer from "./catalog/github-pr-reviewer.json" with { type: "json" };
-import github_repo_monitor from "./catalog/github-repo-monitor.json" with { type: "json" };
-import slack_standup_digest from "./catalog/slack-standup-digest.json" with { type: "json" };
-import slack_channel_monitor from "./catalog/slack-channel-monitor.json" with { type: "json" };
-import linear_triage_assistant from "./catalog/linear-triage-assistant.json" with { type: "json" };
-import research_brief_writer from "./catalog/research-brief-writer.json" with { type: "json" };
-import incident_retrospective_drafter from "./catalog/incident-retrospective-drafter.json" with { type: "json" };
-import jira_issue_to_pr from "./catalog/jira-issue-to-pr.json" with { type: "json" };
+/**
+ * Runtime automation catalog.
+ *
+ * The source of truth is the hand-authored `automations/catalog/<id>/manifest.json`
+ * directory. `catalog-index.js` is generated from that directory so the JS
+ * package can statically import each JSON file without an aggregate JSON asset.
+ */
+import { AUTOMATION_CATALOG_ENTRIES } from "./catalog-index.js";
 
-export const AUTOMATION_CATALOG = [
-  github_pr_reviewer,
-  github_repo_monitor,
-  slack_standup_digest,
-  slack_channel_monitor,
-  linear_triage_assistant,
-  research_brief_writer,
-  incident_retrospective_drafter,
-  jira_issue_to_pr,
-];
+const clone = (value) => JSON.parse(JSON.stringify(value));
+const AUTOMATIONS = AUTOMATION_CATALOG_ENTRIES;
+const AUTOMATION_BY_ID = new Map(AUTOMATIONS.map((entry) => [entry.id, entry]));
+
+export const listAutomationCatalog = () => clone(AUTOMATIONS);
+
+export const getAutomationCatalogEntry = (id) => {
+  const entry = AUTOMATION_BY_ID.get(id);
+  return entry ? clone(entry) : undefined;
+};
+
+export const AUTOMATION_CATALOG = clone(AUTOMATIONS);
+
 export default AUTOMATION_CATALOG;

@@ -39,6 +39,19 @@ def _catalog_entries() -> list[dict]:
     )
 
 
+def _python_entries(
+    mcp: bool | None = None,
+    oauth: bool | None = None,
+) -> list[dict]:
+    """Catalog entries as seen through the supported Python model API."""
+    return [
+        model.model_dump(exclude_none=True)
+        for model in openhands_extensions.list_integration_catalog_models(
+            mcp=mcp, oauth=oauth
+        )
+    ]
+
+
 def _supports_mcp(entry: dict) -> bool:
     return any(option.get("provider") == "mcp" for option in entry["connectionOptions"])
 
@@ -84,8 +97,8 @@ def test_python_snapshot_is_built_from_catalog_directory() -> None:
     }
 
 
-def test_python_list_integration_catalog_returns_raw_entries() -> None:
-    entries = openhands_extensions.list_integration_catalog()
+def test_python_catalog_models_expose_no_derived_fields() -> None:
+    entries = _python_entries()
     assert entries == _catalog_entries()
     for entry in entries:
         assert "supportsMcp" not in entry
@@ -99,8 +112,14 @@ def test_python_list_integration_catalog_returns_raw_entries() -> None:
         assert "runtimeAvailability" not in entry
 
 
+def test_raw_dict_accessors_were_removed_in_0_12_0() -> None:
+    # Deprecated in 0.10.0, removed in 0.12.0. The typed model API replaces them.
+    assert not hasattr(openhands_extensions, "list_integration_catalog")
+    assert not hasattr(openhands_extensions, "get_integration_catalog_entry")
+
+
 def test_python_list_integration_catalog_models_returns_typed_entries() -> None:
-    entries = openhands_extensions.list_integration_catalog()
+    entries = _catalog_entries()
     models = openhands_extensions.list_integration_catalog_models()
 
     assert [model.model_dump(exclude_none=True) for model in models] == entries
@@ -189,7 +208,7 @@ def test_catalog_models_require_connectability_and_install_metadata() -> None:
 
 
 def test_logo_metadata_is_serializable_and_language_agnostic() -> None:
-    entries = openhands_extensions.list_integration_catalog()
+    entries = _python_entries()
     with_logo = [entry for entry in entries if entry.get("logoUrl")]
     assert with_logo
     assert any(entry["id"].startswith("cloudflare-") for entry in with_logo)
@@ -199,16 +218,14 @@ def test_logo_metadata_is_serializable_and_language_agnostic() -> None:
         assert "react" not in entry["logoUrl"].lower()
 
 
-def test_get_integration_catalog_entry_round_trip() -> None:
-    sample_id = openhands_extensions.list_integration_catalog()[0]["id"]
-    sample = openhands_extensions.get_integration_catalog_entry(sample_id)
+def test_get_integration_catalog_entry_model_round_trip() -> None:
+    sample_id = _python_entries()[0]["id"]
+    sample = openhands_extensions.get_integration_catalog_entry_model(sample_id)
     assert sample is not None
-    assert sample == next(
-        entry
-        for entry in openhands_extensions.list_integration_catalog()
-        if entry["id"] == sample_id
+    assert sample.model_dump(exclude_none=True) == next(
+        entry for entry in _python_entries() if entry["id"] == sample_id
     )
-    assert openhands_extensions.get_integration_catalog_entry("nope") is None
+    assert openhands_extensions.get_integration_catalog_entry_model("nope") is None
 
 
 def _js_call(expr: str) -> str:
@@ -227,16 +244,16 @@ def test_js_reads_the_same_catalog_as_python() -> None:
         "import { listIntegrationCatalog } from './integrations/index.js';\n"
         "process.stdout.write(JSON.stringify(listIntegrationCatalog()));"
     )
-    assert json.loads(integrations) == openhands_extensions.list_integration_catalog()
+    assert json.loads(integrations) == _python_entries()
 
-    sample_id = openhands_extensions.list_integration_catalog()[0]["id"]
+    sample_id = _python_entries()[0]["id"]
     sample = _js_call(
         "import { getIntegrationCatalogEntry } from './integrations/index.js';\n"
         f"process.stdout.write(JSON.stringify(getIntegrationCatalogEntry({json.dumps(sample_id)})));"
     )
-    assert json.loads(sample) == openhands_extensions.get_integration_catalog_entry(
-        sample_id
-    )
+    entry_model = openhands_extensions.get_integration_catalog_entry_model(sample_id)
+    assert entry_model is not None
+    assert json.loads(sample) == entry_model.model_dump(exclude_none=True)
 
 
 def _js_filter(mcp, oauth) -> list[str]:
@@ -249,74 +266,51 @@ def _js_filter(mcp, oauth) -> list[str]:
 
 
 def test_filter_mcp_only() -> None:
-    py_ids = {e["id"] for e in openhands_extensions.list_integration_catalog(mcp=True)}
+    py_ids = {e["id"] for e in _python_entries(mcp=True)}
     js_ids = set(_js_filter("true", "undefined"))
-    all_mcp = {
-        e["id"]
-        for e in openhands_extensions.list_integration_catalog()
-        if _supports_mcp(e)
-    }
+    all_mcp = {e["id"] for e in _python_entries() if _supports_mcp(e)}
     assert py_ids == js_ids == all_mcp
     assert "filesystem" in py_ids
 
 
 def test_filter_oauth_only() -> None:
-    py_ids = {
-        e["id"] for e in openhands_extensions.list_integration_catalog(oauth=True)
-    }
+    py_ids = {e["id"] for e in _python_entries(oauth=True)}
     js_ids = set(_js_filter("undefined", "true"))
-    all_oauth = {
-        e["id"]
-        for e in openhands_extensions.list_integration_catalog()
-        if _supports_oauth(e)
-    }
+    all_oauth = {e["id"] for e in _python_entries() if _supports_oauth(e)}
     assert py_ids == js_ids == all_oauth
     assert py_ids
 
 
 def test_filter_oauth_not_mcp() -> None:
-    py_ids = {
-        e["id"]
-        for e in openhands_extensions.list_integration_catalog(oauth=True, mcp=False)
-    }
+    py_ids = {e["id"] for e in _python_entries(oauth=True, mcp=False)}
     js_ids = set(_js_filter("false", "true"))
     expected = {
         e["id"]
-        for e in openhands_extensions.list_integration_catalog()
+        for e in _python_entries()
         if _supports_oauth(e) and not _supports_mcp(e)
     }
     assert py_ids == js_ids == expected
 
 
 def test_filter_none_returns_all() -> None:
-    assert len(openhands_extensions.list_integration_catalog()) == len(
-        openhands_extensions.list_integration_catalog(mcp=None, oauth=None)
-    )
+    assert len(_python_entries()) == len(_python_entries(mcp=None, oauth=None))
 
 
 def test_accessors_return_independent_copies() -> None:
-    catalog_a = openhands_extensions.list_integration_catalog()
-    catalog_b = openhands_extensions.list_integration_catalog()
-    assert catalog_a == catalog_b
-    assert catalog_a is not catalog_b
-    catalog_a[0]["__mutated"] = True
-    assert "__mutated" not in openhands_extensions.list_integration_catalog()[0]
+    models_a = openhands_extensions.list_integration_catalog_models()
+    models_b = openhands_extensions.list_integration_catalog_models()
+    assert models_a == models_b
+    assert models_a[0] is not models_b[0]
 
-    sample_id = openhands_extensions.list_integration_catalog()[0]["id"]
-    sample = openhands_extensions.get_integration_catalog_entry(sample_id)
-    assert sample is not None
-    sample["__mutated"] = True
-    assert "__mutated" not in openhands_extensions.get_integration_catalog_entry(
-        sample_id
-    )
-
+    # Mutating the exported snapshot must not leak into the cached catalog.
+    # The models forbid extra fields, so a leak surfaces as a validation error.
     snapshot = openhands_extensions.INTEGRATION_CATALOG_SNAPSHOT
     snapshot["integrations"][0]["__mutated"] = True
-    assert "__mutated" not in openhands_extensions.list_integration_catalog()[0]
+    assert "__mutated" not in _python_entries()[0]
 
 
 def test_js_accessors_return_independent_copies() -> None:
-    sample_id = openhands_extensions.list_integration_catalog()[0]["id"]
+    sample_id = _python_entries()[0]["id"]
     expr = f"""
         import {{
           INTEGRATION_CATALOG,
@@ -342,11 +336,7 @@ def test_js_accessors_return_independent_copies() -> None:
 
 
 def test_oauth_config_lives_on_connection_options() -> None:
-    oauth_entries = [
-        entry
-        for entry in openhands_extensions.list_integration_catalog()
-        if _supports_oauth(entry)
-    ]
+    oauth_entries = [entry for entry in _python_entries() if _supports_oauth(entry)]
     assert oauth_entries
     for entry in oauth_entries:
         assert "registrationDefaults" not in entry
