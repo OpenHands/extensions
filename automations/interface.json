@@ -1,0 +1,72 @@
+{
+  "version": "1.0",
+  "routes": {
+    "list": "/automations",
+    "setup": "/automations/new/:automationId",
+    "detail": "/automations/:automationId"
+  },
+  "navigation": {
+    "sidebar": { "label": "Automate" },
+    "commandMenu": {
+      "title": "Automations",
+      "description": "Review scheduled and webhook automations.",
+      "keywords": "automate cron schedule webhook jobs"
+    }
+  },
+  "pages": {
+    "list": {
+      "title": "Automations",
+      "subtitle": "View active and inactive automations, search by metadata, and inspect read-only details."
+    },
+    "detail": { "backLabel": "Back to Automations" }
+  },
+  "docsUrl": "https://docs.openhands.dev/openhands/usage/automations/overview",
+  "edit": {
+    "title": "Edit automation",
+    "fields": {
+      "name": { "type": "text", "label": "Name", "required": true },
+      "prompt": {
+        "type": "textarea",
+        "label": "Prompt",
+        "help": "Edits apply to future runs only.",
+        "required": false
+      },
+      "model": { "type": "llm-profile", "label": "LLM profile", "required": false },
+      "timeout": {
+        "type": "number",
+        "label": "Timeout (seconds)",
+        "help": "Maximum time a single run may take. Leave empty for the default of 600 seconds (10 minutes); maximum 1800 seconds (30 minutes).",
+        "required": false,
+        "constraints": { "min": 1, "max": 1800 }
+      },
+      "schedule": { "type": "schedule", "label": "Frequency", "required": false }
+    }
+  },
+  "importExport": {
+    "fileKind": "automation",
+    "fileVersion": 1,
+    "filenameSuffix": ".automation.json",
+    "importDefaults": {
+      "repoProvider": "github",
+      "placeholderEventSource": "agent-canvas-import"
+    }
+  },
+  "endpoints": {
+    "list": "/v1",
+    "detail": "/v1/{id}",
+    "dispatch": "/v1/{id}/dispatch",
+    "runs": "/v1/{id}/runs",
+    "tarball": "/v1/{id}/tarball",
+    "health": "/health",
+    "capabilities": "/v1/capabilities",
+    "validate": "/v1/validate",
+    "createPrompt": "/v1/preset/prompt",
+    "createPlugin": "/v1/preset/plugin"
+  },
+  "featuredAutomationIds": [
+    "github-pr-reviewer",
+    "github-repo-monitor",
+    "slack-channel-monitor"
+  ],
+  "responderIntegrationIds": ["github", "slack"]
+}

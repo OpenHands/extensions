@@ -68,7 +68,7 @@
           "$ref": "#/$defs/templateValue"
         },
         "message": {
-          "description": "assisted only. Setup context handed to the agent conversation that finishes setup. The command that opens it comes from the skill, so it is not repeated here. Capped so this never becomes a channel for runtime instructions.",
+          "description": "Setup context handed to the agent conversation that finishes setup. Required for assisted mode. Optional for direct mode, where it seeds the fallback conversation the host offers when the deployment cannot run the direct path. The command that opens it comes from the skill, so it is not repeated here. Capped so this never becomes a channel for runtime instructions.",
           "allOf": [{ "$ref": "#/$defs/templateCopy" }, { "maxLength": 2000 }]
         }
       },
@@ -79,8 +79,7 @@
             "required": ["mode"]
           },
           "then": {
-            "required": ["prompt"],
-            "not": { "required": ["message"] }
+            "required": ["prompt"]
           }
         },
         {

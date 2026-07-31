@@ -77,6 +77,7 @@
         }
       }
     },
-    "prompt": "Review pull requests labeled '{{form.triggerLabel}}' in {{form.repository}}. Review tone: {{form.reviewTone}}."
+    "prompt": "Review pull requests labeled '{{form.triggerLabel}}' in {{form.repository}}. Review tone: {{form.reviewTone}}.",
+    "message": "This deployment cannot run the scheduled review automation directly. Set it up in this conversation instead: confirm the repository to review, the trigger label, the review tone, and the polling schedule, then create the automation."
   }
 }

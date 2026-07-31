@@ -77,6 +77,7 @@
       }
     },
     "prompt": "A comment in {{form.repository}} mentions '{{form.triggerPhrase}}'. Read the surrounding issue or pull request context from the event payload, then post a helpful reply as a comment on the same thread.",
-    "filter": "icontains(comment.body, '{{form.triggerPhrase}}') && glob(repository.full_name, '{{form.repository}}')"
+    "filter": "icontains(comment.body, '{{form.triggerPhrase}}') && glob(repository.full_name, '{{form.repository}}')",
+    "message": "This deployment cannot run the webhook-driven monitor directly. Set it up in this conversation instead: confirm the repository to watch, the comment event, and the trigger phrase, then create the automation. If webhook delivery is unavailable here, build the polling variant this skill supports."
   }
 }

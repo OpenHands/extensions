@@ -9,6 +9,8 @@ uploaded to the automations service as a `.tar.gz`, belongs in the same director
 catalog/<id>/manifest.json   one automation per directory - card metadata plus an optional `setup` block
 catalog.schema.json          the contract, JSON Schema draft 2020-12
 catalog-index.js             generated from catalog/ - do not edit by hand
+interface.json               the production Automation interface manifest - domain-level, not per-entry
+interface.schema.json        its contract, JSON Schema draft 2020-12
 index.js                     the stable API for Node.js and bundlers
 index.d.ts                   the public TypeScript shape
 ```
@@ -117,6 +119,11 @@ An assisted entry declares no triggers, because the trigger is settled during th
 - **`mode: "assisted"`** declares a `message`: setup context handed to an agent conversation that finishes
   the job. The command that opens that conversation comes from the skill, so it is not repeated here.
 
+A direct entry may also declare a `message`. It is the seed for the fallback conversation the host offers
+when the deployment cannot run the direct path - a deployment whose capabilities lack the entry's trigger
+kind or required features. The same 2000-character cap applies, and because the fallback fires before the
+form is trustworthy, a direct `message` should not reference `{{form.*}}`.
+
 A form field is named after the property it fills. `schedule` and `timezone` under `triggers.cron` become
 `trigger.schedule` and `trigger.timezone`; `on` under `triggers.event` becomes `trigger.on`; a field named
 `ref` becomes `repos[].ref`. Any other field under a trigger kind, such as a phrase to match, is an input
@@ -162,6 +169,44 @@ a webhook variant is out of scope, while its `setup` block creates the webhook f
 supports. Both statements are accurate about their own generation. Retiring the skill path for entries that
 ship a `setup` block belongs to whoever promotes this to production.
 
+## The interface manifest (`interface.json`)
+
+The catalog states what varies per automation. `interface.json` states the domain-level facts of the
+production Automation interface - the things that vary between *domains* (automations today, another
+extension surface tomorrow) rather than between entries, so each is stated once rather than eight times.
+Agent Canvas keeps its rendering components and reads every automation-specific datum from this file,
+falling back to its built-in defaults when the manifest is absent or fails admission:
+
+- **`routes`** - the list, setup, and detail routes. The host must have a registration serving each
+  declared shape, so admission verifies they match what it mounted; the manifest is the single source for
+  link construction.
+- **`navigation`** - the sidebar entry and the command-menu entry.
+- **`pages`** - page-identity copy: the list title and subtitle, the detail back label. Generic chrome -
+  buttons, toasts, empty states, validation sentences - stays host copy, rendered through the host's
+  translations.
+- **`docsUrl`** - the automations documentation link, prefix-pinned to docs.openhands.dev by schema.
+- **`edit`** - which Automation properties the edit dialog offers, keyed by the property each field edits
+  (`name`, `prompt`, `model`, `timeout`, `schedule`), with labels, help, and numeric bounds. `schedule` is
+  a semantic type: the host owns the frequency/weekday/time composite it renders, as it owns the setup
+  form's `cron` type.
+- **`importExport`** - the export file envelope (`kind`, `version`, filename suffix) and the two facts an
+  import cannot derive from the file: the provider inferred for short repository URLs, and the placeholder
+  event source that keeps a half-imported automation inert until its real trigger is applied.
+- **`endpoints`** - service-relative paths the host calls. Relative paths only: the base path, methods,
+  headers, and auth remain the host's, so this cannot express a request to anywhere the host did not
+  choose. `{id}` marks where the host substitutes the automation id.
+- **`featuredAutomationIds`** / **`responderIntegrationIds`** - the catalog entries the list page surfaces
+  as proven, and the integrations whose automations get the responder deployment-choice dialog.
+
+`interface.schema.json` is the authoritative contract, under the same trust rules as the catalog: no
+markup in copy, no free-form URLs, closed key sets, no credentials. This narrowly reverses the `routes`
+and `submit` deletions recorded below **at the domain level only** - per-entry data still follows the
+deletion table.
+
+Changing a route or endpoint here still requires a host release that serves the declared shape, so the
+Distribution open question applies unchanged. The contract fixtures pin `/v1/preset/prompt` as the create
+endpoint; changing `endpoints.createPrompt` must regenerate them in the same release.
+
 ## Contract fixtures
 
 The fixtures are independent test vectors, not part of the runtime catalog. They live in
@@ -201,11 +246,12 @@ Two findings came out of that check and are baked into the entries:
 | Endpoint | Status |
 | --- | --- |
 | `POST /v1/preset/prompt` | Exists |
-| `GET /v1/capabilities` | Does not exist. Defining it is OpenHands/automation#262 |
-| `POST /v1/validate` | Does not exist. Defining it is OpenHands/automation#262 |
+| `GET /v1/capabilities` | Exists (OpenHands/automation#270) |
+| `POST /v1/validate` | Exists (OpenHands/automation#270) |
 
-None of these appear in a manifest. They are the host's, which is why settling on different paths changes
-no catalog entry at all.
+None of these appear in a catalog entry. Their service-relative paths are stated once, in
+`interface.json`'s `endpoints` block, which is why settling on different paths changes no catalog entry at
+all.
 
 ## Deviations from the project reference document
 
@@ -217,7 +263,7 @@ questions to this work. What changed and why:
 | A separate manifest file per automation | Merged into the catalog entry as `setup`, so there is one hand-authored record per automation and nothing to keep in sync. |
 | `prompt` | Removed. It duplicated the slash command already declared in the skill's `triggers:` frontmatter. The entry names the `skill` instead, defaulting to `id`, and the command is looked up from the skills catalog. |
 | `requiredIntegrationIds` | Removed. It duplicated the integration ids in `requires`, which now sits on the entry so every automation carries them once. |
-| `routes` | Removed. The only route is `/automations/new/<id>`. |
+| `routes` | Removed from entries. The route table is a domain-level fact, stated once in `interface.json`. |
 | `capabilities` | Removed. The discovery call is the same for every automation, and the block's only entry-specific content was a feature list, now `requires.features`. |
 | `capabilities.bindings` | Removed. The `cron` and `timezone` field types tell the host to resolve the deployment's limits on their own. |
 | `requires.secrets` | Removed. An automation that needs GitHub declares the GitHub integration; the credential comes with the connection rather than being asked for twice. |
@@ -227,7 +273,7 @@ questions to this work. What changed and why:
 | `form.fields` | Split into `form.triggers` and `form.args`, and both keyed by field name so the name is the key rather than a repeated property. |
 | `validation` | Removed. The preflight call has the same shape for every automation, and the payload-path mapping is recovered by walking `payload`. |
 | `review` | Removed. The confirmation screen is the declared fields and their labels. |
-| `submit` | Reduced to the parts that vary: `prompt` and, for an event trigger, `filter` for direct; `message` for assisted. The action, endpoint, success navigation, and error handling are identical everywhere. |
+| `submit` | Reduced to the parts that vary: `prompt` and, for an event trigger, `filter` for direct; `message` for assisted (and, on direct entries, as the fallback-conversation seed). The action, success navigation, and error handling are identical everywhere; the endpoints are domain-level and live in `interface.json`. |
 | `submit.payload` | Removed. `name`, `repos` and `trigger` all restated the form, so they are rebuilt from it. What is left is the prompt and the event filter. |
 | `analytics` | Removed. The same stages fire for every automation, so they belong in shared host code. |
 | `workflow.steps` | Removed. It restated which keys were present, creating a second source of truth that could contradict the file. |
@@ -253,6 +299,8 @@ Recorded rather than resolved, because they need an owner outside this contract:
   related fields onto one line, which reads better; if that matters, it is a host concern, not an entry's.
 - **Assisted-setup completion.** The assisted flow ends at a conversation, so the host cannot emit a
   completion event. Until something reports back, the ratio of direct to assisted setup is not measurable.
-- **Edit and delete routes.** Only the `new` route is modelled here.
+- **Delete confirmation and per-run views.** `interface.json` models the list, setup, and detail routes
+  and the edit dialog's fields; deletion, run logs, and the dashboard sub-pages remain host-owned surfaces
+  with no manifest data of their own yet.
 - **Types from the schema.** `index.d.ts` is hand-written and mirrors `catalog.schema.json`. Generating it
   would remove that second source of truth.

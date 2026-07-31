@@ -38,6 +38,8 @@
     },
     "./automations/catalog/*": "./automations/catalog/*",
     "./automations/catalog.schema.json": "./automations/catalog.schema.json",
+    "./automations/interface.json": "./automations/interface.json",
+    "./automations/interface.schema.json": "./automations/interface.schema.json",
     "./integrations": {
       "types": "./integrations/index.d.ts",
       "import": "./integrations/index.js",
