@@ -6,6 +6,7 @@
  * package can statically import each JSON file without an aggregate JSON asset.
  */
 import { AUTOMATION_CATALOG_ENTRIES } from "./catalog-index.js";
+import interfaceManifest from "./interface.json" with { type: "json" };
 
 const clone = (value) => JSON.parse(JSON.stringify(value));
 const AUTOMATIONS = AUTOMATION_CATALOG_ENTRIES;
@@ -19,5 +20,11 @@ export const getAutomationCatalogEntry = (id) => {
 };
 
 export const AUTOMATION_CATALOG = clone(AUTOMATIONS);
+
+/**
+ * The production Automation interface manifest: the domain-level facts of the
+ * interface, hand-authored in `automations/interface.json`.
+ */
+export const AUTOMATION_INTERFACE = clone(interfaceManifest);
 
 export default AUTOMATION_CATALOG;

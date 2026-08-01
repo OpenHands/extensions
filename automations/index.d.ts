@@ -104,9 +104,130 @@ export interface AutomationSetup {
   prompt?: string;
   /** direct only, event trigger only. Which delivered events belong to it. */
   filter?: string;
-  /** assisted only. Setup context for the conversation that finishes setup. */
+  /**
+   * Setup context for the conversation that finishes setup. Required for
+   * assisted mode. Optional for direct mode, where it seeds the fallback
+   * conversation offered when the deployment cannot run the direct path.
+   */
   message?: string;
 }
+
+/**
+ * The production Automation interface manifest.
+ *
+ * Mirrors `automations/interface.schema.json`, which is authoritative. The
+ * catalog states what varies per automation; this states the domain-level
+ * facts of the interface itself: routes, navigation, page-identity copy, the
+ * settable attributes of an automation, the import/export envelope, the
+ * service-relative endpoints, and the featured and responder id lists. The
+ * host validates it at admission and falls back to its built-in defaults when
+ * it is absent or rejected.
+ */
+
+export interface AutomationInterfaceRoutes {
+  list: string;
+  /** Carries the `:automationId` segment the host substitutes. */
+  setup: string;
+  /** Carries the `:automationId` segment the host substitutes. */
+  detail: string;
+}
+
+export interface AutomationInterfaceNavigation {
+  sidebar: { label: string };
+  commandMenu: { title: string; description: string; keywords: string };
+}
+
+export interface AutomationInterfacePages {
+  list: { title: string; subtitle: string };
+  detail: { backLabel: string };
+  edit: { title: string };
+}
+
+export type AutomationAttributeType =
+  | "text"
+  | "textarea"
+  | "number"
+  | "llm-profile"
+  | "schedule";
+
+/** The closed set of runtime-model properties a client may offer for setting. */
+export type AutomationAttributeName =
+  | "name"
+  | "prompt"
+  | "model"
+  | "timeout"
+  | "schedule";
+
+export interface AutomationAttributeConstraints {
+  min?: number;
+  max?: number;
+}
+
+/** How one settable attribute of an existing Automation is offered. */
+export interface AutomationAttribute {
+  type: AutomationAttributeType;
+  label: string;
+  help?: string;
+  required: boolean;
+  /** Only a `number` attribute carries constraints. */
+  constraints?: AutomationAttributeConstraints;
+}
+
+/**
+ * The input surface of an existing Automation, keyed by the runtime-model
+ * property the host sends. How a client offers these - Agent Canvas renders
+ * an edit dialog - is the client's choice, not stated here.
+ */
+export type AutomationInterfaceAttributes = Partial<
+  Record<AutomationAttributeName, AutomationAttribute>
+>;
+
+export interface AutomationImportDefaults {
+  /** Provider inferred for short owner/repo repository URLs on import. */
+  repoProvider: AutomationGitProvider;
+  /** Event source of the placeholder trigger that keeps an import inert. */
+  placeholderEventSource: string;
+}
+
+export interface AutomationInterfaceImportExport {
+  fileKind: string;
+  fileVersion: 1;
+  filenameSuffix: string;
+  importDefaults: AutomationImportDefaults;
+}
+
+/**
+ * Service-relative paths the host calls. Relative paths only: the base path,
+ * methods, headers, and auth remain the host's. `{id}` marks where the host
+ * substitutes the automation id.
+ */
+export interface AutomationInterfaceEndpoints {
+  list: string;
+  detail: string;
+  dispatch: string;
+  runs: string;
+  tarball: string;
+  health: string;
+  capabilities: string;
+  validate: string;
+  createPrompt: string;
+  createPlugin: string;
+}
+
+export interface AutomationInterfaceManifest {
+  version: "1.0";
+  routes: AutomationInterfaceRoutes;
+  navigation: AutomationInterfaceNavigation;
+  pages: AutomationInterfacePages;
+  docsUrl: string;
+  attributes: AutomationInterfaceAttributes;
+  importExport: AutomationInterfaceImportExport;
+  endpoints: AutomationInterfaceEndpoints;
+  featuredAutomationIds: string[];
+  responderIntegrationIds: string[];
+}
+
+export const AUTOMATION_INTERFACE: AutomationInterfaceManifest;
 
 export const AUTOMATION_CATALOG: RecommendedAutomation[];
 /**
