@@ -10,6 +10,11 @@ package.json     # "start" script; the app listens on $OPENHANDS_SKIN_PORT
 automations/     # optional exported automations (definition + code)
 ```
 
+The Canvas host reverse-proxies `/skin/*` to the app **verbatim** and also
+serves the skin at `/` (the instance's front page). The app must serve its
+UI at `/skin/` (index.html with `<base href="/skin/">` + static assets)
+and its own backend endpoints at `/skin/api/*` on `$OPENHANDS_SKIN_PORT`.
+
 The [Agent Canvas Manager](https://github.com/OpenHands/app-acm) renders
 this list as its marketplace: pick a skin when creating an instance and
 the new instance boots with that skin installed. Skin repos may be
