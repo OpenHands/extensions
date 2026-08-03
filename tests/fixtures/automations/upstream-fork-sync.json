@@ -1,0 +1,223 @@
+{
+  "automationId": "upstream-fork-sync",
+  "description": "Direct scheduled setup. Every create request body below is verified against the live CreatePromptAutomationRequest model in OpenHands/automation (openhands/automation/preset_router.py).",
+  "capabilities": "supported",
+  "blockedBy": [
+    "notReady"
+  ],
+  "scenarios": [
+    {
+      "id": "happy-path",
+      "description": "Defaults plus a repository, a description of the local changes, and a verify command. Preflight passes, the automation is created.",
+      "formValues": {
+        "repository": "OpenHands/agent-server-gui",
+        "upstreamRemote": "",
+        "localChanges": "high-contrast UI theme",
+        "verifyCommand": "make test",
+        "schedule": "0 3 * * *",
+        "timezone": "UTC"
+      },
+      "preflight": {
+        "request": {
+          "method": "POST",
+          "path": "/v1/validate",
+          "body": {
+            "automationId": "upstream-fork-sync",
+            "endpoint": "/v1/preset/prompt",
+            "draft": {
+              "name": "Upstream fork sync - OpenHands/agent-server-gui",
+              "prompt": "Fetch the latest upstream changes for the fork OpenHands/agent-server-gui and rebase all local changes on top of upstream. Local changes to preserve: high-contrast UI theme. Check that the software works as intended; if it does, replace the current version, otherwise leave the running version untouched and report what failed.",
+              "repos": [
+                {
+                  "url": "OpenHands/agent-server-gui",
+                  "provider": "github"
+                }
+              ],
+              "trigger": {
+                "type": "cron",
+                "schedule": "0 3 * * *",
+                "timezone": "UTC"
+              }
+            }
+          }
+        },
+        "response": {
+          "status": 200,
+          "body": {
+            "valid": true,
+            "errors": []
+          }
+        }
+      },
+      "create": {
+        "request": {
+          "method": "POST",
+          "path": "/v1/preset/prompt",
+          "body": {
+            "name": "Upstream fork sync - OpenHands/agent-server-gui",
+            "prompt": "Fetch the latest upstream changes for the fork OpenHands/agent-server-gui and rebase all local changes on top of upstream. Local changes to preserve: high-contrast UI theme. Check that the software works as intended; if it does, replace the current version, otherwise leave the running version untouched and report what failed.",
+            "repos": [
+              {
+                "url": "OpenHands/agent-server-gui",
+                "provider": "github"
+              }
+            ],
+            "trigger": {
+              "type": "cron",
+              "schedule": "0 3 * * *",
+              "timezone": "UTC"
+            }
+          }
+        },
+        "response": {
+          "status": 201,
+          "body": {
+            "id": "9a2c7b15-3c4d-4e5f-8a1b-4c9d0e1f2a33",
+            "user_id": "1a2b3c4d-0000-4000-8000-000000000001",
+            "org_id": "1a2b3c4d-0000-4000-8000-000000000002",
+            "model": null,
+            "name": "Upstream fork sync - OpenHands/agent-server-gui",
+            "prompt": "Fetch the latest upstream changes for the fork OpenHands/agent-server-gui and rebase all local changes on top of upstream. Local changes to preserve: high-contrast UI theme. Check that the software works as intended; if it does, replace the current version, otherwise leave the running version untouched and report what failed.",
+            "trigger": {
+              "type": "cron",
+              "schedule": "0 3 * * *",
+              "timezone": "UTC"
+            },
+            "tarball_path": "oh-internal://uploads/7e1b2c30-9f23-5b66-c2e3-7df1b4c5a990",
+            "setup_script_path": "setup.sh",
+            "entrypoint": ".venv/bin/python main.py",
+            "timeout": 600,
+            "keep_alive": null,
+            "enabled": true,
+            "last_triggered_at": null,
+            "created_at": "2026-08-03T12:00:00Z",
+            "updated_at": "2026-08-03T12:00:00Z"
+          }
+        }
+      }
+    },
+    {
+      "id": "interval-below-deployment-minimum",
+      "description": "A one-minute schedule. The create model accepts it, so only the deployment can reject it - this is precisely why preflight exists and why local validation is not authoritative.",
+      "formValues": {
+        "repository": "OpenHands/agent-server-gui",
+        "upstreamRemote": "",
+        "localChanges": "high-contrast UI theme",
+        "verifyCommand": "make test",
+        "schedule": "*/1 * * * *",
+        "timezone": "UTC"
+      },
+      "preflight": {
+        "request": {
+          "method": "POST",
+          "path": "/v1/validate",
+          "body": {
+            "automationId": "upstream-fork-sync",
+            "endpoint": "/v1/preset/prompt",
+            "draft": {
+              "name": "Upstream fork sync - OpenHands/agent-server-gui",
+              "prompt": "Fetch the latest upstream changes for the fork OpenHands/agent-server-gui and rebase all local changes on top of upstream. Local changes to preserve: high-contrast UI theme. Check that the software works as intended; if it does, replace the current version, otherwise leave the running version untouched and report what failed.",
+              "repos": [
+                {
+                  "url": "OpenHands/agent-server-gui",
+                  "provider": "github"
+                }
+              ],
+              "trigger": {
+                "type": "cron",
+                "schedule": "*/1 * * * *",
+                "timezone": "UTC"
+              }
+            }
+          }
+        },
+        "response": {
+          "status": 200,
+          "body": {
+            "valid": false,
+            "errors": [
+              {
+                "field": "trigger.schedule",
+                "code": "interval_too_short",
+                "message": "Minimum interval for this deployment is 5 minutes."
+              }
+            ]
+          }
+        }
+      },
+      "expectedFieldErrors": {
+        "schedule": "Minimum interval for this deployment is 5 minutes."
+      }
+    },
+    {
+      "id": "unfireable-cron-rejected-at-create",
+      "description": "31 February. Syntactically valid, so a local check passes, but the service rejects it. Shows the real 422 body: detail is a list and the loc path carries the trigger discriminator tag.",
+      "formValues": {
+        "repository": "OpenHands/agent-server-gui",
+        "upstreamRemote": "",
+        "localChanges": "high-contrast UI theme",
+        "verifyCommand": "make test",
+        "schedule": "0 0 31 2 *",
+        "timezone": "UTC"
+      },
+      "create": {
+        "request": {
+          "method": "POST",
+          "path": "/v1/preset/prompt",
+          "body": {
+            "name": "Upstream fork sync - OpenHands/agent-server-gui",
+            "prompt": "Fetch the latest upstream changes for the fork OpenHands/agent-server-gui and rebase all local changes on top of upstream. Local changes to preserve: high-contrast UI theme. Check that the software works as intended; if it does, replace the current version, otherwise leave the running version untouched and report what failed.",
+            "repos": [
+              {
+                "url": "OpenHands/agent-server-gui",
+                "provider": "github"
+              }
+            ],
+            "trigger": {
+              "type": "cron",
+              "schedule": "0 0 31 2 *",
+              "timezone": "UTC"
+            }
+          }
+        },
+        "response": {
+          "status": 422,
+          "body": {
+            "detail": [
+              {
+                "type": "value_error",
+                "loc": [
+                  "body",
+                  "trigger",
+                  "cron",
+                  "schedule"
+                ],
+                "msg": "Value error, Cron expression cannot produce any future fire times: 0 0 31 2 *"
+              }
+            ]
+          }
+        }
+      },
+      "expectedFieldErrors": {
+        "schedule": "Value error, Cron expression cannot produce any future fire times: 0 0 31 2 *"
+      }
+    },
+    {
+      "id": "fallback-conversation-when-direct-unavailable",
+      "description": "A cron-only deployment cannot run a webhook trigger, but this entry is cron-only and so runs directly; the assisted message seeds the conversation when the deployment is not ready.",
+      "formValues": {
+        "repository": "OpenHands/agent-server-gui",
+        "upstreamRemote": "",
+        "localChanges": "high-contrast UI theme",
+        "verifyCommand": "make test",
+        "schedule": "0 3 * * *",
+        "timezone": "UTC"
+      },
+      "conversation": {
+        "request": {
+          "message": "This deployment cannot run the scheduled fork-sync automation directly. Set it up in this conversation instead: confirm the fork repository, the upstream remote, the local changes to preserve, the verification command, and the nightly schedule, then create the automation."
+        }
+      }
+    }
+  ]
+}

@@ -604,6 +604,20 @@
       ]
     },
     {
+      "name": "upstream-fork-sync",
+      "source": "./skills/upstream-fork-sync",
+      "description": "Keep a long-lived fork in sync with its upstream. Creates a cron automation that fetches upstream changes, rebases local customizations on top, verifies the software works, and replaces the running version when the rebase is clean.",
+      "category": "integration",
+      "keywords": [
+        "fork",
+        "upstream",
+        "rebase",
+        "sync",
+        "automation",
+        "long-lived-fork"
+      ]
+    },
+    {
       "name": "vercel",
       "source": "./skills/vercel",
       "description": "Deploy and manage applications on Vercel, including preview deployments and deployment protection.",
