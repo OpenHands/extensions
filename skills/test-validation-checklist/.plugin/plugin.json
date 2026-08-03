@@ -1,0 +1,19 @@
+{
+  "name": "test-validation-checklist",
+  "version": "1.0.0",
+  "description": "Checklist for validating proposed test-suite improvements against the real code before implementation.",
+  "author": {
+    "name": "OpenHands",
+    "email": "contact@all-hands.dev"
+  },
+  "homepage": "https://github.com/OpenHands/extensions",
+  "repository": "https://github.com/OpenHands/extensions",
+  "license": "MIT",
+  "keywords": [
+    "testing",
+    "validation",
+    "audit",
+    "checklist",
+    "verification"
+  ]
+}
