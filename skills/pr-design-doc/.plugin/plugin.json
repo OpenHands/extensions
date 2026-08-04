@@ -1,0 +1,20 @@
+{
+  "name": "pr-design-doc",
+  "version": "1.0.0",
+  "description": "For a non-trivial pull request, write a self-contained HTML design doc under the temporary .pr/ directory and link it in the PR description via htmlpreview, so maintainers grasp the proposal at a glance - the code/API design and the before/after of the change, grounded to real code.",
+  "author": {
+    "name": "OpenHands",
+    "email": "contact@all-hands.dev"
+  },
+  "homepage": "https://github.com/OpenHands/extensions",
+  "repository": "https://github.com/OpenHands/extensions",
+  "license": "MIT",
+  "keywords": [
+    "pull-request",
+    "design-doc",
+    "html",
+    "review",
+    "before-after",
+    "htmlpreview"
+  ]
+}
