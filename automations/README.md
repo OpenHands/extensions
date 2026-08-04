@@ -177,13 +177,26 @@ extension surface tomorrow) rather than between entries, so each is stated once 
 Agent Canvas keeps its rendering components and reads every automation-specific datum from this file,
 falling back to its built-in defaults when the manifest is absent or fails admission:
 
-- **`routes`** - the list, setup, and detail routes. The host must have a registration serving each
-  declared shape, so admission verifies they match what it mounted; the manifest is the single source for
-  link construction.
-- **`navigation`** - the sidebar entry and the command-menu entry.
+- **`routes`** - the list, setup, detail, and templates routes. The host must have a registration serving
+  each declared shape, so admission verifies they match what it mounted; the manifest is the single source
+  for link construction.
+- **`navigation`** - the sidebar entry, the command-menu entry, and `subPages`: the ordered sub-page
+  navigation rendered inside the Automation interface, each item naming a `pages` entry with a label and
+  an icon slug from the host's closed icon map.
 - **`pages`** - page-identity copy: the list title and subtitle, the detail back label, the edit-dialog
-  title. Generic chrome - buttons, toasts, empty states, validation sentences - stays host copy, rendered
-  through the host's translations.
+  title, the templates title and description. Generic chrome - buttons, toasts, empty states, validation
+  sentences - stays host copy, rendered through the host's translations.
+- **`pages.list.overview` / `filters` / `sort` / `insights`** - the list page's dashboard composition.
+  Every value here names something the host implements from a closed set, and the manifest picks and
+  captions it: `overview.tiles[].metric` names a host-computed value (`automations`, `needs-attention`,
+  `total-runs`, `average-duration`), filter option values name host predicates (`status`: enabled /
+  latest-run-failed / disabled; `trigger`: `event` matches event-triggered automations, `schedule`
+  everything else), `sort` values name host comparators, and `insights` captions the host's run-health
+  states and per-automation stats. The health precedence, the run sampling, the value formatting, the
+  relative-time rendering, and the filtered-empty state with its reset button are the host's - a manifest
+  cannot redefine them, only relabel what appears. Tile `detail` copy is plain substitution over the
+  metric's placeholder namespace (only the `automations` metric exposes `{{active}}`); `zeroDetail`
+  replaces `detail` while the value is zero.
 - **`docsUrl`** - the automations documentation link, prefix-pinned to docs.openhands.dev by schema.
 - **`attributes`** - the input surface of an existing Automation: which attributes can be set after
   creation, keyed by the runtime-model property the host sends (`name`, `prompt`, `model`, `timeout`,
@@ -300,8 +313,8 @@ Recorded rather than resolved, because they need an owner outside this contract:
   related fields onto one line, which reads better; if that matters, it is a host concern, not an entry's.
 - **Assisted-setup completion.** The assisted flow ends at a conversation, so the host cannot emit a
   completion event. Until something reports back, the ratio of direct to assisted setup is not measurable.
-- **Delete confirmation and per-run views.** `interface.json` models the list, setup, and detail routes
-  and the settable attributes; deletion, run logs, and the dashboard sub-pages remain host-owned surfaces
-  with no manifest data of their own yet.
+- **Delete confirmation and per-run views.** `interface.json` models the routes, the settable attributes,
+  and the dashboard and templates sub-pages; deletion and run logs remain host-owned surfaces with no
+  manifest data of their own yet.
 - **Types from the schema.** `index.d.ts` is hand-written and mirrors `catalog.schema.json`. Generating it
   would remove that second source of truth.

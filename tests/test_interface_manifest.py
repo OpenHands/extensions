@@ -76,6 +76,26 @@ def test_featured_automations_resolve_to_catalog_entries():
                 constraints={"max": 50}
             ),
         ),
+        (
+            "a sub-page the interface does not serve",
+            lambda doc: doc["navigation"]["subPages"][0].update(
+                page="workflows"
+            ),
+        ),
+        (
+            "an icon outside the host's icon map",
+            lambda doc: doc["navigation"]["subPages"][0].update(icon="rocket"),
+        ),
+        (
+            "tile copy using a placeholder its metric does not expose",
+            lambda doc: doc["pages"]["list"]["overview"]["tiles"][2].update(
+                detail="{{active}} runs"
+            ),
+        ),
+        (
+            "a status filter without the all option",
+            lambda doc: doc["pages"]["list"]["filters"][0]["options"].pop(0),
+        ),
     ],
 )
 def test_schema_rejects(case, mutation):

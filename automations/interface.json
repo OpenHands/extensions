@@ -3,7 +3,8 @@
   "routes": {
     "list": "/automations",
     "setup": "/automations/new/:automationId",
-    "detail": "/automations/:automationId"
+    "detail": "/automations/:automationId",
+    "templates": "/automations/templates"
   },
   "navigation": {
     "sidebar": { "label": "Automate" },
@@ -11,15 +12,99 @@
       "title": "Automations",
       "description": "Review scheduled and webhook automations.",
       "keywords": "automate cron schedule webhook jobs"
-    }
+    },
+    "subPages": [
+      { "page": "list", "label": "Dashboard", "icon": "layout-dashboard" },
+      { "page": "templates", "label": "Templates", "icon": "sparkles" }
+    ]
   },
   "pages": {
     "list": {
-      "title": "Automations",
-      "subtitle": "View active and inactive automations, search by metadata, and inspect read-only details."
+      "title": "Dashboard",
+      "subtitle": "Health, activity, and run performance across your automations.",
+      "overview": {
+        "label": "Automation overview",
+        "tiles": [
+          {
+            "metric": "automations",
+            "label": "Automations",
+            "detail": "{{active}} active",
+            "icon": "bot"
+          },
+          {
+            "metric": "needs-attention",
+            "label": "Needs attention",
+            "detail": "Latest run failed",
+            "zeroDetail": "No latest-run failures",
+            "icon": "circle-alert"
+          },
+          {
+            "metric": "total-runs",
+            "label": "Total runs",
+            "detail": "Across loaded automations",
+            "icon": "activity"
+          },
+          {
+            "metric": "average-duration",
+            "label": "Average duration",
+            "detail": "Recent completed runs",
+            "icon": "timer"
+          }
+        ]
+      },
+      "filters": [
+        {
+          "id": "status",
+          "label": "Filter by status",
+          "options": [
+            { "value": "all", "label": "All statuses" },
+            { "value": "active", "label": "Active" },
+            { "value": "failing", "label": "Needs attention" },
+            { "value": "disabled", "label": "Disabled" }
+          ]
+        },
+        {
+          "id": "trigger",
+          "label": "Filter by trigger",
+          "options": [
+            { "value": "all", "label": "All triggers" },
+            { "value": "schedule", "label": "Scheduled" },
+            { "value": "event", "label": "Event-driven" }
+          ]
+        }
+      ],
+      "sort": {
+        "label": "Sort automations",
+        "default": "last-run",
+        "options": [
+          { "value": "last-run", "label": "Latest run" },
+          { "value": "runs", "label": "Most runs" },
+          { "value": "name", "label": "Name" }
+        ]
+      },
+      "insights": {
+        "health": {
+          "healthy": "Healthy",
+          "failing": "Failing",
+          "running": "Running",
+          "disabled": "Disabled",
+          "neverRun": "Never run",
+          "checking": "Checking"
+        },
+        "lastRun": { "label": "Last run", "never": "Never", "justNow": "Just now" },
+        "stats": {
+          "runs": "Runs",
+          "recentSuccess": "Recent success",
+          "averageDuration": "Avg. duration"
+        }
+      }
     },
     "detail": { "backLabel": "Back to Automations" },
-    "edit": { "title": "Edit automation" }
+    "edit": { "title": "Edit automation" },
+    "templates": {
+      "title": "Templates",
+      "description": "Browse proven automations and beta ideas, then launch one into a conversation to tailor it to your work."
+    }
   },
   "docsUrl": "https://docs.openhands.dev/openhands/usage/automations/overview",
   "attributes": {
