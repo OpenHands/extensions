@@ -73,7 +73,8 @@ disappears on approval.
 
 6. **Build the page** per [`references/html-craft.md`](references/html-craft.md) — one
    self-contained, offline, editorial HTML file with hand-drawn SVG figures. Save it to
-   the repo's `.pr/` directory, e.g. `.pr/design.html` (or `.pr/<topic>.html`).
+   the repo's `.pr/` directory, e.g. `.pr/design.html` (or `.pr/<topic>.html`). If it
+   helps, lean on the `frontend-design` skill to make the page look polished.
 
 7. **Commit under `.pr/`, push, and link it.**
    ```bash
