@@ -26,17 +26,21 @@
       "description": "The routes of the Automation interface. The host must have a registration serving each declared shape, so admission verifies they match what it mounted; the manifest is the single source for link construction.",
       "type": "object",
       "additionalProperties": false,
-      "required": ["list", "setup", "detail"],
+      "required": ["list", "setup", "detail", "templates"],
       "properties": {
         "list": { "$ref": "#/$defs/routePath" },
         "setup": { "$ref": "#/$defs/parameterizedRoutePath" },
-        "detail": { "$ref": "#/$defs/parameterizedRoutePath" }
+        "detail": { "$ref": "#/$defs/parameterizedRoutePath" },
+        "templates": {
+          "description": "The templates sub-page. Static: there is no parameter to substitute.",
+          "allOf": [{ "$ref": "#/$defs/routePath" }, { "not": { "pattern": ":" } }]
+        }
       }
     },
     "navigation": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["sidebar", "commandMenu"],
+      "required": ["sidebar", "commandMenu", "subPages"],
       "properties": {
         "sidebar": {
           "type": "object",
@@ -53,22 +57,46 @@
             "description": { "$ref": "#/$defs/copy" },
             "keywords": { "$ref": "#/$defs/copy" }
           }
+        },
+        "subPages": {
+          "description": "The ordered sub-page navigation of the Automation interface. Each page id may appear once; the host's admission checks that, since uniqueItems cannot see through differing labels.",
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 2,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/subPageNavItem" }
         }
       }
     },
     "pages": {
-      "description": "Page-identity copy. Generic chrome - buttons, toasts, empty states, validation sentences - stays host copy, rendered through the host's translations.",
+      "description": "Page-identity copy, plus the list page's dashboard composition. Generic chrome - buttons, toasts, empty states, validation sentences - stays host copy, rendered through the host's translations.",
       "type": "object",
       "additionalProperties": false,
-      "required": ["list", "detail", "edit"],
+      "required": ["list", "detail", "edit", "templates"],
       "properties": {
         "list": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["title", "subtitle"],
+          "required": ["title", "subtitle", "overview", "filters", "sort", "insights"],
           "properties": {
             "title": { "$ref": "#/$defs/copy" },
-            "subtitle": { "$ref": "#/$defs/copy" }
+            "subtitle": { "$ref": "#/$defs/copy" },
+            "overview": { "$ref": "#/$defs/overview" },
+            "filters": {
+              "description": "The filter dropdowns of the list page, in render order. Each filter id may appear once; the host's admission checks that.",
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 2,
+              "uniqueItems": true,
+              "items": {
+                "oneOf": [
+                  { "$ref": "#/$defs/statusFilter" },
+                  { "$ref": "#/$defs/triggerFilter" }
+                ]
+              }
+            },
+            "sort": { "$ref": "#/$defs/sort" },
+            "insights": { "$ref": "#/$defs/insights" }
           }
         },
         "detail": {
@@ -82,6 +110,16 @@
           "additionalProperties": false,
           "required": ["title"],
           "properties": { "title": { "$ref": "#/$defs/copy" } }
+        },
+        "templates": {
+          "description": "The templates sub-page identity. Its body - the catalog cards and their launch behavior - is the host's existing catalog surface.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["title", "description"],
+          "properties": {
+            "title": { "$ref": "#/$defs/copy" },
+            "description": { "$ref": "#/$defs/copy" }
+          }
         }
       }
     },
@@ -238,6 +276,228 @@
       "minItems": 1,
       "uniqueItems": true,
       "items": { "type": "string", "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$" }
+    },
+    "iconSlug": {
+      "description": "An icon name from the host's closed icon map. The manifest picks from what the host ships; it cannot supply artwork.",
+      "enum": [
+        "layout-dashboard",
+        "sparkles",
+        "bot",
+        "circle-alert",
+        "activity",
+        "timer"
+      ]
+    },
+    "subPageNavItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["page", "label", "icon"],
+      "properties": {
+        "page": {
+          "description": "The pages entry this item navigates to; its route comes from routes.list or routes.templates.",
+          "enum": ["list", "templates"]
+        },
+        "label": { "$ref": "#/$defs/copy" },
+        "icon": { "$ref": "#/$defs/iconSlug" }
+      }
+    },
+    "overview": {
+      "description": "The summary tiles above the list. label names the section for assistive technology.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["label", "tiles"],
+      "properties": {
+        "label": { "$ref": "#/$defs/copy" },
+        "tiles": {
+          "description": "Each metric may appear once; the host's admission checks that.",
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 8,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/overviewTile" }
+        }
+      }
+    },
+    "overviewTile": {
+      "description": "One summary tile. The metric names a value the host computes - a tile picks and captions it, never defines it. detail is the caption under the value; zeroDetail, when present, replaces it while the value is zero. Both are plain substitution over the metric's placeholder namespace: only the automations metric exposes {{active}}, so every other tile's copy is literal.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["metric", "label", "detail", "icon"],
+      "properties": {
+        "metric": {
+          "enum": ["automations", "needs-attention", "total-runs", "average-duration"]
+        },
+        "label": { "$ref": "#/$defs/copy" },
+        "detail": { "$ref": "#/$defs/copy" },
+        "zeroDetail": { "$ref": "#/$defs/copy" },
+        "icon": { "$ref": "#/$defs/iconSlug" }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": { "metric": { "const": "automations" } },
+            "required": ["metric"]
+          },
+          "then": {
+            "properties": {
+              "detail": { "not": { "pattern": "\\{\\{(?!active\\}\\})" } },
+              "zeroDetail": { "not": { "pattern": "\\{\\{(?!active\\}\\})" } }
+            }
+          },
+          "else": {
+            "properties": {
+              "detail": { "not": { "pattern": "\\{\\{" } },
+              "zeroDetail": { "not": { "pattern": "\\{\\{" } }
+            }
+          }
+        }
+      ]
+    },
+    "statusFilter": {
+      "description": "The status filter. Values name predicates the host implements over an automation and its derived health; the manifest supplies which appear and their labels. The all option is the host's default and reset target, so it must be offered.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "label", "options"],
+      "properties": {
+        "id": { "const": "status" },
+        "label": {
+          "description": "The control's accessible name.",
+          "$ref": "#/$defs/copy"
+        },
+        "options": {
+          "description": "Each value may appear once; the host's admission checks that.",
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 8,
+          "uniqueItems": true,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["value", "label"],
+            "properties": {
+              "value": { "enum": ["all", "active", "failing", "disabled"] },
+              "label": { "$ref": "#/$defs/copy" }
+            }
+          },
+          "contains": {
+            "type": "object",
+            "required": ["value"],
+            "properties": { "value": { "const": "all" } }
+          }
+        }
+      }
+    },
+    "triggerFilter": {
+      "description": "The trigger filter. Like the status filter, values name host-implemented predicates: event matches event-triggered automations, schedule everything else.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "label", "options"],
+      "properties": {
+        "id": { "const": "trigger" },
+        "label": {
+          "description": "The control's accessible name.",
+          "$ref": "#/$defs/copy"
+        },
+        "options": {
+          "description": "Each value may appear once; the host's admission checks that.",
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 8,
+          "uniqueItems": true,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["value", "label"],
+            "properties": {
+              "value": { "enum": ["all", "schedule", "event"] },
+              "label": { "$ref": "#/$defs/copy" }
+            }
+          },
+          "contains": {
+            "type": "object",
+            "required": ["value"],
+            "properties": { "value": { "const": "all" } }
+          }
+        }
+      }
+    },
+    "sort": {
+      "description": "The sort dropdown. Values name comparators the host implements. default must be one of the declared option values; the host's admission checks that, as schemas cannot cheaply.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["label", "options", "default"],
+      "properties": {
+        "label": {
+          "description": "The control's accessible name.",
+          "$ref": "#/$defs/copy"
+        },
+        "options": {
+          "description": "Each value may appear once; the host's admission checks that.",
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 3,
+          "uniqueItems": true,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["value", "label"],
+            "properties": {
+              "value": { "$ref": "#/$defs/sortValue" },
+              "label": { "$ref": "#/$defs/copy" }
+            }
+          }
+        },
+        "default": { "$ref": "#/$defs/sortValue" }
+      }
+    },
+    "sortValue": { "enum": ["last-run", "runs", "name"] },
+    "insights": {
+      "description": "Copy for the per-automation run insights on cards and rows. The states, precedence, sampling, and value formatting are the host's; the manifest names them.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["health", "lastRun", "stats"],
+      "properties": {
+        "health": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "healthy",
+            "failing",
+            "running",
+            "disabled",
+            "neverRun",
+            "checking"
+          ],
+          "properties": {
+            "healthy": { "$ref": "#/$defs/copy" },
+            "failing": { "$ref": "#/$defs/copy" },
+            "running": { "$ref": "#/$defs/copy" },
+            "disabled": { "$ref": "#/$defs/copy" },
+            "neverRun": { "$ref": "#/$defs/copy" },
+            "checking": { "$ref": "#/$defs/copy" }
+          }
+        },
+        "lastRun": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["label", "never", "justNow"],
+          "properties": {
+            "label": { "$ref": "#/$defs/copy" },
+            "never": { "$ref": "#/$defs/copy" },
+            "justNow": { "$ref": "#/$defs/copy" }
+          }
+        },
+        "stats": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["runs", "recentSuccess", "averageDuration"],
+          "properties": {
+            "runs": { "$ref": "#/$defs/copy" },
+            "recentSuccess": { "$ref": "#/$defs/copy" },
+            "averageDuration": { "$ref": "#/$defs/copy" }
+          }
+        }
+      }
     }
   }
 }
