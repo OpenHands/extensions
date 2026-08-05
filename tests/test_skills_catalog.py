@@ -374,7 +374,7 @@ SKILL_CATEGORY_IDS = {
 SKILLS_WITHOUT_MARKETPLACE_ENTRY = {"qa-changes", "release-notes"}
 
 EXPECTED_CATEGORY_COUNTS = {
-    "environment": 10,
+    "environment": 11,
     "automations": 9,
     "code-hosting": 8,
     "agent-authoring": 8,
