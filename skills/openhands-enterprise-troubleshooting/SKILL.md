@@ -1,217 +1,147 @@
 ---
 name: openhands-enterprise-troubleshooting
-description: This skill should be used when a user reports an issue with OpenHands Enterprise (OHE) on a self-hosted (Replicated VM-based) installation. Use for diagnosing sandbox startup failures, auth issues, certificate errors, LLM connectivity problems, Keycloak login issues, Replicated Admin Console access, upgrade failures, or resource exhaustion. Helps triage symptoms, run diagnostic commands, guide through recovery steps, generate support bundles, and produce escalation handoffs.
-triggers:
-- openhands enterprise
-- OHE troubleshooting
-- openhands not working
-- sandbox failed
-- replicated admin console
-- keycloak login
-- certificate error
-- LLM connectivity
-- upgrade failed
-- support bundle
-- openhands install
+description: This skill should be used when a user asks to "troubleshoot OpenHands Enterprise", reports that "OpenHands is not working", "a sandbox failed to start", "login is broken", "the certificate expired", "the LLM connection failed", "the Replicated Admin Console is unavailable", "an OHE upgrade failed", or asks to analyze an OpenHands Enterprise support bundle on a Replicated Embedded Cluster installation.
 ---
 
 # OpenHands Enterprise Troubleshooting
 
-This skill helps diagnose and resolve common issues on OpenHands Enterprise (OHE) self-hosted installations using Replicated. It covers triage, guided recovery, support bundle generation, and escalation handoffs.
+Diagnose OpenHands Enterprise installations delivered through Replicated Embedded Cluster. Use evidence to identify the failing layer, keep the first pass read-only, and produce a support-ready handoff when recovery requires engineering or platform access.
+
+## Safety Rules
+
+1. Begin with read-only inspection. Do not restart workloads, change ConfigValues, rotate credentials, delete resources, truncate tables, roll back releases, reset nodes, or reinstall the application without explicit approval.
+2. Establish backup and storage safety before any operation that can recreate a pod or change persistent state.
+3. Never print, decode, or request private keys, API keys, passwords, access tokens, complete Kubernetes Secret values, or unredacted environment-variable dumps.
+4. Inspect Secret names and key names only. Ask the administrator to validate a credential through the product UI or provider API without sharing its value.
+5. Treat support bundles as potentially sensitive. Obtain approval before uploading a bundle and use the approved support channel.
+6. Prefer supported Replicated and KOTS workflows. Warn when a direct Kubernetes patch can be overwritten by reconciliation or an upgrade.
+7. Stop and escalate when the safe recovery path is unclear, the database or storage layer is at risk, or a command differs from the installed version's help output.
 
 ## Diagnostic Workflow
 
-When a user reports an OHE issue:
+### 1. Establish Installation Context
 
-1. **Collect symptoms** - Ask user to describe what they see, error messages, when it started
-2. **Identify failure mode** - Match symptoms to one of the common issues below
-3. **Run targeted diagnostics** - Use commands in `references/diagnostics.md`
-4. **Guide recovery** - Follow resolution steps for the identified issue
-5. **Verify fix** - Confirm the issue is resolved
-6. **Generate handoff** - If unresolved, produce a clear summary for the platform team
+Collect these facts before interpreting symptoms:
 
-## Common Failure Modes
+- OpenHands Enterprise release shown by KOTS.
+- Embedded Cluster installer and Kubernetes versions.
+- Application slug and path to the installer binary.
+- Application namespace; normally `openhands`, but verify it.
+- Failure start time, affected users, exact error, URL, conversation or automation ID, and recent install or upgrade activity.
 
-### 1. Sandbox Fails to Start / 120s Timeout
+Do not confuse the installer component version with the deployed OHE application release. Read `references/diagnostics.md#version-and-topology` and record both.
 
-**Symptoms:**
-- Conversation hangs then times out
-- "Sandbox failed to start" error
-- 120-second timeout in logs
+### 2. Separate Health Layers
 
-**Diagnosis:** Check sandbox service status, podman/docker runtime, resource availability
+Check each layer independently:
 
-**Reference:** See `references/diagnostics.md` - Section "Sandbox Startup"
+1. Host and node health: disk, memory, pressure conditions, and system services.
+2. Embedded Cluster and Admin Console health.
+3. Kubernetes workload readiness and recent events.
+4. Public DNS, TLS, ingress, and application readiness.
+5. Authentication and Keycloak.
+6. Runtime API and sandbox lifecycle.
+7. Git provider integration.
+8. LiteLLM and upstream model access.
+9. Automation or other optional services.
 
-### 2. Git Provider Auth Broken
+A successful `/ready` response proves only basic application readiness. It does not prove login, repository access, model inference, automation routing, or runtime startup.
 
-**Symptoms:**
-- "Authentication failed" for GitHub/GitLab
-- Can't clone or push repos
-- GitHub App shows as disconnected
+### 3. Match the Symptom to a Focused Path
 
-**Diagnosis:** Check gitProvider secrets in kubernetes, GitHub App installation status
+- Sandbox startup or conversation timeout: inspect runtime-api, runtime workloads, image pulls, PVCs, and capacity.
+- Login or OAuth failure: inspect OpenHands and Keycloak readiness, database health, callback routing, and browser session behavior.
+- GitHub or GitLab failure: inspect `openhands-integrations` and validate access with a credential already held by the administrator; never extract a provider token from Kubernetes.
+- Certificate failure: verify public trust, hostname, SANs, chain, and expiration. Distinguish the Admin Console certificate from application ingress certificates.
+- LLM failure: inspect OpenHands and LiteLLM logs, model aliases, endpoint reachability, and provider-side authorization without exposing credentials.
+- Admin Console failure: inspect the host, `kotsadm`, Embedded Cluster services, and port `30000` separately from the OpenHands application.
+- Upgrade failure: record current and target releases, preflight results, failed jobs, workload images, and storage safety. Do not improvise a rollback.
+- OOM or disk pressure: identify the resource consumer and persistent-data risk before restarting anything.
 
-**Reference:** See `references/diagnostics.md` - Section "Git Provider Auth"
+Use the read-only commands and interpretation guidance in `references/diagnostics.md`.
 
-### 3. Certificate Errors
+### 4. Prefer Support Bundles for Broad Collection
 
-**Symptoms:**
-- "certificate expired" or "self-signed certificate" errors
-- TLS handshake failures
-- Browser shows insecure connection warning
+Generate an Embedded Cluster support bundle when:
 
-**Diagnosis:** Check cert expiry, certificate chain, ingress configuration
+- installation or upgrade health is unclear;
+- multiple layers appear unhealthy;
+- direct cluster access is unavailable to support;
+- an issue requires escalation;
+- a comparison with a known-good installation would help.
 
-**Reference:** See `references/diagnostics.md` - Section "Certificate Issues"
+Use the installed application binary's `support-bundle` command for supported Embedded Cluster versions. Read `references/support-bundles.md` before collecting, sharing, or interpreting a bundle.
 
-### 4. LLM Connectivity Failures
+### 5. Apply Recovery Only After Approval
 
-**Symptoms:**
-- "LLM endpoint unreachable"
-- "Authentication failed" for LLM API
-- Conversations fail to start
+Before proposing a change, state:
 
-**Diagnosis:** Check LLM endpoint URL, API key secrets, network policies
+- likely root cause and evidence;
+- exact operation;
+- expected impact and downtime;
+- rollback or recovery path;
+- whether the change is durable through KOTS reconciliation and upgrades;
+- backup or snapshot prerequisites;
+- verification steps.
 
-**Reference:** See `references/diagnostics.md` - Section "LLM Connectivity"
+Request explicit approval for the specific operation. Avoid combining an incident fix with unrelated cleanup or configuration changes.
 
-### 5. Keycloak Login Issues
+### 6. Verify the Real User Path
 
-**Symptoms:**
-- Can't access admin console
-- Login loop or "invalid credentials"
-- Keycloak pod showing errors
+After an approved recovery:
 
-**Diagnosis:** Check Keycloak pod status, database connectivity, realm configuration
+- confirm workload readiness and absence of new warning events;
+- check public TLS and the relevant health endpoint;
+- exercise the exact failing path with the administrator;
+- for runtime or LLM incidents, create one bounded test conversation;
+- for provider incidents, test one repository operation;
+- for automation incidents, dispatch one bounded test event or run;
+- record the versions and commands used.
 
-**Reference:** See `references/diagnostics.md` - Section "Keycloak"
+Metadata or readiness checks alone are not proof that the user workflow is restored.
 
-### 6. Replicated Admin Console Unreachable
+## Escalation Handoff
 
-**Symptoms:**
-- Can't access admin console URL
-- Connection refused or timeout
-- Browser shows "site cannot be reached"
+Produce this structure when the issue is unresolved or requires a product change:
 
-**Diagnosis:** Check Replicated operator pod, ingress, service endpoints
+```text
+Issue: <one-line summary>
+Impact: <users and workflows affected>
+Started: <timestamp and timezone>
+Versions: OHE <release>; Embedded Cluster <version>; Kubernetes <version>
 
-**Reference:** See `references/diagnostics.md` - Section "Replicated Admin Console"
+Likely failing layer:
+<host, cluster, ingress, auth, runtime, integration, LLM, automation, or product>
 
-### 7. Upgrade Stuck or Failed
+Evidence:
+- <timestamp, resource or bundle path, observation>
+- <expected versus actual behavior>
 
-**Symptoms:**
-- Replicated shows upgrade as "failed"
-- Pods in crash loop after upgrade
-- Migration jobs failing
+Checks completed:
+- <read-only check and result>
 
-**Diagnosis:** Check failed job logs, resource availability, pre-flight failures
+Changes attempted:
+- <approved change, result, and rollback status>
 
-**Reference:** See `references/diagnostics.md` - Section "Upgrade Issues"
+Ruled out:
+- <alternative cause and evidence>
 
-### 8. OOM / Resource Exhaustion
+Recommended next step:
+<one concrete action, owner, risk, and required approval>
 
-**Symptoms:**
-- Pods being OOMKilled
-- "Too many open files" errors
-- Services becoming unresponsive
-
-**Diagnosis:** Check node resources (memory, disk, file descriptors)
-
-**Reference:** See `references/diagnostics.md` - Section "Resource Exhaustion"
-
-## Diagnostic Commands Quick Reference
-
-Access the VM and run these common commands:
-
-```bash
-# Check overall pod status
-kubectl get pods -n openhands
-
-# View pod logs (replace POD_NAME)
-kubectl logs -n openhands POD_NAME
-kubectl logs -n openhands POD_NAME --previous
-
-# Describe a pod for events
-kubectl describe pod -n openhands POD_NAME
-
-# Check resource usage
-kubectl top nodes
-kubectl top pods -n openhands
-
-# Check certificate expiry
-echo | openssl s_client -connect HOST:443 2>/dev/null | openssl x509 -noout -dates
-
-# Check Replicated operator
-kubectl get pods -n replicated
-kubectl logs -n replicated -l app=replicated-operator
+Attachments:
+- <support bundle or redacted excerpts through the approved channel>
 ```
 
-## Support Bundle Generation
+Exclude secrets, customer data, full environment dumps, and unnecessary log volume.
 
-When the issue requires deeper investigation, guide the user to generate a support bundle.
+## References
 
-### Generating the Support Bundle
-
-1. Access the VM via SSH
-2. Run the Replicated support bundle command:
-
-```bash
-replicated admin support-bundle --kubecontext=KUBE_CONTEXT --namespace=openhands
-```
-
-3. The bundle will be saved locally, then upload/share with the platform team
-
-### Parsing the Support Bundle
-
-After obtaining a support bundle:
-
-1. Extract the archive
-2. Focus on these key files:
-   - `pod-status.json` - Current pod states
-   - `pod-logs/*.log` - Container logs
-   - `events.json` - Kubernetes events
-   - `nodes.json` - Node resource info
-
-3. Look for patterns in `references/diagnostics.md`
-
-## Escalation Handoff Template
-
-When an issue cannot be resolved, produce this summary:
-
-```
-## Issue Summary
-**Problem:** [One-line description]
-**Duration:** [When it started]
-**Impact:** [Who is affected]
-
-## Symptoms Observed
-- [Symptom 1]
-- [Symptom 2]
-
-## Diagnostic Steps Taken
-1. [Step 1]
-2. [Step 2]
-
-## Logs / Evidence
-```
-[Relevant log excerpts]
-```
-
-## Resolution Attempts
-- [Attempt 1] - [Result]
-- [Attempt 2] - [Result]
-
-## Likely Root Cause
-[Analysis]
-```
-
-## Additional Resources
-
-- **Diagnostic Reference:** `references/diagnostics.md` - Detailed commands and log interpretation for each failure mode
-- **Replicated Docs:** https://docs.replicated.com/vendor/support-bundle-generating
-- **OHE Architecture:** Internal docs on OHE components and their relationships
+- `references/diagnostics.md`: version-aware, read-only checks for common OHE failure modes.
+- `references/support-bundles.md`: supported collection, privacy handling, bundle triage, and comparison workflow.
+- Replicated Embedded Cluster v2 troubleshooting: https://docs.replicated.com/embedded-cluster/v2/embedded-troubleshooting
+- Replicated support bundle generation: https://docs.replicated.com/vendor/support-bundle-generating
 
 ## Maintenance
 
-As new failure modes are discovered in the field, add them to this skill. Update `references/diagnostics.md` with new patterns and resolution steps.
+Validate commands against the currently supported OHE and Embedded Cluster releases before publishing changes. Convert field incidents into generic symptom, evidence, and recovery patterns; keep customer names, credentials, domains, internal IDs, and environment-specific patches in private overlays.
