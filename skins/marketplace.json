@@ -4,9 +4,9 @@
   "skins": [
     {
       "name": "Agent Canvas Manager",
-      "repo": "https://github.com/OpenHands/app-acm",
+      "repo": "https://github.com/OpenHands/skin-acm",
       "description": "Control plane for provisioning and governing a fleet of Agent Canvas instances in Kubernetes, plus this marketplace.",
-      "screenshot": "https://raw.githubusercontent.com/OpenHands/app-acm/main/docs/screenshot.svg",
+      "screenshot": "https://raw.githubusercontent.com/OpenHands/skin-acm/main/docs/screenshot.svg",
       "canvas_version": ">=1.8.0"
     },
     {
