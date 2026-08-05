@@ -55,6 +55,12 @@ Syntax checks alone don't catch a config value that's valid-but-wrong Python —
 
 Fix any errors reported before proceeding to the next step.
 
+**Then validate the tarball itself, after creating it and before uploading.** Syntax checks catch broken code but not a corrupted archive — a bad tarball uploads and creates the automation successfully, then fails silently on the first real run.
+
+```bash
+python3 -c "import tarfile; tarfile.open('automation.tar.gz')"   # raises if the archive is not a valid gzip/tar file
+```
+
 
 ### Upload the Tarball
 
@@ -421,6 +427,22 @@ with OpenHandsCloudWorkspace(local_agent_server_mode=True, cloud_api_url=api_url
 
 For tasks that don't need AI reasoning — sending a Slack message, calling an API, rotating from a fixed list — skip the SDK entirely. Use pure Python stdlib with `python3 main.py` as the entrypoint and no `setup.sh`.
 
+**Retrying network calls** — network-call fragility (timeouts, 5xx, rate limits) is the dominant real-world failure mode for deterministic automations, since they usually exist to poll or call an external API. Wrap every external HTTP call in a retry-with-backoff helper by default, not just the calls shown below:
+
+```python
+import time, urllib.request
+
+def fetch_with_retry(request: urllib.request.Request, attempts: int = 3, backoff: int = 2) -> bytes:
+    for attempt in range(attempts):
+        try:
+            with urllib.request.urlopen(request) as r:
+                return r.read()
+        except Exception:
+            if attempt == attempts - 1:
+                raise
+            time.sleep(backoff ** attempt)
+```
+
 **Accessing secrets** — custom secrets are not injected into the subprocess environment automatically. Fetch them via the agent server's REST API:
 
 ```python
@@ -433,8 +455,7 @@ def get_secret(name: str) -> str:
         f"{url}/api/settings/secrets/{name}",
         headers={"X-Session-API-Key": key},
     )
-    with urllib.request.urlopen(req) as r:
-        return r.read().decode().strip()
+    return fetch_with_retry(req).decode().strip()
 ```
 
 **Firing the callback** — without the SDK, POST to `AUTOMATION_CALLBACK_URL` before exiting. If you never fire the callback the run stays `RUNNING` until the watchdog marks it `FAILED`.
@@ -457,6 +478,30 @@ def fire_callback(status: str = "COMPLETED", error: str | None = None) -> None:
         urllib.request.urlopen(req)
     except Exception as e:
         print(f"Callback error (non-fatal): {e}")
+```
+
+**Recommended pattern: pre-flight health check** — before doing real work, run a small structured check of the things most likely to fail (required secrets present, target host reachable) and fail with a specific message instead of a raw stack trace partway through the task:
+
+```python
+def health_check() -> list[str]:
+    """Return a list of problems found; empty list means healthy."""
+    problems = []
+    for secret_name in ("SLACK_BOT_TOKEN",):  # whatever this script needs
+        try:
+            get_secret(secret_name)
+        except Exception:
+            problems.append(f"missing or unreadable secret: {secret_name}")
+    try:
+        fetch_with_retry(urllib.request.Request("https://slack.com/api/api.test"), attempts=1)
+    except Exception as e:
+        problems.append(f"target host unreachable: {e}")
+    return problems
+
+# At the top of main():
+issues = health_check()
+if issues:
+    fire_callback("FAILED", "; ".join(issues))
+    raise SystemExit(1)
 ```
 
 ---
@@ -652,6 +697,7 @@ The automation service injects these environment variables into every run:
 - **Setup script path**: Relative path, no path traversal (`..`)
 - **Timeout**: 1-600 seconds (10 minutes max)
 - **Tarball size**: 1MB max for uploads
+- **Timeout vs. cron interval**: if `timeout` can exceed the gap between cron ticks, runs overlap — a slow run is still executing when the next one fires. Widen the interval past `timeout`, or make the script idempotent / add explicit locking if concurrent runs are possible.
 
 ---
 

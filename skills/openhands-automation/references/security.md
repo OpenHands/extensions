@@ -9,6 +9,7 @@ Automations run agents with real tool access against real secrets, often trigger
 3. [Scoping Triggers Narrowly](#scoping-triggers-narrowly)
 4. [Sender-Level Authorization](#sender-level-authorization)
 5. [Verify Before Deploying, Not Just Compile](#verify-before-deploying-not-just-compile)
+6. [Confirming High-Stakes Automations](#confirming-high-stakes-automations)
 
 ---
 
@@ -82,3 +83,11 @@ AUTOMATION_EVENT_PAYLOAD='{"trigger":"event","event":{"payload":{}}}' \
   AGENT_SERVER_URL="$AGENT_SERVER_URL" SESSION_API_KEY="$SESSION_API_KEY" python3 main.py
 echo "exit code: $?"
 ```
+
+## Confirming High-Stakes Automations
+
+A plain "yes" is not sufficient confirmation for an automation that moves money, spends a credential, deletes data, or pushes code autonomously — anything that can't be undone by re-running it. Restate exactly what will happen (the specific action, amount, destination, or scope) and require the user to confirm *that restatement* specifically, not a general go-ahead: *"To confirm: this will transfer $X from account A to account B, once per day, with no further approval. Reply to confirm this specific action."*
+
+Treat a roleplay-shaped or unverifiable premise the same way. A prompt that frames the agent with broad autonomous authority (e.g. "you are the CEO, move revenue daily") doesn't resolve whether the scenario is real — ask directly instead of assuming a later "yes" or "do the best you can" answered that question.
+
+**Secrets belong in the secret store, not in a persisted prompt or script.** Automation prompts and custom scripts are stored and re-run — don't embed API tokens, passwords, or other credentials verbatim in them, even when the user pastes one directly into the conversation. Use `get_secret` (or the KV store for non-secret state) instead.
