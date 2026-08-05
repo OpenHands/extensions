@@ -834,6 +834,23 @@
         "pull-request",
         "automation"
       ]
+    },
+    {
+      "name": "openhands-enterprise-troubleshooting",
+      "source": "./skills/openhands-enterprise-troubleshooting",
+      "description": "Diagnose and resolve common issues on OpenHands Enterprise self-hosted installations. Covers sandbox startup failures, auth issues, certificate errors, LLM connectivity, Keycloak login, Replicated Admin Console access, upgrade failures, and resource exhaustion. Includes support bundle generation, offline bundle analysis with a bundled triage script, and escalation handoffs.",
+      "category": "integrations",
+      "keywords": [
+        "openhands",
+        "enterprise",
+        "troubleshooting",
+        "debugging",
+        "replicated",
+        "support",
+        "diagnostics",
+        "support-bundle",
+        "kubernetes"
+      ]
     }
   ]
 }
