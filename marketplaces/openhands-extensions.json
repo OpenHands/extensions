@@ -141,7 +141,7 @@
     {
       "name": "bitbucket-cloud",
       "source": "./skills/bitbucket-cloud",
-      "description": "Bitbucket Cloud (bitbucket.org) specifics — authenticate with BITBUCKET_TOKEN, use the REST API v2, workspace/repo_slug repositories, and the create_bitbucket_pr tool. Loaded on demand by the bitbucket skill once a Cloud environment is detected.",
+      "description": "Bitbucket Cloud (bitbucket.org) specifics \u2014 authenticate with BITBUCKET_TOKEN, use the REST API v2, workspace/repo_slug repositories, and the create_bitbucket_pr tool. Loaded on demand by the bitbucket skill once a Cloud environment is detected.",
       "category": "code-hosting",
       "keywords": [
         "bitbucket",
@@ -153,7 +153,7 @@
     {
       "name": "bitbucket-data-center",
       "source": "./skills/bitbucket-data-center",
-      "description": "Bitbucket Data Center (self-hosted Bitbucket Server) specifics — authenticate with BITBUCKET_DATA_CENTER_TOKEN, use the REST API 1.0, PROJECT/repo_slug repositories, scm/ git remotes, and the create_bitbucket_data_center_pr tool. Loaded on demand by the bitbucket skill once a Data Center environment is detected.",
+      "description": "Bitbucket Data Center (self-hosted Bitbucket Server) specifics \u2014 authenticate with BITBUCKET_DATA_CENTER_TOKEN, use the REST API 1.0, PROJECT/repo_slug repositories, scm/ git remotes, and the create_bitbucket_data_center_pr tool. Loaded on demand by the bitbucket skill once a Data Center environment is detected.",
       "category": "code-hosting",
       "keywords": [
         "bitbucket",
@@ -769,6 +769,21 @@
       "keywords": [
         "jira",
         "atlassian"
+      ]
+    },
+    {
+      "name": "openhands-enterprise-troubleshooting",
+      "source": "./skills/openhands-enterprise-troubleshooting",
+      "description": "Diagnose and resolve common issues on OpenHands Enterprise self-hosted installations. Covers sandbox startup failures, auth issues, certificate errors, LLM connectivity, Keycloak login, Replicated Admin Console access, upgrade failures, and resource exhaustion. Includes support bundle generation and escalation handoffs.",
+      "category": "integrations",
+      "keywords": [
+        "openhands",
+        "enterprise",
+        "troubleshooting",
+        "debugging",
+        "replicated",
+        "support",
+        "diagnostics"
       ]
     }
   ]
