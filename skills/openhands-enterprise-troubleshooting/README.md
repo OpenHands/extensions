@@ -1,61 +1,71 @@
 # OpenHands Enterprise Troubleshooting
 
-An agent-runnable skill for diagnosing and resolving common issues on **OpenHands Enterprise (OHE)** - self-hosted installations using Replicated on VM-based infrastructure.
+An agent-runnable skill for diagnosing OpenHands Enterprise installations delivered through Replicated Embedded Cluster. It provides version-aware, read-only-first checks, guarded recovery guidance, support bundle triage, and escalation handoffs.
+
+## Safety Model
+
+- Discover the installed OHE, Embedded Cluster, Kubernetes, namespace, and workload topology before targeting resources.
+- Keep the initial diagnostic pass read-only.
+- Never print or decode credentials or complete Kubernetes Secret values.
+- Treat support bundles as potentially sensitive and share them only through approved channels.
+- Require explicit approval, backup checks, impact disclosure, and a recovery path before mutating an installation.
+- Prefer supported Replicated and KOTS workflows over direct Kubernetes changes that reconciliation can overwrite.
 
 ## What This Skill Does
 
-### 1. Triage and Diagnosis
-- Detects failure modes from symptoms or log output
-- Checks common problem areas: sandbox startup, auth, certificates, LLM connectivity, Keycloak, Replicated Admin Console, upgrades, resource exhaustion
-- Runs targeted diagnostic commands against the live environment
+### Triage and Diagnosis
 
-### 2. Guided Recovery
-- Walks through resolution steps for identified issues
-- Validates each step before proceeding
-- Covers the most common failures seen across real OHE installations
+- Separates host, cluster, ingress, authentication, runtime, integration, LLM, automation, and product health.
+- Checks sandbox startup, certificates, Keycloak login, Git providers, LiteLLM, Admin Console access, upgrades, and resource exhaustion.
+- Uses bounded, targeted diagnostic commands and interprets evidence without exposing credentials.
 
-### 3. Support Bundle Generation
-- Guides customers through generating and sending support bundles
-- Parses and summarizes bundle output to highlight likely root cause
-- Reduces back-and-forth with the platform team
+### Guarded Recovery
 
-### 4. Escalation Handoff
-- Produces a clear summary when issues cannot be resolved
-- Documents what was tried, what logs show, and likely root cause
-- Ready to paste into a support ticket
+- States the likely root cause, exact operation, impact, backup prerequisites, and verification steps.
+- Requires explicit approval before restarts, configuration changes, credential rotation, rollback, cleanup, or node operations.
+- Stops and escalates when persistence, database safety, or version-specific behavior is unclear.
+
+### Support Bundle Triage
+
+- Uses the supported application-installer command when available.
+- Handles bundles as sensitive artifacts.
+- Prioritizes analyzer results, workload state, events, images, bounded logs, ingress, certificates, and storage evidence.
+- Compares failing evidence with a known-good path when possible.
+
+### Escalation Handoff
+
+- Produces a concise support-ready summary with versions, impact, evidence, checks, approved changes, ruled-out causes, and one recommended next step.
+- Excludes secrets, customer data, complete environment dumps, and unnecessary log volume.
 
 ## Common Issues Covered
 
-- Sandbox fails to start / 120s timeout
-- Git provider auth broken (GitHub App, GitLab token)
-- Certificate errors (self-signed, expired, chain issues)
-- LLM connectivity failures (endpoint unreachable, bad credentials)
-- Keycloak login issues
-- Replicated Admin Console unreachable
-- Upgrade stuck or failed
-- OOM / resource exhaustion on the VM
+- Sandbox or runtime startup failures
+- Git provider authorization and webhook failures
+- Certificate expiration, trust, chain, and hostname errors
+- LiteLLM and upstream model connectivity failures
+- Keycloak and OpenHands login issues
+- Replicated Admin Console access problems
+- Upgrade or migration failures
+- OOM, DiskPressure, PVC, and diagnostic-log growth
 
 ## Usage
 
-This skill is automatically triggered when users describe OHE issues such as:
+The skill activates for requests such as:
+
+- "Troubleshoot OpenHands Enterprise"
 - "OpenHands is not working"
-- "Sandbox failed to start"
-- "Can't access admin console"
-- "Certificate error"
-- "LLM connection failed"
-- "Upgrade failed"
+- "A sandbox failed to start"
+- "The Replicated Admin Console is unavailable"
+- "The certificate expired"
+- "The LLM connection failed"
+- "Analyze this OHE support bundle"
 
 ## Files
 
-- `SKILL.md` - Main skill with diagnostic workflow and quick reference
-- `references/diagnostics.md` - Detailed diagnostic commands and log interpretation for each failure mode
+- `SKILL.md`: core safety model and diagnostic workflow.
+- `references/diagnostics.md`: version-aware read-only commands and interpretation.
+- `references/support-bundles.md`: supported collection, privacy handling, triage, and comparison.
 
 ## For Contributors
 
-When new failure modes are discovered in the field, update `references/diagnostics.md` with:
-1. New symptoms and error patterns
-2. Diagnostic commands to run
-3. Resolution steps that worked
-4. Log excerpts showing the error
-
-This skill should grow with each support issue resolved.
+Convert field incidents into generic symptom, evidence, and recovery patterns. Validate commands against supported OHE and Embedded Cluster releases, keep diagnostics read-only by default, and exclude customer-specific names, domains, IDs, credentials, private paths, and one-off patches.

@@ -1,0 +1,21 @@
+{
+  "name": "openhands-enterprise-troubleshooting",
+  "version": "1.0.0",
+  "description": "Diagnose OpenHands Enterprise installations on Replicated Embedded Cluster with version-aware, read-only-first checks, support bundle analysis, guarded recovery, and escalation handoffs.",
+  "author": {
+    "name": "OpenHands",
+    "email": "contact@all-hands.dev"
+  },
+  "homepage": "https://github.com/OpenHands/extensions",
+  "repository": "https://github.com/OpenHands/extensions",
+  "license": "MIT",
+  "keywords": [
+    "openhands",
+    "enterprise",
+    "replicated",
+    "embedded-cluster",
+    "troubleshooting",
+    "support-bundle",
+    "diagnostics"
+  ]
+}
