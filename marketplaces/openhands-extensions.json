@@ -770,6 +770,17 @@
         "jira",
         "atlassian"
       ]
+    },
+    {
+      "name": "fingerprint-ci-gate",
+      "source": "./skills/fingerprint-ci-gate",
+      "description": "Gate a build on browser fingerprint regressions with liarjs - save a baseline scan as JSON, diff later runs against it, and fail the job when the consistency score falls below a floor. Use when asked to add a fingerprint or headless-detection check to GitHub Actions, GitLab CI or another pipeline, to catch a regression in a Chromium build or scraping harness before it ships, or to track how a fingerprint score changes across commits.",
+      "category": "code-quality",
+      "keywords": [
+        "ci",
+        "browser-testing",
+        "regression-gate"
+      ]
     }
   ]
 }
