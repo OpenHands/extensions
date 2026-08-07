@@ -770,6 +770,17 @@
         "jira",
         "atlassian"
       ]
+    },
+    {
+      "name": "server-side-conversion-tracking",
+      "source": "./skills/server-side-conversion-tracking",
+      "description": "Set up server-side conversion tracking so purchases are reported accurately to Facebook, TikTok, Google and Bing despite iOS restrictions, ad blockers and cookie loss. Use when conversions are under-reported, when platform-reported purchases do not match real orders, when asked about Conversions API / Events API / offline conversions / CAPI, click id passthrough (fbclid, ttclid, gclid, msclkid), or when ad optimization has degraded after tracking changes.",
+      "category": "integrations",
+      "keywords": [
+        "conversion-tracking",
+        "capi",
+        "attribution"
+      ]
     }
   ]
 }

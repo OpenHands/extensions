@@ -379,7 +379,7 @@ EXPECTED_CATEGORY_COUNTS = {
     "code-hosting": 8,
     "agent-authoring": 8,
     "code-quality": 6,
-    "integrations": 6,
+    "integrations": 7,
     "writing": 4,
     "design": 2,
     "other": 1,
