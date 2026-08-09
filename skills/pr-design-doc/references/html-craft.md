@@ -255,7 +255,7 @@ Keep them short and hand-highlight with spans (no JS highlighter): wrap keywords
 **HTML-escape first** (`&`→`&amp;` `<`→`&lt;` `>`→`&gt;`), then wrap — source text is
 untrusted; unescaped `<...>` injects. Put long diffs/code inside `<details>` (collapsed).
 
-## Self-contained & offline
+## Self-contained
 
 - One `.html` file. Inline all CSS and SVG. No build, no framework.
 - CDN only if truly needed (e.g. Mermaid fallback `https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js`); the page must still be useful if a diagram fails to load.
