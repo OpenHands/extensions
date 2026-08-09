@@ -32,7 +32,7 @@ non-trivial PR easy to review.
 - Opening or updating a **non-trivial** PR: new/changed public API, a new module or
   subsystem, a behavior change in core logic, a migration, or anything a reviewer can't
   fully judge from the diff in a couple of minutes.
-- **Skip it** for trivial PRs — a typo, a one-line guard, a dependency bump, a docs tweak.
+- **Skip it** for trivial PRs — a typo, a one-line guard, a dependency bump, a docs tweak, a simple bug fix.
   A design doc there is noise. Use judgment; if the diff *is* the explanation, don't add a
   page.
 
