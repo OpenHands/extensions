@@ -224,7 +224,6 @@ A picture the human can't verify is a liability. Make claims droppable to source
 
 - Resolve the repo's web base once: `gh repo view --json url` → `https://github.com/<o>/<r>/blob/<sha>/<path>#L<n>`. Pin the **commit SHA** (or branch) so links don't rot.
 - Render locations as `<a class="src" href="{{blobURL}}">path:line</a>` in node detail lines, section text, and a per-component "source" link.
-- For local-only / unpushed work, link `file://` absolute paths or just show `path:line` plainly.
 - Rule: if a box can't be tied to a symbol+location, it's a *concept* box — style it differently and say so; don't fake a link.
 - Put evidence beside the claim it supports. The reader should not have to scroll to a
   bibliography to verify a behavior statement, edge, risk, metric, or test result.
