@@ -417,7 +417,7 @@ DeepWiki-style wikis enforce grounding hard — worth copying:
   derived from files you actually read — not from how "similar systems usually work." If
   something important isn't in the code, say so explicitly rather than guessing. Mark genuine
   inferences as inferences.
-- **Breadth check.** A "comprehensive" page that cites only 1-2 files is probably shallow —
+- **Breadth check.** Decide if necessary, depending on PR. A "comprehensive" page that cites only 1-2 files is probably shallow —
   pull in the related files (callers, callees, config, tests) until the picture is real.
 
 ## Code excerpts (when shown)
