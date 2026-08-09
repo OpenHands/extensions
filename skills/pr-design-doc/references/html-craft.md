@@ -267,11 +267,6 @@ than hand-SVG. `mermaid.initialize({startOnLoad:true, theme:'neutral'})`. Node t
 `["..."]`; escape `"` as `&quot;`. But for the **carrying** before/after diagram, hand-SVG
 wins — auto-layout drifts and breaks the side-by-side alignment that makes the delta readable.
 
-## Hand it to the human
-
-The page is useless if the reader can't open it. Two ways; **prefer the GitHub link** — a
-plain clickable URL needs no network reachability to *your* machine and no local download.
-
 ### Preferred: commit under `.pr/` → htmlpreview link
 
 Because the page is **self-contained**, GitHub can render it through `htmlpreview.github.io`
