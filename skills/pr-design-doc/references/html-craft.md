@@ -293,19 +293,3 @@ Caveats: works best for self-contained pages (inline CSS/SVG — what this skill
 CDN `<script>` (e.g. Mermaid) still load over the network but render fine; **private repos
 cannot be previewed** — `htmlpreview` fetches the raw file with client-side requests that
 can't reach private repo contents (auth + CORS), even if the viewer is logged in to GitHub.
-For private repos, use the local-serve fallback below or GitHub Pages (if configured on the
-repo — also a stable URL without the `htmlpreview` prefix).
-
-### Local alternative: serve over HTTP
-
-When you can't/shouldn't push (unpushed work, private context), serve it and hand back a
-LAN / tunnel IP — not `localhost`, since the human is often on another machine:
-
-```bash
-cd <dir> && (python3 -m http.server <port> >/dev/null 2>&1 &)
-python3 -c "import socket;s=socket.socket(socket.AF_INET,socket.SOCK_DGRAM);s.connect(('8.8.8.8',80));print(s.getsockname()[0]);s.close()"  # LAN IP (portable: Linux + macOS)
-command -v tailscale >/dev/null && tailscale ip -4 | head -1       # tunnel IP (cross-net)
-```
-
-`http.server` binds `0.0.0.0` → `http://<LAN-or-tunnel-IP>:<port>/`. If it won't open, it's
-usually a firewall.
