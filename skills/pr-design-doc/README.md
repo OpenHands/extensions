@@ -15,8 +15,8 @@ This skill is activated by the following keywords:
 ## Details
 
 See [SKILL.md](./SKILL.md) for when to use it, the `.pr/` workflow (the directory is removed
-automatically when the PR is approved), the step-by-step process, and the non-negotiable
-principles.
+on approval for same-repository PRs, and manually before merge for fork PRs), the
+step-by-step process, and the non-negotiable principles.
 
 The HTML craft — the editorial look, hand-drawn before/after SVG technique, code grounding,
 and the htmlpreview delivery link — is in

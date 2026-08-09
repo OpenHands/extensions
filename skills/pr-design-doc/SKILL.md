@@ -38,11 +38,11 @@ non-trivial PR easy to review.
 
 ## The `.pr/` workflow (why this is safe to commit)
 
-OpenHands repos use a temporary **`.pr/`** directory for PR-only artifacts. It is
-**removed automatically when the PR is approved** (see `.github/workflows/pr-artifacts.yml`
-in `OpenHands/OpenHands`), so the design doc never lands in `main`. That makes `.pr/` the
-right home for a review aid: it lives with the branch, renders while the PR is open, and
-disappears on approval.
+OpenHands repos use a temporary **`.pr/`** directory for PR-only artifacts. For
+same-repository PRs it is removed automatically on approval (`.github/workflows/pr-artifacts.yml`
+in `OpenHands/OpenHands`); for **fork** PRs that cleanup does not run, so remove `.pr/`
+yourself before merging to keep it out of `main`. The doc is a review aid that lives with the
+branch and renders while the PR is open.
 
 ## Workflow
 
@@ -121,8 +121,8 @@ disappears on approval.
 5. **Self-contained & offline.** One HTML file, inline CSS/SVG, opens by double-click,
    survives being copied to another machine (htmlpreview needs this).
 6. **`.pr/` only, and temporary.** The doc is a review aid, not project docs. Keep it in
-   `.pr/`; it is removed on approval. Do not move design HTML into `docs/` or ship it in the
-   merged tree.
+   `.pr/` and ensure it is removed before merge (automatic on approval for same-repo PRs,
+   manual for forks). Do not move design HTML into `docs/` or ship it in the merged tree.
 
 ## Anti-patterns
 
