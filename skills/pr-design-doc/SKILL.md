@@ -33,7 +33,7 @@ non-trivial PR easy to review.
   subsystem, a behavior change in core logic, a migration, or anything a reviewer can't
   fully judge from the diff in a couple of minutes.
 - **Skip it** for trivial PRs — a typo, a one-line guard, a dependency bump, a docs tweak, a simple bug fix.
-  A design doc there is noise. Use judgment; if the diff *is* the explanation, don't add a
+  A design doc adds more to review. Use judgment; if the diff *is* the explanation, don't add a
   page.
 
 ## The `.pr/` workflow (why this is safe to commit)
