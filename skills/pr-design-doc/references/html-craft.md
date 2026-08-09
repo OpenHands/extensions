@@ -259,7 +259,6 @@ untrusted; unescaped `<...>` injects. Put long diffs/code inside `<details>` (co
 
 - One `.html` file. Inline all CSS and SVG. No build, no framework.
 - CDN only if truly needed (e.g. Mermaid fallback `https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js`); the page must still be useful if a diagram fails to load.
-- Must open by double-click and survive copy to another machine.
 
 ## Mermaid (quick / auxiliary only)
 
