@@ -263,16 +263,132 @@ def _latest_trigger_label_event(token: str, repo: str, pr_number: int) -> dict |
     return max(matching, key=lambda event: (event.get("created_at") or "", int(event.get("id") or 0)))
 
 
-def _post_github_comment(token: str, repo: str, pr_number: int, body: str) -> None:
+def _post_github_comment(token: str, repo: str, pr_number: int, body: str) -> str | None:
+    """Post an issue comment and return its GraphQL node_id (or None on failure)."""
     try:
-        _github_request(
+        result, _ = _github_request(
             token,
             "POST",
             f"/repos/{repo}/issues/{pr_number}/comments",
             body={"body": body},
         )
+        return result.get("node_id")
     except Exception as exc:
         print(f"  Warning: failed to post comment on PR #{pr_number}: {exc}")
+        return None
+
+
+def _github_graphql(token: str, query: str, variables: dict | None = None) -> dict:
+    """Execute a GraphQL query/mutation against the GitHub API."""
+    body = {"query": query}
+    if variables:
+        body["variables"] = variables
+    result, _ = _github_request(
+        token,
+        "POST",
+        "/graphql",
+        body=body,
+    )
+    return result
+
+
+def _minimize_comment(token: str, node_id: str, reason: str = "OUTDATED") -> bool:
+    """Hide (minimize) a comment via the GraphQL minimizeComment mutation.
+
+    Uses the OUTDATED classifier so the comment is collapsed but still
+    viewable by people who expand it or by moderators.
+    """
+    mutation = """
+    mutation MinimizeComment($subjectId: ID!, $classifier: ReportedContentClassifiers!) {
+        minimizeComment(input: {subjectId: $subjectId, classifier: $classifier}) {
+            clientMutationId
+        }
+    }
+    """
+    try:
+        result = _github_graphql(token, mutation, {
+            "subjectId": node_id,
+            "classifier": reason,
+        })
+        if "errors" in result:
+            print(f"  Warning: GraphQL error minimizing comment: {result['errors']}")
+            return False
+        return True
+    except Exception as exc:
+        print(f"  Warning: failed to minimize comment: {exc}")
+        return False
+
+
+_AI_DISCLOSURE = "_This comment was posted by an AI agent (OpenHands)._"
+_REVIEWING_MARKER = "OpenHands is reviewing this PR."
+
+
+def _list_issue_comments(token: str, repo: str, pr_number: int) -> list[dict]:
+    """List issue comments on a PR, returning node_id, body, and minimized status."""
+    query = """
+    query($owner: String!, $repo: String!, $number: Int!) {
+        repository(owner: $owner, name: $repo) {
+            issueOrPullRequest(number: $number) {
+                ... on Issue {
+                    comments(first: 100, orderBy: {field: CREATED_AT, direction: ASC}) {
+                        nodes { id body isMinimized }
+                    }
+                }
+                ... on PullRequest {
+                    comments(first: 100, orderBy: {field: CREATED_AT, direction: ASC}) {
+                        nodes { id body isMinimized }
+                    }
+                }
+            }
+        }
+    }
+    """
+    owner, repo_name = repo.split("/")
+    result = _github_graphql(token, query, {
+        "owner": owner,
+        "repo": repo_name,
+        "number": pr_number,
+    })
+    if "errors" in result:
+        print(f"  Warning: GraphQL error listing comments: {result['errors']}")
+        return []
+    iop = result.get("data", {}).get("repository", {}).get("issueOrPullRequest", {})
+    return iop.get("comments", {}).get("nodes", [])
+
+
+def _hide_previous_automation_comments(
+    token: str,
+    repo: str,
+    pr_number: int,
+    exclude_node_id: str | None = None,
+) -> None:
+    """Hide (minimize with OUTDATED) previous comments posted by this automation.
+
+    Called after a new review is posted. Finds all visible comments on the PR
+    that contain the AI disclosure marker (posted by this automation) and
+    minimizes them, excluding the freshly posted comment.
+
+    This covers both the 'OpenHands is reviewing this PR' acknowledgement
+    comments and previous review result comments from earlier review cycles.
+    """
+    comments = _list_issue_comments(token, repo, pr_number)
+    if not comments:
+        return
+
+    hidden = 0
+    for comment in comments:
+        if comment.get("isMinimized"):
+            continue
+        node_id = comment.get("id")
+        if exclude_node_id and node_id == exclude_node_id:
+            continue
+        body = comment.get("body", "")
+        if _AI_DISCLOSURE.lower() not in body.lower():
+            continue
+        if _minimize_comment(token, node_id, "OUTDATED"):
+            hidden += 1
+    if hidden:
+        print(f"  Hid {hidden} previous automation comment(s) on PR #{pr_number}")
 
 
 def _oh_request(agent_url: str, api_key: str, method: str, path: str, body: dict | None = None) -> dict:
@@ -463,7 +579,13 @@ def _build_review_prompt(pr: dict, head_sha: str, label_event: dict) -> str:
         "Output ONLY the review text — no preamble, no meta-commentary. "
         "This text will be posted verbatim as a comment on the pull request. "
         "End your review with a clear verdict on its own line: either `✅ APPROVED` "
-        "or `🔄 CHANGES REQUESTED`."
+        "or `🔄 CHANGES REQUESTED`.\n\n"
+        "Note: After your review is posted, the automation automatically hides "
+        "(minimizes with the 'outdated' reason) all previous comments it posted on "
+        "this PR — including the 'OpenHands is reviewing this PR' acknowledgement "
+        "comment and any earlier review results — so that only the latest review "
+        "remains visible. You do not need to do anything for this; it is handled "
+        "by the automation script after your review text is posted."
     )
 
 def _process_review_request(
@@ -571,10 +693,14 @@ def _check_conversation_completion(
             or f"✅ **OpenHands completed the review for commit `{reviewed_sha[:12]}`.** No review text was produced."
         )
 
-    _post_github_comment(github_token, REPO, pr_number, comment_body)
+    new_comment_node_id = _post_github_comment(github_token, REPO, pr_number, comment_body)
     rec["status"] = "closed"
     rec["completed_at"] = time.time()
     print(f"  Posted review for PR #{pr_number} at {reviewed_sha[:12]}")
+
+    _hide_previous_automation_comments(
+        github_token, REPO, pr_number, exclude_node_id=new_comment_node_id
+    )
 
 
 def main() -> str | None:

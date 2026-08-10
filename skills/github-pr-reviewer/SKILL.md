@@ -225,8 +225,12 @@ Each cron run executes `main.py`, which:
    - Suppresses stale results if the PR head SHA changed after the review was
      queued.
    - When the conversation reaches `idle`, `finished`, `error`, or `stuck`,
-     posts the agent's final response as a GitHub comment and marks the review
-     closed.
+     posts the agent's final response as a GitHub comment, then hides
+     (minimizes with the `outdated` reason) all previous comments posted by
+     this automation on the PR — including the acknowledgement comment and
+     any earlier review results — so only the latest review remains visible.
+     Hidden comments can still be expanded by users or unhidden by moderators.
+   - Marks the review closed.
 6. Saves state atomically and fires the completion callback.
 
 ---
