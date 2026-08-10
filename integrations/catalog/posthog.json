@@ -31,7 +31,9 @@
         "strategy": "bearer",
         "credentialLabel": "PostHog personal API key",
         "credentialPlaceholder": "Paste your PostHog personal API key",
-        "credentialHelp": "Create one under PostHog → User settings → API keys (MCP Server preset). Sent as Authorization: Bearer <token>."
+        "credentialHelp": "Create one under PostHog → User settings → API keys (MCP Server preset). Sent as Authorization: Bearer <token>.",
+        "credentialSecretName": "POSTHOG_PERSONAL_API_KEY",
+        "saveCredentialAsSecretByDefault": true
       }
     }
   ]

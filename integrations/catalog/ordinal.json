@@ -22,7 +22,9 @@
         ],
         "credentialLabel": "Ordinal API key",
         "credentialPlaceholder": "Paste your Ordinal API key",
-        "credentialHelp": "API key from your Ordinal workspace settings, sent as a Bearer token in the Authorization header."
+        "credentialHelp": "API key from your Ordinal workspace settings, sent as a Bearer token in the Authorization header.",
+        "credentialSecretName": "ORDINAL_API_KEY",
+        "saveCredentialAsSecretByDefault": true
       },
       "transport": {
         "kind": "shttp",

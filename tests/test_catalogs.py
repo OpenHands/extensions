@@ -223,6 +223,23 @@ def test_daily_workflow_entries_are_locally_installable():
     assert required_env == {"SLACK_TEAM_ID", "SLACK_BOT_TOKEN"}
 
 
+def test_direct_mcp_token_credentials_can_be_saved_as_secrets():
+    for entry in load_catalog_entries("integrations/catalog"):
+        for option in entry["connectionOptions"]:
+            auth = option.get("auth", {})
+            if option.get("provider") != "mcp" or not auth.get("credentialLabel"):
+                continue
+            if auth["strategy"] not in {"api_key", "bearer"}:
+                continue
+
+            assert auth.get("credentialSecretName"), (
+                f"{entry['id']}/{option['id']}: token credential needs a secret name"
+            )
+            assert auth.get("saveCredentialAsSecretByDefault") is True, (
+                f"{entry['id']}/{option['id']}: token credential should default to secret saving"
+            )
+
+
 def test_daily_workflow_entries_state_scopes_and_setup_paths():
     """The locally installable options must state the required scopes and link a
     public setup path (OSS-5193). The OAuth options' scope lists never reach a
