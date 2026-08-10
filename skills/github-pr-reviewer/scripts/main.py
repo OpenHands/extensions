@@ -323,6 +323,25 @@ _AI_DISCLOSURE = "_This comment was posted by an AI agent (OpenHands)._"
 _REVIEWING_MARKER = "OpenHands is reviewing this PR."
 
 
+def _is_automation_content(body: str) -> bool:
+    """Check if a comment/review body was posted by this automation.
+
+    The automation appends the AI disclosure marker to every comment it posts.
+    Review objects posted by the agent may not always carry this marker, so we
+    also check for other known automation signatures.
+    """
+    body_lower = (body or "").lower()
+    if _AI_DISCLOSURE.lower() in body_lower:
+        return True
+    if _REVIEWING_MARKER.lower() in body_lower:
+        return True
+    if "openhands pr reviewer encountered a problem" in body_lower:
+        return True
+    if "openhands completed the review" in body_lower:
+        return True
+    return False
+
+
 def _list_issue_comments(token: str, repo: str, pr_number: int) -> list[dict]:
     """List issue comments on a PR, returning node_id, body, and minimized status."""
     query = """
@@ -356,39 +375,117 @@ def _list_issue_comments(token: str, repo: str, pr_number: int) -> list[dict]:
     return iop.get("comments", {}).get("nodes", [])
 
 
+def _list_pr_reviews(token: str, repo: str, pr_number: int) -> list[dict]:
+    """List PR review objects with their inline comments.
+
+    Returns a list of review dicts, each containing:
+    - id: GraphQL node ID of the review (minimizable)
+    - body: Review body text
+    - isMinimized: Whether the review is already hidden
+    - state: Review state (APPROVED, COMMENTED, CHANGES_REQUESTED, etc.)
+    - comments: List of inline review comments, each with id, body, isMinimized
+    """
+    query = """
+    query($owner: String!, $repo: String!, $number: Int!) {
+        repository(owner: $owner, name: $repo) {
+            pullRequest(number: $number) {
+                reviews(first: 100) {
+                    nodes {
+                        id
+                        body
+                        isMinimized
+                        state
+                        comments(first: 100) {
+                            nodes { id body isMinimized }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    """
+    owner, repo_name = repo.split("/")
+    result = _github_graphql(token, query, {
+        "owner": owner,
+        "repo": repo_name,
+        "number": pr_number,
+    })
+    if "errors" in result:
+        print(f"  Warning: GraphQL error listing reviews: {result['errors']}")
+        return []
+    pr = result.get("data", {}).get("repository", {}).get("pullRequest", {})
+    return pr.get("reviews", {}).get("nodes", [])
+
+
 def _hide_previous_automation_comments(
     token: str,
     repo: str,
     pr_number: int,
     exclude_node_id: str | None = None,
 ) -> None:
-    """Hide (minimize with OUTDATED) previous comments posted by this automation.
+    """Hide (minimize with OUTDATED) previous content posted by this automation.
 
-    Called after a new review is posted. Finds all visible comments on the PR
-    that contain the AI disclosure marker (posted by this automation) and
-    minimizes them, excluding the freshly posted comment.
+    Called after a new review is posted. Minimizes two kinds of GitHub entities:
 
-    This covers both the 'OpenHands is reviewing this PR' acknowledgement
-    comments and previous review result comments from earlier review cycles.
+    1. **Issue comments** — the 'OpenHands is reviewing this PR' acknowledgement
+       comments and any review results posted as issue comments. Identified by
+       the AI disclosure marker or other known automation signatures.
+
+    2. **PR review objects** — review objects (with inline diff comments) posted
+       by the agent via the GitHub reviews API. Both the review itself and its
+       individual inline comments are minimized, since both implement the
+       Minimizable interface.
+
+    The freshly posted comment (exclude_node_id) is skipped so only previous
+    content is hidden. Already-minimized content is also skipped.
     """
-    comments = _list_issue_comments(token, repo, pr_number)
-    if not comments:
-        return
-
     hidden = 0
-    for comment in comments:
+
+    # 1. Issue comments (acknowledgement + review-as-comment)
+    for comment in _list_issue_comments(token, repo, pr_number):
         if comment.get("isMinimized"):
             continue
         node_id = comment.get("id")
         if exclude_node_id and node_id == exclude_node_id:
             continue
-        body = comment.get("body", "")
-        if _AI_DISCLOSURE.lower() not in body.lower():
+        if not _is_automation_content(comment.get("body", "")):
             continue
         if _minimize_comment(token, node_id, "OUTDATED"):
             hidden += 1
+
+    # 2. PR review objects (review body + inline review comments)
+    for review in _list_pr_reviews(token, repo, pr_number):
+        body = review.get("body", "")
+        review_node_id = review.get("id")
+        review_comments = review.get("comments", {}).get("nodes", [])
+
+        # Determine if this review was posted by the automation: check either
+        # the review body or any of its inline comments for the disclosure marker.
+        is_automation_review = _is_automation_content(body) or any(
+            _is_automation_content(c.get("body", "")) for c in review_comments
+        )
+        if not is_automation_review:
+            continue
+
+        # Minimize the review object itself (collapses the review summary)
+        if not review.get("isMinimized"):
+            if exclude_node_id and review_node_id == exclude_node_id:
+                pass
+            elif _minimize_comment(token, review_node_id, "OUTDATED"):
+                hidden += 1
+
+        # Minimize each inline review comment
+        for rc in review_comments:
+            if rc.get("isMinimized"):
+                continue
+            rc_node_id = rc.get("id")
+            if exclude_node_id and rc_node_id == exclude_node_id:
+                continue
+            if _minimize_comment(token, rc_node_id, "OUTDATED"):
+                hidden += 1
+
     if hidden:
-        print(f"  Hid {hidden} previous automation comment(s) on PR #{pr_number}")
+        print(f"  Hid {hidden} previous automation item(s) on PR #{pr_number}")
 
 
 def _oh_request(agent_url: str, api_key: str, method: str, path: str, body: dict | None = None) -> dict:
@@ -581,9 +678,10 @@ def _build_review_prompt(pr: dict, head_sha: str, label_event: dict) -> str:
         "End your review with a clear verdict on its own line: either `✅ APPROVED` "
         "or `🔄 CHANGES REQUESTED`.\n\n"
         "Note: After your review is posted, the automation automatically hides "
-        "(minimizes with the 'outdated' reason) all previous comments it posted on "
+        "(minimizes with the 'outdated' reason) all previous content it posted on "
         "this PR — including the 'OpenHands is reviewing this PR' acknowledgement "
-        "comment and any earlier review results — so that only the latest review "
+        "comment, any earlier review result comments, and previous PR review objects "
+        "with their inline diff comments — so that only the latest review "
         "remains visible. You do not need to do anything for this; it is handled "
         "by the automation script after your review text is posted."
     )
