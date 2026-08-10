@@ -130,17 +130,142 @@ export interface AutomationInterfaceRoutes {
   setup: string;
   /** Carries the `:automationId` segment the host substitutes. */
   detail: string;
+  /** The templates sub-page. Static: there is no parameter to substitute. */
+  templates: string;
+}
+
+/** An icon name from the host's closed icon map. */
+export type AutomationIconSlug =
+  | "layout-dashboard"
+  | "sparkles"
+  | "bot"
+  | "circle-alert"
+  | "activity"
+  | "timer";
+
+/** The pages a sub-page navigation item may point at. */
+export type AutomationSubPageId = "list" | "templates";
+
+export interface AutomationSubPageNavItem {
+  /** The `pages` entry this item navigates to; its route comes from `routes`. */
+  page: AutomationSubPageId;
+  label: string;
+  icon: AutomationIconSlug;
 }
 
 export interface AutomationInterfaceNavigation {
   sidebar: { label: string };
   commandMenu: { title: string; description: string; keywords: string };
+  /** The ordered sub-page navigation of the Automation interface. */
+  subPages: AutomationSubPageNavItem[];
+}
+
+/** A value the host computes; a tile picks and captions it, never defines it. */
+export type AutomationOverviewMetric =
+  | "automations"
+  | "needs-attention"
+  | "total-runs"
+  | "average-duration";
+
+/**
+ * One summary tile. `detail` captions the value; `zeroDetail`, when present,
+ * replaces it while the value is zero. Both are plain substitution over the
+ * metric's placeholder namespace: only the `automations` metric exposes
+ * `{{active}}`, so every other tile's copy is literal.
+ */
+export interface AutomationOverviewTile {
+  metric: AutomationOverviewMetric;
+  label: string;
+  detail: string;
+  zeroDetail?: string;
+  icon: AutomationIconSlug;
+}
+
+export interface AutomationOverview {
+  /** Names the tiles section for assistive technology. */
+  label: string;
+  tiles: AutomationOverviewTile[];
+}
+
+export type AutomationStatusFilterValue =
+  | "all"
+  | "active"
+  | "failing"
+  | "disabled";
+export type AutomationTriggerFilterValue = "all" | "schedule" | "event";
+
+/**
+ * A filter dropdown. Values name predicates the host implements; the manifest
+ * supplies which appear and their labels. `label` is the control's accessible
+ * name. The `all` option is the host's default and reset target.
+ */
+export interface AutomationStatusFilter {
+  id: "status";
+  label: string;
+  options: { value: AutomationStatusFilterValue; label: string }[];
+}
+
+export interface AutomationTriggerFilter {
+  id: "trigger";
+  label: string;
+  options: { value: AutomationTriggerFilterValue; label: string }[];
+}
+
+export type AutomationDashboardFilter =
+  | AutomationStatusFilter
+  | AutomationTriggerFilter;
+
+/** A comparator the host implements, named from a closed set. */
+export type AutomationSortValue = "last-run" | "runs" | "name";
+
+export interface AutomationDashboardSort {
+  /** The control's accessible name. */
+  label: string;
+  options: { value: AutomationSortValue; label: string }[];
+  /** Must be one of the declared option values. */
+  default: AutomationSortValue;
+}
+
+/**
+ * Copy for the per-automation run insights on cards and rows. The states,
+ * precedence, sampling, and value formatting are the host's; the manifest
+ * names them.
+ */
+export interface AutomationListInsights {
+  health: {
+    healthy: string;
+    failing: string;
+    running: string;
+    disabled: string;
+    neverRun: string;
+    checking: string;
+  };
+  lastRun: { label: string; never: string; justNow: string };
+  stats: { runs: string; recentSuccess: string; averageDuration: string };
+}
+
+/**
+ * The templates sub-page identity. Its body - the catalog cards and their
+ * launch behavior - is the host's existing catalog surface.
+ */
+export interface AutomationTemplatesPage {
+  title: string;
+  description: string;
 }
 
 export interface AutomationInterfacePages {
-  list: { title: string; subtitle: string };
+  list: {
+    title: string;
+    subtitle: string;
+    overview: AutomationOverview;
+    /** The filter dropdowns of the list page, in render order. */
+    filters: AutomationDashboardFilter[];
+    sort: AutomationDashboardSort;
+    insights: AutomationListInsights;
+  };
   detail: { backLabel: string };
   edit: { title: string };
+  templates: AutomationTemplatesPage;
 }
 
 export type AutomationAttributeType =

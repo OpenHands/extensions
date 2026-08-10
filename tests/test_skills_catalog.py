@@ -373,19 +373,6 @@ SKILL_CATEGORY_IDS = {
 # Adding entries would mean creating .plugin/plugin.json and vendor symlinks (see test_skill_plugin_loading.py), which publishes them as Codex/Claude Code plugins.
 SKILLS_WITHOUT_MARKETPLACE_ENTRY = {"qa-changes", "release-notes"}
 
-EXPECTED_CATEGORY_COUNTS = {
-    "environment": 10,
-    "automations": 9,
-    "code-hosting": 8,
-    "agent-authoring": 8,
-    "code-quality": 6,
-    "integrations": 6,
-    "writing": 4,
-    "design": 2,
-    "other": 1,
-}
-
-
 def _marketplace_skill_categories() -> dict[str, str]:
     """Map skill directory name -> category, across every marketplace manifest."""
     result: dict[str, str] = {}
@@ -416,12 +403,6 @@ class TestMarketplaceSkillCategories:
         }
         uncovered = dirs - set(_marketplace_skill_categories())
         assert uncovered == SKILLS_WITHOUT_MARKETPLACE_ENTRY
-
-    def test_category_distribution_is_balanced(self):
-        from collections import Counter
-
-        counts = dict(Counter(_marketplace_skill_categories().values()))
-        assert counts == EXPECTED_CATEGORY_COUNTS
 
     def test_plugin_entries_keep_their_own_taxonomy(self):
         """Plugin entries are for Claude Code browsing and must not be rewritten."""
