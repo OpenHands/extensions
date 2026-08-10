@@ -36,6 +36,17 @@
                 "type": "cron",
                 "schedule": "*/15 * * * *",
                 "timezone": "UTC"
+              },
+              "template": {
+                "id": "github-pr-reviewer",
+                "version": "1.0.0",
+                "config": {
+                  "repository": "OpenHands/agent-server-gui",
+                  "triggerLabel": "openhands-review",
+                  "reviewTone": "thorough",
+                  "schedule": "*/15 * * * *",
+                  "timezone": "UTC"
+                }
               }
             }
           }
@@ -65,6 +76,17 @@
               "type": "cron",
               "schedule": "*/15 * * * *",
               "timezone": "UTC"
+            },
+            "template": {
+              "id": "github-pr-reviewer",
+              "version": "1.0.0",
+              "config": {
+                "repository": "OpenHands/agent-server-gui",
+                "triggerLabel": "openhands-review",
+                "reviewTone": "thorough",
+                "schedule": "*/15 * * * *",
+                "timezone": "UTC"
+              }
             }
           }
         },
@@ -77,6 +99,27 @@
             "model": null,
             "name": "GitHub Code Review Agent - OpenHands/agent-server-gui",
             "prompt": "Review pull requests labeled 'openhands-review' in OpenHands/agent-server-gui. Review tone: thorough.",
+            "preset_metadata": {
+              "preset_type": "prompt",
+              "prompt": "Review pull requests labeled 'openhands-review' in OpenHands/agent-server-gui. Review tone: thorough.",
+              "repos": [
+                {
+                  "url": "OpenHands/agent-server-gui",
+                  "provider": "github"
+                }
+              ],
+              "template": {
+                "id": "github-pr-reviewer",
+                "version": "1.0.0",
+                "config": {
+                  "repository": "OpenHands/agent-server-gui",
+                  "triggerLabel": "openhands-review",
+                  "reviewTone": "thorough",
+                  "schedule": "*/15 * * * *",
+                  "timezone": "UTC"
+                }
+              }
+            },
             "trigger": {
               "type": "cron",
               "schedule": "*/15 * * * *",
@@ -125,6 +168,17 @@
                 "type": "cron",
                 "schedule": "*/1 * * * *",
                 "timezone": "UTC"
+              },
+              "template": {
+                "id": "github-pr-reviewer",
+                "version": "1.0.0",
+                "config": {
+                  "repository": "OpenHands/agent-server-gui",
+                  "triggerLabel": "openhands-review",
+                  "reviewTone": "concise",
+                  "schedule": "*/1 * * * *",
+                  "timezone": "UTC"
+                }
               }
             }
           }
@@ -174,6 +228,17 @@
               "type": "cron",
               "schedule": "0 0 31 2 *",
               "timezone": "UTC"
+            },
+            "template": {
+              "id": "github-pr-reviewer",
+              "version": "1.0.0",
+              "config": {
+                "repository": "OpenHands/agent-server-gui",
+                "triggerLabel": "openhands-review",
+                "reviewTone": "concise",
+                "schedule": "0 0 31 2 *",
+                "timezone": "UTC"
+              }
             }
           }
         },

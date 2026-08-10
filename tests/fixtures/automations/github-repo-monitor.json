@@ -38,6 +38,16 @@
                 "source": "github",
                 "on": "issue_comment.created",
                 "filter": "icontains(comment.body, '@openhands') && glob(repository.full_name, 'OpenHands/agent-server-gui')"
+              },
+              "template": {
+                "id": "github-repo-monitor",
+                "version": "1.0.0",
+                "config": {
+                  "repository": "OpenHands/agent-server-gui",
+                  "triggerPhrase": "@openhands",
+                  "on": "issue_comment.created",
+                  "ref": "main"
+                }
               }
             }
           }
@@ -69,6 +79,16 @@
               "source": "github",
               "on": "issue_comment.created",
               "filter": "icontains(comment.body, '@openhands') && glob(repository.full_name, 'OpenHands/agent-server-gui')"
+            },
+            "template": {
+              "id": "github-repo-monitor",
+              "version": "1.0.0",
+              "config": {
+                "repository": "OpenHands/agent-server-gui",
+                "triggerPhrase": "@openhands",
+                "on": "issue_comment.created",
+                "ref": "main"
+              }
             }
           }
         },
@@ -81,6 +101,27 @@
             "model": null,
             "name": "GitHub repository monitor - OpenHands/agent-server-gui",
             "prompt": "A comment in OpenHands/agent-server-gui mentions '@openhands'. Read the surrounding issue or pull request context from the event payload, then post a helpful reply as a comment on the same thread.",
+            "preset_metadata": {
+              "preset_type": "prompt",
+              "prompt": "A comment in OpenHands/agent-server-gui mentions '@openhands'. Read the surrounding issue or pull request context from the event payload, then post a helpful reply as a comment on the same thread.",
+              "repos": [
+                {
+                  "url": "OpenHands/agent-server-gui",
+                  "ref": "main",
+                  "provider": "github"
+                }
+              ],
+              "template": {
+                "id": "github-repo-monitor",
+                "version": "1.0.0",
+                "config": {
+                  "repository": "OpenHands/agent-server-gui",
+                  "triggerPhrase": "@openhands",
+                  "on": "issue_comment.created",
+                  "ref": "main"
+                }
+              }
+            },
             "trigger": {
               "type": "event",
               "source": "github",
@@ -154,6 +195,16 @@
                 "source": "github",
                 "on": "pull_request_review_comment.created",
                 "filter": "icontains(comment.body, '@openhands') && glob(repository.full_name, 'OpenHands/agent-server-gui')"
+              },
+              "template": {
+                "id": "github-repo-monitor",
+                "version": "1.0.0",
+                "config": {
+                  "repository": "OpenHands/agent-server-gui",
+                  "triggerPhrase": "@openhands",
+                  "on": "pull_request_review_comment.created",
+                  "ref": "main"
+                }
               }
             }
           }
