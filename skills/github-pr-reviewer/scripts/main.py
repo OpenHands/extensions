@@ -342,41 +342,84 @@ def _is_automation_content(body: str) -> bool:
     return False
 
 
+# Pagination controls for the comment/review scans. Pages are small and
+# ordered newest-first so a normal PR (whose recent automation pair sits on
+# page 1) costs a single request, while a comment-heavy PR is walked only as
+# far as its automation content reaches — never the whole history.
+_HIDE_PAGE_SIZE = 20
+_HIDE_MAX_PAGES = 50
+
+
 def _list_issue_comments(token: str, repo: str, pr_number: int) -> list[dict]:
-    """List issue comments on a PR, returning node_id, body, and minimized status."""
+    """List recent issue comments on a PR, newest first.
+
+    Paginated in small newest-first pages (``UPDATED_AT DESC`` — the only field
+    ``IssueCommentOrder`` accepts) so the scan can stop once it is past the
+    automation content instead of fetching every comment on a busy PR. Returns
+    the comments actually fetched, each with id, body, and isMinimized.
+
+    Scanning stops after a page that contains no automation content once an
+    earlier page did: the automation's own comments cluster at the recent end,
+    so a clean page below them means the rest is history. Bounded by
+    ``_HIDE_MAX_PAGES`` regardless.
+    """
     query = """
-    query($owner: String!, $repo: String!, $number: Int!) {
+    query($owner: String!, $repo: String!, $number: Int!, $size: Int!, $cursor: String) {
         repository(owner: $owner, name: $repo) {
-            issueOrPullRequest(number: $number) {
-                ... on Issue {
-                    comments(first: 100, orderBy: {field: CREATED_AT, direction: ASC}) {
-                        nodes { id body isMinimized }
-                    }
-                }
-                ... on PullRequest {
-                    comments(first: 100, orderBy: {field: CREATED_AT, direction: ASC}) {
-                        nodes { id body isMinimized }
-                    }
+            pullRequest(number: $number) {
+                comments(first: $size, after: $cursor, orderBy: {field: UPDATED_AT, direction: DESC}) {
+                    nodes { id body isMinimized }
+                    pageInfo { hasNextPage endCursor }
                 }
             }
         }
     }
     """
     owner, repo_name = repo.split("/")
-    result = _github_graphql(token, query, {
-        "owner": owner,
-        "repo": repo_name,
-        "number": pr_number,
-    })
-    if "errors" in result:
-        print(f"  Warning: GraphQL error listing comments: {result['errors']}")
-        return []
-    iop = result.get("data", {}).get("repository", {}).get("issueOrPullRequest", {})
-    return iop.get("comments", {}).get("nodes", [])
+    collected: list[dict] = []
+    cursor = None
+    seen_automation = False
+    for _ in range(_HIDE_MAX_PAGES):
+        result = _github_graphql(token, query, {
+            "owner": owner,
+            "repo": repo_name,
+            "number": pr_number,
+            "size": _HIDE_PAGE_SIZE,
+            "cursor": cursor,
+        })
+        if "errors" in result:
+            print(f"  Warning: GraphQL error listing comments: {result['errors']}")
+            break
+        conn = (
+            result.get("data", {})
+            .get("repository", {})
+            .get("pullRequest", {})
+            .get("comments", {})
+        )
+        nodes = conn.get("nodes", [])
+        collected.extend(nodes)
+        page_has_automation = any(
+            _is_automation_content(n.get("body", "")) for n in nodes
+        )
+        if page_has_automation:
+            seen_automation = True
+        elif seen_automation:
+            # Past the automation cluster — older pages are history.
+            break
+        page_info = conn.get("pageInfo", {})
+        if not page_info.get("hasNextPage"):
+            break
+        cursor = page_info.get("endCursor")
+    return collected
 
 
 def _list_pr_reviews(token: str, repo: str, pr_number: int) -> list[dict]:
     """List PR review objects with their inline comments.
+
+    The ``reviews`` connection does not accept an ``orderBy`` argument, so it is
+    paginated forward (chunks of ``_HIDE_PAGE_SIZE``, bounded by
+    ``_HIDE_MAX_PAGES``) and sorted by the caller. Reviews are low-volume
+    compared to issue comments, so walking them fully is cheap.
 
     Returns a list of review dicts, each containing:
     - id: GraphQL node ID of the review (minimizable)
@@ -386,10 +429,10 @@ def _list_pr_reviews(token: str, repo: str, pr_number: int) -> list[dict]:
     - comments: List of inline review comments, each with id, body, isMinimized
     """
     query = """
-    query($owner: String!, $repo: String!, $number: Int!) {
+    query($owner: String!, $repo: String!, $number: Int!, $size: Int!, $cursor: String) {
         repository(owner: $owner, name: $repo) {
             pullRequest(number: $number) {
-                reviews(first: 100) {
+                reviews(first: $size, after: $cursor) {
                     nodes {
                         id
                         body
@@ -400,22 +443,38 @@ def _list_pr_reviews(token: str, repo: str, pr_number: int) -> list[dict]:
                             nodes { id body isMinimized }
                         }
                     }
+                    pageInfo { hasNextPage endCursor }
                 }
             }
         }
     }
     """
     owner, repo_name = repo.split("/")
-    result = _github_graphql(token, query, {
-        "owner": owner,
-        "repo": repo_name,
-        "number": pr_number,
-    })
-    if "errors" in result:
-        print(f"  Warning: GraphQL error listing reviews: {result['errors']}")
-        return []
-    pr = result.get("data", {}).get("repository", {}).get("pullRequest", {})
-    return pr.get("reviews", {}).get("nodes", [])
+    collected: list[dict] = []
+    cursor = None
+    for _ in range(_HIDE_MAX_PAGES):
+        result = _github_graphql(token, query, {
+            "owner": owner,
+            "repo": repo_name,
+            "number": pr_number,
+            "size": _HIDE_PAGE_SIZE,
+            "cursor": cursor,
+        })
+        if "errors" in result:
+            print(f"  Warning: GraphQL error listing reviews: {result['errors']}")
+            break
+        conn = (
+            result.get("data", {})
+            .get("repository", {})
+            .get("pullRequest", {})
+            .get("reviews", {})
+        )
+        collected.extend(conn.get("nodes", []))
+        page_info = conn.get("pageInfo", {})
+        if not page_info.get("hasNextPage"):
+            break
+        cursor = page_info.get("endCursor")
+    return collected
 
 
 def _hide_previous_automation_comments(
