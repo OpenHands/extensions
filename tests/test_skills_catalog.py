@@ -373,7 +373,6 @@ SKILL_CATEGORY_IDS = {
 # Adding entries would mean creating .plugin/plugin.json and vendor symlinks (see test_skill_plugin_loading.py), which publishes them as Codex/Claude Code plugins.
 SKILLS_WITHOUT_MARKETPLACE_ENTRY = {"qa-changes", "release-notes"}
 
-
 def _marketplace_skill_categories() -> dict[str, str]:
     """Map skill directory name -> category, across every marketplace manifest."""
     result: dict[str, str] = {}

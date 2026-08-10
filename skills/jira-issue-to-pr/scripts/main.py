@@ -264,8 +264,7 @@ try:
 
     agent_settings = settings.get("agent_settings", {})
     agent_settings.pop("schema_version", None)
-    # Drop mcp_config to avoid MCP connection failures at conversation creation time.
-    agent_settings.pop("mcp_config", None)
+    mcp_config = agent_settings.pop("mcp_config", None)
     ctx = agent_settings.setdefault("agent_context", {})
     ctx.update({"load_public_skills": True, "load_user_skills": True, "load_project_skills": True})
     max_iterations = (settings.get("conversation_settings") or {}).get("max_iterations") or 1000
@@ -314,6 +313,9 @@ Steps:
                 "run":     True,
             },
         }
+        if mcp_config:
+            payload["mcp_config"] = mcp_config
+
         conv_req = urllib.request.Request(
             f"{agent_url}/api/conversations",
             data=json.dumps(payload).encode(),
