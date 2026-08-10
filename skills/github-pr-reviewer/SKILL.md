@@ -226,11 +226,13 @@ Each cron run executes `main.py`, which:
      queued.
    - When the conversation reaches `idle`, `finished`, `error`, or `stuck`,
      posts the agent's final response as a GitHub comment, then hides
-     (minimizes with the `outdated` reason) all previous content posted by
-     this automation on the PR — including the acknowledgement comment, any
-     earlier review result comments, and previous PR review objects with
-     their inline diff comments — so only the latest review remains visible.
-     Hidden content can still be expanded by users or unhidden by moderators.
+     (minimizes with the `outdated` reason) all content posted by this
+     automation in *previous* review cycles on the PR — including earlier
+     acknowledgement comments, earlier review result comments, and previous
+     PR review objects with their inline diff comments. The current cycle's
+     pair (its acknowledgement comment and its review result / review object)
+     is kept visible so only the latest review remains. Hidden content can
+     still be expanded by users or unhidden by moderators.
    - Marks the review closed.
 6. Saves state atomically and fires the completion callback.
 

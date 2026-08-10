@@ -395,6 +395,7 @@ def _list_pr_reviews(token: str, repo: str, pr_number: int) -> list[dict]:
                         body
                         isMinimized
                         state
+                        createdAt
                         comments(first: 100) {
                             nodes { id body isMinimized }
                         }
@@ -421,24 +422,24 @@ def _hide_previous_automation_comments(
     token: str,
     repo: str,
     pr_number: int,
-    exclude_node_id: str | None = None,
+    exclude_node_ids: set[str] | None = None,
 ) -> None:
     """Hide (minimize with OUTDATED) previous content posted by this automation.
 
-    Called after a new review is posted. Minimizes two kinds of GitHub entities:
+    Each review cycle posts a *pair*: an acknowledgement issue comment ("OpenHands
+    is reviewing this PR") and a review result — either an issue comment or a PR
+    review object (with inline diff comments). When a new review completes, this
+    hides every item from *previous* cycles while keeping the current cycle's pair
+    visible.
 
-    1. **Issue comments** — the 'OpenHands is reviewing this PR' acknowledgement
-       comments and any review results posted as issue comments. Identified by
-       the AI disclosure marker or other known automation signatures.
-
-    2. **PR review objects** — review objects (with inline diff comments) posted
-       by the agent via the GitHub reviews API. Both the review itself and its
-       individual inline comments are minimized, since both implement the
-       Minimizable interface.
-
-    The freshly posted comment (exclude_node_id) is skipped so only previous
-    content is hidden. Already-minimized content is also skipped.
+    The current cycle is identified by ``exclude_node_ids``, which carries the
+    node IDs of the freshly posted result comment and the acknowledgement comment
+    tracked for this cycle. For PR review objects — which the agent may post on
+    its own and whose node IDs are not tracked — the most recent automation
+    review object is treated as the current cycle's and is skipped, so the latest
+    review object is never hidden. Already-minimized content is always skipped.
     """
+    exclude = exclude_node_ids or set()
     hidden = 0
 
     # 1. Issue comments (acknowledgement + review-as-comment)
@@ -446,7 +447,7 @@ def _hide_previous_automation_comments(
         if comment.get("isMinimized"):
             continue
         node_id = comment.get("id")
-        if exclude_node_id and node_id == exclude_node_id:
+        if node_id in exclude:
             continue
         if not _is_automation_content(comment.get("body", "")):
             continue
@@ -454,24 +455,34 @@ def _hide_previous_automation_comments(
             hidden += 1
 
     # 2. PR review objects (review body + inline review comments)
-    for review in _list_pr_reviews(token, repo, pr_number):
-        body = review.get("body", "")
+    reviews = _list_pr_reviews(token, repo, pr_number)
+    automation_reviews = [
+        r for r in reviews
+        if _is_automation_content(r.get("body", ""))
+        or any(
+            _is_automation_content(c.get("body", ""))
+            for c in r.get("comments", {}).get("nodes", [])
+        )
+    ]
+    # The most recent automation review object belongs to the current cycle and
+    # must stay visible. Sort by createdAt descending and skip the first.
+    if automation_reviews:
+        automation_reviews.sort(
+            key=lambda r: r.get("createdAt") or "", reverse=True
+        )
+        current_review = automation_reviews[0]
+        previous_reviews = automation_reviews[1:]
+    else:
+        current_review = None
+        previous_reviews = []
+
+    for review in previous_reviews:
         review_node_id = review.get("id")
         review_comments = review.get("comments", {}).get("nodes", [])
 
-        # Determine if this review was posted by the automation: check either
-        # the review body or any of its inline comments for the disclosure marker.
-        is_automation_review = _is_automation_content(body) or any(
-            _is_automation_content(c.get("body", "")) for c in review_comments
-        )
-        if not is_automation_review:
-            continue
-
         # Minimize the review object itself (collapses the review summary)
-        if not review.get("isMinimized"):
-            if exclude_node_id and review_node_id == exclude_node_id:
-                pass
-            elif _minimize_comment(token, review_node_id, "OUTDATED"):
+        if not review.get("isMinimized") and review_node_id not in exclude:
+            if _minimize_comment(token, review_node_id, "OUTDATED"):
                 hidden += 1
 
         # Minimize each inline review comment
@@ -479,7 +490,7 @@ def _hide_previous_automation_comments(
             if rc.get("isMinimized"):
                 continue
             rc_node_id = rc.get("id")
-            if exclude_node_id and rc_node_id == exclude_node_id:
+            if rc_node_id in exclude:
                 continue
             if _minimize_comment(token, rc_node_id, "OUTDATED"):
                 hidden += 1
@@ -678,11 +689,12 @@ def _build_review_prompt(pr: dict, head_sha: str, label_event: dict) -> str:
         "End your review with a clear verdict on its own line: either `✅ APPROVED` "
         "or `🔄 CHANGES REQUESTED`.\n\n"
         "Note: After your review is posted, the automation automatically hides "
-        "(minimizes with the 'outdated' reason) all previous content it posted on "
-        "this PR — including the 'OpenHands is reviewing this PR' acknowledgement "
-        "comment, any earlier review result comments, and previous PR review objects "
-        "with their inline diff comments — so that only the latest review "
-        "remains visible. You do not need to do anything for this; it is handled "
+        "(minimizes with the 'outdated' reason) all content it posted in previous "
+        "review cycles on this PR — earlier 'OpenHands is reviewing this PR' "
+        "acknowledgement comments, earlier review result comments, and previous "
+        "PR review objects with their inline diff comments. The current cycle's "
+        "review and acknowledgement stay visible, so only the latest review "
+        "remains. You do not need to do anything for this; it is handled "
         "by the automation script after your review text is posted."
     )
 
@@ -724,7 +736,7 @@ def _process_review_request(
     print(f"  Created review conversation {conv_id}")
 
     conv_url = f"{openhands_url}/conversations/{conv_id}"
-    _post_github_comment(
+    ack_node_id = _post_github_comment(
         github_token,
         REPO,
         number,
@@ -736,6 +748,9 @@ def _process_review_request(
             f"View the conversation: {conv_url}"
         ),
     )
+    # Track the ack comment node_id so the hiding step can keep the current
+    # cycle's acknowledgement visible (only previous pairs are hidden).
+    reviews[key]["ack_comment_node_id"] = ack_node_id
     return conv_id
 
 def _check_conversation_completion(
@@ -797,7 +812,13 @@ def _check_conversation_completion(
     print(f"  Posted review for PR #{pr_number} at {reviewed_sha[:12]}")
 
     _hide_previous_automation_comments(
-        github_token, REPO, pr_number, exclude_node_id=new_comment_node_id
+        github_token,
+        REPO,
+        pr_number,
+        exclude_node_ids={
+            node for node in (new_comment_node_id, rec.get("ack_comment_node_id"))
+            if node
+        },
     )
 
 
