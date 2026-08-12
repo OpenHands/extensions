@@ -24,7 +24,7 @@ Examples:
 - `gh pr checks 200 --watch --interval 10` to check until completed.
 </IMPORTANT>
 
-If you encounter authentication issues when pushing to GitHub (such as password prompts or permission errors), the old token may have expired. In such case, update the remote URL to include the current token: `git remote set-url origin https://${GITHUB_TOKEN}@github.com/username/repo.git`
+`GITHUB_TOKEN` may be a GitHub App installation token rather than a personal access token. It authenticates as the **password**, with the fixed username `x-access-token`, so `https://${GITHUB_TOKEN}@github.com/...` fails with `could not read Password` — it puts the token in the username field and leaves the password empty. A `403 Resource not accessible by integration` from `GET /user` is also normal for such a token and does not indicate a credential problem; check with a repository-scoped call instead. See `SKILL.md` for the working forms.
 
 Here are some instructions for pushing, but ONLY do this if the user asks you to:
 * NEVER push directly to the `main` or `master` branch

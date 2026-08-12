@@ -7,8 +7,18 @@ Use these PowerShell forms when running this skill's GitHub commands natively on
 PowerShell environment variables use `$env:NAME`:
 
 ```powershell
-git remote set-url origin "https://$($env:GITHUB_TOKEN)@github.com/username/repo.git"
+$env:GITHUB_TOKEN
 ```
+
+## Supplying Credentials to Git
+
+Prefer `git push origin` — the checkout may already have a credential helper. When it does not, pass the token as the **password** with the username `x-access-token`. Putting the token in the username field (`https://$($env:GITHUB_TOKEN)@github.com/...`) leaves the password empty and fails with `could not read Password`.
+
+```powershell
+git push "https://x-access-token:$($env:GITHUB_TOKEN)@github.com/owner/repo.git" HEAD:my-branch
+```
+
+Pass the URL to the single command rather than `git remote set-url origin`, so the token is not written into `.git/config`.
 
 ## Chained Git Commands
 

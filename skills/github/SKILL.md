@@ -20,7 +20,24 @@ Examples:
 
 Windows PowerShell equivalents for the multi-line shell snippets below are in `references/windows.md`.
 
-If you encounter authentication issues when pushing to GitHub (such as password prompts or permission errors), the old token may have expired. In such case, update the remote URL to include the current token: `git remote set-url origin https://${GITHUB_TOKEN}@github.com/username/repo.git`
+`GITHUB_TOKEN` may be a GitHub App installation token rather than a personal access token. Two things follow, and both look like a revoked credential when they are not:
+
+* The token authenticates as the **password**, with the fixed username `x-access-token`. `https://${GITHUB_TOKEN}@github.com/...` puts it in the username field with no password, so git asks for one, and where `GIT_TERMINAL_PROMPT=0` is set the command fails with `could not read Password`. That is a malformed URL, not an expired token.
+* `GET /user` and `gh api user` always answer `403 Resource not accessible by integration` for an installation token, because they are user-scoped endpoints an installation cannot call. That 403 says nothing about the token. To check it, call something repository-scoped such as `curl -H "Authorization: Bearer $GITHUB_TOKEN" https://api.github.com/repos/<owner>/<repo>`.
+
+Your checkout may already have a credential helper configured for `origin`, in which case `git fetch origin` and `git push origin` authenticate on their own — try them before changing anything. If a push does fail on authentication, supply credentials without rewriting the remote URL:
+
+```bash
+git push "https://x-access-token:${GITHUB_TOKEN}@github.com/owner/repo.git" HEAD:my-branch
+```
+
+Pass the URL to the single command rather than `git remote set-url origin`, so the token is not written into `.git/config`. To keep it out of the command line as well, use an askpass helper:
+
+```bash
+printf '%s\n' '#!/bin/sh' 'case "$1" in *Username*) printf %s x-access-token ;; *) printf %s "$GITHUB_TOKEN" ;; esac' > /tmp/git-askpass
+chmod 700 /tmp/git-askpass
+GIT_ASKPASS=/tmp/git-askpass GIT_TERMINAL_PROMPT=0 git push origin HEAD:my-branch
+```
 
 Here are some instructions for pushing, but ONLY do this if the user asks you to:
 * NEVER push directly to the `main` or `master` branch
