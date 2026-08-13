@@ -103,8 +103,7 @@ That way a skill can rename its trigger without leaving a stale copy behind in t
 `form` separates the two things a user is configuring, and both are keyed by field name:
 
 - **`form.triggers`** decides *when* the automation runs, keyed by trigger kind (`cron` or `event`).
-  `github-pr-reviewer` asks for a schedule and a timezone; `github-repo-monitor` asks which GitHub event to
-  answer and which phrase to match.
+  `github-pr-reviewer` and `github-repo-monitor` each ask for a schedule and a timezone.
 - **`form.args`** is everything else: the arguments to the automation itself, such as the repository to
   clone and the tone of the review.
 
@@ -152,8 +151,12 @@ entered and `{{automation.*}}` for the entry itself. There is deliberately no se
 | Entry | Archetype | Trigger | Produces |
 | --- | --- | --- | --- |
 | `github-pr-reviewer` | Direct scheduled | `cron` | a create payload |
-| `github-repo-monitor` | Direct GitHub-event | `event` on `github` with a JMESPath filter | a create payload |
+| `github-repo-monitor` | Direct scheduled | `cron` | a create payload |
 | `incident-retrospective-drafter` | Assisted conversation | decided during the conversation | a seed message |
+
+An event archetype is still expressible - `github-repo-monitor` used one until its deployment could no
+longer receive webhooks, and was converted to the polled `cron` form. The schema keeps supporting `event`
+triggers for deployments that can. See the `event` key under `setup.form.triggers` in `catalog.schema.json`.
 
 The assisted archetype has no payload and no preflight, because at the end of its flow no automation exists
 yet. The agent creates it during the conversation, and the service validates it there. That is the defining
@@ -164,10 +167,10 @@ property of the archetype, not an omission.
 `skill` and `exampleImplementation` describe the **current** path: Agent Canvas launches that skill, and the
 agent builds the automation. `setup` describes the **declarative** path that replaces it.
 
-They can differ in more than wording. `github-repo-monitor`'s skill polls GitHub on a cron and states that
-a webhook variant is out of scope, while its `setup` block creates the webhook form the service already
-supports. Both statements are accurate about their own generation. Retiring the skill path for entries that
-ship a `setup` block belongs to whoever promotes this to production.
+They can differ in more than wording. `github-repo-monitor`'s skill polls GitHub on a cron, and its `setup`
+block declares the same polled `cron` form, so the two generations agree. (It once declared an `event`
+form; when the deployment stopped receiving webhooks it was converted to this polling one.) Retiring the
+skill path for entries that ship a `setup` block belongs to whoever promotes this to production.
 
 ## The interface manifest (`interface.json`)
 
