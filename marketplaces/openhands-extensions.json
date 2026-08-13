@@ -178,6 +178,20 @@
       ]
     },
     {
+      "name": "taskmarket",
+      "source": "./plugins/taskmarket",
+      "description": "Preview and safely delegate well-scoped work to TaskMarket with Base-network and USDC spend checks, then inspect submissions for human review.",
+      "category": "integrations",
+      "keywords": [
+        "taskmarket",
+        "delegation",
+        "agents",
+        "usdc",
+        "base",
+        "bounty"
+      ]
+    },
+    {
       "name": "code-review",
       "source": "./skills/code-review",
       "description": "Rigorous code review focusing on data structures, simplicity, security, pragmatism, and risk/safety evaluation. Provides brutally honest, actionable feedback on pull requests or merge requests, including a risk assessment for every review. Use when reviewing code changes.",

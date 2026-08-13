@@ -1,0 +1,19 @@
+{
+  "name": "taskmarket",
+  "version": "0.1.0",
+  "description": "Delegate well-scoped work to TaskMarket with an explicit budget preview and human-controlled payment",
+  "author": {
+    "name": "Community contributor"
+  },
+  "homepage": "https://taskmarket.dev/",
+  "repository": "https://github.com/OpenHands/extensions",
+  "license": "MIT",
+  "keywords": [
+    "taskmarket",
+    "delegation",
+    "agents",
+    "usdc",
+    "base",
+    "bounty"
+  ]
+}
