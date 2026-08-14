@@ -342,97 +342,77 @@ def _is_automation_content(body: str) -> bool:
     return False
 
 
-# Pagination controls for the comment/review scans. Pages are small and
-# ordered newest-first so a normal PR (whose recent automation pair sits on
-# page 1) costs a single request, while a comment-heavy PR is walked only as
-# far as its automation content reaches — never the whole history.
-_HIDE_PAGE_SIZE = 20
-_HIDE_MAX_PAGES = 50
+# Each run scans only the most recent ``_HIDE_WINDOW`` items on the PR — the
+# newest issue comments and the newest review objects. Older automation content
+# was already minimized by previous runs, so re-walking the whole history is
+# wasteful on a comment-heavy PR. A single fixed window keeps every run at one
+# request per list, and successive runs keep the recent end clean as new cycles
+# arrive. GitHub's ``last: N`` returns the newest N items in the connection's
+# natural (creation) order, so the window is stable regardless of edits or
+# minimize state.
+_HIDE_WINDOW = 20
 
 
 def _list_issue_comments(token: str, repo: str, pr_number: int) -> list[dict]:
-    """List recent issue comments on a PR, newest first.
+    """Return the newest ``_HIDE_WINDOW`` issue comments (minimized or not).
 
-    Paginated in small newest-first pages (``UPDATED_AT DESC`` — the only field
-    ``IssueCommentOrder`` accepts) so the scan can stop once it is past the
-    automation content instead of fetching every comment on a busy PR. Returns
-    the comments actually fetched, each with id, body, and isMinimized.
-
-    Scanning stops after a page that contains no automation content once an
-    earlier page did: the automation's own comments cluster at the recent end,
-    so a clean page below them means the rest is history. Bounded by
-    ``_HIDE_MAX_PAGES`` regardless.
+    A single request: ``comments(last: N)`` yields the most recent N comments in
+    creation order (oldest-of-the-window first, newest last). Only this recent
+    window is scanned — older automation comments were minimized by earlier runs,
+    so there is no need to page through the full comment history. Each node
+    carries id, body, and isMinimized.
     """
     query = """
-    query($owner: String!, $repo: String!, $number: Int!, $size: Int!, $cursor: String) {
+    query($owner: String!, $repo: String!, $number: Int!, $size: Int!) {
         repository(owner: $owner, name: $repo) {
             pullRequest(number: $number) {
-                comments(first: $size, after: $cursor, orderBy: {field: UPDATED_AT, direction: DESC}) {
+                comments(last: $size) {
                     nodes { id body isMinimized }
-                    pageInfo { hasNextPage endCursor }
                 }
             }
         }
     }
     """
     owner, repo_name = repo.split("/")
-    collected: list[dict] = []
-    cursor = None
-    seen_automation = False
-    for _ in range(_HIDE_MAX_PAGES):
-        result = _github_graphql(token, query, {
-            "owner": owner,
-            "repo": repo_name,
-            "number": pr_number,
-            "size": _HIDE_PAGE_SIZE,
-            "cursor": cursor,
-        })
-        if "errors" in result:
-            print(f"  Warning: GraphQL error listing comments: {result['errors']}")
-            break
-        conn = (
-            result.get("data", {})
-            .get("repository", {})
-            .get("pullRequest", {})
-            .get("comments", {})
-        )
-        nodes = conn.get("nodes", [])
-        collected.extend(nodes)
-        page_has_automation = any(
-            _is_automation_content(n.get("body", "")) for n in nodes
-        )
-        if page_has_automation:
-            seen_automation = True
-        elif seen_automation:
-            # Past the automation cluster — older pages are history.
-            break
-        page_info = conn.get("pageInfo", {})
-        if not page_info.get("hasNextPage"):
-            break
-        cursor = page_info.get("endCursor")
-    return collected
+    result = _github_graphql(token, query, {
+        "owner": owner,
+        "repo": repo_name,
+        "number": pr_number,
+        "size": _HIDE_WINDOW,
+    })
+    if "errors" in result:
+        print(f"  Warning: GraphQL error listing comments: {result['errors']}")
+        return []
+    conn = (
+        result.get("data", {})
+        .get("repository", {})
+        .get("pullRequest", {})
+        .get("comments", {})
+    )
+    return conn.get("nodes", [])
 
 
 def _list_pr_reviews(token: str, repo: str, pr_number: int) -> list[dict]:
-    """List PR review objects with their inline comments.
+    """Return the newest ``_HIDE_WINDOW`` review objects with inline comments.
 
-    The ``reviews`` connection does not accept an ``orderBy`` argument, so it is
-    paginated forward (chunks of ``_HIDE_PAGE_SIZE``, bounded by
-    ``_HIDE_MAX_PAGES``) and sorted by the caller. Reviews are low-volume
-    compared to issue comments, so walking them fully is cheap.
+    A single request: ``reviews(last: N)`` yields the most recent N reviews (the
+    connection accepts no ``orderBy``, but ``last`` gives the newest in creation
+    order). Reviews are low-volume, so this window comfortably covers the recent
+    automation cycles.
 
     Returns a list of review dicts, each containing:
     - id: GraphQL node ID of the review (minimizable)
     - body: Review body text
     - isMinimized: Whether the review is already hidden
     - state: Review state (APPROVED, COMMENTED, CHANGES_REQUESTED, etc.)
+    - createdAt: Review creation timestamp (used to pick the current cycle's)
     - comments: List of inline review comments, each with id, body, isMinimized
     """
     query = """
-    query($owner: String!, $repo: String!, $number: Int!, $size: Int!, $cursor: String) {
+    query($owner: String!, $repo: String!, $number: Int!, $size: Int!) {
         repository(owner: $owner, name: $repo) {
             pullRequest(number: $number) {
-                reviews(first: $size, after: $cursor) {
+                reviews(last: $size) {
                     nodes {
                         id
                         body
@@ -443,38 +423,28 @@ def _list_pr_reviews(token: str, repo: str, pr_number: int) -> list[dict]:
                             nodes { id body isMinimized }
                         }
                     }
-                    pageInfo { hasNextPage endCursor }
                 }
             }
         }
     }
     """
     owner, repo_name = repo.split("/")
-    collected: list[dict] = []
-    cursor = None
-    for _ in range(_HIDE_MAX_PAGES):
-        result = _github_graphql(token, query, {
-            "owner": owner,
-            "repo": repo_name,
-            "number": pr_number,
-            "size": _HIDE_PAGE_SIZE,
-            "cursor": cursor,
-        })
-        if "errors" in result:
-            print(f"  Warning: GraphQL error listing reviews: {result['errors']}")
-            break
-        conn = (
-            result.get("data", {})
-            .get("repository", {})
-            .get("pullRequest", {})
-            .get("reviews", {})
-        )
-        collected.extend(conn.get("nodes", []))
-        page_info = conn.get("pageInfo", {})
-        if not page_info.get("hasNextPage"):
-            break
-        cursor = page_info.get("endCursor")
-    return collected
+    result = _github_graphql(token, query, {
+        "owner": owner,
+        "repo": repo_name,
+        "number": pr_number,
+        "size": _HIDE_WINDOW,
+    })
+    if "errors" in result:
+        print(f"  Warning: GraphQL error listing reviews: {result['errors']}")
+        return []
+    conn = (
+        result.get("data", {})
+        .get("repository", {})
+        .get("pullRequest", {})
+        .get("reviews", {})
+    )
+    return conn.get("nodes", [])
 
 
 def _hide_previous_automation_comments(
@@ -491,12 +461,24 @@ def _hide_previous_automation_comments(
     hides every item from *previous* cycles while keeping the current cycle's pair
     visible.
 
+    Scope is the most recent ``_HIDE_WINDOW`` issue comments and review objects
+    (see ``_list_issue_comments`` / ``_list_pr_reviews``): older automation
+    content was already minimized by earlier runs, so only the recent window is
+    reconsidered each run. Within that window every automation item is minimized
+    except the current cycle's pair.
+
     The current cycle is identified by ``exclude_node_ids``, which carries the
     node IDs of the freshly posted result comment and the acknowledgement comment
-    tracked for this cycle. For PR review objects — which the agent may post on
-    its own and whose node IDs are not tracked — the most recent automation
-    review object is treated as the current cycle's and is skipped, so the latest
-    review object is never hidden. Already-minimized content is always skipped.
+    tracked for this cycle. The pairing is asymmetric on purpose: a cycle may
+    produce only an acknowledgement (the agent errored before reviewing), or a
+    review with no separate result comment — so each item is judged on its own
+    (excluded id or newest review object → keep; any other automation item →
+    hide), never assumed to come in a matched two.
+
+    For PR review objects — which the agent may post on its own and whose node
+    IDs are not tracked — the most recent automation review object is treated as
+    the current cycle's and is skipped, so the latest review object is never
+    hidden. Already-minimized content is always skipped.
     """
     exclude = exclude_node_ids or set()
     hidden = 0
@@ -529,10 +511,8 @@ def _hide_previous_automation_comments(
         automation_reviews.sort(
             key=lambda r: r.get("createdAt") or "", reverse=True
         )
-        current_review = automation_reviews[0]
         previous_reviews = automation_reviews[1:]
     else:
-        current_review = None
         previous_reviews = []
 
     for review in previous_reviews:

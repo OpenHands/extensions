@@ -226,14 +226,48 @@ Each cron run executes `main.py`, which:
      queued.
    - When the conversation reaches `idle`, `finished`, `error`, or `stuck`,
      posts the agent's final response as a GitHub comment, then hides
-     (minimizes with the `outdated` reason) all content posted by this
-     automation in *previous* review cycles on the PR — including earlier
-     acknowledgement comments, earlier review result comments, and previous
-     PR review objects with their inline diff comments. The current cycle's
-     pair (its acknowledgement comment and its review result / review object)
-     is kept visible so only the latest review remains. Hidden content can
-     still be expanded by users or unhidden by moderators.
+     (minimizes with the `outdated` reason) the automation's *previous* content
+     on the PR. See "Hiding previous reviews" below.
    - Marks the review closed.
+
+### Hiding previous reviews
+
+Every review cycle adds automation content to the PR: an acknowledgement issue
+comment ("OpenHands is reviewing this PR") plus a review result — an issue
+comment and/or a PR review object with inline diff comments. Left alone these
+pile up and GitHub struggles to render a PR with many comments. After posting a
+new result the automation minimizes the older ones. The algorithm:
+
+1. **Scope: the latest window only.** Fetch just the most recent
+   `_HIDE_WINDOW` (20) issue comments and the most recent 20 review objects,
+   each in a single request (`comments(last: 20)` / `reviews(last: 20)`). Older
+   automation content was already minimized by previous runs, so re-walking the
+   whole history is unnecessary — the recent window is where the un-minimized
+   automation content lives. Every run is therefore one request per list,
+   regardless of how many comments the PR has accumulated.
+
+2. **Keep the current cycle, hide the rest.** Within that window, minimize every
+   item that is automation content *except* the current cycle's:
+   - **Issue comments:** the current result comment and the current
+     acknowledgement comment are identified by node ID (both tracked when
+     posted) and skipped; any other automation comment is minimized.
+   - **PR review objects:** the agent posts these itself, so their node IDs are
+     not tracked. The most recent automation review object (by `createdAt`) is
+     treated as the current cycle's and skipped; older ones — and their inline
+     diff comments — are minimized.
+
+3. **Handle asymmetric cycles.** A cycle does not always produce a matched pair.
+   The agent may error before reviewing (acknowledgement only), or post a review
+   object with no separate result comment. So each item is judged on its own —
+   excluded node ID or newest review object → keep, any other automation item →
+   hide — rather than assuming ack-and-result always come together.
+
+4. **Never re-hide.** Already-minimized items are skipped, so a run does no work
+   for content a previous run already collapsed.
+
+Minimizing uses the GraphQL `minimizeComment` mutation with the `OUTDATED`
+classifier; hidden content can still be expanded by users or unhidden by
+moderators. Non-automation (human) comments are never touched.
 6. Saves state atomically and fires the completion callback.
 
 ---

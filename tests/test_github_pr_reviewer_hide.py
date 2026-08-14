@@ -182,152 +182,93 @@ def test_no_exclude_keeps_latest_review_object(minimized_ids):
 
 # ── Pagination of the list helpers ───────────────────────────────────────────
 #
-# These exercise the real _list_issue_comments / _list_pr_reviews pagination
-# by faking _github_graphql at the transport layer, so the newest-first,
-# stop-early, and multi-page behaviour is covered rather than mocked away.
+# These exercise the real _list_issue_comments / _list_pr_reviews window fetch
+# by faking _github_graphql at the transport layer, so the fixed latest-N
+# behaviour is covered rather than mocked away.
 
 
-def _issue_comments_page(nodes, has_next, cursor=None):
+def _issue_comments_page(nodes):
     return {
-        "data": {
-            "repository": {
-                "pullRequest": {
-                    "comments": {
-                        "nodes": nodes,
-                        "pageInfo": {"hasNextPage": has_next, "endCursor": cursor},
-                    }
-                }
-            }
-        }
+        "data": {"repository": {"pullRequest": {"comments": {"nodes": nodes}}}}
     }
 
 
-def _reviews_page(nodes, has_next, cursor=None):
+def _reviews_page(nodes):
     return {
-        "data": {
-            "repository": {
-                "pullRequest": {
-                    "reviews": {
-                        "nodes": nodes,
-                        "pageInfo": {"hasNextPage": has_next, "endCursor": cursor},
-                    }
-                }
-            }
-        }
+        "data": {"repository": {"pullRequest": {"reviews": {"nodes": nodes}}}}
     }
 
 
-def test_list_issue_comments_stops_after_automation_cluster():
-    """Newest-first scan walks into the automation cluster, then stops on the
-    first clean page below it — it must not fetch the whole comment history."""
-    pages = [
-        _issue_comments_page(
-            [_issue_comment("ack_2", ACK_BODY), _issue_comment("result_2", RESULT_BODY)],
-            has_next=True, cursor="c1",
-        ),
-        _issue_comments_page(
-            [_issue_comment("ack_1", ACK_BODY)],
-            has_next=True, cursor="c2",
-        ),
-        # First page with no automation content after we've seen some → stop here.
-        _issue_comments_page(
-            [_issue_comment("human_old", NON_AUTOMATION)],
-            has_next=True, cursor="c3",
-        ),
-        # Should never be fetched.
-        _issue_comments_page(
-            [_issue_comment("should_not_fetch", ACK_BODY)],
-            has_next=True, cursor="c4",
-        ),
-    ]
-    calls = {"n": 0}
+def test_list_issue_comments_single_windowed_request():
+    """The scan is one request for the newest window (comments(last: N)); the
+    query carries no cursor and the helper returns exactly what came back."""
+    captured = {}
 
     def _fake_graphql(token, query, variables=None):
-        page = pages[calls["n"]]
-        calls["n"] += 1
-        return page
+        captured["query"] = query
+        captured["variables"] = variables
+        return _issue_comments_page(
+            [_issue_comment("ack_2", ACK_BODY), _issue_comment("result_2", RESULT_BODY)]
+        )
 
-    with patch.object(main, "_github_graphql", side_effect=_fake_graphql):
+    with patch.object(main, "_github_graphql", side_effect=_fake_graphql) as gq:
         result = main._list_issue_comments("tok", "owner/repo", 1)
 
-    ids = [c["id"] for c in result]
-    assert calls["n"] == 3  # stopped on the clean page, did not fetch page 4
-    assert "should_not_fetch" not in ids
-    assert {"ack_2", "result_2", "ack_1"}.issubset(set(ids))
-
-
-def test_list_issue_comments_single_page_no_next():
-    """The normal PR: one small page, hasNextPage false → exactly one request."""
-    pages = [
-        _issue_comments_page(
-            [_issue_comment("ack_2", ACK_BODY), _issue_comment("result_2", RESULT_BODY)],
-            has_next=False,
-        ),
-    ]
-    calls = {"n": 0}
-
-    def _fake_graphql(token, query, variables=None):
-        page = pages[calls["n"]]
-        calls["n"] += 1
-        return page
-
-    with patch.object(main, "_github_graphql", side_effect=_fake_graphql):
-        result = main._list_issue_comments("tok", "owner/repo", 1)
-
-    assert calls["n"] == 1
+    assert gq.call_count == 1
+    assert "comments(last: $size)" in captured["query"]
+    assert captured["variables"]["size"] == main._HIDE_WINDOW
+    assert "cursor" not in captured["variables"]
     assert [c["id"] for c in result] == ["ack_2", "result_2"]
 
 
-def test_list_issue_comments_graphql_error_returns_collected():
-    """A GraphQL error stops the walk and returns whatever was gathered so far."""
-    pages = [
-        _issue_comments_page([_issue_comment("ack_2", ACK_BODY)], has_next=True, cursor="c1"),
-        {"errors": [{"message": "boom"}]},
-    ]
-    calls = {"n": 0}
-
-    def _fake_graphql(token, query, variables=None):
-        page = pages[calls["n"]]
-        calls["n"] += 1
-        return page
-
-    with patch.object(main, "_github_graphql", side_effect=_fake_graphql):
+def test_list_issue_comments_graphql_error_returns_empty():
+    """A GraphQL error yields an empty list (nothing is hidden that run)."""
+    with patch.object(
+        main, "_github_graphql", return_value={"errors": [{"message": "boom"}]}
+    ):
         result = main._list_issue_comments("tok", "owner/repo", 1)
 
-    assert [c["id"] for c in result] == ["ack_2"]
+    assert result == []
 
 
-def test_list_pr_reviews_paginates_all_pages():
-    """Reviews have no orderBy, so the helper walks every page and lets the
-    caller sort; both pages' reviews must come back."""
-    pages = [
-        _reviews_page(
-            [_review("rev_1", RESULT_BODY, "2026-01-01T00:00:00Z")],
-            has_next=True, cursor="r1",
-        ),
-        _reviews_page(
-            [_review("rev_2", RESULT_BODY, "2026-02-01T00:00:00Z")],
-            has_next=False,
-        ),
-    ]
-    calls = {"n": 0}
+def test_list_pr_reviews_single_windowed_request():
+    """Reviews are fetched as the newest window (reviews(last: N)) in one call;
+    the caller sorts by createdAt."""
+    captured = {}
 
     def _fake_graphql(token, query, variables=None):
-        page = pages[calls["n"]]
-        calls["n"] += 1
-        return page
+        captured["query"] = query
+        captured["variables"] = variables
+        return _reviews_page(
+            [
+                _review("rev_1", RESULT_BODY, "2026-01-01T00:00:00Z"),
+                _review("rev_2", RESULT_BODY, "2026-02-01T00:00:00Z"),
+            ]
+        )
 
-    with patch.object(main, "_github_graphql", side_effect=_fake_graphql):
+    with patch.object(main, "_github_graphql", side_effect=_fake_graphql) as gq:
         result = main._list_pr_reviews("tok", "owner/repo", 1)
 
-    assert calls["n"] == 2
+    assert gq.call_count == 1
+    assert "reviews(last: $size)" in captured["query"]
+    assert captured["variables"]["size"] == main._HIDE_WINDOW
     assert {r["id"] for r in result} == {"rev_1", "rev_2"}
 
 
-def test_hide_end_to_end_with_paginated_lists():
-    """Full path: real _list_* pagination feeding _hide_previous_automation_comments,
-    only _github_graphql and _minimize_comment faked. Previous pair hidden,
-    current pair (excluded) + newest review kept."""
+def test_list_pr_reviews_graphql_error_returns_empty():
+    with patch.object(
+        main, "_github_graphql", return_value={"errors": [{"message": "boom"}]}
+    ):
+        result = main._list_pr_reviews("tok", "owner/repo", 1)
+
+    assert result == []
+
+
+def test_hide_end_to_end_with_windowed_lists():
+    """Full path: real _list_* window fetch feeding
+    _hide_previous_automation_comments, only _github_graphql and
+    _minimize_comment faked. Previous pair hidden, current pair (excluded) +
+    newest review kept."""
     minimized_ids: list[str] = []
     comment_pages = [
         _issue_comments_page(
@@ -337,7 +278,6 @@ def test_hide_end_to_end_with_paginated_lists():
                 _issue_comment("result_old", RESULT_BODY),
                 _issue_comment("ack_old", ACK_BODY),
             ],
-            has_next=False,
         ),
     ]
     review_pages = [
@@ -348,7 +288,6 @@ def test_hide_end_to_end_with_paginated_lists():
                 _review("rev_cur", RESULT_BODY, "2026-02-01T00:00:00Z",
                         comments=[_review_comment("rc_cur", RESULT_BODY)]),
             ],
-            has_next=False,
         ),
     ]
 
@@ -370,3 +309,38 @@ def test_hide_end_to_end_with_paginated_lists():
     assert set(minimized_ids) == {"ack_old", "result_old", "rev_old", "rc_old"}
     for kept in ("ack_cur", "result_cur", "rev_cur", "rc_cur"):
         assert kept not in minimized_ids
+
+
+def test_hide_ack_only_cycle_keeps_ack_hides_previous():
+    """Asymmetric cycle: current run produced only an acknowledgement (agent
+    errored before a review). The current ack stays; the previous cycle's ack +
+    result are hidden; no review objects involved."""
+    minimized_ids: list[str] = []
+    comment_pages = [
+        _issue_comments_page(
+            [
+                _issue_comment("ack_cur", ACK_BODY),
+                _issue_comment("result_old", RESULT_BODY),
+                _issue_comment("ack_old", ACK_BODY),
+            ],
+        ),
+    ]
+    review_pages = [_reviews_page([])]
+
+    def _fake_graphql(token, query, variables=None):
+        if "reviews(" in query:
+            return review_pages.pop(0)
+        return comment_pages.pop(0)
+
+    with patch.object(main, "_github_graphql", side_effect=_fake_graphql):
+        with patch.object(
+            main, "_minimize_comment",
+            side_effect=lambda t, n, r="OUTDATED": minimized_ids.append(n) or True,
+        ):
+            main._hide_previous_automation_comments(
+                "tok", "owner/repo", 1,
+                exclude_node_ids={"ack_cur"},
+            )
+
+    assert set(minimized_ids) == {"ack_old", "result_old"}
+    assert "ack_cur" not in minimized_ids
