@@ -196,6 +196,8 @@ Source: [`examples/`](https://github.com/OpenHands/software-agent-sdk/tree/main/
 - [`53_client_defined_tools.py`](https://github.com/OpenHands/software-agent-sdk/blob/main/examples/01_standalone_sdk/53_client_defined_tools.py)
 - [`54_goal_completion_loop.py`](https://github.com/OpenHands/software-agent-sdk/blob/main/examples/01_standalone_sdk/54_goal_completion_loop.py)
 - [`55_persistent_memory.py`](https://github.com/OpenHands/software-agent-sdk/blob/main/examples/01_standalone_sdk/55_persistent_memory.py)
+- [`56_structured_output.py`](https://github.com/OpenHands/software-agent-sdk/blob/main/examples/01_standalone_sdk/56_structured_output.py)
+- [`57_prompt_hooks`](https://github.com/OpenHands/software-agent-sdk/tree/main/examples/01_standalone_sdk/57_prompt_hooks)
 
 ### [`02_remote_agent_server/`](https://github.com/OpenHands/software-agent-sdk/tree/main/examples/02_remote_agent_server)
 
