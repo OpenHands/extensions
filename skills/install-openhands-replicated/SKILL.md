@@ -12,7 +12,9 @@ Guide a customer or field engineer from installation scoping to a usable OpenHan
 - Start with planning and read-only preflight checks. Do not create infrastructure, modify DNS or firewall rules, run the installer, deploy ConfigValues, restart workloads, or rotate credentials without explicit approval for that exact operation.
 - Obtain the current installer command, license bundle, release channel, and target OHE version from the customer's installer dashboard. Treat download URLs, license files, tokens, private keys, and provider credentials as secrets. Never paste or log their values.
 - State the command category, expected impact, prerequisites, rollback boundary, and verification plan before each mutating phase.
-- Prefer supported Replicated and KOTS surfaces. Do not use direct Kubernetes patches as installation steps. Do not bypass host preflights except under a version-matched procedure from OpenHands or Replicated Support.
+- Prefer supported configuration surfaces. Use the V1 API (`POST /api/v1/settings` with `*_diff` payloads) for supported user and organization settings. Use the Replicated/KOTS Admin Console or documented Helm values for deployment settings such as environment variables and image overrides.
+- Never use raw `kubectl patch`, `kubectl set env`, `kubectl edit`, or direct database queries as the first resort. Treat them as escape hatches. Use one only when the documented configuration path is broken, the user explicitly approves the operation, and the change and rationale are recorded for rollback or migration into supported configuration during the next deployment.
+- Do not bypass host preflights except under a version-matched procedure from OpenHands or Replicated Support.
 - Keep temporary secret-bearing files permission-restricted and outside repositories. Remove them after the supported configuration surface has consumed them.
 - Use supported defaults first. Add integrations and operational overrides only when they are explicit requirements.
 - Stop when the installed version differs from the documentation or command help, storage safety is unclear, or the requested recovery path can destroy state.
@@ -63,19 +65,19 @@ Run the interactive installer in a real PTY. Stop rather than scripting around a
 
 ### 4. Configure the Admin Console in Layers
 
-Use the current `Simple` hostname mode unless the customer requires manual hostnames. Configure and validate one layer at a time:
+Use the current `Simple` hostname mode unless the customer requires manual hostnames. Configure and validate only the minimum required layers before the baseline test:
 
 1. domain and publicly trusted TLS;
 2. one LLM provider;
 3. database choice and storage durability;
 4. core application deployment;
-5. first login and organization;
-6. Git provider authentication using `references/git-provider-auth.md`;
-7. optional integrations, analytics, automations, and advanced settings.
+5. first login and organization.
 
-Read `references/admin-config.md` before applying settings. Treat ConfigValues files as potentially secret-bearing. Preview helper operations before execution.
+Read `references/admin-config.md` before applying settings. Treat ConfigValues files as potentially secret-bearing. Preview helper operations before execution. Defer Git provider authentication, integrations, analytics, automations, and advanced settings until the baseline passes.
 
 ### 5. Prove the Core Product
+
+On a fresh install, validate the baseline before adding optional configuration. Create one simple conversation through the UI or V1 API and confirm that its sandbox reaches `READY`. If the baseline is broken, report it as a platform or product issue rather than patching around it with infrastructure changes. Treat a fresh install that cannot start a sandbox as a bug, not a configuration task.
 
 Do not declare completion from pod readiness alone. Verify:
 
@@ -84,7 +86,7 @@ Do not declare completion from pod readiness alone. Verify:
 - login works in a clean browser session;
 - the first organization and bounded API key work;
 - the configured model completes one tiny request;
-- one no-repository conversation finishes with an expected marker;
+- one no-repository conversation reaches `READY` and finishes with an expected marker;
 - repository search and one repository-backed conversation work when a Git provider is in scope.
 
 Run `scripts/preflight_storage_guard.sh <namespace>` before declaring the deployment durable. Record what the backup does and does not cover.
