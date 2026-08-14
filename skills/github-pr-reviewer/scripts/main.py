@@ -23,6 +23,7 @@ import tarfile
 import time
 import urllib.error
 import urllib.request
+from collections.abc import Callable
 from pathlib import Path, PurePosixPath
 from urllib.parse import urlencode
 
@@ -37,6 +38,12 @@ TERMINAL_STATUSES = {"idle", "finished", "error", "stuck"}
 # A conversation that never reaches a terminal status would hold its checkout
 # forever. After this long the review is abandoned so the disk can be reclaimed.
 MAX_ACTIVE_AGE = 2 * 60 * 60
+# A label event is claimed in the state document before its review starts, so an
+# overlapping poll skips it. If the claiming poll dies before the conversation
+# exists, the claim is released after this long - comfortably longer than
+# fetching an archive and opening a conversation, short enough that a crash does
+# not park the review until someone notices.
+STALLED_CLAIM_SECONDS = 15 * 60
 
 # Login of the token owner, filled in by _verify_token. Reviews are matched
 # against it to answer "did we already publish a review for this commit", which
@@ -699,6 +706,7 @@ def _process_review_request(
     pr: dict,
     label_event: dict,
     reviews: dict,
+    persist: Callable[[], None],
 ) -> str | None:
     number = pr["number"]
     head_sha = _head_sha(pr)
@@ -709,30 +717,48 @@ def _process_review_request(
 
     print(f"  Queuing review for PR #{number} from `{TRIGGER_LABEL}` event {label_event_id} at {head_sha[:12]}: {title}")
 
-    workspace_dir = None
-    try:
-        workspace_dir = _prepare_repository(github_token, repo, number, head_sha)
-        prompt = _build_review_prompt(repo, pr, head_sha, label_event)
-        conv_id = create_conversation(agent_url, api_key, prompt, workspace_dir)
-    except Exception as exc:
-        # Nothing is recorded, so the next poll retries this label event. The
-        # checkout goes with it rather than being left behind.
-        if workspace_dir:
-            shutil.rmtree(workspace_dir, ignore_errors=True)
-        print(f"  Error starting review for PR #{number}: {exc}")
-        return None
-
+    # Claim the label event and persist it *before* the slow work below. State
+    # is otherwise only written when the repository finishes polling, so a poll
+    # starting while this one downloads an archive or spins up a conversation
+    # would read no record for this event and review the same commit a second
+    # time - two conversations, two "reviewing" comments, two reviews.
     reviews[key] = {
         "pr_number": number,
         "head_sha": head_sha,
         "trigger_label_event_id": label_event_id,
         "trigger_label_event_created_at": label_event.get("created_at"),
         "html_url": html_url,
-        "status": "active",
-        "conversation_id": conv_id,
-        "workspace_dir": str(workspace_dir),
+        "status": "starting",
+        "conversation_id": None,
+        "workspace_dir": None,
         "last_activity": time.time(),
     }
+    persist()
+
+    workspace_dir = None
+    try:
+        workspace_dir = _prepare_repository(github_token, repo, number, head_sha)
+        prompt = _build_review_prompt(repo, pr, head_sha, label_event)
+        conv_id = create_conversation(agent_url, api_key, prompt, workspace_dir)
+    except Exception as exc:
+        # The claim is dropped so the next poll retries this label event. The
+        # checkout goes with it rather than being left behind.
+        if workspace_dir:
+            shutil.rmtree(workspace_dir, ignore_errors=True)
+        reviews.pop(key, None)
+        persist()
+        print(f"  Error starting review for PR #{number}: {exc}")
+        return None
+
+    reviews[key].update(
+        {
+            "status": "active",
+            "conversation_id": conv_id,
+            "workspace_dir": str(workspace_dir),
+            "last_activity": time.time(),
+        }
+    )
+    persist()
     print(f"  Created review conversation {conv_id}")
 
     conv_url = f"{openhands_url}/conversations/{conv_id}"
@@ -849,6 +875,13 @@ def _process_repo(
     reviews: dict = state.setdefault("reviews", {})
     prs_state: dict = state.setdefault("prs", {})
 
+    def persist() -> None:
+        state["version"] = 3
+        state["repo"] = repo
+        state["trigger_label"] = TRIGGER_LABEL
+        state["updated_at"] = time.time()
+        save_state(repo, state)
+
     open_prs = _list_open_prs(github_token, repo)
     latest_open_prs = {pr["number"]: pr for pr in open_prs}
     print(f"  Found {len(open_prs)} open PR(s)")
@@ -891,12 +924,23 @@ def _process_repo(
             continue
 
         conv_id = _process_review_request(
-            github_token, agent_url, api_key, openhands_url, repo, fresh_pr, label_event, reviews
+            github_token, agent_url, api_key, openhands_url, repo, fresh_pr, label_event, reviews, persist
         )
         if conv_id:
             last_conversation_id = conv_id
 
-    for rec in list(reviews.values()):
+    for rev_key, rec in list(reviews.items()):
+        if rec.get("status") == "starting":
+            # A claim this poll made has already moved to "active" or been
+            # dropped, so one still sitting here belongs to a poll that died
+            # between claiming and creating its conversation. Release it once it
+            # is old enough that no live poll could still be working on it,
+            # otherwise the label event would never be reviewed.
+            age = time.time() - float(rec.get("last_activity") or 0)
+            if age > STALLED_CLAIM_SECONDS:
+                print(f"  Releasing a claim stalled for {int(age)}s: {rev_key}")
+                reviews.pop(rev_key, None)
+            continue
         if rec.get("status") == "active":
             _check_conversation_completion(rec, latest_open_prs, github_token, agent_url, api_key, repo)
         elif rec.get("workspace_dir"):
@@ -904,11 +948,7 @@ def _process_repo(
             # poll, e.g. the agent was still running when its PR was closed.
             _release_checkout(rec, agent_url, api_key)
 
-    state["version"] = 3
-    state["repo"] = repo
-    state["trigger_label"] = TRIGGER_LABEL
-    state["updated_at"] = time.time()
-    save_state(repo, state)
+    persist()
     return last_conversation_id
 
 

@@ -89,6 +89,7 @@ Value: **ReviewRecord**
 
 | Status | Meaning |
 |---|---|
+| `starting` | The label event is claimed and the checkout/conversation is being set up. Written and saved before that work begins, so a poll overlapping the claiming one skips this event instead of reviewing the same commit twice. Becomes `active` once the conversation exists, or the record is deleted if setup fails, so the next poll retries. A `starting` record older than `STALLED_CLAIM_SECONDS` (15 min) belongs to a poll that died mid-setup and is released. |
 | `active` | Review conversation is running or waiting to be collected |
 | `closed` | Final result was handled, or the PR closed before collection |
 | `stale` | PR head SHA changed before the review completed, so the result was suppressed |
@@ -137,6 +138,13 @@ because the trigger label was absent.
 
 ```
 Trigger label applied on GitHub
+        |
+        v
+[starting] - label event claimed and saved, before any slow work
+        |
+        +-- setup fails ----------------------------> record deleted, retried next poll
+        |
+        +-- claiming poll dies mid-setup -----------> released after 15 min
         |
         v
   checkout prepared at head SHA, conversation created

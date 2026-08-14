@@ -16,6 +16,7 @@ import os
 import sys
 import tarfile
 import tempfile
+import time
 import unittest
 import urllib.error
 from pathlib import Path
@@ -278,6 +279,101 @@ class TestMatchingReviewExists(unittest.TestCase):
     def test_false_when_the_listing_fails(self):
         with patch.object(main, "_github_paginate", side_effect=RuntimeError("boom")):
             self.assertFalse(main._matching_review_exists("token", "owner/repo", 7, "abc123"))
+
+
+# ── Claiming a label event before the review starts ────────────────────────────
+
+
+class TestClaimBeforeReview(_CheckoutTestCase):
+    """State must record the claim before the slow work, or two overlapping
+    polls both start a review of the same label event."""
+
+    PR = {"number": 7, "title": "t", "html_url": "u", "head": {"sha": "abc123def456"}}
+    EVENT = {"id": 4242, "created_at": "2026-01-01T00:00:00Z"}
+
+    def setUp(self):
+        super().setUp()
+        self.reviews: dict = {}
+        self.snapshots: list = []
+
+    def _persist(self):
+        self.snapshots.append(json.loads(json.dumps(self.reviews)))
+
+    def _run(self, prepare=None, create=None):
+        prepare = prepare or (lambda *a, **k: self.workspace / "checkout")
+        create = create or (lambda *a, **k: "conv-1")
+        with (
+            patch.object(main, "_prepare_repository", side_effect=prepare),
+            patch.object(main, "create_conversation", side_effect=create),
+            patch.object(main, "_post_github_comment"),
+        ):
+            return main._process_review_request(
+                "token", "http://agent", "key", "http://oh",
+                "owner/repo", self.PR, self.EVENT, self.reviews, self._persist,
+            )
+
+    def test_the_claim_is_persisted_before_the_conversation_is_created(self):
+        seen_at_create: list = []
+
+        def create(*_args, **_kwargs):
+            # What a concurrent poll would read at this moment.
+            seen_at_create.append(json.loads(json.dumps(self.snapshots[-1])))
+            return "conv-1"
+
+        self._run(create=create)
+        key = main._review_key(7, 4242)
+        self.assertEqual(len(seen_at_create), 1)
+        self.assertIn(key, seen_at_create[0], "claim must be persisted before the conversation")
+        self.assertEqual(seen_at_create[0][key]["status"], "starting")
+        self.assertIsNone(seen_at_create[0][key]["conversation_id"])
+
+    def test_the_claim_becomes_active_with_the_conversation(self):
+        self.assertEqual(self._run(), "conv-1")
+        rec = self.reviews[main._review_key(7, 4242)]
+        self.assertEqual(rec["status"], "active")
+        self.assertEqual(rec["conversation_id"], "conv-1")
+        self.assertEqual(self.snapshots[-1][main._review_key(7, 4242)]["status"], "active")
+
+    def test_a_failed_start_releases_the_claim_so_the_next_poll_retries(self):
+        def boom(*_args, **_kwargs):
+            raise RuntimeError("archive unavailable")
+
+        self.assertIsNone(self._run(prepare=boom))
+        key = main._review_key(7, 4242)
+        self.assertNotIn(key, self.reviews)
+        self.assertIn(key, self.snapshots[0], "the claim was taken")
+        self.assertNotIn(key, self.snapshots[-1], "and released again, persisted")
+
+
+class TestStalledClaims(_CheckoutTestCase):
+    """A poll that dies between claiming and creating its conversation must not
+    park the label event forever."""
+
+    def _poll(self, records):
+        state = {"reviews": dict(records), "prs": {}}
+        saved: list = []
+        with (
+            patch.object(main, "_verify_repo"),
+            patch.object(main, "load_state", return_value=state),
+            patch.object(main, "_list_open_prs", return_value=[]),
+            patch.object(main, "save_state", side_effect=lambda _repo, s: saved.append(s)),
+        ):
+            main._process_repo("owner/repo", "token", "http://agent", "key", "http://oh")
+        return state["reviews"], saved
+
+    def test_a_fresh_claim_is_left_alone(self):
+        reviews, _ = self._poll({"7:label:1": {"status": "starting", "last_activity": time.time()}})
+        self.assertIn("7:label:1", reviews)
+
+    def test_a_stalled_claim_is_released(self):
+        stale = time.time() - main.STALLED_CLAIM_SECONDS - 1
+        reviews, saved = self._poll({"7:label:1": {"status": "starting", "last_activity": stale}})
+        self.assertNotIn("7:label:1", reviews)
+        self.assertNotIn("7:label:1", saved[-1]["reviews"])
+
+    def test_a_claim_without_a_timestamp_is_released(self):
+        reviews, _ = self._poll({"7:label:1": {"status": "starting"}})
+        self.assertNotIn("7:label:1", reviews)
 
 
 if __name__ == "__main__":
