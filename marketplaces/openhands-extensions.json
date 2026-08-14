@@ -530,6 +530,19 @@
       ]
     },
     {
+      "name": "taskmarket-delegation",
+      "source": "./plugins/taskmarket-delegation",
+      "description": "Delegate well-scoped work to Taskmarket with bounded spending, explicit user authorization, and human review of submissions.",
+      "category": "agent-authoring",
+      "keywords": [
+        "taskmarket",
+        "delegation",
+        "bounty",
+        "agents",
+        "payments"
+      ]
+    },
+    {
       "name": "skill-creator",
       "source": "./skills/skill-creator",
       "description": "Guide for creating effective skills. This skill should be used when users want to create a new skill (or update an existing skill) that extends Claude's capabilities with specialized knowledge, workflows, or tool integrations.",
