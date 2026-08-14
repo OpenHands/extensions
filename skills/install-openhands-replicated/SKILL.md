@@ -37,7 +37,9 @@ Copy `assets/install-plan.yaml` outside the skill repository and populate only n
 
 ### 2. Provision or Inspect Infrastructure
 
-Use the current OpenHands AWS Terraform module when AWS Terraform is selected. For a manual VM, require the documented CPU, memory, disk, latency, OS, systemd, root access, inbound ports, local ports, and outbound destinations.
+Use the current OpenHands AWS Terraform module when AWS Terraform is selected. For every fresh installation, explicitly set Terraform `hostname_mode = "wildcard"`; this maps to `Simple` in the Admin Console. Do not select Terraform `legacy` or Admin Console `Legacy` unless the task is to reproduce an existing Legacy installation. Before applying, confirm the plan creates `*.<base-domain>` rather than `auth.app.<base-domain>` or `*.runtime.<base-domain>`.
+
+For a manual VM, require the documented CPU, memory, disk, latency, OS, systemd, root access, inbound ports, local ports, and outbound destinations.
 
 Run read-only preflights on the target VM:
 
@@ -65,7 +67,7 @@ Run the interactive installer in a real PTY. Stop rather than scripting around a
 
 ### 4. Configure the Admin Console in Layers
 
-Use the current `Simple` hostname mode unless the customer requires manual hostnames. Configure and validate only the minimum required layers before the baseline test:
+Explicitly select `Simple` hostname mode for a fresh installation unless the customer requires manual hostnames. Confirm it matches Terraform `hostname_mode = "wildcard"`; never select `Legacy` merely because an older runbook or Terraform copy uses nested hostnames. Configure and validate only the minimum required layers before the baseline test:
 
 1. domain and publicly trusted TLS;
 2. one LLM provider;

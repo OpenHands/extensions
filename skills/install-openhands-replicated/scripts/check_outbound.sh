@@ -6,6 +6,11 @@ if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
   exit 0
 fi
 
+if ! command -v curl >/dev/null 2>&1; then
+  echo "curl is required" >&2
+  exit 1
+fi
+
 urls=(
   "https://replicated.app"
   "https://proxy.replicated.com/v2/"
@@ -33,7 +38,7 @@ echo
 failed=0
 for url in "${urls[@]}"; do
   code="$(curl -sSIL --max-time 15 -o /dev/null -w "%{http_code}" "${url}" || true)"
-  if [[ "${code}" == "000" ]]; then
+  if [[ -z "${code}" || "${code}" == "000" ]]; then
     echo "FAIL ${url}" >&2
     failed=1
   else

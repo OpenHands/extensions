@@ -21,6 +21,8 @@ Installer download URLs, license files, private keys, provider credentials, Conf
 
 This draft implements the PRD-137 first milestone: comprehensive preflight, provider setup guidance, guided ClickOps, post-install verification, and customer-ready IT requests.
 
+Fresh installations use `Simple` hostname mode. In the AWS Terraform module, the matching value is `hostname_mode = "wildcard"`; Legacy is reserved for reproducing an existing Legacy installation.
+
 A fully headless install remains conditional on a documented, release-specific installer schema and supported secret-input mechanism. The skill does not infer or invent those interfaces.
 
 ## Primary triggers

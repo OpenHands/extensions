@@ -1,20 +1,20 @@
 {
   "automationId": "github-repo-monitor",
-  "description": "Direct GitHub-event setup. Every create request body below is verified against the live CreatePromptAutomationRequest model, and every filter expression against validate_filter() in OpenHands/automation.",
+  "description": "Direct scheduled setup. Every create request body below is verified against the live CreatePromptAutomationRequest model in OpenHands/automation (openhands/automation/preset_router.py).",
   "capabilities": "supported",
   "blockedBy": [
-    "cronOnly",
     "notReady"
   ],
   "scenarios": [
     {
       "id": "happy-path",
-      "description": "Watch issue and pull request comments for the default mention phrase.",
+      "description": "Defaults plus a repository and a base branch. Preflight passes, the automation is created.",
       "formValues": {
         "repository": "OpenHands/agent-server-gui",
         "triggerPhrase": "@openhands",
-        "on": "issue_comment.created",
-        "ref": "main"
+        "ref": "main",
+        "schedule": "*/15 * * * *",
+        "timezone": "UTC"
       },
       "preflight": {
         "request": {
@@ -25,19 +25,18 @@
             "endpoint": "/v1/preset/prompt",
             "draft": {
               "name": "GitHub repository monitor - OpenHands/agent-server-gui",
-              "prompt": "A comment in OpenHands/agent-server-gui mentions '@openhands'. Read the surrounding issue or pull request context from the event payload, then post a helpful reply as a comment on the same thread.",
+              "prompt": "Poll OpenHands/agent-server-gui for any new issue or pull request comments since the last run. For every comment mentioning '@openhands', read the surrounding issue or pull request context and post a helpful reply as a comment on the same thread.",
               "repos": [
                 {
                   "url": "OpenHands/agent-server-gui",
-                  "ref": "main",
-                  "provider": "github"
+                  "provider": "github",
+                  "ref": "main"
                 }
               ],
               "trigger": {
-                "type": "event",
-                "source": "github",
-                "on": "issue_comment.created",
-                "filter": "icontains(comment.body, '@openhands') && glob(repository.full_name, 'OpenHands/agent-server-gui')"
+                "type": "cron",
+                "schedule": "*/15 * * * *",
+                "timezone": "UTC"
               }
             }
           }
@@ -56,19 +55,18 @@
           "path": "/v1/preset/prompt",
           "body": {
             "name": "GitHub repository monitor - OpenHands/agent-server-gui",
-            "prompt": "A comment in OpenHands/agent-server-gui mentions '@openhands'. Read the surrounding issue or pull request context from the event payload, then post a helpful reply as a comment on the same thread.",
+            "prompt": "Poll OpenHands/agent-server-gui for any new issue or pull request comments since the last run. For every comment mentioning '@openhands', read the surrounding issue or pull request context and post a helpful reply as a comment on the same thread.",
             "repos": [
               {
                 "url": "OpenHands/agent-server-gui",
-                "ref": "main",
-                "provider": "github"
+                "provider": "github",
+                "ref": "main"
               }
             ],
             "trigger": {
-              "type": "event",
-              "source": "github",
-              "on": "issue_comment.created",
-              "filter": "icontains(comment.body, '@openhands') && glob(repository.full_name, 'OpenHands/agent-server-gui')"
+              "type": "cron",
+              "schedule": "*/15 * * * *",
+              "timezone": "UTC"
             }
           }
         },
@@ -80,12 +78,11 @@
             "org_id": "1a2b3c4d-0000-4000-8000-000000000002",
             "model": null,
             "name": "GitHub repository monitor - OpenHands/agent-server-gui",
-            "prompt": "A comment in OpenHands/agent-server-gui mentions '@openhands'. Read the surrounding issue or pull request context from the event payload, then post a helpful reply as a comment on the same thread.",
+            "prompt": "Poll OpenHands/agent-server-gui for any new issue or pull request comments since the last run. For every comment mentioning '@openhands', read the surrounding issue or pull request context and post a helpful reply as a comment on the same thread.",
             "trigger": {
-              "type": "event",
-              "source": "github",
-              "on": "issue_comment.created",
-              "filter": "icontains(comment.body, '@openhands') && glob(repository.full_name, 'OpenHands/agent-server-gui')"
+              "type": "cron",
+              "schedule": "*/15 * * * *",
+              "timezone": "UTC"
             },
             "tarball_path": "oh-internal://uploads/c41e7b28-9d05-4a6b-8f13-2e5c7a90d146",
             "setup_script_path": "setup.sh",
@@ -101,36 +98,14 @@
       }
     },
     {
-      "id": "quote-in-trigger-phrase-blocked-locally",
-      "description": "The trigger phrase is interpolated into a JMESPath string literal, so an apostrophe would break the expression. The field's safeExpressionLiteral constraint rejects it before any request is made. Without that constraint the service returns 422 with: Bad jmespath expression: Unknown token.",
-      "formValues": {
-        "repository": "OpenHands/agent-server-gui",
-        "triggerPhrase": "@open'hands",
-        "on": "issue_comment.created",
-        "ref": "main"
-      },
-      "localValidation": {
-        "valid": false,
-        "errors": [
-          {
-            "field": "triggerPhrase",
-            "constraint": "format",
-            "message": "Quotes and backslashes are not allowed in the trigger phrase."
-          }
-        ]
-      },
-      "expectedFieldErrors": {
-        "triggerPhrase": "Quotes and backslashes are not allowed in the trigger phrase."
-      }
-    },
-    {
-      "id": "event-type-not-delivered-by-deployment",
-      "description": "Preflight rejects an event type the deployment does not receive. Nothing is created, so there is no half-broken automation to clean up.",
+      "id": "interval-below-deployment-minimum",
+      "description": "A one-minute schedule. The create model accepts it, so only the deployment can reject it - this is precisely why preflight exists and why local validation is not authoritative.",
       "formValues": {
         "repository": "OpenHands/agent-server-gui",
         "triggerPhrase": "@openhands",
-        "on": "pull_request_review_comment.created",
-        "ref": "main"
+        "ref": "main",
+        "schedule": "*/1 * * * *",
+        "timezone": "UTC"
       },
       "preflight": {
         "request": {
@@ -141,19 +116,18 @@
             "endpoint": "/v1/preset/prompt",
             "draft": {
               "name": "GitHub repository monitor - OpenHands/agent-server-gui",
-              "prompt": "A comment in OpenHands/agent-server-gui mentions '@openhands'. Read the surrounding issue or pull request context from the event payload, then post a helpful reply as a comment on the same thread.",
+              "prompt": "Poll OpenHands/agent-server-gui for any new issue or pull request comments since the last run. For every comment mentioning '@openhands', read the surrounding issue or pull request context and post a helpful reply as a comment on the same thread.",
               "repos": [
                 {
                   "url": "OpenHands/agent-server-gui",
-                  "ref": "main",
-                  "provider": "github"
+                  "provider": "github",
+                  "ref": "main"
                 }
               ],
               "trigger": {
-                "type": "event",
-                "source": "github",
-                "on": "pull_request_review_comment.created",
-                "filter": "icontains(comment.body, '@openhands') && glob(repository.full_name, 'OpenHands/agent-server-gui')"
+                "type": "cron",
+                "schedule": "*/1 * * * *",
+                "timezone": "UTC"
               }
             }
           }
@@ -164,16 +138,133 @@
             "valid": false,
             "errors": [
               {
-                "field": "trigger.on",
-                "code": "event_type_not_delivered",
-                "message": "No GitHub webhook delivering pull_request_review_comment.created is registered for this organization."
+                "field": "trigger.schedule",
+                "code": "interval_too_short",
+                "message": "Minimum interval for this deployment is 5 minutes."
               }
             ]
           }
         }
       },
       "expectedFieldErrors": {
-        "on": "No GitHub webhook delivering pull_request_review_comment.created is registered for this organization."
+        "schedule": "Minimum interval for this deployment is 5 minutes."
+      }
+    },
+    {
+      "id": "unfireable-cron-rejected-at-create",
+      "description": "31 February. Syntactically valid, so a local check passes, but the service rejects it. Shows the real 422 body: detail is a list and the loc path carries the trigger discriminator tag.",
+      "formValues": {
+        "repository": "OpenHands/agent-server-gui",
+        "triggerPhrase": "@openhands",
+        "ref": "main",
+        "schedule": "0 0 31 2 *",
+        "timezone": "UTC"
+      },
+      "create": {
+        "request": {
+          "method": "POST",
+          "path": "/v1/preset/prompt",
+          "body": {
+            "name": "GitHub repository monitor - OpenHands/agent-server-gui",
+            "prompt": "Poll OpenHands/agent-server-gui for any new issue or pull request comments since the last run. For every comment mentioning '@openhands', read the surrounding issue or pull request context and post a helpful reply as a comment on the same thread.",
+            "repos": [
+              {
+                "url": "OpenHands/agent-server-gui",
+                "provider": "github",
+                "ref": "main"
+              }
+            ],
+            "trigger": {
+              "type": "cron",
+              "schedule": "0 0 31 2 *",
+              "timezone": "UTC"
+            }
+          }
+        },
+        "response": {
+          "status": 422,
+          "body": {
+            "detail": [
+              {
+                "type": "value_error",
+                "loc": [
+                  "body",
+                  "trigger",
+                  "cron",
+                  "schedule"
+                ],
+                "msg": "Value error, Cron expression cannot produce any future fire times: 0 0 31 2 *"
+              }
+            ]
+          }
+        }
+      },
+      "expectedFieldErrors": {
+        "schedule": "Value error, Cron expression cannot produce any future fire times: 0 0 31 2 *"
+      }
+    },
+    {
+      "id": "short-repo-url-without-provider-is-rejected",
+      "description": "The mapping bug this fixture set exists to prevent. A short owner/repo URL without an explicit provider is a hard 422, because CreatePromptAutomationRequest is extra-forbid and RepoSource requires the provider. The setup block's payload always sets it; this records what happens if that is ever dropped.",
+      "formValues": {
+        "repository": "OpenHands/agent-server-gui",
+        "triggerPhrase": "@openhands",
+        "ref": "main",
+        "schedule": "*/15 * * * *",
+        "timezone": "UTC"
+      },
+      "create": {
+        "request": {
+          "method": "POST",
+          "path": "/v1/preset/prompt",
+          "body": {
+            "name": "GitHub repository monitor - OpenHands/agent-server-gui",
+            "prompt": "Poll OpenHands/agent-server-gui for any new issue or pull request comments since the last run. For every comment mentioning '@openhands', read the surrounding issue or pull request context and post a helpful reply as a comment on the same thread.",
+            "repos": [
+              {
+                "url": "OpenHands/agent-server-gui"
+              }
+            ],
+            "trigger": {
+              "type": "cron",
+              "schedule": "*/15 * * * *",
+              "timezone": "UTC"
+            }
+          }
+        },
+        "response": {
+          "status": 422,
+          "body": {
+            "detail": [
+              {
+                "type": "value_error",
+                "loc": [
+                  "body",
+                  "repos",
+                  0
+                ],
+                "msg": "Value error, Short URL format 'OpenHands/agent-server-gui' requires explicit 'provider' field. Use: {\"url\": \"owner/repo\", \"provider\": \"github\"} or provide a full URL like https://github.com/owner/repo"
+              }
+            ]
+          }
+        }
+      },
+      "matchesSetupPayload": false
+    },
+    {
+      "id": "fallback-conversation-when-direct-unavailable",
+      "description": "A deployment that cannot run the scheduled monitor seeds the setup conversation with this message; the agent confirms the repository, trigger phrase, and polling schedule there.",
+      "formValues": {
+        "repository": "OpenHands/agent-server-gui",
+        "triggerPhrase": "@openhands",
+        "ref": "main",
+        "schedule": "*/15 * * * *",
+        "timezone": "UTC"
+      },
+      "conversation": {
+        "request": {
+          "message": "This deployment cannot run the scheduled monitor directly. Set it up in this conversation instead: confirm the repository to watch, the trigger phrase, and the polling schedule, then create the automation."
+        }
       }
     }
   ]

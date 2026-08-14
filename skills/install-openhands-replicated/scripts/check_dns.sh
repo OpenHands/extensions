@@ -52,8 +52,8 @@ for host in "${hosts[@]}"; do
     printf '%s\n' "${output}"
   elif command -v dig >/dev/null 2>&1 && output="$(dig +short "${host}" 2>/dev/null)" && [[ -n "${output}" ]]; then
     printf '%s\n' "${output}"
-  elif command -v nslookup >/dev/null 2>&1 && nslookup "${host}"; then
-    :
+  elif command -v nslookup >/dev/null 2>&1 && output="$(nslookup "${host}" 2>/dev/null)" && [[ -n "${output}" ]]; then
+    printf '%s\n' "${output}"
   else
     echo "FAIL ${host} did not resolve" >&2
     failed=1

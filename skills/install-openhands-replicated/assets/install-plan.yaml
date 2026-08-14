@@ -21,6 +21,7 @@ infrastructure:
 network:
   base_domain: ""
   hostname_mode: "simple"
+  terraform_hostname_mode: "wildcard"
   dns_owner: ""
   firewall_owner: ""
   proxy_required: false

@@ -5,9 +5,9 @@ usage() {
   cat >&2 <<'EOF'
 usage: apply_kots_config.sh --appslug <slug> --config-file <config-values.yaml> (--current | --sequence <number>) [options]
 
-Previews a KOTS ConfigValues merge by default. Add --execute only after the
-specific operation has been reviewed and approved. Add --deploy only when an
-immediate rollout is also approved.
+Prints the KOTS ConfigValues command by default without executing it. Add
+--execute only after the specific operation has been reviewed and approved.
+Add --deploy only when an immediate rollout is also approved.
 
 Options:
   --namespace <name>       KOTS Admin Console namespace. Default: kotsadm

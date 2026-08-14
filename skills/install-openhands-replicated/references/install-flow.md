@@ -54,7 +54,9 @@ Pass each customer-approved LLM, cloud-model, or corporate gateway HTTPS endpoin
 
 The host script cannot prove P99 storage latency without a write benchmark. Rely on the installer host preflight for the final latency check. Do not bypass a failed latency preflight; increase disk IOPS/throughput or use faster storage.
 
-For AWS Terraform, use the current module linked by the OpenHands Enterprise quick start. Review `terraform plan` before requesting approval for `apply`. Use the allowlisted output helper after apply:
+For AWS Terraform, use the current module linked by the OpenHands Enterprise quick start. On a fresh installation, explicitly set `hostname_mode = "wildcard"`, which is the Terraform name for Admin Console `Simple` mode. Reserve `hostname_mode = "legacy"` for reproducing an existing Legacy installation.
+
+Review `terraform plan` before requesting approval for `apply`. Confirm a fresh Simple-mode plan provisions `*.<base-domain>` and does not provision `auth.app.<base-domain>` or `*.runtime.<base-domain>`. Use the allowlisted output helper after apply:
 
 ```bash
 scripts/summarize_terraform_outputs.sh <terraform-directory>

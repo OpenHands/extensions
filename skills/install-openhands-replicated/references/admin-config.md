@@ -4,7 +4,9 @@ Use the Admin Console for supported settings. Treat a saved configuration as a m
 
 ## Domain and TLS
 
-Use `Simple` hostname mode for new installations unless DNS policy requires manual hostnames. In Simple mode, all service names sit directly under the base domain:
+Explicitly select `Simple` hostname mode for new installations unless DNS policy requires manual hostnames. The AWS Terraform module calls this same mode `hostname_mode = "wildcard"`; keep the Terraform and Admin Console choices aligned. Do not select `Legacy` merely because an older runbook or copied Terraform directory contains nested hostnames.
+
+In Simple mode, all service names sit directly under the base domain:
 
 ```text
 admin.<base-domain>
