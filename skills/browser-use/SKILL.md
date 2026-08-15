@@ -18,14 +18,19 @@ of the model's tool schema and exposes direct CDP helpers through a Python CLI.
 
 ## Setup
 
-Check that the current Browser Use CLI is available:
+Install or upgrade the current Browser Use CLI in an isolated `uv` tool
+environment:
 
 ```bash
-browser-use --help 2>/dev/null | grep -q "Read SKILL.md" || \
-  uv tool install --python 3.12 --upgrade --force browser-use
+uv tool install --python 3.12 --upgrade --force browser-use
+BU_CLI="$(uv tool dir --bin)/browser-use"
+env -u PYTHONPATH -u PYTHONHOME "$BU_CLI" --help
 ```
 
-For setup, install, or connection problems, run `browser-use --doctor` and read
+Use the exact `BU_CLI` path and clean child environment for every invocation.
+This prevents a project virtualenv's older `browser-use` executable or Python
+packages from shadowing the isolated CLI. For setup or connection problems, run
+`env -u PYTHONPATH -u PYTHONHOME "$BU_CLI" --doctor` and read
 https://github.com/browser-use/browser-harness/blob/main/install.md.
 
 ## When Not to Use
@@ -46,12 +51,14 @@ an approach.
 ## Usage
 
 ```bash
-browser-use <<'PY'
+BU_CLI="$(uv tool dir --bin)/browser-use"
+env -u PYTHONPATH -u PYTHONHOME "$BU_CLI" <<'PY'
 print(page_info())
 PY
 ```
 
-- Invoke as `browser-use`. Use heredocs for multi-line commands.
+- Invoke through `BU_CLI` with the clean environment shown above. Use heredocs
+  for multi-line commands.
 - Helpers are pre-imported. The CLI starts its daemon before execution.
 - First navigation is `new_tab(url)`, not `goto_url(url)`.
 - The normal local flow attaches to a running Chrome or Chromium CDP endpoint.
@@ -61,7 +68,8 @@ PY
 If the daemon cannot connect, run diagnostics:
 
 ```bash
-browser-use --doctor
+BU_CLI="$(uv tool dir --bin)/browser-use"
+env -u PYTHONPATH -u PYTHONHOME "$BU_CLI" --doctor
 ```
 
 If Chrome is not running, the harness launches it automatically and retries.
@@ -75,7 +83,7 @@ chrome://inspect/#remote-debugging
 On macOS, when Chrome asks for remote-debugging permission, run:
 
 ```text
-browser-use mac-approve
+env -u PYTHONPATH -u PYTHONHOME "$BU_CLI" mac-approve
 ```
 
 Continue when it returns `ready`; otherwise follow its printed instruction.
@@ -94,23 +102,27 @@ one when:
 Authenticate once:
 
 ```bash
-browser-use auth login --device-code
+BU_CLI="$(uv tool dir --bin)/browser-use"
+env -u PYTHONPATH -u PYTHONHOME "$BU_CLI" auth login --device-code
 ```
 
 Or import a key safely:
 
 ```bash
-printf '%s' "$BROWSER_USE_API_KEY" | browser-use auth login --api-key-stdin
+BU_CLI="$(uv tool dir --bin)/browser-use"
+printf '%s' "$BROWSER_USE_API_KEY" | \
+  env -u PYTHONPATH -u PYTHONHOME "$BU_CLI" auth login --api-key-stdin
 ```
 
 Pick a short made-up name; `r7k2` below is only a placeholder:
 
 ```bash
-browser-use <<'PY'
+BU_CLI="$(uv tool dir --bin)/browser-use"
+env -u PYTHONPATH -u PYTHONHOME "$BU_CLI" <<'PY'
 start_remote_daemon("r7k2")
 PY
 
-BU_NAME=r7k2 browser-use <<'PY'
+BU_NAME=r7k2 env -u PYTHONPATH -u PYTHONHOME "$BU_CLI" <<'PY'
 new_tab("https://example.com")
 print(page_info())
 PY
@@ -150,9 +162,10 @@ https://github.com/browser-use/browser-harness/blob/main/interaction-skills/prof
 Fresh installs do not record. Users can enable local background traces:
 
 ```bash
-browser-use recordings enable
-browser-use recordings disable
-browser-use recordings
+BU_CLI="$(uv tool dir --bin)/browser-use"
+env -u PYTHONPATH -u PYTHONHOME "$BU_CLI" recordings enable
+env -u PYTHONPATH -u PYTHONHOME "$BU_CLI" recordings disable
+env -u PYTHONPATH -u PYTHONHOME "$BU_CLI" recordings
 ```
 
 `BH_RECORD=1` or `BH_RECORD=0` overrides the preference for one process. A
@@ -165,7 +178,8 @@ replace that path with `recordings --latest`. For a request made after the task,
 use:
 
 ```bash
-browser-use recordings --latest
+BU_CLI="$(uv tool dir --bin)/browser-use"
+env -u PYTHONPATH -u PYTHONHOME "$BU_CLI" recordings --latest
 ```
 
 Use it only if timestamps and pages match. Otherwise say the work was not
