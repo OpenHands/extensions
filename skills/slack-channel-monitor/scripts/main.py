@@ -1005,7 +1005,7 @@ def _check_conversation_completion(
             summary = final
 
         if not summary:
-            return “Success (no message available).”
+            return "Success (no message available)."
 
         ts_back = post_message(slack_token, channel_id, summary, thread_ts=thread_ts)
         if ts_back:
