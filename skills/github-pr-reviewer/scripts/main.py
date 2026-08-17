@@ -263,16 +263,279 @@ def _latest_trigger_label_event(token: str, repo: str, pr_number: int) -> dict |
     return max(matching, key=lambda event: (event.get("created_at") or "", int(event.get("id") or 0)))
 
 
-def _post_github_comment(token: str, repo: str, pr_number: int, body: str) -> None:
+def _post_github_comment(token: str, repo: str, pr_number: int, body: str) -> str | None:
+    """Post an issue comment and return its GraphQL node_id (or None on failure)."""
     try:
-        _github_request(
+        result, _ = _github_request(
             token,
             "POST",
             f"/repos/{repo}/issues/{pr_number}/comments",
             body={"body": body},
         )
+        return result.get("node_id")
     except Exception as exc:
         print(f"  Warning: failed to post comment on PR #{pr_number}: {exc}")
+        return None
+
+
+def _github_graphql(token: str, query: str, variables: dict | None = None) -> dict:
+    """Execute a GraphQL query/mutation against the GitHub API."""
+    body = {"query": query}
+    if variables:
+        body["variables"] = variables
+    result, _ = _github_request(
+        token,
+        "POST",
+        "/graphql",
+        body=body,
+    )
+    return result
+
+
+def _minimize_comment(token: str, node_id: str, reason: str = "OUTDATED") -> bool:
+    """Hide (minimize) a comment via the GraphQL minimizeComment mutation.
+
+    Uses the OUTDATED classifier so the comment is collapsed but still
+    viewable by people who expand it or by moderators.
+    """
+    mutation = """
+    mutation MinimizeComment($subjectId: ID!, $classifier: ReportedContentClassifiers!) {
+        minimizeComment(input: {subjectId: $subjectId, classifier: $classifier}) {
+            clientMutationId
+        }
+    }
+    """
+    try:
+        result = _github_graphql(token, mutation, {
+            "subjectId": node_id,
+            "classifier": reason,
+        })
+        if "errors" in result:
+            print(f"  Warning: GraphQL error minimizing comment: {result['errors']}")
+            return False
+        return True
+    except Exception as exc:
+        print(f"  Warning: failed to minimize comment: {exc}")
+        return False
+
+
+_AI_DISCLOSURE = "_This comment was posted by an AI agent (OpenHands)._"
+_REVIEWING_MARKER = "OpenHands is reviewing this PR."
+
+
+def _is_automation_content(body: str) -> bool:
+    """Check if a comment/review body was posted by this automation.
+
+    The automation appends the AI disclosure marker to every comment it posts.
+    Review objects posted by the agent may not always carry this marker, so we
+    also check for other known automation signatures.
+    """
+    body_lower = (body or "").lower()
+    if _AI_DISCLOSURE.lower() in body_lower:
+        return True
+    if _REVIEWING_MARKER.lower() in body_lower:
+        return True
+    if "openhands pr reviewer encountered a problem" in body_lower:
+        return True
+    if "openhands completed the review" in body_lower:
+        return True
+    return False
+
+
+# Each run scans only the most recent ``_HIDE_WINDOW`` items on the PR — the
+# newest issue comments and the newest review objects. Older automation content
+# was already minimized by previous runs, so re-walking the whole history is
+# wasteful on a comment-heavy PR. A single fixed window keeps every run at one
+# request per list, and successive runs keep the recent end clean as new cycles
+# arrive. GitHub's ``last: N`` returns the newest N items in the connection's
+# natural (creation) order, so the window is stable regardless of edits or
+# minimize state.
+_HIDE_WINDOW = 20
+
+
+def _list_issue_comments(token: str, repo: str, pr_number: int) -> list[dict]:
+    """Return the newest ``_HIDE_WINDOW`` issue comments (minimized or not).
+
+    A single request: ``comments(last: N)`` yields the most recent N comments in
+    creation order (oldest-of-the-window first, newest last). Only this recent
+    window is scanned — older automation comments were minimized by earlier runs,
+    so there is no need to page through the full comment history. Each node
+    carries id, body, and isMinimized.
+    """
+    query = """
+    query($owner: String!, $repo: String!, $number: Int!, $size: Int!) {
+        repository(owner: $owner, name: $repo) {
+            pullRequest(number: $number) {
+                comments(last: $size) {
+                    nodes { id body isMinimized }
+                }
+            }
+        }
+    }
+    """
+    owner, repo_name = repo.split("/")
+    result = _github_graphql(token, query, {
+        "owner": owner,
+        "repo": repo_name,
+        "number": pr_number,
+        "size": _HIDE_WINDOW,
+    })
+    if "errors" in result:
+        print(f"  Warning: GraphQL error listing comments: {result['errors']}")
+        return []
+    conn = (
+        result.get("data", {})
+        .get("repository", {})
+        .get("pullRequest", {})
+        .get("comments", {})
+    )
+    return conn.get("nodes", [])
+
+
+def _list_pr_reviews(token: str, repo: str, pr_number: int) -> list[dict]:
+    """Return the newest ``_HIDE_WINDOW`` review objects with inline comments.
+
+    A single request: ``reviews(last: N)`` yields the most recent N reviews (the
+    connection accepts no ``orderBy``, but ``last`` gives the newest in creation
+    order). Reviews are low-volume, so this window comfortably covers the recent
+    automation cycles.
+
+    Returns a list of review dicts, each containing:
+    - id: GraphQL node ID of the review (minimizable)
+    - body: Review body text
+    - isMinimized: Whether the review is already hidden
+    - state: Review state (APPROVED, COMMENTED, CHANGES_REQUESTED, etc.)
+    - createdAt: Review creation timestamp (used to pick the current cycle's)
+    - comments: List of inline review comments, each with id, body, isMinimized
+    """
+    query = """
+    query($owner: String!, $repo: String!, $number: Int!, $size: Int!) {
+        repository(owner: $owner, name: $repo) {
+            pullRequest(number: $number) {
+                reviews(last: $size) {
+                    nodes {
+                        id
+                        body
+                        isMinimized
+                        state
+                        createdAt
+                        comments(first: 100) {
+                            nodes { id body isMinimized }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    """
+    owner, repo_name = repo.split("/")
+    result = _github_graphql(token, query, {
+        "owner": owner,
+        "repo": repo_name,
+        "number": pr_number,
+        "size": _HIDE_WINDOW,
+    })
+    if "errors" in result:
+        print(f"  Warning: GraphQL error listing reviews: {result['errors']}")
+        return []
+    conn = (
+        result.get("data", {})
+        .get("repository", {})
+        .get("pullRequest", {})
+        .get("reviews", {})
+    )
+    return conn.get("nodes", [])
+
+
+def _hide_previous_automation_comments(
+    token: str,
+    repo: str,
+    pr_number: int,
+    exclude_node_ids: set[str] | None = None,
+) -> None:
+    """Hide (minimize with OUTDATED) previous content posted by this automation.
+
+    Each review cycle posts a *pair*: an acknowledgement issue comment ("OpenHands
+    is reviewing this PR") and a review result — either an issue comment or a PR
+    review object (with inline diff comments). When a new review completes, this
+    hides every item from *previous* cycles while keeping the current cycle's pair
+    visible.
+
+    Scope is the most recent ``_HIDE_WINDOW`` issue comments and review objects
+    (see ``_list_issue_comments`` / ``_list_pr_reviews``): older automation
+    content was already minimized by earlier runs, so only the recent window is
+    reconsidered each run. Within that window every automation item is minimized
+    except the current cycle's pair.
+
+    The current cycle is identified by ``exclude_node_ids``, which carries the
+    node IDs of the freshly posted result comment and the acknowledgement comment
+    tracked for this cycle. The pairing is asymmetric on purpose: a cycle may
+    produce only an acknowledgement (the agent errored before reviewing), or a
+    review with no separate result comment — so each item is judged on its own
+    (excluded id or newest review object → keep; any other automation item →
+    hide), never assumed to come in a matched two.
+
+    For PR review objects — which the agent may post on its own and whose node
+    IDs are not tracked — the most recent automation review object is treated as
+    the current cycle's and is skipped, so the latest review object is never
+    hidden. Already-minimized content is always skipped.
+    """
+    exclude = exclude_node_ids or set()
+    hidden = 0
+
+    # 1. Issue comments (acknowledgement + review-as-comment)
+    for comment in _list_issue_comments(token, repo, pr_number):
+        if comment.get("isMinimized"):
+            continue
+        node_id = comment.get("id")
+        if node_id in exclude:
+            continue
+        if not _is_automation_content(comment.get("body", "")):
+            continue
+        if _minimize_comment(token, node_id, "OUTDATED"):
+            hidden += 1
+
+    # 2. PR review objects (review body + inline review comments)
+    reviews = _list_pr_reviews(token, repo, pr_number)
+    automation_reviews = [
+        r for r in reviews
+        if _is_automation_content(r.get("body", ""))
+        or any(
+            _is_automation_content(c.get("body", ""))
+            for c in r.get("comments", {}).get("nodes", [])
+        )
+    ]
+    # The most recent automation review object belongs to the current cycle and
+    # must stay visible. Sort by createdAt descending and skip the first.
+    if automation_reviews:
+        automation_reviews.sort(
+            key=lambda r: r.get("createdAt") or "", reverse=True
+        )
+        previous_reviews = automation_reviews[1:]
+    else:
+        previous_reviews = []
+
+    for review in previous_reviews:
+        review_node_id = review.get("id")
+        review_comments = review.get("comments", {}).get("nodes", [])
+
+        # Minimize the review object itself (collapses the review summary)
+        if not review.get("isMinimized") and review_node_id not in exclude:
+            if _minimize_comment(token, review_node_id, "OUTDATED"):
+                hidden += 1
+
+        # Minimize each inline review comment
+        for rc in review_comments:
+            if rc.get("isMinimized"):
+                continue
+            rc_node_id = rc.get("id")
+            if rc_node_id in exclude:
+                continue
+            if _minimize_comment(token, rc_node_id, "OUTDATED"):
+                hidden += 1
+
+    if hidden:
+        print(f"  Hid {hidden} previous automation item(s) on PR #{pr_number}")
 
 
 def _oh_request(agent_url: str, api_key: str, method: str, path: str, body: dict | None = None) -> dict:
@@ -463,7 +726,15 @@ def _build_review_prompt(pr: dict, head_sha: str, label_event: dict) -> str:
         "Output ONLY the review text — no preamble, no meta-commentary. "
         "This text will be posted verbatim as a comment on the pull request. "
         "End your review with a clear verdict on its own line: either `✅ APPROVED` "
-        "or `🔄 CHANGES REQUESTED`."
+        "or `🔄 CHANGES REQUESTED`.\n\n"
+        "Note: After your review is posted, the automation automatically hides "
+        "(minimizes with the 'outdated' reason) all content it posted in previous "
+        "review cycles on this PR — earlier 'OpenHands is reviewing this PR' "
+        "acknowledgement comments, earlier review result comments, and previous "
+        "PR review objects with their inline diff comments. The current cycle's "
+        "review and acknowledgement stay visible, so only the latest review "
+        "remains. You do not need to do anything for this; it is handled "
+        "by the automation script after your review text is posted."
     )
 
 def _process_review_request(
@@ -504,7 +775,7 @@ def _process_review_request(
     print(f"  Created review conversation {conv_id}")
 
     conv_url = f"{openhands_url}/conversations/{conv_id}"
-    _post_github_comment(
+    ack_node_id = _post_github_comment(
         github_token,
         REPO,
         number,
@@ -516,6 +787,9 @@ def _process_review_request(
             f"View the conversation: {conv_url}"
         ),
     )
+    # Track the ack comment node_id so the hiding step can keep the current
+    # cycle's acknowledgement visible (only previous pairs are hidden).
+    reviews[key]["ack_comment_node_id"] = ack_node_id
     return conv_id
 
 def _check_conversation_completion(
@@ -571,10 +845,20 @@ def _check_conversation_completion(
             or f"✅ **OpenHands completed the review for commit `{reviewed_sha[:12]}`.** No review text was produced."
         )
 
-    _post_github_comment(github_token, REPO, pr_number, comment_body)
+    new_comment_node_id = _post_github_comment(github_token, REPO, pr_number, comment_body)
     rec["status"] = "closed"
     rec["completed_at"] = time.time()
     print(f"  Posted review for PR #{pr_number} at {reviewed_sha[:12]}")
+
+    _hide_previous_automation_comments(
+        github_token,
+        REPO,
+        pr_number,
+        exclude_node_ids={
+            node for node in (new_comment_node_id, rec.get("ack_comment_node_id"))
+            if node
+        },
+    )
 
 
 def main() -> str | None:
