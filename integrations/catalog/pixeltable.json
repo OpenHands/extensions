@@ -1,0 +1,59 @@
+{
+  "id": "pixeltable",
+  "name": "Pixeltable",
+  "description": "Multimodal AI data infrastructure: tables, computed columns, embedding indexes, document/video iterators, and a persistent Python REPL via MCP.",
+  "docsUrl": "https://github.com/pixeltable/mcp-server-pixeltable-developer",
+  "appUrl": "https://docs.pixeltable.com/",
+  "iconBg": "var(--oh-surface)",
+  "keywords": [
+    "multimodal",
+    "rag",
+    "embeddings",
+    "tables",
+    "video",
+    "documents",
+    "data"
+  ],
+  "categories": [
+    "data"
+  ],
+  "installHint": "Server is installed from GitHub via uvx --from (not on PyPI). Optional OPENAI_API_KEY enables vision/LLM tools; CLIP and local embeddings work without it.",
+  "connectionOptions": [
+    {
+      "id": "api",
+      "provider": "mcp",
+      "transport": {
+        "kind": "stdio",
+        "serverName": "pixeltable",
+        "command": "uvx",
+        "args": [
+          "--from",
+          "git+https://github.com/pixeltable/mcp-server-pixeltable-developer",
+          "mcp-server-pixeltable-developer"
+        ],
+        "envFields": [
+          {
+            "key": "PIXELTABLE_HOME",
+            "label": "Pixeltable home directory",
+            "type": "text",
+            "placeholder": "/path/to/custom/pixeltable/home",
+            "required": false,
+            "helperText": "Optional alternate data directory. Defaults to ~/.pixeltable when unset."
+          },
+          {
+            "key": "OPENAI_API_KEY",
+            "label": "OpenAI API key",
+            "type": "password",
+            "placeholder": "sk-...",
+            "required": false,
+            "helperText": "Optional. Needed for OpenAI chat/vision computed columns; not required for CLIP or local embeddings.",
+            "helperLink": "https://platform.openai.com/api-keys"
+          }
+        ]
+      },
+      "auth": {
+        "strategy": "none"
+      }
+    }
+  ]
+}
