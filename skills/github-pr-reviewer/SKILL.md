@@ -268,6 +268,12 @@ new result the automation minimizes the older ones. The algorithm:
 Minimizing uses the GraphQL `minimizeComment` mutation with the `OUTDATED`
 classifier; hidden content can still be expanded by users or unhidden by
 moderators. Non-automation (human) comments are never touched.
+
+The hiding step is best-effort cleanup that runs *after* the review is posted
+and marked closed. A transient failure (HTTP 5xx, secondary rate limit, network
+blip) while listing or hiding must never fail a run that already posted its
+review successfully, so the listing helpers and the hiding call are wrapped so
+they log a warning and continue.
 6. Saves state atomically and fires the completion callback.
 
 ---

@@ -264,6 +264,65 @@ def test_list_pr_reviews_graphql_error_returns_empty():
     assert result == []
 
 
+def test_list_issue_comments_http_error_returns_empty():
+    """A transient transport error (HTTP 5xx, secondary rate limit, network
+    blip) must not propagate — best-effort listing degrades to an empty list."""
+    with patch.object(
+        main, "_github_graphql", side_effect=_urllib_http_error()
+    ):
+        result = main._list_issue_comments("tok", "owner/repo", 1)
+
+    assert result == []
+
+
+def test_list_pr_reviews_http_error_returns_empty():
+    """Same transport-error guard for the reviews listing."""
+    with patch.object(
+        main, "_github_graphql", side_effect=_urllib_http_error()
+    ):
+        result = main._list_pr_reviews("tok", "owner/repo", 1)
+
+    assert result == []
+
+
+def _urllib_http_error():
+    import urllib.error
+
+    return urllib.error.HTTPError(
+        "https://api.github.com/graphql", 502, "Bad Gateway", {}, None
+    )
+
+
+def test_hide_failure_does_not_fail_completion():
+    """A transient failure in the cleanup step must not fail a run whose review
+    was already posted and marked closed (regression for review finding #1)."""
+    from unittest.mock import patch as _patch
+
+    rec = {
+        "conversation_id": "conv",
+        "pr_number": 1,
+        "head_sha": "abc",
+        "last_activity": 0,
+        "ack_comment_node_id": "ack_1",
+    }
+    latest = {1: {"head": {"sha": "abc"}, "number": 1}}
+
+    with _patch.object(main, "conversation_status", return_value="finished"):
+        with _patch.object(main, "conversation_final_response", return_value="OK"):
+            with _patch.object(main, "_post_github_comment", return_value="result_1"):
+                with _patch.object(
+                    main, "_hide_previous_automation_comments",
+                    side_effect=RuntimeError("transient"),
+                ):
+                    # Should not raise.
+                    main._check_conversation_completion(
+                        rec, latest, "tok", "http://agent", "key"
+                    )
+
+    assert rec["status"] == "closed"
+    assert rec["completed_at"]
+
+
 def test_hide_end_to_end_with_windowed_lists():
     """Full path: real _list_* window fetch feeding
     _hide_previous_automation_comments, only _github_graphql and
