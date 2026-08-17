@@ -374,12 +374,16 @@ def _list_issue_comments(token: str, repo: str, pr_number: int) -> list[dict]:
     }
     """
     owner, repo_name = repo.split("/")
-    result = _github_graphql(token, query, {
-        "owner": owner,
-        "repo": repo_name,
-        "number": pr_number,
-        "size": _HIDE_WINDOW,
-    })
+    try:
+        result = _github_graphql(token, query, {
+            "owner": owner,
+            "repo": repo_name,
+            "number": pr_number,
+            "size": _HIDE_WINDOW,
+        })
+    except Exception as exc:
+        print(f"  Warning: failed to list issue comments for PR #{pr_number}: {exc}")
+        return []
     if "errors" in result:
         print(f"  Warning: GraphQL error listing comments: {result['errors']}")
         return []
@@ -429,12 +433,16 @@ def _list_pr_reviews(token: str, repo: str, pr_number: int) -> list[dict]:
     }
     """
     owner, repo_name = repo.split("/")
-    result = _github_graphql(token, query, {
-        "owner": owner,
-        "repo": repo_name,
-        "number": pr_number,
-        "size": _HIDE_WINDOW,
-    })
+    try:
+        result = _github_graphql(token, query, {
+            "owner": owner,
+            "repo": repo_name,
+            "number": pr_number,
+            "size": _HIDE_WINDOW,
+        })
+    except Exception as exc:
+        print(f"  Warning: failed to list PR reviews for PR #{pr_number}: {exc}")
+        return []
     if "errors" in result:
         print(f"  Warning: GraphQL error listing reviews: {result['errors']}")
         return []
@@ -850,15 +858,23 @@ def _check_conversation_completion(
     rec["completed_at"] = time.time()
     print(f"  Posted review for PR #{pr_number} at {reviewed_sha[:12]}")
 
-    _hide_previous_automation_comments(
-        github_token,
-        REPO,
-        pr_number,
-        exclude_node_ids={
-            node for node in (new_comment_node_id, rec.get("ack_comment_node_id"))
-            if node
-        },
-    )
+    # Hiding previous automation content is best-effort cleanup that runs after
+    # the review is already posted and marked closed. A transient failure here
+    # (HTTP 5xx, secondary rate limit, network blip) must not fail a run that
+    # already posted its review successfully, so it is guarded like the other
+    # cleanup helpers.
+    try:
+        _hide_previous_automation_comments(
+            github_token,
+            REPO,
+            pr_number,
+            exclude_node_ids={
+                node for node in (new_comment_node_id, rec.get("ack_comment_node_id"))
+                if node
+            },
+        )
+    except Exception as exc:
+        print(f"  Warning: failed to hide previous automation comments for PR #{pr_number}: {exc}")
 
 
 def main() -> str | None:
