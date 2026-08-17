@@ -933,7 +933,7 @@ def _process_trigger_message(
         f"the user request explicitly refers to them.\n\n"
         f"When you are finished, summarise what you did clearly — that summary "
         f"will be posted back to the Slack thread. "
-        f"Understand that your response will be displayed in Slack, so format any links appropriately for Slack. Do NOT bold the links on Slack."
+        f"Understand that your response will be displayed in Slack. Format links so they stay clickable in Slack: never wrap a URL in asterisks or backticks, never bold or otherwise style a link, and always output the bare URL as plain text (e.g. https://example.com/path, not **https://example.com/path** or <https://example.com/path>)."
     )
 
     try:
