@@ -1002,7 +1002,7 @@ def _check_conversation_completion(
                 + (f"\n\n{final}" if final else "")
             )
         else:
-            summary = f"✅ Done!\n\n{final}" if final else "✅ Task complete (no summary available)."
+            summary = final if final else "Success (no message available)."
 
         ts_back = post_message(slack_token, channel_id, summary, thread_ts=thread_ts)
         if ts_back:
