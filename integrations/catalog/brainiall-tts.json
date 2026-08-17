@@ -1,0 +1,43 @@
+{
+  "id": "brainiall-tts",
+  "name": "Brainiall TTS",
+  "description": "Generate WAV speech in Brazilian Portuguese and other supported languages from an agent.",
+  "categories": [
+    "Audio",
+    "AI"
+  ],
+  "appUrl": "https://app.brainiall.com",
+  "docsUrl": "https://github.com/fasuizu-br/brainiall-tts-mcp",
+  "notes": "Official hosted Streamable HTTP MCP server. Brainiall API usage is metered and synthesis text is sent to Brainiall.",
+  "logoUrl": "https://www.brainiall.com/favicon.ico",
+  "keywords": [
+    "tts",
+    "speech",
+    "voice",
+    "audio",
+    "brazilian portuguese",
+    "accessibility"
+  ],
+  "installHint": "Create a dedicated Brainiall API key, then paste it below. The credential is sent as an Authorization Bearer token.",
+  "connectionOptions": [
+    {
+      "id": "api",
+      "provider": "mcp",
+      "transport": {
+        "kind": "shttp",
+        "url": "https://api.brainiall.com/mcp/tts/mcp"
+      },
+      "auth": {
+        "strategy": "bearer",
+        "authModes": [
+          "bearer"
+        ],
+        "credentialLabel": "Brainiall API key",
+        "credentialPlaceholder": "Paste your Brainiall API key",
+        "credentialHelp": "Create a dedicated key in [Brainiall](https://app.brainiall.com). It is sent as an Authorization Bearer token; usage is metered.",
+        "credentialSecretName": "BRAINIALL_API_KEY",
+        "saveCredentialAsSecretByDefault": true
+      }
+    }
+  ]
+}
