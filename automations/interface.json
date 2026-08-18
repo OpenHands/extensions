@@ -144,7 +144,9 @@
     "capabilities": "/v1/capabilities",
     "validate": "/v1/validate",
     "createPrompt": "/v1/preset/prompt",
-    "createPlugin": "/v1/preset/plugin"
+    "createPlugin": "/v1/preset/plugin",
+    "createBundle": "/v1",
+    "uploads": "/v1/uploads"
   },
   "featuredAutomationIds": [
     "github-pr-reviewer",

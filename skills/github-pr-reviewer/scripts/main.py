@@ -17,6 +17,7 @@ deletes anything.
 import io
 import json
 import os
+import re
 import shutil
 import sys
 import tarfile
@@ -27,11 +28,113 @@ from collections.abc import Callable
 from pathlib import Path, PurePosixPath
 from urllib.parse import urlencode
 
+# Configuration. Two setup paths write it, and both end up here:
+#
+#   - the agent-driven path (SKILL.md) substitutes these constants directly
+#     into a copy of this file before packaging it;
+#   - the catalog path packs an unmodified copy and ships a rendered
+#     config.json beside it, which is loaded over these defaults below.
+#
+# A declarative host cannot rewrite Python - the catalog schema admits data,
+# not code - so the constants stay as the defaults and config.json is the
+# override, rather than one path being expressed in terms of the other.
 REPOS = ["owner/repo"]
 TRIGGER_LABEL = "openhands-review"
 REVIEW_TONE = "thorough"
 REVIEW_STYLE_INSTRUCTIONS = ""
 DEFAULT_OPENHANDS_URL = "http://localhost:8000"
+
+CONFIG_FILENAME = "config.json"
+
+# Config keys, paired with the type each must have. A wrong type is a hard
+# error at import: the alternative is polling the string "owner/repo" one
+# character at a time, or matching a label that is silently a list.
+_CONFIG_TYPES: dict[str, type] = {
+    "repos": list,
+    "trigger_label": str,
+    "review_tone": str,
+    "review_style_instructions": str,
+    "openhands_url": str,
+}
+
+
+def load_config(directory: Path | None = None) -> dict:
+    """Return the rendered config shipped beside this script, or {} if absent.
+
+    Only the keys above are read; anything else in the file is ignored, so a
+    host may ship provenance there without this script caring.
+    """
+    path = (directory or Path(__file__).resolve().parent) / CONFIG_FILENAME
+    if not path.is_file():
+        return {}
+
+    try:
+        raw = json.loads(path.read_text())
+    except json.JSONDecodeError as e:
+        raise SystemExit(f"{CONFIG_FILENAME} is not valid JSON: {e}") from e
+    if not isinstance(raw, dict):
+        raise SystemExit(f"{CONFIG_FILENAME} must contain a JSON object")
+
+    config = {}
+    for key, expected in _CONFIG_TYPES.items():
+        if key not in raw:
+            continue
+        value = raw[key]
+        if not isinstance(value, expected):
+            raise SystemExit(
+                f"{CONFIG_FILENAME}: {key} must be {expected.__name__}, "
+                f"got {type(value).__name__}"
+            )
+        if key == "repos" and not (
+            value and all(isinstance(item, str) and item for item in value)
+        ):
+            raise SystemExit(
+                f'{CONFIG_FILENAME}: repos must be a non-empty list of "owner/repo" strings'
+            )
+        config[key] = value
+    return config
+
+
+# owner/repo, which is what every GitHub API path in this script is built from.
+_REPO_NAME_RE = re.compile(r"^[A-Za-z0-9._-]+/[A-Za-z0-9._-]+$")
+
+
+def normalize_repo(value: str) -> str:
+    """Return ``owner/repo`` for the ways a repository gets written down.
+
+    A clone URL is what a repository page offers to copy, so it is what ends up
+    pasted into a setup form. Left alone it becomes
+    ``/repos/https://github.com/owner/repo``, which GitHub answers with a 404 -
+    indistinguishable, from here, from a repository the token cannot see.
+
+    Raises ValueError for anything that is not a repository name, so the run
+    says which value it could not read instead of blaming the token.
+    """
+    repo = value.strip()
+    if repo.startswith("git@"):
+        # git@github.com:owner/repo.git
+        repo = repo.partition(":")[2]
+    elif "://" in repo:
+        # https://github.com/owner/repo, and anything else with a host
+        repo = repo.split("://", 1)[1].partition("/")[2]
+    repo = repo.strip("/")
+    if repo.endswith(".git"):
+        repo = repo[: -len(".git")]
+
+    if not _REPO_NAME_RE.match(repo):
+        raise ValueError(
+            f"{value!r} is not a repository. Use owner/repo, for example "
+            "OpenHands/automation."
+        )
+    return repo
+
+
+_CONFIG = load_config()
+REPOS = _CONFIG.get("repos", REPOS)
+TRIGGER_LABEL = _CONFIG.get("trigger_label", TRIGGER_LABEL)
+REVIEW_TONE = _CONFIG.get("review_tone", REVIEW_TONE)
+REVIEW_STYLE_INSTRUCTIONS = _CONFIG.get("review_style_instructions", REVIEW_STYLE_INSTRUCTIONS)
+DEFAULT_OPENHANDS_URL = _CONFIG.get("openhands_url", DEFAULT_OPENHANDS_URL)
 
 DONE_DEBOUNCE = 15
 TERMINAL_STATUSES = {"idle", "finished", "error", "stuck"}
@@ -966,15 +1069,16 @@ def main() -> str | None:
 
     last_conversation_id = None
     failures = []
-    for repo in REPOS:
+    for configured in REPOS:
         # One repository failing must not stop the others from being polled.
         try:
+            repo = normalize_repo(configured)
             conv_id = _process_repo(repo, github_token, agent_url, api_key, openhands_url)
             if conv_id:
                 last_conversation_id = conv_id
         except Exception as exc:
-            print(f"Error processing {repo}: {exc}")
-            failures.append(f"{repo}: {exc}")
+            print(f"Error processing {configured}: {exc}")
+            failures.append(f"{configured}: {exc}")
 
     if failures and len(failures) == len(REPOS):
         # Every repository failed, so the run achieved nothing - report it as a

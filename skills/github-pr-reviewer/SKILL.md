@@ -142,6 +142,12 @@ Record as `CRON_SCHEDULE`.
 Read `scripts/main.py` from this skill's directory. Apply exactly five constant
 substitutions near the top of the file:
 
+> The script also reads a `config.json` shipped beside it, if there is one, over
+> these constants. That is how the catalog entry
+> (`automations/catalog/github-pr-reviewer/`) configures an unmodified copy,
+> since a declarative host cannot rewrite Python. This setup path substitutes the
+> constants and ships no `config.json`, so the two never collide.
+
 | Placeholder | Replace with |
 |---|---|
 | `REPOS = ["owner/repo"]` | `REPOS = ["{owner_repo}", ...]` - one entry per repository collected in Step 2 |

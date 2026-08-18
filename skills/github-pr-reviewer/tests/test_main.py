@@ -376,5 +376,128 @@ class TestStalledClaims(_CheckoutTestCase):
         self.assertNotIn("7:label:1", reviews)
 
 
+class TestLoadConfig(unittest.TestCase):
+    """The catalog path ships config.json; the agent path ships none."""
+
+    def _write(self, payload) -> Path:
+        directory = Path(tempfile.mkdtemp())
+        body = payload if isinstance(payload, str) else json.dumps(payload)
+        (directory / main.CONFIG_FILENAME).write_text(body)
+        return directory
+
+    def test_absent_config_leaves_the_defaults_alone(self):
+        self.assertEqual(main.load_config(Path(tempfile.mkdtemp())), {})
+
+    def test_declared_keys_are_returned(self):
+        directory = self._write(
+            {
+                "repos": ["owner/one", "owner/two"],
+                "trigger_label": "please-review",
+                "review_tone": "friendly",
+                "review_style_instructions": "be kind",
+                "openhands_url": "http://localhost:8010",
+            }
+        )
+        self.assertEqual(
+            main.load_config(directory),
+            {
+                "repos": ["owner/one", "owner/two"],
+                "trigger_label": "please-review",
+                "review_tone": "friendly",
+                "review_style_instructions": "be kind",
+                "openhands_url": "http://localhost:8010",
+            },
+        )
+
+    def test_a_partial_config_only_overrides_what_it_states(self):
+        directory = self._write({"trigger_label": "please-review"})
+        self.assertEqual(main.load_config(directory), {"trigger_label": "please-review"})
+
+    def test_unknown_keys_are_ignored(self):
+        directory = self._write({"trigger_label": "x", "shipped_by": "catalog"})
+        self.assertEqual(main.load_config(directory), {"trigger_label": "x"})
+
+    def test_a_string_where_a_list_belongs_is_rejected(self):
+        # Otherwise the poll loop iterates "owner/repo" one character at a time.
+        directory = self._write({"repos": "owner/repo"})
+        with self.assertRaises(SystemExit):
+            main.load_config(directory)
+
+    def test_an_empty_repo_list_is_rejected(self):
+        directory = self._write({"repos": []})
+        with self.assertRaises(SystemExit):
+            main.load_config(directory)
+
+    def test_a_non_string_repo_is_rejected(self):
+        directory = self._write({"repos": ["owner/repo", 7]})
+        with self.assertRaises(SystemExit):
+            main.load_config(directory)
+
+    def test_a_non_string_label_is_rejected(self):
+        directory = self._write({"trigger_label": ["a", "b"]})
+        with self.assertRaises(SystemExit):
+            main.load_config(directory)
+
+    def test_malformed_json_is_rejected(self):
+        directory = self._write("{not json")
+        with self.assertRaises(SystemExit):
+            main.load_config(directory)
+
+    def test_a_json_array_is_rejected(self):
+        directory = self._write(["owner/repo"])
+        with self.assertRaises(SystemExit):
+            main.load_config(directory)
+
+
+class TestNormalizeRepo(unittest.TestCase):
+    """A repository is written down in more than one way, and every API path in
+    this script is built from owner/repo."""
+
+    def test_a_repository_name_passes_through(self):
+        self.assertEqual(main.normalize_repo("OpenHands/automation"), "OpenHands/automation")
+
+    def test_surrounding_whitespace_is_ignored(self):
+        self.assertEqual(main.normalize_repo("  owner/repo\n"), "owner/repo")
+
+    def test_the_clone_url_a_repository_page_offers_is_accepted(self):
+        # The value a user is most likely to paste, and the one that used to
+        # 404 as "not accessible with the current token".
+        self.assertEqual(
+            main.normalize_repo("https://github.com/VascoSch92/symmetria"),
+            "VascoSch92/symmetria",
+        )
+
+    def test_a_dot_git_suffix_is_dropped(self):
+        self.assertEqual(
+            main.normalize_repo("https://github.com/owner/repo.git"), "owner/repo"
+        )
+
+    def test_a_trailing_slash_is_dropped(self):
+        self.assertEqual(main.normalize_repo("https://github.com/owner/repo/"), "owner/repo")
+
+    def test_an_ssh_remote_is_accepted(self):
+        self.assertEqual(
+            main.normalize_repo("git@github.com:owner/repo.git"), "owner/repo"
+        )
+
+    def test_a_bare_name_is_rejected(self):
+        with self.assertRaises(ValueError):
+            main.normalize_repo("symmetria")
+
+    def test_an_owner_without_a_repository_is_rejected(self):
+        with self.assertRaises(ValueError):
+            main.normalize_repo("https://github.com/VascoSch92")
+
+    def test_extra_path_segments_are_rejected(self):
+        # A pull request URL names a page, not a repository.
+        with self.assertRaises(ValueError):
+            main.normalize_repo("https://github.com/owner/repo/pull/7")
+
+    def test_the_message_names_the_value_it_could_not_read(self):
+        with self.assertRaises(ValueError) as caught:
+            main.normalize_repo("not a repo")
+        self.assertIn("not a repo", str(caught.exception))
+
+
 if __name__ == "__main__":
     unittest.main()
