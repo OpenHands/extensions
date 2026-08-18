@@ -10,8 +10,7 @@
       }
     },
     "features": [
-      "repoClone",
-      "presetPrompt"
+      "customTarball"
     ]
   },
   "popularityRank": 100,
@@ -81,7 +80,21 @@
         }
       }
     },
-    "prompt": "Review pull requests labeled '{{form.triggerLabel}}' in {{form.repository}}. Review tone: {{form.reviewTone}}.",
+    "bundle": {
+      "version": "1.0.0",
+      "entrypoint": "python3 main.py",
+      "timeout": 600,
+      "files": {
+        "main.py": "skills/github-pr-reviewer/scripts/main.py"
+      },
+      "config": {
+        "repos": [
+          "{{form.repository}}"
+        ],
+        "trigger_label": "{{form.triggerLabel}}",
+        "review_tone": "{{form.reviewTone}}"
+      }
+    },
     "message": "This deployment cannot run the scheduled review automation directly. Set it up in this conversation instead: confirm the repository to review, the trigger label, the review tone, and the polling schedule, then create the automation."
   }
 }

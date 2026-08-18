@@ -27,11 +27,79 @@ from collections.abc import Callable
 from pathlib import Path, PurePosixPath
 from urllib.parse import urlencode
 
+# Configuration. Two setup paths write it, and both end up here:
+#
+#   - the agent-driven path (SKILL.md) substitutes these constants directly
+#     into a copy of this file before packaging it;
+#   - the catalog path packs an unmodified copy and ships a rendered
+#     config.json beside it, which is loaded over these defaults below.
+#
+# A declarative host cannot rewrite Python - the catalog schema admits data,
+# not code - so the constants stay as the defaults and config.json is the
+# override, rather than one path being expressed in terms of the other.
 REPOS = ["owner/repo"]
 TRIGGER_LABEL = "openhands-review"
 REVIEW_TONE = "thorough"
 REVIEW_STYLE_INSTRUCTIONS = ""
 DEFAULT_OPENHANDS_URL = "http://localhost:8000"
+
+CONFIG_FILENAME = "config.json"
+
+# Config keys, paired with the type each must have. A wrong type is a hard
+# error at import: the alternative is polling the string "owner/repo" one
+# character at a time, or matching a label that is silently a list.
+_CONFIG_TYPES: dict[str, type] = {
+    "repos": list,
+    "trigger_label": str,
+    "review_tone": str,
+    "review_style_instructions": str,
+    "openhands_url": str,
+}
+
+
+def load_config(directory: Path | None = None) -> dict:
+    """Return the rendered config shipped beside this script, or {} if absent.
+
+    Only the keys above are read; anything else in the file is ignored, so a
+    host may ship provenance there without this script caring.
+    """
+    path = (directory or Path(__file__).resolve().parent) / CONFIG_FILENAME
+    if not path.is_file():
+        return {}
+
+    try:
+        raw = json.loads(path.read_text())
+    except json.JSONDecodeError as e:
+        raise SystemExit(f"{CONFIG_FILENAME} is not valid JSON: {e}") from e
+    if not isinstance(raw, dict):
+        raise SystemExit(f"{CONFIG_FILENAME} must contain a JSON object")
+
+    config = {}
+    for key, expected in _CONFIG_TYPES.items():
+        if key not in raw:
+            continue
+        value = raw[key]
+        if not isinstance(value, expected):
+            raise SystemExit(
+                f"{CONFIG_FILENAME}: {key} must be {expected.__name__}, "
+                f"got {type(value).__name__}"
+            )
+        if key == "repos" and not (
+            value and all(isinstance(item, str) and item for item in value)
+        ):
+            raise SystemExit(
+                f'{CONFIG_FILENAME}: repos must be a non-empty list of "owner/repo" strings'
+            )
+        config[key] = value
+    return config
+
+
+_CONFIG = load_config()
+REPOS = _CONFIG.get("repos", REPOS)
+TRIGGER_LABEL = _CONFIG.get("trigger_label", TRIGGER_LABEL)
+REVIEW_TONE = _CONFIG.get("review_tone", REVIEW_TONE)
+REVIEW_STYLE_INSTRUCTIONS = _CONFIG.get("review_style_instructions", REVIEW_STYLE_INSTRUCTIONS)
+DEFAULT_OPENHANDS_URL = _CONFIG.get("openhands_url", DEFAULT_OPENHANDS_URL)
 
 DONE_DEBOUNCE = 15
 TERMINAL_STATUSES = {"idle", "finished", "error", "stuck"}

@@ -376,5 +376,78 @@ class TestStalledClaims(_CheckoutTestCase):
         self.assertNotIn("7:label:1", reviews)
 
 
+class TestLoadConfig(unittest.TestCase):
+    """The catalog path ships config.json; the agent path ships none."""
+
+    def _write(self, payload) -> Path:
+        directory = Path(tempfile.mkdtemp())
+        body = payload if isinstance(payload, str) else json.dumps(payload)
+        (directory / main.CONFIG_FILENAME).write_text(body)
+        return directory
+
+    def test_absent_config_leaves_the_defaults_alone(self):
+        self.assertEqual(main.load_config(Path(tempfile.mkdtemp())), {})
+
+    def test_declared_keys_are_returned(self):
+        directory = self._write(
+            {
+                "repos": ["owner/one", "owner/two"],
+                "trigger_label": "please-review",
+                "review_tone": "friendly",
+                "review_style_instructions": "be kind",
+                "openhands_url": "http://localhost:8010",
+            }
+        )
+        self.assertEqual(
+            main.load_config(directory),
+            {
+                "repos": ["owner/one", "owner/two"],
+                "trigger_label": "please-review",
+                "review_tone": "friendly",
+                "review_style_instructions": "be kind",
+                "openhands_url": "http://localhost:8010",
+            },
+        )
+
+    def test_a_partial_config_only_overrides_what_it_states(self):
+        directory = self._write({"trigger_label": "please-review"})
+        self.assertEqual(main.load_config(directory), {"trigger_label": "please-review"})
+
+    def test_unknown_keys_are_ignored(self):
+        directory = self._write({"trigger_label": "x", "shipped_by": "catalog"})
+        self.assertEqual(main.load_config(directory), {"trigger_label": "x"})
+
+    def test_a_string_where_a_list_belongs_is_rejected(self):
+        # Otherwise the poll loop iterates "owner/repo" one character at a time.
+        directory = self._write({"repos": "owner/repo"})
+        with self.assertRaises(SystemExit):
+            main.load_config(directory)
+
+    def test_an_empty_repo_list_is_rejected(self):
+        directory = self._write({"repos": []})
+        with self.assertRaises(SystemExit):
+            main.load_config(directory)
+
+    def test_a_non_string_repo_is_rejected(self):
+        directory = self._write({"repos": ["owner/repo", 7]})
+        with self.assertRaises(SystemExit):
+            main.load_config(directory)
+
+    def test_a_non_string_label_is_rejected(self):
+        directory = self._write({"trigger_label": ["a", "b"]})
+        with self.assertRaises(SystemExit):
+            main.load_config(directory)
+
+    def test_malformed_json_is_rejected(self):
+        directory = self._write("{not json")
+        with self.assertRaises(SystemExit):
+            main.load_config(directory)
+
+    def test_a_json_array_is_rejected(self):
+        directory = self._write(["owner/repo"])
+        with self.assertRaises(SystemExit):
+            main.load_config(directory)
+
+
 if __name__ == "__main__":
     unittest.main()
