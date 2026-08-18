@@ -10,13 +10,12 @@
       }
     },
     "features": [
-      "repoClone",
-      "presetPrompt"
+      "customTarball"
     ]
   },
   "popularityRank": 100,
   "estimatedSetupMinutes": 4,
-  "exampleImplementation": "Trigger: cron polling for open GitHub PRs with a configured label such as openhands-review\nRequired secret: GITHUB_PERSONAL_ACCESS_TOKEN\n\n1. Read repository, trigger label, review tone, and polling schedule from setup.\n2. List open PRs and find the latest matching GitHub labeled issue event for each labeled PR.\n3. Deduplicate on the label event ID so every label application queues exactly one review.\n4. Start an OpenHands conversation that clones the repo, checks out the exact PR head SHA, and inspects PR discussion, review comments, changed files, diff, and surrounding code.\n5. Post an acknowledgement with the conversation link, then post the final AI review comment only if the PR is still open and the head SHA has not changed.",
+  "exampleImplementation": "Trigger: cron polling for open GitHub PRs with a configured label such as openhands-review\nRequired secret: GITHUB_PERSONAL_ACCESS_TOKEN, with permission to write pull request reviews\n\n1. Read the repositories, trigger label, review tone, and polling schedule from setup.\n2. Poll each repository independently, with its own state, so PR numbers never collide.\n3. List open PRs and find the latest matching GitHub labeled issue event for each labeled PR.\n4. Deduplicate on the label event ID so every label application queues exactly one review.\n5. Extract the PR head commit into a directory of its own and start an OpenHands conversation with that directory as its workspace, so the agent reviews the exact commit without cloning anything.\n6. Post an acknowledgement with the conversation link, then confirm on GitHub that the review was published for that head SHA, falling back to posting the agent's text as a comment.\n7. Remove the checkout once the conversation has stopped, so nothing accumulates between runs.",
   "setup": {
     "version": "1.0",
     "mode": "direct",
@@ -40,11 +39,12 @@
         }
       },
       "args": {
-        "repository": {
+        "repositories": {
           "type": "repo-picker",
-          "label": "Repository",
-          "help": "The repository whose pull requests will be reviewed.",
+          "label": "Repositories",
+          "help": "The repositories whose pull requests will be reviewed. Each is polled independently and keeps its own state, so pull request numbers never collide between them.",
           "provider": "github",
+          "multiple": true,
           "required": true
         },
         "triggerLabel": {
@@ -72,12 +72,28 @@
             {
               "value": "thorough",
               "label": "Thorough"
+            },
+            {
+              "value": "friendly",
+              "label": "Friendly"
             }
           ]
         }
       }
     },
-    "prompt": "Review pull requests labeled '{{form.triggerLabel}}' in {{form.repository}}. Review tone: {{form.reviewTone}}.",
+    "bundle": {
+      "version": "1.0.0",
+      "entrypoint": "python3 main.py",
+      "timeout": 600,
+      "files": {
+        "main.py": "skills/github-pr-reviewer/scripts/main.py"
+      },
+      "config": {
+        "repos": "{{form.repositories}}",
+        "trigger_label": "{{form.triggerLabel}}",
+        "review_tone": "{{form.reviewTone}}"
+      }
+    },
     "message": "This deployment cannot run the scheduled review automation directly. Set it up in this conversation instead: confirm the repository to review, the trigger label, the review tone, and the polling schedule, then create the automation."
   }
 }

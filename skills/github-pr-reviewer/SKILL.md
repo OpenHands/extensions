@@ -2,23 +2,30 @@
 name: github-pr-reviewer
 description: >
   Create an automation that reviews GitHub pull requests when a configurable
-  trigger label is applied. Polls GitHub deterministically, starts one
-  OpenHands review conversation per label event, inspects full repository and
-  PR context, and posts the final review comment back to GitHub.
+  trigger label is applied. Polls one or more repositories deterministically,
+  starts one OpenHands review conversation per label event with the pull
+  request's head commit already checked out, and publishes the review to GitHub.
 triggers:
   - /pr-reviewer:setup
 ---
 
 # GitHub PR Reviewer Automation
 
-Create a cron automation that watches a GitHub repository for pull requests
-with a review trigger label, starts an OpenHands review conversation once per
-label event, and posts the AI review as a GitHub comment.
+Create a cron automation that watches one or more GitHub repositories for pull
+requests with a review trigger label, starts an OpenHands review conversation
+once per label event, and publishes the AI review to GitHub.
 Windows PowerShell equivalents for the setup, packaging, upload, and API-check shell snippets are in `references/windows.md`.
 
 The automation script is deterministic: PR discovery, label-event tracking,
-state persistence, stale-result suppression, and GitHub comment posting are
-handled in Python. The LLM is invoked only for the review itself.
+state persistence, stale-result suppression, the repository checkout, and its
+removal are all handled in Python. The LLM is invoked only for the review
+itself.
+
+The script prepares each review's workspace before the agent starts: the pull
+request's head commit is downloaded as a tarball and extracted to a directory of
+its own, which becomes the conversation's working directory. The agent is told
+not to clone, fetch, check out, or delete anything, and the script removes the
+checkout once the conversation has stopped. Nothing accumulates between runs.
 
 ---
 
@@ -31,7 +38,13 @@ Verify that the following secret is set in **OpenHands Settings -> Secrets**:
 | Secret name | Token type | Minimum permissions |
 |---|---|---|
 | `GITHUB_PERSONAL_ACCESS_TOKEN` | Classic PAT | `repo` for private repos or `public_repo` for public repos |
-| `GITHUB_PERSONAL_ACCESS_TOKEN` | Fine-grained PAT | Contents: Read, Metadata: Read, Pull requests: Read, Issues: Read and Write |
+| `GITHUB_PERSONAL_ACCESS_TOKEN` | Fine-grained PAT | Contents: Read, Metadata: Read, Pull requests: **Read and Write**, Issues: Read and Write |
+
+Pull-request **write** access is required because the agent publishes a pull
+request review, not just an issue comment. A token with only Pull requests: Read
+will poll happily and then fail at the point of publishing.
+
+When several repositories are monitored, the token must cover all of them.
 
 Check with:
 ```bash
@@ -57,12 +70,13 @@ Run the `curl` check above.
 - If the API returns `{"message": "Bad credentials"}`: tell the user the
   token is invalid and ask them to update it. Stop.
 
-### Step 2 - Collect repository
+### Step 2 - Collect repositories
 
-Ask: *"Which GitHub repository should be monitored?
-(Format: `owner/repo`, e.g. `myorg/backend`)"*
+Ask: *"Which GitHub repositories should be monitored?
+(Format: `owner/repo`, e.g. `myorg/backend`. List several separated by commas to
+review them all from one automation.)"*
 
-Validate access:
+Validate access to **each** repository:
 ```bash
 curl -s "https://api.github.com/repos/{owner}/{repo}" \
   -H "Authorization: Bearer $GITHUB_PERSONAL_ACCESS_TOKEN" \
@@ -76,7 +90,13 @@ else:
 "
 ```
 
-Record `REPO = "{owner}/{repo}"`.
+Record every accepted repository into `REPOS = ["{owner}/{repo}", ...]`. If one
+repository fails the check, say which and ask whether to continue without it.
+
+Each repository is polled independently and keeps its own state, so pull-request
+numbers never collide between them. The trigger label, tone, and schedule are
+shared by all of them; a repository needing different settings wants its own
+automation.
 
 ### Step 3 - Collect trigger label
 
@@ -122,9 +142,15 @@ Record as `CRON_SCHEDULE`.
 Read `scripts/main.py` from this skill's directory. Apply exactly five constant
 substitutions near the top of the file:
 
+> The script also reads a `config.json` shipped beside it, if there is one, over
+> these constants. That is how the catalog entry
+> (`automations/catalog/github-pr-reviewer/`) configures an unmodified copy,
+> since a declarative host cannot rewrite Python. This setup path substitutes the
+> constants and ships no `config.json`, so the two never collide.
+
 | Placeholder | Replace with |
 |---|---|
-| `REPO = "owner/repo"` | `REPO = "{owner_repo}"` |
+| `REPOS = ["owner/repo"]` | `REPOS = ["{owner_repo}", ...]` - one entry per repository collected in Step 2 |
 | `TRIGGER_LABEL = "openhands-review"` | `TRIGGER_LABEL = "{trigger_label}"` |
 | `REVIEW_TONE = "thorough"` | `REVIEW_TONE = "{review_tone}"` |
 | `REVIEW_STYLE_INSTRUCTIONS = ""` | `REVIEW_STYLE_INSTRUCTIONS = "{style_instructions}"` |
@@ -132,6 +158,7 @@ substitutions near the top of the file:
 
 Use a safe string writer such as `json.dumps(value)` when inserting user-provided
 repository names, labels, or style instructions into Python string literals.
+`json.dumps(list_of_repos)` produces the whole `REPOS` list safely in one step.
 
 Write the customized script to a temporary build directory:
 ```bash
@@ -173,13 +200,18 @@ curl -s -X POST "${OPENHANDS_HOST}/api/automation/v1" \
   -H "X-Session-API-Key: $OPENHANDS_AUTOMATION_API_KEY" \
   -H "Content-Type: application/json" \
   -d "{
-    \"name\": \"GitHub PR Reviewer: {owner}/{repo} label {trigger_label}\",
+    \"name\": \"GitHub PR Reviewer: {repo_summary} label {trigger_label}\",
     \"trigger\": {\"type\": \"cron\", \"schedule\": \"{cron_schedule}\"},
     \"tarball_path\": \"$TARBALL_PATH\",
     \"entrypoint\": \"python3 main.py\",
-    \"timeout\": 300
+    \"timeout\": 600
   }" | python3 -m json.tool
 ```
+
+Use the single repository as `{repo_summary}` when there is one, and something
+like `3 repos` when there are several. A poll now downloads a tarball per queued
+review, so the timeout allows for that; a run never waits for a review to
+finish, only for it to be started.
 
 Record the returned `id`.
 
@@ -190,91 +222,67 @@ Tell the user:
 > ✅ **GitHub PR Reviewer** is running!
 >
 > - Automation ID: `{id}`
-> - Repository: `{owner}/{repo}`
+> - Repositories: `{owner}/{repo}`, ... (one line each)
 > - Trigger label: `{trigger_label}`
 > - Review tone: `{tone}`
 > - Polling schedule: `{cron_schedule}`
-> - State file: `~/.openhands/workspaces/automation-state/github_pr_reviewer_label_event_{id}.json`
+> - State file per repository:
+>   `~/.openhands/workspaces/automation-state/github_pr_reviewer_label_event_{id}_{owner}__{repo}.json`
 >
 > Apply the `{trigger_label}` label to a pull request to queue a review. Each
 > label event is processed once. To request another review, remove and re-apply
 > the label.
+>
+> The review is published as a pull request review on the head commit, with
+> inline comments where a finding maps to a changed line.
 
 ---
 
 ## Runtime Behaviour (per poll)
 
-Each cron run executes `main.py`, which:
+Each cron run executes `main.py`, which resolves and validates
+`GITHUB_PERSONAL_ACCESS_TOKEN` once, then processes every repository in `REPOS`
+independently. One repository failing does not stop the others; the run fails
+only if every repository fails.
 
-1. Loads state from the JSON file (see `references/state-schema.md`).
-2. Resolves and validates `GITHUB_PERSONAL_ACCESS_TOKEN` and repository access.
+For each repository:
+
+1. Loads that repository's state (see `references/state-schema.md`).
+2. Verifies repository access.
 3. Lists open PRs, newest-updated first.
 4. For each open PR carrying `TRIGGER_LABEL`:
    - Refetches current PR metadata to avoid acting on stale list data.
    - Finds the latest matching GitHub `labeled` issue event.
    - Skips the event if it has already been tracked.
-   - Starts an OpenHands conversation with a review prompt that includes PR
-     metadata, the exact head SHA, label event details, and instructions to
-     clone the repo, inspect PR discussion, review comments, changed files,
-     diff, and surrounding code.
+   - Downloads the PR's head commit as a tarball and extracts it to
+     `{WORKSPACE_BASE}/repositories/{owner}__{repo}/pr-{number}-{sha12}`. The
+     archive is checked as it is unpacked: a single root, no absolute or `..`
+     paths, and symlinks skipped rather than materialised.
+   - Starts an OpenHands conversation **whose working directory is that
+     checkout**, with a review prompt carrying PR metadata, the exact head SHA,
+     and label event details.
    - Posts an acknowledgement comment with the label event, head SHA, and
      conversation link.
-   - Records the label-event review in state with `status: "active"`.
+   - Records the review in state with `status: "active"` and the checkout path.
+   - If the checkout or the conversation cannot be created, the checkout is
+     removed and nothing is recorded, so the next poll retries the label event.
 5. For each active review conversation:
    - Marks it closed without posting if the PR has closed or merged.
    - Suppresses stale results if the PR head SHA changed after the review was
      queued.
    - When the conversation reaches `idle`, `finished`, `error`, or `stuck`,
-     posts the agent's final response as a GitHub comment, then hides
-     (minimizes with the `outdated` reason) the automation's *previous* content
-     on the PR. See "Hiding previous reviews" below.
-   - Marks the review closed.
+     asks GitHub whether a review by the token's own user exists for that head
+     SHA. If it does, the review is complete. If it does not, the agent's final
+     response is posted as a comment so the work is not lost.
+   - Abandons a conversation that has not reached a terminal status within two
+     hours, so its checkout can be reclaimed.
+6. Removes the checkout of every finished review, but only after confirming the
+   conversation has stopped - deleting it under a running agent would remove its
+   working directory. When that cannot be confirmed the directory is left alone
+   and the next poll tries again.
+7. Saves that repository's state atomically.
 
-### Hiding previous reviews
-
-Every review cycle adds automation content to the PR: an acknowledgement issue
-comment ("OpenHands is reviewing this PR") plus a review result — an issue
-comment and/or a PR review object with inline diff comments. Left alone these
-pile up and GitHub struggles to render a PR with many comments. After posting a
-new result the automation minimizes the older ones. The algorithm:
-
-1. **Scope: the latest window only.** Fetch just the most recent
-   `_HIDE_WINDOW` (20) issue comments and the most recent 20 review objects,
-   each in a single request (`comments(last: 20)` / `reviews(last: 20)`). Older
-   automation content was already minimized by previous runs, so re-walking the
-   whole history is unnecessary — the recent window is where the un-minimized
-   automation content lives. Every run is therefore one request per list,
-   regardless of how many comments the PR has accumulated.
-
-2. **Keep the current cycle, hide the rest.** Within that window, minimize every
-   item that is automation content *except* the current cycle's:
-   - **Issue comments:** the current result comment and the current
-     acknowledgement comment are identified by node ID (both tracked when
-     posted) and skipped; any other automation comment is minimized.
-   - **PR review objects:** the agent posts these itself, so their node IDs are
-     not tracked. The most recent automation review object (by `createdAt`) is
-     treated as the current cycle's and skipped; older ones — and their inline
-     diff comments — are minimized.
-
-3. **Handle asymmetric cycles.** A cycle does not always produce a matched pair.
-   The agent may error before reviewing (acknowledgement only), or post a review
-   object with no separate result comment. So each item is judged on its own —
-   excluded node ID or newest review object → keep, any other automation item →
-   hide — rather than assuming ack-and-result always come together.
-
-4. **Never re-hide.** Already-minimized items are skipped, so a run does no work
-   for content a previous run already collapsed.
-
-Minimizing uses the GraphQL `minimizeComment` mutation with the `OUTDATED`
-classifier; hidden content can still be expanded by users or unhidden by
-moderators. Non-automation (human) comments are never touched.
-
-The hiding step is best-effort cleanup that runs *after* the review is posted
-and marked closed. A transient failure (HTTP 5xx, secondary rate limit, network
-blip) while listing or hiding must never fail a run that already posted its
-review successfully, so the listing helpers and the hiding call are wrapped so
-they log a warning and continue.
-6. Saves state atomically and fires the completion callback.
+The completion callback fires once for the whole run.
 
 ---
 
@@ -284,6 +292,9 @@ they log a warning and continue.
   review lifecycle diagram.
 - **`scripts/main.py`** - The complete automation script. Customize the five
   constants at the top before packaging.
+- **`tests/test_main.py`** - Unit tests for the checkout, its removal, and state
+  handling. Run them from the skill root with `python -m pytest tests/` after
+  editing the script.
 
 ---
 
@@ -293,7 +304,11 @@ they log a warning and continue.
 |---|---|---|
 | Bot never queues reviews | Trigger label not present or no matching `labeled` event | Apply the configured label to the PR |
 | "Bad credentials" in run logs | Token expired | Rotate and update `GITHUB_PERSONAL_ACCESS_TOKEN` |
-| 404 on repo access | Repo name wrong or no access | Re-check `owner/repo` and token permissions |
+| 404 on repo access | Repo name wrong or no access | Re-check the entry in `REPOS` and the token's permissions |
+| One repository is skipped, others work | That repository failed its access check | Read the `=== owner/repo ===` block in the run log |
 | Same PR not reviewed after new commits | Label event was already processed | Remove and re-apply the trigger label |
 | Review result never posts | Conversation still running or stuck | Open the conversation link from the acknowledgement comment |
 | Stale review suppressed | PR head SHA changed while the agent was reviewing | Re-apply the trigger label after the latest commit |
+| Review arrives as a plain comment, not a review | Publishing failed, so the script posted the text as a fallback | Check that the token has Pull requests: Read and Write |
+| Agent reports it cannot clone the repo | Prompt asked it not to; the workspace is already the checkout | No action - the code is at the head SHA in its working directory |
+| Checkouts remain under `repositories/` | Their conversations had not stopped yet | They are removed by a later poll once the conversation is terminal |

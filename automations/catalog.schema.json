@@ -63,6 +63,10 @@
           "description": "direct only. What the automation is told to do. The rest of the create request restates the form, so it is not written here: the automation's name comes from this entry, the repository from the repo-picker field, and the trigger from the key and fields under form.triggers.",
           "$ref": "#/$defs/templateValue"
         },
+        "bundle": {
+          "description": "direct only, and the alternative to prompt. The script tarball this entry ships: the automation is deterministic machinery rather than judgement, so it runs as its own code and the host creates it through the raw create endpoint instead of a preset. The rest of the create request still restates the form, so it is not written here either.",
+          "$ref": "#/$defs/bundle"
+        },
         "filter": {
           "description": "direct only, and only for an event trigger. The expression deciding whether a delivered event belongs to this automation. It composes form values into a JMESPath expression, which is the one part of an event trigger that cannot be read off the form.",
           "$ref": "#/$defs/templateValue"
@@ -79,7 +83,10 @@
             "required": ["mode"]
           },
           "then": {
-            "required": ["prompt"]
+            "oneOf": [
+              { "required": ["prompt"], "not": { "required": ["bundle"] } },
+              { "required": ["bundle"], "not": { "required": ["prompt"] } }
+            ]
           }
         },
         {
@@ -91,6 +98,7 @@
             "required": ["message"],
             "allOf": [
               { "not": { "required": ["prompt"] } },
+              { "not": { "required": ["bundle"] } },
               { "not": { "required": ["filter"] } }
             ]
           }
@@ -108,6 +116,88 @@
             "required": ["form"]
           },
           "then": { "not": { "required": ["filter"] } }
+        },
+        {
+          "if": { "required": ["bundle"] },
+          "then": { "not": { "required": ["filter"] } }
+        }
+      ]
+    },
+    "bundle": {
+      "description": "What the host packs into a .tar.gz and uploads before creating the automation. It names files inside this repository and the command that runs them - never a host, a URL, or code to evaluate.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["version", "entrypoint", "files", "config"],
+      "properties": {
+        "version": {
+          "description": "The version of this bundle, recorded as the created automation's template provenance. Bump it when the shipped files or the config shape change: it is what tells an already-enabled deployment that what it installed is no longer current. Not the package version, which moves for reasons that have nothing to do with this entry.",
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 50,
+          "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+        },
+        "entrypoint": {
+          "description": "The command the automation service runs inside the extracted tarball, such as `python3 main.py`. No shell metacharacters: the service rejects them, and a bundle has no reason to need one.",
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 500,
+          "pattern": "^[A-Za-z0-9 ._/-]+$"
+        },
+        "setupScript": {
+          "description": "Path inside the tarball to a script run once before the entrypoint, such as `setup.sh`. Absent when the bundle needs no installation step, which is the case for a standard-library script.",
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 255,
+          "pattern": "^[A-Za-z0-9._-]+(/[A-Za-z0-9._-]+)*$",
+          "not": { "pattern": "(^|/)\\.\\.?(/|$)" }
+        },
+        "timeout": {
+          "description": "Seconds a single run may take, when this entry needs more than the service default. A poll that fetches an archive per queued item needs longer than one that only calls an API.",
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 86400
+        },
+        "files": {
+          "description": "The tarball's contents, keyed by the path each file takes inside the archive and valued by where it lives in this repository. Stated rather than derived from the entry directory, so a script shipped by both a skill and the catalog has one copy rather than two.",
+          "type": "object",
+          "minProperties": 1,
+          "maxProperties": 32,
+          "propertyNames": {
+            "pattern": "^[A-Za-z0-9._-]+(/[A-Za-z0-9._-]+)*$",
+            "not": { "pattern": "(^|/)\\.\\.?(/|$)" },
+            "maxLength": 255
+          },
+          "additionalProperties": { "$ref": "#/$defs/bundleSource" }
+        },
+        "config": {
+          "description": "The config.json packed beside the entrypoint, rendered from the form. This is the bundle's analogue of prompt: the one thing that cannot be read off the form, because only the entry knows which key of its own script each field fills.",
+          "$ref": "#/$defs/bundleConfig"
+        }
+      }
+    },
+    "bundleSource": {
+      "description": "A file in this repository, as a repository-relative path under skills/ or automations/. No absolute path, no traversal, and no scheme, so a bundle cannot name anything outside the published package.",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 255,
+      "pattern": "^(skills|automations)/[A-Za-z0-9._-]+(/[A-Za-z0-9._-]+)*$",
+      "not": { "pattern": "(^|/)\\.\\.?(/|$)" }
+    },
+    "bundleConfig": {
+      "description": "The JSON document written to config.json. Its string leaves may embed the same placeholders every other value uses. It carries no markup rule, because it is written to a file rather than rendered.",
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": { "$ref": "#/$defs/bundleConfigValue" }
+    },
+    "bundleConfigValue": {
+      "description": "A config leaf: a templated string, a number, a boolean, null, or an array or object of the same.",
+      "anyOf": [
+        { "$ref": "#/$defs/templateValue" },
+        { "type": ["number", "boolean", "null"] },
+        { "type": "array", "items": { "$ref": "#/$defs/bundleConfigValue" } },
+        {
+          "type": "object",
+          "additionalProperties": { "$ref": "#/$defs/bundleConfigValue" }
         }
       ]
     },
@@ -224,6 +314,10 @@
         "default": { "type": "string" },
         "required": { "type": "boolean" },
         "provider": { "enum": ["github", "gitlab", "bitbucket"] },
+        "multiple": {
+          "description": "repo-picker only. The field collects several repositories rather than one, and its value is a list. A whole-value placeholder resolves to that list, so a payload can state `\"repos\": \"{{form.repositories}}\"` and get an array.",
+          "const": true
+        },
         "options": {
           "type": "array",
           "minItems": 1,
@@ -258,6 +352,13 @@
             "required": ["type"]
           },
           "then": { "required": ["provider"] }
+        },
+        {
+          "if": {
+            "properties": { "type": { "not": { "const": "repo-picker" } } },
+            "required": ["type"]
+          },
+          "then": { "not": { "required": ["multiple"] } }
         },
         {
           "if": {
