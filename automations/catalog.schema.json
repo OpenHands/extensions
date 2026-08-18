@@ -148,7 +148,8 @@
           "type": "string",
           "minLength": 1,
           "maxLength": 255,
-          "pattern": "^[A-Za-z0-9._-]+(/[A-Za-z0-9._-]+)*$"
+          "pattern": "^[A-Za-z0-9._-]+(/[A-Za-z0-9._-]+)*$",
+          "not": { "pattern": "(^|/)\\.\\.?(/|$)" }
         },
         "timeout": {
           "description": "Seconds a single run may take, when this entry needs more than the service default. A poll that fetches an archive per queued item needs longer than one that only calls an API.",
@@ -163,6 +164,7 @@
           "maxProperties": 32,
           "propertyNames": {
             "pattern": "^[A-Za-z0-9._-]+(/[A-Za-z0-9._-]+)*$",
+            "not": { "pattern": "(^|/)\\.\\.?(/|$)" },
             "maxLength": 255
           },
           "additionalProperties": { "$ref": "#/$defs/bundleSource" }
@@ -179,7 +181,7 @@
       "minLength": 1,
       "maxLength": 255,
       "pattern": "^(skills|automations)/[A-Za-z0-9._-]+(/[A-Za-z0-9._-]+)*$",
-      "not": { "pattern": "(^|/)\\.\\.(/|$)" }
+      "not": { "pattern": "(^|/)\\.\\.?(/|$)" }
     },
     "bundleConfig": {
       "description": "The JSON document written to config.json. Its string leaves may embed the same placeholders every other value uses. It carries no markup rule, because it is written to a file rather than rendered.",

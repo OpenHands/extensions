@@ -1,6 +1,6 @@
 {
   "automationId": "github-pr-reviewer",
-  "description": "Direct scheduled setup that ships a script bundle rather than a prompt. The host packs the entry's files with a rendered config.json, uploads them, and creates from what came back. Every create request body below is verified against the live CreateAutomationRequest model in OpenHands/automation (openhands/automation/schemas.py).",
+  "description": "Direct scheduled setup that ships a script bundle rather than a prompt. The host packs the entry's files with a rendered config.json, uploads them, and creates from what came back, so a scenario that reaches creation records an upload step first. A preflight draft carries a stand-in tarball path instead: preflight runs while the form is being filled in, before anything is uploaded. Every create request body below is verified against the live CreateAutomationRequest model in OpenHands/automation (openhands/automation/schemas.py).",
   "capabilities": "supported",
   "blockedBy": [
     "noCustomTarball",
@@ -54,7 +54,7 @@
                 "schedule": "*/15 * * * *",
                 "timezone": "UTC"
               },
-              "tarball_path": "oh-internal://uploads/2c1f9a70-77c4-4a1e-9a9d-6f1f2b0c1d34",
+              "tarball_path": "oh-internal://uploads/00000000-0000-0000-0000-000000000000",
               "entrypoint": "python3 main.py",
               "timeout": 600,
               "template": {
@@ -143,29 +143,6 @@
         "schedule": "*/1 * * * *",
         "timezone": "UTC"
       },
-      "upload": {
-        "request": {
-          "method": "POST",
-          "path": "/v1/uploads",
-          "query": {
-            "name": "github-pr-reviewer"
-          },
-          "contentType": "application/gzip",
-          "packs": [
-            "config.json",
-            "main.py"
-          ]
-        },
-        "response": {
-          "status": 201,
-          "body": {
-            "id": "2c1f9a70-77c4-4a1e-9a9d-6f1f2b0c1d34",
-            "name": "github-pr-reviewer",
-            "status": "COMPLETED",
-            "tarball_path": "oh-internal://uploads/2c1f9a70-77c4-4a1e-9a9d-6f1f2b0c1d34"
-          }
-        }
-      },
       "preflight": {
         "request": {
           "method": "POST",
@@ -180,7 +157,7 @@
                 "schedule": "*/1 * * * *",
                 "timezone": "UTC"
               },
-              "tarball_path": "oh-internal://uploads/2c1f9a70-77c4-4a1e-9a9d-6f1f2b0c1d34",
+              "tarball_path": "oh-internal://uploads/00000000-0000-0000-0000-000000000000",
               "entrypoint": "python3 main.py",
               "timeout": 600,
               "template": {
