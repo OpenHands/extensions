@@ -63,6 +63,11 @@ export interface AutomationFormField {
   default?: string;
   required: boolean;
   provider?: AutomationGitProvider;
+  /**
+   * repo-picker only. The field collects several repositories rather than one,
+   * and its value is a list. A whole-value placeholder resolves to that list.
+   */
+  multiple?: true;
   options?: AutomationFieldOption[];
   constraints?: AutomationFieldConstraints;
 }

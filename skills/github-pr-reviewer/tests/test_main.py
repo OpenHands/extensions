@@ -449,5 +449,55 @@ class TestLoadConfig(unittest.TestCase):
             main.load_config(directory)
 
 
+class TestNormalizeRepo(unittest.TestCase):
+    """A repository is written down in more than one way, and every API path in
+    this script is built from owner/repo."""
+
+    def test_a_repository_name_passes_through(self):
+        self.assertEqual(main.normalize_repo("OpenHands/automation"), "OpenHands/automation")
+
+    def test_surrounding_whitespace_is_ignored(self):
+        self.assertEqual(main.normalize_repo("  owner/repo\n"), "owner/repo")
+
+    def test_the_clone_url_a_repository_page_offers_is_accepted(self):
+        # The value a user is most likely to paste, and the one that used to
+        # 404 as "not accessible with the current token".
+        self.assertEqual(
+            main.normalize_repo("https://github.com/VascoSch92/symmetria"),
+            "VascoSch92/symmetria",
+        )
+
+    def test_a_dot_git_suffix_is_dropped(self):
+        self.assertEqual(
+            main.normalize_repo("https://github.com/owner/repo.git"), "owner/repo"
+        )
+
+    def test_a_trailing_slash_is_dropped(self):
+        self.assertEqual(main.normalize_repo("https://github.com/owner/repo/"), "owner/repo")
+
+    def test_an_ssh_remote_is_accepted(self):
+        self.assertEqual(
+            main.normalize_repo("git@github.com:owner/repo.git"), "owner/repo"
+        )
+
+    def test_a_bare_name_is_rejected(self):
+        with self.assertRaises(ValueError):
+            main.normalize_repo("symmetria")
+
+    def test_an_owner_without_a_repository_is_rejected(self):
+        with self.assertRaises(ValueError):
+            main.normalize_repo("https://github.com/VascoSch92")
+
+    def test_extra_path_segments_are_rejected(self):
+        # A pull request URL names a page, not a repository.
+        with self.assertRaises(ValueError):
+            main.normalize_repo("https://github.com/owner/repo/pull/7")
+
+    def test_the_message_names_the_value_it_could_not_read(self):
+        with self.assertRaises(ValueError) as caught:
+            main.normalize_repo("not a repo")
+        self.assertIn("not a repo", str(caught.exception))
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -17,6 +17,7 @@ deletes anything.
 import io
 import json
 import os
+import re
 import shutil
 import sys
 import tarfile
@@ -92,6 +93,40 @@ def load_config(directory: Path | None = None) -> dict:
             )
         config[key] = value
     return config
+
+
+# owner/repo, which is what every GitHub API path in this script is built from.
+_REPO_NAME_RE = re.compile(r"^[A-Za-z0-9._-]+/[A-Za-z0-9._-]+$")
+
+
+def normalize_repo(value: str) -> str:
+    """Return ``owner/repo`` for the ways a repository gets written down.
+
+    A clone URL is what a repository page offers to copy, so it is what ends up
+    pasted into a setup form. Left alone it becomes
+    ``/repos/https://github.com/owner/repo``, which GitHub answers with a 404 -
+    indistinguishable, from here, from a repository the token cannot see.
+
+    Raises ValueError for anything that is not a repository name, so the run
+    says which value it could not read instead of blaming the token.
+    """
+    repo = value.strip()
+    if repo.startswith("git@"):
+        # git@github.com:owner/repo.git
+        repo = repo.partition(":")[2]
+    elif "://" in repo:
+        # https://github.com/owner/repo, and anything else with a host
+        repo = repo.split("://", 1)[1].partition("/")[2]
+    repo = repo.strip("/")
+    if repo.endswith(".git"):
+        repo = repo[: -len(".git")]
+
+    if not _REPO_NAME_RE.match(repo):
+        raise ValueError(
+            f"{value!r} is not a repository. Use owner/repo, for example "
+            "OpenHands/automation."
+        )
+    return repo
 
 
 _CONFIG = load_config()
@@ -1034,15 +1069,16 @@ def main() -> str | None:
 
     last_conversation_id = None
     failures = []
-    for repo in REPOS:
+    for configured in REPOS:
         # One repository failing must not stop the others from being polled.
         try:
+            repo = normalize_repo(configured)
             conv_id = _process_repo(repo, github_token, agent_url, api_key, openhands_url)
             if conv_id:
                 last_conversation_id = conv_id
         except Exception as exc:
-            print(f"Error processing {repo}: {exc}")
-            failures.append(f"{repo}: {exc}")
+            print(f"Error processing {configured}: {exc}")
+            failures.append(f"{configured}: {exc}")
 
     if failures and len(failures) == len(REPOS):
         # Every repository failed, so the run achieved nothing - report it as a

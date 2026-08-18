@@ -173,10 +173,32 @@ def _create_path(entry: dict) -> str:
     return BUNDLE_CREATE_PATH if _is_bundle(entry) else CREATE_PATH
 
 
+def _repo_values(setup: dict, form_values: dict) -> list[str]:
+    """Every repository the form collected, whether it collects one or many.
+
+    A `multiple` picker holds a list; a single one holds a string. Reading both
+    as a list is what keeps the rest of the derivation from branching.
+    """
+    name, field = _repo_picker(setup)
+    if not name:
+        return []
+    value = form_values.get(name)
+    if value is None or value == "":
+        return []
+    if field and field.get("multiple"):
+        return list(value)
+    return [value]
+
+
 def _derive_name(entry: dict, form_values: dict) -> str:
-    repo_name, _ = _repo_picker(entry["setup"])
-    repo = form_values.get(repo_name) if repo_name else None
-    return f"{entry['name']} - {repo}" if repo else entry["name"]
+    """The created automation's name. One repository is worth naming; several
+    are not, so the count stands in rather than a list that never fits."""
+    repos = _repo_values(entry["setup"], form_values)
+    if not repos:
+        return entry["name"]
+    if len(repos) == 1:
+        return f"{entry['name']} - {repos[0]}"
+    return f"{entry['name']} - {len(repos)} repositories"
 
 
 def _derive_trigger(entry: dict, form_values: dict) -> dict:
@@ -236,19 +258,23 @@ def _render_payload(entry: dict, form_values: dict, tarball_path: str = "") -> d
 
     setup = entry["setup"]
     context = _context(entry, form_values)
-    repo_name, repo_field = _repo_picker(setup)
-    repo = form_values.get(repo_name) if repo_name else None
+    _, repo_field = _repo_picker(setup)
+    repos = _repo_values(setup, form_values)
 
     body: dict = {
         "name": _derive_name(entry, form_values),
         "prompt": _interpolate(setup["prompt"], context),
     }
 
-    if repo:
-        source = {"url": repo, "provider": repo_field["provider"]}
-        if "ref" in form_values:
-            source["ref"] = form_values["ref"]
-        body["repos"] = [source]
+    if repos:
+        body["repos"] = [
+            {
+                "url": repo,
+                "provider": repo_field["provider"],
+                **({"ref": form_values["ref"]} if "ref" in form_values else {}),
+            }
+            for repo in repos
+        ]
 
     body["trigger"] = _derive_trigger(entry, form_values)
 
@@ -452,7 +478,7 @@ def test_schema_rejects_content_a_setup_block_must_never_carry() -> None:
     rejected: list[tuple[str, dict]] = []
 
     with_markup = deepcopy(entry)
-    with_markup["setup"]["form"]["args"]["repository"]["label"] = (
+    with_markup["setup"]["form"]["args"]["repositories"]["label"] = (
         "Repository <script>steal()</script>"
     )
     rejected.append(("<script>steal()</script>", with_markup))

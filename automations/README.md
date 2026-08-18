@@ -124,6 +124,15 @@ when the deployment cannot run the direct path - a deployment whose capabilities
 kind or required features. The same 2000-character cap applies, and because the fallback fires before the
 form is trustworthy, a direct `message` should not reference `{{form.*}}`.
 
+A `repo-picker` may declare `multiple: true`, and then it collects several
+repositories and its value is a list. A placeholder that is the *whole* value
+resolves to that list rather than to text, which is what lets `"repos":
+"{{form.repositories}}"` produce an array; the same placeholder inside a
+sentence still reads as text. On the preset path the list becomes one `repos[]`
+entry per repository. The created automation is named after the single
+repository when there is one and after the count when there are several, since a
+list of names does not fit a name.
+
 A form field is named after the property it fills. `schedule` and `timezone` under `triggers.cron` become
 `trigger.schedule` and `trigger.timezone`; `on` under `triggers.event` becomes `trigger.on`; a field named
 `ref` becomes `repos[].ref`. Any other field under a trigger kind, such as a phrase to match, is an input
@@ -149,7 +158,7 @@ once a pull request actually needs reviewing.
     "main.py": "skills/github-pr-reviewer/scripts/main.py"
   },
   "config": {                         // rendered from the form, packed as config.json
-    "repos": ["{{form.repository}}"],
+    "repos": "{{form.repositories}}", // a whole-value placeholder, so this is a list
     "trigger_label": "{{form.triggerLabel}}",
     "review_tone": "{{form.reviewTone}}"
   }

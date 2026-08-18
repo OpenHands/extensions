@@ -39,11 +39,12 @@
         }
       },
       "args": {
-        "repository": {
+        "repositories": {
           "type": "repo-picker",
-          "label": "Repository",
-          "help": "The repository whose pull requests will be reviewed.",
+          "label": "Repositories",
+          "help": "The repositories whose pull requests will be reviewed. Each is polled independently and keeps its own state, so pull request numbers never collide between them.",
           "provider": "github",
+          "multiple": true,
           "required": true
         },
         "triggerLabel": {
@@ -88,9 +89,7 @@
         "main.py": "skills/github-pr-reviewer/scripts/main.py"
       },
       "config": {
-        "repos": [
-          "{{form.repository}}"
-        ],
+        "repos": "{{form.repositories}}",
         "trigger_label": "{{form.triggerLabel}}",
         "review_tone": "{{form.reviewTone}}"
       }
