@@ -1,0 +1,39 @@
+{
+  "id": "knowl",
+  "name": "Knowl",
+  "description": "Project memory for coding agents. Records decisions, constraints and architecture as typed atoms, and retires superseded ones at write time so stale facts stop coming back in retrieval.",
+  "categories": [
+    "Knowledge base",
+    "Engineering"
+  ],
+  "appUrl": "https://knowl.cloud",
+  "docsUrl": "https://github.com/dat999zx/knowl",
+  "iconBg": "#04121A",
+  "keywords": [
+    "memory",
+    "context",
+    "knowledge",
+    "recall",
+    "decisions",
+    "persistence"
+  ],
+  "connectionOptions": [
+    {
+      "id": "none",
+      "provider": "mcp",
+      "transport": {
+        "kind": "stdio",
+        "serverName": "knowl",
+        "command": "npx",
+        "args": [
+          "-y",
+          "@dat999zx/knowl",
+          "serve"
+        ]
+      },
+      "auth": {
+        "strategy": "none"
+      }
+    }
+  ]
+}
