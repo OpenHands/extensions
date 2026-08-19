@@ -29,6 +29,7 @@
       "source": "./skills/add-skill",
       "description": "Add (import) an OpenHands skill from a GitHub repository into the current workspace.",
       "category": "agent-authoring",
+      "defaultEnabled": true,
       "keywords": [
         "skill",
         "import",
@@ -41,6 +42,7 @@
       "source": "./skills/agent-memory",
       "description": "Persist and retrieve repository-specific knowledge using AGENTS.md files. Use when you want to save important information about a codebase (build commands, code style, workflows) for future sessions.",
       "category": "agent-authoring",
+      "defaultEnabled": true,
       "keywords": [
         "memory",
         "knowledge",
@@ -80,6 +82,7 @@
       "source": "./skills/openhands-automation",
       "description": "Create and manage OpenHands automations - scheduled tasks that run in sandboxes. Use the prompt preset to create automations from natural language, or manage existing automations.",
       "category": "automations",
+      "defaultEnabled": true,
       "keywords": [
         "automation",
         "cron",
@@ -182,6 +185,7 @@
       "source": "./skills/code-review",
       "description": "Rigorous code review focusing on data structures, simplicity, security, pragmatism, and risk/safety evaluation. Provides brutally honest, actionable feedback on pull requests or merge requests, including a risk assessment for every review. Use when reviewing code changes.",
       "category": "code-quality",
+      "defaultEnabled": true,
       "keywords": [
         "code-review",
         "quality",
@@ -232,6 +236,7 @@
       "source": "./skills/docker",
       "description": "Run Docker commands within a container environment, including starting the Docker daemon and managing containers. Use when building, running, or managing Docker containers and images.",
       "category": "environment",
+      "defaultEnabled": true,
       "keywords": [
         "docker",
         "container",
@@ -268,6 +273,7 @@
       "source": "./skills/github",
       "description": "Interact with GitHub repositories, pull requests, issues, and workflows using the GITHUB_TOKEN environment variable and GitHub CLI. Use when working with code hosted on GitHub or managing GitHub resources.",
       "category": "code-hosting",
+      "defaultEnabled": true,
       "keywords": [
         "github",
         "git",
@@ -534,6 +540,7 @@
       "source": "./skills/skill-creator",
       "description": "Guide for creating effective skills. This skill should be used when users want to create a new skill (or update an existing skill) that extends Claude's capabilities with specialized knowledge, workflows, or tool integrations.",
       "category": "agent-authoring",
+      "defaultEnabled": true,
       "keywords": [
         "skill",
         "plugin",

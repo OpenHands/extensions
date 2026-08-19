@@ -418,25 +418,35 @@ class TestMarketplaceSkillCategories:
         )
 
 
+def build_from_fixtures(
+    tmp_path: Path,
+    skills: dict[str, str],
+    manifests: dict[str, dict],
+    check: bool = True,
+) -> subprocess.CompletedProcess:
+    """Run buildCatalog over temp SKILL.md dirs joined against temp manifests."""
+    skills_dir = tmp_path / "skills"
+    skills_dir.mkdir()
+    for name, content in skills.items():
+        (skills_dir / name).mkdir()
+        (skills_dir / name / "SKILL.md").write_text(content)
+
+    markets_dir = tmp_path / "marketplaces"
+    markets_dir.mkdir()
+    for filename, manifest in manifests.items():
+        (markets_dir / filename).write_text(json.dumps(manifest))
+
+    script = textwrap.dedent(f"""\
+        import {{ buildCatalog }} from './scripts/build-skills-catalog.mjs';
+        const entries = buildCatalog({json.dumps(str(skills_dir))}, {json.dumps(str(markets_dir))});
+        process.stdout.write(JSON.stringify(entries));
+    """)
+    return run_node(script, check=check)
+
+
 class TestCategoryJoin:
     def _build(self, tmp_path, skills: dict[str, str], manifests: dict[str, dict], check: bool = True):
-        skills_dir = tmp_path / "skills"
-        skills_dir.mkdir()
-        for name, content in skills.items():
-            (skills_dir / name).mkdir()
-            (skills_dir / name / "SKILL.md").write_text(content)
-
-        markets_dir = tmp_path / "marketplaces"
-        markets_dir.mkdir()
-        for filename, manifest in manifests.items():
-            (markets_dir / filename).write_text(json.dumps(manifest))
-
-        script = textwrap.dedent(f"""\
-            import {{ buildCatalog }} from './scripts/build-skills-catalog.mjs';
-            const entries = buildCatalog({json.dumps(str(skills_dir))}, {json.dumps(str(markets_dir))});
-            process.stdout.write(JSON.stringify(entries));
-        """)
-        return run_node(script, check=check)
+        return build_from_fixtures(tmp_path, skills, manifests, check=check)
 
     def test_category_is_joined_from_the_manifest(self, tmp_path):
         result = self._build(
@@ -523,5 +533,161 @@ class TestGeneratedCategories:
               console.error('Unexpected uncategorized skills: ' + extra.join(', '));
               process.exit(1);
             }}
+        """)
+        run_node(script)
+
+
+# ---------------------------------------------------------------------------
+# defaultEnabled: the marketplace flag that seeds a new workspace's skill set
+# ---------------------------------------------------------------------------
+
+SKILL_MD = "---\nname: docker\ndescription: d\n---\nBody"
+
+
+def _entry(**overrides) -> dict:
+    return {"name": "docker", "source": "./skills/docker", "category": "environment", **overrides}
+
+
+class TestDefaultEnabledJoin:
+    def test_flag_is_joined_from_the_manifest(self, tmp_path):
+        result = build_from_fixtures(
+            tmp_path,
+            {"docker": SKILL_MD},
+            {"m.json": {"plugins": [_entry(defaultEnabled=True)]}},
+        )
+        assert json.loads(result.stdout)[0]["defaultEnabled"] is True
+
+    def test_absent_flag_is_omitted_rather_than_false(self, tmp_path):
+        """Off-by-default must have exactly one shape, so consumers can test for absence."""
+        result = build_from_fixtures(
+            tmp_path,
+            {"docker": SKILL_MD},
+            {"m.json": {"plugins": [_entry()]}},
+        )
+        assert "defaultEnabled" not in json.loads(result.stdout)[0]
+
+    def test_explicit_false_is_also_omitted(self, tmp_path):
+        result = build_from_fixtures(
+            tmp_path,
+            {"docker": SKILL_MD},
+            {"m.json": {"plugins": [_entry(defaultEnabled=False)]}},
+        )
+        assert "defaultEnabled" not in json.loads(result.stdout)[0]
+
+    def test_skill_without_a_manifest_entry_is_not_default_enabled(self, tmp_path):
+        result = build_from_fixtures(
+            tmp_path,
+            {"lonely": "---\nname: lonely\ndescription: d\n---\nBody"},
+            {"m.json": {"plugins": []}},
+        )
+        assert "defaultEnabled" not in json.loads(result.stdout)[0]
+
+    def test_non_boolean_throws_naming_the_skill(self, tmp_path):
+        """A truthy string like "true" must not silently enable a skill for every new user."""
+        result = build_from_fixtures(
+            tmp_path,
+            {"docker": SKILL_MD},
+            {"m.json": {"plugins": [_entry(defaultEnabled="true")]}},
+            check=False,
+        )
+        assert result.returncode != 0
+        assert "docker" in result.stderr
+        assert "defaultEnabled" in result.stderr
+        assert "boolean" in result.stderr
+
+    def test_conflicting_values_across_manifests_throws(self, tmp_path):
+        result = build_from_fixtures(
+            tmp_path,
+            {"docker": SKILL_MD},
+            {
+                "a.json": {"plugins": [_entry(defaultEnabled=True)]},
+                "b.json": {"plugins": [_entry()]},
+            },
+            check=False,
+        )
+        assert result.returncode != 0
+        assert "docker" in result.stderr
+        assert "Conflicting defaultEnabled" in result.stderr
+
+    def test_plugin_entries_cannot_set_the_flag(self, tmp_path):
+        """Only `./skills/*` sources feed the catalog; a plugin entry is skipped outright."""
+        result = build_from_fixtures(
+            tmp_path,
+            {"docker": SKILL_MD},
+            {"m.json": {"plugins": [
+                {"name": "docker", "source": "./plugins/docker", "category": "utilities", "defaultEnabled": True},
+                _entry(),
+            ]}},
+        )
+        assert "defaultEnabled" not in json.loads(result.stdout)[0]
+
+
+class TestManifestDefaultEnabled:
+    """The hand-authored side: what the real marketplaces/*.json are allowed to say."""
+
+    def _skill_entries(self):
+        for path in sorted(MARKETPLACES_DIR.glob("*.json")):
+            for entry in json.loads(path.read_text()).get("plugins", []):
+                if entry.get("source", "").startswith("./skills/"):
+                    yield path.name, entry
+
+    def test_values_are_boolean(self):
+        bad = {
+            f"{filename}:{entry['name']}": entry["defaultEnabled"]
+            for filename, entry in self._skill_entries()
+            if "defaultEnabled" in entry and not isinstance(entry["defaultEnabled"], bool)
+        }
+        assert bad == {}, f"Non-boolean defaultEnabled: {bad}"
+
+    def test_off_by_default_is_expressed_by_omission(self):
+        """`"defaultEnabled": false` is the same as absent, so it is noise the reader has to reconcile."""
+        redundant = [
+            f"{filename}:{entry['name']}"
+            for filename, entry in self._skill_entries()
+            if entry.get("defaultEnabled") is False
+        ]
+        assert redundant == [], f"Drop the field instead: {redundant}"
+
+    def test_default_set_stays_a_curated_minority(self):
+        """The bug this flag fixes is "everything is on"; guard against regrowing into it."""
+        entries = list(self._skill_entries())
+        enabled = [entry["name"] for _, entry in entries if entry.get("defaultEnabled")]
+        assert enabled, "No skill is default-enabled; a new workspace would start empty"
+        assert len(enabled) < len(entries) / 2, (
+            f"{len(enabled)}/{len(entries)} skills are default-enabled, which is back to all-on"
+        )
+
+
+class TestGeneratedDefaultEnabled:
+    def test_names_export_matches_the_flagged_entries(self):
+        script = textwrap.dedent("""\
+            import { SKILLS_CATALOG, DEFAULT_ENABLED_SKILL_NAMES } from './skills/index.js';
+            const fromEntries = SKILLS_CATALOG.filter(e => e.defaultEnabled).map(e => e.name);
+            const exported = [...DEFAULT_ENABLED_SKILL_NAMES];
+            if (JSON.stringify(fromEntries) !== JSON.stringify(exported)) {
+              console.error('Mismatch: ' + JSON.stringify(fromEntries) + ' vs ' + JSON.stringify(exported));
+              process.exit(1);
+            }
+            if (exported.length === 0) process.exit(1);
+        """)
+        run_node(script)
+
+    def test_flag_is_only_ever_true_in_the_generated_catalog(self):
+        script = textwrap.dedent("""\
+            import { SKILLS_CATALOG } from './skills/index.js';
+            for (const entry of SKILLS_CATALOG) {
+              if ('defaultEnabled' in entry && entry.defaultEnabled !== true) {
+                console.error('Non-true defaultEnabled for ' + entry.name);
+                process.exit(1);
+              }
+            }
+        """)
+        run_node(script)
+
+    def test_names_are_re_exported_from_the_package_root(self):
+        script = textwrap.dedent("""\
+            import { DEFAULT_ENABLED_SKILL_NAMES } from './index.js';
+            if (!Array.isArray(DEFAULT_ENABLED_SKILL_NAMES)) process.exit(1);
+            if (DEFAULT_ENABLED_SKILL_NAMES.length === 0) process.exit(1);
         """)
         run_node(script)
