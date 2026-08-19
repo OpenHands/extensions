@@ -1,0 +1,49 @@
+{
+  "id": "gitlab",
+  "name": "GitLab",
+  "description": "Access projects, issues, and merge requests via GitLab's official MCP server.",
+  "categories": [
+    "Engineering",
+    "Source control"
+  ],
+  "appUrl": "https://gitlab.com",
+  "docsUrl": "https://docs.gitlab.com/user/model_context_protocol/mcp_server/",
+  "notes": "Uses GitLab's official MCP server (beta). Access to the MCP server must be allowed for the top-level group on GitLab.com, or for the instance on GitLab Self-Managed. OAuth uses dynamic client registration with the mcp scope. On GitLab Self-Managed the MCP endpoint and OAuth URLs are host-specific: edit the URL to https://<your-instance>/api/v4/mcp.",
+  "popularityRank": 80,
+  "connectionOptions": [
+    {
+      "id": "oauth",
+      "provider": "mcp",
+      "auth": {
+        "strategy": "oauth2",
+        "oauth": {
+          "authorizationUrl": "https://gitlab.com/oauth/authorize",
+          "tokenUrl": "https://gitlab.com/oauth/token",
+          "registrationUrl": "https://gitlab.com/oauth/register",
+          "scopes": [
+            "mcp"
+          ],
+          "pkce": true,
+          "clientAuthentication": "none"
+        }
+      },
+      "transport": {
+        "kind": "shttp",
+        "url": "https://gitlab.com/api/v4/mcp",
+        "urlEditable": true
+      }
+    }
+  ],
+  "iconBg": "#FC6D26",
+  "logoUrl": "https://cdn.simpleicons.org/gitlab/FFFFFF",
+  "keywords": [
+    "git",
+    "repo",
+    "merge request",
+    "mr",
+    "issues",
+    "code",
+    "devops"
+  ],
+  "installHint": "Prefer the OAuth MCP connection. The GitLab MCP server supports OAuth 2.0 with dynamic client registration using the mcp scope. For GitLab Self-Managed, edit the URL to https://<your-instance>/api/v4/mcp and make sure MCP server access is enabled for the instance."
+}
