@@ -145,6 +145,20 @@
       ]
     },
     {
+      "name": "browser-use",
+      "source": "./skills/browser-use",
+      "description": "Direct browser control with Browser Use CLI 3.0 for web interaction, automation, scraping, testing, screenshots, and site or app work.",
+      "category": "environment",
+      "keywords": [
+        "browser-use",
+        "browser",
+        "cdp",
+        "automation",
+        "scraping",
+        "testing"
+      ]
+    },
+    {
       "name": "bitbucket-cloud",
       "source": "./skills/bitbucket-cloud",
       "description": "Bitbucket Cloud (bitbucket.org) specifics — authenticate with BITBUCKET_TOKEN, use the REST API v2, workspace/repo_slug repositories, and the create_bitbucket_pr tool. Loaded on demand by the bitbucket skill once a Cloud environment is detected.",
