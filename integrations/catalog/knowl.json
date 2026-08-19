@@ -17,6 +17,7 @@
     "decisions",
     "persistence"
   ],
+  "installHint": "No credentials or configuration required. Knowl stores memory locally per project; nothing is sent to a hosted service.",
   "connectionOptions": [
     {
       "id": "none",
