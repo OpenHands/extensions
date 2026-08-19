@@ -178,7 +178,9 @@
         "capabilities",
         "validate",
         "createPrompt",
-        "createPlugin"
+        "createPlugin",
+        "createBundle",
+        "uploads"
       ],
       "properties": {
         "list": { "$ref": "#/$defs/plainEndpoint" },
@@ -190,7 +192,9 @@
         "capabilities": { "$ref": "#/$defs/plainEndpoint" },
         "validate": { "$ref": "#/$defs/plainEndpoint" },
         "createPrompt": { "$ref": "#/$defs/plainEndpoint" },
-        "createPlugin": { "$ref": "#/$defs/plainEndpoint" }
+        "createPlugin": { "$ref": "#/$defs/plainEndpoint" },
+        "createBundle": { "$ref": "#/$defs/plainEndpoint" },
+        "uploads": { "$ref": "#/$defs/plainEndpoint" }
       }
     },
     "featuredAutomationIds": {

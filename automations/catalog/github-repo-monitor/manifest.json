@@ -12,47 +12,31 @@
     },
     "features": [
       "repoClone",
-      "presetPrompt",
-      "webhookDelivery"
+      "presetPrompt"
     ]
   },
   "popularityRank": 98,
   "estimatedSetupMinutes": 5,
-  "exampleImplementation": "Trigger: cron, every minute (configurable)\nRequired secret: GITHUB_PERSONAL_ACCESS_TOKEN\n\n1. Poll GitHub for new issue and PR comments since the last run.\n2. Match comments containing the trigger phrase (case-insensitive, default: @OpenHands).\n3. Post an acknowledgment comment with a link to the new OpenHands conversation.\n4. Forward follow-up replies in the same thread to the running conversation.\n5. Post the agent's final response back to GitHub when the conversation completes.",
+  "exampleImplementation": "Trigger: cron polling (e.g. every 15 minutes, configurable)\nRequired secret: GITHUB_PERSONAL_ACCESS_TOKEN\n\n1. Poll GitHub for new issue and PR comments since the last run.\n2. Match comments containing the trigger phrase (case-insensitive, default: @OpenHands).\n3. Post an acknowledgment comment with a link to the new OpenHands conversation.\n4. Forward follow-up replies in the same thread to the running conversation.\n5. Post the agent's final response back to GitHub when the conversation completes.",
   "setup": {
     "version": "1.0",
     "mode": "direct",
     "form": {
       "triggers": {
-        "event": {
-          "on": {
-            "type": "select",
-            "label": "Respond to",
-            "help": "Which GitHub comment event starts a conversation.",
-            "default": "issue_comment.created",
-            "required": true,
-            "options": [
-              {
-                "value": "issue_comment.created",
-                "label": "Comments on issues and pull requests"
-              },
-              {
-                "value": "pull_request_review_comment.created",
-                "label": "Pull request review comments only"
-              }
-            ]
+        "cron": {
+          "schedule": {
+            "type": "cron",
+            "label": "Check frequency",
+            "help": "How often to look for new comments to respond to.",
+            "default": "*/15 * * * *",
+            "required": true
           },
-          "triggerPhrase": {
-            "type": "text",
-            "label": "Trigger phrase",
-            "help": "Only comments containing this phrase start a conversation. Matched case-insensitively. Quotes and backslashes are not allowed, because the phrase becomes part of the event filter expression.",
-            "default": "@openhands",
-            "required": true,
-            "constraints": {
-              "minLength": 2,
-              "maxLength": 50,
-              "format": "safeExpressionLiteral"
-            }
+          "timezone": {
+            "type": "timezone",
+            "label": "Timezone",
+            "help": "Timezone the schedule is interpreted in.",
+            "default": "UTC",
+            "required": true
           }
         }
       },
@@ -63,6 +47,17 @@
           "help": "The repository or repositories to watch for mentions.",
           "provider": "github",
           "required": true
+        },
+        "triggerPhrase": {
+          "type": "text",
+          "label": "Trigger phrase",
+          "help": "Only comments containing this phrase start a conversation. Matched case-insensitively.",
+          "default": "@openhands",
+          "required": true,
+          "constraints": {
+            "minLength": 2,
+            "maxLength": 50
+          }
         },
         "ref": {
           "type": "text",
@@ -77,8 +72,7 @@
         }
       }
     },
-    "prompt": "A comment in {{form.repository}} mentions '{{form.triggerPhrase}}'. Read the surrounding issue or pull request context from the event payload, then post a helpful reply as a comment on the same thread.",
-    "filter": "icontains(comment.body, '{{form.triggerPhrase}}') && glob(repository.full_name, '{{form.repository}}')",
-    "message": "This deployment cannot run the webhook-driven monitor directly. Set it up in this conversation instead: confirm the repository to watch, the comment event, and the trigger phrase, then create the automation. If webhook delivery is unavailable here, build the polling variant this skill supports."
+    "prompt": "Poll {{form.repository}} for any new issue or pull request comments since the last run. For every comment mentioning '{{form.triggerPhrase}}', read the surrounding issue or pull request context and post a helpful reply as a comment on the same thread.",
+    "message": "This deployment cannot run the scheduled monitor directly. Set it up in this conversation instead: confirm the repository to watch, the trigger phrase, and the polling schedule, then create the automation."
   }
 }

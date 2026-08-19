@@ -1,8 +1,9 @@
 {
   "automationId": "github-pr-reviewer",
-  "description": "Direct scheduled setup. Every create request body below is verified against the live CreatePromptAutomationRequest model in OpenHands/automation (openhands/automation/preset_router.py).",
+  "description": "Direct scheduled setup that ships a script bundle rather than a prompt. The host packs the entry's files with a rendered config.json, uploads them, and creates from what came back, so a scenario that reaches creation records an upload step first. A preflight draft carries a stand-in tarball path instead: preflight runs while the form is being filled in, before anything is uploaded. Every create request body below is verified against the live CreateAutomationRequest model in OpenHands/automation (openhands/automation/schemas.py).",
   "capabilities": "supported",
   "blockedBy": [
+    "noCustomTarball",
     "notReady"
   ],
   "scenarios": [
@@ -10,11 +11,36 @@
       "id": "happy-path",
       "description": "Defaults plus a repository and a thorough review tone. Preflight passes, the automation is created.",
       "formValues": {
-        "repository": "OpenHands/agent-server-gui",
         "triggerLabel": "openhands-review",
         "reviewTone": "thorough",
         "schedule": "*/15 * * * *",
-        "timezone": "UTC"
+        "timezone": "UTC",
+        "repositories": [
+          "OpenHands/agent-server-gui"
+        ]
+      },
+      "upload": {
+        "request": {
+          "method": "POST",
+          "path": "/v1/uploads",
+          "query": {
+            "name": "github-pr-reviewer"
+          },
+          "contentType": "application/gzip",
+          "packs": [
+            "config.json",
+            "main.py"
+          ]
+        },
+        "response": {
+          "status": 201,
+          "body": {
+            "id": "2c1f9a70-77c4-4a1e-9a9d-6f1f2b0c1d34",
+            "name": "github-pr-reviewer",
+            "status": "COMPLETED",
+            "tarball_path": "oh-internal://uploads/2c1f9a70-77c4-4a1e-9a9d-6f1f2b0c1d34"
+          }
+        }
       },
       "preflight": {
         "request": {
@@ -22,30 +48,26 @@
           "path": "/v1/validate",
           "body": {
             "automationId": "github-pr-reviewer",
-            "endpoint": "/v1/preset/prompt",
+            "endpoint": "/v1",
             "draft": {
               "name": "GitHub Code Review Agent - OpenHands/agent-server-gui",
-              "prompt": "Review pull requests labeled 'openhands-review' in OpenHands/agent-server-gui. Review tone: thorough.",
-              "repos": [
-                {
-                  "url": "OpenHands/agent-server-gui",
-                  "provider": "github"
-                }
-              ],
               "trigger": {
                 "type": "cron",
                 "schedule": "*/15 * * * *",
                 "timezone": "UTC"
               },
+              "tarball_path": "oh-internal://uploads/00000000-0000-0000-0000-000000000000",
+              "entrypoint": "python3 main.py",
+              "timeout": 600,
               "template": {
                 "id": "github-pr-reviewer",
                 "version": "1.0.0",
                 "config": {
-                  "repository": "OpenHands/agent-server-gui",
-                  "triggerLabel": "openhands-review",
-                  "reviewTone": "thorough",
-                  "schedule": "*/15 * * * *",
-                  "timezone": "UTC"
+                  "repos": [
+                    "OpenHands/agent-server-gui"
+                  ],
+                  "trigger_label": "openhands-review",
+                  "review_tone": "thorough"
                 }
               }
             }
@@ -62,30 +84,26 @@
       "create": {
         "request": {
           "method": "POST",
-          "path": "/v1/preset/prompt",
+          "path": "/v1",
           "body": {
             "name": "GitHub Code Review Agent - OpenHands/agent-server-gui",
-            "prompt": "Review pull requests labeled 'openhands-review' in OpenHands/agent-server-gui. Review tone: thorough.",
-            "repos": [
-              {
-                "url": "OpenHands/agent-server-gui",
-                "provider": "github"
-              }
-            ],
             "trigger": {
               "type": "cron",
               "schedule": "*/15 * * * *",
               "timezone": "UTC"
             },
+            "tarball_path": "oh-internal://uploads/2c1f9a70-77c4-4a1e-9a9d-6f1f2b0c1d34",
+            "entrypoint": "python3 main.py",
+            "timeout": 600,
             "template": {
               "id": "github-pr-reviewer",
               "version": "1.0.0",
               "config": {
-                "repository": "OpenHands/agent-server-gui",
-                "triggerLabel": "openhands-review",
-                "reviewTone": "thorough",
-                "schedule": "*/15 * * * *",
-                "timezone": "UTC"
+                "repos": [
+                  "OpenHands/agent-server-gui"
+                ],
+                "trigger_label": "openhands-review",
+                "review_tone": "thorough"
               }
             }
           }
@@ -99,27 +117,6 @@
             "model": null,
             "name": "GitHub Code Review Agent - OpenHands/agent-server-gui",
             "prompt": "Review pull requests labeled 'openhands-review' in OpenHands/agent-server-gui. Review tone: thorough.",
-            "preset_metadata": {
-              "preset_type": "prompt",
-              "prompt": "Review pull requests labeled 'openhands-review' in OpenHands/agent-server-gui. Review tone: thorough.",
-              "repos": [
-                {
-                  "url": "OpenHands/agent-server-gui",
-                  "provider": "github"
-                }
-              ],
-              "template": {
-                "id": "github-pr-reviewer",
-                "version": "1.0.0",
-                "config": {
-                  "repository": "OpenHands/agent-server-gui",
-                  "triggerLabel": "openhands-review",
-                  "reviewTone": "thorough",
-                  "schedule": "*/15 * * * *",
-                  "timezone": "UTC"
-                }
-              }
-            },
             "trigger": {
               "type": "cron",
               "schedule": "*/15 * * * *",
@@ -139,14 +136,40 @@
       }
     },
     {
-      "id": "interval-below-deployment-minimum",
-      "description": "A one-minute schedule. The create model accepts it, so only the deployment can reject it - this is precisely why preflight exists and why local validation is not authoritative.",
+      "id": "several-repositories",
+      "description": "Two repositories from one automation. The config carries the list the picker collected, and the automation is named by the count rather than by a list of names that would not fit.",
       "formValues": {
-        "repository": "OpenHands/agent-server-gui",
         "triggerLabel": "openhands-review",
-        "reviewTone": "concise",
-        "schedule": "*/1 * * * *",
-        "timezone": "UTC"
+        "reviewTone": "thorough",
+        "schedule": "*/15 * * * *",
+        "timezone": "UTC",
+        "repositories": [
+          "OpenHands/agent-server-gui",
+          "OpenHands/automation"
+        ]
+      },
+      "upload": {
+        "request": {
+          "method": "POST",
+          "path": "/v1/uploads",
+          "query": {
+            "name": "github-pr-reviewer"
+          },
+          "contentType": "application/gzip",
+          "packs": [
+            "config.json",
+            "main.py"
+          ]
+        },
+        "response": {
+          "status": 201,
+          "body": {
+            "id": "2c1f9a70-77c4-4a1e-9a9d-6f1f2b0c1d34",
+            "name": "github-pr-reviewer",
+            "status": "COMPLETED",
+            "tarball_path": "oh-internal://uploads/2c1f9a70-77c4-4a1e-9a9d-6f1f2b0c1d34"
+          }
+        }
       },
       "preflight": {
         "request": {
@@ -154,30 +177,147 @@
           "path": "/v1/validate",
           "body": {
             "automationId": "github-pr-reviewer",
-            "endpoint": "/v1/preset/prompt",
+            "endpoint": "/v1",
+            "draft": {
+              "name": "GitHub Code Review Agent - 2 repositories",
+              "trigger": {
+                "type": "cron",
+                "schedule": "*/15 * * * *",
+                "timezone": "UTC"
+              },
+              "tarball_path": "oh-internal://uploads/00000000-0000-0000-0000-000000000000",
+              "entrypoint": "python3 main.py",
+              "timeout": 600,
+              "template": {
+                "id": "github-pr-reviewer",
+                "version": "1.0.0",
+                "config": {
+                  "repos": [
+                    "OpenHands/agent-server-gui",
+                    "OpenHands/automation"
+                  ],
+                  "trigger_label": "openhands-review",
+                  "review_tone": "thorough"
+                }
+              }
+            }
+          }
+        },
+        "response": {
+          "status": 200,
+          "body": {
+            "valid": true,
+            "errors": []
+          }
+        }
+      },
+      "create": {
+        "request": {
+          "method": "POST",
+          "path": "/v1",
+          "body": {
+            "name": "GitHub Code Review Agent - 2 repositories",
+            "trigger": {
+              "type": "cron",
+              "schedule": "*/15 * * * *",
+              "timezone": "UTC"
+            },
+            "tarball_path": "oh-internal://uploads/2c1f9a70-77c4-4a1e-9a9d-6f1f2b0c1d34",
+            "entrypoint": "python3 main.py",
+            "timeout": 600,
+            "template": {
+              "id": "github-pr-reviewer",
+              "version": "1.0.0",
+              "config": {
+                "repos": [
+                  "OpenHands/agent-server-gui",
+                  "OpenHands/automation"
+                ],
+                "trigger_label": "openhands-review",
+                "review_tone": "thorough"
+              }
+            }
+          }
+        },
+        "response": {
+          "status": 201,
+          "body": {
+            "id": "6f1b8e64-2f6a-4f0e-9a1c-2b7d0c4e5f11",
+            "user_id": "1a2b3c4d-0000-4000-8000-000000000001",
+            "org_id": "1a2b3c4d-0000-4000-8000-000000000002",
+            "model": null,
+            "name": "GitHub Code Review Agent - 2 repositories",
+            "prompt": "Review pull requests labeled 'openhands-review' in OpenHands/agent-server-gui. Review tone: thorough.",
+            "trigger": {
+              "type": "cron",
+              "schedule": "*/15 * * * *",
+              "timezone": "UTC"
+            },
+            "tarball_path": "oh-internal://uploads/8d2c1f90-7e34-4a55-b0d1-6c9e3a2f4b88",
+            "setup_script_path": "setup.sh",
+            "entrypoint": ".venv/bin/python main.py",
+            "timeout": 600,
+            "keep_alive": null,
+            "enabled": true,
+            "last_triggered_at": null,
+            "created_at": "2026-07-27T12:00:00Z",
+            "updated_at": "2026-07-27T12:00:00Z",
+            "preset_metadata": {
+              "template": {
+                "id": "github-pr-reviewer",
+                "version": "1.0.0",
+                "config": {
+                  "repos": [
+                    "OpenHands/agent-server-gui",
+                    "OpenHands/automation"
+                  ],
+                  "trigger_label": "openhands-review",
+                  "review_tone": "thorough"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "interval-below-deployment-minimum",
+      "description": "A one-minute schedule. The create model accepts it, so only the deployment can reject it - this is precisely why preflight exists and why local validation is not authoritative.",
+      "formValues": {
+        "triggerLabel": "openhands-review",
+        "reviewTone": "concise",
+        "schedule": "*/1 * * * *",
+        "timezone": "UTC",
+        "repositories": [
+          "OpenHands/agent-server-gui"
+        ]
+      },
+      "preflight": {
+        "request": {
+          "method": "POST",
+          "path": "/v1/validate",
+          "body": {
+            "automationId": "github-pr-reviewer",
+            "endpoint": "/v1",
             "draft": {
               "name": "GitHub Code Review Agent - OpenHands/agent-server-gui",
-              "prompt": "Review pull requests labeled 'openhands-review' in OpenHands/agent-server-gui. Review tone: concise.",
-              "repos": [
-                {
-                  "url": "OpenHands/agent-server-gui",
-                  "provider": "github"
-                }
-              ],
               "trigger": {
                 "type": "cron",
                 "schedule": "*/1 * * * *",
                 "timezone": "UTC"
               },
+              "tarball_path": "oh-internal://uploads/00000000-0000-0000-0000-000000000000",
+              "entrypoint": "python3 main.py",
+              "timeout": 600,
               "template": {
                 "id": "github-pr-reviewer",
                 "version": "1.0.0",
                 "config": {
-                  "repository": "OpenHands/agent-server-gui",
-                  "triggerLabel": "openhands-review",
-                  "reviewTone": "concise",
-                  "schedule": "*/1 * * * *",
-                  "timezone": "UTC"
+                  "repos": [
+                    "OpenHands/agent-server-gui"
+                  ],
+                  "trigger_label": "openhands-review",
+                  "review_tone": "concise"
                 }
               }
             }
@@ -205,39 +345,60 @@
       "id": "unfireable-cron-rejected-at-create",
       "description": "31 February. Syntactically valid, so a local check passes, but the service rejects it. Shows the real 422 body: detail is a list and the loc path carries the trigger discriminator tag.",
       "formValues": {
-        "repository": "OpenHands/agent-server-gui",
         "triggerLabel": "openhands-review",
         "reviewTone": "concise",
         "schedule": "0 0 31 2 *",
-        "timezone": "UTC"
+        "timezone": "UTC",
+        "repositories": [
+          "OpenHands/agent-server-gui"
+        ]
+      },
+      "upload": {
+        "request": {
+          "method": "POST",
+          "path": "/v1/uploads",
+          "query": {
+            "name": "github-pr-reviewer"
+          },
+          "contentType": "application/gzip",
+          "packs": [
+            "config.json",
+            "main.py"
+          ]
+        },
+        "response": {
+          "status": 201,
+          "body": {
+            "id": "2c1f9a70-77c4-4a1e-9a9d-6f1f2b0c1d34",
+            "name": "github-pr-reviewer",
+            "status": "COMPLETED",
+            "tarball_path": "oh-internal://uploads/2c1f9a70-77c4-4a1e-9a9d-6f1f2b0c1d34"
+          }
+        }
       },
       "create": {
         "request": {
           "method": "POST",
-          "path": "/v1/preset/prompt",
+          "path": "/v1",
           "body": {
             "name": "GitHub Code Review Agent - OpenHands/agent-server-gui",
-            "prompt": "Review pull requests labeled 'openhands-review' in OpenHands/agent-server-gui. Review tone: concise.",
-            "repos": [
-              {
-                "url": "OpenHands/agent-server-gui",
-                "provider": "github"
-              }
-            ],
             "trigger": {
               "type": "cron",
               "schedule": "0 0 31 2 *",
               "timezone": "UTC"
             },
+            "tarball_path": "oh-internal://uploads/2c1f9a70-77c4-4a1e-9a9d-6f1f2b0c1d34",
+            "entrypoint": "python3 main.py",
+            "timeout": 600,
             "template": {
               "id": "github-pr-reviewer",
               "version": "1.0.0",
               "config": {
-                "repository": "OpenHands/agent-server-gui",
-                "triggerLabel": "openhands-review",
-                "reviewTone": "concise",
-                "schedule": "0 0 31 2 *",
-                "timezone": "UTC"
+                "repos": [
+                  "OpenHands/agent-server-gui"
+                ],
+                "trigger_label": "openhands-review",
+                "review_tone": "concise"
               }
             }
           }
@@ -265,32 +426,71 @@
       }
     },
     {
-      "id": "short-repo-url-without-provider-is-rejected",
-      "description": "The mapping bug this fixture set exists to prevent. A short owner/repo URL without an explicit provider is a hard 422, because CreatePromptAutomationRequest is extra-forbid and RepoSource requires the provider. The setup block's payload always sets it; this records what happens if that is ever dropped.",
+      "id": "repos-on-the-raw-create-request-is-rejected",
+      "description": "The mapping bug this fixture set exists to prevent, in its bundle form. The raw create endpoint has no repos field and CreateAutomationRequest is extra-forbid, so carrying the preset path's repos across is a hard 422 rather than a silently dropped field. A bundle clones nothing: its script fetches what it needs itself.",
       "formValues": {
-        "repository": "OpenHands/agent-server-gui",
         "triggerLabel": "openhands-review",
         "reviewTone": "concise",
         "schedule": "*/15 * * * *",
-        "timezone": "UTC"
+        "timezone": "UTC",
+        "repositories": [
+          "OpenHands/agent-server-gui"
+        ]
+      },
+      "upload": {
+        "request": {
+          "method": "POST",
+          "path": "/v1/uploads",
+          "query": {
+            "name": "github-pr-reviewer"
+          },
+          "contentType": "application/gzip",
+          "packs": [
+            "config.json",
+            "main.py"
+          ]
+        },
+        "response": {
+          "status": 201,
+          "body": {
+            "id": "2c1f9a70-77c4-4a1e-9a9d-6f1f2b0c1d34",
+            "name": "github-pr-reviewer",
+            "status": "COMPLETED",
+            "tarball_path": "oh-internal://uploads/2c1f9a70-77c4-4a1e-9a9d-6f1f2b0c1d34"
+          }
+        }
       },
       "create": {
         "request": {
           "method": "POST",
-          "path": "/v1/preset/prompt",
+          "path": "/v1",
           "body": {
             "name": "GitHub Code Review Agent - OpenHands/agent-server-gui",
-            "prompt": "Review pull requests labeled 'openhands-review' in OpenHands/agent-server-gui. Review tone: concise.",
-            "repos": [
-              {
-                "url": "OpenHands/agent-server-gui"
-              }
-            ],
             "trigger": {
               "type": "cron",
               "schedule": "*/15 * * * *",
               "timezone": "UTC"
-            }
+            },
+            "tarball_path": "oh-internal://uploads/2c1f9a70-77c4-4a1e-9a9d-6f1f2b0c1d34",
+            "entrypoint": "python3 main.py",
+            "timeout": 600,
+            "template": {
+              "id": "github-pr-reviewer",
+              "version": "1.0.0",
+              "config": {
+                "repos": [
+                  "OpenHands/agent-server-gui"
+                ],
+                "trigger_label": "openhands-review",
+                "review_tone": "concise"
+              }
+            },
+            "repos": [
+              {
+                "url": "OpenHands/agent-server-gui",
+                "provider": "github"
+              }
+            ]
           }
         },
         "response": {
@@ -298,13 +498,12 @@
           "body": {
             "detail": [
               {
-                "type": "value_error",
+                "type": "extra_forbidden",
                 "loc": [
                   "body",
-                  "repos",
-                  0
+                  "repos"
                 ],
-                "msg": "Value error, Short URL format 'OpenHands/agent-server-gui' requires explicit 'provider' field. Use: {\"url\": \"owner/repo\", \"provider\": \"github\"} or provide a full URL like https://github.com/owner/repo"
+                "msg": "Extra inputs are not permitted"
               }
             ]
           }
