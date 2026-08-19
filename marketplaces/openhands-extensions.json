@@ -55,6 +55,7 @@
       "source": "./skills/agent-sdk-builder",
       "description": "Guided workflow for building custom AI agents using the OpenHands Software Agent SDK. Use when you want to create a new agent through an interactive interview process that gathers requirements and generates implementation plans.",
       "category": "agent-authoring",
+      "defaultEnabled": true,
       "keywords": [
         "agent",
         "sdk",
@@ -96,6 +97,7 @@
       "source": "./skills/agent-canvas-environment",
       "description": "Work effectively inside a local Agent Canvas environment, including local agent-server auth, safe workspace hygiene, and local conversation delegation.",
       "category": "agent-authoring",
+      "defaultEnabled": true,
       "keywords": [
         "agent-canvas",
         "openhands",
@@ -109,6 +111,7 @@
       "source": "./skills/openhands-sdk",
       "description": "Reference skill for the OpenHands Software Agent SDK - build AI agents with custom tools, LLM configuration, conversations, sub-agent delegation, MCP integration, security, and persistence.",
       "category": "agent-authoring",
+      "defaultEnabled": true,
       "keywords": [
         "sdk",
         "agent",
@@ -450,6 +453,7 @@
       "source": "./skills/openhands-api",
       "description": "Use the OpenHands Cloud REST API (V1) and agent-server APIs to create and manage Cloud or local backend conversations, including multi-conversation delegation workflows. Includes minimal Python and TypeScript clients under scripts/.",
       "category": "agent-authoring",
+      "defaultEnabled": true,
       "keywords": [
         "openhands",
         "api",

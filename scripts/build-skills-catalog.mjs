@@ -36,14 +36,7 @@ export const SKILL_CATEGORY_IDS = [
 
 const FALLBACK_CATEGORY = "other";
 
-/**
- * Build a `skill directory name -> {category, defaultEnabled, file}` map from every manifest.
- *
- * `defaultEnabled` is the manifest's answer to "is this skill on for every new
- * workspace?". Absent means off; a host resolving a fresh workspace turns on
- * exactly the entries that set it. `file` is kept only to name the offending
- * manifest in conflict errors.
- */
+/** Build a `skill directory name -> {category, defaultEnabled, file}` map from every manifest. */
 export function buildEntryMap(marketplacesDir) {
   const map = new Map();
 
@@ -162,7 +155,7 @@ export function buildCatalog(skillsDir, marketplacesDir = MARKETPLACES_DIR) {
       triggers: fm.triggers,
       content: body,
       category: mapped?.category ?? FALLBACK_CATEGORY,
-      // Emitted only when true, so the absent case stays the single off-by-default shape.
+      // Only when true, so off-by-default has one shape.
       ...(mapped?.defaultEnabled ? { defaultEnabled: true } : {}),
       ...(fm.license ? { license: fm.license } : {}),
       ...(fm.compatibility ? { compatibility: fm.compatibility } : {}),

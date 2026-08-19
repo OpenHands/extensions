@@ -558,7 +558,7 @@ class TestDefaultEnabledJoin:
         assert json.loads(result.stdout)[0]["defaultEnabled"] is True
 
     def test_absent_flag_is_omitted_rather_than_false(self, tmp_path):
-        """Off-by-default must have exactly one shape, so consumers can test for absence."""
+        """So consumers can test for absence."""
         result = build_from_fixtures(
             tmp_path,
             {"docker": SKILL_MD},
@@ -610,7 +610,7 @@ class TestDefaultEnabledJoin:
         assert "Conflicting defaultEnabled" in result.stderr
 
     def test_plugin_entries_cannot_set_the_flag(self, tmp_path):
-        """Only `./skills/*` sources feed the catalog; a plugin entry is skipped outright."""
+        """Only `./skills/*` sources feed the catalog."""
         result = build_from_fixtures(
             tmp_path,
             {"docker": SKILL_MD},
@@ -640,7 +640,6 @@ class TestManifestDefaultEnabled:
         assert bad == {}, f"Non-boolean defaultEnabled: {bad}"
 
     def test_off_by_default_is_expressed_by_omission(self):
-        """`"defaultEnabled": false` is the same as absent, so it is noise the reader has to reconcile."""
         redundant = [
             f"{filename}:{entry['name']}"
             for filename, entry in self._skill_entries()
@@ -649,7 +648,7 @@ class TestManifestDefaultEnabled:
         assert redundant == [], f"Drop the field instead: {redundant}"
 
     def test_default_set_stays_a_curated_minority(self):
-        """The bug this flag fixes is "everything is on"; guard against regrowing into it."""
+        """The bug this flag fixes is "everything is on"."""
         entries = list(self._skill_entries())
         enabled = [entry["name"] for _, entry in entries if entry.get("defaultEnabled")]
         assert enabled, "No skill is default-enabled; a new workspace would start empty"
