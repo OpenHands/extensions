@@ -87,6 +87,7 @@ When editing or adding skills in this repo, follow these rules (and add new skil
 ## Repository conventions
 
 - **Punctuation style**: Use plain hyphens (`-`) instead of em dashes (`—` / `\u2014`) in skill descriptions, SKILL.md content, and marketplace JSON entries.
+- **`defaultEnabled` on marketplace skill entries**: a skill entry may carry `"defaultEnabled": true`, which means the skill is enabled for every **new** workspace. Omit the field for everything else - absence already means off, so `"defaultEnabled": false` is not written. Keep the set small and provider-agnostic; anything language-, vendor- or workflow-specific should start off and be opted into from the catalog UI. `npm run build:skills` joins the flag into `skills/index.js` and exports `DEFAULT_ENABLED_SKILL_NAMES` for hosts to seed a workspace from. Seeding is all it does: the contract hosts implement is that a workspace which already saved a selection keeps it, so adding the flag to a skill later will not retroactively enable it for existing users.
 - Keep formatting consistent across skills.
 - If you change a skill’s behavior or scope, update its `README.md` (if present) accordingly.
 - If you change top-level documentation, ensure links still resolve.
