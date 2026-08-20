@@ -279,3 +279,42 @@ def test_the_pull_request_body_dates_the_run_and_discloses_the_agent(main):
     assert "Refreshed the test command." in body
     assert "2026-W34" in body
     assert "_This pull request was opened by an AI agent (OpenHands)._" in body
+
+
+def test_a_capped_run_still_finalizes_but_starts_nothing(main, monkeypatch, tmp_path):
+    """The per-run cap limits new conversations. A repository beyond it still
+    has an in-flight task to finish - skipping the repository outright would
+    leave its pull request unopened and its clone on disk."""
+    started = []
+    finalized = []
+
+    monkeypatch.setattr(
+        main, "_get_repo", lambda token, repo: {"default_branch": "main", "permissions": {"push": True}}
+    )
+    monkeypatch.setattr(main, "_open_pull_requests_from_this_automation", lambda t, r: [])
+    monkeypatch.setattr(main, "_agents_file_state", lambda t, r, b: "present")
+    monkeypatch.setattr(main, "_start_task", lambda *a, **k: started.append(1))
+    monkeypatch.setattr(main, "_finalize_task", lambda *a, **k: finalized.append(1))
+
+    period = main._current_period()
+    main.save_state(
+        "acme/widget",
+        {
+            "version": 1,
+            "repo": "acme/widget",
+            "tasks": {
+                "agents-md:2026-W01": {
+                    "period": "2026-W01",
+                    "status": "active",
+                    "conversation_id": "c1",
+                    "last_activity": 0,
+                }
+            },
+        },
+    )
+
+    main._process_repo("acme/widget", "tok", "http://agent", "key", "http://oh", may_start=False)
+
+    assert finalized == [1], "a capped run must still finish work already in flight"
+    assert started == [], "a capped run must not start new work"
+    assert main._task_key(period) not in main.load_state("acme/widget")["tasks"]
