@@ -1,7 +1,8 @@
 # Daily News Digest
 
 Create an automation that reads a list of public RSS and Atom feeds on a
-schedule and has an agent write a short digest of what is new and on-topic.
+schedule, hands an agent everything new, and has it pick out what matters for
+your topics and write a short digest.
 
 **It needs no credentials.** No token, no OAuth, no connected account - which
 makes it the automation to run first, before deciding what access you are
@@ -17,8 +18,8 @@ This skill is activated by:
 
 - Reads RSS 2.0, RSS 1.0/RDF and Atom, matched by element name rather than by
   dialect, so a mixed feed list works
-- Filters to what is new since the last digest, recent, and on-topic - topics
-  matched as whole words, so `AI` does not match *said* or *email*
+- Filters to what is new since the last digest and recent; what a story is
+  *about* is left to the agent, because that is the half with no right answer
 - Starts no conversation at all when nothing matches, so a quiet day costs no
   tokens and leaves the day open for a later run
 - Recognises the same story arriving from two feeds, by the feed's identifier
@@ -33,8 +34,9 @@ This skill is activated by:
 
 ## What the agent is asked to do
 
-Read a shortlist the script has already fetched and filtered, and write four to
-six hundred words: a lead on what actually matters, the rest grouped by topic,
+Read every new story the script fetched, decide which ones are actually about
+the configured topics - a judgement call rather than a word search - and write
+four to six hundred words about those: a lead on what actually matters, the rest grouped by topic,
 one or two sentences and a link per story, and duplicate coverage of one event
 merged into a single item. It is told that every claim must be supported by an
 excerpt or a page it actually read, that a story it cannot substantiate belongs

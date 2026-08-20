@@ -176,57 +176,29 @@ def test_an_unreadable_date_is_absent_rather_than_fatal(main, value):
     assert main.parse_timestamp(value) is None
 
 
-# ── Topics are matched as words ───────────────────────────────────────────────
-
-
-@pytest.mark.parametrize("text", ["he said so", "send an email", "in detail", "plait"])
-def test_a_short_topic_does_not_match_inside_words(main, text):
-    """Substring matching is what makes a topic list useless: "AI" appears in
-    "said", "detail" and "email"."""
-    assert not main._topic_pattern("AI").search(text)
-
-
-@pytest.mark.parametrize("text", ["about AI today", "AI.", "(ai)", "an ai-first plan"])
-def test_a_short_topic_matches_the_word(main, text):
-    assert main._topic_pattern("AI").search(text)
-
-
-def test_a_phrase_topic_tolerates_case_and_whitespace(main):
-    pattern = main._topic_pattern("open source")
-
-    assert pattern.search("OPEN SOURCE release")
-    assert pattern.search("open\n  source")
-    assert not pattern.search("opensource")
-
-
-def test_topics_are_matched_against_the_headline_and_the_excerpt(main):
-    patterns = [("rust", main._topic_pattern("rust"))]
-
-    assert main.match_topics(_story(title="A Rust release"), patterns) == ["rust"]
-    assert main.match_topics(_story(summary="written in rust"), patterns) == ["rust"]
-    assert main.match_topics(_story(title="A Go release"), patterns) == []
-
-
 # ── Selection ─────────────────────────────────────────────────────────────────
 
 
-def test_no_topics_means_no_filter(main):
-    selected = main.select_entries([_story(id="a", title="Anything at all")], [], set(), 0.0, 10)
+def test_the_script_does_not_decide_what_a_story_is_about(main):
+    """Relevance has no right answer, so it is the agent's call. Matching the
+    topics as text counted "Mojo is now open source" and missed a company
+    releasing its model weights, which is exactly backwards."""
+    stories = [
+        _story(id="a", title="A bakery wins an award"),
+        _story(id="b", title="Acme releases its model weights"),
+    ]
 
-    assert len(selected) == 1
+    selected = main.select_entries(stories, set(), 0.0, 10)
 
-
-def test_a_story_matching_no_topic_is_dropped(main):
-    selected = main.select_entries([_story(id="a", title="A bakery wins an award")], ["rust"], set(), 0.0, 10)
-
-    assert selected == []
+    assert len(selected) == 2
+    assert not any("topics" in item for item in selected)
 
 
 def test_a_story_older_than_the_window_is_dropped(main):
     now = time.time()
     stories = [_story(id="old", published=now - 7200), _story(id="new", published=now - 60)]
 
-    selected = main.select_entries(stories, [], set(), now - 3600, 10)
+    selected = main.select_entries(stories, set(), now - 3600, 10)
 
     assert [item["id"] for item in selected] == ["new"]
 
@@ -234,7 +206,7 @@ def test_a_story_older_than_the_window_is_dropped(main):
 def test_an_undated_story_is_treated_as_current(main):
     """Dropping it would silently discard whole feeds - several publish no date
     at all - and the seen-list already stops it being reported twice."""
-    selected = main.select_entries([_story(id="a", published=None)], [], set(), time.time(), 10)
+    selected = main.select_entries([_story(id="a", published=None)], set(), time.time(), 10)
 
     assert len(selected) == 1
 
@@ -243,7 +215,7 @@ def test_a_story_already_reported_is_dropped(main):
     story = _story(id="a", link="https://x.test/a")
     seen = set(main.entry_keys(story))
 
-    assert main.select_entries([story], [], seen, 0.0, 10) == []
+    assert main.select_entries([story], seen, 0.0, 10) == []
 
 
 def test_the_same_story_from_two_feeds_is_taken_once(main):
@@ -253,7 +225,7 @@ def test_the_same_story_from_two_feeds_is_taken_once(main):
         _story(id="https://x.test/story", link="https://x.test/story"),
     ]
 
-    selected = main.select_entries(stories, [], set(), 0.0, 10)
+    selected = main.select_entries(stories, set(), 0.0, 10)
 
     assert len(selected) == 1
 
@@ -263,7 +235,7 @@ def test_selection_does_not_widen_the_caller_s_seen_set(main):
     edited it in place would mark stories covered that were never reported."""
     seen: set = set()
 
-    main.select_entries([_story(id="a"), _story(id="b")], [], seen, 0.0, 10)
+    main.select_entries([_story(id="a"), _story(id="b")], seen, 0.0, 10)
 
     assert seen == set()
 
@@ -272,9 +244,26 @@ def test_the_newest_stories_survive_the_cap(main):
     now = time.time()
     stories = [_story(id=str(i), published=now - i * 60) for i in range(10)]
 
-    selected = main.select_entries(stories, [], set(), 0.0, 3)
+    selected = main.select_entries(stories, set(), 0.0, 3)
 
     assert [item["id"] for item in selected] == ["0", "1", "2"]
+
+
+def test_selection_reports_what_each_stage_dropped(main):
+    """"Nothing was published" and "it was all covered already" look identical
+    from outside and have completely different fixes."""
+    now = time.time()
+    seen = set(main.entry_keys(_story(id="covered")))
+    stories = [
+        _story(id="covered"),
+        _story(id="stale", published=now - 7200),
+        _story(id="fresh", published=now - 60),
+    ]
+    stats: dict = {}
+
+    main.select_entries(stories, seen, now - 3600, 10, stats=stats)
+
+    assert stats == {"fetched": 3, "unseen": 2, "fresh": 1}
 
 
 # ── Fingerprints ──────────────────────────────────────────────────────────────
@@ -292,7 +281,7 @@ def test_a_story_carries_a_fingerprint_for_each_stable_identifier(main):
 
 def test_a_story_with_nothing_to_identify_it_is_skipped(main):
     assert main.entry_keys(_story(id="", link="")) == []
-    assert main.select_entries([_story(id="", link="")], [], set(), 0.0, 10) == []
+    assert main.select_entries([_story(id="", link="")], set(), 0.0, 10) == []
 
 
 def test_the_seen_list_evicts_the_oldest_first(main):
@@ -465,8 +454,6 @@ def test_the_prompt_carries_the_stories_rather_than_the_feed_list(main):
         summary="Released under Apache 2.0.",
         published=1787044320.0,
     )
-    story["topics"] = ["open source"]
-
     prompt = main._build_digest_prompt("2026-08-20", ["open source"], [story], [])
     flowed = " ".join(prompt.split())
 
@@ -477,13 +464,35 @@ def test_the_prompt_carries_the_stories_rather_than_the_feed_list(main):
     assert "Topics of interest: open source" in flowed
 
 
-def test_the_prompt_says_the_conversation_has_no_credentials(main):
+def test_the_prompt_does_not_lecture_about_credentials(main):
+    """The conversation has none, which the empty secrets payload enforces.
+    Saying so at length in the prompt spends the agent's attention on something
+    it cannot act on either way."""
     # The prompt is hard-wrapped, so it is compared with its line breaks
     # flowed back out - otherwise rewrapping a paragraph breaks this test.
     flowed = " ".join(main._build_digest_prompt("2026-08-20", [], [_story(id="a")], []).split())
 
-    assert "no credentials" in flowed
-    assert "Do not attempt an authenticated request." in flowed
+    assert "no credentials" not in flowed
+    assert "authenticated request" not in flowed
+    assert "API keys" not in flowed
+
+
+def test_the_prompt_makes_relevance_the_agent_s_job(main):
+    flowed = " ".join(
+        main._build_digest_prompt("2026-08-20", ["open source"], [_story(id="a")], []).split()
+    )
+
+    assert "Topics of interest: open source" in flowed
+    assert "They have not been filtered by subject - that part is yours." in flowed
+    assert "It is a judgement call, not a word search" in flowed
+
+
+def test_the_prompt_tells_the_agent_what_to_do_when_nothing_is_relevant(main):
+    flowed = " ".join(
+        main._build_digest_prompt("2026-08-20", ["open source"], [_story(id="a")], []).split()
+    )
+
+    assert "If nothing here is relevant, say so in a sentence" in flowed
 
 
 def test_the_prompt_treats_feed_text_as_data(main):

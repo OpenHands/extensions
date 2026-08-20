@@ -3,7 +3,7 @@
   "name": "Daily news digest",
   "category": "Research",
   "icon": "activity",
-  "description": "Read a list of public RSS and Atom feeds on a schedule, keep what is new and on-topic, and have an agent write a short digest of it. Connects to nothing and needs no credentials.",
+  "description": "Read a list of public RSS and Atom feeds on a schedule, hand an agent everything new, and have it pick out what matters for your topics and write a short digest. Connects to nothing and needs no credentials.",
   "requires": {
     "integrations": {},
     "features": [
@@ -12,7 +12,7 @@
   },
   "popularityRank": 78,
   "estimatedSetupMinutes": 2,
-  "exampleImplementation": "Trigger: cron, daily by default (0 8 * * *)\nRequired secret: none. The feeds are public URLs and the conversation is started with an empty secret allow-list and no MCP servers.\n\n1. Read the feed list, the topics, and the schedule from setup.\n2. Key one unit of work to the UTC date, so a cron that fires more often, a retried run, or a restarted service cannot write the same digest twice.\n3. Fetch every feed over plain HTTPS and parse RSS 2.0, RSS 1.0/RDF and Atom by local element name. A feed that is down, moved, or no longer a feed is reported and skipped; the run fails only when every feed fails.\n4. Drop stories already covered by an earlier digest, stories older than the lookback window, and stories matching none of the topics - matched as words, so 'AI' does not match 'said'.\n5. Start no conversation at all when nothing survives, and leave the day open for a later run. A quiet day costs no tokens.\n6. Otherwise start an OpenHands conversation with the shortlist in the prompt, and let it group, merge duplicate coverage, and write the digest.\n7. Deliver it three ways that need no credentials: it stays in the conversation, it is printed into the run log, and its opening is kept in state.\n8. Remember the reported stories only once a digest exists, so a failed run is recovered by the next one rather than lost.",
+  "exampleImplementation": "Trigger: cron, daily by default (0 8 * * *)\nRequired secret: none. The feeds are public URLs and the conversation is started with an empty secret allow-list and no MCP servers.\n\n1. Read the feed list, the topics, and the schedule from setup.\n2. Key one unit of work to the UTC date, so a cron that fires more often, a retried run, or a restarted service cannot write the same digest twice.\n3. Fetch every feed over plain HTTPS and parse RSS 2.0, RSS 1.0/RDF and Atom by local element name. A feed that is down, moved, or no longer a feed is reported and skipped; the run fails only when every feed fails.\n4. Drop stories already covered by an earlier digest and stories older than the lookback window. Do not judge what a story is about: that has no right answer and is the agent's call.\n5. Start no conversation at all when nothing new was published, and leave the day open for a later run. A quiet day costs no tokens.\n6. Otherwise start an OpenHands conversation with the newest stories and the topics in the prompt, and let it decide which are relevant, group them, merge duplicate coverage, and write the digest.\n7. Deliver it three ways that need no credentials: it stays in the conversation, it is printed into the run log, and its opening is kept in state.\n8. Remember the reported stories only once a digest exists, so a failed run is recovered by the next one rather than lost.",
   "setup": {
     "version": "1.0",
     "mode": "direct",
@@ -50,7 +50,7 @@
         "topics": {
           "type": "textarea",
           "label": "Topics of interest",
-          "help": "One topic per line, or separated by commas. A story is kept when a topic appears in its headline or excerpt as whole words. Leave this empty to digest everything the feeds carry.",
+          "help": "One topic per line, or separated by commas. The agent reads every new story and decides which ones are about these, so write them the way you would explain your interests to a colleague rather than as search terms. Leave this empty to cover whatever is most significant.",
           "default": "artificial intelligence, open source, developer tools",
           "required": false,
           "constraints": {

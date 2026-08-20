@@ -39,6 +39,10 @@ day forever.
   // "today is done" check does not touch it.
   "last_checked": 1717200000.0,
 
+  // What each selection stage left, from the same run. A digest that came out
+  // empty is explained by whichever of these is zero.
+  "last_funnel": { "fetched": 60, "unseen": 12, "fresh": 9 },
+
   // Up to ten feed failures from the last run that read them, each truncated
   // to 200 characters. Diagnostic only; nothing branches on it.
   "last_feed_errors": ["https://example.test/feed: HTTP Error 500: Internal Server Error"],

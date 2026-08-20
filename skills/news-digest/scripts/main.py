@@ -10,12 +10,15 @@ empty secret allow-list and no MCP servers, so there is nothing for it to leak.
 That is deliberate - it is the automation to reach for when you want to see one
 working before you decide which tokens you are willing to hand over.
 
-The split of duties is the same as the other bundled automations. Everything
-deterministic is Python: the schedule, the once-a-day claim, fetching, parsing,
-the topic filter, and remembering what has already been covered. The LLM is
-invoked only for the part that is actually judgement - reading the shortlist and
-writing something worth reading. When nothing new matches, no conversation is
-started at all, so a quiet day costs no tokens.
+The split of duties is the same as the other bundled automations, drawn at what
+has a right answer. Python owns the schedule, the once-a-day claim, fetching,
+parsing, the freshness window, and remembering what has already been covered.
+The agent owns both halves of the judgement: which of these stories are actually
+about the configured topics, and what is worth saying about them. Deciding
+relevance by matching the topics as text was tried and is wrong - it counted
+"Mojo is now open source" and missed a company releasing its model weights.
+When nothing new has been published, no conversation is started at all, so a
+quiet day costs no tokens.
 
 One unit of work is one calendar day (UTC), so a cron that fires more often, a
 retried run, or a restarted service cannot produce the same digest twice. A run
@@ -63,8 +66,9 @@ TOPICS = ["artificial intelligence", "open source", "developer tools"]
 # seen-list is what stops the overlap from repeating anything.
 LOOKBACK_HOURS = 48
 # How many stories reach the agent. The cap is on the prompt, not on the feeds:
-# everything is fetched and matched, and the newest MAX_ITEMS survive.
-MAX_ITEMS = 40
+# everything is fetched, and the newest MAX_ITEMS survive. It is what the agent
+# chooses from, so it is deliberately more than a digest would ever cover.
+MAX_ITEMS = 50
 # Secrets forwarded to the agent conversation, by name. Empty, and that is the
 # point of this automation: the digest is written from a shortlist the script
 # already fetched, so the conversation needs no credential of any kind. A name
@@ -572,26 +576,6 @@ def collect_entries(feeds: list[str]) -> tuple[list[dict], list[str]]:
 # ── Topics, freshness, and what has already been covered ──────────────────────
 
 
-def _topic_pattern(topic: str) -> re.Pattern:
-    """Match a topic as words, not as a substring.
-
-    Substring matching is what makes a topic list useless: "AI" appears in
-    "said", "detail" and "email", and a digest built from those matches is
-    noise. Interior whitespace is relaxed so "open source" also matches
-    "open  source" and a line break between the two words.
-    """
-    words = [re.escape(word) for word in topic.split()]
-    return re.compile(r"\b" + r"\s+".join(words) + r"\b", re.IGNORECASE)
-
-
-def match_topics(entry: dict, patterns: list[tuple[str, re.Pattern]]) -> list[str]:
-    """The configured topics this story is about, in configured order."""
-    if not patterns:
-        return []
-    haystack = f"{entry.get('title', '')} {entry.get('summary', '')}"
-    return [topic for topic, pattern in patterns if pattern.search(haystack)]
-
-
 def canonical_link(link: str) -> str:
     """A story's URL reduced to what identifies the story.
 
@@ -643,18 +627,27 @@ def entry_keys(entry: dict) -> list[str]:
 
 def select_entries(
     entries: list[dict],
-    topics: list[str],
     seen: set[str],
     cutoff: float,
     max_items: int,
+    stats: dict | None = None,
 ) -> list[dict]:
-    """The shortlist the agent is given: new, recent, on-topic, newest first.
+    """The shortlist the agent is given: new, recent, newest first.
 
-    Filtering happens here rather than in the prompt because it is the part
-    with a right answer, and because everything filtered out here is a story
-    the LLM is never asked to read.
+    What is filtered here is only what has a right answer - a story already
+    covered, a story older than the window, the same story twice. Whether a
+    story is *about* something does not have a right answer, so it is not
+    decided here: matching the topics as text meant "Mojo is now open source"
+    counted and a story about a company releasing its model weights did not,
+    which is exactly backwards. The agent is given the stories and the topics
+    and makes that call itself.
+
+    `stats`, when given, is filled with the count surviving each stage, so a run
+    that finds nothing can say which stage emptied it. "Nothing was published"
+    and "everything was already covered" look identical from outside and have
+    completely different fixes.
     """
-    patterns = [(topic, _topic_pattern(topic)) for topic in topics]
+    counts = {"fetched": len(entries), "unseen": 0, "fresh": 0}
     selected: list[dict] = []
     # The same story reaching the shortlist twice is the normal case, not an
     # edge one: two feeds carrying the same wire report share a link. `seen` is
@@ -665,21 +658,22 @@ def select_entries(
         keys = entry_keys(entry)
         if not keys or any(key in seen or key in taken for key in keys):
             continue
+        counts["unseen"] += 1
         published = entry.get("published")
         # An undated story is treated as current. Dropping it would silently
         # discard whole feeds - several publish no date at all - and the
         # seen-list already stops it from being reported twice.
         if published is not None and published < cutoff:
             continue
-        matched = match_topics(entry, patterns)
-        if patterns and not matched:
-            continue
-        selected.append({**entry, "keys": keys, "topics": matched})
+        counts["fresh"] += 1
+        selected.append({**entry, "keys": keys})
         taken.update(keys)
 
     # Undated stories sort as if they had just arrived, which is the same
     # assumption the freshness filter above makes about them.
     selected.sort(key=lambda item: item.get("published") or time.time(), reverse=True)
+    if stats is not None:
+        stats.update(counts)
     return selected[:max_items]
 
 
@@ -884,8 +878,6 @@ def _format_published(published: float | None) -> str:
 
 def _format_story(index: int, item: dict) -> str:
     meta = [f"Source: {item.get('source') or 'unknown'}", _format_published(item.get("published"))]
-    if item.get("topics"):
-        meta.append("Topics: " + ", ".join(item["topics"]))
     lines = [
         f"[{index}] {(item.get('title') or 'Untitled')[:TITLE_CHARS]}",
         f"    {' | '.join(meta)}",
@@ -912,9 +904,18 @@ def _build_digest_prompt(
     same story.
     """
     topic_line = (
-        "Topics of interest: " + ", ".join(topics)
+        f"""Topics of interest: {", ".join(topics)}
+
+Not every story below is about them, and working out which ones are is the first
+thing you have to do. It is a judgement call, not a word search: a company
+releasing its model weights is an open source story whether or not it uses the
+phrase, and a headline containing the word "developer" is not a developer-tools
+story just because it does. Leave out what does not belong. If nothing here is
+relevant, say so in a sentence - a short honest digest beats a padded one."""
         if topics
-        else "No topic filter is configured, so these are simply the newest stories the feeds carried."
+        else """No topics are configured, so cover whatever is most significant. Leave out
+what is not worth anyone's time; these are simply the newest stories the feeds
+carried, not a list you have to get through."""
     )
     stories = "\n\n".join(_format_story(i, item) for i, item in enumerate(items, start=1))
     failures = (
@@ -927,17 +928,17 @@ def _build_digest_prompt(
     return f"""You are writing the news digest for {period} (UTC).
 
 Everything you need is below. These {len(items)} stories were fetched from public
-RSS and Atom feeds by the automation that started this conversation, filtered to
-what has appeared since the last digest, and sorted newest first.
+RSS and Atom feeds by the automation that started this conversation, reduced to
+what has appeared since the last digest and has not been covered already, and
+sorted newest first. They have not been filtered by subject - that part is
+yours.
 
 {topic_line}
 
-You have no credentials in this conversation - no API keys, no tokens, no
-connected accounts - and you do not need any. Do not attempt an authenticated
-request. You may open one of the links below if an excerpt is too thin to
-summarise honestly, but many news sites refuse automated readers: treat a failed
-fetch as normal, write what the excerpt supports, and move on. A fetch that
-fails must never stop you finishing the digest.
+You may open one of the links below if an excerpt is too thin to summarise
+honestly, but many news sites refuse automated readers: treat a failed fetch as
+normal, write what the excerpt supports, and move on. A fetch that fails must
+never stop you finishing the digest.
 
 STORIES
 {stories}{failures}
@@ -947,8 +948,8 @@ Write the digest like this:
 1. Open with two or three sentences on what actually matters today. If nothing
    here is important, say so - a quiet day is a useful thing to report.
 2. Group the rest under the topics above, in the order they are listed. A topic
-   with no stories gets no heading. Without a topic filter, group by whatever
-   themes the stories fall into.
+   nothing here is about gets no heading. With no topics configured, group by
+   whatever themes the stories fall into.
 3. One or two sentences per story, in plain language, and the link on the same
    line. Say what happened, not that an article exists about it.
 4. When several stories cover the same event, write it once and list the sources
@@ -1188,12 +1189,14 @@ def main() -> str | None:
             raise RuntimeError("every feed failed: " + "; ".join(feed_errors))
 
         cutoff = time.time() - LOOKBACK_HOURS * 3600
-        items = select_entries(entries, TOPICS, seen, cutoff, MAX_ITEMS)
+        funnel: dict = {}
+        items = select_entries(entries, seen, cutoff, MAX_ITEMS, stats=funnel)
         state["last_checked"] = time.time()
+        state["last_funnel"] = funnel
         state["last_feed_errors"] = [line[:MAX_STORED_ERROR_CHARS] for line in feed_errors[:10]]
         print(
-            f"{len(entries)} entries fetched; {len(items)} new and on-topic "
-            f"within the last {LOOKBACK_HOURS}h"
+            f"{funnel['fetched']} fetched -> {funnel['unseen']} not yet covered -> "
+            f"{funnel['fresh']} published in the last {LOOKBACK_HOURS}h"
         )
 
         if not items:
@@ -1201,6 +1204,14 @@ def main() -> str | None:
             # published yet, and a later run today should be free to try again -
             # it costs one request per feed and no tokens at all.
             print("Nothing new to digest; leaving today open for a later run")
+            # Which stage emptied it decides what to change, so say it rather
+            # than leaving four numbers to be interpreted.
+            if not funnel["fetched"]:
+                print("  The feeds returned no entries at all - check the feed URLs")
+            elif not funnel["unseen"]:
+                print("  Every story the feeds carry has already been covered")
+            else:
+                print(f"  Nothing has been published in the last {LOOKBACK_HOURS}h")
         else:
             conversation_id = _start_task(
                 agent_url, api_key, period, items, feed_errors, tasks, persist

@@ -22,8 +22,8 @@ schedule, the conversation, the model and the run log end to end while nothing
 of yours is at stake, and it is useful in its own right afterwards.
 
 The script is deterministic: the schedule, the once-a-day claim, fetching,
-parsing, the freshness window, the topic filter, and remembering what has
-already been covered are all Python. The LLM is invoked only for the part that
+parsing, the freshness window, and remembering what has already been covered
+are all Python. The LLM is invoked only for the part that
 is judgement - reading the shortlist and writing something that is not just the
 headlines pasted back. **When nothing new matches, no conversation is started
 at all**, so a quiet day costs no tokens.
@@ -88,12 +88,13 @@ tools`. Leave it blank to summarise everything the feeds carry.)"*
 
 Record as `TOPICS`. Two things are worth telling the user:
 
-- Topics are matched as **whole words**, case-insensitively, against each
-  story's headline and excerpt. That is why `AI` does not match *said*,
-  *detail* or *email* - and why a one-word topic like `Rust` will still catch
-  the metal as well as the language.
-- An empty list means no filter. That is right for a handful of narrow feeds
-  and wrong for a firehose, where it produces forty items a day.
+- The agent decides which stories are about them, reading each headline and
+  excerpt. So write topics the way you would explain your interests to a
+  colleague - `artificial intelligence` works even though almost every headline
+  says `AI`, and a story about a company releasing its model weights counts as
+  `open source` without using the phrase.
+- An empty list means "cover whatever is most significant". That is right for a
+  handful of narrow feeds and vaguer for a firehose.
 
 ### Step 3 - Collect the schedule
 
@@ -135,7 +136,7 @@ substitutions near the top of the file:
 | `FEEDS = [...]` | the list from Step 1 |
 | `TOPICS = [...]` | the list from Step 2, or `[]` for no filter |
 
-`LOOKBACK_HOURS` (48) and `MAX_ITEMS` (40) are left alone unless the user asks.
+`LOOKBACK_HOURS` (48) and `MAX_ITEMS` (50) are left alone unless the user asks.
 The lookback is deliberately wider than the schedule so a failed or missed run
 is recovered by the next one; the seen-list is what stops the overlap from
 repeating anything.
@@ -228,15 +229,18 @@ shipped one and then:
    parses RSS 2.0, RSS 1.0/RDF and Atom by local element name. A feed that
    fails, is not XML, or is XML that is not a feed is recorded and skipped. The
    run fails only if *every* feed fails.
-4. Selects the stories: not already covered, published within `LOOKBACK_HOURS`
-   (undated stories are treated as current rather than dropped), and matching
-   at least one topic. The newest `MAX_ITEMS` survive.
-5. If none survive, records the check and **leaves the day unclaimed** so a
-   later run can try again. No conversation, no tokens.
+4. Selects the stories: not already covered, and published within
+   `LOOKBACK_HOURS` (undated stories are treated as current rather than
+   dropped). The newest `MAX_ITEMS` survive. Subject is deliberately not a
+   filter here.
+5. If none survive, records the check, says which stage emptied it, and
+   **leaves the day unclaimed** so a later run can try again. No conversation,
+   no tokens.
 6. Otherwise claims the day in state *before* the slow work, so an overlapping
    run cannot write the digest twice, then starts an OpenHands conversation
-   with the shortlist in its prompt, an empty secrets payload and no MCP
-   servers, working in `{WORKSPACE_BASE}/news-digest/{date}`.
+   with the stories **and the topics** in its prompt, an empty secrets payload
+   and no MCP servers, working in `{WORKSPACE_BASE}/news-digest/{date}`. The
+   agent decides which stories are relevant before it writes anything.
 7. When the conversation reaches `idle`, `finished`, `error` or `stuck`:
    - reads `digest.md` from the working directory, falling back to the agent's
      final message;
@@ -270,7 +274,8 @@ agree on nothing *but* the link.
 
 | Symptom | Likely cause | Fix |
 |---|---|---|
-| Every run says "Nothing new to digest" | The topics match nothing the feeds carry | Widen the topics, or clear them to digest everything; check a story's wording against your terms |
+| Every run says "Nothing new to digest" | Nothing was published, or it was all covered already | The run log now names which of the two it was; the digest covers what the topics miss only if the feeds carry it at all |
+| The digest ignores a topic you care about | The feeds do not carry stories about it | Add a feed that does; the agent can only choose from what was fetched |
 | A feed reports "not a feed" | The URL serves a web page, not the feed | Find the real feed URL - it is usually linked from the page as `application/rss+xml` |
 | A feed reports an HTTP 403 | The host blocks unknown readers | Use a different feed for that source; this automation sends no credentials by design |
 | The digest is thin and full of "Headlines" | Those feeds carry titles only | Expected for Hacker News and similar; add a feed that publishes summaries, such as Ars Technica |
