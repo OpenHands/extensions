@@ -521,6 +521,26 @@ def test_form_placeholders_reference_declared_fields(entry_path: Path) -> None:
 
 
 @pytest.mark.parametrize("entry_path", list(_setup_paths()))
+def test_the_declared_features_match_the_archetype(entry_path: Path) -> None:
+    """A bundle needs a deployment that runs a client-supplied tarball; a prompt
+    needs the preset endpoint. Declaring the other one's features is a check the
+    host runs against the wrong capability, so the entry is either offered where
+    it cannot run or withheld where it can."""
+    entry = _load(entry_path)
+    features = set(entry["requires"].get("features", []))
+
+    if _is_bundle(entry):
+        assert "customTarball" in features, f"{entry['id']}: a bundle must declare customTarball"
+        assert "presetPrompt" not in features, (
+            f"{entry['id']}: a bundle creates through {BUNDLE_CREATE_PATH}, not the preset endpoint"
+        )
+    else:
+        assert "customTarball" not in features, (
+            f"{entry['id']}: only a bundle uploads a tarball"
+        )
+
+
+@pytest.mark.parametrize("entry_path", list(_setup_paths()))
 def test_select_fields_offer_options(entry_path: Path) -> None:
     """A select without options is an empty dropdown the user cannot get past.
     A field whose options come from the deployment declares a semantic type

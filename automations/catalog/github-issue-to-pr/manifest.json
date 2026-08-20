@@ -10,8 +10,7 @@
       }
     },
     "features": [
-      "repoClone",
-      "presetPrompt"
+      "customTarball"
     ]
   },
   "popularityRank": 95,
