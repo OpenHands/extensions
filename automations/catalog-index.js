@@ -9,8 +9,9 @@ import entry3 from "./catalog/slack-channel-monitor/manifest.json" with { type: 
 import entry4 from "./catalog/linear-triage-assistant/manifest.json" with { type: "json" };
 import entry5 from "./catalog/jira-issue-to-pr/manifest.json" with { type: "json" };
 import entry6 from "./catalog/research-brief-writer/manifest.json" with { type: "json" };
-import entry7 from "./catalog/upstream-fork-sync/manifest.json" with { type: "json" };
-import entry8 from "./catalog/incident-retrospective-drafter/manifest.json" with { type: "json" };
+import entry7 from "./catalog/github-agents-md-maintainer/manifest.json" with { type: "json" };
+import entry8 from "./catalog/upstream-fork-sync/manifest.json" with { type: "json" };
+import entry9 from "./catalog/incident-retrospective-drafter/manifest.json" with { type: "json" };
 
 export const AUTOMATION_CATALOG_ENTRIES = [
   entry0,
@@ -22,4 +23,5 @@ export const AUTOMATION_CATALOG_ENTRIES = [
   entry6,
   entry7,
   entry8,
+  entry9,
 ];

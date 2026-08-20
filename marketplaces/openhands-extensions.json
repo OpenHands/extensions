@@ -682,6 +682,19 @@
       ]
     },
     {
+      "name": "github-agents-md-maintainer",
+      "source": "./skills/github-agents-md-maintainer",
+      "description": "Create an automation that keeps AGENTS.md current in one or more GitHub repositories. On a schedule an agent reads the repository, creates or updates AGENTS.md, and opens a pull request - staying quiet while one of its own pull requests is still open.",
+      "category": "automations",
+      "keywords": [
+        "github",
+        "agents-md",
+        "documentation",
+        "maintenance",
+        "automation"
+      ]
+    },
+    {
       "name": "github-pr-reviewer",
       "source": "./skills/github-pr-reviewer",
       "description": "Create an automation that reviews GitHub pull requests when they are opened or updated. Inspects the diff, changed files, tests, and existing discussion via GitHub MCP, then posts a concise review highlighting risks, security issues, missing tests, and next steps.",
