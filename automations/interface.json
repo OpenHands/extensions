@@ -152,7 +152,7 @@
     "github-pr-reviewer",
     "github-agents-md-maintainer",
     "news-digest",
-    "github-repo-monitor",
+    "github-issue-to-pr",
     "slack-channel-monitor"
   ],
   "responderIntegrationIds": ["github", "slack"]

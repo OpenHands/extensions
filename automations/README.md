@@ -2,8 +2,9 @@
 
 `catalog/<id>/` is one automation. Its `manifest.json` is the single hand-authored source of truth: the
 card metadata Agent Canvas renders today and, optionally, a nested `setup` block, the extension-owned
-configuration experience for that automation. Anything else an automation ships, such as a script that is
-uploaded to the automations service as a `.tar.gz`, belongs in the same directory.
+configuration experience for that automation. It is the only file there. A script an automation uploads as
+a `.tar.gz` is not copied into this directory: `setup.bundle.files` names where it already lives, so a
+script shipped by both a skill and the catalog has one copy rather than two.
 
 ```
 catalog/<id>/manifest.json   one automation per directory - card metadata plus an optional `setup` block

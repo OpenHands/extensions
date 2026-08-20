@@ -4,15 +4,16 @@
 
 import entry0 from "./catalog/github-pr-reviewer/manifest.json" with { type: "json" };
 import entry1 from "./catalog/github-repo-monitor/manifest.json" with { type: "json" };
-import entry2 from "./catalog/slack-standup-digest/manifest.json" with { type: "json" };
-import entry3 from "./catalog/slack-channel-monitor/manifest.json" with { type: "json" };
-import entry4 from "./catalog/linear-triage-assistant/manifest.json" with { type: "json" };
-import entry5 from "./catalog/jira-issue-to-pr/manifest.json" with { type: "json" };
-import entry6 from "./catalog/research-brief-writer/manifest.json" with { type: "json" };
-import entry7 from "./catalog/github-agents-md-maintainer/manifest.json" with { type: "json" };
-import entry8 from "./catalog/upstream-fork-sync/manifest.json" with { type: "json" };
-import entry9 from "./catalog/incident-retrospective-drafter/manifest.json" with { type: "json" };
-import entry10 from "./catalog/news-digest/manifest.json" with { type: "json" };
+import entry2 from "./catalog/github-issue-to-pr/manifest.json" with { type: "json" };
+import entry3 from "./catalog/slack-standup-digest/manifest.json" with { type: "json" };
+import entry4 from "./catalog/slack-channel-monitor/manifest.json" with { type: "json" };
+import entry5 from "./catalog/linear-triage-assistant/manifest.json" with { type: "json" };
+import entry6 from "./catalog/jira-issue-to-pr/manifest.json" with { type: "json" };
+import entry7 from "./catalog/research-brief-writer/manifest.json" with { type: "json" };
+import entry8 from "./catalog/github-agents-md-maintainer/manifest.json" with { type: "json" };
+import entry9 from "./catalog/upstream-fork-sync/manifest.json" with { type: "json" };
+import entry10 from "./catalog/incident-retrospective-drafter/manifest.json" with { type: "json" };
+import entry11 from "./catalog/news-digest/manifest.json" with { type: "json" };
 
 export const AUTOMATION_CATALOG_ENTRIES = [
   entry0,
@@ -26,4 +27,5 @@ export const AUTOMATION_CATALOG_ENTRIES = [
   entry8,
   entry9,
   entry10,
+  entry11,
 ];
