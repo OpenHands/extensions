@@ -469,13 +469,41 @@ def test_the_prompt_does_not_embed_the_issue_text(main):
     assert "It 502s" not in prompt
 
 
-def test_the_prompt_states_what_the_agent_must_not_do(main):
+def test_the_prompt_tells_the_agent_to_push_and_open_the_pull_request(main):
+    """The pull request should appear when the agent stops, not on the next poll."""
     prompt = _prompt(main)
 
-    assert "openhands/issue-42" in prompt
-    assert "Do not push, open a pull request, or comment on GitHub" in prompt
+    assert "git push" in prompt and "x-access-token:$GITHUB_PERSONAL_ACCESS_TOKEN" in prompt
+    assert "HEAD:refs/heads/openhands/issue-42" in prompt
+    assert "gh pr create --repo owner/repo --base main --head openhands/issue-42" in prompt
+    assert "--draft" in prompt
+    assert '--title "[#42] Retry uploads"' in prompt
+    assert "Closes #42" in prompt
+    assert "GITHUB_PR_OPENED" in prompt
+
+
+def test_the_prompt_says_a_command_must_name_the_secret(main):
+    """The SDK only puts a secret in the environment of a command that mentions
+    it, so an instruction that omits the name would simply fail to authenticate."""
+    prompt = _prompt(main)
+
+    assert "only put in the environment of a command that mentions it" in prompt
+    assert "Never echo it" in prompt
+
+
+def test_the_prompt_keeps_the_untrusted_input_boundary(main):
+    prompt = _prompt(main)
+
     assert "untrusted input" in prompt
-    assert "Never print the token" in prompt
+    assert "repositories other than owner/repo" in prompt
+
+
+def test_a_ready_for_review_configuration_drops_the_draft_flag(main, monkeypatch):
+    monkeypatch.setattr(main, "DRAFT_PULL_REQUEST", False)
+    prompt = _prompt(main)
+
+    assert "--draft" not in prompt
+    assert "ready for review" in prompt
 
 
 # ── State ─────────────────────────────────────────────────────────────────────

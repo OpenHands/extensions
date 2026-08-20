@@ -28,10 +28,15 @@ prompt goes stale between dispatch and the moment the agent reads it.
 That needs read access, so the conversation is handed exactly one secret,
 `GITHUB_PERSONAL_ACCESS_TOKEN`, and no MCP servers. `AGENT_SECRET_NAMES` stays an
 allow-list: the rest of the deployment's secret store is not reachable from a
-conversation whose instructions came from an issue. Every GitHub **write** still
-happens in the script after the conversation stops - the agent is told not to
-push, open a pull request, or comment, and the clone's `origin` is a plain URL
-with no credential baked in.
+conversation whose instructions came from an issue.
+
+The agent also finishes the job: it commits, pushes its branch, and opens the
+pull request, so the pull request appears when the agent stops rather than on the
+next poll. The script does not trust that it happened - when the conversation
+ends it asks GitHub whether the pull request exists, and opens it itself when it
+does not. `origin` still carries no credential, so every GitHub command the agent
+runs has to name `GITHUB_PERSONAL_ACCESS_TOKEN`; the SDK only puts a secret in the
+environment of a command that mentions it, and masks it in the output.
 
 ---
 
@@ -309,6 +314,9 @@ For each repository:
    - Abandons a conversation that has not reached a terminal status within two
      hours, comments on the issue, and reclaims its clone.
    - When the conversation reaches `idle`, `finished`, `error`, or `stuck`:
+     - Adopts the pull request the agent opened, if GitHub says one exists for
+       the branch, and comments its link on the issue. Everything below is the
+       path taken when it does not.
      - Skips the pull request if the issue was closed meanwhile.
      - Reports the problem on the issue if the conversation ended in `error` or
        `stuck`.

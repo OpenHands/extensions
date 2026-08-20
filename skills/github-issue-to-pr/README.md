@@ -17,7 +17,7 @@ This skill is activated by:
 - Re-runs on demand by removing and re-applying the label, on a fresh branch
 - Clones the default branch for the agent, and removes the clone when the task
   ends, so nothing accumulates between runs
-- Commits, pushes, and opens the pull request in Python, after the agent stops
+- Lets the agent open the pull request, and opens it in Python when the agent did not
 - Opens draft pull requests by default, titled `[#42] <issue title>`, with the
   agent's summary and `Closes #42` in the body
 - Comments on the issue when work starts, when it finishes, and when it does not
@@ -38,9 +38,13 @@ Reading that needs credentials, so the conversation is handed exactly one secret
 of reach of a conversation whose instructions came from an issue. Set it to `[]`
 for public repositories if you would rather it held nothing.
 
-Every GitHub **write** stays in the script, after the conversation has stopped:
-the clone's `origin` carries no credential, and the agent is told not to push,
-open a pull request, or comment.
+The agent commits, pushes its branch, and opens the pull request itself, so it
+appears as soon as the agent stops instead of waiting for the next poll. The
+script verifies that on GitHub rather than trusting the agent's word, and opens
+the pull request itself when the agent did not - a failed push or a dead
+conversation never loses the work. `origin` carries no credential, so each GitHub
+command has to name `GITHUB_PERSONAL_ACCESS_TOKEN`, which the SDK injects only
+into a command that mentions it and masks in the output.
 
 ## Two setup paths
 
