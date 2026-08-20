@@ -150,6 +150,7 @@
   },
   "featuredAutomationIds": [
     "github-pr-reviewer",
+    "github-issue-to-pr",
     "github-repo-monitor",
     "slack-channel-monitor"
   ],
