@@ -166,16 +166,33 @@ def test_git_failures_do_not_echo_the_token(main, monkeypatch):
 # ── Secrets handed to the conversation ────────────────────────────────────────
 
 
-def test_no_secrets_are_forwarded_by_default(main, monkeypatch):
-    """The prompt is built from an issue body anyone can write, so the default
-    conversation holds no credentials at all."""
+def test_only_the_github_token_is_forwarded_by_default(main, monkeypatch):
+    """The agent reads the issue itself, so it needs the GitHub token - and
+    nothing else in the deployment's secret store."""
+    monkeypatch.setattr(
+        main,
+        "_list_secret_names",
+        lambda agent_url, api_key: [
+            {"name": "GITHUB_PERSONAL_ACCESS_TOKEN"},
+            {"name": "NPM_TOKEN"},
+            {"name": "AWS_SECRET_ACCESS_KEY"},
+        ],
+    )
+
+    assert main.AGENT_SECRET_NAMES == ["GITHUB_PERSONAL_ACCESS_TOKEN"]
+    assert list(main._build_secrets_payload("http://agent", "key")) == [
+        "GITHUB_PERSONAL_ACCESS_TOKEN"
+    ]
+
+
+def test_an_empty_allow_list_forwards_nothing(main, monkeypatch):
     monkeypatch.setattr(main, "AGENT_SECRET_NAMES", [])
     called = False
 
     def fake_list(agent_url, api_key):
         nonlocal called
         called = True
-        return [{"name": "GITHUB_PERSONAL_ACCESS_TOKEN"}, {"name": "NPM_TOKEN"}]
+        return [{"name": "GITHUB_PERSONAL_ACCESS_TOKEN"}]
 
     monkeypatch.setattr(main, "_list_secret_names", fake_list)
 
@@ -416,23 +433,49 @@ def test_pull_request_body_is_truncated(main):
 # ── Prompt ────────────────────────────────────────────────────────────────────
 
 
-def test_the_prompt_tells_the_agent_it_cannot_reach_github(main):
-    prompt = main._build_implementation_prompt(
+def _prompt(main):
+    return main._build_implementation_prompt(
         "owner/repo",
-        {"number": 42, "title": "Retry uploads", "body": "It 502s.", "user": {"login": "alice"},
-         "labels": [{"name": "openhands"}], "html_url": "https://github.com/owner/repo/issues/42"},
-        [{"user": {"login": "bob"}, "created_at": "2026-01-01T00:00:00Z", "body": "seen it too"}],
+        {
+            "number": 42,
+            "title": "Retry uploads",
+            "body": "It 502s, see the log in the linked run.",
+            "user": {"login": "alice"},
+            "labels": [{"name": "openhands"}],
+            "html_url": "https://github.com/owner/repo/issues/42",
+        },
         {"id": 1, "created_at": "2026-01-02T00:00:00Z"},
         "openhands/issue-42",
         "main",
         "abc123",
     )
 
-    assert "It 502s." in prompt
-    assert "seen it too" in prompt
+
+def test_the_prompt_names_the_issue_and_sends_the_agent_to_read_it(main):
+    """A copy of the description pasted at dispatch is stale as soon as someone
+    comments, and it stops where the issue's own text stops."""
+    prompt = _prompt(main)
+
+    assert "#42" in prompt
+    assert "https://github.com/owner/repo/issues/42" in prompt
+    assert "gh issue view 42 --repo owner/repo --comments" in prompt
+    assert "/repos/owner/repo/issues/42/comments" in prompt
+    assert "GITHUB_PERSONAL_ACCESS_TOKEN" in prompt
+
+
+def test_the_prompt_does_not_embed_the_issue_text(main):
+    prompt = _prompt(main)
+
+    assert "It 502s" not in prompt
+
+
+def test_the_prompt_states_what_the_agent_must_not_do(main):
+    prompt = _prompt(main)
+
     assert "openhands/issue-42" in prompt
-    assert "no GitHub credentials" in prompt
+    assert "Do not push, open a pull request, or comment on GitHub" in prompt
     assert "untrusted input" in prompt
+    assert "Never print the token" in prompt
 
 
 # ── State ─────────────────────────────────────────────────────────────────────

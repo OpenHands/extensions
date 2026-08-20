@@ -25,17 +25,22 @@ This skill is activated by:
 - Caps how many conversations one poll starts, so a labelled backlog does not
   start dozens at once
 
-## Credentials the agent does not get
+## What the agent is told, and what it can reach
 
-The agent's workspace is a clone whose `origin` carries no token, and it is
-handed only the secrets named in `AGENT_SECRET_NAMES` - none, by default - and
-none of the deployment's MCP servers. Every GitHub write happens in the
-automation script, after the conversation has stopped.
+The prompt names the repository, the issue number and title, and its URL. The
+agent fetches the description, the discussion, and anything they link to itself -
+a copy pasted at dispatch would already be stale, and it would stop where the
+issue's own text stops.
 
-This matters because the prompt is built from an issue title, body, and comment
-thread, which anyone able to file an issue can write. A conversation driven by
-that text should not also hold a token that can push branches, comment as you, or
-read the rest of your secrets.
+Reading that needs credentials, so the conversation is handed exactly one secret,
+`GITHUB_PERSONAL_ACCESS_TOKEN`, and none of the deployment's MCP servers.
+`AGENT_SECRET_NAMES` is an allow-list, so the rest of the secret store stays out
+of reach of a conversation whose instructions came from an issue. Set it to `[]`
+for public repositories if you would rather it held nothing.
+
+Every GitHub **write** stays in the script, after the conversation has stopped:
+the clone's `origin` carries no credential, and the agent is told not to push,
+open a pull request, or comment.
 
 ## Two setup paths
 

@@ -21,16 +21,17 @@ state persistence, the clone, the branch, the commit, the push, the pull request
 the issue comments, and the clone's removal are all handled in Python. The LLM is
 invoked only to write the code.
 
-**The agent is given no GitHub credentials.** It edits files in a clone whose
-`origin` carries no token, and the script does every GitHub write after the
-conversation has stopped. An issue body is text anyone with access to the
-repository can write, so it is treated as untrusted input rather than as
-instructions with a token attached.
+The agent is told **which** issue to implement, not what it says. It fetches the
+description, the discussion, and whatever they link to itself, so nothing in the
+prompt goes stale between dispatch and the moment the agent reads it.
 
-For the same reason the conversation is handed only the secrets named in
-`AGENT_SECRET_NAMES`, which is empty by default, and none of the deployment's
-MCP servers: a connected GitHub MCP server would hand back exactly the write
-access the empty secrets payload withheld.
+That needs read access, so the conversation is handed exactly one secret,
+`GITHUB_PERSONAL_ACCESS_TOKEN`, and no MCP servers. `AGENT_SECRET_NAMES` stays an
+allow-list: the rest of the deployment's secret store is not reachable from a
+conversation whose instructions came from an issue. Every GitHub **write** still
+happens in the script after the conversation stops - the agent is told not to
+push, open a pull request, or comment, and the clone's `origin` is a plain URL
+with no credential baked in.
 
 ---
 
@@ -149,16 +150,19 @@ Record as `CRON_SCHEDULE`.
 
 ### Step 7 - Confirm the secret scope
 
-Ask: *"The agent runs without any credentials by default: it only edits files,
-and the automation does everything that touches GitHub. If the repository's build
-needs a secret of its own (a package registry token, for example), name it now.
-(Press Enter for none.)"*
+The agent is handed `GITHUB_PERSONAL_ACCESS_TOKEN`, because it reads the issue and
+its discussion itself. Ask: *"Beyond the GitHub token, does the repository's build
+need a secret of its own - a package registry token, for example? (Press Enter for
+none.)"*
 
-Record the answers as `AGENT_SECRET_NAMES = ["NAME", ...]`, defaulting to `[]`.
+Record the answers appended to the default, as
+`AGENT_SECRET_NAMES = ["GITHUB_PERSONAL_ACCESS_TOKEN", "NAME", ...]`.
 
-Do **not** put `GITHUB_PERSONAL_ACCESS_TOKEN` in that list. The script uses it
-directly, and forwarding it would hand push and comment access to a conversation
-whose instructions came from an issue body.
+Keep it an allow-list. Forwarding the whole secret store would put every
+credential in the deployment behind a prompt written by whoever opened the issue.
+If the repositories are public and you would rather the conversation held no
+credential at all, set the list to `[]` - the agent can still read a public issue
+unauthenticated, and private repositories then stop working.
 
 ### Step 8 - Generate the automation script
 
