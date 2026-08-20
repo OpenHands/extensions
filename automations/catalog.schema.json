@@ -21,6 +21,11 @@
       "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
       "description": "Stable identifier. Must equal the name of the directory holding this manifest."
     },
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$",
+      "description": "Semantic version of this template. Present only on entries whose direct setup sends provenance to the automation service; bump it when the prompt, form, or filter changes meaningfully."
+    },
     "name": { "type": "string", "minLength": 1 },
     "category": { "type": "string", "minLength": 1 },
     "description": { "type": "string", "minLength": 1 },

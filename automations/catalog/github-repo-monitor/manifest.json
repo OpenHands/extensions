@@ -1,5 +1,6 @@
 {
   "id": "github-repo-monitor",
+  "version": "1.0.0",
   "name": "GitHub repository monitor",
   "category": "Developer tools",
   "description": "Watch a repository for @OpenHands mentions in issues and PR comments, start a conversation, and post the agent's reply back to GitHub.",
