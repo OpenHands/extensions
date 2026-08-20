@@ -1,0 +1,94 @@
+{
+  "id": "github-issue-to-pr",
+  "name": "GitHub Issue to PR Agent",
+  "category": "Software development",
+  "description": "Watch for a configurable label on GitHub issues, implement the issue in a clone of the default branch, and open a pull request for each label event.",
+  "requires": {
+    "integrations": {
+      "github": {
+        "message": "Used to read labelled issues, push the branch, and open the pull request."
+      }
+    },
+    "features": [
+      "repoClone",
+      "presetPrompt"
+    ]
+  },
+  "popularityRank": 95,
+  "estimatedSetupMinutes": 4,
+  "exampleImplementation": "Trigger: cron polling for open GitHub issues with a configured label such as openhands\nRequired secret: GITHUB_PERSONAL_ACCESS_TOKEN, with permission to write contents, issues, and pull requests\n\n1. Read the repositories, trigger label, branch prefix, draft mode, and polling schedule from setup.\n2. Poll each repository independently, with its own state, so issue numbers never collide.\n3. List open labelled issues, drop pull requests, and find the latest matching GitHub labeled issue event for each.\n4. Deduplicate on the label event ID so every label application queues exactly one attempt.\n5. Clone the default branch into a directory of its own, create the working branch, and start an OpenHands conversation with that directory as its workspace. The clone carries no credential and the agent is handed no secrets, because the prompt is built from an issue body that anyone can write.\n6. Comment on the issue with the branch and the conversation link.\n7. Once the conversation has stopped, commit whatever the agent left, push the branch, open a draft pull request titled after the issue, and comment the link on the issue. An agent that made no changes gets its answer posted instead.\n8. Remove the clone once the conversation has stopped, so nothing accumulates between runs.",
+  "setup": {
+    "version": "1.0",
+    "mode": "direct",
+    "form": {
+      "triggers": {
+        "cron": {
+          "schedule": {
+            "type": "cron",
+            "label": "Check frequency",
+            "help": "How often to look for newly labelled issues.",
+            "default": "*/15 * * * *",
+            "required": true
+          },
+          "timezone": {
+            "type": "timezone",
+            "label": "Timezone",
+            "help": "Timezone the schedule is interpreted in.",
+            "default": "UTC",
+            "required": true
+          }
+        }
+      },
+      "args": {
+        "repository": {
+          "type": "repo-picker",
+          "label": "Repository",
+          "help": "The repository whose issues will be implemented.",
+          "provider": "github",
+          "required": true
+        },
+        "triggerLabel": {
+          "type": "text",
+          "label": "Trigger label",
+          "help": "Only issues carrying this label are worked on.",
+          "default": "openhands",
+          "required": true,
+          "constraints": {
+            "minLength": 1,
+            "maxLength": 50
+          }
+        },
+        "branchPrefix": {
+          "type": "text",
+          "label": "Branch prefix",
+          "help": "Branches are named after this prefix and the issue number, such as openhands/issue-42.",
+          "default": "openhands/issue",
+          "required": true,
+          "constraints": {
+            "minLength": 1,
+            "maxLength": 50
+          }
+        },
+        "pullRequestMode": {
+          "type": "select",
+          "label": "Pull request mode",
+          "help": "Whether the pull request is opened as a draft or ready for review.",
+          "default": "draft",
+          "required": true,
+          "options": [
+            {
+              "value": "draft",
+              "label": "Draft"
+            },
+            {
+              "value": "ready",
+              "label": "Ready for review"
+            }
+          ]
+        }
+      }
+    },
+    "prompt": "Implement issues labeled '{{form.triggerLabel}}' in {{form.repository}} and open a pull request for each one. Branch prefix: {{form.branchPrefix}}. Pull request mode: {{form.pullRequestMode}}.",
+    "message": "This deployment cannot run the scheduled issue-to-PR automation directly. Set it up in this conversation instead: confirm the repository to watch, the trigger label, the branch prefix, whether pull requests open as drafts, and the polling schedule, then create the automation."
+  }
+}
