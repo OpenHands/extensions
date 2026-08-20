@@ -25,6 +25,19 @@
       ]
     },
     {
+      "name": "agent-guild-trust",
+      "source": "./skills/agent-guild-trust",
+      "description": "Check evidence about an unfamiliar autonomous agent before delegating work or money, and verify Agent Guild passports. This skill is read-only and never authorizes a payment, delegation, or other side effect.",
+      "category": "integrations",
+      "keywords": [
+        "agent-trust",
+        "agent-reputation",
+        "delegation",
+        "passport",
+        "counterparty"
+      ]
+    },
+    {
       "name": "add-skill",
       "source": "./skills/add-skill",
       "description": "Add (import) an OpenHands skill from a GitHub repository into the current workspace.",
