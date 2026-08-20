@@ -1,0 +1,12 @@
+{
+  "name": "taskmarket-delegation",
+  "version": "0.1.0",
+  "description": "Delegate well-scoped work to Taskmarket with bounded spending and explicit review gates",
+  "author": {
+    "name": "OpenHands Extensions Contributors"
+  },
+  "homepage": "https://taskmarket.dev/",
+  "repository": "https://github.com/OpenHands/extensions",
+  "license": "MIT",
+  "keywords": ["taskmarket", "delegation", "bounty", "agents", "payments"]
+}
