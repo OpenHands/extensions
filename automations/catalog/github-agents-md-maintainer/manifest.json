@@ -2,6 +2,7 @@
   "id": "github-agents-md-maintainer",
   "name": "AGENTS.md Maintainer",
   "category": "Documentation",
+  "icon": "bot",
   "description": "Keep AGENTS.md current in your repositories. On a schedule, an agent reads the repository, creates or updates AGENTS.md, and opens a pull request - and stays quiet while one of its pull requests is still open.",
   "requires": {
     "integrations": {

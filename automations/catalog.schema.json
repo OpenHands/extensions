@@ -21,12 +21,40 @@
       "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
       "description": "Stable identifier. Must equal the name of the directory holding this manifest."
     },
-    "name": { "type": "string", "minLength": 1 },
-    "category": { "type": "string", "minLength": 1 },
-    "description": { "type": "string", "minLength": 1 },
-    "requires": { "$ref": "#/$defs/requires" },
-    "popularityRank": { "type": "integer", "minimum": 0 },
-    "estimatedSetupMinutes": { "type": "integer", "minimum": 1 },
+    "name": {
+      "type": "string",
+      "minLength": 1
+    },
+    "category": {
+      "type": "string",
+      "minLength": 1
+    },
+    "icon": {
+      "description": "The glyph the card shows, named from the same closed set the interface manifest's navigation uses. Absent means the host derives one from requires.integrations, which is right for an automation whose identity is the service it talks to and wrong for one whose identity is the work itself.",
+      "enum": [
+        "layout-dashboard",
+        "sparkles",
+        "bot",
+        "circle-alert",
+        "activity",
+        "timer"
+      ]
+    },
+    "description": {
+      "type": "string",
+      "minLength": 1
+    },
+    "requires": {
+      "$ref": "#/$defs/requires"
+    },
+    "popularityRank": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "estimatedSetupMinutes": {
+      "type": "integer",
+      "minimum": 1
+    },
     "skill": {
       "description": "The skills/ directory that builds this automation today. Defaults to `id`, so it is stated only where the two differ. How that skill is invoked is not repeated here: the command lives once, in the skill's own `triggers:` frontmatter, and the skills catalog exposes it.",
       "type": "string",
@@ -37,7 +65,9 @@
       "type": "string",
       "minLength": 1
     },
-    "setup": { "$ref": "#/$defs/setup" }
+    "setup": {
+      "$ref": "#/$defs/setup"
+    }
   },
   "$defs": {
     "setup": {
@@ -55,10 +85,15 @@
           "description": "Selects how this block is interpreted. A future format ships a new constant."
         },
         "mode": {
-          "enum": ["direct", "assisted"],
+          "enum": [
+            "direct",
+            "assisted"
+          ],
           "description": "direct - the form produces a request body. assisted - the form seeds an agent conversation that finishes setup."
         },
-        "form": { "$ref": "#/$defs/form" },
+        "form": {
+          "$ref": "#/$defs/form"
+        },
         "prompt": {
           "description": "direct only. What the automation is told to do. The rest of the create request restates the form, so it is not written here: the automation's name comes from this entry, the repository from the repo-picker field, and the trigger from the key and fields under form.triggers.",
           "$ref": "#/$defs/templateValue"
@@ -73,33 +108,90 @@
         },
         "message": {
           "description": "Setup context handed to the agent conversation that finishes setup. Required for assisted mode. Optional for direct mode, where it seeds the fallback conversation the host offers when the deployment cannot run the direct path. The command that opens it comes from the skill, so it is not repeated here. Capped so this never becomes a channel for runtime instructions.",
-          "allOf": [{ "$ref": "#/$defs/templateCopy" }, { "maxLength": 2000 }]
+          "allOf": [
+            {
+              "$ref": "#/$defs/templateCopy"
+            },
+            {
+              "maxLength": 2000
+            }
+          ]
         }
       },
       "allOf": [
         {
           "if": {
-            "properties": { "mode": { "const": "direct" } },
-            "required": ["mode"]
+            "properties": {
+              "mode": {
+                "const": "direct"
+              }
+            },
+            "required": [
+              "mode"
+            ]
           },
           "then": {
             "oneOf": [
-              { "required": ["prompt"], "not": { "required": ["bundle"] } },
-              { "required": ["bundle"], "not": { "required": ["prompt"] } }
+              {
+                "required": [
+                  "prompt"
+                ],
+                "not": {
+                  "required": [
+                    "bundle"
+                  ]
+                }
+              },
+              {
+                "required": [
+                  "bundle"
+                ],
+                "not": {
+                  "required": [
+                    "prompt"
+                  ]
+                }
+              }
             ]
           }
         },
         {
           "if": {
-            "properties": { "mode": { "const": "assisted" } },
-            "required": ["mode"]
+            "properties": {
+              "mode": {
+                "const": "assisted"
+              }
+            },
+            "required": [
+              "mode"
+            ]
           },
           "then": {
-            "required": ["message"],
+            "required": [
+              "message"
+            ],
             "allOf": [
-              { "not": { "required": ["prompt"] } },
-              { "not": { "required": ["bundle"] } },
-              { "not": { "required": ["filter"] } }
+              {
+                "not": {
+                  "required": [
+                    "prompt"
+                  ]
+                }
+              },
+              {
+                "not": {
+                  "required": [
+                    "bundle"
+                  ]
+                }
+              },
+              {
+                "not": {
+                  "required": [
+                    "filter"
+                  ]
+                }
+              }
             ]
           }
         },
@@ -108,18 +200,44 @@
             "properties": {
               "form": {
                 "properties": {
-                  "triggers": { "not": { "required": ["event"] } }
+                  "triggers": {
+                    "not": {
+                      "required": [
+                        "event"
+                      ]
+                    }
+                  }
                 },
-                "required": ["triggers"]
+                "required": [
+                  "triggers"
+                ]
               }
             },
-            "required": ["form"]
+            "required": [
+              "form"
+            ]
           },
-          "then": { "not": { "required": ["filter"] } }
+          "then": {
+            "not": {
+              "required": [
+                "filter"
+              ]
+            }
+          }
         },
         {
-          "if": { "required": ["bundle"] },
-          "then": { "not": { "required": ["filter"] } }
+          "if": {
+            "required": [
+              "bundle"
+            ]
+          },
+          "then": {
+            "not": {
+              "required": [
+                "filter"
+              ]
+            }
+          }
         }
       ]
     },
@@ -127,7 +245,12 @@
       "description": "What the host packs into a .tar.gz and uploads before creating the automation. It names files inside this repository and the command that runs them - never a host, a URL, or code to evaluate.",
       "type": "object",
       "additionalProperties": false,
-      "required": ["version", "entrypoint", "files", "config"],
+      "required": [
+        "version",
+        "entrypoint",
+        "files",
+        "config"
+      ],
       "properties": {
         "version": {
           "description": "The version of this bundle, recorded as the created automation's template provenance. Bump it when the shipped files or the config shape change: it is what tells an already-enabled deployment that what it installed is no longer current. Not the package version, which moves for reasons that have nothing to do with this entry.",
@@ -149,7 +272,9 @@
           "minLength": 1,
           "maxLength": 255,
           "pattern": "^[A-Za-z0-9._-]+(/[A-Za-z0-9._-]+)*$",
-          "not": { "pattern": "(^|/)\\.\\.?(/|$)" }
+          "not": {
+            "pattern": "(^|/)\\.\\.?(/|$)"
+          }
         },
         "timeout": {
           "description": "Seconds a single run may take, when this entry needs more than the service default. A poll that fetches an archive per queued item needs longer than one that only calls an API.",
@@ -164,10 +289,14 @@
           "maxProperties": 32,
           "propertyNames": {
             "pattern": "^[A-Za-z0-9._-]+(/[A-Za-z0-9._-]+)*$",
-            "not": { "pattern": "(^|/)\\.\\.?(/|$)" },
+            "not": {
+              "pattern": "(^|/)\\.\\.?(/|$)"
+            },
             "maxLength": 255
           },
-          "additionalProperties": { "$ref": "#/$defs/bundleSource" }
+          "additionalProperties": {
+            "$ref": "#/$defs/bundleSource"
+          }
         },
         "config": {
           "description": "The config.json packed beside the entrypoint, rendered from the form. This is the bundle's analogue of prompt: the one thing that cannot be read off the form, because only the entry knows which key of its own script each field fills.",
@@ -181,23 +310,42 @@
       "minLength": 1,
       "maxLength": 255,
       "pattern": "^(skills|automations)/[A-Za-z0-9._-]+(/[A-Za-z0-9._-]+)*$",
-      "not": { "pattern": "(^|/)\\.\\.?(/|$)" }
+      "not": {
+        "pattern": "(^|/)\\.\\.?(/|$)"
+      }
     },
     "bundleConfig": {
       "description": "The JSON document written to config.json. Its string leaves may embed the same placeholders every other value uses. It carries no markup rule, because it is written to a file rather than rendered.",
       "type": "object",
       "minProperties": 1,
-      "additionalProperties": { "$ref": "#/$defs/bundleConfigValue" }
+      "additionalProperties": {
+        "$ref": "#/$defs/bundleConfigValue"
+      }
     },
     "bundleConfigValue": {
       "description": "A config leaf: a templated string, a number, a boolean, null, or an array or object of the same.",
       "anyOf": [
-        { "$ref": "#/$defs/templateValue" },
-        { "type": ["number", "boolean", "null"] },
-        { "type": "array", "items": { "$ref": "#/$defs/bundleConfigValue" } },
+        {
+          "$ref": "#/$defs/templateValue"
+        },
+        {
+          "type": [
+            "number",
+            "boolean",
+            "null"
+          ]
+        },
+        {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/bundleConfigValue"
+          }
+        },
         {
           "type": "object",
-          "additionalProperties": { "$ref": "#/$defs/bundleConfigValue" }
+          "additionalProperties": {
+            "$ref": "#/$defs/bundleConfigValue"
+          }
         }
       ]
     },
@@ -205,7 +353,9 @@
       "description": "Literal user-visible copy. Carries no markup, because a setup block must never inject HTML into the host.",
       "type": "string",
       "minLength": 1,
-      "not": { "pattern": "<[A-Za-z/!]" }
+      "not": {
+        "pattern": "<[A-Za-z/!]"
+      }
     },
     "placeholders": {
       "$comment": "Every {{ must open a known placeholder namespace and close immediately. `form` resolves against the values the user entered; `automation` against the catalog entry this setup block belongs to. There is deliberately no secrets namespace.",
@@ -216,31 +366,46 @@
     "templateCopy": {
       "description": "User-visible copy that may embed {{namespace.key}} placeholders.",
       "allOf": [
-        { "$ref": "#/$defs/copy" },
-        { "$ref": "#/$defs/placeholders" }
+        {
+          "$ref": "#/$defs/copy"
+        },
+        {
+          "$ref": "#/$defs/placeholders"
+        }
       ]
     },
     "templateValue": {
       "description": "A request-body string that may embed placeholders. Not rendered, so expression syntax such as a JMESPath filter is allowed.",
       "type": "string",
       "minLength": 1,
-      "allOf": [{ "$ref": "#/$defs/placeholders" }]
+      "allOf": [
+        {
+          "$ref": "#/$defs/placeholders"
+        }
+      ]
     },
     "requires": {
       "description": "What must be connected, and what the deployment must offer, for this automation to be usable. Every entry carries it, whether or not it ships a setup block, so the integrations an automation needs are recorded in exactly one place. The host decides what to do when a requirement is unmet; an entry only states the requirement and why it exists.",
       "type": "object",
       "additionalProperties": false,
-      "required": ["integrations"],
+      "required": [
+        "integrations"
+      ],
       "properties": {
         "integrations": {
           "description": "Keyed by integration id, each of which must resolve to an integrations/catalog entry.",
           "type": "object",
           "minProperties": 1,
-          "propertyNames": { "type": "string", "minLength": 1 },
+          "propertyNames": {
+            "type": "string",
+            "minLength": 1
+          },
           "additionalProperties": {
             "type": "object",
             "additionalProperties": false,
-            "required": ["message"],
+            "required": [
+              "message"
+            ],
             "properties": {
               "message": {
                 "description": "Why this automation needs the integration. Required, so an integration is never listed without saying what it is for.",
@@ -258,7 +423,10 @@
           "type": "array",
           "minItems": 1,
           "uniqueItems": true,
-          "items": { "type": "string", "minLength": 1 }
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
         }
       }
     },
@@ -266,17 +434,25 @@
       "description": "The inputs the user is asked for. These constraints are also what the host validates locally, so no separate validation block restates them.",
       "type": "object",
       "additionalProperties": false,
-      "required": ["args"],
+      "required": [
+        "args"
+      ],
       "properties": {
-        "note": { "$ref": "#/$defs/copy" },
+        "note": {
+          "$ref": "#/$defs/copy"
+        },
         "triggers": {
           "description": "Inputs that decide when the automation runs, keyed by trigger kind. The key set is the trigger kinds the deployment must support, so it is not restated anywhere else.",
           "type": "object",
           "additionalProperties": false,
           "minProperties": 1,
           "properties": {
-            "cron": { "$ref": "#/$defs/formFields" },
-            "event": { "$ref": "#/$defs/formFields" }
+            "cron": {
+              "$ref": "#/$defs/formFields"
+            },
+            "event": {
+              "$ref": "#/$defs/formFields"
+            }
           }
         },
         "args": {
@@ -289,13 +465,22 @@
       "description": "Keyed by field name, which is what {{form.<name>}} resolves against.",
       "type": "object",
       "minProperties": 1,
-      "propertyNames": { "pattern": "^[a-z][A-Za-z0-9]*$" },
-      "additionalProperties": { "$ref": "#/$defs/formField" }
+      "propertyNames": {
+        "pattern": "^[a-z][A-Za-z0-9]*$"
+      },
+      "additionalProperties": {
+        "$ref": "#/$defs/formField"
+      }
     },
     "formField": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["type", "label", "help", "required"],
+      "required": [
+        "type",
+        "label",
+        "help",
+        "required"
+      ],
       "properties": {
         "type": {
           "description": "Semantic field types. The host renders a cron field without knowing what cron means to an automation, and resolves the deployment's schedule limits and timezone list for the cron and timezone types, so an entry never restates them.",
@@ -308,12 +493,28 @@
             "repo-picker"
           ]
         },
-        "label": { "$ref": "#/$defs/copy" },
-        "help": { "$ref": "#/$defs/copy" },
-        "placeholder": { "$ref": "#/$defs/copy" },
-        "default": { "type": "string" },
-        "required": { "type": "boolean" },
-        "provider": { "enum": ["github", "gitlab", "bitbucket"] },
+        "label": {
+          "$ref": "#/$defs/copy"
+        },
+        "help": {
+          "$ref": "#/$defs/copy"
+        },
+        "placeholder": {
+          "$ref": "#/$defs/copy"
+        },
+        "default": {
+          "type": "string"
+        },
+        "required": {
+          "type": "boolean"
+        },
+        "provider": {
+          "enum": [
+            "github",
+            "gitlab",
+            "bitbucket"
+          ]
+        },
         "multiple": {
           "description": "repo-picker only. The field collects several repositories rather than one, and its value is a list. A whole-value placeholder resolves to that list, so a payload can state `\"repos\": \"{{form.repositories}}\"` and get an array.",
           "const": true
@@ -324,10 +525,18 @@
           "items": {
             "type": "object",
             "additionalProperties": false,
-            "required": ["value", "label"],
+            "required": [
+              "value",
+              "label"
+            ],
             "properties": {
-              "value": { "type": "string", "minLength": 1 },
-              "label": { "$ref": "#/$defs/copy" }
+              "value": {
+                "type": "string",
+                "minLength": 1
+              },
+              "label": {
+                "$ref": "#/$defs/copy"
+              }
             }
           }
         },
@@ -336,11 +545,19 @@
           "additionalProperties": false,
           "minProperties": 1,
           "properties": {
-            "minLength": { "type": "integer", "minimum": 0 },
-            "maxLength": { "type": "integer", "minimum": 1 },
+            "minLength": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "maxLength": {
+              "type": "integer",
+              "minimum": 1
+            },
             "format": {
               "description": "A host-implemented check, named from a closed set. Setup blocks cannot supply their own regex, so one cannot hand the host a pathological pattern. safeExpressionLiteral marks a value that is interpolated into a filter expression string literal, so quotes and backslashes must be rejected before they can break the expression.",
-              "enum": ["safeExpressionLiteral"]
+              "enum": [
+                "safeExpressionLiteral"
+              ]
             }
           }
         }
@@ -348,24 +565,62 @@
       "allOf": [
         {
           "if": {
-            "properties": { "type": { "const": "repo-picker" } },
-            "required": ["type"]
+            "properties": {
+              "type": {
+                "const": "repo-picker"
+              }
+            },
+            "required": [
+              "type"
+            ]
           },
-          "then": { "required": ["provider"] }
+          "then": {
+            "required": [
+              "provider"
+            ]
+          }
         },
         {
           "if": {
-            "properties": { "type": { "not": { "const": "repo-picker" } } },
-            "required": ["type"]
+            "properties": {
+              "type": {
+                "not": {
+                  "const": "repo-picker"
+                }
+              }
+            },
+            "required": [
+              "type"
+            ]
           },
-          "then": { "not": { "required": ["multiple"] } }
+          "then": {
+            "not": {
+              "required": [
+                "multiple"
+              ]
+            }
+          }
         },
         {
           "if": {
-            "properties": { "type": { "not": { "const": "select" } } },
-            "required": ["type"]
+            "properties": {
+              "type": {
+                "not": {
+                  "const": "select"
+                }
+              }
+            },
+            "required": [
+              "type"
+            ]
           },
-          "then": { "not": { "required": ["options"] } }
+          "then": {
+            "not": {
+              "required": [
+                "options"
+              ]
+            }
+          }
         }
       ]
     }

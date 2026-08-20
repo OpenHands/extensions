@@ -318,3 +318,35 @@ def test_a_capped_run_still_finalizes_but_starts_nothing(main, monkeypatch, tmp_
     assert finalized == [1], "a capped run must still finish work already in flight"
     assert started == [], "a capped run must not start new work"
     assert main._task_key(period) not in main.load_state("acme/widget")["tasks"]
+
+
+def test_the_entry_declares_the_icon_its_card_should_show():
+    """A card whose identity is the work, not the service it talks to, names its
+    own glyph; the host derives one from the integrations otherwise."""
+    entry = json.loads(
+        (
+            Path(__file__).parent.parent
+            / "automations"
+            / "catalog"
+            / "github-agents-md-maintainer"
+            / "manifest.json"
+        ).read_text()
+    )
+    schema = json.loads(
+        (Path(__file__).parent.parent / "automations" / "catalog.schema.json").read_text()
+    )
+
+    assert entry["icon"] == "bot"
+    assert entry["icon"] in schema["properties"]["icon"]["enum"]
+
+
+def test_the_icon_vocabulary_matches_the_interface_manifest():
+    """Two closed sets for the same artwork would drift; the card icons are the
+    navigation's icons."""
+    root = Path(__file__).parent.parent
+    catalog = json.loads((root / "automations" / "catalog.schema.json").read_text())
+    interface = json.loads((root / "automations" / "interface.schema.json").read_text())
+
+    nav_icons = json.dumps(interface)
+    for slug in catalog["properties"]["icon"]["enum"]:
+        assert f'"{slug}"' in nav_icons, f"{slug} is not an icon the interface manifest knows"
