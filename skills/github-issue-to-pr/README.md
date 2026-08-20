@@ -37,6 +37,15 @@ thread, which anyone able to file an issue can write. A conversation driven by
 that text should not also hold a token that can push branches, comment as you, or
 read the rest of your secrets.
 
+## Two setup paths
+
+The `/issue-to-pr:setup` conversation substitutes the constants at the top of
+`scripts/main.py` and uploads the result. The catalog entry
+(`automations/catalog/github-issue-to-pr/`) ships the same script unmodified as
+a **bundle** and renders a `config.json` beside it from the setup form, which the
+script loads over those constants. Both paths produce the same automation: a
+tarball the automation service runs on a cron, not a prompt handed to an agent.
+
 ## Prerequisites
 
 Set `GITHUB_PERSONAL_ACCESS_TOKEN` in OpenHands Settings -> Secrets. The token

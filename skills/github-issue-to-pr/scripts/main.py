@@ -19,6 +19,7 @@ token has nothing to work with.
 import base64
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -29,6 +30,16 @@ from collections.abc import Callable
 from pathlib import Path
 from urllib.parse import urlencode
 
+# Configuration. Two setup paths write it, and both end up here:
+#
+#   - the agent-driven path (SKILL.md) substitutes these constants directly
+#     into a copy of this file before packaging it;
+#   - the catalog path packs an unmodified copy and ships a rendered
+#     config.json beside it, which is loaded over these defaults below.
+#
+# A declarative host cannot rewrite Python - the catalog schema admits data,
+# not code - so the constants stay as the defaults and config.json is the
+# override, rather than one path being expressed in terms of the other.
 REPOS = ["owner/repo"]
 TRIGGER_LABEL = "openhands"
 BRANCH_PREFIX = "openhands/issue"
@@ -45,6 +56,119 @@ DEFAULT_OPENHANDS_URL = "http://localhost:8000"
 
 COMMIT_AUTHOR_NAME = "OpenHands"
 COMMIT_AUTHOR_EMAIL = "openhands@all-hands.dev"
+
+CONFIG_FILENAME = "config.json"
+
+# Config keys, paired with the type each must have. A wrong type is a hard error
+# at import: the alternative is polling the string "owner/repo" one character at
+# a time, or opening pull requests against a label that is silently a list.
+_CONFIG_TYPES: dict[str, type] = {
+    "repos": list,
+    "trigger_label": str,
+    "branch_prefix": str,
+    "pull_request_mode": str,
+    "max_new_per_run": int,
+    "agent_secret_names": list,
+    "openhands_url": str,
+}
+
+_PULL_REQUEST_MODES = {"draft": True, "ready": False}
+
+
+def _check_string_list(key: str, value: list, allow_empty: bool) -> None:
+    if not allow_empty and not value:
+        raise SystemExit(f"{CONFIG_FILENAME}: {key} must not be empty")
+    if not all(isinstance(item, str) and item for item in value):
+        raise SystemExit(f"{CONFIG_FILENAME}: {key} must be a list of non-empty strings")
+
+
+def load_config(directory: Path | None = None) -> dict:
+    """Return the rendered config shipped beside this script, or {} if absent.
+
+    Only the keys above are read; anything else in the file is ignored, so a
+    host may ship provenance there without this script caring.
+    """
+    path = (directory or Path(__file__).resolve().parent) / CONFIG_FILENAME
+    if not path.is_file():
+        return {}
+
+    try:
+        raw = json.loads(path.read_text())
+    except json.JSONDecodeError as e:
+        raise SystemExit(f"{CONFIG_FILENAME} is not valid JSON: {e}") from e
+    if not isinstance(raw, dict):
+        raise SystemExit(f"{CONFIG_FILENAME} must contain a JSON object")
+
+    config = {}
+    for key, expected in _CONFIG_TYPES.items():
+        if key not in raw:
+            continue
+        value = raw[key]
+        # bool is an int in Python, so an unguarded int check would accept
+        # `"max_new_per_run": true` and then start `True` conversations.
+        if not isinstance(value, expected) or (expected is int and isinstance(value, bool)):
+            raise SystemExit(
+                f"{CONFIG_FILENAME}: {key} must be {expected.__name__}, "
+                f"got {type(value).__name__}"
+            )
+        if key == "repos":
+            _check_string_list(key, value, allow_empty=False)
+        if key == "agent_secret_names":
+            _check_string_list(key, value, allow_empty=True)
+        if key == "pull_request_mode" and value not in _PULL_REQUEST_MODES:
+            raise SystemExit(
+                f"{CONFIG_FILENAME}: pull_request_mode must be one of "
+                f"{', '.join(sorted(_PULL_REQUEST_MODES))}, got {value!r}"
+            )
+        if key == "max_new_per_run" and value < 1:
+            raise SystemExit(f"{CONFIG_FILENAME}: max_new_per_run must be at least 1")
+        config[key] = value
+    return config
+
+
+# owner/repo, which is what every GitHub API path in this script is built from.
+_REPO_NAME_RE = re.compile(r"^[A-Za-z0-9._-]+/[A-Za-z0-9._-]+$")
+
+
+def normalize_repo(value: str) -> str:
+    """Return ``owner/repo`` for the ways a repository gets written down.
+
+    A clone URL is what a repository page offers to copy, so it is what ends up
+    pasted into a setup form. Left alone it becomes
+    ``/repos/https://github.com/owner/repo``, which GitHub answers with a 404 -
+    indistinguishable, from here, from a repository the token cannot see.
+
+    Raises ValueError for anything that is not a repository name, so the run
+    says which value it could not read instead of blaming the token.
+    """
+    repo = value.strip()
+    if repo.startswith("git@"):
+        # git@github.com:owner/repo.git
+        repo = repo.partition(":")[2]
+    elif "://" in repo:
+        # https://github.com/owner/repo, and anything else with a host
+        repo = repo.split("://", 1)[1].partition("/")[2]
+    repo = repo.strip("/")
+    if repo.endswith(".git"):
+        repo = repo[: -len(".git")]
+
+    if not _REPO_NAME_RE.match(repo):
+        raise ValueError(
+            f"{value!r} is not a repository. Use owner/repo, for example "
+            "OpenHands/automation."
+        )
+    return repo
+
+
+_CONFIG = load_config()
+REPOS = _CONFIG.get("repos", REPOS)
+TRIGGER_LABEL = _CONFIG.get("trigger_label", TRIGGER_LABEL)
+BRANCH_PREFIX = _CONFIG.get("branch_prefix", BRANCH_PREFIX)
+if "pull_request_mode" in _CONFIG:
+    DRAFT_PULL_REQUEST = _PULL_REQUEST_MODES[_CONFIG["pull_request_mode"]]
+MAX_NEW_PER_RUN = _CONFIG.get("max_new_per_run", MAX_NEW_PER_RUN)
+AGENT_SECRET_NAMES = _CONFIG.get("agent_secret_names", AGENT_SECRET_NAMES)
+DEFAULT_OPENHANDS_URL = _CONFIG.get("openhands_url", DEFAULT_OPENHANDS_URL)
 
 DONE_DEBOUNCE = 15
 TERMINAL_STATUSES = {"idle", "finished", "error", "stuck"}
@@ -1122,15 +1246,16 @@ def main() -> str | None:
 
     last_conversation_id = None
     failures = []
-    for repo in REPOS:
+    for configured in REPOS:
         # One repository failing must not stop the others from being polled.
         try:
+            repo = normalize_repo(configured)
             conv_id = _process_repo(repo, github_token, agent_url, api_key, openhands_url)
             if conv_id:
                 last_conversation_id = conv_id
         except Exception as exc:
-            print(f"Error processing {repo}: {_redact(str(exc), github_token)}")
-            failures.append(f"{repo}: {_redact(str(exc), github_token)}")
+            print(f"Error processing {configured}: {_redact(str(exc), github_token)}")
+            failures.append(f"{configured}: {_redact(str(exc), github_token)}")
 
     if failures and len(failures) == len(REPOS):
         # Every repository failed, so the run achieved nothing - report it as a

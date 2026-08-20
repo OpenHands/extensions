@@ -40,11 +40,12 @@
         }
       },
       "args": {
-        "repository": {
+        "repositories": {
           "type": "repo-picker",
-          "label": "Repository",
-          "help": "The repository whose issues will be implemented.",
+          "label": "Repositories",
+          "help": "The repositories whose labelled issues are implemented. Each is polled independently and keeps its own state, so issue numbers never collide between them.",
           "provider": "github",
+          "multiple": true,
           "required": true
         },
         "triggerLabel": {
@@ -88,7 +89,20 @@
         }
       }
     },
-    "prompt": "Implement issues labeled '{{form.triggerLabel}}' in {{form.repository}} and open a pull request for each one. Branch prefix: {{form.branchPrefix}}. Pull request mode: {{form.pullRequestMode}}.",
-    "message": "This deployment cannot run the scheduled issue-to-PR automation directly. Set it up in this conversation instead: confirm the repository to watch, the trigger label, the branch prefix, whether pull requests open as drafts, and the polling schedule, then create the automation."
+    "bundle": {
+      "version": "1.0.0",
+      "entrypoint": "python3 main.py",
+      "timeout": 900,
+      "files": {
+        "main.py": "skills/github-issue-to-pr/scripts/main.py"
+      },
+      "config": {
+        "repos": "{{form.repositories}}",
+        "trigger_label": "{{form.triggerLabel}}",
+        "branch_prefix": "{{form.branchPrefix}}",
+        "pull_request_mode": "{{form.pullRequestMode}}"
+      }
+    },
+    "message": "This deployment cannot run the scheduled issue-to-PR automation directly. Set it up in this conversation instead: confirm the repositories to watch, the trigger label, the branch prefix, whether pull requests open as drafts, and the polling schedule, then create the automation."
   }
 }

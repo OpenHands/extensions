@@ -38,6 +38,95 @@ def _http_error(code: int, body: bytes = b"{}") -> urllib.error.HTTPError:
     return urllib.error.HTTPError("https://api.github.com", code, "err", {}, None)
 
 
+# ── Configuration ─────────────────────────────────────────────────────────────
+
+
+def test_config_json_overrides_the_constants(main, tmp_path):
+    """The catalog path ships an unmodified script plus a rendered config.json,
+    because a declarative host cannot rewrite Python."""
+    (tmp_path / "config.json").write_text(
+        json.dumps(
+            {
+                "repos": ["acme/one", "acme/two"],
+                "trigger_label": "ship-it",
+                "branch_prefix": "bot/issue",
+                "pull_request_mode": "ready",
+                "max_new_per_run": 5,
+                "agent_secret_names": ["NPM_TOKEN"],
+                "openhands_url": "https://app.example.com",
+                "unknown_key": "ignored",
+            }
+        )
+    )
+
+    config = main.load_config(tmp_path)
+
+    assert config == {
+        "repos": ["acme/one", "acme/two"],
+        "trigger_label": "ship-it",
+        "branch_prefix": "bot/issue",
+        "pull_request_mode": "ready",
+        "max_new_per_run": 5,
+        "agent_secret_names": ["NPM_TOKEN"],
+        "openhands_url": "https://app.example.com",
+    }
+
+
+def test_a_missing_config_leaves_the_constants_alone(main, tmp_path):
+    assert main.load_config(tmp_path) == {}
+
+
+@pytest.mark.parametrize(
+    "config",
+    [
+        {"repos": "acme/one"},
+        {"repos": []},
+        {"repos": ["acme/one", ""]},
+        {"trigger_label": ["openhands"]},
+        {"pull_request_mode": "maybe"},
+        {"max_new_per_run": 0},
+        {"max_new_per_run": True},
+        {"agent_secret_names": [1]},
+    ],
+)
+def test_a_config_that_would_misbehave_fails_the_run(main, tmp_path, config):
+    """Polling the string "owner/repo" one character at a time is worse than
+    stopping, so a wrong type is a hard error rather than a coercion."""
+    (tmp_path / "config.json").write_text(json.dumps(config))
+
+    with pytest.raises(SystemExit):
+        main.load_config(tmp_path)
+
+
+def test_a_config_that_is_not_json_fails_the_run(main, tmp_path):
+    (tmp_path / "config.json").write_text("{not json")
+
+    with pytest.raises(SystemExit):
+        main.load_config(tmp_path)
+
+
+@pytest.mark.parametrize(
+    ("written", "expected"),
+    [
+        ("owner/repo", "owner/repo"),
+        ("  owner/repo  ", "owner/repo"),
+        ("https://github.com/owner/repo", "owner/repo"),
+        ("https://github.com/owner/repo.git", "owner/repo"),
+        ("git@github.com:owner/repo.git", "owner/repo"),
+    ],
+)
+def test_repositories_are_normalized_to_owner_repo(main, written, expected):
+    """A clone URL is what a repository page offers to copy, so it is what ends
+    up pasted into the form. Left alone it becomes a 404 blamed on the token."""
+    assert main.normalize_repo(written) == expected
+
+
+@pytest.mark.parametrize("written", ["", "owner", "https://github.com/owner", "owner/repo/extra"])
+def test_a_value_that_is_not_a_repository_is_named(main, written):
+    with pytest.raises(ValueError):
+        main.normalize_repo(written)
+
+
 # ── The credential never reaches the workspace ────────────────────────────────
 
 

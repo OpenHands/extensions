@@ -165,6 +165,12 @@ whose instructions came from an issue body.
 Read `scripts/main.py` from this skill's directory. Apply exactly five constant
 substitutions near the top of the file:
 
+> The script also reads a `config.json` shipped beside it, if there is one, over
+> these constants. That is how the catalog entry
+> (`automations/catalog/github-issue-to-pr/`) configures an unmodified copy,
+> since a declarative host cannot rewrite Python. This setup path substitutes the
+> constants and ships no `config.json`, so the two never collide.
+
 | Placeholder | Replace with |
 |---|---|
 | `REPOS = ["owner/repo"]` | `REPOS = ["{owner_repo}", ...]` - one entry per repository collected in Step 2 |
@@ -175,6 +181,10 @@ substitutions near the top of the file:
 
 Leave `MAX_NEW_PER_RUN` and `DEFAULT_OPENHANDS_URL` alone unless the user asks
 for a different cap or a non-default OpenHands URL.
+
+A repository may be given as `owner/repo`, as a clone URL, or as an SSH remote;
+the script normalizes each one at startup and names the value it could not read
+rather than blaming the token.
 
 Use a safe string writer such as `json.dumps(value)` when inserting user-provided
 repository names, labels, or prefixes into Python string literals.
@@ -261,9 +271,10 @@ Tell the user:
 
 ## Runtime Behaviour (per poll)
 
-Each cron run executes `main.py`, which checks that `git` is available, resolves
-and validates `GITHUB_PERSONAL_ACCESS_TOKEN` once, then processes every
-repository in `REPOS` independently. One repository failing does not stop the
+Each cron run executes `main.py`, which loads `config.json` if the catalog
+shipped one, checks that `git` is available, resolves and validates
+`GITHUB_PERSONAL_ACCESS_TOKEN` once, then processes every repository in `REPOS`
+independently. One repository failing does not stop the
 others; the run fails only if every repository fails.
 
 For each repository:
