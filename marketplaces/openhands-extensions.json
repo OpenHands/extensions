@@ -781,6 +781,19 @@
         "jira",
         "atlassian"
       ]
+    },
+    {
+      "name": "install-openhands-replicated",
+      "source": "./skills/install-openhands-replicated",
+      "description": "Guide supported OpenHands Enterprise VM installations through Replicated Embedded Cluster with read-only preflights, explicit approval gates, provider setup, and end-to-end validation.",
+      "category": "environment",
+      "keywords": [
+        "openhands-enterprise",
+        "replicated",
+        "embedded-cluster",
+        "vm-install",
+        "preflight"
+      ]
     }
   ]
 }

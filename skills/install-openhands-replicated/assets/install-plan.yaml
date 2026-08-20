@@ -1,0 +1,61 @@
+# Non-secret planning record only. Do not place credentials, license contents,
+# private keys, download URLs, tokens, or decrypted ConfigValues in this file.
+installation:
+  target_ohe_release: ""
+  installer_version: ""
+  infrastructure_path: "aws-terraform-or-manual-vm"
+  environment_name: ""
+  change_approver: ""
+  maintenance_window: ""
+
+infrastructure:
+  cloud_or_datacenter: ""
+  region_or_site: ""
+  vm_identifier: ""
+  cpu_count: 0
+  memory_gib: 0
+  disk_gib: 0
+  storage_type: ""
+  disk_p99_write_latency_ms: null
+
+network:
+  base_domain: ""
+  hostname_mode: "simple"
+  terraform_hostname_mode: "wildcard"
+  dns_owner: ""
+  firewall_owner: ""
+  proxy_required: false
+  public_tls: true
+  certificate_owner: ""
+
+application:
+  llm_provider: ""
+  git_provider: ""
+  database_mode: "embedded-or-external"
+  optional_integrations: []
+  analytics_enabled: false
+  automations_enabled: false
+
+recovery:
+  backup_owner: ""
+  rpo: ""
+  rto: ""
+  restore_procedure: ""
+
+validation:
+  host_preflight: "pending"
+  dns_preflight: "pending"
+  tls_preflight: "pending"
+  outbound_preflight: "pending"
+  installer_approved: false
+  deployment_ready: false
+  login: "pending"
+  llm_smoke_test: "pending"
+  conversation_smoke_test: "pending"
+  repository_smoke_test: "not-in-scope"
+  storage_guard: "pending"
+
+handoff:
+  known_limitations: []
+  support_channel: ""
+  cleanup_owner: ""
