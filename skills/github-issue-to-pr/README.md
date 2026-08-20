@@ -59,7 +59,10 @@ tarball the automation service runs on a cron, not a prompt handed to an agent.
 
 Set `GITHUB_PERSONAL_ACCESS_TOKEN` in OpenHands Settings -> Secrets. The token
 must be able to read the repositories, read and write issues (for the progress
-comments), **write contents** (to push the branch), and **write pull requests**.
+comments), **write contents** (to push the branch), **write pull requests**, and
+carry the **`workflow` scope** - an issue asking for a CI change makes the agent
+touch `.github/workflows/`, and GitHub rejects the entire push from a token
+without it.
 
 The automation runtime must have `git` available; the script clones, commits, and
 pushes with it.

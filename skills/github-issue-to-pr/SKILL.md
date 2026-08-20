@@ -48,8 +48,14 @@ Verify that the following secret is set in **OpenHands Settings -> Secrets**:
 
 | Secret name | Token type | Minimum permissions |
 |---|---|---|
-| `GITHUB_PERSONAL_ACCESS_TOKEN` | Classic PAT | `repo` |
-| `GITHUB_PERSONAL_ACCESS_TOKEN` | Fine-grained PAT | Contents: **Read and write**, Metadata: Read, Issues: **Read and write**, Pull requests: **Read and write** |
+| `GITHUB_PERSONAL_ACCESS_TOKEN` | Classic PAT | `repo`, plus `workflow` |
+| `GITHUB_PERSONAL_ACCESS_TOKEN` | Fine-grained PAT | Contents: **Read and write**, Metadata: Read, Issues: **Read and write**, Pull requests: **Read and write**, Workflows: **Read and write** |
+
+The workflow scope is not optional in practice. An issue asking for a CI change
+is a normal issue, and GitHub rejects the whole push when a token without it
+touches `.github/workflows/`: *"refusing to allow a Personal Access Token to
+create or update workflow ... without `workflow` scope"*. The branch is rejected
+in full, so the pull request never opens.
 
 Contents write access is required because the script pushes the branch, and pull
 request write because it opens the pull request. A read-only token will poll
@@ -357,6 +363,7 @@ The completion callback fires once for the whole run.
 | Nothing is ever queued | Trigger label not present, or applied to a pull request rather than an issue | Apply the configured label to an issue |
 | "Bad credentials" in run logs | Token expired | Rotate and update `GITHUB_PERSONAL_ACCESS_TOKEN` |
 | "The token cannot push to ..." | Token lacks Contents: write on that repository | Issue a token with write access, or drop the repository from `REPOS` |
+| Push rejected: "refusing to allow a Personal Access Token to create or update workflow" | The change touches `.github/workflows/` and the token has no `workflow` scope | Add the scope to the token; the next poll retries the same branch and opens the pull request |
 | 404 on repo access | Repo name wrong or no access | Re-check the entry in `REPOS` and the token's permissions |
 | `git is not available in the automation runtime` | The runtime image has no git | Use a runtime image that ships git; the script clones, commits, and pushes with it |
 | Issue commented "did not change any code" | The agent judged the issue too ambiguous, or made no edits | Read its answer in the comment, add the missing detail to the issue, then re-apply the label |
