@@ -8,6 +8,17 @@ export interface RecommendedAutomation {
   version?: string;
   name: string;
   category: string;
+  /**
+   * The glyph the card shows, from the closed set the interface manifest's
+   * navigation uses. Absent means the host derives one from the integrations.
+   */
+  icon?:
+    | "layout-dashboard"
+    | "sparkles"
+    | "bot"
+    | "circle-alert"
+    | "activity"
+    | "timer";
   description: string;
   requires: AutomationPrerequisites;
   popularityRank: number;

@@ -28,6 +28,10 @@
     },
     "name": { "type": "string", "minLength": 1 },
     "category": { "type": "string", "minLength": 1 },
+    "icon": {
+      "description": "The glyph the card shows, named from the same closed set the interface manifest's navigation uses. Absent means the host derives one from requires.integrations, which is right for an automation whose identity is the service it talks to and wrong for one whose identity is the work itself.",
+      "enum": ["layout-dashboard", "sparkles", "bot", "circle-alert", "activity", "timer"]
+    },
     "description": { "type": "string", "minLength": 1 },
     "requires": { "$ref": "#/$defs/requires" },
     "popularityRank": { "type": "integer", "minimum": 0 },

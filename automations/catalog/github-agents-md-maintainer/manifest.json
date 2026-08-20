@@ -1,0 +1,96 @@
+{
+  "id": "github-agents-md-maintainer",
+  "name": "AGENTS.md Maintainer",
+  "category": "Documentation",
+  "icon": "bot",
+  "description": "Keep AGENTS.md current in your repositories. On a schedule, an agent reads the repository, creates or updates AGENTS.md, and opens a pull request - and stays quiet while one of its pull requests is still open.",
+  "requires": {
+    "integrations": {
+      "github": {
+        "message": "Used to read the repository, push the branch, and open the pull request."
+      }
+    },
+    "features": [
+      "customTarball"
+    ]
+  },
+  "popularityRank": 80,
+  "estimatedSetupMinutes": 3,
+  "exampleImplementation": "Trigger: cron, weekly by default (0 9 * * 1)\nRequired secret: GITHUB_PERSONAL_ACCESS_TOKEN, with permission to write contents and pull requests\n\n1. Read the repositories, branch prefix, pull request mode, and schedule from setup.\n2. Process each repository independently, with its own state, so one falling behind never blocks another.\n3. Key one unit of work to the ISO week, so a cron that fires more often, a retried run, or a restarted service cannot open the same pull request twice.\n4. Skip a repository whose previous pull request from this automation is still open; a second one would edit the same file.\n5. Ask GitHub whether AGENTS.md exists, which decides create vs update and the pull request title.\n6. Clone the default branch into a directory of its own, create the working branch, and start an OpenHands conversation with that directory as its workspace.\n7. The agent reads the repository, edits AGENTS.md, commits, pushes, and opens the pull request; the script verifies that on GitHub and opens it itself when the agent did not.\n8. Record no-changes when AGENTS.md is already accurate, which is the expected result most weeks.\n9. Remove the clone once the conversation has stopped.",
+  "setup": {
+    "version": "1.0",
+    "mode": "direct",
+    "form": {
+      "triggers": {
+        "cron": {
+          "schedule": {
+            "type": "cron",
+            "label": "Check frequency",
+            "help": "How often to review AGENTS.md. Work is keyed by ISO week, so a schedule more frequent than weekly only polls.",
+            "default": "0 9 * * 1",
+            "required": true
+          },
+          "timezone": {
+            "type": "timezone",
+            "label": "Timezone",
+            "help": "Timezone the schedule is interpreted in.",
+            "default": "UTC",
+            "required": true
+          }
+        }
+      },
+      "args": {
+        "repositories": {
+          "type": "repo-picker",
+          "label": "Repositories",
+          "help": "The repositories whose AGENTS.md is maintained. Each keeps its own state and its own weekly claim.",
+          "provider": "github",
+          "multiple": true,
+          "required": true
+        },
+        "branchPrefix": {
+          "type": "text",
+          "label": "Branch prefix",
+          "help": "Branches are named after this prefix and the ISO week, such as openhands/agents-md-2026-W34. It is also how the automation recognises its own open pull requests.",
+          "default": "openhands/agents-md",
+          "required": true,
+          "constraints": {
+            "minLength": 1,
+            "maxLength": 50
+          }
+        },
+        "pullRequestMode": {
+          "type": "select",
+          "label": "Pull request mode",
+          "help": "Whether the pull request is opened as a draft or ready for review.",
+          "default": "draft",
+          "required": true,
+          "options": [
+            {
+              "value": "draft",
+              "label": "Draft"
+            },
+            {
+              "value": "ready",
+              "label": "Ready for review"
+            }
+          ]
+        }
+      }
+    },
+    "bundle": {
+      "version": "1.0.0",
+      "entrypoint": "python3 main.py",
+      "timeout": 900,
+      "files": {
+        "main.py": "skills/github-agents-md-maintainer/scripts/main.py"
+      },
+      "config": {
+        "repos": "{{form.repositories}}",
+        "branch_prefix": "{{form.branchPrefix}}",
+        "pull_request_mode": "{{form.pullRequestMode}}"
+      }
+    },
+    "message": "This deployment cannot run the scheduled AGENTS.md automation directly. Set it up in this conversation instead: confirm the repositories to maintain, the branch prefix, whether pull requests open as drafts, and the schedule, then create the automation."
+  }
+}

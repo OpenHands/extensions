@@ -1,0 +1,19 @@
+{
+  "name": "github-agents-md-maintainer",
+  "version": "1.0.0",
+  "description": "Create an automation that keeps AGENTS.md current in one or more GitHub repositories. On a schedule it clones the default branch, has an agent read the repository and create or update AGENTS.md, and opens a pull request - staying quiet while one of its own pull requests is still open.",
+  "author": {
+    "name": "OpenHands",
+    "email": "contact@all-hands.dev"
+  },
+  "homepage": "https://github.com/OpenHands/extensions",
+  "repository": "https://github.com/OpenHands/extensions",
+  "license": "MIT",
+  "keywords": [
+    "github",
+    "agents-md",
+    "documentation",
+    "maintenance",
+    "automation"
+  ]
+}

@@ -682,6 +682,19 @@
       ]
     },
     {
+      "name": "github-agents-md-maintainer",
+      "source": "./skills/github-agents-md-maintainer",
+      "description": "Create an automation that keeps AGENTS.md current in one or more GitHub repositories. On a schedule an agent reads the repository, creates or updates AGENTS.md, and opens a pull request - staying quiet while one of its own pull requests is still open.",
+      "category": "automations",
+      "keywords": [
+        "github",
+        "agents-md",
+        "documentation",
+        "maintenance",
+        "automation"
+      ]
+    },
+    {
       "name": "github-issue-to-pr",
       "source": "./skills/github-issue-to-pr",
       "description": "Create an automation that implements GitHub issues when a configurable trigger label is applied. Clones the default branch for the agent, then commits, pushes, and opens the pull request itself - the agent is handed no GitHub credential.",
