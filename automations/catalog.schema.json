@@ -242,9 +242,8 @@
       "required": ["integrations"],
       "properties": {
         "integrations": {
-          "description": "Keyed by integration id, each of which must resolve to an integrations/catalog entry.",
+          "description": "Keyed by integration id, each of which must resolve to an integrations/catalog entry. Empty when the automation connects to nothing and needs no credential - a requirement worth stating, and the reason the key stays required rather than becoming optional.",
           "type": "object",
-          "minProperties": 1,
           "propertyNames": { "type": "string", "minLength": 1 },
           "additionalProperties": {
             "type": "object",

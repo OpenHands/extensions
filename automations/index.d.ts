@@ -100,7 +100,7 @@ export interface AutomationIntegrationRequirement {
 }
 
 export interface AutomationPrerequisites {
-  /** Keyed by integration catalog id. */
+  /** Keyed by integration catalog id. Empty when the automation needs nothing connected. */
   integrations: Record<string, AutomationIntegrationRequirement>;
   /** Deployment capabilities this automation cannot run without. */
   features?: string[];
