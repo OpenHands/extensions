@@ -695,6 +695,19 @@
       ]
     },
     {
+      "name": "github-issue-to-pr",
+      "source": "./skills/github-issue-to-pr",
+      "description": "Create an automation that implements GitHub issues when a configurable trigger label is applied. Clones the default branch for the agent, then commits, pushes, and opens the pull request itself - the agent is handed no GitHub credential.",
+      "category": "automations",
+      "keywords": [
+        "github",
+        "issue",
+        "pull-request",
+        "automation",
+        "integration"
+      ]
+    },
+    {
       "name": "github-pr-reviewer",
       "source": "./skills/github-pr-reviewer",
       "description": "Create an automation that reviews GitHub pull requests when they are opened or updated. Inspects the diff, changed files, tests, and existing discussion via GitHub MCP, then posts a concise review highlighting risks, security issues, missing tests, and next steps.",
