@@ -12,6 +12,7 @@ import entry6 from "./catalog/research-brief-writer/manifest.json" with { type: 
 import entry7 from "./catalog/github-agents-md-maintainer/manifest.json" with { type: "json" };
 import entry8 from "./catalog/upstream-fork-sync/manifest.json" with { type: "json" };
 import entry9 from "./catalog/incident-retrospective-drafter/manifest.json" with { type: "json" };
+import entry10 from "./catalog/news-digest/manifest.json" with { type: "json" };
 
 export const AUTOMATION_CATALOG_ENTRIES = [
   entry0,
@@ -24,4 +25,5 @@ export const AUTOMATION_CATALOG_ENTRIES = [
   entry7,
   entry8,
   entry9,
+  entry10,
 ];

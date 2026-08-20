@@ -794,6 +794,18 @@
         "jira",
         "atlassian"
       ]
+    },
+    {
+      "name": "news-digest",
+      "source": "./skills/news-digest",
+      "description": "Create an automation that reads public RSS and Atom feeds on a schedule, keeps what is new and matches the configured topics, and has an agent write a short digest of it. Needs no credentials.",
+      "category": "automations",
+      "keywords": [
+        "news",
+        "rss",
+        "atom",
+        "digest"
+      ]
     }
   ]
 }

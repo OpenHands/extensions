@@ -151,6 +151,7 @@
   "featuredAutomationIds": [
     "github-pr-reviewer",
     "github-agents-md-maintainer",
+    "news-digest",
     "github-repo-monitor",
     "slack-channel-monitor"
   ],

@@ -34,8 +34,10 @@ def test_catalog_ids_are_unique_and_automations_reference_things_that_exist():
 
     known_integration_ids = set(integration_ids)
     for automation in automations:
+        # May be empty: an automation that needs nothing connected says so with
+        # an empty object rather than by leaving the key out. What it may not do
+        # is name an integration that does not exist.
         required = automation["requires"]["integrations"]
-        assert required
         assert set(required) - known_integration_ids == set()
 
         # The launch command is looked up from this skill rather than stored on

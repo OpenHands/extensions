@@ -89,7 +89,7 @@ The JS and Python versions are kept in lock-step by `release-please` and guarded
 ## Extensions Catalog
 
 <!-- BEGIN AUTO-GENERATED CATALOG -->
-This repository contains **2 marketplace(s)** with **65 extensions** (55 skills, 10 plugins).
+This repository contains **2 marketplace(s)** with **66 extensions** (56 skills, 10 plugins).
 
 ### large-codebase
 
@@ -108,7 +108,7 @@ OpenHands skills for interacting, improving, and refactoring large codebases
 
 Official skills and plugins for OpenHands — the open-source AI software engineer.
 
-**61 extensions** (53 skills, 8 plugins)
+**62 extensions** (54 skills, 8 plugins)
 
 | Name | Type | Description | Commands |
 |------|------|-------------|----------|
@@ -147,6 +147,7 @@ Official skills and plugins for OpenHands — the open-source AI software engine
 | linear | skill | Interact with Linear project management - query issues, update status, create tickets using the Linear GraphQL API. | — |
 | linear-triage | skill | Create an automation that triages new Linear issues by inspecting title, description, team, and recent related issues... | `/linear-triage:setup` |
 | magic-test | plugin | A simple test plugin for verifying plugin loading. Triggers on magic words (alakazam, abracadabra) and returns a spec... | — |
+| news-digest | skill | Create an automation that reads public RSS and Atom feeds on a schedule, keeps what is new and matches the configured... | `/news-digest:setup` |
 | notion | skill | Create, search, and update Notion pages/databases using the Notion API. Use for documenting work, generating runbooks... | — |
 | npm | skill | Handle npm package installation in non-interactive environments by piping confirmations. Use when installing Node.js ... | — |
 | onboarding | plugin | Assess repository agent-readiness across five pillars, propose high-impact fixes, and generate repo-specific AGENTS.m... | — |
