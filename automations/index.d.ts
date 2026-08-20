@@ -1,5 +1,11 @@
 export interface RecommendedAutomation {
   id: string;
+  /**
+   * Semantic version of this template. Present only on entries whose direct
+   * setup sends provenance to the automation service; bumped when the prompt,
+   * form, or filter changes meaningfully.
+   */
+  version?: string;
   name: string;
   category: string;
   /**

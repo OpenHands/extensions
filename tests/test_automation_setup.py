@@ -278,6 +278,16 @@ def _render_payload(entry: dict, form_values: dict, tarball_path: str = "") -> d
 
     body["trigger"] = _derive_trigger(entry, form_values)
 
+    # A versioned entry sends its provenance: the service stores it opaquely,
+    # keyed by id for idempotent creation. The form values are non-secret by
+    # design (credentials come only from connected integrations).
+    if "version" in entry:
+        body["template"] = {
+            "id": entry["id"],
+            "version": entry["version"],
+            "config": dict(form_values),
+        }
+
     return body
 
 
@@ -496,6 +506,10 @@ def test_schema_rejects_content_a_setup_block_must_never_carry() -> None:
     with_repeated_identity = deepcopy(entry)
     with_repeated_identity["setup"]["description"] = "a second description"
     rejected.append(("description", with_repeated_identity))
+
+    with_bad_version = deepcopy(entry)
+    with_bad_version["version"] = "1.0"
+    rejected.append(("'1.0' does not match", with_bad_version))
 
     for expected_fragment, invalid in rejected:
         errors = list(VALIDATOR.iter_errors(invalid))
