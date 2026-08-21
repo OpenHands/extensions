@@ -52,7 +52,7 @@
         ],
         "envFields": [
           {
-            "key": "NOTION_API_KEY",
+            "key": "NOTION_TOKEN",
             "label": "Internal integration token",
             "type": "password",
             "placeholder": "ntn_...",
