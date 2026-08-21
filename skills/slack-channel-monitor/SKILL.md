@@ -163,7 +163,15 @@ grep -n 'def create_conversation' /tmp/slack-monitor-build/main.py
 If any of those checks fail, stop and re-copy the template instead of trying to
 repair a hand-written variant.
 
-### Step 4  -  Package and upload
+### Step 4  -  Show the customised script
+
+Show `/tmp/slack-monitor-build/main.py` to the user with the `canvas_ui` tool
+if available, otherwise display it in a fenced code block. Then ask:
+*"Does this look right? Shall I package and deploy the automation?"*
+
+Wait for confirmation before proceeding.
+
+### Step 5  -  Package and upload
 
 Determine the Automation backend URL and auth from the `<RUNTIME_SERVICES>`
 block in your system context:
@@ -192,7 +200,7 @@ echo "Uploaded: $TARBALL_PATH"
 If the upload fails with a size error, the tarball must be under 1 MB.
 `main.py` is under 15 KB so this should never trigger.
 
-### Step 5  -  Create the automation
+### Step 6  -  Create the automation
 
 ```bash
 curl -s -X POST "${OPENHANDS_HOST}/api/automation/v1" \
@@ -211,7 +219,7 @@ A 55-second timeout keeps runs well within the 60-second cron window.
 
 Record the returned `id`  -  share it with the user as confirmation.
 
-### Step 6  -  Confirm
+### Step 7  -  Confirm
 
 Tell the user:
 
