@@ -91,6 +91,37 @@ def test_generated_js_index_references_catalog_directory() -> None:
     assert "integration-catalog.json" not in body
 
 
+def test_build_rejects_duplicate_integration_ids(tmp_path: Path) -> None:
+    catalog_dir = tmp_path / "integrations" / "catalog"
+    catalog_dir.mkdir(parents=True)
+    output_path = tmp_path / "integrations" / "catalog-index.js"
+    original_output = "// existing generated index\n"
+    output_path.write_text(original_output)
+    duplicate_entry = {"id": "duplicate"}
+    for file_name in ("first.json", "second.json"):
+        (catalog_dir / file_name).write_text(json.dumps(duplicate_entry))
+
+    script_uri = (ROOT / "scripts" / "build-integration-catalog.mjs").as_uri()
+    result = subprocess.run(
+        [
+            "node",
+            "--input-type=module",
+            "-e",
+            f"process.chdir({json.dumps(str(tmp_path))}); await import({json.dumps(script_uri)});",
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode != 0
+    assert (
+        'Duplicate integration id "duplicate" in first.json and second.json.'
+        in result.stderr
+    )
+    assert output_path.read_text() == original_output
+
+
 def test_python_snapshot_is_built_from_catalog_directory() -> None:
     assert openhands_extensions.INTEGRATION_CATALOG_SNAPSHOT == {
         "integrations": _catalog_entries()
