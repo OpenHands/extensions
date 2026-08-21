@@ -140,3 +140,62 @@ def test_expired_followup_watch_polls_once_before_closing(monkeypatch):
     assert rec["next_reply_poll_at"] == 1006.0
     assert rec["watch_until"] == 1301.0
 
+def test_literal_trigger_still_works():
+    helpers = load_slack_monitor_helpers()
+    helpers["BOT_MENTION_ID"] = "U0B6US8S0DP"
+
+    assert helpers["_has_trigger"]("@openhands please review")
+    assert (
+        helpers["_request_after_trigger"]("@openhands please review")
+        == "please review"
+    )
+
+
+def test_slack_bot_mention_triggers():
+    helpers = load_slack_monitor_helpers()
+    helpers["BOT_MENTION_ID"] = "U0B6US8S0DP"
+
+    text = "<@U0B6US8S0DP> Are you awake?"
+
+    assert helpers["_has_trigger"](text)
+    assert helpers["_request_after_trigger"](text) == "Are you awake?"
+
+
+def test_slack_bot_mention_with_name_triggers():
+    helpers = load_slack_monitor_helpers()
+    helpers["BOT_MENTION_ID"] = "U0B6US8S0DP"
+
+    text = "<@U0B6US8S0DP|openhands>: fix the build"
+
+    assert helpers["_has_trigger"](text)
+    assert helpers["_request_after_trigger"](text) == "fix the build"
+
+
+def test_other_slack_user_mention_does_not_trigger():
+    helpers = load_slack_monitor_helpers()
+    helpers["BOT_MENTION_ID"] = "U0B6US8S0DP"
+
+    text = "<@UOTHERUSER> hi"
+
+    assert not helpers["_has_trigger"](text)
+
+
+def test_similar_literal_trigger_does_not_match():
+    helpers = load_slack_monitor_helpers()
+    helpers["BOT_MENTION_ID"] = "U0B6US8S0DP"
+
+    text = "@openhandsbot nope"
+
+    assert not helpers["_has_trigger"](text)
+
+
+def test_earliest_trigger_is_used():
+    helpers = load_slack_monitor_helpers()
+    helpers["BOT_MENTION_ID"] = "U0B6US8S0DP"
+
+    text = "@openhands first <@U0B6US8S0DP> second"
+
+    assert helpers["_request_after_trigger"](text) == (
+        "first <@U0B6US8S0DP> second"
+    )
+
