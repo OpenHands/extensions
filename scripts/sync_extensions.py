@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Keep the OpenHands extensions registry in sync.
 
-Four sync tasks, runnable individually or all at once:
+Five sync tasks, runnable individually or all at once:
 
   1. **commands**  — generate Claude Code ``commands/<trigger>.md`` files from
      SKILL.md slash-triggers.
@@ -10,6 +10,12 @@ Four sync tasks, runnable individually or all at once:
      marketplace, or a marketplace entry points to a missing directory.
   4. **symlinks**  — enforce ``.plugin/`` as the canonical manifest directory
      with vendor symlinks (``.claude-plugin``, ``.codex-plugin``).
+  5. **root-marketplace** — keep real ``marketplace.json`` copies at the
+     repository root under ``.claude-plugin/``, ``.codex-plugin/``, and
+     ``.plugin/`` so consumers that fetch the catalog over the GitHub raw
+     URL (e.g. ``github://openhands/extensions``) can read it. Git symlinks
+     are stored as blobs and ``raw.githubusercontent.com`` does not
+     dereference them through directory paths, so these must be real files.
 
 Usage:
     python scripts/sync_extensions.py                   # run all, write changes
@@ -18,6 +24,7 @@ Usage:
     python scripts/sync_extensions.py catalog            # only regenerate README catalog
     python scripts/sync_extensions.py coverage           # only check marketplace coverage
     python scripts/sync_extensions.py symlinks           # only check/fix vendor symlinks
+    python scripts/sync_extensions.py root-marketplace   # only sync root marketplace copies
     python scripts/sync_extensions.py commands catalog   # combine sub-commands
 """
 
@@ -36,6 +43,14 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 README_PATH = REPO_ROOT / "README.md"
 SKILL_DIRS = [REPO_ROOT / "skills", REPO_ROOT / "plugins"]
 MARKETPLACES_DIR = REPO_ROOT / "marketplaces"
+# The canonical marketplace catalog that the registry publishes. The
+# repository root exposes copies of this file (not symlinks) under the
+# vendor directories below so that consumers fetching the catalog over the
+# GitHub raw URL (``github://openhands/extensions``) can read it.
+PRIMARY_MARKETPLACE = MARKETPLACES_DIR / "openhands-extensions.json"
+# Vendor directories at the repository root that must each contain a real
+# (non-symlink) ``marketplace.json`` copy of ``PRIMARY_MARKETPLACE``.
+ROOT_MARKETPLACE_DIRS = [".claude-plugin", ".codex-plugin", ".plugin"]
 # Max description length in the catalog table.  120 chars fits GitHub's
 # diff viewer and rendered Markdown tables without horizontal scroll.
 MAX_DESC_LEN = 120
@@ -422,6 +437,82 @@ def sync_symlinks(*, check: bool) -> list[str]:
     return problems
 
 
+# ── 5. Root marketplace copies ───────────────────────────────────────
+
+
+def _normalize_marketplace_bytes(raw: bytes) -> bytes:
+    """Serialize marketplace JSON with sorted keys + 2-space indent.
+
+    Produces a canonical byte string so byte-for-byte equality checks work
+    regardless of incidental formatting differences in the source file.
+    """
+    return (json.dumps(json.loads(raw), indent=2, ensure_ascii=False, sort_keys=True) + "\n").encode("utf-8")
+
+
+def sync_root_marketplace(*, check: bool) -> list[str]:
+    """Ensure each root vendor directory has a real marketplace.json copy.
+
+    The registry's canonical catalog lives at
+    ``marketplaces/openhands-extensions.json``. Historically the root exposed
+    it through a double symlink chain (``.claude-plugin`` -> ``.plugin`` and
+    ``.plugin/marketplace.json`` -> the canonical file). ``raw.githubusercontent.com``
+    serves git symlinks as their literal target text and does not traverse
+    symlinked directory paths, so consumers fetching
+    ``.claude-plugin/marketplace.json`` over the raw URL (e.g. the
+    plugin-directory with ``MARKETPLACE_SOURCE=github://openhands/extensions``)
+    received a 404 (or the literal symlink body) and saw an empty catalog.
+
+    This sync replaces those symlinks with real directory + file copies that
+    mirror the canonical catalog byte-for-byte, so the catalog is reachable
+    at every standard ``.claude-plugin/marketplace.json`` path while staying
+    in sync with the single source of truth.
+    """
+    if not PRIMARY_MARKETPLACE.is_file():
+        return [f"canonical marketplace missing: {PRIMARY_MARKETPLACE.relative_to(REPO_ROOT)}"]
+
+    canonical = _normalize_marketplace_bytes(PRIMARY_MARKETPLACE.read_bytes())
+    problems: list[str] = []
+
+    for vendor in ROOT_MARKETPLACE_DIRS:
+        vendor_dir = REPO_ROOT / vendor
+        target = vendor_dir / "marketplace.json"
+        rel = target.relative_to(REPO_ROOT)
+
+        # Classify the vendor directory.
+        dir_ok = vendor_dir.is_dir() and not vendor_dir.is_symlink()
+        if vendor_dir.is_symlink():
+            problems.append(f"symlinked dir: {vendor} -> {vendor_dir.readlink()}")
+        elif not vendor_dir.exists():
+            problems.append(f"missing dir: {vendor}")
+        elif not dir_ok:
+            problems.append(f"not a directory: {vendor}")
+
+        # Classify the marketplace.json file (if any).
+        file_ok = target.is_file() and not target.is_symlink()
+        if target.is_symlink():
+            problems.append(f"symlinked file: {rel} -> {target.readlink()}")
+        elif target.exists() and not file_ok:
+            problems.append(f"not a regular file: {rel}")
+        elif file_ok:
+            current = _normalize_marketplace_bytes(target.read_bytes())
+            if current != canonical:
+                problems.append(f"out of date: {rel}")
+        else:
+            problems.append(f"missing: {rel}")
+
+        if not check:
+            # Rebuild a real directory + real file from scratch.
+            if vendor_dir.is_symlink() or (vendor_dir.exists() and not vendor_dir.is_dir()):
+                vendor_dir.unlink()
+            vendor_dir.mkdir(parents=True, exist_ok=True)
+            if target.is_symlink() or (target.exists() and not target.is_file()):
+                target.unlink()
+            if not target.exists() or _normalize_marketplace_bytes(target.read_bytes()) != canonical:
+                target.write_bytes(canonical)
+
+    return problems
+
+
 # ── Main ─────────────────────────────────────────────────────────────
 
 ALL_SYNCS = {
@@ -429,6 +520,7 @@ ALL_SYNCS = {
     "catalog": sync_catalog,
     "coverage": sync_coverage,
     "symlinks": sync_symlinks,
+    "root-marketplace": sync_root_marketplace,
 }
 
 
