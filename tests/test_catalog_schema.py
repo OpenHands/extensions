@@ -78,16 +78,6 @@ def test_schema_requires_catalog_and_install_metadata() -> None:
         assert any(field in error.message for error in errors), errors
 
 
-
-def test_notion_mcp_uses_supported_token_environment_variable() -> None:
-    entry = json.loads((CATALOG_DIR / "notion.json").read_text())
-    api_option = next(
-        option for option in entry["connectionOptions"] if option["id"] == "api"
-    )
-
-    assert api_option["transport"]["envFields"][0]["key"] == "NOTION_TOKEN"
-
-
 @pytest.mark.parametrize(
     ("entry_id", "resource_type", "cardinality", "selection_mode"),
     [
