@@ -42,6 +42,12 @@ REPOS = ["owner/repo"]
 TRIGGER_LABEL = "openhands-review"
 REVIEW_TONE = "thorough"
 REVIEW_STYLE_INSTRUCTIONS = ""
+# Path within the checked-out repository to a repo-specific review guide
+# (e.g. the repo's own code-review skill). When the file exists at this path
+# relative to the repo root, its contents are read and injected verbatim into
+# the review prompt so the guide is always applied deterministically, rather
+# than relying on the spawned agent's skill activation. Set to "" to disable.
+REPO_REVIEW_GUIDE_PATH = ".agents/skills/custom-codereview-guide.md"
 DEFAULT_OPENHANDS_URL = "http://localhost:8000"
 
 CONFIG_FILENAME = "config.json"
@@ -54,6 +60,7 @@ _CONFIG_TYPES: dict[str, type] = {
     "trigger_label": str,
     "review_tone": str,
     "review_style_instructions": str,
+    "repo_review_guide_path": str,
     "openhands_url": str,
 }
 
@@ -134,6 +141,7 @@ REPOS = _CONFIG.get("repos", REPOS)
 TRIGGER_LABEL = _CONFIG.get("trigger_label", TRIGGER_LABEL)
 REVIEW_TONE = _CONFIG.get("review_tone", REVIEW_TONE)
 REVIEW_STYLE_INSTRUCTIONS = _CONFIG.get("review_style_instructions", REVIEW_STYLE_INSTRUCTIONS)
+REPO_REVIEW_GUIDE_PATH = _CONFIG.get("repo_review_guide_path", REPO_REVIEW_GUIDE_PATH)
 DEFAULT_OPENHANDS_URL = _CONFIG.get("openhands_url", DEFAULT_OPENHANDS_URL)
 
 DONE_DEBOUNCE = 15
@@ -741,7 +749,28 @@ def _with_ai_disclosure(body: str) -> str:
     return f"{body}\n\n{disclosure}" if body else disclosure
 
 
-def _build_review_prompt(repo: str, pr: dict, head_sha: str, label_event: dict) -> str:
+def _load_repo_review_guide(workspace_dir: Path) -> str | None:
+    """Read the repo-specific review guide from the checked-out repository.
+
+    The path is taken from ``REPO_REVIEW_GUIDE_PATH``. An empty path disables
+    the feature. Returns the file contents, or None if the file is absent or
+    unreadable — a missing guide is never fatal, the review simply proceeds
+    without it.
+    """
+    if not REPO_REVIEW_GUIDE_PATH:
+        return None
+    candidate = workspace_dir / REPO_REVIEW_GUIDE_PATH
+    try:
+        if candidate.is_file():
+            text = candidate.read_text(encoding="utf-8", errors="replace").strip()
+            if text:
+                return text
+    except Exception as exc:
+        print(f"  Warning: could not read repo review guide {candidate}: {exc}")
+    return None
+
+
+def _build_review_prompt(repo: str, pr: dict, head_sha: str, label_event: dict, repo_review_guide: str | None = None) -> str:
     number = pr.get("number", "?")
     title = pr.get("title", "(no title)")
     body = (pr.get("body") or "").strip() or "(no description)"
@@ -757,6 +786,10 @@ def _build_review_prompt(repo: str, pr: dict, head_sha: str, label_event: dict) 
     deletions = pr.get("deletions", "?")
     tone = _TONE_INSTRUCTIONS.get(REVIEW_TONE, _TONE_INSTRUCTIONS["thorough"])
     extra = f"\n\nAdditional style instructions:\n{REVIEW_STYLE_INSTRUCTIONS}" if REVIEW_STYLE_INSTRUCTIONS.strip() else ""
+    guide_section = (
+        f"\n\nRepo-specific review guide (from {REPO_REVIEW_GUIDE_PATH}):\n---\n{repo_review_guide}\n---\n"
+        if repo_review_guide else ""
+    )
 
     return (
         "You are an AI code reviewer. Review the GitHub pull request below and publish "
@@ -793,7 +826,7 @@ def _build_review_prompt(repo: str, pr: dict, head_sha: str, label_event: dict) 
         "or `🔄 CHANGES REQUESTED`.\n"
         "8. If there are no material issues, still publish a review saying so, with the "
         "disclosure and the verdict.\n"
-        f"\nReview instructions:\n{tone}{extra}\n\n"
+        f"\nReview instructions:\n{tone}{extra}{guide_section}\n\n"
         "After GitHub accepts the review, output exactly `GITHUB_REVIEW_POSTED`. "
         "If publishing still fails after the fallback in step 5, output the complete review text "
         "so it can be posted as a comment instead."
@@ -841,7 +874,10 @@ def _process_review_request(
     workspace_dir = None
     try:
         workspace_dir = _prepare_repository(github_token, repo, number, head_sha)
-        prompt = _build_review_prompt(repo, pr, head_sha, label_event)
+        repo_review_guide = _load_repo_review_guide(workspace_dir)
+        if repo_review_guide:
+            print(f"  Injected repo review guide for PR #{number}")
+        prompt = _build_review_prompt(repo, pr, head_sha, label_event, repo_review_guide)
         conv_id = create_conversation(agent_url, api_key, prompt, workspace_dir)
     except Exception as exc:
         # The claim is dropped so the next poll retries this label event. The
