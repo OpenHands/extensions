@@ -139,7 +139,7 @@ Record as `CRON_SCHEDULE`.
 
 ### Step 6 - Generate the automation script
 
-Read `scripts/main.py` from this skill's directory. Apply exactly five constant
+Read `scripts/main.py` from this skill's directory. Apply exactly six constant
 substitutions near the top of the file:
 
 > The script also reads a `config.json` shipped beside it, if there is one, over
@@ -154,6 +154,7 @@ substitutions near the top of the file:
 | `TRIGGER_LABEL = "openhands-review"` | `TRIGGER_LABEL = "{trigger_label}"` |
 | `REVIEW_TONE = "thorough"` | `REVIEW_TONE = "{review_tone}"` |
 | `REVIEW_STYLE_INSTRUCTIONS = ""` | `REVIEW_STYLE_INSTRUCTIONS = "{style_instructions}"` |
+| `REPO_REVIEW_GUIDE_PATH = ".agents/skills/custom-codereview-guide.md"` | leave unchanged to auto-load a repo review guide at this path, or set to `""` to disable |
 | `DEFAULT_OPENHANDS_URL = "http://localhost:8000"` | leave unchanged unless the user has a preference |
 
 Use a safe string writer such as `json.dumps(value)` when inserting user-provided
