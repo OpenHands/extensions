@@ -819,6 +819,19 @@
         "atom",
         "digest"
       ]
+    },
+    {
+      "name": "gbr",
+      "source": "./skills/gbr",
+      "description": "Pair a phone running Build Remote Agent to this OpenHands session via gbr-agent (gbr/1). Attach only 127.0.0.1:8788 or gbr-mcp. Phone is spectator. No mailbox keys.",
+      "category": "integrations",
+      "keywords": [
+        "gbr",
+        "phone",
+        "pairing",
+        "mcp",
+        "build-remote-agent"
+      ]
     }
   ]
 }
