@@ -1,3 +1,4 @@
+# Keep dependency update scheduling centralized in this repository configuration.
 version: 2
 updates:
   - package-ecosystem: github-actions
