@@ -3,6 +3,20 @@
 This repository (`OpenHands/extensions`) is the **public extensions registry** for OpenHands.
 It contains **shareable skills and plugins** that can be loaded by OpenHands (CLI/GUI/Cloud) and by client code using the **Software Agent SDK**.
 
+
+## Cross-Repository Boundaries
+
+This repository owns the public registry of reusable OpenHands skills, plugins, automations, and integrations. These extensions are consumed by OpenHands applications and SDK-based clients.
+
+Related repositories have distinct responsibilities:
+
+- [`OpenHands/software-agent-sdk`](https://github.com/OpenHands/software-agent-sdk) owns the Python SDK, Agent Server, agent/tool behavior, conversations, workspaces, events, and canonical API.
+- [`OpenHands/typescript-client`](https://github.com/OpenHands/typescript-client) owns the browser-compatible typed Agent Server client.
+- [`OpenHands/OpenHands`](https://github.com/OpenHands/OpenHands) owns Agent Canvas UI and local-stack orchestration.
+- [`OpenHands/automation`](https://github.com/OpenHands/automation) owns scheduling, webhooks, run history, dispatch, and sandbox lifecycle orchestration.
+
+Put reusable skills, plugins, automations, and integrations here; put backend execution behavior in the SDK, typed API access in `typescript-client`, application UI in Agent Canvas, and scheduling/dispatch lifecycle code in `automation`. If a PR is opened in the wrong repository, explicitly recommend closing and moving it to the owning repository. PRs must follow this repository's applicable contribution and code-review guidance.
+
 ## What this repo contains
 
 - `skills/` — a catalog of skills, **one directory per skill**.
