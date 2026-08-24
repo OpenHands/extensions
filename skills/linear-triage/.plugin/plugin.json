@@ -1,0 +1,21 @@
+{
+  "name": "linear-triage",
+  "version": "1.0.0",
+  "description": "Create an automation that triages new Linear issues by inspecting title, description, team, and recent related issues. Suggests labels, priority, likely owner, and potential duplicates, then posts a clarifying comment.",
+  "author": {
+    "name": "OpenHands",
+    "email": "contact@all-hands.dev"
+  },
+  "homepage": "https://github.com/OpenHands/extensions",
+  "repository": "https://github.com/OpenHands/extensions",
+  "license": "MIT",
+  "keywords": [
+    "linear",
+    "triage",
+    "issues",
+    "labels",
+    "priority",
+    "automation",
+    "integration"
+  ]
+}

@@ -10,7 +10,7 @@ the GitHub Repository Monitor automation.
 All requests use Bearer authentication:
 
 ```
-Authorization: Bearer {GITHUB_TOKEN}
+Authorization: Bearer {GITHUB_PERSONAL_ACCESS_TOKEN}
 Accept: application/vnd.github+json
 X-GitHub-Api-Version: 2022-11-28
 ```
@@ -37,7 +37,7 @@ X-GitHub-Api-Version: 2022-11-28
 
 ```bash
 curl -I https://api.github.com/user \
-  -H "Authorization: Bearer $GITHUB_TOKEN" \
+  -H "Authorization: Bearer $GITHUB_PERSONAL_ACCESS_TOKEN" \
   | grep -i x-oauth-scopes
 # X-OAuth-Scopes: repo, public_repo
 ```
@@ -209,7 +209,7 @@ Typical usage: **< 20 requests/hour** for a quiet repo,
 Check remaining quota with:
 ```bash
 curl -s https://api.github.com/rate_limit \
-  -H "Authorization: Bearer $GITHUB_TOKEN" \
+  -H "Authorization: Bearer $GITHUB_PERSONAL_ACCESS_TOKEN" \
   | python3 -c "
 import json, sys
 d = json.load(sys.stdin)

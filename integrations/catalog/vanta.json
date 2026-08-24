@@ -1,0 +1,55 @@
+{
+  "id": "vanta",
+  "name": "Vanta",
+  "description": "Query Vanta compliance controls, tests, evidence, risks, and vulnerabilities from the agent.",
+  "categories": [
+    "Security",
+    "Compliance"
+  ],
+  "appUrl": "https://www.vanta.com",
+  "docsUrl": "https://developer.vanta.com/docs/vanta-mcp",
+  "notes": "Vanta's hosted remote MCP server (beta, requires a Vanta Admin role). Regional endpoints: US https://mcp.vanta.com/mcp, EU https://mcp.eu.vanta.com/mcp, AUS https://mcp.aus.vanta.com/mcp. Authentication is OAuth only - no API keys.",
+  "popularityRank": 64,
+  "connectionOptions": [
+    {
+      "id": "oauth",
+      "provider": "mcp",
+      "auth": {
+        "strategy": "oauth2",
+        "oauth": {
+          "authorizationUrl": "https://app.vanta.com/oauth/authorize",
+          "tokenUrl": "https://api.vanta.com/oauth/token",
+          "registrationUrl": "https://api.vanta.com/oauth/register",
+          "scopes": [
+            "mcp-api.all:read"
+          ],
+          "optionalScopes": [
+            "mcp-api.all:write"
+          ],
+          "pkce": true,
+          "clientAuthentication": "none",
+          "additionalAuthorizationParams": {
+            "resource": "https://mcp.vanta.com"
+          },
+          "additionalTokenParams": {
+            "resource": "https://mcp.vanta.com"
+          }
+        }
+      },
+      "transport": {
+        "kind": "shttp",
+        "url": "https://mcp.vanta.com/mcp"
+      }
+    }
+  ],
+  "iconBg": "#003D2B",
+  "keywords": [
+    "compliance",
+    "soc2",
+    "security",
+    "audit",
+    "risk",
+    "vanta"
+  ],
+  "installHint": "Connect via the OAuth MCP option. After connecting, complete the OAuth flow in your browser as a Vanta Admin. EU tenants should use https://mcp.eu.vanta.com/mcp and AUS tenants https://mcp.aus.vanta.com/mcp as the transport URL. The legacy local server @vantasdk/vanta-mcp-server is deprecated - prefer the hosted remote server."
+}

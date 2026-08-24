@@ -1,0 +1,76 @@
+{
+  "id": "news-digest",
+  "name": "Daily news digest",
+  "category": "Research",
+  "icon": "activity",
+  "description": "Read a list of public RSS and Atom feeds on a schedule, hand an agent everything new, and have it pick out what matters for your topics and write a short digest. Connects to nothing and needs no credentials.",
+  "requires": {
+    "integrations": {},
+    "features": [
+      "customTarball"
+    ]
+  },
+  "popularityRank": 78,
+  "estimatedSetupMinutes": 2,
+  "exampleImplementation": "Trigger: cron, daily by default (0 8 * * *)\nRequired secret: none. The feeds are public URLs and the conversation is started with an empty secret allow-list and no MCP servers.\n\n1. Read the feed list, the topics, and the schedule from setup.\n2. Key one unit of work to the UTC date, so a cron that fires more often, a retried run, or a restarted service cannot write the same digest twice.\n3. Fetch every feed over plain HTTPS and parse RSS 2.0, RSS 1.0/RDF and Atom by local element name. A feed that is down, moved, or no longer a feed is reported and skipped; the run fails only when every feed fails.\n4. Drop stories already covered by an earlier digest and stories older than the lookback window. Do not judge what a story is about: that has no right answer and is the agent's call.\n5. Start no conversation at all when nothing new was published, and leave the day open for a later run. A quiet day costs no tokens.\n6. Otherwise start an OpenHands conversation with the newest stories and the topics in the prompt, and let it decide which are relevant, group them, merge duplicate coverage, and write the digest.\n7. Deliver it three ways that need no credentials: it stays in the conversation, it is printed into the run log, and its opening is kept in state.\n8. Remember the reported stories only once a digest exists, so a failed run is recovered by the next one rather than lost.",
+  "setup": {
+    "version": "1.0",
+    "mode": "direct",
+    "form": {
+      "triggers": {
+        "cron": {
+          "schedule": {
+            "type": "cron",
+            "label": "Digest time",
+            "help": "When the digest is written. Work is keyed by UTC date, so a schedule more frequent than daily only polls until there is something new.",
+            "default": "0 8 * * *",
+            "required": true
+          },
+          "timezone": {
+            "type": "timezone",
+            "label": "Timezone",
+            "help": "Timezone the schedule is interpreted in.",
+            "default": "UTC",
+            "required": true
+          }
+        }
+      },
+      "args": {
+        "feeds": {
+          "type": "textarea",
+          "label": "Feeds",
+          "help": "One RSS or Atom feed URL per line. They must be public: this automation signs in to nothing, so a feed behind a login will simply fail and be skipped.",
+          "default": "https://news.ycombinator.com/rss\nhttps://feeds.arstechnica.com/arstechnica/index\nhttps://www.theverge.com/rss/index.xml",
+          "required": true,
+          "constraints": {
+            "minLength": 8,
+            "maxLength": 4000
+          }
+        },
+        "topics": {
+          "type": "textarea",
+          "label": "Topics of interest",
+          "help": "One topic per line, or separated by commas. The agent reads every new story and decides which ones are about these, so write them the way you would explain your interests to a colleague rather than as search terms. Leave this empty to cover whatever is most significant.",
+          "default": "artificial intelligence, open source, developer tools",
+          "required": false,
+          "constraints": {
+            "maxLength": 2000
+          }
+        }
+      }
+    },
+    "bundle": {
+      "version": "1.0.0",
+      "entrypoint": "python3 main.py",
+      "timeout": 900,
+      "files": {
+        "main.py": "skills/news-digest/scripts/main.py"
+      },
+      "config": {
+        "feeds": "{{form.feeds}}",
+        "topics": "{{form.topics}}"
+      }
+    },
+    "message": "This deployment cannot run the scheduled news digest directly. Set it up in this conversation instead: confirm the feeds to read, the topics to watch for, and the schedule, then create the automation."
+  }
+}

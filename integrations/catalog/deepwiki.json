@@ -12,20 +12,16 @@
     "docs",
     "qa"
   ],
-  "kind": "mcp",
-  "defaultConnectionOptionId": "none",
   "connectionOptions": [
     {
       "id": "none",
       "provider": "mcp",
       "transport": {
-        "kind": "sse",
-        "url": "https://mcp.deepwiki.com/sse",
-        "apiKeyOptional": true
+        "kind": "shttp",
+        "url": "https://mcp.deepwiki.com/mcp"
       },
       "auth": {
-        "strategy": "none",
-        "apiKeyOptional": true
+        "strategy": "none"
       }
     }
   ]

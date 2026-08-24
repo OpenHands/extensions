@@ -41,7 +41,7 @@ event-type selection, cron schedule, and automation creation automatically.
 
 ## Requirements
 
-- `GITHUB_TOKEN` secret set in OpenHands Settings → Secrets
+- `GITHUB_PERSONAL_ACCESS_TOKEN` secret set in OpenHands Settings → Secrets
   - Classic PAT: `repo` (private repos) or `public_repo` (public repos)
   - Fine-grained PAT: Issues — Read and Write
 - The monitored repository must be accessible with that token

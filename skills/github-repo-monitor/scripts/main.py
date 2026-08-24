@@ -18,7 +18,7 @@ Configuration constants are embedded at automation-creation time by the skill.
 See SKILL.md for the full setup workflow.
 
 Required secrets (set in OpenHands Settings → Secrets):
-  GITHUB_TOKEN  - Personal Access Token
+  GITHUB_PERSONAL_ACCESS_TOKEN  - Personal Access Token
                   Classic PAT:       'repo' scope (private) or 'public_repo' (public)
                   Fine-grained PAT:  Issues: Read and Write
 
@@ -40,7 +40,7 @@ from urllib.parse import urlencode
 REPO = "owner/repo"                     # e.g. "microsoft/vscode"
 TRIGGER_PHRASE = "@openhands"           # case-insensitive
 EVENT_TYPES = ["issue_comment"]         # e.g. ["issue_comment", "pr_review_comment"]
-# Who may trigger conversations. Default is the authenticated GITHUB_TOKEN owner.
+# Who may trigger conversations. Default is the authenticated GITHUB_PERSONAL_ACCESS_TOKEN owner.
 # Use ["*"] to allow any non-bot commenter, or explicit logins like ["octocat"].
 ALLOWED_GITHUB_LOGINS = ["<TOKEN_OWNER>"]
 DEFAULT_OPENHANDS_URL = "http://localhost:8000"
@@ -80,7 +80,11 @@ def get_secret(name: str) -> str:
         return r.read().decode().strip()
 
 
-def fire_callback(status: str = "COMPLETED", error: str | None = None) -> None:
+def fire_callback(
+    status: str = "COMPLETED",
+    error: str | None = None,
+    conversation_id: str | None = None,
+) -> None:
     """Signal run completion to the automation service."""
     url = os.environ.get("AUTOMATION_CALLBACK_URL", "")
     if not url:
@@ -88,6 +92,8 @@ def fire_callback(status: str = "COMPLETED", error: str | None = None) -> None:
     body: dict = {"status": status, "run_id": os.environ.get("AUTOMATION_RUN_ID", "")}
     if error:
         body["error"] = error
+    if conversation_id:
+        body["conversation_id"] = conversation_id
     req = urllib.request.Request(
         url,
         data=json.dumps(body).encode(),
@@ -102,14 +108,47 @@ def fire_callback(status: str = "COMPLETED", error: str | None = None) -> None:
         print(f"Callback error (non-fatal): {exc}")
 
 
-# ── State management ───────────────────────────────────────────────────────────
+# ── State persistence (KV store with local-file fallback) ─────────────────────
+
+_KV_TOKEN = os.environ.get("AUTOMATION_KV_TOKEN", "")
+_KV_BASE = os.environ.get("AUTOMATION_API_URL", "").rstrip("/")
+_STATE_KEY = "state"
+
+
+def _kv_available() -> bool:
+    return bool(_KV_TOKEN and _KV_BASE)
+
+
+def _kv_get(key: str) -> dict | None:
+    req = urllib.request.Request(
+        f"{_KV_BASE}/v1/kv/{key}",
+        headers={"Authorization": f"Bearer {_KV_TOKEN}"},
+    )
+    try:
+        with urllib.request.urlopen(req) as r:
+            return json.loads(r.read())["value"]
+    except urllib.error.HTTPError as exc:
+        if exc.code == 404:
+            return None
+        raise
+
+
+def _kv_set(key: str, value: dict) -> None:
+    req = urllib.request.Request(
+        f"{_KV_BASE}/v1/kv/{key}",
+        data=json.dumps(value).encode(),
+        headers={
+            "Authorization": f"Bearer {_KV_TOKEN}",
+            "Content-Type": "application/json",
+        },
+        method="PUT",
+    )
+    with urllib.request.urlopen(req) as r:
+        r.read()
+
 
 def _state_file_path() -> str:
-    """Derive a persistent storage path from WORKSPACE_BASE.
-
-    WORKSPACE_BASE = {root}/automation-runs/{run_id}
-    State lives two levels up at {root}/automation-state/.
-    """
+    """Derive a persistent storage path from WORKSPACE_BASE (file fallback only)."""
     workspace_base = os.environ.get("WORKSPACE_BASE", "")
     event_payload = json.loads(os.environ.get("AUTOMATION_EVENT_PAYLOAD", "{}"))
     automation_id = event_payload.get("automation_id", "default")
@@ -131,25 +170,42 @@ def _default_since() -> str:
     ).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
-def load_state(path: str) -> dict:
+def _default_state() -> dict:
+    return {
+        "version": 1,
+        "repo": REPO,
+        "last_poll": _default_since(),
+        "conversations": {},
+        "processed_comment_ids": [],
+    }
+
+
+def load_state() -> dict:
+    if _kv_available():
+        data = _kv_get(_STATE_KEY)
+        if data is not None:
+            print("State loaded from KV store")
+            return data
+        return _default_state()
+    path = _state_file_path()
     if os.path.exists(path):
         try:
             with open(path) as f:
                 return json.load(f)
         except (json.JSONDecodeError, OSError) as exc:
             print(f"Warning: state file {path} unreadable ({exc}); starting fresh")
-    return {
-        "version": 1,
-        "repo": REPO,
-        "last_poll": _default_since(),
-        "conversations": {},       # issue_number (str) → ConversationRecord
-        "processed_comment_ids": [],  # list of int comment IDs already handled
-    }
+    return _default_state()
 
 
-def save_state(path: str, state: dict) -> None:
+def save_state(state: dict) -> None:
+    if _kv_available():
+        _kv_set(_STATE_KEY, state)
+        print("State saved to KV store")
+        return
+    path = _state_file_path()
     with open(path, "w") as f:
         json.dump(state, f, indent=2)
+    print(f"State saved to {path}")
 
 
 # ── GitHub API helpers ─────────────────────────────────────────────────────────
@@ -201,15 +257,15 @@ def _github_paginate(token: str, path: str, params: dict | None = None) -> list:
 
 
 def _resolve_github_token() -> str:
-    """Fetch GITHUB_TOKEN from secrets.  Raises RuntimeError if absent."""
+    """Fetch GITHUB_PERSONAL_ACCESS_TOKEN from secrets.  Raises RuntimeError if absent."""
     try:
-        token = get_secret("GITHUB_TOKEN")
+        token = get_secret("GITHUB_PERSONAL_ACCESS_TOKEN")
         if token:
             return token
     except Exception:
         pass
     raise RuntimeError(
-        "GITHUB_TOKEN secret is not set. "
+        "GITHUB_PERSONAL_ACCESS_TOKEN secret is not set. "
         "Go to OpenHands Settings → Secrets and add your GitHub Personal Access Token."
     )
 
@@ -225,7 +281,7 @@ def _verify_token_and_repo(token: str, repo: str) -> str:
     except urllib.error.HTTPError as exc:
         if exc.code == 401:
             raise RuntimeError(
-                "GITHUB_TOKEN is invalid or expired. "
+                "GITHUB_PERSONAL_ACCESS_TOKEN is invalid or expired. "
                 "Update it in OpenHands Settings → Secrets."
             )
         raise RuntimeError(f"GitHub /user check failed: {exc.code}")
@@ -241,13 +297,13 @@ def _verify_token_and_repo(token: str, repo: str) -> str:
     except urllib.error.HTTPError as exc:
         if exc.code == 404:
             raise RuntimeError(
-                f"Repository '{repo}' not found or not accessible with the current GITHUB_TOKEN. "
+                f"Repository '{repo}' not found or not accessible with the current GITHUB_PERSONAL_ACCESS_TOKEN. "
                 "Check the repo name (format: owner/repo) and token permissions."
             )
         if exc.code == 403:
             raise RuntimeError(
                 f"Access denied to repository '{repo}'. "
-                "Ensure GITHUB_TOKEN has the required permissions."
+                "Ensure GITHUB_PERSONAL_ACCESS_TOKEN has the required permissions."
             )
         raise RuntimeError(f"GitHub /repos/{repo} check failed: {exc.code}")
 
@@ -262,7 +318,7 @@ def _verify_token_and_repo(token: str, repo: str) -> str:
         # Private repo: must have push access or the 'repo' classic-PAT scope.
         if not can_push and not has_repo_scope and scopes:
             raise RuntimeError(
-                f"GITHUB_TOKEN cannot post comments to private repository '{repo}'. "
+                f"GITHUB_PERSONAL_ACCESS_TOKEN cannot post comments to private repository '{repo}'. "
                 "A classic PAT needs the 'repo' scope; "
                 "a fine-grained PAT needs 'Issues: Read and Write' permission."
             )
@@ -270,7 +326,7 @@ def _verify_token_and_repo(token: str, repo: str) -> str:
         # Public repo: need at minimum 'public_repo' scope or push access.
         if scopes and not (can_push or has_public_repo_scope or has_repo_scope):
             raise RuntimeError(
-                f"GITHUB_TOKEN cannot post comments to public repository '{repo}'. "
+                f"GITHUB_PERSONAL_ACCESS_TOKEN cannot post comments to public repository '{repo}'. "
                 "A classic PAT needs the 'public_repo' scope; "
                 "a fine-grained PAT needs 'Issues: Read and Write' permission."
             )
@@ -364,16 +420,25 @@ def _oh_request(
         raise RuntimeError(f"Agent API {method} {path} → {exc.code}: {body_text}") from exc
 
 
-def _get_agent_dict(agent_url: str, api_key: str) -> dict:
-    """Fetch configured agent settings for conversation creation."""
+def _fetch_settings(agent_url: str, api_key: str) -> dict:
+    """Fetch the full user settings from the agent server.
+
+    Uses X-Expose-Secrets: plaintext so the LLM api_key is a real string
+    rather than a masked placeholder.
+    """
     url = f"{agent_url}/api/settings"
     headers = {"X-Session-API-Key": api_key, "X-Expose-Secrets": "plaintext"}
     req = urllib.request.Request(url, headers=headers)
     try:
         with urllib.request.urlopen(req) as r:
-            data = json.loads(r.read())
+            return json.loads(r.read())
     except urllib.error.HTTPError as exc:
         raise RuntimeError(f"GET /api/settings failed: {exc.code}") from exc
+
+
+def _get_agent_dict(agent_url: str, api_key: str) -> dict:
+    """Fetch configured agent settings for conversation creation."""
+    data = _fetch_settings(agent_url, api_key)
     agent_settings = data.get("agent_settings", {})
     llm = agent_settings.get("llm", {})
     # settings["agent_settings"]["agent"] reflects the full-app agent registry
@@ -388,15 +453,79 @@ def _get_agent_dict(agent_url: str, api_key: str) -> dict:
     }
 
 
+def _get_mcp_config(agent_url: str, api_key: str) -> dict | None:
+    """Extract MCP server configuration from user settings, if any."""
+    try:
+        data = _fetch_settings(agent_url, api_key)
+        agent_settings = data.get("agent_settings", {})
+        mcp_config = agent_settings.get("mcp_config")
+        if isinstance(mcp_config, dict) and mcp_config.get("mcpServers"):
+            return mcp_config
+    except Exception as exc:
+        print(f"Warning: could not fetch MCP config: {exc}")
+    return None
+
+
+def _list_secret_names(agent_url: str, api_key: str) -> list[dict]:
+    """Fetch user secret names and descriptions from the agent server."""
+    try:
+        result = _oh_request(agent_url, api_key, "GET", "/api/settings/secrets")
+        return result.get("secrets", [])
+    except Exception as exc:
+        print(f"Warning: could not list secrets: {exc}")
+        return []
+
+
+def _build_secrets_payload(agent_url: str, api_key: str) -> dict:
+    """Build LookupSecret references so spawned conversations can access
+    the user's secrets via the agent server's per-secret endpoint.
+    """
+    secrets_list = _list_secret_names(agent_url, api_key)
+    if not secrets_list:
+        return {}
+    secrets: dict = {}
+    for secret in secrets_list:
+        name = secret.get("name", "")
+        if not name:
+            continue
+        lookup: dict = {
+            "kind": "LookupSecret",
+            "url": f"/api/settings/secrets/{name}",
+        }
+        if api_key:
+            lookup["headers"] = {"X-Session-API-Key": api_key}
+        desc = secret.get("description")
+        if desc:
+            lookup["description"] = desc
+        secrets[name] = lookup
+    return secrets
+
+
 def create_conversation(agent_url: str, api_key: str, initial_message: str) -> str:
-    """Create an OpenHands conversation and return its ID."""
+    """Create an OpenHands conversation and return its ID.
+
+    Inherits the user's secrets (as LookupSecret references) and MCP
+    server configuration so the spawned agent has the same capabilities.
+    """
     workspace_dir = os.environ.get("WORKSPACE_BASE", "/workspace")
     agent = _get_agent_dict(agent_url, api_key)
-    result = _oh_request(agent_url, api_key, "POST", "/api/conversations", {
+    payload: dict = {
         "workspace": {"working_dir": workspace_dir},
         "agent": agent,
         "initial_message": {"content": [{"text": initial_message}]},
-    })
+    }
+
+    # Forward user secrets so the spawned conversation can access them.
+    secrets = _build_secrets_payload(agent_url, api_key)
+    if secrets:
+        payload["secrets"] = secrets
+
+    # Forward MCP server configuration so MCP tools are available.
+    mcp_config = _get_mcp_config(agent_url, api_key)
+    if mcp_config:
+        payload["mcp_config"] = mcp_config
+
+    result = _oh_request(agent_url, api_key, "POST", "/api/conversations", payload)
     return result["id"]
 
 
@@ -512,7 +641,7 @@ def _build_initial_prompt(ctx: dict, trigger_comment: dict, event_type: str) -> 
         f"\nTriggering comment by @{trigger_author}:{path_info}\n"
         f"---\n{trigger_body}\n---\n"
         f"\nPlease analyse the request and take the appropriate action.\n"
-        f"The GITHUB_TOKEN secret is available if you need to interact with the "
+        f"The GITHUB_PERSONAL_ACCESS_TOKEN secret is available if you need to interact with the "
         f"GitHub API (fetch the PR diff, create commits, update labels, etc.).\n"
         f"When you are finished, summarise what you did clearly — that summary "
         f"will be posted back to the GitHub {item_type} as a comment."
@@ -607,8 +736,12 @@ def _process_trigger_comment(
     comment: dict,
     event_type: str,
     conversations: dict[str, dict],
-) -> None:
-    """Handle a new trigger comment: create or resume a conversation."""
+) -> str | None:
+    """Handle a new trigger comment: create or resume a conversation.
+
+    Returns the conversation ID when a new or re-opened conversation is
+    created, or None when the comment is forwarded to an existing one.
+    """
     conv_key = str(issue_number)
     print(f"  Trigger detected on #{issue_number} (comment {comment.get('id')})")
 
@@ -617,7 +750,7 @@ def _process_trigger_comment(
         ctx = _get_issue_context(github_token, repo, issue_number)
     except Exception as exc:
         print(f"  Error fetching context for #{issue_number}: {exc}")
-        return
+        return None
 
     is_pr = ctx["is_pr"]
     item_type = "pull request" if is_pr else "issue"
@@ -637,7 +770,7 @@ def _process_trigger_comment(
                 f"New comment on GitHub {item_type} #{issue_number} by @{author}:\n\n{body}",
             )
             existing["last_activity"] = time.time()
-            return
+            return None
         except Exception as exc:
             print(f"  Warning: could not forward to conversation {conv_id}: {exc} — creating new")
             # Fall through to create a new conversation.
@@ -651,10 +784,11 @@ def _process_trigger_comment(
         )
     except Exception as exc:
         print(f"  Error creating conversation for #{issue_number}: {exc}")
-        return
+        return None
 
     conv_url = f"{openhands_url}/conversations/{conv_id}"
     _post_acknowledgement(github_token, repo, issue_number, item_type, conv_url, resumed)
+    return conv_id
 
 
 def _check_conversation_completion(
@@ -711,9 +845,9 @@ def _check_conversation_completion(
 
 # ── Main ───────────────────────────────────────────────────────────────────────
 
-def main() -> None:
-    state_path = _state_file_path()
-    state = load_state(state_path)
+def main() -> str | None:
+    """Run one polling cycle. Returns the last conversation ID created, if any."""
+    state = load_state()
 
     agent_url = os.environ.get("AGENT_SERVER_URL", "").rstrip("/")
     api_key = _get_env_key()
@@ -761,6 +895,7 @@ def main() -> None:
     all_events.sort(key=lambda x: x[1].get("created_at", ""))
 
     # ── Process trigger events ─────────────────────────────────────────────────
+    last_conversation_id: str | None = None
     for event_type, comment in all_events:
         comment_id: int = comment.get("id", 0)
         if comment_id in processed_set:
@@ -790,10 +925,12 @@ def main() -> None:
             processed_set.add(comment_id)
             continue
 
-        _process_trigger_comment(
+        conv_id = _process_trigger_comment(
             github_token, agent_url, api_key, openhands_url,
             REPO, issue_number, comment, event_type, conversations,
         )
+        if conv_id:
+            last_conversation_id = conv_id
         processed_set.add(comment_id)
 
     # ── Check active conversations for completion ──────────────────────────────
@@ -811,14 +948,14 @@ def main() -> None:
     state["processed_comment_ids"] = trimmed
     state["conversations"] = conversations
 
-    save_state(state_path, state)
-    print(f"State saved → {state_path}")
+    save_state(state)
+    return last_conversation_id
 
 
 if __name__ == "__main__":
     try:
-        main()
-        fire_callback("COMPLETED")
+        conversation_id = main()
+        fire_callback("COMPLETED", conversation_id=conversation_id)
     except Exception as exc:
         import traceback
         traceback.print_exc()

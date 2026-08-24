@@ -10,8 +10,6 @@
     "web",
     "markdown"
   ],
-  "kind": "mcp",
-  "defaultConnectionOptionId": "api",
   "connectionOptions": [
     {
       "id": "api",
@@ -29,7 +27,9 @@
             "key": "FIRECRAWL_API_KEY",
             "label": "Firecrawl API key",
             "type": "password",
-            "required": true
+            "required": true,
+            "helperText": "API key from your Firecrawl dashboard.",
+            "helperLink": "https://www.firecrawl.dev/app/api-keys"
           }
         ]
       },

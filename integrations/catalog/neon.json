@@ -10,8 +10,6 @@
     "postgres",
     "serverless"
   ],
-  "kind": "mcp",
-  "defaultConnectionOptionId": "api",
   "connectionOptions": [
     {
       "id": "api",
@@ -30,7 +28,9 @@
             "key": "NEON_API_KEY",
             "label": "Neon API key",
             "type": "password",
-            "required": true
+            "required": true,
+            "helperText": "API key from your Neon account settings.",
+            "helperLink": "https://neon.tech/docs/manage/api-keys"
           }
         ]
       },

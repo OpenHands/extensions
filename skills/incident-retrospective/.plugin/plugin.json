@@ -1,0 +1,21 @@
+{
+  "name": "incident-retrospective",
+  "version": "1.0.0",
+  "description": "Create an automation that drafts incident retrospectives by gathering incident-channel messages from Slack, collecting linked tickets from Linear, and publishing a retrospective draft to Notion with timeline, impact summary, root-cause hypotheses, and action items.",
+  "author": {
+    "name": "OpenHands",
+    "email": "contact@all-hands.dev"
+  },
+  "homepage": "https://github.com/OpenHands/extensions",
+  "repository": "https://github.com/OpenHands/extensions",
+  "license": "MIT",
+  "keywords": [
+    "incident",
+    "retrospective",
+    "postmortem",
+    "slack",
+    "linear",
+    "notion",
+    "automation"
+  ]
+}

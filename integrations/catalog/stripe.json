@@ -2,29 +2,54 @@
   "id": "stripe",
   "name": "Stripe",
   "description": "Query customers, payments, subscriptions, and invoices via Stripe's hosted MCP server.",
+  "categories": [
+    "Payments",
+    "Finance"
+  ],
+  "appUrl": "https://stripe.com",
   "docsUrl": "https://stripe.com/docs/mcp",
+  "notes": "High-value fintech automation target with mature OAuth patterns.",
+  "popularityRank": 28,
+  "connectionOptions": [
+    {
+      "id": "api",
+      "provider": "mcp",
+      "transport": {
+        "kind": "shttp",
+        "url": "https://mcp.stripe.com/"
+      },
+      "auth": {
+        "strategy": "bearer",
+        "credentialLabel": "Stripe restricted key",
+        "credentialPlaceholder": "rk_live_...",
+        "credentialHelp": "Create a Stripe restricted key for MCP access and paste it here."
+      }
+    },
+    {
+      "id": "oauth",
+      "provider": "http",
+      "auth": {
+        "strategy": "oauth2",
+        "oauth": {
+          "authorizationUrl": "https://connect.stripe.com/oauth/authorize",
+          "tokenUrl": "https://connect.stripe.com/oauth/token",
+          "scopes": [
+            "read_only"
+          ]
+        }
+      },
+      "http": {
+        "apiBaseUrl": "https://api.stripe.com/v1",
+        "openApiUrl": "https://raw.githubusercontent.com/stripe/openapi/master/openapi/spec3.json"
+      }
+    }
+  ],
   "iconBg": "#635BFF",
+  "logoUrl": "https://cdn.simpleicons.org/stripe/FFFFFF",
   "keywords": [
     "payments",
     "billing",
     "subscriptions",
     "finance"
-  ],
-  "kind": "mcp",
-  "defaultConnectionOptionId": "none",
-  "connectionOptions": [
-    {
-      "id": "none",
-      "provider": "mcp",
-      "transport": {
-        "kind": "shttp",
-        "url": "https://mcp.stripe.com/",
-        "apiKeyOptional": true
-      },
-      "auth": {
-        "strategy": "none",
-        "apiKeyOptional": true
-      }
-    }
   ]
 }

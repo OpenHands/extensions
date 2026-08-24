@@ -13,6 +13,7 @@ triggers:
 Set up a build environment and create test fixtures for validating COBOL-to-Java migrations.
 
 To install GnuCOBOL, run: `./scripts/install-gnucobol.sh`
+On Windows, run that shell script from Git Bash/WSL (`bash scripts/install-gnucobol.sh`) or install GnuCOBOL with a Windows package manager and document the chosen command in `build_notes.md`.
 
 ## Phase 1: Build Setup
 

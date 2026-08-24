@@ -1,8 +1,10 @@
 # openhands-api
 
-Reference skill + minimal clients for the **OpenHands Cloud API** (V1).
+Reference skill + minimal clients for the **OpenHands Cloud API** (V1) and common **agent-server APIs**.
 
 This skill now also covers the **multi-conversation delegation pattern**: start additional Cloud conversations when you want fresh context windows, background work, or parallel tasks.
+
+It also covers direct local Agent Canvas backend conversations when you need to call a local agent server with `X-Session-API-Key` instead of creating a Cloud app conversation.
 
 - Skill instructions and endpoint overview: [`SKILL.md`](./SKILL.md)
 - Minimal Python client: [`scripts/openhands_api.py`](./scripts/openhands_api.py)
@@ -42,6 +44,8 @@ If `app_conversation_id` is missing from the initial response, fetch it via:
 This skill is aligned against:
 
 - `OpenHands/docs/openhands/usage/cloud/cloud-api.mdx`
+- `OpenHands/docs/openhands/usage/agent-canvas/backend-setup/local.mdx`
+- `OpenHands/docs/sdk/arch/agent-server.mdx`
 - `OpenHands/docs/openhands/usage/api/v1.mdx`
 - `OpenHands/OpenHands/openhands/app_server/v1_router.py`
 - `OpenHands/OpenHands/openhands/app_server/app_conversation/app_conversation_router.py`

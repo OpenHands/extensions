@@ -10,8 +10,6 @@
     "research",
     "neural"
   ],
-  "kind": "mcp",
-  "defaultConnectionOptionId": "api",
   "connectionOptions": [
     {
       "id": "api",
@@ -29,7 +27,9 @@
             "key": "EXA_API_KEY",
             "label": "Exa API key",
             "type": "password",
-            "required": true
+            "required": true,
+            "helperText": "API key from your Exa account.",
+            "helperLink": "https://exa.ai/docs/reference/getting-started"
           }
         ]
       },

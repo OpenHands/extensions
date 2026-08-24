@@ -7,6 +7,8 @@ triggers:
 
 # Datadog
 
+Windows PowerShell equivalents for the Datadog `curl`, environment-variable, timestamp, and JSON formatting snippets are in `references/windows.md`.
+
 <IMPORTANT>
 Before performing any Datadog operations, first check if the required environment variables are set:
 

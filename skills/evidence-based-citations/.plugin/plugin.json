@@ -1,0 +1,20 @@
+{
+  "name": "evidence-based-citations",
+  "version": "1.0.0",
+  "description": "Back factual claims and field values with official, verifiable sources. Use when the user asks to fill fields, answer questions, or make claims that must be supported by an exact quote and an official link.",
+  "author": {
+    "name": "OpenHands",
+    "email": "contact@all-hands.dev"
+  },
+  "homepage": "https://github.com/OpenHands/extensions",
+  "repository": "https://github.com/OpenHands/extensions",
+  "license": "MIT",
+  "keywords": [
+    "evidence",
+    "citations",
+    "sources",
+    "verification",
+    "documentation",
+    "official"
+  ]
+}

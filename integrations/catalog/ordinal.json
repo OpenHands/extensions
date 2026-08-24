@@ -1,0 +1,33 @@
+{
+  "id": "ordinal",
+  "name": "Ordinal",
+  "description": "Social media posts, profiles, analytics, labels, approvals, and engagements.",
+  "categories": [
+    "Social media",
+    "Marketing"
+  ],
+  "appUrl": "https://app.tryordinal.com",
+  "docsUrl": "https://docs.tryordinal.com/api/mcp",
+  "logoUrl": "https://app.tryordinal.com/favicon.ico",
+  "notes": "Official MCP server backed by Ordinal's API with API-key (Bearer) auth.",
+  "popularityRank": 52,
+  "connectionOptions": [
+    {
+      "id": "api",
+      "provider": "mcp",
+      "auth": {
+        "strategy": "bearer",
+        "authModes": [
+          "bearer"
+        ],
+        "credentialLabel": "Ordinal API key",
+        "credentialPlaceholder": "Paste your Ordinal API key",
+        "credentialHelp": "API key from your Ordinal workspace settings, sent as a Bearer token in the Authorization header."
+      },
+      "transport": {
+        "kind": "shttp",
+        "url": "https://app.tryordinal.com/api/mcp"
+      }
+    }
+  ]
+}

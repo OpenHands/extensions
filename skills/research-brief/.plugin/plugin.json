@@ -1,0 +1,20 @@
+{
+  "name": "research-brief",
+  "version": "1.0.0",
+  "description": "Create a recurring automation that researches a topic using Tavily web search and publishes a structured brief to Notion with executive summary, key findings, implications, and source citations.",
+  "author": {
+    "name": "OpenHands",
+    "email": "contact@all-hands.dev"
+  },
+  "homepage": "https://github.com/OpenHands/extensions",
+  "repository": "https://github.com/OpenHands/extensions",
+  "license": "MIT",
+  "keywords": [
+    "research",
+    "brief",
+    "tavily",
+    "notion",
+    "web-search",
+    "automation"
+  ]
+}

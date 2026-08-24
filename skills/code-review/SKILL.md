@@ -35,6 +35,7 @@ The prompt includes a **Files Changed** manifest listing every file in the PR, f
 3. Only after both checks come up empty should you flag something as missing. Even then, prefer "I could not locate X" over "X is missing" — the file may be in a path you haven't searched.
 
 Before posting an **inline review comment that names a specific line number**, verify the line maps to what you think it does (`sed -n 'X,Yp' <file>` or `view`). Line numbers derived by counting `+`/`-`/context lines from a `@@` hunk header are not reliable; ground them against the file.
+On Windows PowerShell, use `Get-Content`, `Select-String`, or `(Get-Content <file>)[($start - 1)..($end - 1)]` for the same file and line checks.
 
 CODE REVIEW SCENARIOS:
 
@@ -57,6 +58,12 @@ Identify:
 - Code that could be 3 lines instead of 10
 - Poor naming that obscures intent
 - Missing inline documentation for non-obvious logic
+- **Unnecessary comments**: flag and suggest removing comments that add noise rather than value. A 3-line change should not produce 19 lines of comments. Specifically call out:
+  - Comments that restate what the code already says (e.g. `# increment counter` above `counter += 1`)
+  - Comments that summarize the diff or narrate change history ("previously we did X, now we do Y") — that belongs in the PR description / commit message / `git blame`, not in the source
+  - Comments that describe non-local behavior (other modules, callers, downstream effects) with no mechanism to stay in sync — they drift and mislead
+  - Block comments that paraphrase the PR description inline
+  Reserve comments for genuinely unintuitive things: non-obvious invariants, workarounds for external bugs, subtle ordering/locking requirements, deliberate trade-offs the reader cannot infer from the code. When in doubt, prefer restructuring or renaming over commenting.
 
 3. **Pragmatic Problem Analysis**
 "Theory and practice sometimes clash. Theory loses. Every single time."
@@ -109,7 +116,7 @@ Require:
 8. **Dependency Changes**
 If dependency lock changes have downgraded a dependency, comment pointing that out to make sure it was intentional.
 
-When a PR adds a new dependency or bumps an existing one, review the upstream release for supply chain risk. If any target version was published less than 7 days ago, do **NOT** approve the PR yet — leave a blocking review comment and wait until the version is at least 7 days old. Read `references/supply-chain-security.md` for the full verification checklist including risk-based scrutiny tiers, concrete commands for checking release provenance, and escalation guidance.
+When a PR adds a new dependency or bumps an existing one, review the upstream release for supply chain risk. If any target version was published less than 7 days ago, do **NOT** approve the PR yet — leave a blocking review comment and wait until the version is at least 7 days old. First-party packages maintained by the same organization as the reviewed repository are intentionally excluded from the 7-day waiting rule, but still scrutinize them for supply-chain risk using the checklist. Read `references/supply-chain-security.md` for the full verification checklist including risk-based scrutiny tiers, concrete commands for checking release provenance, and escalation guidance.
 
 9. **Risk and Safety Evaluation**
 Read `references/risk-evaluation.md` for the full risk evaluation framework including risk levels (🟢 Low / 🟡 Medium / 🔴 High), risk factors, escalation guidance, and repo-specific risk rules.

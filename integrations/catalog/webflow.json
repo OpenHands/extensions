@@ -1,0 +1,34 @@
+{
+  "id": "webflow",
+  "name": "Webflow",
+  "description": "CMS items, sites, and web publishing workflows.",
+  "categories": [
+    "CMS",
+    "Marketing"
+  ],
+  "appUrl": "https://webflow.com",
+  "docsUrl": "https://developers.webflow.com/mcp/reference/getting-started",
+  "notes": "Uses Webflow's official hosted MCP server and deployment-scoped MCP OAuth registration so each user can authorize their own sites and workspaces.",
+  "popularityRank": 32,
+  "connectionOptions": [
+    {
+      "id": "oauth",
+      "provider": "mcp",
+      "auth": {
+        "strategy": "oauth2",
+        "oauth": {
+          "authorizationUrl": "https://mcp.webflow.com/oauth/authorize",
+          "tokenUrl": "https://mcp.webflow.com/oauth/token",
+          "scopes": [],
+          "pkce": true,
+          "clientAuthentication": "none",
+          "registrationUrl": "https://mcp.webflow.com/oauth/register"
+        }
+      },
+      "transport": {
+        "kind": "shttp",
+        "url": "https://mcp.webflow.com/mcp"
+      }
+    }
+  ]
+}

@@ -10,8 +10,6 @@
     "url",
     "scrape"
   ],
-  "kind": "mcp",
-  "defaultConnectionOptionId": "none",
   "connectionOptions": [
     {
       "id": "none",

@@ -2,48 +2,78 @@
   "id": "github",
   "name": "GitHub",
   "description": "Search code, manage issues and pull requests, and inspect repos via the GitHub API.",
+  "categories": [
+    "Engineering",
+    "Source control"
+  ],
+  "appUrl": "https://github.com",
   "docsUrl": "https://github.com/github/github-mcp-server",
+  "notes": "Current managed connector works with bearer tokens today; GitHub OAuth is a strong candidate for a future one-click connect flow.",
+  "popularityRank": 100,
+  "connectionOptions": [
+    {
+      "id": "oauth",
+      "provider": "mcp",
+      "connectionModel": {
+        "principalType": "user",
+        "credentialScope": "account",
+        "resourceType": "organization",
+        "resourceCardinality": "many",
+        "selectionMode": "post_auth",
+        "identityMapping": {
+          "source": "identity_api",
+          "endpoint": "https://api.github.com/user",
+          "externalPrincipalIdPath": "id",
+          "resourceNamePath": "login",
+          "resourceUrlPath": "html_url"
+        },
+        "resourceDiscovery": {
+          "endpoint": "https://api.github.com/user/orgs",
+          "externalResourceIdPath": "id",
+          "resourceNamePath": "login",
+          "resourceUrlPath": "html_url"
+        }
+      },
+      "auth": {
+        "strategy": "oauth2",
+        "oauth": {
+          "authorizationUrl": "https://github.com/login/oauth/authorize",
+          "tokenUrl": "https://github.com/login/oauth/access_token",
+          "scopes": [
+            "read:user",
+            "repo"
+          ]
+        }
+      },
+      "transport": {
+        "kind": "shttp",
+        "url": "https://api.githubcopilot.com/mcp/"
+      }
+    },
+    {
+      "id": "api",
+      "provider": "mcp",
+      "transport": {
+        "kind": "shttp",
+        "url": "https://api.githubcopilot.com/mcp/"
+      },
+      "auth": {
+        "strategy": "api_key",
+        "credentialLabel": "Personal access token",
+        "credentialPlaceholder": "github_pat_...",
+        "credentialHelp": "Create a token in [GitHub settings](https://github.com/settings/personal-access-tokens): classic tokens need the repo and read:user scopes; fine-grained tokens need read access to Contents, Issues, and Pull requests for the repositories you use.",
+        "credentialSecretName": "GITHUB_PERSONAL_ACCESS_TOKEN",
+        "saveCredentialAsSecretByDefault": true
+      }
+    }
+  ],
   "iconBg": "var(--oh-surface)",
+  "logoUrl": "https://cdn.simpleicons.org/github/FFFFFF",
   "keywords": [
     "git",
     "pr",
     "repo",
     "issues",
     "code"
-  ],
-  "popularityRank": 100,
-  "installHint": "Requires Docker because the legacy npm package was deprecated upstream.",
-  "kind": "mcp",
-  "defaultConnectionOptionId": "api",
-  "connectionOptions": [
-    {
-      "id": "api",
-      "provider": "mcp",
-      "transport": {
-        "kind": "stdio",
-        "serverName": "github",
-        "command": "docker",
-        "args": [
-          "run",
-          "-i",
-          "--rm",
-          "-e",
-          "GITHUB_PERSONAL_ACCESS_TOKEN",
-          "ghcr.io/github/github-mcp-server"
-        ],
-        "envFields": [
-          {
-            "key": "GITHUB_PERSONAL_ACCESS_TOKEN",
-            "label": "Personal access token",
-            "type": "password",
-            "placeholder": "github_pat_...",
-            "required": true
-          }
-        ]
-      },
-      "auth": {
-        "strategy": "api_key"
-      }
-    }
   ]
 }

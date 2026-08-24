@@ -51,6 +51,8 @@ python3 -m py_compile main.py   # fails with a clear error on any syntax problem
 bash -n setup.sh                 # validates shell syntax without executing
 ```
 
+Syntax checks alone don't catch a config value that's valid-but-wrong Python — e.g. `json.dumps` emitting `true`/`false` where Python expects `True`/`False`, which compiles fine and only fails at runtime. Run the script once against a synthetic event before deploying; see `references/security.md#verify-before-deploying-not-just-compile`.
+
 Fix any errors reported before proceeding to the next step.
 
 
@@ -272,6 +274,26 @@ with OpenHandsCloudWorkspace(
 # OpenHandsCloudWorkspace.__exit__ fires the completion callback here.
 ```
 
+### Selecting an LLM profile
+
+The automation service injects an `AUTOMATION_MODEL` environment variable holding the **LLM profile name** the automation should run with. This is the profile a user selects when editing the automation, or — when none is selected — a snapshot of the user's active profile taken when the automation was created. To honor it on every run, read `AUTOMATION_MODEL` and pass it to `workspace.get_llm(profile_name=...)`:
+
+```python
+# AUTOMATION_MODEL is the selected profile name (absent when none was chosen).
+model_profile = os.environ.get("AUTOMATION_MODEL") or None
+try:
+    llm = workspace.get_llm(profile_name=model_profile)
+except FileNotFoundError:
+    # The profile was renamed or deleted after the automation was created;
+    # fall back to the user's default LLM rather than failing the run.
+    if not model_profile:
+        raise
+    print(f"profile {model_profile!r} not found; falling back to default profile")
+    llm = workspace.get_llm()
+```
+
+Calling `workspace.get_llm()` with no `profile_name` always uses the user's default LLM. The built-in prompt and plugin presets already follow the pattern above; custom scripts should too so the selected profile is honored regardless of trigger type or execution backend.
+
 ### Conversation Persistence
 
 Conversations started during a run remain accessible in the OpenHands UI after the run completes — users can view the history and continue interacting. By default, `Conversation` does not delete the conversation on close:
@@ -439,6 +461,170 @@ def fire_callback(status: str = "COMPLETED", error: str | None = None) -> None:
 
 ---
 
+## State Persistence (KV Store)
+
+Polling automations that run on a schedule need to remember state between runs — for example, the timestamp of the last processed event, or which conversation IDs are currently active. Storing this in a local file does not work on cloud deployments where each run may land on a fresh pod.
+
+The automation service provides a built-in key-value store scoped per-automation. It is available in every run when the service is configured with `AUTOMATION_KV_SECRET`. Detect availability by checking for `AUTOMATION_KV_TOKEN` in the environment.
+
+### KV Store API
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/v1/kv/{key}` | GET | Get value (404 if not found) |
+| `/v1/kv/{key}` | PUT | Set value (201 on create, 200 on update) |
+| `/v1/kv/{key}` | DELETE | Delete key |
+| `/v1/kv/{key}/incr` | POST | Atomic integer increment |
+| `/v1/kv/{key}/decr` | POST | Atomic integer decrement |
+| `/v1/kv/{key}/rpush` | POST | Append item to a list |
+| `/v1/kv/{key}/lpop` | POST | Pop item from front of a list |
+
+**Authentication:** `Authorization: Bearer $AUTOMATION_KV_TOKEN`
+
+**Base URL:** `$AUTOMATION_API_URL` (e.g., `https://app.all-hands.dev/api/automation`)
+
+Values are arbitrary JSON (dict, list, number, string). All keys are isolated per-automation — different automations cannot access each other's data.
+
+### KV Store Helpers
+
+Copy these helpers into any deterministic script that needs state persistence:
+
+```python
+import json, os, urllib.error, urllib.request
+
+_KV_TOKEN = os.environ.get("AUTOMATION_KV_TOKEN", "")
+_KV_BASE = os.environ.get("AUTOMATION_API_URL", "").rstrip("/")
+
+
+def kv_available() -> bool:
+    """Return True when the KV store is reachable in this run."""
+    return bool(_KV_TOKEN and _KV_BASE)
+
+
+def kv_get(key: str):
+    """Fetch a value from the KV store. Returns None if the key does not exist."""
+    req = urllib.request.Request(
+        f"{_KV_BASE}/v1/kv/{key}",
+        headers={"Authorization": f"Bearer {_KV_TOKEN}"},
+    )
+    try:
+        with urllib.request.urlopen(req) as r:
+            return json.loads(r.read())["value"]
+    except urllib.error.HTTPError as exc:
+        if exc.code == 404:
+            return None
+        raise
+
+
+def kv_set(key: str, value) -> None:
+    """Write a value to the KV store."""
+    req = urllib.request.Request(
+        f"{_KV_BASE}/v1/kv/{key}",
+        data=json.dumps(value).encode(),
+        headers={
+            "Authorization": f"Bearer {_KV_TOKEN}",
+            "Content-Type": "application/json",
+        },
+        method="PUT",
+    )
+    with urllib.request.urlopen(req) as r:
+        r.read()
+```
+
+### Load / Save Pattern
+
+For polling scripts that maintain a single state document, use a KV-first pattern with a local-file fallback so the script also works in local/dev environments where the KV store is not configured:
+
+```python
+import json, os, urllib.error, urllib.request
+from pathlib import Path
+
+_KV_TOKEN = os.environ.get("AUTOMATION_KV_TOKEN", "")
+_KV_BASE = os.environ.get("AUTOMATION_API_URL", "").rstrip("/")
+_STATE_KEY = "state"
+
+
+def kv_available() -> bool:
+    return bool(_KV_TOKEN and _KV_BASE)
+
+
+def kv_get(key: str):
+    req = urllib.request.Request(
+        f"{_KV_BASE}/v1/kv/{key}",
+        headers={"Authorization": f"Bearer {_KV_TOKEN}"},
+    )
+    try:
+        with urllib.request.urlopen(req) as r:
+            return json.loads(r.read())["value"]
+    except urllib.error.HTTPError as exc:
+        if exc.code == 404:
+            return None
+        raise
+
+
+def kv_set(key: str, value) -> None:
+    req = urllib.request.Request(
+        f"{_KV_BASE}/v1/kv/{key}",
+        data=json.dumps(value).encode(),
+        headers={
+            "Authorization": f"Bearer {_KV_TOKEN}",
+            "Content-Type": "application/json",
+        },
+        method="PUT",
+    )
+    with urllib.request.urlopen(req) as r:
+        r.read()
+
+
+def _state_file_path() -> Path:
+    workspace = os.environ.get("WORKSPACE_BASE", "")
+    if workspace:
+        root = Path(workspace).resolve().parent.parent
+    else:
+        root = Path.home() / ".openhands" / "workspaces"
+    state_dir = root / "automation-state"
+    state_dir.mkdir(parents=True, exist_ok=True)
+    payload = json.loads(os.environ.get("AUTOMATION_EVENT_PAYLOAD", "{}"))
+    automation_id = payload.get("automation_id", "default")
+    return state_dir / f"my_poller_{automation_id}.json"
+
+
+def _default_state() -> dict:
+    return {"version": 1, "last_poll": None}
+
+
+def load_state() -> dict:
+    if kv_available():
+        data = kv_get(_STATE_KEY)
+        if data is not None:
+            print("State loaded from KV store")
+            return data
+        return _default_state()
+    path = _state_file_path()
+    if path.exists():
+        try:
+            return json.loads(path.read_text())
+        except Exception as exc:
+            print(f"Warning: state file unreadable ({exc}); starting fresh")
+    return _default_state()
+
+
+def save_state(state: dict) -> None:
+    if kv_available():
+        kv_set(_STATE_KEY, state)
+        print("State saved to KV store")
+        return
+    path = _state_file_path()
+    tmp = path.with_suffix(".tmp")
+    tmp.write_text(json.dumps(state, indent=2))
+    tmp.replace(path)
+    print(f"State saved to {path}")
+```
+
+> **Why a single document?** The KV store uses a single-document model under the hood (all keys for an automation share one encrypted row). Storing your entire state under a single key like `"state"` is the most efficient pattern — it avoids multiple round-trips and ensures atomic reads and writes.
+
+---
+
 ## Environment Variables
 
 The automation service injects these environment variables into every run:
@@ -451,6 +637,8 @@ The automation service injects these environment variables into every run:
 | `AUTOMATION_CALLBACK_API_KEY` | — | Bearer token for the completion callback POST |
 | `AUTOMATION_RUN_ID` | — | Run ID to include in the completion callback payload |
 | `AUTOMATION_EVENT_PAYLOAD` | — | JSON with trigger context: `automation_id`, `automation_name`, `trigger` type, and (for webhook runs) the raw event payload |
+| `AUTOMATION_API_URL` | — | Base URL of the automation service (e.g., `https://app.all-hands.dev/api/automation`). Used to reach the KV store API |
+| `AUTOMATION_KV_TOKEN` | — | Bearer token for the KV store API. Present whenever the service has `AUTOMATION_KV_SECRET` configured. Check for this variable to detect KV availability |
 
 > **Note:** The session API key has two names: `SESSION_API_KEY` (cloud) and `OH_SESSION_API_KEYS_0` (local/dev). Always read both — see the code examples above.
 

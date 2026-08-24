@@ -3,7 +3,6 @@ name: github
 description: Interact with GitHub repositories, pull requests, issues, and workflows using the GITHUB_TOKEN environment variable and GitHub CLI. Use when working with code hosted on GitHub or managing GitHub resources.
 triggers:
 - github
-- git
 ---
 
 You have access to an environment variable, `GITHUB_TOKEN`, which allows you to interact with
@@ -18,6 +17,8 @@ Examples:
 - `gh run watch` (https://cli.github.com/manual/gh_run_watch) to monitor workflow runs
 - `gh pr checks 200 --watch --interval 10` to check until completed.
 </IMPORTANT>
+
+Windows PowerShell equivalents for the multi-line shell snippets below are in `references/windows.md`.
 
 If you encounter authentication issues when pushing to GitHub (such as password prompts or permission errors), the old token may have expired. In such case, update the remote URL to include the current token: `git remote set-url origin https://${GITHUB_TOKEN}@github.com/username/repo.git`
 

@@ -1,0 +1,78 @@
+{
+  "id": "github-repo-monitor",
+  "version": "1.0.0",
+  "name": "GitHub repository monitor",
+  "category": "Developer tools",
+  "description": "Watch a repository for @OpenHands mentions in issues and PR comments, start a conversation, and post the agent's reply back to GitHub.",
+  "requires": {
+    "integrations": {
+      "github": {
+        "message": "Used to read issue and pull request comments and post replies."
+      }
+    },
+    "features": [
+      "repoClone",
+      "presetPrompt"
+    ]
+  },
+  "popularityRank": 98,
+  "estimatedSetupMinutes": 5,
+  "exampleImplementation": "Trigger: cron polling (e.g. every 15 minutes, configurable)\nRequired secret: GITHUB_PERSONAL_ACCESS_TOKEN\n\n1. Poll GitHub for new issue and PR comments since the last run.\n2. Match comments containing the trigger phrase (case-insensitive, default: @OpenHands).\n3. Post an acknowledgment comment with a link to the new OpenHands conversation.\n4. Forward follow-up replies in the same thread to the running conversation.\n5. Post the agent's final response back to GitHub when the conversation completes.",
+  "setup": {
+    "version": "1.0",
+    "mode": "direct",
+    "form": {
+      "triggers": {
+        "cron": {
+          "schedule": {
+            "type": "cron",
+            "label": "Check frequency",
+            "help": "How often to look for new comments to respond to.",
+            "default": "*/15 * * * *",
+            "required": true
+          },
+          "timezone": {
+            "type": "timezone",
+            "label": "Timezone",
+            "help": "Timezone the schedule is interpreted in.",
+            "default": "UTC",
+            "required": true
+          }
+        }
+      },
+      "args": {
+        "repository": {
+          "type": "repo-picker",
+          "label": "Repository",
+          "help": "The repository or repositories to watch for mentions.",
+          "provider": "github",
+          "required": true
+        },
+        "triggerPhrase": {
+          "type": "text",
+          "label": "Trigger phrase",
+          "help": "Only comments containing this phrase start a conversation. Matched case-insensitively.",
+          "default": "@openhands",
+          "required": true,
+          "constraints": {
+            "minLength": 2,
+            "maxLength": 50
+          }
+        },
+        "ref": {
+          "type": "text",
+          "label": "Base branch",
+          "help": "Branch checked out when the agent responds.",
+          "default": "main",
+          "required": true,
+          "constraints": {
+            "minLength": 1,
+            "maxLength": 255
+          }
+        }
+      }
+    },
+    "prompt": "Poll {{form.repository}} for any new issue or pull request comments since the last run. For every comment mentioning '{{form.triggerPhrase}}', read the surrounding issue or pull request context and post a helpful reply as a comment on the same thread.",
+    "message": "This deployment cannot run the scheduled monitor directly. Set it up in this conversation instead: confirm the repository to watch, the trigger phrase, and the polling schedule, then create the automation."
+  }
+}

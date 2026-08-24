@@ -8,12 +8,15 @@ description: >
   through creating a cron automation that polls a single repository and starts
   an OpenHands conversation whenever a configurable trigger phrase is detected
   in an issue or PR comment.
+triggers:
+  - /github-monitor:poll
 ---
 
 # GitHub Repository Monitor
 
 Create a cron automation that polls a single GitHub repository on a
 configurable schedule (default: every minute).
+Windows PowerShell equivalents for the setup, packaging, upload, and API-check shell snippets are in `references/windows.md`.
 
 When a comment on an issue or PR contains the **trigger phrase**
 (default: `@OpenHands`) it:
@@ -43,13 +46,13 @@ before proceeding:
 
 | Secret name | Token type | Minimum permissions |
 |---|---|---|
-| `GITHUB_TOKEN` | Classic PAT | `repo` (private repos) or `public_repo` (public repos) |
-| `GITHUB_TOKEN` | Fine-grained PAT | Issues: Read and Write |
+| `GITHUB_PERSONAL_ACCESS_TOKEN` | Classic PAT | `repo` (private repos) or `public_repo` (public repos) |
+| `GITHUB_PERSONAL_ACCESS_TOKEN` | Fine-grained PAT | Issues: Read and Write |
 
 Check with:
 ```bash
 curl -s https://api.github.com/user \
-  -H "Authorization: Bearer $GITHUB_TOKEN" \
+  -H "Authorization: Bearer $GITHUB_PERSONAL_ACCESS_TOKEN" \
   -H "Accept: application/vnd.github+json" \
   | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('login') or d.get('message'))"
 ```
@@ -69,12 +72,12 @@ function without GitHub credentials.
 
 Follow these steps in order.
 
-### Step 1  -  Verify GITHUB_TOKEN
+### Step 1  -  Verify GITHUB_PERSONAL_ACCESS_TOKEN
 
 Fetch the secret and run the `curl` check above.
 
 - If the secret is absent: tell the user
-  *"GITHUB_TOKEN is not set. Please add it in OpenHands Settings → Secrets
+  *"GITHUB_PERSONAL_ACCESS_TOKEN is not set. Please add it in OpenHands Settings → Secrets
   (classic PAT with `repo` or `public_repo` scope, or a fine-grained PAT
   with Issues: Read and Write)."* Then stop.
 
@@ -90,7 +93,7 @@ Validate access and write permissions:
 
 ```bash
 curl -s "https://api.github.com/repos/{owner}/{repo}" \
-  -H "Authorization: Bearer $GITHUB_TOKEN" \
+  -H "Authorization: Bearer $GITHUB_PERSONAL_ACCESS_TOKEN" \
   -H "Accept: application/vnd.github+json" \
   | python3 -c "
 import json, sys
@@ -121,7 +124,7 @@ Record as `TRIGGER_PHRASE`. Default: `"@openhands"`.
 ### Step 4  -  Collect allowed GitHub logins
 
 Ask the user: *"Which GitHub users may trigger this automation?
-Press Enter to allow only the authenticated `GITHUB_TOKEN` owner.
+Press Enter to allow only the authenticated `GITHUB_PERSONAL_ACCESS_TOKEN` owner.
 You may also provide comma-separated GitHub logins, or `*` to allow any
 non-bot commenter on the monitored repository."*
 
@@ -193,14 +196,23 @@ Fix any syntax errors before proceeding.
 
 ### Step 8  -  Package and upload
 
+Determine the Automation backend URL and auth from the `<RUNTIME_SERVICES>`
+block in your system context:
+- Use the **Automation backend** `url_from_agent` as `OPENHANDS_HOST`
+- Auth: `X-Session-API-Key: $OPENHANDS_AUTOMATION_API_KEY`
+
+If no Automation backend is listed in `<RUNTIME_SERVICES>`, stop and tell
+the user to start the full automation stack.
+
 ```bash
 tar -czf /tmp/github-monitor.tar.gz -C /tmp/github-monitor-build .
 
-OPENHANDS_HOST="http://localhost:8000"
+# OPENHANDS_HOST: read from <RUNTIME_SERVICES> Automation backend url_from_agent
+OPENHANDS_HOST="<automation-url-from-runtime-services>"
 
 TARBALL_PATH=$(curl -s -X POST \
   "${OPENHANDS_HOST}/api/automation/v1/uploads?name=github-repo-monitor" \
-  -H "Authorization: Bearer $OPENHANDS_AUTOMATION_API_KEY" \
+  -H "X-Session-API-Key: $OPENHANDS_AUTOMATION_API_KEY" \
   -H "Content-Type: application/gzip" \
   --data-binary @/tmp/github-monitor.tar.gz \
   | python3 -c "import json,sys; print(json.load(sys.stdin)['tarball_path'])")
@@ -212,7 +224,7 @@ echo "Uploaded: $TARBALL_PATH"
 
 ```bash
 curl -s -X POST "${OPENHANDS_HOST}/api/automation/v1" \
-  -H "Authorization: Bearer $OPENHANDS_AUTOMATION_API_KEY" \
+  -H "X-Session-API-Key: $OPENHANDS_AUTOMATION_API_KEY" \
   -H "Content-Type: application/json" \
   -d "{
     \"name\": \"GitHub Monitor: {owner}/{repo}\",
@@ -250,7 +262,7 @@ Tell the user:
 Each cron run executes `main.py`, which:
 
 1. **Loads state** from the JSON file (see `references/state-schema.md`).
-2. **Resolves and validates GITHUB_TOKEN** — aborts immediately if absent or invalid.
+2. **Resolves and validates GITHUB_PERSONAL_ACCESS_TOKEN** — aborts immediately if absent or invalid.
 3. **Polls for new events** since the previous `last_poll` timestamp:
    - `GET /repos/{owner}/{repo}/issues/comments?since=…` for `issue_comment`
    - `GET /repos/{owner}/{repo}/pulls/comments?since=…` for `pr_review_comment`
@@ -296,7 +308,7 @@ Each cron run executes `main.py`, which:
 
 | Symptom | Likely cause | Fix |
 |---|---|---|
-| Bot doesn't respond to comments | `GITHUB_TOKEN` missing or wrong scopes | Verify token with `curl /user`; check scopes in Step 1 |
+| Bot doesn't respond to comments | `GITHUB_PERSONAL_ACCESS_TOKEN` missing or wrong scopes | Verify token with `curl /user`; check scopes in Step 1 |
 | "Bad credentials" in run logs | Token expired | Rotate token and update the secret in Settings |
 | 404 on repo access | Repo name wrong or token has no access | Re-check `owner/repo` spelling; add token as collaborator |
 | Comments posted but no conversation created | Agent server URL wrong | Check `OPENHANDS_URL` secret and `AGENT_SERVER_URL` env var |

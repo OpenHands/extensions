@@ -1,5 +1,6 @@
 name: Tests
 
+# NOTE: pull_request (not pull_request_target) so checks run against the PR head.
 on:
   pull_request:
     branches: ["*"]
@@ -18,6 +19,11 @@ jobs:
         with:
           enable-cache: true
           python-version: "3.12"
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
 
       - name: Run tests
         run: uv run --group test pytest tests/

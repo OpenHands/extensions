@@ -3,7 +3,6 @@ name: gitlab
 description: Interact with GitLab repositories, merge requests, and APIs using the GITLAB_TOKEN environment variable. Use when working with code hosted on GitLab or managing GitLab resources.
 triggers:
 - gitlab
-- git
 ---
 
 You have access to an environment variable, `GITLAB_TOKEN`, which allows you to interact with
@@ -30,3 +29,5 @@ Here are some instructions for pushing, but ONLY do this if the user asks you to
 git remote -v && git branch # to find the current org, repo and branch
 git checkout -b create-widget && git add . && git commit -m "Create widget" && git push -u origin create-widget
 ```
+
+On Windows PowerShell, use `$env:GITLAB_TOKEN` in remote URLs and run the `git` commands as separate commands if `&&` is not supported by the installed shell.

@@ -27,3 +27,6 @@ Thumbs.db
 
 # uv lock file (no application code in this repo)
 uv.lock
+
+# npm pack artifacts (also keeps stray tarballs out of the published package)
+*.tgz

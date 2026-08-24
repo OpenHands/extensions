@@ -11,9 +11,6 @@
     "blame"
   ],
   "installHint": "Runs the official Python server via uvx — no setup beyond the path.",
-  "kind": "mcp",
-  "runtimeAvailability": "local",
-  "defaultConnectionOptionId": "api",
   "connectionOptions": [
     {
       "id": "api",

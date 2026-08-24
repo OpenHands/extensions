@@ -1,0 +1,21 @@
+{
+  "name": "slack-standup-digest",
+  "version": "1.0.0",
+  "description": "Create an automation that generates an async standup digest from Slack. Searches selected channels for messages since the previous workday, groups updates by project, highlights blockers and decisions, and posts a summary to a target channel.",
+  "author": {
+    "name": "OpenHands",
+    "email": "contact@all-hands.dev"
+  },
+  "homepage": "https://github.com/OpenHands/extensions",
+  "repository": "https://github.com/OpenHands/extensions",
+  "license": "MIT",
+  "keywords": [
+    "slack",
+    "standup",
+    "digest",
+    "summary",
+    "daily",
+    "cron",
+    "automation"
+  ]
+}

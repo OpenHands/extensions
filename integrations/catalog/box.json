@@ -1,0 +1,34 @@
+{
+  "id": "box",
+  "name": "Box",
+  "description": "Enterprise file storage, metadata, and collaboration.",
+  "categories": [
+    "Storage",
+    "Enterprise"
+  ],
+  "appUrl": "https://www.box.com",
+  "docsUrl": "https://developer.box.com/guides/authentication/oauth2/",
+  "notes": "Strong enterprise document-management footprint.",
+  "popularityRank": 19,
+  "connectionOptions": [
+    {
+      "id": "oauth",
+      "provider": "http",
+      "auth": {
+        "strategy": "oauth2",
+        "oauth": {
+          "authorizationUrl": "https://account.box.com/api/oauth2/authorize",
+          "tokenUrl": "https://api.box.com/oauth2/token",
+          "scopes": [
+            "root_readonly",
+            "item_read"
+          ]
+        }
+      },
+      "http": {
+        "apiBaseUrl": "https://api.box.com/2.0",
+        "openApiUrl": "https://raw.githubusercontent.com/box/box-openapi/main/openapi.json"
+      }
+    }
+  ]
+}

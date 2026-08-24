@@ -38,11 +38,14 @@ jobs:
 
             - name: Determine tag
               id: get-tag
+              env:
+                GITHUB_EVENT_INPUTS_TAG: ${{ github.event.inputs.tag }}
+                GITHUB_REF_NAME: ${{ github.ref_name }}
               run: |
                   if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-                    echo "tag=${{ github.event.inputs.tag }}" >> $GITHUB_OUTPUT
+                    echo "tag=$GITHUB_EVENT_INPUTS_TAG" >> $GITHUB_OUTPUT
                   else
-                    echo "tag=${{ github.ref_name }}" >> $GITHUB_OUTPUT
+                    echo "tag=$GITHUB_REF_NAME" >> $GITHUB_OUTPUT
                   fi
 
             - name: Generate Release Notes
@@ -57,10 +60,13 @@ jobs:
                   github-token: ${{ secrets.GITHUB_TOKEN }}
 
             - name: Display generated notes
+              env:
+                TAG: ${{ steps.get-tag.outputs.tag }}
+                PREVIOUS_TAG: ${{ steps.release-notes.outputs.previous-tag }}
               run: |
-                  echo "## Release Notes for ${{ steps.get-tag.outputs.tag }}"
+                  echo "## Release Notes for $TAG"
                   echo ""
-                  echo "Previous tag: ${{ steps.release-notes.outputs.previous-tag }}"
+                  echo "Previous tag: $PREVIOUS_TAG"
                   echo "Commits: ${{ steps.release-notes.outputs.commit-count }}"
                   echo "Contributors: ${{ steps.release-notes.outputs.contributor-count }}"
                   echo "New contributors: ${{ steps.release-notes.outputs.new-contributor-count }}"

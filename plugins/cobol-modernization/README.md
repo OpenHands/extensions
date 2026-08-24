@@ -36,11 +36,11 @@ plugins/cobol-modernization/
 └── skills/                                # Workflow phase skills
     ├── build-setup/                       # Phase 1: Build environment
     │   └── SKILL.md
-    ├── cobol-modernization-overview/      # Plugin overview
+    ├── cobol-modernization/               # Plugin overview
     │   └── SKILL.md
     ├── mainframe-planning/                # Phase 2: Transformation planning
     │   └── SKILL.md
-    ├── mainfraime-removal/                # Phase 3: Mainframe dependency removal
+    ├── mainframe-removal/                 # Phase 3: Mainframe dependency removal
     │   ├── SKILL.md
     │   └── references/
     │       └── cics-transformation-examples.md
@@ -139,7 +139,7 @@ You can also run individual phases by using the specific skill definitions:
 
 - See [skills/build-setup/SKILL.md](skills/build-setup/SKILL.md) for build setup only
 - See [skills/mainframe-planning/SKILL.md](skills/mainframe-planning/SKILL.md) for planning
-- See [skills/mainfraime-removal/SKILL.md](skills/mainfraime-removal/SKILL.md) for mainframe removal
+- See [skills/mainframe-removal/SKILL.md](skills/mainframe-removal/SKILL.md) for mainframe removal
 - See [skills/to-java-migration/SKILL.md](skills/to-java-migration/SKILL.md) for Java translation
 
 ## Troubleshooting

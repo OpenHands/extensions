@@ -1,0 +1,19 @@
+{
+  "name": "bitbucket-data-center",
+  "version": "1.0.0",
+  "description": "Bitbucket Data Center (self-hosted Bitbucket Server) specifics — authenticate with BITBUCKET_DATA_CENTER_TOKEN, use the REST API 1.0, PROJECT/repo_slug repositories, scm/ git remotes, and the create_bitbucket_data_center_pr tool. Loaded on demand by the bitbucket skill once a Data Center environment is detected.",
+  "author": {
+    "name": "OpenHands",
+    "email": "contact@all-hands.dev"
+  },
+  "homepage": "https://github.com/OpenHands/extensions",
+  "repository": "https://github.com/OpenHands/extensions",
+  "license": "MIT",
+  "keywords": [
+    "bitbucket",
+    "bitbucket-data-center",
+    "bitbucket-server",
+    "git",
+    "pull-request"
+  ]
+}

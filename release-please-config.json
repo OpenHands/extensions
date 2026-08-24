@@ -1,0 +1,17 @@
+{
+  "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
+  "bump-minor-pre-major": true,
+  "bootstrap-sha": "5dd68ff47a197a7f8e7cdd7a32a6dcb3702cbd7f",
+  "packages": {
+    ".": {
+      "release-type": "node",
+      "changelog-type": "github",
+      "include-component-in-tag": false,
+      "skip-changelog": true,
+      "extra-files": [
+        { "type": "toml", "path": "pyproject.toml", "jsonpath": "$.project.version" },
+        "python/openhands_extensions/_version.py"
+      ]
+    }
+  }
+}
