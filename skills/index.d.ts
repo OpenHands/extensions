@@ -24,9 +24,15 @@ export interface SkillCatalogEntry {
   content: string;
   /** `"other"` when the skill has no marketplace entry. */
   category: SkillCategoryId;
+  /** `true` when the skill is on for every new workspace. Absent means off. */
+  defaultEnabled?: boolean;
   license?: string;
   compatibility?: string;
 }
 
 export const SKILLS_CATALOG: SkillCatalogEntry[];
+
+/** Names of the entries whose `defaultEnabled` is `true`, in catalog order. */
+export const DEFAULT_ENABLED_SKILL_NAMES: readonly string[];
+
 export default SKILLS_CATALOG;

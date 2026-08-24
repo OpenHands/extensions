@@ -5,6 +5,7 @@
  * directory. `catalog-index.js` is generated from that directory so the JS
  * package can statically import each JSON file without an aggregate JSON asset.
  */
+import { AUTOMATION_BUNDLE_FILES } from "./bundle-index.js";
 import { AUTOMATION_CATALOG_ENTRIES } from "./catalog-index.js";
 import interfaceManifest from "./interface.json" with { type: "json" };
 
@@ -20,6 +21,19 @@ export const getAutomationCatalogEntry = (id) => {
 };
 
 export const AUTOMATION_CATALOG = clone(AUTOMATIONS);
+
+/**
+ * The files a bundle entry ships, keyed by entry id and then by the path each
+ * file takes inside the tarball. Generated from the repository paths the
+ * entry's `setup.bundle.files` names, because a host packing the tarball has
+ * the package but not the repository.
+ *
+ * Absent for every entry that does not ship a bundle.
+ */
+export const getAutomationBundleFiles = (id) => {
+  const files = AUTOMATION_BUNDLE_FILES[id];
+  return files ? clone(files) : undefined;
+};
 
 /**
  * The production Automation interface manifest: the domain-level facts of the
