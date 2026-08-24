@@ -6,6 +6,13 @@ It contains reusable, shareable skills and plugins that customize agent behavior
 - Skills overview docs: https://docs.openhands.dev/overview/skills
 - SDK skill guide: https://docs.openhands.dev/sdk/guides/skill
 
+
+## Repository boundaries
+
+`OpenHands/extensions` is the public registry for reusable skills, plugins, automations, and integrations. [`OpenHands/software-agent-sdk`](https://github.com/OpenHands/software-agent-sdk) owns Agent Server execution and the canonical API, [`OpenHands/typescript-client`](https://github.com/OpenHands/typescript-client) owns typed browser access to that API, [`OpenHands/OpenHands`](https://github.com/OpenHands/OpenHands) owns Agent Canvas UI, and [`OpenHands/automation`](https://github.com/OpenHands/automation) owns scheduling, webhooks, run history, dispatch, and sandbox lifecycle orchestration.
+
+Put reusable extension artifacts here rather than in application repositories. If a PR is opened in the wrong repository, close and move it to the repository that owns the change.
+
 ## Repository Layout
 
 ### Skills
