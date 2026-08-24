@@ -8,12 +8,17 @@ import entry2 from "./catalog/github-issue-to-pr/manifest.json" with { type: "js
 import entry3 from "./catalog/slack-standup-digest/manifest.json" with { type: "json" };
 import entry4 from "./catalog/slack-channel-monitor/manifest.json" with { type: "json" };
 import entry5 from "./catalog/linear-triage-assistant/manifest.json" with { type: "json" };
-import entry6 from "./catalog/jira-issue-to-pr/manifest.json" with { type: "json" };
-import entry7 from "./catalog/research-brief-writer/manifest.json" with { type: "json" };
-import entry8 from "./catalog/github-agents-md-maintainer/manifest.json" with { type: "json" };
-import entry9 from "./catalog/upstream-fork-sync/manifest.json" with { type: "json" };
-import entry10 from "./catalog/incident-retrospective-drafter/manifest.json" with { type: "json" };
-import entry11 from "./catalog/news-digest/manifest.json" with { type: "json" };
+import entry6 from "./catalog/linear-issue-to-github-pr/manifest.json" with { type: "json" };
+import entry7 from "./catalog/linear-issue-to-gitlab-mr/manifest.json" with { type: "json" };
+import entry8 from "./catalog/linear-issue-to-bitbucket-pr/manifest.json" with { type: "json" };
+import entry9 from "./catalog/jira-issue-to-pr/manifest.json" with { type: "json" };
+import entry10 from "./catalog/jira-issue-to-gitlab-mr/manifest.json" with { type: "json" };
+import entry11 from "./catalog/research-brief-writer/manifest.json" with { type: "json" };
+import entry12 from "./catalog/jira-issue-to-bitbucket-pr/manifest.json" with { type: "json" };
+import entry13 from "./catalog/github-agents-md-maintainer/manifest.json" with { type: "json" };
+import entry14 from "./catalog/upstream-fork-sync/manifest.json" with { type: "json" };
+import entry15 from "./catalog/incident-retrospective-drafter/manifest.json" with { type: "json" };
+import entry16 from "./catalog/news-digest/manifest.json" with { type: "json" };
 
 export const AUTOMATION_CATALOG_ENTRIES = [
   entry0,
@@ -28,4 +33,9 @@ export const AUTOMATION_CATALOG_ENTRIES = [
   entry9,
   entry10,
   entry11,
+  entry12,
+  entry13,
+  entry14,
+  entry15,
+  entry16,
 ];

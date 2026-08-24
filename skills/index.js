@@ -592,6 +592,15 @@ export const SKILLS_CATALOG = [
     "license": "Complete terms in LICENSE.txt"
   },
   {
+    "name": "ticket-to-code-change",
+    "description": "Set up a ticket-to-code-change automation using Jira or Linear as the issue tracker and GitHub, GitLab, or Bitbucket as the source-control provider. Watches for implementation-ready tickets, starts an OpenHands conversation to implement and test the request, opens a pull or merge request, and links the result back to the ticket.",
+    "triggers": [
+      "/ticket-to-code-change:setup"
+    ],
+    "content": "# Ticket to code change\n\nCreate an automation that turns implementation-ready tickets into tested pull\nrequests or merge requests.\n\n## Information to collect\n\nAsk the user for:\n\n1. The issue tracker: Jira Cloud or Linear.\n2. The source-control provider: GitHub, GitLab, or Bitbucket Cloud.\n3. The project or team to watch and the label or workflow state that means\n   \"implementation ready\".\n4. How a ticket identifies its target repository and base branch.\n5. The polling schedule or issue event to use.\n6. The ticket state to set when work starts and when the change request opens.\n7. Whether linked dependencies must be completed before dispatch.\n\n## Setup workflow\n\n1. Verify that both required integrations are connected and can read the\n   selected project and repository.\n2. Prefer an issue event trigger when the deployment can receive events;\n   otherwise use cron polling with durable issue-ID deduplication.\n3. Limit each run to a small configurable number of new tickets. On initial\n   deployment, establish a baseline instead of dispatching the entire backlog.\n4. Build a prompt that includes the full ticket, acceptance criteria,\n   dependency status, repository, base branch, and provider-specific request\n   terminology. Require the agent to run the repository's tests before opening\n   the pull request or merge request.\n5. Create the automation through the Automation backend described in\n   `<RUNTIME_SERVICES>`. Use its prompt-preset endpoint and authenticate with\n   the runtime-provided automation API key.\n6. Configure the automation to post the OpenHands conversation URL immediately\n   and the resulting pull-request or merge-request URL back to the ticket.\n\nDo not dispatch tickets with unresolved dependencies or without an unambiguous\ntarget repository; comment on the ticket with the missing information instead.",
+    "category": "automations"
+  },
+  {
     "name": "upstream-fork-sync",
     "description": "This skill should be used when the user asks to \"keep a fork in sync\", \"rebase local changes on upstream\", \"sync my fork nightly\", \"long-lived fork\", or \"automate upstream rebases\". Guides the user through creating a cron automation that fetches upstream changes, rebases local customizations on top, verifies the software works, and replaces the running version when the rebase is clean.",
     "triggers": [

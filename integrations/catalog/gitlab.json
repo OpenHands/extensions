@@ -1,0 +1,41 @@
+{
+  "id": "gitlab",
+  "name": "GitLab",
+  "description": "Repositories, issues, merge requests, and CI/CD workflows through the GitLab API.",
+  "categories": [
+    "Engineering",
+    "Source control"
+  ],
+  "appUrl": "https://gitlab.com",
+  "docsUrl": "https://docs.gitlab.com/api/",
+  "notes": "Supports GitLab.com projects through a personal access token.",
+  "popularityRank": 60,
+  "connectionOptions": [
+    {
+      "id": "api",
+      "provider": "http",
+      "auth": {
+        "strategy": "api_key",
+        "apiKeyHeaderName": "PRIVATE-TOKEN",
+        "credentialLabel": "Personal access token",
+        "credentialPlaceholder": "glpat-...",
+        "credentialHelp": "Create a token in [GitLab access token settings](https://gitlab.com/-/user_settings/personal_access_tokens) with the api scope.",
+        "credentialSecretName": "GITLAB_TOKEN",
+        "saveCredentialAsSecretByDefault": true
+      },
+      "http": {
+        "apiBaseUrl": "https://gitlab.com/api/v4",
+        "openApiUrl": "https://gitlab.com/gitlab-org/gitlab/-/raw/master/doc/api/openapi/openapi_v2.yaml"
+      }
+    }
+  ],
+  "iconBg": "var(--oh-surface)",
+  "logoUrl": "https://cdn.simpleicons.org/gitlab/FC6D26",
+  "keywords": [
+    "git",
+    "merge request",
+    "repo",
+    "issues",
+    "code"
+  ]
+}
