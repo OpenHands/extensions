@@ -1,7 +1,24 @@
 export interface RecommendedAutomation {
   id: string;
+  /**
+   * Semantic version of this template. Present only on entries whose direct
+   * setup sends provenance to the automation service; bumped when the prompt,
+   * form, or filter changes meaningfully.
+   */
+  version?: string;
   name: string;
   category: string;
+  /**
+   * The glyph the card shows, from the closed set the interface manifest's
+   * navigation uses. Absent means the host derives one from the integrations.
+   */
+  icon?:
+    | "layout-dashboard"
+    | "sparkles"
+    | "bot"
+    | "circle-alert"
+    | "activity"
+    | "timer";
   description: string;
   requires: AutomationPrerequisites;
   popularityRank: number;
@@ -63,6 +80,11 @@ export interface AutomationFormField {
   default?: string;
   required: boolean;
   provider?: AutomationGitProvider;
+  /**
+   * repo-picker only. The field collects several repositories rather than one,
+   * and its value is a list. A whole-value placeholder resolves to that list.
+   */
+  multiple?: true;
   options?: AutomationFieldOption[];
   constraints?: AutomationFieldConstraints;
 }
@@ -78,7 +100,7 @@ export interface AutomationIntegrationRequirement {
 }
 
 export interface AutomationPrerequisites {
-  /** Keyed by integration catalog id. */
+  /** Keyed by integration catalog id. Empty when the automation needs nothing connected. */
   integrations: Record<string, AutomationIntegrationRequirement>;
   /** Deployment capabilities this automation cannot run without. */
   features?: string[];
@@ -96,12 +118,40 @@ export interface AutomationForm {
   args: AutomationFormFields;
 }
 
+/** A config.json leaf: templated string, number, boolean, null, or a nesting of those. */
+export type AutomationBundleConfigValue =
+  | string
+  | number
+  | boolean
+  | null
+  | AutomationBundleConfigValue[]
+  | { [key: string]: AutomationBundleConfigValue };
+
+/**
+ * The script tarball a direct entry may ship instead of a prompt, for an
+ * automation that is deterministic machinery rather than judgement.
+ */
+export interface AutomationBundle {
+  /** The command run inside the extracted tarball. */
+  entrypoint: string;
+  /** Script run once before the entrypoint. Absent when nothing to install. */
+  setupScript?: string;
+  /** Seconds a run may take, when the service default is not enough. */
+  timeout?: number;
+  /** Packed path -> the repository path the file is read from at build time. */
+  files: Record<string, string>;
+  /** Rendered from the form and packed as config.json beside the entrypoint. */
+  config: Record<string, AutomationBundleConfigValue>;
+}
+
 export interface AutomationSetup {
   version: "1.0";
   mode: AutomationSetupMode;
   form: AutomationForm;
   /** direct only. What the automation is told to do. */
   prompt?: string;
+  /** direct only, and the alternative to `prompt`. Exactly one is present. */
+  bundle?: AutomationBundle;
   /** direct only, event trigger only. Which delivered events belong to it. */
   filter?: string;
   /**
@@ -130,17 +180,142 @@ export interface AutomationInterfaceRoutes {
   setup: string;
   /** Carries the `:automationId` segment the host substitutes. */
   detail: string;
+  /** The templates sub-page. Static: there is no parameter to substitute. */
+  templates: string;
+}
+
+/** An icon name from the host's closed icon map. */
+export type AutomationIconSlug =
+  | "layout-dashboard"
+  | "sparkles"
+  | "bot"
+  | "circle-alert"
+  | "activity"
+  | "timer";
+
+/** The pages a sub-page navigation item may point at. */
+export type AutomationSubPageId = "list" | "templates";
+
+export interface AutomationSubPageNavItem {
+  /** The `pages` entry this item navigates to; its route comes from `routes`. */
+  page: AutomationSubPageId;
+  label: string;
+  icon: AutomationIconSlug;
 }
 
 export interface AutomationInterfaceNavigation {
   sidebar: { label: string };
   commandMenu: { title: string; description: string; keywords: string };
+  /** The ordered sub-page navigation of the Automation interface. */
+  subPages: AutomationSubPageNavItem[];
+}
+
+/** A value the host computes; a tile picks and captions it, never defines it. */
+export type AutomationOverviewMetric =
+  | "automations"
+  | "needs-attention"
+  | "total-runs"
+  | "average-duration";
+
+/**
+ * One summary tile. `detail` captions the value; `zeroDetail`, when present,
+ * replaces it while the value is zero. Both are plain substitution over the
+ * metric's placeholder namespace: only the `automations` metric exposes
+ * `{{active}}`, so every other tile's copy is literal.
+ */
+export interface AutomationOverviewTile {
+  metric: AutomationOverviewMetric;
+  label: string;
+  detail: string;
+  zeroDetail?: string;
+  icon: AutomationIconSlug;
+}
+
+export interface AutomationOverview {
+  /** Names the tiles section for assistive technology. */
+  label: string;
+  tiles: AutomationOverviewTile[];
+}
+
+export type AutomationStatusFilterValue =
+  | "all"
+  | "active"
+  | "failing"
+  | "disabled";
+export type AutomationTriggerFilterValue = "all" | "schedule" | "event";
+
+/**
+ * A filter dropdown. Values name predicates the host implements; the manifest
+ * supplies which appear and their labels. `label` is the control's accessible
+ * name. The `all` option is the host's default and reset target.
+ */
+export interface AutomationStatusFilter {
+  id: "status";
+  label: string;
+  options: { value: AutomationStatusFilterValue; label: string }[];
+}
+
+export interface AutomationTriggerFilter {
+  id: "trigger";
+  label: string;
+  options: { value: AutomationTriggerFilterValue; label: string }[];
+}
+
+export type AutomationDashboardFilter =
+  | AutomationStatusFilter
+  | AutomationTriggerFilter;
+
+/** A comparator the host implements, named from a closed set. */
+export type AutomationSortValue = "last-run" | "runs" | "name";
+
+export interface AutomationDashboardSort {
+  /** The control's accessible name. */
+  label: string;
+  options: { value: AutomationSortValue; label: string }[];
+  /** Must be one of the declared option values. */
+  default: AutomationSortValue;
+}
+
+/**
+ * Copy for the per-automation run insights on cards and rows. The states,
+ * precedence, sampling, and value formatting are the host's; the manifest
+ * names them.
+ */
+export interface AutomationListInsights {
+  health: {
+    healthy: string;
+    failing: string;
+    running: string;
+    disabled: string;
+    neverRun: string;
+    checking: string;
+  };
+  lastRun: { label: string; never: string; justNow: string };
+  stats: { runs: string; recentSuccess: string; averageDuration: string };
+}
+
+/**
+ * The templates sub-page identity. Its body - the catalog cards and their
+ * launch behavior - is the host's existing catalog surface.
+ */
+export interface AutomationTemplatesPage {
+  title: string;
+  description: string;
 }
 
 export interface AutomationInterfacePages {
-  list: { title: string; subtitle: string };
+  list: {
+    title: string;
+    subtitle: string;
+    overview: AutomationOverview;
+    /** The filter dropdowns of the list page, in render order. */
+    filters: AutomationDashboardFilter[];
+    sort: AutomationDashboardSort;
+    insights: AutomationListInsights;
+  };
   detail: { backLabel: string };
   edit: { title: string };
+  templates: AutomationTemplatesPage;
 }
 
 export type AutomationAttributeType =
@@ -212,6 +387,10 @@ export interface AutomationInterfaceEndpoints {
   validate: string;
   createPrompt: string;
   createPlugin: string;
+  /** The raw create endpoint, which a bundle entry is created through. */
+  createBundle: string;
+  /** Where a bundle's tarball is uploaded before that create call. */
+  uploads: string;
 }
 
 export interface AutomationInterfaceManifest {
@@ -240,4 +419,15 @@ export function listAutomationCatalog(): RecommendedAutomation[];
 export function getAutomationCatalogEntry(
   id: string,
 ): RecommendedAutomation | undefined;
+/**
+ * Return the files a bundle entry ships, keyed by the path each takes inside
+ * the tarball, as an independent copy. Undefined for an entry with no bundle.
+ *
+ * The contents are inlined at build time from the repository paths
+ * `setup.bundle.files` names, because a host packing the tarball has the
+ * published package but not the repository.
+ */
+export function getAutomationBundleFiles(
+  id: string,
+): Record<string, string> | undefined;
 export default AUTOMATION_CATALOG;

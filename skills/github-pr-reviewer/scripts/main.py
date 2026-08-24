@@ -1,28 +1,165 @@
 """
 GitHub PR Reviewer - OpenHands Automation Script
 
-Cron-polls a GitHub repository for open pull requests carrying the configured
-trigger label. A review is queued only when the latest matching GitHub `labeled`
-event has not already been processed by this automation.
+Cron-polls one or more GitHub repositories for open pull requests carrying the
+configured trigger label. A review is queued only when the latest matching
+GitHub `labeled` event has not already been processed by this automation.
+
+Each repository is polled independently and keeps its own state document, so
+pull-request numbers never collide across repositories.
+
+The script owns the repository checkout: it downloads the pull request's head
+commit as a tarball, hands the agent that directory as its workspace, and
+removes it once the review has finished. The agent never clones, checks out, or
+deletes anything.
 """
 
+import io
 import json
 import os
+import re
+import shutil
 import sys
+import tarfile
 import time
 import urllib.error
 import urllib.request
-from pathlib import Path
+from collections.abc import Callable
+from pathlib import Path, PurePosixPath
 from urllib.parse import urlencode
 
-REPO = "owner/repo"
+# Configuration. Two setup paths write it, and both end up here:
+#
+#   - the agent-driven path (SKILL.md) substitutes these constants directly
+#     into a copy of this file before packaging it;
+#   - the catalog path packs an unmodified copy and ships a rendered
+#     config.json beside it, which is loaded over these defaults below.
+#
+# A declarative host cannot rewrite Python - the catalog schema admits data,
+# not code - so the constants stay as the defaults and config.json is the
+# override, rather than one path being expressed in terms of the other.
+REPOS = ["owner/repo"]
 TRIGGER_LABEL = "openhands-review"
 REVIEW_TONE = "thorough"
 REVIEW_STYLE_INSTRUCTIONS = ""
+# Path within the checked-out repository to a repo-specific review guide
+# (e.g. the repo's own code-review skill). When the file exists at this path
+# relative to the repo root, its contents are read and injected verbatim into
+# the review prompt so the guide is always applied deterministically, rather
+# than relying on the spawned agent's skill activation. Set to "" to disable.
+REPO_REVIEW_GUIDE_PATH = ".agents/skills/custom-codereview-guide.md"
 DEFAULT_OPENHANDS_URL = "http://localhost:8000"
+
+CONFIG_FILENAME = "config.json"
+
+# Config keys, paired with the type each must have. A wrong type is a hard
+# error at import: the alternative is polling the string "owner/repo" one
+# character at a time, or matching a label that is silently a list.
+_CONFIG_TYPES: dict[str, type] = {
+    "repos": list,
+    "trigger_label": str,
+    "review_tone": str,
+    "review_style_instructions": str,
+    "repo_review_guide_path": str,
+    "openhands_url": str,
+}
+
+
+def load_config(directory: Path | None = None) -> dict:
+    """Return the rendered config shipped beside this script, or {} if absent.
+
+    Only the keys above are read; anything else in the file is ignored, so a
+    host may ship provenance there without this script caring.
+    """
+    path = (directory or Path(__file__).resolve().parent) / CONFIG_FILENAME
+    if not path.is_file():
+        return {}
+
+    try:
+        raw = json.loads(path.read_text())
+    except json.JSONDecodeError as e:
+        raise SystemExit(f"{CONFIG_FILENAME} is not valid JSON: {e}") from e
+    if not isinstance(raw, dict):
+        raise SystemExit(f"{CONFIG_FILENAME} must contain a JSON object")
+
+    config = {}
+    for key, expected in _CONFIG_TYPES.items():
+        if key not in raw:
+            continue
+        value = raw[key]
+        if not isinstance(value, expected):
+            raise SystemExit(
+                f"{CONFIG_FILENAME}: {key} must be {expected.__name__}, "
+                f"got {type(value).__name__}"
+            )
+        if key == "repos" and not (
+            value and all(isinstance(item, str) and item for item in value)
+        ):
+            raise SystemExit(
+                f'{CONFIG_FILENAME}: repos must be a non-empty list of "owner/repo" strings'
+            )
+        config[key] = value
+    return config
+
+
+# owner/repo, which is what every GitHub API path in this script is built from.
+_REPO_NAME_RE = re.compile(r"^[A-Za-z0-9._-]+/[A-Za-z0-9._-]+$")
+
+
+def normalize_repo(value: str) -> str:
+    """Return ``owner/repo`` for the ways a repository gets written down.
+
+    A clone URL is what a repository page offers to copy, so it is what ends up
+    pasted into a setup form. Left alone it becomes
+    ``/repos/https://github.com/owner/repo``, which GitHub answers with a 404 -
+    indistinguishable, from here, from a repository the token cannot see.
+
+    Raises ValueError for anything that is not a repository name, so the run
+    says which value it could not read instead of blaming the token.
+    """
+    repo = value.strip()
+    if repo.startswith("git@"):
+        # git@github.com:owner/repo.git
+        repo = repo.partition(":")[2]
+    elif "://" in repo:
+        # https://github.com/owner/repo, and anything else with a host
+        repo = repo.split("://", 1)[1].partition("/")[2]
+    repo = repo.strip("/")
+    if repo.endswith(".git"):
+        repo = repo[: -len(".git")]
+
+    if not _REPO_NAME_RE.match(repo):
+        raise ValueError(
+            f"{value!r} is not a repository. Use owner/repo, for example "
+            "OpenHands/automation."
+        )
+    return repo
+
+
+_CONFIG = load_config()
+REPOS = _CONFIG.get("repos", REPOS)
+TRIGGER_LABEL = _CONFIG.get("trigger_label", TRIGGER_LABEL)
+REVIEW_TONE = _CONFIG.get("review_tone", REVIEW_TONE)
+REVIEW_STYLE_INSTRUCTIONS = _CONFIG.get("review_style_instructions", REVIEW_STYLE_INSTRUCTIONS)
+REPO_REVIEW_GUIDE_PATH = _CONFIG.get("repo_review_guide_path", REPO_REVIEW_GUIDE_PATH)
+DEFAULT_OPENHANDS_URL = _CONFIG.get("openhands_url", DEFAULT_OPENHANDS_URL)
 
 DONE_DEBOUNCE = 15
 TERMINAL_STATUSES = {"idle", "finished", "error", "stuck"}
+# A conversation that never reaches a terminal status would hold its checkout
+# forever. After this long the review is abandoned so the disk can be reclaimed.
+MAX_ACTIVE_AGE = 2 * 60 * 60
+# A label event is claimed in the state document before its review starts, so an
+# overlapping poll skips it. If the claiming poll dies before the conversation
+# exists, the claim is released after this long - comfortably longer than
+# fetching an archive and opening a conversation, short enough that a crash does
+# not park the review until someone notices.
+STALLED_CLAIM_SECONDS = 15 * 60
+
+# Login of the token owner, filled in by _verify_token. Reviews are matched
+# against it to answer "did we already publish a review for this commit", which
+# is checked on GitHub rather than trusted from the agent.
+_AUTH_LOGIN = ""
 
 
 def _get_env_key() -> str:
@@ -71,7 +208,18 @@ def fire_callback(
 
 _KV_TOKEN = os.environ.get("AUTOMATION_KV_TOKEN", "")
 _KV_BASE = os.environ.get("AUTOMATION_API_URL", "").rstrip("/")
-_STATE_KEY = "state"
+# Single-repository deployments of this script kept their state under a bare
+# "state" key. It is adopted once, on first poll after an upgrade, so the
+# switch to per-repository keys does not re-review every open labelled PR.
+_LEGACY_STATE_KEY = "state"
+
+
+def _repo_slug(repo: str) -> str:
+    return repo.replace("/", "__")
+
+
+def _state_key(repo: str) -> str:
+    return f"state:{_repo_slug(repo)}"
 
 
 def _kv_available() -> bool:
@@ -106,59 +254,86 @@ def _kv_set(key: str, value: dict) -> None:
         r.read()
 
 
-def _state_file_path() -> str:
+def _state_dir() -> Path:
     workspace_base = os.environ.get("WORKSPACE_BASE", "")
-    event_payload = json.loads(os.environ.get("AUTOMATION_EVENT_PAYLOAD", "{}"))
-    automation_id = event_payload.get("automation_id", "default")
-
     if workspace_base:
         root = Path(workspace_base).resolve().parent.parent
     else:
         root = Path.home() / ".openhands" / "workspaces"
-
     state_dir = root / "automation-state"
     state_dir.mkdir(parents=True, exist_ok=True)
-    return str(state_dir / f"github_pr_reviewer_label_event_{automation_id}.json")
+    return state_dir
 
 
-def _default_state() -> dict:
+def _automation_id() -> str:
+    event_payload = json.loads(os.environ.get("AUTOMATION_EVENT_PAYLOAD", "{}"))
+    return event_payload.get("automation_id", "default")
+
+
+def _state_file_path(repo: str) -> str:
+    name = f"github_pr_reviewer_label_event_{_automation_id()}_{_repo_slug(repo)}.json"
+    return str(_state_dir() / name)
+
+
+def _legacy_state_file_path() -> str:
+    return str(_state_dir() / f"github_pr_reviewer_label_event_{_automation_id()}.json")
+
+
+def _read_state_file(path: str) -> dict | None:
+    if not os.path.exists(path):
+        return None
+    try:
+        with open(path) as f:
+            return json.load(f)
+    except (json.JSONDecodeError, OSError) as exc:
+        print(f"  Warning: state file {path} unreadable ({exc}); starting fresh")
+        return None
+
+
+def _default_state(repo: str) -> dict:
     return {
-        "version": 2,
-        "repo": REPO,
+        "version": 3,
+        "repo": repo,
         "trigger_label": TRIGGER_LABEL,
         "reviews": {},
         "prs": {},
     }
 
 
-def load_state() -> dict:
+def load_state(repo: str) -> dict:
+    """Load this repository's state, adopting a pre-multi-repo document once."""
     if _kv_available():
-        data = _kv_get(_STATE_KEY)
+        data = _kv_get(_state_key(repo))
         if data is not None:
-            print("State loaded from KV store")
+            print(f"  State loaded from KV store ({_state_key(repo)})")
             return data
-        return _default_state()
-    path = _state_file_path()
-    if os.path.exists(path):
-        try:
-            with open(path) as f:
-                return json.load(f)
-        except (json.JSONDecodeError, OSError) as exc:
-            print(f"Warning: state file {path} unreadable ({exc}); starting fresh")
-    return _default_state()
+        legacy = _kv_get(_LEGACY_STATE_KEY)
+        if legacy is not None and legacy.get("repo") == repo:
+            print(f"  Adopted legacy KV state for {repo}")
+            return legacy
+        return _default_state(repo)
+
+    data = _read_state_file(_state_file_path(repo))
+    if data is not None:
+        return data
+    legacy = _read_state_file(_legacy_state_file_path())
+    if legacy is not None and legacy.get("repo") == repo:
+        print(f"  Adopted legacy state file for {repo}")
+        return legacy
+    return _default_state(repo)
 
 
-def save_state(state: dict) -> None:
+def save_state(repo: str, state: dict) -> None:
     if _kv_available():
-        _kv_set(_STATE_KEY, state)
-        print("State saved to KV store")
+        _kv_set(_state_key(repo), state)
+        print(f"  State saved to KV store ({_state_key(repo)})")
         return
-    path = _state_file_path()
+    path = _state_file_path(repo)
     tmp_path = f"{path}.tmp"
     with open(tmp_path, "w") as f:
         json.dump(state, f, indent=2, sort_keys=True)
     os.replace(tmp_path, path)
-    print(f"State saved to {path}")
+    print(f"  State saved to {path}")
 
 
 def _github_request(
@@ -215,7 +390,9 @@ def _resolve_github_token() -> str:
     )
 
 
-def _verify_token_and_repo(token: str, repo: str) -> None:
+def _verify_token(token: str) -> None:
+    """Check the token once per run and remember who it belongs to."""
+    global _AUTH_LOGIN
     try:
         user_data, _ = _github_request(token, "GET", "/user")
     except urllib.error.HTTPError as exc:
@@ -223,8 +400,11 @@ def _verify_token_and_repo(token: str, repo: str) -> None:
             raise RuntimeError("GITHUB_PERSONAL_ACCESS_TOKEN is invalid or expired.") from exc
         raise RuntimeError(f"GitHub /user check failed: {exc.code}") from exc
 
-    print(f"Authenticated as GitHub user: {user_data.get('login', '?')}")
+    _AUTH_LOGIN = user_data.get("login", "")
+    print(f"Authenticated as GitHub user: {_AUTH_LOGIN or '?'}")
 
+
+def _verify_repo(token: str, repo: str) -> None:
     try:
         _github_request(token, "GET", f"/repos/{repo}")
     except urllib.error.HTTPError as exc:
@@ -273,6 +453,156 @@ def _post_github_comment(token: str, repo: str, pr_number: int, body: str) -> No
         )
     except Exception as exc:
         print(f"  Warning: failed to post comment on PR #{pr_number}: {exc}")
+
+
+def _matching_review_exists(token: str, repo: str, pr_number: int, head_sha: str) -> bool:
+    """Has this token's user already published a review for this exact commit?
+
+    The agent is asked to report success, but a report is not evidence: reviews
+    have been reported as posted when none existed. GitHub is the source of
+    truth for whether the review landed.
+    """
+    if not head_sha or not _AUTH_LOGIN:
+        return False
+    try:
+        reviews = _github_paginate(token, f"/repos/{repo}/pulls/{pr_number}/reviews")
+    except Exception as exc:
+        print(f"  Warning: could not list reviews for PR #{pr_number}: {exc}")
+        return False
+    for review in reviews:
+        if (review.get("user") or {}).get("login", "").lower() != _AUTH_LOGIN.lower():
+            continue
+        if review.get("commit_id") == head_sha:
+            return True
+    return False
+
+
+# ── Repository checkout ───────────────────────────────────────────────────────
+
+
+def _checkouts_root() -> Path:
+    return Path(os.environ.get("WORKSPACE_BASE", "/workspace")).resolve() / "repositories"
+
+
+def _checkout_path(repo: str, pr_number: int, head_sha: str) -> Path:
+    return _checkouts_root() / _repo_slug(repo) / f"pr-{pr_number}-{head_sha[:12]}"
+
+
+def _prepare_repository(token: str, repo: str, pr_number: int, head_sha: str) -> Path:
+    """Materialise the pull request's head commit as the agent's workspace.
+
+    The commit is fetched as a tarball rather than cloned, so the directory
+    holds exactly the reviewed tree with no history and no git remote for the
+    agent to push to.
+    """
+    checkout = _checkout_path(repo, pr_number, head_sha)
+    if checkout.exists():
+        shutil.rmtree(checkout)
+    checkout.mkdir(parents=True)
+
+    req = urllib.request.Request(
+        f"https://api.github.com/repos/{repo}/tarball/{head_sha}",
+        headers={
+            "Authorization": f"Bearer {token}",
+            "Accept": "application/vnd.github+json",
+            "X-GitHub-Api-Version": "2022-11-28",
+        },
+    )
+    skipped_links = 0
+    try:
+        with urllib.request.urlopen(req) as response:
+            archive = tarfile.open(fileobj=io.BytesIO(response.read()), mode="r:gz")
+        with archive:
+            members = archive.getmembers()
+            roots = {
+                PurePosixPath(member.name).parts[0]
+                for member in members
+                if PurePosixPath(member.name).parts
+            }
+            if len(roots) != 1:
+                raise RuntimeError("Repository archive has an unexpected layout")
+            root = next(iter(roots))
+            for member in members:
+                path = PurePosixPath(member.name)
+                if not path.parts or path.parts[0] != root:
+                    raise RuntimeError("Repository archive contains an invalid path")
+                relative = PurePosixPath(*path.parts[1:])
+                if not relative.parts:
+                    continue
+                if relative.is_absolute() or ".." in relative.parts:
+                    raise RuntimeError("Repository archive contains path traversal")
+                if member.issym() or member.islnk() or member.isdev():
+                    # Repositories legitimately contain symlinks. Reviewing does
+                    # not need them, and materialising them risks escaping the
+                    # checkout, so skip rather than reject the whole archive.
+                    skipped_links += 1
+                    continue
+                destination = checkout.joinpath(*relative.parts)
+                if member.isdir():
+                    destination.mkdir(parents=True, exist_ok=True)
+                    continue
+                if not member.isfile():
+                    continue
+                destination.parent.mkdir(parents=True, exist_ok=True)
+                source = archive.extractfile(member)
+                if source is None:
+                    raise RuntimeError(f"Could not read archive member {member.name}")
+                with source, destination.open("wb") as target:
+                    shutil.copyfileobj(source, target)
+                destination.chmod(member.mode & 0o777)
+    except Exception:
+        shutil.rmtree(checkout, ignore_errors=True)
+        raise
+
+    if skipped_links:
+        print(f"  Skipped {skipped_links} link/device entries while extracting")
+    return checkout
+
+
+def _release_checkout(rec: dict, agent_url: str, api_key: str) -> bool:
+    """Remove a finished review's checkout. Returns True when nothing is left.
+
+    The checkout is the conversation's working directory, so it is only removed
+    once the conversation has stopped - deleting it under a running agent would
+    pull the ground out from under it. When the status cannot be confirmed the
+    directory is left alone and the next poll tries again.
+    """
+    workspace_dir = rec.get("workspace_dir")
+    if not workspace_dir:
+        return True
+
+    conversation_id = rec.get("conversation_id")
+    if conversation_id:
+        try:
+            status = conversation_status(agent_url, api_key, conversation_id)
+        except urllib.error.HTTPError as exc:
+            status = "finished" if exc.code == 404 else None
+        except Exception:
+            status = None
+        if status is None:
+            print(f"  Could not confirm conversation {conversation_id} has stopped; keeping {workspace_dir}")
+            return False
+        if status not in TERMINAL_STATUSES:
+            print(f"  Conversation {conversation_id} is still '{status}'; keeping its checkout")
+            return False
+
+    path = Path(workspace_dir)
+    root = _checkouts_root()
+    try:
+        resolved = path.resolve()
+    except OSError:
+        resolved = path
+    if resolved == root or not resolved.is_relative_to(root):
+        # Never delete anything the script did not create under the checkout
+        # root, whatever ended up recorded in state.
+        print(f"  Refusing to remove {resolved}: outside {root}")
+        rec.pop("workspace_dir", None)
+        return True
+
+    shutil.rmtree(resolved, ignore_errors=True)
+    rec.pop("workspace_dir", None)
+    print(f"  Removed checkout {resolved}")
+    return True
 
 
 def _oh_request(agent_url: str, api_key: str, method: str, path: str, body: dict | None = None) -> dict:
@@ -347,10 +677,14 @@ def _build_secrets_payload(agent_url: str, api_key: str) -> dict:
     return secrets
 
 
-def create_conversation(agent_url: str, api_key: str, initial_message: str) -> str:
-    workspace_dir = os.environ.get("WORKSPACE_BASE", "/workspace")
+def create_conversation(
+    agent_url: str,
+    api_key: str,
+    initial_message: str,
+    workspace_dir: Path,
+) -> str:
     payload: dict = {
-        "workspace": {"working_dir": workspace_dir},
+        "workspace": {"working_dir": str(workspace_dir)},
         "agent": _get_agent_dict(agent_url, api_key),
         "initial_message": {"content": [{"text": initial_message}]},
     }
@@ -415,7 +749,28 @@ def _with_ai_disclosure(body: str) -> str:
     return f"{body}\n\n{disclosure}" if body else disclosure
 
 
-def _build_review_prompt(pr: dict, head_sha: str, label_event: dict) -> str:
+def _load_repo_review_guide(workspace_dir: Path) -> str | None:
+    """Read the repo-specific review guide from the checked-out repository.
+
+    The path is taken from ``REPO_REVIEW_GUIDE_PATH``. An empty path disables
+    the feature. Returns the file contents, or None if the file is absent or
+    unreadable — a missing guide is never fatal, the review simply proceeds
+    without it.
+    """
+    if not REPO_REVIEW_GUIDE_PATH:
+        return None
+    candidate = workspace_dir / REPO_REVIEW_GUIDE_PATH
+    try:
+        if candidate.is_file():
+            text = candidate.read_text(encoding="utf-8", errors="replace").strip()
+            if text:
+                return text
+    except Exception as exc:
+        print(f"  Warning: could not read repo review guide {candidate}: {exc}")
+    return None
+
+
+def _build_review_prompt(repo: str, pr: dict, head_sha: str, label_event: dict, repo_review_guide: str | None = None) -> str:
     number = pr.get("number", "?")
     title = pr.get("title", "(no title)")
     body = (pr.get("body") or "").strip() or "(no description)"
@@ -429,16 +784,18 @@ def _build_review_prompt(pr: dict, head_sha: str, label_event: dict) -> str:
     changed_files = pr.get("changed_files", "?")
     additions = pr.get("additions", "?")
     deletions = pr.get("deletions", "?")
-    clone_url = f"https://github.com/{REPO}.git"
     tone = _TONE_INSTRUCTIONS.get(REVIEW_TONE, _TONE_INSTRUCTIONS["thorough"])
     extra = f"\n\nAdditional style instructions:\n{REVIEW_STYLE_INSTRUCTIONS}" if REVIEW_STYLE_INSTRUCTIONS.strip() else ""
+    guide_section = (
+        f"\n\nRepo-specific review guide (from {REPO_REVIEW_GUIDE_PATH}):\n---\n{repo_review_guide}\n---\n"
+        if repo_review_guide else ""
+    )
 
     return (
-        "You are an AI code reviewer. Review the GitHub pull request below and write "
-        "a single review comment. Do not modify files, push commits, approve via the GitHub "
-        "API, or request changes via the review API; only produce the final comment text.\n\n"
-        f"Repository : {REPO}\n"
-        f"Clone URL  : {clone_url}\n"
+        "You are an AI code reviewer. Review the GitHub pull request below and publish "
+        "the review directly to GitHub. Do not modify files, push commits, or approve "
+        "the pull request.\n\n"
+        f"Repository : {repo}\n"
         f"PR #{number}: \"{title}\"\n"
         f"Author     : @{author}\n"
         f"Base → Head: {base_branch} ← {head_branch}\n"
@@ -449,31 +806,43 @@ def _build_review_prompt(pr: dict, head_sha: str, label_event: dict) -> str:
         f"URL        : {html_url}\n"
         f"\nPR Description:\n---\n{body}\n---\n\n"
         "Required workflow:\n"
-        "1. Clone the repository into a fresh working directory inside the workspace.\n"
-        f"   Example: `git clone {clone_url} pr-review-{number}`.\n"
-        "2. Check out the exact pull request branch by PR number, then verify HEAD matches the SHA above.\n"
-        f"   Example: `git fetch origin pull/{number}/head:openhands-pr-{number}` followed by `git checkout openhands-pr-{number}`.\n"
-        "3. Inspect the existing PR context before reviewing, including PR description, issue comments, review comments, changed files, and the diff.\n"
-        "   Prefer `gh pr view`, `gh pr diff`, `gh pr checkout`, or GitHub REST API calls with `GITHUB_PERSONAL_ACCESS_TOKEN`; do not print secret values.\n"
-        "4. Use the checked-out repository to inspect relevant files and surrounding code, not just the patch.\n"
-        "5. Before producing the final review text, delete only the cloned repository directory created in step 1.\n"
-        f"   Example: `rm -rf pr-review-{number}`. Do not delete any other files or directories.\n"
-        "6. Write a high-signal review comment with specific findings. If there are no material issues, say so.\n"
-        f"\nReview instructions:\n{tone}{extra}\n\n"
-        "Output ONLY the review text — no preamble, no meta-commentary. "
-        "This text will be posted verbatim as a comment on the pull request. "
-        "End your review with a clear verdict on its own line: either `✅ APPROVED` "
-        "or `🔄 CHANGES REQUESTED`."
+        "1. The workspace is already the repository root at the exact Head SHA above. "
+        "Do not clone, fetch, check out, or delete the repository.\n"
+        "2. Inspect the PR discussion, existing review comments, changed files, and the diff, "
+        "together with the surrounding code in the workspace.\n"
+        "   Use `gh` or GitHub REST API calls with `GITHUB_PERSONAL_ACCESS_TOKEN`; never print secret values.\n"
+        "3. Ground every finding in the workspace code. Before using an inline location, verify that "
+        "the path and line are part of this pull request's diff.\n"
+        f"4. Publish one review with `POST /repos/{repo}/pulls/{number}/reviews`, using "
+        "`commit_id` equal to the Head SHA above and `event: COMMENT`.\n"
+        "   Put the overall assessment in `body`, and each line-specific finding in the `comments` "
+        "array with `path`, `line`, `side: RIGHT`, and `body`.\n"
+        "   Only create inline comments for actionable findings; do not open praise or nitpick threads.\n"
+        "5. If a finding cannot be attached to a changed line, put it in the review body instead. "
+        "If the API rejects the inline positions, retry with every finding in the body and no `comments` array.\n"
+        "6. Begin the review body with this disclosure: "
+        "`_This review was posted by an AI agent (OpenHands)._`\n"
+        "7. End the review body with a verdict on its own line: either `✅ APPROVED` "
+        "or `🔄 CHANGES REQUESTED`.\n"
+        "8. If there are no material issues, still publish a review saying so, with the "
+        "disclosure and the verdict.\n"
+        f"\nReview instructions:\n{tone}{extra}{guide_section}\n\n"
+        "After GitHub accepts the review, output exactly `GITHUB_REVIEW_POSTED`. "
+        "If publishing still fails after the fallback in step 5, output the complete review text "
+        "so it can be posted as a comment instead."
     )
+
 
 def _process_review_request(
     github_token: str,
     agent_url: str,
     api_key: str,
     openhands_url: str,
+    repo: str,
     pr: dict,
     label_event: dict,
     reviews: dict,
+    persist: Callable[[], None],
 ) -> str | None:
     number = pr["number"]
     head_sha = _head_sha(pr)
@@ -483,30 +852,58 @@ def _process_review_request(
     html_url = pr.get("html_url", "")
 
     print(f"  Queuing review for PR #{number} from `{TRIGGER_LABEL}` event {label_event_id} at {head_sha[:12]}: {title}")
-    prompt = _build_review_prompt(pr, head_sha, label_event)
 
-    try:
-        conv_id = create_conversation(agent_url, api_key, prompt)
-    except Exception as exc:
-        print(f"  Error creating conversation for PR #{number}: {exc}")
-        return None
-
+    # Claim the label event and persist it *before* the slow work below. State
+    # is otherwise only written when the repository finishes polling, so a poll
+    # starting while this one downloads an archive or spins up a conversation
+    # would read no record for this event and review the same commit a second
+    # time - two conversations, two "reviewing" comments, two reviews.
     reviews[key] = {
         "pr_number": number,
         "head_sha": head_sha,
         "trigger_label_event_id": label_event_id,
         "trigger_label_event_created_at": label_event.get("created_at"),
         "html_url": html_url,
-        "status": "active",
-        "conversation_id": conv_id,
+        "status": "starting",
+        "conversation_id": None,
+        "workspace_dir": None,
         "last_activity": time.time(),
     }
+    persist()
+
+    workspace_dir = None
+    try:
+        workspace_dir = _prepare_repository(github_token, repo, number, head_sha)
+        repo_review_guide = _load_repo_review_guide(workspace_dir)
+        if repo_review_guide:
+            print(f"  Injected repo review guide for PR #{number}")
+        prompt = _build_review_prompt(repo, pr, head_sha, label_event, repo_review_guide)
+        conv_id = create_conversation(agent_url, api_key, prompt, workspace_dir)
+    except Exception as exc:
+        # The claim is dropped so the next poll retries this label event. The
+        # checkout goes with it rather than being left behind.
+        if workspace_dir:
+            shutil.rmtree(workspace_dir, ignore_errors=True)
+        reviews.pop(key, None)
+        persist()
+        print(f"  Error starting review for PR #{number}: {exc}")
+        return None
+
+    reviews[key].update(
+        {
+            "status": "active",
+            "conversation_id": conv_id,
+            "workspace_dir": str(workspace_dir),
+            "last_activity": time.time(),
+        }
+    )
+    persist()
     print(f"  Created review conversation {conv_id}")
 
     conv_url = f"{openhands_url}/conversations/{conv_id}"
     _post_github_comment(
         github_token,
-        REPO,
+        repo,
         number,
         _with_ai_disclosure(
             "🤖 **OpenHands is reviewing this PR.**\n\n"
@@ -518,14 +915,17 @@ def _process_review_request(
     )
     return conv_id
 
+
 def _check_conversation_completion(
     rec: dict,
     latest_open_prs: dict[int, dict],
     github_token: str,
     agent_url: str,
     api_key: str,
+    repo: str,
 ) -> None:
-    if (time.time() - rec.get("last_activity", 0.0)) < DONE_DEBOUNCE:
+    age = time.time() - rec.get("last_activity", 0.0)
+    if age < DONE_DEBOUNCE:
         return
 
     conv_id = rec["conversation_id"]
@@ -536,6 +936,7 @@ def _check_conversation_completion(
     if not current_pr:
         rec["status"] = "closed"
         print(f"  PR #{pr_number} closed/merged — skipping result post")
+        _release_checkout(rec, agent_url, api_key)
         return
 
     current_sha = _head_sha(current_pr)
@@ -543,6 +944,7 @@ def _check_conversation_completion(
         rec["status"] = "stale"
         rec["stale_reason"] = f"head changed from {reviewed_sha} to {current_sha}"
         print(f"  PR #{pr_number} advanced to {current_sha[:12]} — suppressing stale review {conv_id}")
+        _release_checkout(rec, agent_url, api_key)
         return
 
     try:
@@ -553,6 +955,11 @@ def _check_conversation_completion(
 
     print(f"  PR #{pr_number} conversation {conv_id} → status={status}")
     if status not in TERMINAL_STATUSES:
+        if age > MAX_ACTIVE_AGE:
+            rec["status"] = "expired"
+            rec["expired_after"] = age
+            print(f"  Review for PR #{pr_number} still '{status}' after {int(age)}s; abandoning it")
+            _release_checkout(rec, agent_url, api_key)
         return
 
     try:
@@ -561,41 +968,62 @@ def _check_conversation_completion(
         final = ""
 
     if status in {"error", "stuck"}:
-        comment_body = _with_ai_disclosure(
-            f"⚠️ **OpenHands PR Reviewer encountered a problem** at commit `{reviewed_sha[:12]}` "
-            f"(status: `{status}`).\n\n{final}".strip()
+        _post_github_comment(
+            github_token,
+            repo,
+            pr_number,
+            _with_ai_disclosure(
+                f"⚠️ **OpenHands PR Reviewer encountered a problem** at commit `{reviewed_sha[:12]}` "
+                f"(status: `{status}`).\n\n{final}".strip()
+            ),
         )
+    elif _matching_review_exists(github_token, repo, pr_number, reviewed_sha):
+        print(f"  PR #{pr_number}: review confirmed on GitHub at {reviewed_sha[:12]}")
     else:
-        comment_body = _with_ai_disclosure(
-            final
-            or f"✅ **OpenHands completed the review for commit `{reviewed_sha[:12]}`.** No review text was produced."
+        # The agent was asked to publish the review itself; it did not, so the
+        # work is not lost - post whatever it produced as a comment.
+        _post_github_comment(
+            github_token,
+            repo,
+            pr_number,
+            _with_ai_disclosure(
+                final
+                or f"✅ **OpenHands completed the review for commit `{reviewed_sha[:12]}`.** No review text was produced."
+            ),
         )
+        print(f"  PR #{pr_number}: no review found on GitHub; posted the result as a comment")
 
-    _post_github_comment(github_token, REPO, pr_number, comment_body)
     rec["status"] = "closed"
     rec["completed_at"] = time.time()
-    print(f"  Posted review for PR #{pr_number} at {reviewed_sha[:12]}")
+    _release_checkout(rec, agent_url, api_key)
 
 
-def main() -> str | None:
-    state = load_state()
-    agent_url = os.environ.get("AGENT_SERVER_URL", "").rstrip("/")
-    api_key = _get_env_key()
+def _process_repo(
+    repo: str,
+    github_token: str,
+    agent_url: str,
+    api_key: str,
+    openhands_url: str,
+) -> str | None:
+    """Poll one repository end to end. Its state is loaded and saved here, so a
+    failure in another repository cannot discard this one's progress."""
+    print(f"\n=== {repo} ===")
+    _verify_repo(github_token, repo)
 
-    github_token = _resolve_github_token()
-    _verify_token_and_repo(github_token, REPO)
-
-    try:
-        openhands_url = get_secret("OPENHANDS_URL").rstrip("/") or DEFAULT_OPENHANDS_URL
-    except Exception:
-        openhands_url = DEFAULT_OPENHANDS_URL
-
+    state = load_state(repo)
     reviews: dict = state.setdefault("reviews", {})
     prs_state: dict = state.setdefault("prs", {})
 
-    open_prs = _list_open_prs(github_token, REPO)
+    def persist() -> None:
+        state["version"] = 3
+        state["repo"] = repo
+        state["trigger_label"] = TRIGGER_LABEL
+        state["updated_at"] = time.time()
+        save_state(repo, state)
+
+    open_prs = _list_open_prs(github_token, repo)
     latest_open_prs = {pr["number"]: pr for pr in open_prs}
-    print(f"Found {len(open_prs)} open PR(s) in {REPO}")
+    print(f"  Found {len(open_prs)} open PR(s)")
 
     last_conversation_id = None
 
@@ -616,7 +1044,7 @@ def main() -> str | None:
             print(f"  PR #{number} has no head SHA; skipping")
             continue
 
-        fresh_pr = _get_pr(github_token, REPO, number)
+        fresh_pr = _get_pr(github_token, repo, number)
         fresh_head_sha = _head_sha(fresh_pr)
         if fresh_head_sha != head_sha:
             print(f"  PR #{number} head changed during poll ({head_sha[:12]} → {fresh_head_sha[:12]}); using latest PR metadata")
@@ -624,7 +1052,7 @@ def main() -> str | None:
             print(f"  PR #{number} lost `{TRIGGER_LABEL}` during poll; skipping")
             continue
 
-        label_event = _latest_trigger_label_event(github_token, REPO, number)
+        label_event = _latest_trigger_label_event(github_token, repo, number)
         if not label_event:
             print(f"  PR #{number} has `{TRIGGER_LABEL}` but no matching labeled event; skipping")
             continue
@@ -634,19 +1062,64 @@ def main() -> str | None:
             print(f"  PR #{number} label event {label_event['id']} already tracked ({reviews[key].get('status')})")
             continue
 
-        conv_id = _process_review_request(github_token, agent_url, api_key, openhands_url, fresh_pr, label_event, reviews)
+        conv_id = _process_review_request(
+            github_token, agent_url, api_key, openhands_url, repo, fresh_pr, label_event, reviews, persist
+        )
         if conv_id:
             last_conversation_id = conv_id
 
-    for rec in list(reviews.values()):
-        if rec.get("status") != "active":
+    for rev_key, rec in list(reviews.items()):
+        if rec.get("status") == "starting":
+            # A claim this poll made has already moved to "active" or been
+            # dropped, so one still sitting here belongs to a poll that died
+            # between claiming and creating its conversation. Release it once it
+            # is old enough that no live poll could still be working on it,
+            # otherwise the label event would never be reviewed.
+            age = time.time() - float(rec.get("last_activity") or 0)
+            if age > STALLED_CLAIM_SECONDS:
+                print(f"  Releasing a claim stalled for {int(age)}s: {rev_key}")
+                reviews.pop(rev_key, None)
             continue
-        _check_conversation_completion(rec, latest_open_prs, github_token, agent_url, api_key)
+        if rec.get("status") == "active":
+            _check_conversation_completion(rec, latest_open_prs, github_token, agent_url, api_key, repo)
+        elif rec.get("workspace_dir"):
+            # A checkout whose removal could not be confirmed on an earlier
+            # poll, e.g. the agent was still running when its PR was closed.
+            _release_checkout(rec, agent_url, api_key)
 
-    state["repo"] = REPO
-    state["trigger_label"] = TRIGGER_LABEL
-    state["updated_at"] = time.time()
-    save_state(state)
+    persist()
+    return last_conversation_id
+
+
+def main() -> str | None:
+    agent_url = os.environ.get("AGENT_SERVER_URL", "").rstrip("/")
+    api_key = _get_env_key()
+
+    github_token = _resolve_github_token()
+    _verify_token(github_token)
+
+    try:
+        openhands_url = get_secret("OPENHANDS_URL").rstrip("/") or DEFAULT_OPENHANDS_URL
+    except Exception:
+        openhands_url = DEFAULT_OPENHANDS_URL
+
+    last_conversation_id = None
+    failures = []
+    for configured in REPOS:
+        # One repository failing must not stop the others from being polled.
+        try:
+            repo = normalize_repo(configured)
+            conv_id = _process_repo(repo, github_token, agent_url, api_key, openhands_url)
+            if conv_id:
+                last_conversation_id = conv_id
+        except Exception as exc:
+            print(f"Error processing {configured}: {exc}")
+            failures.append(f"{configured}: {exc}")
+
+    if failures and len(failures) == len(REPOS):
+        # Every repository failed, so the run achieved nothing - report it as a
+        # failed run rather than a successful no-op.
+        raise RuntimeError("; ".join(failures))
     return last_conversation_id
 
 
