@@ -93,7 +93,7 @@ def test_remote_no_auth_mcp_entries_are_intentionally_public():
             transport = option.get("transport", {})
             # An option with `headerFields` still requires the user to supply
             # credentials (just via named headers, e.g. Datadog's
-            # DD_API_KEY/DD_APPLICATION_KEY), so it is NOT "public/no-auth".
+            # DD-API-KEY/DD-APPLICATION-KEY), so it is NOT "public/no-auth".
             has_header_credentials = bool(transport.get("headerFields"))
             if (
                 option["provider"] == "mcp"
@@ -119,7 +119,7 @@ def test_datadog_mcp_uses_documented_api_key_headers():
 
     assert [
         field["key"] for field in api_option["transport"]["headerFields"]
-    ] == ["DD_API_KEY", "DD_APPLICATION_KEY"]
+    ] == ["DD-API-KEY", "DD-APPLICATION-KEY"]
 
 
 def test_credential_fields_have_helper_text_and_link():
