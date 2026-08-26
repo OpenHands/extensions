@@ -2,8 +2,9 @@
 
 `catalog/<id>/` is one automation. Its `manifest.json` is the single hand-authored source of truth: the
 card metadata Agent Canvas renders today and, optionally, a nested `setup` block, the extension-owned
-configuration experience for that automation. Anything else an automation ships, such as a script that is
-uploaded to the automations service as a `.tar.gz`, belongs in the same directory.
+configuration experience for that automation. It is the only file there. A script an automation uploads as
+a `.tar.gz` is not copied into this directory: `setup.bundle.files` names where it already lives, so a
+script shipped by both a skill and the catalog has one copy rather than two.
 
 ```
 catalog/<id>/manifest.json   one automation per directory - card metadata plus an optional `setup` block
@@ -50,7 +51,8 @@ two records of the same fact from drifting apart, and it is why the file is as s
 | `trigger` in the create request | The key under `form.triggers`, and the fields under it named after trigger properties |
 | Which input a rejected payload path belongs to | Rebuilding that body with each field standing in for its own value |
 | The review screen | The fields and their labels |
-| The create endpoint | `POST /v1/preset/prompt` |
+| The create endpoint | `POST /v1/preset/prompt`, or `POST /v1` for an entry that ships a bundle |
+| The files a bundle packs | `setup.bundle.files`, read from this repository at build time |
 | Where a success navigates | The created automation, or the started conversation |
 | The analytics stages | The same stages for every automation |
 
@@ -123,10 +125,70 @@ when the deployment cannot run the direct path - a deployment whose capabilities
 kind or required features. The same 2000-character cap applies, and because the fallback fires before the
 form is trustworthy, a direct `message` should not reference `{{form.*}}`.
 
+A `repo-picker` may declare `multiple: true`, and then it collects several
+repositories and its value is a list. A placeholder that is the *whole* value
+resolves to that list rather than to text, which is what lets `"repos":
+"{{form.repositories}}"` produce an array; the same placeholder inside a
+sentence still reads as text. On the preset path the list becomes one `repos[]`
+entry per repository. The created automation is named after the single
+repository when there is one and after the count when there are several, since a
+list of names does not fit a name.
+
 A form field is named after the property it fills. `schedule` and `timezone` under `triggers.cron` become
 `trigger.schedule` and `trigger.timezone`; `on` under `triggers.event` becomes `trigger.on`; a field named
 `ref` becomes `repos[].ref`. Any other field under a trigger kind, such as a phrase to match, is an input
 to `filter` rather than a trigger property.
+
+### Entries that ship a script
+
+`mode: "direct"` produces either a `prompt` or a `bundle`, never both. A prompt
+is the right shape when the automation *is* the judgement: the agent reads the
+prompt and does the work. A bundle is the right shape when most of what the
+automation does is deterministic machinery - polling, dedupe, state, fixed API
+calls - and the agent is needed only for the part that genuinely needs judgement.
+`github-pr-reviewer` is the first: its script owns discovery, label-event
+dedupe, per-repo state and the review checkout, and starts a conversation only
+once a pull request actually needs reviewing.
+
+```jsonc
+"bundle": {
+  "version": "1.0.0",                 // provenance; bump when the files or config shape change
+  "entrypoint": "python3 main.py",    // run inside the extracted tarball
+  "timeout": 600,                     // when the service default is not enough
+  "files": {                          // packed path -> where it lives in this repo
+    "main.py": "skills/github-pr-reviewer/scripts/main.py"
+  },
+  "config": {                         // rendered from the form, packed as config.json
+    "repos": "{{form.repositories}}", // a whole-value placeholder, so this is a list
+    "trigger_label": "{{form.triggerLabel}}",
+    "review_tone": "{{form.reviewTone}}"
+  }
+}
+```
+
+The host packs those files plus the rendered `config.json`, `POST`s the archive
+to `uploads`, and creates from the `oh-internal://` path that comes back. What it
+sends is otherwise the same restatement of the form as the preset path, plus the
+`template` provenance that makes enabling an entry twice return the automation
+that already exists rather than a duplicate (`OpenHands/automation#344`).
+
+Two things follow from the archetype rather than being stated:
+
+- **`files` names paths, not contents.** The reviewer script is shipped by both
+  its skill and this catalog, and a second copy would drift. `npm run
+  build:automations` inlines the contents into `automations/bundle-index.js`,
+  which is what `getAutomationBundleFiles(id)` returns - a host packing the
+  archive has the published package, not this repository.
+- **`config` is the bundle's `prompt`.** Everything else in the create request is
+  read off the form; only the entry knows which key of its own script each field
+  fills. The script reads that file over its own defaults, so the agent-driven
+  skill path, which substitutes the same values as constants, keeps working
+  unchanged.
+
+A bundle declares `requires.features: ["customTarball"]`: a deployment that
+cannot run a client-supplied tarball cannot run the entry, whatever trigger kinds
+it offers. It never declares `repos` - the raw create endpoint has no such field,
+and a bundle fetches what it needs itself.
 
 ### Format constraints
 
@@ -150,7 +212,7 @@ entered and `{{automation.*}}` for the entry itself. There is deliberately no se
 
 | Entry | Archetype | Trigger | Produces |
 | --- | --- | --- | --- |
-| `github-pr-reviewer` | Direct scheduled | `cron` | a create payload |
+| `github-pr-reviewer` | Direct scheduled, script bundle | `cron` | an upload, then a create payload |
 | `github-repo-monitor` | Direct scheduled | `cron` | a create payload |
 | `incident-retrospective-drafter` | Assisted conversation | decided during the conversation | a seed message |
 
@@ -263,6 +325,8 @@ Two findings came out of that check and are baked into the entries:
 | Endpoint | Status |
 | --- | --- |
 | `POST /v1/preset/prompt` | Exists |
+| `POST /v1/uploads` | Exists |
+| `POST /v1` | Exists; accepts `template` provenance from OpenHands/automation#344 |
 | `GET /v1/capabilities` | Exists (OpenHands/automation#270) |
 | `POST /v1/validate` | Exists (OpenHands/automation#270) |
 
