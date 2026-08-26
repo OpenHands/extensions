@@ -16,6 +16,11 @@
   "popularityRank": 95,
   "estimatedSetupMinutes": 4,
   "exampleImplementation": "Trigger: cron polling for open GitHub issues with a configured label such as openhands\nRequired secret: GITHUB_PERSONAL_ACCESS_TOKEN, with permission to write contents, issues, and pull requests\n\n1. Read the repositories, trigger label, branch prefix, draft mode, and polling schedule from setup.\n2. Poll each repository independently, with its own state, so issue numbers never collide.\n3. List open labelled issues, drop pull requests, and find the latest matching GitHub labeled issue event for each.\n4. Deduplicate on the label event ID so every label application queues exactly one attempt.\n5. Clone the default branch into a directory of its own, create the working branch, and start an OpenHands conversation with that directory as its workspace. The clone carries no credential and the agent is handed no secrets, because the prompt is built from an issue body that anyone can write.\n6. Comment on the issue with the branch and the conversation link.\n7. Once the conversation has stopped, commit whatever the agent left, push the branch, open a draft pull request titled after the issue, and comment the link on the issue. An agent that made no changes gets its answer posted instead.\n8. Remove the clone once the conversation has stopped, so nothing accumulates between runs.",
+  "impact": {
+    "basis": "completed-runs",
+    "one": "1 issue sweep completed",
+    "other": "{{count}} issue sweeps completed"
+  },
   "setup": {
     "version": "1.0",
     "mode": "direct",

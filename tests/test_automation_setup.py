@@ -518,6 +518,28 @@ def test_schema_rejects_content_a_setup_block_must_never_carry() -> None:
         )
 
 
+IMPACT_REJECTIONS: list[tuple[str, dict]] = [
+    ("a basis the host does not know how to compute", {"basis": "run-counter"}),
+    ("markup in a phrase", {"one": "<b>1 sweep</b>"}),
+    ("a placeholder from another namespace", {"other": "{{count}} sweeps for {{form.repo}}"}),
+    ("a plural phrase that hides the count", {"other": "many sweeps completed"}),
+    ("an extra key beside the declared three", {"detail": "and saved hours"}),
+]
+
+
+@pytest.mark.parametrize(
+    ("case", "override"),
+    [pytest.param(case, override, id=case) for case, override in IMPACT_REJECTIONS],
+)
+def test_schema_refuses_an_impact_statement_the_host_must_never_render(
+    case: str, override: dict
+) -> None:
+    entry = deepcopy(_load(CATALOG_DIR / "github-pr-reviewer" / "manifest.json"))
+    entry["impact"].update(override)
+
+    assert list(VALIDATOR.iter_errors(entry)), f"schema admitted {case}"
+
+
 @pytest.mark.parametrize("entry_path", list(_setup_paths()))
 def test_form_placeholders_reference_declared_fields(entry_path: Path) -> None:
     """A {{form.x}} that names no field renders as an empty value at runtime."""
