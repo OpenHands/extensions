@@ -1,61 +1,78 @@
 # OpenHands Enterprise Troubleshooting
 
-An agent-runnable skill for diagnosing and resolving common issues on **OpenHands Enterprise (OHE)** - self-hosted installations using Replicated on VM-based infrastructure.
+An agent-runnable skill for diagnosing OpenHands Enterprise Replicated VM and Helm installations. It starts with support bundles, keeps Kubernetes investigation read-only, documents continuous VM log collection, and produces support-ready handoffs.
+
+## Critical Safety Rule
+
+> Keep your investigation read-only. Do not change Kubernetes resources unless directed by OpenHands Support. Ad hoc `kubectl` changes can be overwritten during a deployment or upgrade and may leave the installation in an inconsistent state.
+
+## Safety Model
+
+- Start with a support bundle; customers do not need to investigate before opening a support ticket.
+- Discover the installed OHE, Embedded Cluster, Kubernetes, namespace, and workload topology before targeting resources.
+- Never print or decode credentials or complete Kubernetes Secret values.
+- Treat support bundles as potentially sensitive and share them only through approved channels.
+- When OpenHands Support directs a change, require explicit administrator approval, backup checks, impact disclosure, and a recovery path first.
+- Prefer the Admin Console, Helm values, and documented OpenHands or Replicated procedures over direct Kubernetes changes.
 
 ## What This Skill Does
 
-### 1. Triage and Diagnosis
-- Detects failure modes from symptoms or log output
-- Checks common problem areas: sandbox startup, auth, certificates, LLM connectivity, Keycloak, Replicated Admin Console, upgrades, resource exhaustion
-- Runs targeted diagnostic commands against the live environment
+### Triage and Diagnosis
 
-### 2. Guided Recovery
-- Walks through resolution steps for identified issues
-- Validates each step before proceeding
-- Covers the most common failures seen across real OHE installations
+- Separates host, cluster, ingress, authentication, runtime, integration, LLM, automation, and product health.
+- Checks sandbox startup, certificates, Keycloak login, Git providers, LiteLLM, Admin Console access, upgrades, and resource exhaustion.
+- Uses bounded, targeted diagnostic commands and interprets evidence without exposing credentials.
 
-### 3. Support Bundle Generation
-- Guides customers through generating and sending support bundles
-- Parses and summarizes bundle output to highlight likely root cause
-- Reduces back-and-forth with the platform team
+### Support-Directed Recovery
 
-### 4. Escalation Handoff
-- Produces a clear summary when issues cannot be resolved
-- Documents what was tried, what logs show, and likely root cause
-- Ready to paste into a support ticket
+- Does not change Kubernetes resources unless directed by OpenHands Support.
+- States the likely root cause, exact operation, impact, backup prerequisites, recovery path, and verification steps.
+- Requires explicit administrator approval for the specific support-directed operation.
+- Stops and escalates when persistence, database safety, or version-specific behavior is unclear.
+
+### Support Bundle Triage
+
+- Starts with the Admin Console, then uses the documented VM or Helm command when needed.
+- Handles bundles as sensitive artifacts.
+- Prioritizes analyzer results, workload state, events, images, bounded logs, ingress, certificates, and storage evidence.
+- Compares failing evidence with a known-good path when possible.
+
+### Escalation Handoff
+
+- Produces a concise support-ready summary with versions, impact, evidence, checks, approved changes, ruled-out causes, and one recommended next step.
+- Excludes secrets, customer data, complete environment dumps, and unnecessary log volume.
 
 ## Common Issues Covered
 
-- Sandbox fails to start / 120s timeout
-- Git provider auth broken (GitHub App, GitLab token)
-- Certificate errors (self-signed, expired, chain issues)
-- LLM connectivity failures (endpoint unreachable, bad credentials)
-- Keycloak login issues
-- Replicated Admin Console unreachable
-- Upgrade stuck or failed
-- OOM / resource exhaustion on the VM
+- Sandbox or runtime startup failures
+- Git provider authorization and webhook failures
+- Certificate expiration, trust, chain, and hostname errors
+- LiteLLM and upstream model connectivity failures
+- Keycloak and OpenHands login issues
+- Replicated Admin Console access problems
+- Upgrade or migration failures
+- OOM, DiskPressure, PVC, and diagnostic-log growth
 
 ## Usage
 
-This skill is automatically triggered when users describe OHE issues such as:
+The skill activates for requests such as:
+
+- "Troubleshoot OpenHands Enterprise"
 - "OpenHands is not working"
-- "Sandbox failed to start"
-- "Can't access admin console"
-- "Certificate error"
-- "LLM connection failed"
-- "Upgrade failed"
+- "A sandbox failed to start"
+- "The Replicated Admin Console is unavailable"
+- "The certificate expired"
+- "The LLM connection failed"
+- "Analyze this OHE support bundle"
+- "Send OHE VM logs to our observability platform"
 
 ## Files
 
-- `SKILL.md` - Main skill with diagnostic workflow and quick reference
-- `references/diagnostics.md` - Detailed diagnostic commands and log interpretation for each failure mode
+- `SKILL.md`: core safety model and diagnostic workflow.
+- `references/diagnostics.md`: version-aware read-only commands and interpretation.
+- `references/support-bundles.md`: documented collection, privacy handling, ticket handoff, triage, and comparison.
+- `references/log-collection.md`: continuous VM log locations, retention limits, and observability-agent guidance.
 
 ## For Contributors
 
-When new failure modes are discovered in the field, update `references/diagnostics.md` with:
-1. New symptoms and error patterns
-2. Diagnostic commands to run
-3. Resolution steps that worked
-4. Log excerpts showing the error
-
-This skill should grow with each support issue resolved.
+Convert field incidents into generic symptom, evidence, and recovery patterns. Validate commands against supported OHE and Embedded Cluster releases, keep diagnostics read-only by default, and exclude customer-specific names, domains, IDs, credentials, private paths, and one-off patches.

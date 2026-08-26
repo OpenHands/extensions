@@ -1,423 +1,290 @@
-# OHE Diagnostics Reference
+# OHE Diagnostic Reference
 
-Detailed diagnostic procedures for each OpenHands Enterprise failure mode. Run these commands on the VM via SSH.
+> **Critical safety rule**
+>
+> Keep your investigation read-only. Do not change Kubernetes resources unless directed by OpenHands Support. Ad hoc `kubectl` changes can be overwritten during a deployment or upgrade and may leave the installation in an inconsistent state.
 
-## Sandbox Startup
+Replace placeholders deliberately and verify resource names before targeting a workload. For Helm installations, use the existing Kubernetes access and confirm the current context before inspection.
 
-### Check Sandbox Pod Status
+## Version and Topology
 
-```bash
-kubectl get pods -n openhands -l app=sandbox --watch
-```
-
-Look for: `Running` status, multiple restarts, `ImagePullBackOff`, `CrashLoopBackOff`
-
-### Check Sandbox Logs
+On a Replicated controller VM, record the installed application binary's version table:
 
 ```bash
-# Get sandbox pod name
-SANDBOX_POD=$(kubectl get pods -n openhands -l app=sandbox -o jsonpath='{.items[0].metadata.name}')
-
-# View recent logs
-kubectl logs -n openhands $SANDBOX_POD --tail=100
-
-# View previous log (if pod restarted)
-kubectl logs -n openhands $SANDBOX_POD --previous
+sudo /var/lib/embedded-cluster/bin/openhands version
 ```
 
-### Common Sandbox Startup Errors
-
-| Error Pattern | Likely Cause | Check |
-|---------------|--------------|-------|
-| `ImagePullBackOff` | Registry auth, network | `kubectl describe pod` for image pull error |
-| `CrashLoopBackOff` | Config error, missing secret | `kubectl logs --previous` |
-| `Init:Error` | Init container failed | `kubectl describe pod` for init container status |
-| `Timeout` | Resource exhaustion, runtime issue | `kubectl top pods` |
-
-### Sandbox Runtime Check
+Enter the supported Embedded Cluster shell for an interactive Kubernetes session:
 
 ```bash
-# Check if container runtime is responsive
-kubectl exec -n openhands deploy/sandbox -- crictl info
-
-# Check sandbox disk space
-kubectl exec -n openhands deploy/sandbox -- df -h
-
-# Check sandbox file descriptors
-kubectl exec -n openhands deploy/sandbox -- ls /proc/self/fd | wc -l
+sudo /var/lib/embedded-cluster/bin/openhands shell
 ```
 
----
-
-## Git Provider Auth
-
-### Check GitHub App Status
+The shell configures the bundled `kubectl` and kubeconfig. For non-interactive inspection on a controller node, the standard locations are:
 
 ```bash
-kubectl get pods -n openhands -l app=github-app
-
-# Check GitHub App secret exists
-kubectl get secret -n openhands -o yaml | grep -i github
+export PATH="/var/lib/embedded-cluster/bin:$PATH"
+export KUBECONFIG="/var/lib/embedded-cluster/k0s/pki/admin.conf"
 ```
 
-### Check Git Provider Secrets
+Record the KOTS application release separately:
 
 ```bash
-# List git provider secrets
-kubectl get secrets -n openhands | grep -i git
-
-# Check if secret has data
-kubectl get secret -n openhands git-provider-secret -o yaml
+kubectl-kots get apps \
+  --namespace kotsadm \
+  --kubeconfig /var/lib/embedded-cluster/k0s/pki/admin.conf
 ```
 
-### Validate GitHub Token
+The installer table can show an application component version that differs from the deployed KOTS/OHE release. Do not report one as the other.
+
+Discover topology instead of assuming names:
 
 ```bash
-# Get the token from secret (decode base64)
-GITHUB_TOKEN=$(kubectl get secret -n openhands git-provider-secret -o jsonpath='{.data.token}' | base64 -d)
-
-# Test token validity
-curl -s -H "Authorization: token $GITHUB_TOKEN" https://api.github.com/app
-
-# Check GitHub App installation
-curl -s -H "Authorization: token $GITHUB_TOKEN" https://api.github.com/app/installations
+NS=${NS:-openhands}
+kubectl get namespaces
+kubectl get deployments,statefulsets,jobs -n "$NS"
+kubectl get deployments,statefulsets -n kotsadm
+kubectl get pods -n embedded-cluster
 ```
 
-### Check GitLab Token
+Record workload images without reading environment variables:
 
 ```bash
-# Get GitLab token
-GITLAB_TOKEN=$(kubectl get secret -n openhands git-provider-secret -o jsonpath='{.data.gitlab_token}' | base64 -d)
-
-# Test token validity
-curl -s -H "PRIVATE-TOKEN: $GITLAB_TOKEN" "https://gitlab.com/api/v4/user"
+kubectl get deployments,statefulsets -n "$NS" -o jsonpath='{range .items[*]}{.kind}{"/"}{.metadata.name}{"\n"}{range .spec.template.spec.initContainers[*]}  init:{.name}={.image}{"\n"}{end}{range .spec.template.spec.containers[*]}  container:{.name}={.image}{"\n"}{end}{end}'
 ```
 
----
-
-## Certificate Issues
-
-### Check Certificate Expiry
+## Host and Cluster Baseline
 
 ```bash
-# For a specific host
-HOST="your-openhands-domain.com"
-echo | openssl s_client -connect $HOST:443 -servername $HOST 2>/dev/null | openssl x509 -noout -dates
-
-# Check all certs in kubernetes secret
-kubectl get secret -n openhands -l app=ingress-tls -o jsonpath='{.items[*]}' | jq -r '.[].data."tls.crt"' | base64 -d | openssl x509 -noout -dates
+kubectl get nodes -o wide
+kubectl get nodes -o jsonpath='{range .items[*]}{.metadata.name}{"\t"}{range .status.conditions[?(@.status=="True")]}{.type}{" "}{end}{"\n"}{end}'
+kubectl get pods -n "$NS" -o wide
+kubectl get deployments,statefulsets -n "$NS"
+kubectl get events -n "$NS" --sort-by=.lastTimestamp
+sudo df -h
+sudo free -h
 ```
 
-### Check Certificate Chain
+Use `kubectl top` only when Metrics Server is available. A missing metrics API is not itself proof of resource exhaustion:
 
 ```bash
-# Get full certificate chain
-echo | openssl s_client -connect $HOST:443 -servername $HOST -showcerts 2>/dev/null
-
-# Check chain completeness
-echo | openssl s_client -connect $HOST:443 -servername $HOST 2>/dev/null | grep -A2 "Certificate chain"
+kubectl top nodes
+kubectl top pods -n "$NS"
 ```
 
-### Common Certificate Errors
-
-| Error | Cause | Fix |
-|-------|-------|-----|
-| `CERT_HAS_EXPIRED` | Certificate expired | Renew certificate |
-| `self signed certificate` | Self-signed in chain | Install proper chain |
-| `UNABLE_TO_VERIFY_LEAF_SIGNATURE` | Intermediate missing | Ensure full chain in ingress |
-| `certificate hostname mismatch` | Wrong CN/SAN | Reissue with correct hostname |
-
-### Ingress TLS Check
+Check restarts and termination reasons:
 
 ```bash
-kubectl get ingress -n openhands -o yaml | grep -A5 "tls:"
+kubectl get pods -n "$NS" -o jsonpath='{range .items[*]}{.metadata.name}{"\t"}{range .status.containerStatuses[*]}{.name}{"="}{.restartCount}{"/"}{.lastState.terminated.reason}{" "}{end}{"\n"}{end}'
 ```
 
----
+High-risk findings include `DiskPressure=True`, repeated `OOMKilled`, unbound database PVCs, or a database data path backed by ephemeral storage. Stop before restarting stateful workloads until persistence and recovery are understood.
 
-## LLM Connectivity
+## Public Readiness, DNS, and TLS
 
-### Check LLM Configuration
+Check DNS and application readiness from outside the cluster:
 
 ```bash
-# Get LLM config (masked)
-kubectl get configmap -n openhands -o jsonpath='{.items[?(@.metadata.name=="llm-config")].data}' | jq .
-
-# Check LLM secret
-kubectl get secret -n openhands -o jsonpath='{.items[?(@.metadata.name=="llm-credentials")].data}' | jq -r 'keys'
+APP_HOST=app.example.com
+getent hosts "$APP_HOST"
+curl --fail --show-error --silent \
+  --output /dev/null \
+  --write-out 'http=%{http_code} ssl=%{ssl_verify_result} ip=%{remote_ip}\n' \
+  "https://$APP_HOST/ready"
 ```
 
-### Test LLM Endpoint
+Inspect the certificate without bypassing verification:
 
 ```bash
-# Get LLM endpoint from config
-LLM_ENDPOINT=$(kubectl get configmap -n openhands llm-config -o jsonpath='{.data.endpoint}')
-
-# Get API key
-LLM_API_KEY=$(kubectl get secret -n openhands llm-credentials -o jsonpath='{.data.api_key}' | base64 -d)
-
-# Test connectivity (example for OpenAI-compatible endpoint)
-curl -s -X POST $LLM_ENDPOINT/v1/models \
-  -H "Authorization: Bearer $LLM_API_KEY" \
-  -w "\nHTTP_CODE:%{http_code}"
+openssl s_client -connect "$APP_HOST:443" -servername "$APP_HOST" -verify_return_error </dev/null 2>/dev/null |
+  openssl x509 -noout -subject -issuer -serial -dates -ext subjectAltName
 ```
 
-### Network Policy Check
+Discover ingress hosts and TLS Secret names without printing Secret values:
 
 ```bash
-# Check if pods have network policies
-kubectl get networkpolicy -n openhands
-
-# Test DNS resolution from pod
-kubectl exec -n openhands deploy/agent-server -- nslookup api.openai.com
+kubectl get ingress -n "$NS" \
+  -o custom-columns='NAME:.metadata.name,HOSTS:.spec.rules[*].host,TLS_SECRET:.spec.tls[*].secretName'
+kubectl get secrets -n "$NS" --field-selector type=kubernetes.io/tls
 ```
 
-### Common LLM Errors
+For Embedded Cluster, test the Admin Console hostname and port `30000` separately. The Admin Console certificate and application ingress certificates can use different configuration surfaces.
 
-| Error Pattern | Cause | Fix |
-|---------------|-------|-----|
-| `connection refused` | Wrong endpoint | Verify LLM endpoint URL |
-| `401 Unauthorized` | Bad API key | Re-create/rotate API key |
-| `403 Forbidden` | Insufficient permissions | Check model access |
-| `connection timeout` | Network policy/firewall | Check network policies |
+Do not use `curl -k` or `--insecure` as proof that TLS is healthy.
 
----
+## Runtime and Sandbox Startup
 
-## Keycloak
-
-### Check Keycloak Pods
+OHE creates per-runtime workloads whose names commonly begin with `runtime-`; do not assume a `sandbox` Deployment or `app=sandbox` label exists.
 
 ```bash
-kubectl get pods -n keycloak --watch
-
-# Check Keycloak logs
-KEYCLOAK_POD=$(kubectl get pods -n keycloak -l app=keycloak -o jsonpath='{.items[0].metadata.name}')
-kubectl logs -n keycloak $KEYCLOAK_POD --tail=200
+kubectl get deployments,pods,pvc -n "$NS" | grep -E '(^NAME|runtime-)'
+kubectl logs -n "$NS" deployment/openhands-runtime-api --since=30m
+kubectl get events -n "$NS" --sort-by=.lastTimestamp | grep -Ei 'runtime|pull|mount|schedule|probe|oom'
 ```
 
-### Check Keycloak Database Connectivity
+For one affected runtime, use the exact discovered name:
 
 ```bash
-# Keycloak requires database - check DB pod
-kubectl get pods -n keycloak | grep -E "postgres|mysql|database"
-
-# Check DB connectivity from Keycloak pod
-kubectl exec -n keycloak $KEYCLOAK_POD -- bash -c 'nc -zv $DB_HOST $DB_PORT || echo "DB unreachable"'
+RUNTIME_POD=runtime-REPLACE_ME
+kubectl describe pod -n "$NS" "$RUNTIME_POD"
+kubectl logs -n "$NS" "$RUNTIME_POD" --all-containers --since=30m
 ```
 
-### Check Keycloak Realm Configuration
+Interpretation:
+
+- `ImagePullBackOff`: inspect the event text, registry reachability, and configured image.
+- `Pending`: inspect scheduling, node capacity, PVC binding, and image loading.
+- `CrashLoopBackOff`: inspect current and `--previous` logs for the named container.
+- Runtime readiness `200` followed by conversation failure: investigate app-side routing or identifier handling instead of calling it a sandbox boot failure.
+- Warm runtime image differing from the requested runtime image: suspect rollout skew or configuration drift.
+
+Do not delete runtimes or PVCs until ownership, retention policy, and user impact are confirmed.
+
+## Authentication and Keycloak
+
+In current OHE Replicated layouts, Keycloak can run as a StatefulSet in the application namespace. Discover it before reading logs:
 
 ```bash
-# Get Keycloak admin credentials
-KEYCLOAK_ADMIN=$(kubectl get secret -n keycloak keycloak-admin -o jsonpath='{.data.username}' | base64 -d)
-KEYCLOAK_PASS=$(kubectl get secret -n keycloak keycloak-admin -o jsonpath='{.data.password}' | base64 -d)
-
-# Get Keycloak URL
-KEYCLOAK_URL=$(kubectl get ingress -n keycloak -o jsonpath='{.items[0].spec.rules[0].host}')
-
-# Test Keycloak admin access
-curl -s -o /dev/null -w "%{http_code}" \
-  -d "username=$KEYCLOAK_ADMIN" \
-  -d "password=$KEYCLOAK_PASS" \
-  -d "grant_type=password" \
-  "$KEYCLOAK_URL/realms/master/protocol/openid-connect/token"
+kubectl get deployments,statefulsets,pods -n "$NS" | grep -Ei 'keycloak|openhands|postgres'
+kubectl logs -n "$NS" statefulset/keycloak --since=30m
+kubectl logs -n "$NS" deployment/openhands --since=30m
+kubectl get statefulsets,pvc -n "$NS" | grep -Ei 'keycloak|postgres'
 ```
 
-### Keycloak Health Check
+Check the public OpenID configuration endpoint for the configured realm when known:
 
 ```bash
-kubectl exec -n keycloak deploy/keycloak -- /opt/keycloak/bin/kc.sh health --metrics
+AUTH_HOST=auth.app.example.com
+REALM=REPLACE_ME
+curl --fail --show-error --silent \
+  "https://$AUTH_HOST/realms/$REALM/.well-known/openid-configuration" \
+  --output /dev/null
 ```
 
----
+Separate these symptoms:
+
+- Admin Console login: Replicated `kotsadm`, not Keycloak.
+- OpenHands user login: Keycloak, OpenHands, identity provider, callback URL, and database.
+- API-key access: verify a protected endpoint using a key already held by the administrator; do not retrieve one from Kubernetes.
+- Browser-only loop: compare with a fresh private browsing session after server-side health is established.
+
+Never decode Keycloak administrator credentials or request that a customer paste them into chat.
+
+## Git Provider Integration
+
+Inspect the integrations service and resource metadata:
+
+```bash
+kubectl get deployment,pods -n "$NS" | grep -Ei 'integration|openhands'
+kubectl logs -n "$NS" deployment/openhands-integrations --since=30m
+kubectl get secrets -n "$NS" -o custom-columns='NAME:.metadata.name,TYPE:.type'
+```
+
+Do not run `kubectl get secret -o yaml`, decode provider tokens, or copy credentials into shell history. Validate access through the OpenHands UI or a protected OpenHands API request using a credential already held by the administrator.
+
+Differentiate:
+
+- provider OAuth or token authorization;
+- GitHub App installation and repository permissions;
+- inbound webhook delivery;
+- organization routing;
+- repository clone or push from a runtime.
+
+A successful webhook does not prove repository access, and repository listing does not prove webhook routing.
+
+## LLM and LiteLLM
+
+Discover the service names and inspect bounded logs:
+
+```bash
+kubectl get deployment,pods,services -n "$NS" | grep -Ei 'openhands|litellm'
+kubectl logs -n "$NS" deployment/openhands --since=30m
+kubectl logs -n "$NS" deployment/openhands-litellm --since=30m
+```
+
+Check configured model names and endpoints through the Admin Console or OpenHands settings UI. Do not extract API keys from Secrets or print container environment variables.
+
+Map common signals:
+
+- `401` or authentication error: provider credential or LiteLLM proxy-token path.
+- `403`: provider permission, model access, or policy restriction.
+- unknown model or invalid model name: OpenHands profile alias does not match LiteLLM's model list.
+- connection timeout: DNS, firewall, proxy, or endpoint reachability.
+- failure after a credential rotation: a running pod or saved profile may still hold stale state.
+
+Validate recovery with one small request through the configured path and one bounded OpenHands conversation. Avoid provider-direct tests that bypass LiteLLM when OHE is configured to route through LiteLLM.
 
 ## Replicated Admin Console
 
-### Check Replicated Operator
+Check the public Admin Console separately from the application:
 
 ```bash
-kubectl get pods -n replicated --watch
-
-# Check operator logs
-kubectl logs -n replicated -l app=replicated-operator --tail=100 --follow
+ADMIN_HOST=replicated.example.com
+curl --fail --show-error --silent \
+  --output /dev/null \
+  --write-out 'http=%{http_code} ssl=%{ssl_verify_result}\n' \
+  "https://$ADMIN_HOST:30000/"
+kubectl get deployments,pods,services -n kotsadm
+kubectl get pods -n embedded-cluster
 ```
 
-### Check Replicated Services
+Inspect bounded logs only after discovering the resource name:
 
 ```bash
-kubectl get svc -n replicated
-
-# Check if operator service is exposed
-kubectl get ingress -n replicated
+kubectl get deployments -n kotsadm
+kubectl logs -n kotsadm deployment/REPLACE_WITH_DISCOVERED_NAME --since=30m
 ```
 
-### Common Replicated Issues
+Use the installed application binary's `admin-console --help` before any administrative subcommand. Do not reset a password or replace TLS unless OpenHands Support directs the change and the administrator explicitly approves it.
 
-| Symptom | Check | Fix |
-|---------|-------|-----|
-| "Connection refused" on admin console | Operator pod status | Restart operator pod |
-| Admin console shows blank page | Operator logs | Check for migration errors |
-| Can't run admin commands | `replicated` CLI version | Update replicated CLI |
+## Upgrade Failure
 
-### Replicated CLI Diagnostics
+Record current and target versions, sequence status, preflight output, and images before changing anything:
 
 ```bash
-# SSH to the VM, then:
-replicated admin status
-replicated admin console logs --since 1h
-replicated apps list
+sudo /var/lib/embedded-cluster/bin/openhands version
+kubectl-kots get apps \
+  --namespace kotsadm \
+  --kubeconfig /var/lib/embedded-cluster/k0s/pki/admin.conf
+kubectl get jobs -A
+kubectl get deployments,statefulsets -n "$NS"
+kubectl get events -n "$NS" --sort-by=.lastTimestamp
 ```
 
----
-
-## Upgrade Issues
-
-### Check Failed Upgrade Jobs
+Inspect a failed migration or upgrade Job by its discovered name:
 
 ```bash
-kubectl get jobs -n openhands | grep -E "upgrade|migrate"
-
-# Check failed job logs
-UPGRADE_JOB=$(kubectl get jobs -n openhands -o jsonpath='{.items[?(@.status.failed)].metadata.name}' | awk '{print $1}')
-kubectl logs -n openhands job/$UPGRADE_JOB
+JOB_NAMESPACE=REPLACE_ME
+JOB_NAME=REPLACE_ME
+kubectl describe job -n "$JOB_NAMESPACE" "$JOB_NAME"
+kubectl logs -n "$JOB_NAMESPACE" job/"$JOB_NAME" --all-containers
 ```
 
-### Check Pre-flight Status
+Do not use guessed `replicated release rollback` commands. Follow the installed version's Admin Console and Embedded Cluster documentation. Confirm database backups, PVC health, and rollback support before an upgrade retry or rollback.
+
+## Resource Exhaustion and Storage
 
 ```bash
-# Run pre-flight checks manually
-replicated admin preflight --kubecontext=KUBE_CONTEXT --namespace=openHands
-
-# Check pre-flight results
-kubectl get configmap -n replicated -o jsonpath='{.items[?(@.metadata.name=="preflight-results")].data}'
+sudo df -h
+sudo du -x -d1 /var/lib 2>/dev/null | sort -n | tail
+kubectl get nodes -o jsonpath='{range .items[*]}{.metadata.name}{"\tDiskPressure="}{.status.conditions[?(@.type=="DiskPressure")].status}{"\tMemoryPressure="}{.status.conditions[?(@.type=="MemoryPressure")].status}{"\n"}{end}'
+kubectl get pvc -A
+kubectl get events -A --sort-by=.lastTimestamp | grep -Ei 'diskpressure|evict|oom|volume|mount|no space'
 ```
 
-### Rollback Procedure
+Identify whether growth is application data, container logs, images, runtime volumes, or diagnostic logs. For Laminar ClickHouse, `system.trace_log` and `system.text_log` are diagnostic tables, not LLM token storage. Quantify them with read-only metadata queries only when authorized ClickHouse access is already available.
+
+Do not truncate tables, remove directories, delete PVCs, prune images, or restart a database solely because disk usage is high. First record retention requirements, backup state, reclaim estimate, and expected write rate.
+
+## Bounded Log Collection
+
+Prefer resource-specific logs and a narrow time window:
 
 ```bash
-# List available releases
-replicated releases --app=APP_NAME
-
-# Rollback to previous release
-replicated release rollback --app=APP_NAME --sequence=PREVIOUS_SEQUENCE
+kubectl logs -n "$NS" deployment/openhands --since=30m
+kubectl logs -n "$NS" deployment/openhands-runtime-api --since=30m
+kubectl logs -n "$NS" deployment/openhands-integrations --since=30m
+kubectl logs -n "$NS" deployment/automation --since=30m
 ```
 
-### Common Upgrade Failures
-
-| Error | Cause | Fix |
-|-------|-------|-----|
-| Migration job failed | Database schema change | Check job logs, retry |
-| Pods crash on new version | Config incompatibility | Review changelog, adjust config |
-| Pre-flight failed | Resource insufficient | Add resources, retry |
-| Helm error | Values incompatible | Review helm values diff |
-
----
-
-## Resource Exhaustion
-
-### Check Node Resources
-
-```bash
-# Node CPU/memory
-kubectl top nodes
-
-# Node disk usage
-kubectl debug node/NODE_NAME -it -- df -h
-
-# Check if OOMKilled
-kubectl get events -n openhands | grep -i "oom\|killed"
-```
-
-### Check Pod Resource Usage
-
-```bash
-# Per-pod resource usage
-kubectl top pods -n openhands
-
-# Check pod resource limits
-kubectl get pods -n openhands -o jsonpath='{range .items[*]}{.metadata.name}{"\t"}{.spec.containers[*].resources.limits.memory}{"\n"}'
-```
-
-### Check File Descriptor Usage
-
-```bash
-# Check fd limit on node
-cat /proc/sys/fs/file-max
-ulimit -n
-
-# Check pod fd usage
-kubectl exec -n openhands deploy/agent-server -- ls /proc/self/fd | wc -l
-```
-
-### Check Disk Space
-
-```bash
-# Node disk pressure
-kubectl get nodes -o jsonpath='{range .items[*]}{.metadata.name}{"\t"}{.status.conditions[?(@.type=="DiskPressure")].status}{"\n"}'
-
-# Find large directories
-kubectl exec -n openhands deploy/agent-server -- du -sh /var/*
-```
-
-### Common Resource Exhaustion Fixes
-
-| Resource | Check | Fix |
-|----------|-------|-----|
-| Memory OOM | `kubectl top pods` | Increase pod memory limits |
-| Disk full | `du -sh` | Clean up logs, increase PV size |
-| FD exhaustion | `ls /proc/*/fd \| wc` | Increase ulimit |
-| CPU throttling | `kubectl top pods` | Adjust CPU limits |
-
----
-
-## Log Pattern Quick Reference
-
-### Search for Common Error Patterns
-
-```bash
-# In pod logs, search for these patterns:
-grep -E "ERROR|FATAL|Exception|Traceback" /path/to/logs
-
-# Search for timeout patterns
-grep -E "timeout|timed out|deadline" /path/to/logs
-
-# Search for connection errors
-grep -E "connection refused|connection reset|dial tcp" /path/to/logs
-
-# Search for auth errors
-grep -E "unauthorized|forbidden|authentication" /path/to/logs
-```
-
-### Kubernetes Events
-
-```bash
-# Get recent events in namespace
-kubectl get events -n openhands --sort-by='.lastTimestamp' | tail -50
-
-# Filter events by type
-kubectl get events -n openhands --field-selector type=Warning
-```
-
----
-
-## Useful One-Liners
-
-```bash
-# Get all pod statuses at once
-kubectl get pods -n openhands -o wide
-
-# Tail logs from all pods with a label
-kubectl logs -n openhands -l app=sandbox --tail=50 -f
-
-# Get pod restart count
-kubectl get pods -n openhands -o jsonpath='{range .items[*]}{.metadata.name}{"\t"}{.status.containerStatuses[*].restartCount}{"\n"}'
-
-# Check pod age and status
-kubectl get pods -n openhands -o jsonpath='{range .items[*]}{.metadata.name}{"\t"}{.status.phase}{"\t"}{.metadata.creationTimestamp}{"\n"}'
-
-# Extract error messages from all pods
-for pod in $(kubectl get pods -n openhands -o name); do
-  echo "=== $pod ===";
-  kubectl logs -n openhands $pod --tail=20 2>&1 | grep -iE "error|fatal" | head -5;
-done
-```
+Use `--previous` only for a container that restarted. Avoid collecting every pod log by default; broad output increases noise and can expose customer data. Redact authorization headers, cookies, repository URLs when required, prompts, and customer payloads before sharing excerpts.
