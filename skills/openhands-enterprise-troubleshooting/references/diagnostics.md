@@ -1,20 +1,23 @@
 # OHE Diagnostic Reference
 
-Use these checks for Replicated Embedded Cluster installations. Run the first pass read-only. Replace placeholders deliberately and verify resource names before targeting a workload.
+> **Critical safety rule**
+>
+> Keep your investigation read-only. Do not change Kubernetes resources unless directed by OpenHands Support. Ad hoc `kubectl` changes can be overwritten during a deployment or upgrade and may leave the installation in an inconsistent state.
+
+Replace placeholders deliberately and verify resource names before targeting a workload. For Helm installations, use the existing Kubernetes access and confirm the current context before inspection.
 
 ## Version and Topology
 
-Locate the application installer binary supplied for the installation, then record its version table:
+On a Replicated controller VM, record the installed application binary's version table:
 
 ```bash
-APP_INSTALLER=/absolute/path/to/application-installer
-sudo "$APP_INSTALLER" version
+sudo /var/lib/embedded-cluster/bin/openhands version
 ```
 
-For a controller node, enter the supported Embedded Cluster shell when interactive access is appropriate:
+Enter the supported Embedded Cluster shell for an interactive Kubernetes session:
 
 ```bash
-sudo "$APP_INSTALLER" shell
+sudo /var/lib/embedded-cluster/bin/openhands shell
 ```
 
 The shell configures the bundled `kubectl` and kubeconfig. For non-interactive inspection on a controller node, the standard locations are:
@@ -232,14 +235,14 @@ kubectl get deployments -n kotsadm
 kubectl logs -n kotsadm deployment/REPLACE_WITH_DISCOVERED_NAME --since=30m
 ```
 
-Use the installed application binary's `admin-console --help` before any administrative subcommand. Password reset and TLS replacement are mutating operations and require explicit approval.
+Use the installed application binary's `admin-console --help` before any administrative subcommand. Do not reset a password or replace TLS unless OpenHands Support directs the change and the administrator explicitly approves it.
 
 ## Upgrade Failure
 
 Record current and target versions, sequence status, preflight output, and images before changing anything:
 
 ```bash
-sudo "$APP_INSTALLER" version
+sudo /var/lib/embedded-cluster/bin/openhands version
 kubectl-kots get apps \
   --namespace kotsadm \
   --kubeconfig /var/lib/embedded-cluster/k0s/pki/admin.conf

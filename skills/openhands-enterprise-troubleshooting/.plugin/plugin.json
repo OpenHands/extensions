@@ -1,7 +1,7 @@
 {
   "name": "openhands-enterprise-troubleshooting",
   "version": "1.0.0",
-  "description": "Diagnose OpenHands Enterprise installations on Replicated Embedded Cluster with version-aware, read-only-first checks, support bundle analysis, guarded recovery, and escalation handoffs.",
+  "description": "Diagnose OpenHands Enterprise Replicated VM and Helm installations with read-only Kubernetes checks, support bundle analysis, VM log collection, and escalation handoffs.",
   "author": {
     "name": "OpenHands",
     "email": "contact@all-hands.dev"
@@ -14,8 +14,10 @@
     "enterprise",
     "replicated",
     "embedded-cluster",
+    "helm",
     "troubleshooting",
     "support-bundle",
+    "log-collection",
     "diagnostics"
   ]
 }

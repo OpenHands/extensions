@@ -1,42 +1,54 @@
 ---
 name: openhands-enterprise-troubleshooting
-description: This skill should be used when a user asks to "troubleshoot OpenHands Enterprise", reports that "OpenHands is not working", "a sandbox failed to start", "login is broken", "the certificate expired", "the LLM connection failed", "the Replicated Admin Console is unavailable", "an OHE upgrade failed", or asks to analyze an OpenHands Enterprise support bundle on a Replicated Embedded Cluster installation.
+description: This skill should be used when a user asks to "troubleshoot OpenHands Enterprise", reports that "OpenHands is not working", "a sandbox failed to start", "login is broken", "the certificate expired", "the LLM connection failed", "the Replicated Admin Console is unavailable", "an OHE upgrade failed", asks to analyze an OpenHands Enterprise support bundle, needs VM log collection guidance for a Replicated installation, or is troubleshooting a Helm installation.
 ---
 
 # OpenHands Enterprise Troubleshooting
 
-Diagnose OpenHands Enterprise installations delivered through Replicated Embedded Cluster. Use evidence to identify the failing layer, keep the first pass read-only, and produce a support-ready handoff when recovery requires engineering or platform access.
+Diagnose OpenHands Enterprise installations delivered through Replicated Embedded Cluster or Helm. Use evidence to identify the failing layer and produce a support-ready handoff.
+
+> **Critical safety rule**
+>
+> Keep your investigation read-only. Do not change Kubernetes resources unless directed by OpenHands Support. Ad hoc `kubectl` changes can be overwritten during a deployment or upgrade and may leave the installation in an inconsistent state.
 
 ## Safety Rules
 
-1. Begin with read-only inspection. Do not restart workloads, change ConfigValues, rotate credentials, delete resources, truncate tables, roll back releases, reset nodes, or reinstall the application without explicit approval.
-2. Establish backup and storage safety before any operation that can recreate a pod or change persistent state.
+1. Do not restart workloads, edit or patch resources, change ConfigValues, rotate credentials, delete resources, truncate tables, roll back releases, reset nodes, or reinstall the application during investigation.
+2. If OpenHands Support directs a change, establish backup and storage safety, disclose the impact, obtain the administrator's explicit approval, and define recovery and verification steps first.
 3. Never print, decode, or request private keys, API keys, passwords, access tokens, complete Kubernetes Secret values, or unredacted environment-variable dumps.
 4. Inspect Secret names and key names only. Ask the administrator to validate a credential through the product UI or provider API without sharing its value.
 5. Treat support bundles as potentially sensitive. Obtain approval before uploading a bundle and use the approved support channel.
-6. Prefer supported Replicated and KOTS workflows. Warn when a direct Kubernetes patch can be overwritten by reconciliation or an upgrade.
-7. Stop and escalate when the safe recovery path is unclear, the database or storage layer is at risk, or a command differs from the installed version's help output.
+6. Prefer the Admin Console, Helm values, and documented OpenHands or Replicated procedures. Never improvise direct Kubernetes changes.
+7. Stop and escalate when the safe path is unclear, the database or storage layer is at risk, or a command differs from the installed version's help output.
 
 ## Diagnostic Workflow
 
-### 1. Establish Installation Context
+### 1. Start With a Support Bundle
+
+A support bundle is the fastest way to give OpenHands Support a snapshot of the installation. The customer does not need to investigate before opening a support ticket.
+
+For a Replicated VM, prefer **Troubleshoot > Analyze > Download bundle** in the Admin Console. If the console is unavailable, use the documented VM command. For Helm, use the documented Kubernetes command. Read `references/support-bundles.md` for the exact commands, safe handling, ticket details, and triage order.
+
+For continuous retention in the customer's observability platform, read `references/log-collection.md`. VM logs are retained only briefly, and sandbox logs are deleted when their conversations are cleaned up.
+
+### 2. Establish Installation Context
 
 Collect these facts before interpreting symptoms:
 
-- OpenHands Enterprise release shown by KOTS.
-- Embedded Cluster installer and Kubernetes versions.
-- Application slug and path to the installer binary.
+- OpenHands Enterprise release shown by KOTS or Helm.
+- Embedded Cluster installer and Kubernetes versions, when applicable.
+- Installation type: Replicated VM or Helm.
 - Application namespace; normally `openhands`, but verify it.
 - Failure start time, affected users, exact error, URL, conversation or automation ID, and recent install or upgrade activity.
 
-Do not confuse the installer component version with the deployed OHE application release. Read `references/diagnostics.md#version-and-topology` and record both.
+Do not confuse the installer component version with the deployed OHE application release. Read `references/diagnostics.md#version-and-topology` and record both when applicable.
 
-### 2. Separate Health Layers
+### 3. Separate Health Layers
 
 Check each layer independently:
 
 1. Host and node health: disk, memory, pressure conditions, and system services.
-2. Embedded Cluster and Admin Console health.
+2. Embedded Cluster and Admin Console health, for Replicated VM installations.
 3. Kubernetes workload readiness and recent events.
 4. Public DNS, TLS, ingress, and application readiness.
 5. Authentication and Keycloak.
@@ -47,7 +59,7 @@ Check each layer independently:
 
 A successful `/ready` response proves only basic application readiness. It does not prove login, repository access, model inference, automation routing, or runtime startup.
 
-### 3. Match the Symptom to a Focused Path
+### 4. Match the Symptom to a Focused Path
 
 - Sandbox startup or conversation timeout: inspect runtime-api, runtime workloads, image pulls, PVCs, and capacity.
 - Login or OAuth failure: inspect OpenHands and Keycloak readiness, database health, callback routing, and browser session behavior.
@@ -58,21 +70,9 @@ A successful `/ready` response proves only basic application readiness. It does 
 - Upgrade failure: record current and target releases, preflight results, failed jobs, workload images, and storage safety. Do not improvise a rollback.
 - OOM or disk pressure: identify the resource consumer and persistent-data risk before restarting anything.
 
-Use the read-only commands and interpretation guidance in `references/diagnostics.md`.
+Use only the read-only commands and interpretation guidance in `references/diagnostics.md`.
 
-### 4. Prefer Support Bundles for Broad Collection
-
-Generate an Embedded Cluster support bundle when:
-
-- installation or upgrade health is unclear;
-- multiple layers appear unhealthy;
-- direct cluster access is unavailable to support;
-- an issue requires escalation;
-- a comparison with a known-good installation would help.
-
-Use the installed application binary's `support-bundle` command for supported Embedded Cluster versions. Read `references/support-bundles.md` before collecting, sharing, or interpreting a bundle.
-
-### 5. Apply Recovery Only After Approval
+### 5. Apply Support-Directed Recovery Only After Approval
 
 Before proposing a change, state:
 
@@ -84,7 +84,7 @@ Before proposing a change, state:
 - backup or snapshot prerequisites;
 - verification steps.
 
-Request explicit approval for the specific operation. Avoid combining an incident fix with unrelated cleanup or configuration changes.
+Proceed only when OpenHands Support has directed the change and the administrator has explicitly approved the specific operation. Avoid combining an incident fix with unrelated cleanup or configuration changes.
 
 ### 6. Verify the Real User Path
 
@@ -138,9 +138,11 @@ Exclude secrets, customer data, full environment dumps, and unnecessary log volu
 ## References
 
 - `references/diagnostics.md`: version-aware, read-only checks for common OHE failure modes.
-- `references/support-bundles.md`: supported collection, privacy handling, bundle triage, and comparison workflow.
+- `references/support-bundles.md`: documented collection, privacy handling, ticket handoff, bundle triage, and comparison workflow.
+- `references/log-collection.md`: continuous VM log collection and retention guidance.
+- OpenHands Enterprise troubleshooting: https://docs.openhands.dev/enterprise/troubleshooting
+- OpenHands Enterprise VM log collection: https://docs.openhands.dev/enterprise/vm-install/log-collection
 - Replicated Embedded Cluster v2 troubleshooting: https://docs.replicated.com/embedded-cluster/v2/embedded-troubleshooting
-- Replicated support bundle generation: https://docs.replicated.com/vendor/support-bundle-generating
 
 ## Maintenance
 

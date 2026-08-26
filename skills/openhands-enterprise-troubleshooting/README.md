@@ -1,15 +1,19 @@
 # OpenHands Enterprise Troubleshooting
 
-An agent-runnable skill for diagnosing OpenHands Enterprise installations delivered through Replicated Embedded Cluster. It provides version-aware, read-only-first checks, guarded recovery guidance, support bundle triage, and escalation handoffs.
+An agent-runnable skill for diagnosing OpenHands Enterprise Replicated VM and Helm installations. It starts with support bundles, keeps Kubernetes investigation read-only, documents continuous VM log collection, and produces support-ready handoffs.
+
+## Critical Safety Rule
+
+> Keep your investigation read-only. Do not change Kubernetes resources unless directed by OpenHands Support. Ad hoc `kubectl` changes can be overwritten during a deployment or upgrade and may leave the installation in an inconsistent state.
 
 ## Safety Model
 
+- Start with a support bundle; customers do not need to investigate before opening a support ticket.
 - Discover the installed OHE, Embedded Cluster, Kubernetes, namespace, and workload topology before targeting resources.
-- Keep the initial diagnostic pass read-only.
 - Never print or decode credentials or complete Kubernetes Secret values.
 - Treat support bundles as potentially sensitive and share them only through approved channels.
-- Require explicit approval, backup checks, impact disclosure, and a recovery path before mutating an installation.
-- Prefer supported Replicated and KOTS workflows over direct Kubernetes changes that reconciliation can overwrite.
+- When OpenHands Support directs a change, require explicit administrator approval, backup checks, impact disclosure, and a recovery path first.
+- Prefer the Admin Console, Helm values, and documented OpenHands or Replicated procedures over direct Kubernetes changes.
 
 ## What This Skill Does
 
@@ -19,15 +23,16 @@ An agent-runnable skill for diagnosing OpenHands Enterprise installations delive
 - Checks sandbox startup, certificates, Keycloak login, Git providers, LiteLLM, Admin Console access, upgrades, and resource exhaustion.
 - Uses bounded, targeted diagnostic commands and interprets evidence without exposing credentials.
 
-### Guarded Recovery
+### Support-Directed Recovery
 
-- States the likely root cause, exact operation, impact, backup prerequisites, and verification steps.
-- Requires explicit approval before restarts, configuration changes, credential rotation, rollback, cleanup, or node operations.
+- Does not change Kubernetes resources unless directed by OpenHands Support.
+- States the likely root cause, exact operation, impact, backup prerequisites, recovery path, and verification steps.
+- Requires explicit administrator approval for the specific support-directed operation.
 - Stops and escalates when persistence, database safety, or version-specific behavior is unclear.
 
 ### Support Bundle Triage
 
-- Uses the supported application-installer command when available.
+- Starts with the Admin Console, then uses the documented VM or Helm command when needed.
 - Handles bundles as sensitive artifacts.
 - Prioritizes analyzer results, workload state, events, images, bounded logs, ingress, certificates, and storage evidence.
 - Compares failing evidence with a known-good path when possible.
@@ -59,12 +64,14 @@ The skill activates for requests such as:
 - "The certificate expired"
 - "The LLM connection failed"
 - "Analyze this OHE support bundle"
+- "Send OHE VM logs to our observability platform"
 
 ## Files
 
 - `SKILL.md`: core safety model and diagnostic workflow.
 - `references/diagnostics.md`: version-aware read-only commands and interpretation.
-- `references/support-bundles.md`: supported collection, privacy handling, triage, and comparison.
+- `references/support-bundles.md`: documented collection, privacy handling, ticket handoff, triage, and comparison.
+- `references/log-collection.md`: continuous VM log locations, retention limits, and observability-agent guidance.
 
 ## For Contributors
 

@@ -1,24 +1,61 @@
 # OHE Support Bundle Workflow
 
-Use support bundles to collect host, Embedded Cluster, Kubernetes, and OpenHands evidence without asking a customer to paste broad logs or configuration into chat.
+Start with a support bundle. It is the fastest way to give OpenHands Support a snapshot of the installation, and the customer does not need to investigate the problem before opening a support ticket.
 
 ## Generate the Bundle
 
-For Embedded Cluster 1.17.0 and later, use the application installer binary on a controller node:
+### Replicated VM: Admin Console
+
+Use the Admin Console when it is available:
+
+1. Open `https://admin.<your-base-domain>:30000`.
+2. Select **Troubleshoot**.
+3. Select **Analyze** and wait for it to finish.
+4. Select **Download bundle**.
+
+If **Send bundle to vendor** is available, the customer can upload it directly for inspection. Sending a bundle does not open a support ticket; the customer must still open a ticket and mention the upload.
+
+### Replicated VM: Command Line
+
+When the Admin Console is unavailable, connect to a controller VM and run:
 
 ```bash
-APP_INSTALLER=/absolute/path/to/application-installer
-sudo "$APP_INSTALLER" support-bundle
+sudo /var/lib/embedded-cluster/bin/openhands support-bundle
 ```
 
-This supported command includes the default Embedded Cluster host and cluster collectors plus application-specific support bundle specs shipped with the OHE release.
+If installation did not complete, run the original installer from the directory where it was extracted:
 
-If the installer binary or `support-bundle` subcommand is unavailable, stop and follow the Replicated documentation that matches the installed Embedded Cluster version. Do not assume the `kubectl support-bundle` plugin is installed merely because `kubectl` is available, and do not use an invented `replicated admin support-bundle` command.
+```bash
+sudo ./openhands support-bundle
+```
+
+### Kubernetes: Helm
+
+From a workstation with `kubectl` access, run:
+
+```bash
+kubectl support-bundle --load-cluster-specs --namespace openhands
+```
+
+If the `support-bundle` CLI is unavailable, stop and follow the Kubernetes installation guide. Do not substitute an invented command or assume that the plugin is installed merely because `kubectl` is available.
 
 Official references:
 
-- https://docs.replicated.com/embedded-cluster/v2/embedded-troubleshooting
-- https://docs.replicated.com/vendor/support-bundle-generating
+- https://docs.openhands.dev/enterprise/troubleshooting
+- https://docs.openhands.dev/enterprise/k8s-install/installation#step-5-validate-the-installation
+
+## Open a Support Ticket
+
+Attach the generated archive through the OpenHands Support Portal provided during Enterprise onboarding. If **Send bundle to vendor** was used, mention that upload in the ticket. Include:
+
+- when the problem occurred, including the time zone;
+- the affected user or conversation ID, when applicable;
+- expected and actual behavior;
+- recent upgrades or configuration changes;
+- reproduction steps.
+
+If the Support Portal is unavailable, contact the customer's OpenHands representative.
+
 
 ## Handle the Bundle Safely
 
