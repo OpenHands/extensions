@@ -59,27 +59,26 @@ Required by: <date/time/timezone>
 Subject: VM prerequisites for OpenHands Enterprise
 
 Expected peak concurrent sandboxes: <count>
-Sandbox isolation: <default-stronger-or-standard>
+Sandbox isolation: <approved-mode>
 Docker-in-sandbox required: <yes-or-no>
+Sizing Guide reviewed on: <date>
 
-Please provide a dedicated Linux x86-64 VM sized from the current OpenHands Enterprise Sizing Guide. For the Quick Start trial baseline:
-- 16 vCPUs
-- 64 GB memory
-- 200 GB disk minimum
-- disk P99 write latency no greater than 10 ms
+Please provide a dedicated Linux x86-64 VM that meets the attached approved sizing plan and current OpenHands Enterprise host requirements:
+- vCPUs: <approved-count>
+- memory: <approved-GiB>
+- boot disk: <approved-GiB>
+- separate expandable data disk: <approved-GiB>
+- data mount path: <approved-path>
+- storage latency/IOPS/throughput: <approved-values>
+- operating system and kernel: <approved-values-for-isolation-mode>
 - systemd
 - root or sudo access for the installation operator
-
-Ubuntu 24.04 LTS is recommended. If the default stronger sandbox isolation or Docker-in-sandbox is required, provide Linux kernel 6.3 or newer.
-
-For rollout use, provide a separate expandable SSD data volume rather than storing application data on the boot disk. The current 15-sandbox starting recommendation is 1 TiB.
 
 Please identify:
 - VM hostname and environment
 - cloud region or datacenter
 - operating system and kernel version
 - boot disk and data disk sizes
-- planned data mount path
 - storage class/type and provisioned IOPS/throughput
 - data-volume growth owner
 - administrator access method

@@ -21,9 +21,9 @@ Installer download URLs, license files, private keys, provider credentials, Conf
 
 ## Current scope
 
-The skill covers sizing by peak concurrent sandboxes, host and network preflight, provider setup guidance, guided Admin Console configuration, post-install verification, and customer-ready IT requests.
+This version was synchronized with the latest available official OpenHands Enterprise installation documentation. Those pages and the customer's installer dashboard remain authoritative for release-specific values and UI steps.
 
-Fresh installations use `Simple` hostname mode. In the AWS Terraform module, the matching default is `hostname_mode = "wildcard"`; Legacy is reserved for reproducing an existing Legacy installation. Ubuntu 24.04 LTS is recommended, and the default stronger sandbox isolation requires Linux kernel 6.3 or newer.
+The skill adds the durable agent workflow around those docs: scoping decisions, read-only preflights, approval gates, reusable scripts, support escalation, end-to-end validation, and handoff evidence. It deliberately avoids maintaining a second copy of sizing tables, field catalogs, and installer screens.
 
 A fully headless install remains conditional on a documented, release-specific installer schema and supported secret-input mechanism. The skill does not infer or invent those interfaces.
 

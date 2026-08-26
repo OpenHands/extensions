@@ -11,6 +11,10 @@ Guide a customer or field engineer from installation scoping to a usable OpenHan
 >
 > Keep your investigation read-only. Do not change Kubernetes resources unless directed by OpenHands Support. Ad hoc `kubectl` changes can be overwritten during a deployment or upgrade and may leave the installation in an inconsistent state.
 
+## Documentation Source of Truth
+
+This version was synchronized with the latest available official OpenHands Enterprise installation, sizing, Admin Console, sandbox, troubleshooting, and VM log-collection documentation. Before acting, use the linked official pages and the customer's installer dashboard as the source of truth for release-specific values and UI steps. This skill intentionally focuses on decisions, safety gates, reusable checks, and completion evidence rather than reproducing the documentation.
+
 ## Safety Contract
 
 - Start with planning and read-only preflight checks. Do not create infrastructure, modify DNS or firewall rules, run the installer, save Admin Console configuration, or deploy a new sequence without explicit approval for that exact operation.
@@ -43,13 +47,9 @@ Copy `assets/install-plan.yaml` outside the skill repository and populate only n
 
 ### 2. Provision or Inspect Infrastructure
 
-Size the VM from expected **peak concurrent sandboxes**, not user count. The Quick Start baseline is a trial starting point; use the current Sizing Guide for larger rollouts and place application data on a separate expandable volume rather than the boot disk.
+Use the current Quick Start and Sizing Guide to size for **peak concurrent sandboxes**. Record the approved capacity, data-volume path, isolation choice, and growth owner in `assets/install-plan.yaml`; do not cache sizing tables in this skill.
 
-Use the current OpenHands AWS Terraform module when AWS Terraform is selected. Its default `hostname_mode = "wildcard"` maps to `Simple` in the Admin Console. Use `legacy` only to reproduce an existing Legacy installation; use manual infrastructure when every hostname must be customized. Review the complete Terraform plan before applying.
-
-For a manual VM, require the documented CPU, memory, disk, latency, Linux x86-64, systemd, root access, inbound ports, local ports, and outbound destinations. Ubuntu 24.04 LTS is recommended. If the default stronger sandbox isolation or Docker-in-sandbox is required, the host kernel must be 6.3 or newer; the standard isolation mode does not support Docker-in-sandbox.
-
-Run read-only preflights on the target VM, setting the planned data path and isolation mode:
+For AWS, use the Terraform module linked from the current Quick Start and review the complete plan before applying. For a manual VM, verify the documented host, storage, port, and outbound requirements. Run the reusable read-only checks with the approved data capacity and isolation mode:
 
 ```bash
 DATA_PATH=/path/to/data-volume \
@@ -65,7 +65,7 @@ Resolve failures before obtaining approval to run the installer. Read `reference
 
 ### 3. Review the Installer Operation
 
-Use only commands copied from the customer's installer dashboard for the chosen release. In the dashboard, name the instance and select **Outbound requests allowed** for Network Availability. Before execution:
+Use only commands copied from the customer's installer dashboard for the chosen release. Before execution:
 
 1. Confirm the VM and base domain.
 2. Confirm the installer-side instance name is not being confused with the cloud resource name.
@@ -78,19 +78,15 @@ Run the interactive installer in a real PTY. Stop rather than scripting around a
 
 ### 4. Configure the Admin Console in Layers
 
-Access the Admin Console at `https://admin.<base-domain>:30000` when TLS was supplied during installation, or `http://<vm-ip>:30000` when it was not. For a single-node deployment, continue past the add-node screen.
+Follow the target release's Admin Console documentation and configure only the baseline needed for validation:
 
-Keep `Simple (default)` hostname mode for a fresh installation unless the customer requires Manual hostnames. Confirm it matches Terraform `hostname_mode = "wildcard"`; keep existing Legacy installations on Legacy. Configure and validate only the minimum required layers before the baseline test:
+1. domain and TLS;
+2. one administrator-managed LLM provider;
+3. database and sandbox settings sized from the approved plan;
+4. required Git authentication;
+5. deployment, first login, and organization behavior.
 
-1. domain, publicly trusted TLS, and any required additional trusted CA;
-2. one administrator-managed LLM provider and its exact model identifiers;
-3. bundled or prepared external PostgreSQL;
-4. sandbox isolation, routing, resources, and lifecycle values sized for the planned peak;
-5. GitHub App authentication when GitHub is the selected provider;
-6. core application deployment;
-7. first login and default organization behavior.
-
-Read `references/admin-config.md` before saving settings. Treat every populated configuration screen and ConfigValues file as potentially secret-bearing. Defer additional providers, SMTP, proxy overrides, integrations, analytics, automations, plugins, and advanced settings until the baseline passes.
+Before saving, review the intended values, expected restarts, rollback boundary, and verification plan, then obtain explicit approval. Treat populated screens as secret-bearing and defer optional integrations and advanced settings until the baseline passes. Use `references/admin-config.md` for the approval checklist and Support-only escape hatch, not as a substitute for the official field reference.
 
 ### 5. Prove the Core Product
 
@@ -145,8 +141,8 @@ The current OpenHands installation workflow uses the Admin Console. Do not use `
 - Docker in the Agent Sandbox: https://docs.openhands.dev/enterprise/docker-in-sandbox
 - Troubleshooting: https://docs.openhands.dev/enterprise/troubleshooting
 - VM Log Collection: https://docs.openhands.dev/enterprise/vm-install/log-collection
-- `references/install-flow.md`: current VM requirements, hostname layouts, installer sequence, and completion criteria.
-- `references/admin-config.md`: TLS, LLM, database, sandbox, proxy, and Support-directed ConfigValues guidance.
+- `references/install-flow.md`: phase gates, approval checkpoints, support-bundle routing, and completion criteria.
+- `references/admin-config.md`: Admin Console save checklist and Support-directed ConfigValues escape hatch.
 - `references/integrations.md`: GitHub, GitLab, Bitbucket, Jira, Slack, analytics, and automation validation.
 - `references/backup-and-durability.md`: persistence checks and recovery boundaries.
 - `references/blue-green-reinstall.md`: separately approved rebuild and cutover workflow.
