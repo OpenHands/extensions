@@ -5,8 +5,9 @@ usage() {
   cat >&2 <<'EOF'
 usage: apply_kots_config.sh --appslug <slug> --config-file <config-values.yaml> (--current | --sequence <number>) [options]
 
-Prints the KOTS ConfigValues command by default without executing it. Add
---execute only after the specific operation has been reviewed and approved.
+Use only under a version-matched OpenHands Support procedure. Pass
+--support-directed to attest that requirement, then review the printed command.
+Add --execute only after the administrator approves the specific operation.
 Add --deploy only when an immediate rollout is also approved.
 
 Options:
@@ -14,6 +15,7 @@ Options:
   --app-namespace <name>   OpenHands app namespace for guard checks. Default: openhands
   --current                Use the currently deployed version as the base
   --sequence <number>      Use a specific app sequence as the base
+  --support-directed       Confirm a version-matched Support procedure directs this change
   --execute                Execute the config merge; otherwise print a preview
   --deploy                 Deploy the resulting sequence after setting config
   --skip-guard             Skip storage guard before/after an approved deployment
@@ -28,6 +30,7 @@ KOTS_NAMESPACE="kotsadm"
 APP_NAMESPACE="openhands"
 APPSLUG=""
 CONFIG_FILE=""
+SUPPORT_DIRECTED=0
 EXECUTE=0
 DEPLOY=0
 RUN_GUARD=1
@@ -59,6 +62,10 @@ while [[ $# -gt 0 ]]; do
     --sequence)
       SEQUENCE="${2:-}"
       shift 2
+      ;;
+    --support-directed)
+      SUPPORT_DIRECTED=1
+      shift
       ;;
     --execute)
       EXECUTE=1
@@ -96,6 +103,11 @@ fi
 
 if [[ "${CURRENT}" != "1" && -z "${SEQUENCE}" ]]; then
   echo "choose --current or --sequence" >&2
+  exit 1
+fi
+
+if [[ "${SUPPORT_DIRECTED}" != "1" ]]; then
+  echo "refusing KOTS configuration: a version-matched OpenHands Support procedure is required; rerun with --support-directed after confirming it" >&2
   exit 1
 fi
 

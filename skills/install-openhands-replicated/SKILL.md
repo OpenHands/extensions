@@ -7,13 +7,17 @@ description: This skill should be used when the user asks to "install OpenHands 
 
 Guide a customer or field engineer from installation scoping to a usable OpenHands Enterprise deployment. Treat a green Replicated deployment as an intermediate milestone; prove the user workflows that are in scope.
 
+> **Failed-install troubleshooting must remain read-only**
+>
+> Keep your investigation read-only. Do not change Kubernetes resources unless directed by OpenHands Support. Ad hoc `kubectl` changes can be overwritten during a deployment or upgrade and may leave the installation in an inconsistent state.
+
 ## Safety Contract
 
-- Start with planning and read-only preflight checks. Do not create infrastructure, modify DNS or firewall rules, run the installer, deploy ConfigValues, restart workloads, or rotate credentials without explicit approval for that exact operation.
+- Start with planning and read-only preflight checks. Do not create infrastructure, modify DNS or firewall rules, run the installer, save Admin Console configuration, or deploy a new sequence without explicit approval for that exact operation.
 - Obtain the current installer command, license bundle, release channel, and target OHE version from the customer's installer dashboard. Treat download URLs, license files, tokens, private keys, and provider credentials as secrets. Never paste or log their values.
 - State the command category, expected impact, prerequisites, rollback boundary, and verification plan before each mutating phase.
-- Prefer supported configuration surfaces. Use the V1 API (`POST /api/v1/settings` with `*_diff` payloads) for supported user and organization settings. Use the Replicated/KOTS Admin Console or documented Helm values for deployment settings such as environment variables and image overrides.
-- Never use raw `kubectl patch`, `kubectl set env`, `kubectl edit`, or direct database queries as the first resort. Treat them as escape hatches. Use one only when the documented configuration path is broken, the user explicitly approves the operation, and the change and rationale are recorded for rollback or migration into supported configuration during the next deployment.
+- Use the Admin Console for documented deployment settings and the V1 API for documented application settings. Use KOTS ConfigValues only under a version-matched OpenHands Support procedure.
+- Do not patch or edit Kubernetes resources, restart workloads, query databases directly, or rotate installer-managed secrets unless OpenHands Support directs the specific operation and the administrator approves it.
 - Do not bypass host preflights except under a version-matched procedure from OpenHands or Replicated Support.
 - Keep temporary secret-bearing files permission-restricted and outside repositories. Remove them after the supported configuration surface has consumed them.
 - Use supported defaults first. Add integrations and operational overrides only when they are explicit requirements.
@@ -26,8 +30,10 @@ Guide a customer or field engineer from installation scoping to a usable OpenHan
 Record:
 
 - OHE target release and installer/Embedded Cluster version shown by the dashboard;
+- trial or rollout intent and expected peak concurrent sandboxes;
 - AWS Terraform or manual VM path;
 - base domain, DNS owner, TLS owner, and hostname mode;
+- sandbox isolation mode and whether Docker-in-sandbox is required;
 - LLM provider and authentication owner;
 - Git provider and optional integrations;
 - embedded or external PostgreSQL and backup expectations;
@@ -37,13 +43,18 @@ Copy `assets/install-plan.yaml` outside the skill repository and populate only n
 
 ### 2. Provision or Inspect Infrastructure
 
-Use the current OpenHands AWS Terraform module when AWS Terraform is selected. For every fresh installation, explicitly set Terraform `hostname_mode = "wildcard"`; this maps to `Simple` in the Admin Console. Do not select Terraform `legacy` or Admin Console `Legacy` unless the task is to reproduce an existing Legacy installation. Before applying, confirm the plan creates `*.<base-domain>` rather than `auth.app.<base-domain>` or `*.runtime.<base-domain>`.
+Size the VM from expected **peak concurrent sandboxes**, not user count. The Quick Start baseline is a trial starting point; use the current Sizing Guide for larger rollouts and place application data on a separate expandable volume rather than the boot disk.
 
-For a manual VM, require the documented CPU, memory, disk, latency, OS, systemd, root access, inbound ports, local ports, and outbound destinations.
+Use the current OpenHands AWS Terraform module when AWS Terraform is selected. Its default `hostname_mode = "wildcard"` maps to `Simple` in the Admin Console. Use `legacy` only to reproduce an existing Legacy installation; use manual infrastructure when every hostname must be customized. Review the complete Terraform plan before applying.
 
-Run read-only preflights on the target VM:
+For a manual VM, require the documented CPU, memory, disk, latency, Linux x86-64, systemd, root access, inbound ports, local ports, and outbound destinations. Ubuntu 24.04 LTS is recommended. If the default stronger sandbox isolation or Docker-in-sandbox is required, the host kernel must be 6.3 or newer; the standard isolation mode does not support Docker-in-sandbox.
+
+Run read-only preflights on the target VM, setting the planned data path and isolation mode:
 
 ```bash
+DATA_PATH=/path/to/data-volume \
+MIN_DATA_DISK_GIB="${PLANNED_DATA_DISK_GIB:?set from approved sizing plan}" \
+SANDBOX_ISOLATION=sysbox \
 scripts/check_host_preflight.sh
 scripts/check_dns.sh <base-domain> simple
 scripts/check_tls_files.sh <base-domain> <certificate-bundle> <private-key> wildcard
@@ -54,12 +65,12 @@ Resolve failures before obtaining approval to run the installer. Read `reference
 
 ### 3. Review the Installer Operation
 
-Use only commands copied from the customer's installer dashboard for the chosen release. Before execution:
+Use only commands copied from the customer's installer dashboard for the chosen release. In the dashboard, name the instance and select **Outbound requests allowed** for Network Availability. Before execution:
 
 1. Confirm the VM and base domain.
 2. Confirm the installer-side instance name is not being confused with the cloud resource name.
 3. Confirm the license and TLS file paths exist without printing their contents.
-4. Confirm host, DNS, port, and outbound preflights passed.
+4. Confirm host, DNS, port, outbound, sizing, disk, and isolation preflights passed.
 5. Explain that installation creates system services, Kubernetes state, storage, and an Admin Console.
 6. Obtain explicit approval to run the exact dashboard-provided install command.
 
@@ -67,15 +78,19 @@ Run the interactive installer in a real PTY. Stop rather than scripting around a
 
 ### 4. Configure the Admin Console in Layers
 
-Explicitly select `Simple` hostname mode for a fresh installation unless the customer requires manual hostnames. Confirm it matches Terraform `hostname_mode = "wildcard"`; never select `Legacy` merely because an older runbook or Terraform copy uses nested hostnames. Configure and validate only the minimum required layers before the baseline test:
+Access the Admin Console at `https://admin.<base-domain>:30000` when TLS was supplied during installation, or `http://<vm-ip>:30000` when it was not. For a single-node deployment, continue past the add-node screen.
 
-1. domain and publicly trusted TLS;
-2. one LLM provider;
-3. database choice and storage durability;
-4. core application deployment;
-5. first login and organization.
+Keep `Simple (default)` hostname mode for a fresh installation unless the customer requires Manual hostnames. Confirm it matches Terraform `hostname_mode = "wildcard"`; keep existing Legacy installations on Legacy. Configure and validate only the minimum required layers before the baseline test:
 
-Read `references/admin-config.md` before applying settings. Treat ConfigValues files as potentially secret-bearing. Preview helper operations before execution. Defer Git provider authentication, integrations, analytics, automations, and advanced settings until the baseline passes.
+1. domain, publicly trusted TLS, and any required additional trusted CA;
+2. one administrator-managed LLM provider and its exact model identifiers;
+3. bundled or prepared external PostgreSQL;
+4. sandbox isolation, routing, resources, and lifecycle values sized for the planned peak;
+5. GitHub App authentication when GitHub is the selected provider;
+6. core application deployment;
+7. first login and default organization behavior.
+
+Read `references/admin-config.md` before saving settings. Treat every populated configuration screen and ConfigValues file as potentially secret-bearing. Defer additional providers, SMTP, proxy overrides, integrations, analytics, automations, plugins, and advanced settings until the baseline passes.
 
 ### 5. Prove the Core Product
 
@@ -117,33 +132,31 @@ Support-bundle command and approved support channel:
 
 Exclude credentials, license contents, private keys, unredacted ConfigValues, and complete environment dumps.
 
-## Mutating Helper Gate
+## Support-Directed ConfigValues Gate
 
-Use `scripts/apply_kots_config.sh` in preview mode first:
-
-```bash
-scripts/apply_kots_config.sh \
-  --appslug openhands \
-  --config-file ./config-values.patch.yaml \
-  --current
-```
-
-After reviewing impact and obtaining explicit approval, add `--execute`; add `--deploy` only when an immediate deployment is approved. Re-run workload, readiness, storage, and user-path verification after deployment.
+The current OpenHands installation workflow uses the Admin Console. Do not use `scripts/apply_kots_config.sh` unless a version-matched OpenHands Support procedure directs a KOTS ConfigValues change. The helper prints its command by default and requires both `--support-directed` and `--execute` before it can mutate configuration. Re-run workload, readiness, storage, and user-path verification after any approved deployment.
 
 ## Resources
 
+- OpenHands Enterprise Quick Start: https://docs.openhands.dev/enterprise/quick-start
+- OpenHands Enterprise Sizing Guide: https://docs.openhands.dev/enterprise/sizing-guide
+- Admin Console Configuration: https://docs.openhands.dev/enterprise/vm-install/admin-console-configuration
+- Conversations and Sandboxes: https://docs.openhands.dev/enterprise/conversations-and-sandboxes
+- Docker in the Agent Sandbox: https://docs.openhands.dev/enterprise/docker-in-sandbox
+- Troubleshooting: https://docs.openhands.dev/enterprise/troubleshooting
+- VM Log Collection: https://docs.openhands.dev/enterprise/vm-install/log-collection
 - `references/install-flow.md`: current VM requirements, hostname layouts, installer sequence, and completion criteria.
-- `references/admin-config.md`: TLS, LLM, database, sandbox, proxy, and guarded ConfigValues guidance.
+- `references/admin-config.md`: TLS, LLM, database, sandbox, proxy, and Support-directed ConfigValues guidance.
 - `references/integrations.md`: GitHub, GitLab, Bitbucket, Jira, Slack, analytics, and automation validation.
 - `references/backup-and-durability.md`: persistence checks and recovery boundaries.
 - `references/blue-green-reinstall.md`: separately approved rebuild and cutover workflow.
 - `references/operator-requests.md`: customer-ready DNS, firewall, TLS, and access request templates.
 - `references/git-provider-auth.md`: provider-specific application setup, approval, and validation routing.
 - `assets/install-plan.yaml`: non-secret scoping and validation record; never use it as deployable ConfigValues.
-- `scripts/check_host_preflight.sh`: read-only Linux host and port checks.
+- `scripts/check_host_preflight.sh`: read-only Linux, sizing, data-disk, isolation, and port checks.
 - `scripts/check_dns.sh`: Simple or Legacy hostname resolution checks.
 - `scripts/check_tls_files.sh`: certificate dates, key matching, SAN coverage, and trust-chain checks.
 - `scripts/check_outbound.sh`: required outbound reachability checks.
 - `scripts/summarize_terraform_outputs.sh`: allowlisted, non-sensitive Terraform output summary.
-- `scripts/apply_kots_config.sh`: preview-first KOTS ConfigValues helper.
+- `scripts/apply_kots_config.sh`: OpenHands Support-directed KOTS ConfigValues helper.
 - `scripts/preflight_storage_guard.sh`: Postgres PVC, DiskPressure, host-space, and ClickHouse checks.

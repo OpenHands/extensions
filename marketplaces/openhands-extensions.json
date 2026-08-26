@@ -838,7 +838,7 @@
     {
       "name": "install-openhands-replicated",
       "source": "./skills/install-openhands-replicated",
-      "description": "Guide supported OpenHands Enterprise VM installations through Replicated Embedded Cluster with read-only preflights, explicit approval gates, provider setup, and end-to-end validation.",
+      "description": "Guide supported OpenHands Enterprise VM installations through Replicated Embedded Cluster with capacity planning, read-only preflights, explicit approval gates, and end-to-end validation.",
       "category": "environment",
       "keywords": [
         "openhands-enterprise",

@@ -4,18 +4,34 @@ set -u
 MIN_CPUS="${MIN_CPUS:-16}"
 MIN_MEMORY_GIB="${MIN_MEMORY_GIB:-64}"
 MIN_DISK_GIB="${MIN_DISK_GIB:-200}"
+MIN_DATA_DISK_GIB="${MIN_DATA_DISK_GIB:-0}"
+MIN_SYSBOX_KERNEL="${MIN_SYSBOX_KERNEL:-6.3}"
 MAX_DISK_USE_PERCENT="${MAX_DISK_USE_PERCENT:-80}"
 INSTALL_PATH="${INSTALL_PATH:-/}"
+DATA_PATH="${DATA_PATH:-/var/lib}"
+SANDBOX_ISOLATION="${SANDBOX_ISOLATION:-sysbox}"
 
 local_ports=(2379 7443 9099 10248 10257 10259)
 edge_ports=(80 443 30000)
 installer_paths=(
+  /etc/cni
   /etc/k0s
+  /opt/cni
   /opt/containerd
+  /run/calico
+  /run/containerd
   /run/k0s
+  /usr/libexec/k0s
   /usr/local/bin/k0s
+  /var/lib/calico
+  /var/lib/cni
+  /var/lib/containers
   /var/lib/embedded-cluster
   /var/lib/kubelet
+  /var/log/calico
+  /var/log/containers
+  /var/log/embedded-cluster
+  /var/log/pods
 )
 failed=0
 
@@ -23,10 +39,47 @@ ok() { printf 'OK    %s\n' "$*"; }
 warn() { printf 'WARN  %s\n' "$*" >&2; }
 fail() { printf 'FAIL  %s\n' "$*" >&2; failed=1; }
 
+
+version_at_least() {
+  local actual="$1"
+  local minimum="$2"
+  local actual_major actual_minor minimum_major minimum_minor
+  IFS=. read -r actual_major actual_minor _ <<<"${actual}"
+  IFS=. read -r minimum_major minimum_minor _ <<<"${minimum}"
+  (( actual_major > minimum_major || (actual_major == minimum_major && actual_minor >= minimum_minor) ))
+}
+
+case "${SANDBOX_ISOLATION}" in
+  sysbox|stronger|standard) ;;
+  *) fail "SANDBOX_ISOLATION must be sysbox, stronger, or standard; found ${SANDBOX_ISOLATION}" ;;
+esac
+
 if [[ "$(uname -s)" == "Linux" ]]; then
   ok "operating system is Linux"
 else
   fail "target must run Linux; found $(uname -s)"
+fi
+
+
+if [[ -r /etc/os-release ]]; then
+  # shellcheck disable=SC1091
+  source /etc/os-release
+  if [[ "${ID:-}" == "ubuntu" && "${VERSION_ID:-}" == "24.04" ]]; then
+    ok "Ubuntu 24.04 LTS detected"
+  else
+    warn "Ubuntu 24.04 LTS is recommended; found ${PRETTY_NAME:-unknown distribution}"
+  fi
+else
+  warn "cannot read /etc/os-release; verify the supported Linux distribution manually"
+fi
+
+kernel_version="$(uname -r | cut -d- -f1)"
+if [[ "${SANDBOX_ISOLATION}" == "standard" ]]; then
+  ok "standard sandbox isolation selected; Docker-in-sandbox is not supported"
+elif version_at_least "${kernel_version}" "${MIN_SYSBOX_KERNEL}"; then
+  ok "kernel ${kernel_version} meets the ${MIN_SYSBOX_KERNEL}+ requirement for stronger sandbox isolation"
+else
+  fail "kernel ${kernel_version} is below ${MIN_SYSBOX_KERNEL}; use a supported newer kernel or select standard isolation when Docker-in-sandbox is not required"
 fi
 
 arch="$(uname -m)"
@@ -71,6 +124,40 @@ if [[ -e "${INSTALL_PATH}" ]]; then
 else
   fail "INSTALL_PATH does not exist: ${INSTALL_PATH}"
 fi
+
+if [[ -e "${DATA_PATH}" ]]; then
+  read -r data_disk_kib data_disk_used_percent < <(df -Pk "${DATA_PATH}" | awk 'NR == 2 {gsub(/%/, "", $5); print $2, $5}')
+  data_disk_gib=$((data_disk_kib / 1024 / 1024))
+  if (( MIN_DATA_DISK_GIB == 0 )); then
+    warn "filesystem containing ${DATA_PATH} has ${data_disk_gib} GiB total; set MIN_DATA_DISK_GIB from the approved sizing plan"
+  elif (( data_disk_gib < MIN_DATA_DISK_GIB )); then
+    fail "filesystem containing ${DATA_PATH} has ${data_disk_gib} GiB total; planned minimum is ${MIN_DATA_DISK_GIB} GiB"
+  else
+    ok "filesystem containing ${DATA_PATH} has ${data_disk_gib} GiB total; planned minimum is ${MIN_DATA_DISK_GIB} GiB"
+  fi
+  if (( data_disk_used_percent < MAX_DISK_USE_PERCENT )); then
+    ok "filesystem containing ${DATA_PATH} is ${data_disk_used_percent}% full"
+  else
+    fail "filesystem containing ${DATA_PATH} is ${data_disk_used_percent}% full; required maximum is below ${MAX_DISK_USE_PERCENT}%"
+  fi
+
+  if command -v findmnt >/dev/null 2>&1; then
+    root_source="$(findmnt -n -o SOURCE --target / 2>/dev/null || true)"
+    data_source="$(findmnt -n -o SOURCE --target "${DATA_PATH}" 2>/dev/null || true)"
+    if [[ -n "${root_source}" && "${data_source}" == "${root_source}" ]]; then
+      warn "${DATA_PATH} is on the boot filesystem; rollout guidance recommends a separate expandable data volume"
+    elif [[ -n "${data_source}" ]]; then
+      ok "${DATA_PATH} is mounted from ${data_source}, separate from the boot filesystem"
+    else
+      warn "could not identify the mount source for ${DATA_PATH}"
+    fi
+  else
+    warn "findmnt is unavailable; verify ${DATA_PATH} uses a separate expandable data volume"
+  fi
+else
+  fail "DATA_PATH does not exist: ${DATA_PATH}"
+fi
+
 
 if command -v systemctl >/dev/null 2>&1 && [[ -d /run/systemd/system ]]; then
   ok "systemd is available"

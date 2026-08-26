@@ -3,6 +3,8 @@
 installation:
   target_ohe_release: ""
   installer_version: ""
+  purpose: "trial-or-rollout"
+  expected_peak_concurrent_sandboxes: 0
   infrastructure_path: "aws-terraform-or-manual-vm"
   environment_name: ""
   change_approver: ""
@@ -12,11 +14,17 @@ infrastructure:
   cloud_or_datacenter: ""
   region_or_site: ""
   vm_identifier: ""
+  operating_system: ""
+  kernel_version: ""
   cpu_count: 0
   memory_gib: 0
-  disk_gib: 0
+  boot_disk_gib: 0
+  data_disk_path: ""
+  data_disk_gib: 0
+  data_disk_expandable: false
   storage_type: ""
   disk_p99_write_latency_ms: null
+  storage_growth_owner: ""
 
 network:
   base_domain: ""
@@ -32,6 +40,13 @@ application:
   llm_provider: ""
   git_provider: ""
   database_mode: "embedded-or-external"
+  sandbox_isolation: "stronger-or-standard"
+  docker_in_sandbox_required: false
+  sandbox_routing_mode: "subdomain-or-path"
+  per_sandbox_cpu_request: ""
+  per_sandbox_memory_request: ""
+  per_sandbox_persistent_storage: ""
+  per_sandbox_ephemeral_storage: ""
   optional_integrations: []
   analytics_enabled: false
   automations_enabled: false
@@ -43,7 +58,10 @@ recovery:
   restore_procedure: ""
 
 validation:
+  sizing_review: "pending"
   host_preflight: "pending"
+  data_disk_preflight: "pending"
+  isolation_preflight: "pending"
   dns_preflight: "pending"
   tls_preflight: "pending"
   outbound_preflight: "pending"

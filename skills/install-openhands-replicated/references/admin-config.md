@@ -4,7 +4,7 @@ Use the Admin Console for supported settings. Treat a saved configuration as a m
 
 ## Domain and TLS
 
-Explicitly select `Simple` hostname mode for new installations unless DNS policy requires manual hostnames. The AWS Terraform module calls this same mode `hostname_mode = "wildcard"`; keep the Terraform and Admin Console choices aligned. Do not select `Legacy` merely because an older runbook or copied Terraform directory contains nested hostnames.
+Keep `Simple (default)` hostname mode for new installations unless DNS or network policy requires a custom hostname for every service. The AWS Terraform module calls Simple `hostname_mode = "wildcard"`; keep the Terraform and Admin Console choices aligned. Use `Manual` for custom hostnames, and do not select `Legacy` merely because an older runbook or copied Terraform directory contains nested hostnames.
 
 In Simple mode, all service names sit directly under the base domain:
 
@@ -20,9 +20,11 @@ runtime-api.<base-domain>
 
 Keep existing Legacy installations on their current layout unless hostname migration is the approved change. Legacy layouts can include `auth.app.<base-domain>` and `<id>.runtime.<base-domain>`.
 
+For Manual mode, record the application, analytics, authentication, LLM proxy, Runtime API, and runtime base hostnames. Provision DNS, certificates, OAuth callbacks, and webhook callbacks for the complete set. `Additional Permitted CORS Origins` must contain browser origins with scheme and host only, without a path or trailing slash.
+
 Use a publicly trusted wildcard certificate for customer-facing installations whenever possible. Include intermediate certificates and verify that the private key matches the server certificate without printing either value.
 
-Self-signed certificates are not supported for the OpenHands application. A private CA requires every browser, OAuth provider, and webhook sender to trust the CA; otherwise callbacks can fail TLS validation.
+Self-signed certificates are not supported for the OpenHands application. Use `Additional Trusted CA Certificates` for a private CA or TLS-inspecting proxy, but every external OAuth and webhook provider that calls OpenHands must also trust that CA.
 
 If certificates are not passed during installation, use the Admin Console certificate upload flow. Store local certificate and key files outside repositories with restrictive permissions and remove temporary copies after use.
 
@@ -32,7 +34,9 @@ Subdomain routing in Simple mode requires wildcard coverage for `*.<base-domain>
 
 ## LLM Provider
 
-Configure one working provider first. For Bedrock, verify:
+Configure one working administrator-managed provider first. Current documented choices include Anthropic, OpenAI, Google, DeepSeek, Mistral AI, Azure, Groq, OpenRouter, AWS Bedrock, and custom/local LLMs. Use exact provider model identifiers; prefix custom OpenAI-compatible model names with `openai/`. Enable BYOK only when users should be allowed to add their own provider credentials.
+
+For Bedrock, verify:
 
 - AWS auth mode is correct: access key/secret or EC2 instance profile.
 - Region has access to the chosen model.
@@ -59,23 +63,40 @@ http://openhands-litellm:4000
 
 ## Sandbox Settings
 
-Common settings:
+Current settings include:
 
-- idle time: how long before idle conversations pause;
-- deletion time: how long paused runtimes/PVCs are retained before deletion;
-- storage size: PVC size per sandbox;
-- memory request/limit and CPU request/limit;
-- warm runtime count.
+- sandbox isolation and routing mode;
+- idle time before an inactive conversation pauses;
+- deletion time before a paused conversation and its storage are permanently deleted;
+- persistent and ephemeral storage size per sandbox;
+- memory and CPU requests and limits;
+- warm runtime count;
+- additional host path mounts in `host_path:container_path[:ro|rw]` form;
+- optional `/dev/kvm` passthrough when the node exposes KVM.
 
 Interpretation:
 
-- A longer deletion time helps users resume old conversations, but it keeps runtime PVCs around longer.
+- The default stronger isolation requires Linux kernel 6.3 or newer and supports Docker-in-sandbox; standard isolation does not support Docker-in-sandbox.
+- A single running session is capped at 12 hours even when it is active. It is then force-paused, and resuming starts a new 12-hour window.
+- A longer deletion time helps users resume old conversations, but it keeps runtime storage around longer.
 - A warm runtime can improve start latency, but it must match the environment needed by the conversation. If a warm runtime lacks required secrets/env vars, the request may cold-start anyway.
-- More running sandboxes consume memory and CPU. On small single-node installs, too many active runtimes can indirectly make login and API paths feel unstable.
+- Resource requests are scheduling reservations. Multiply per-sandbox requests by expected peak concurrent sandboxes and leave capacity for platform services.
+- Host mounts and KVM expand sandbox access to host resources. Enable them only for a reviewed requirement.
+
+## Default Organization
+
+Decide whether the first signed-in user should create and own a default organization, whether later signed-in users should join it automatically, and whether personal workspaces should be hidden. These options are additive: disabling them later does not delete organizations, remove members, or delete hidden personal data.
+
+## SMTP and Proxy
+
+Configure SMTP only when budget alerts or administrator notifications are required. Match implicit SSL and STARTTLS to the mail server rather than enabling both by assumption.
+
+When outbound traffic uses a corporate proxy, configure `HTTP_PROXY`, `HTTPS_PROXY`, and any additional `NO_PROXY` hosts through the Admin Console. Keep SSL verification enabled and add the proxy CA under `Additional Trusted CA Certificates` instead of disabling certificate verification.
+
 
 ## Declarative KOTS Config
 
-Prefer the Admin Console for interactive customer configuration. Use a small KOTS `ConfigValues` merge patch only when the operator requires repeatable declarative configuration and the target release supports the referenced keys:
+Use the Admin Console for the documented installation workflow. Use a KOTS `ConfigValues` merge patch only when a version-matched OpenHands Support procedure directs it and confirms the referenced keys:
 
 ```yaml
 apiVersion: kots.io/v1beta1
@@ -88,22 +109,24 @@ spec:
 
 Treat ConfigValues files as potentially secret-bearing. Keep them outside repositories, restrict permissions, avoid shell tracing, and do not paste their contents into chat or tickets.
 
-Preview the command first:
-
-```bash
-scripts/apply_kots_config.sh \
-  --appslug openhands \
-  --config-file ./config-values.patch.yaml \
-  --current
-```
-
-After reviewing the preview and obtaining approval, execute without deployment:
+After confirming the Support procedure, preview the command first:
 
 ```bash
 scripts/apply_kots_config.sh \
   --appslug openhands \
   --config-file ./config-values.patch.yaml \
   --current \
+  --support-directed
+```
+
+After reviewing the preview and obtaining administrator approval, execute without deployment:
+
+```bash
+scripts/apply_kots_config.sh \
+  --appslug openhands \
+  --config-file ./config-values.patch.yaml \
+  --current \
+  --support-directed \
   --execute
 ```
 

@@ -1,8 +1,10 @@
 # Backup And Durability
 
+For a rollout, place application data on a separate expandable volume rather than the boot disk. Size the starting capacity from expected peak concurrent sandboxes, per-sandbox storage, retention, and growth. The current Sizing Guide starts the 15-sandbox Embedded Cluster tier at a 1 TiB SSD data disk.
+
 At minimum, confirm the main OpenHands Postgres data directory is PVC-backed before production/demo use or any redeploy.
 
-Run on the target VM or from an operator environment with cluster access:
+Run on the target VM or from an operator environment with read-only cluster access:
 
 ```bash
 scripts/preflight_storage_guard.sh openhands
