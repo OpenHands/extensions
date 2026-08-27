@@ -509,6 +509,19 @@ class TestRepoReviewGuide(unittest.TestCase):
         )
         self.assertNotIn("Repo-specific review guide", prompt)
 
+    def test_prompt_requires_reading_repository_guidance(self):
+        prompt = main._build_review_prompt(
+            "owner/repo",
+            self._pr(),
+            "0123456789abcdef",
+            {"id": "1", "created_at": "t"},
+        )
+
+        self.assertIn("MUST read", prompt)
+        self.assertIn("AGENTS.md", prompt)
+        self.assertIn("CONTRIBUTING.md", prompt)
+        self.assertIn("nested `AGENTS.md`", prompt)
+
 
 class TestNormalizeRepo(unittest.TestCase):
     """A repository is written down in more than one way, and every API path in

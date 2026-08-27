@@ -59,6 +59,16 @@ def test_prompt_with_roasted_trigger():
     assert "/codereview-roasted" in prompt
 
 
+def test_prompt_instructs_reading_repo_guidance():
+    """The reviewer must be told to read AGENTS.md (and other guideline docs)
+    to understand the repo before reviewing."""
+    prompt = _format_prompt(require_evidence=False)
+
+    assert "AGENTS.md" in prompt
+    assert "MUST read" in prompt
+    assert "CONTRIBUTING.md" in prompt
+
+
 def test_format_prompt_omits_evidence_requirements_by_default():
     prompt = _format_prompt(require_evidence=False)
 

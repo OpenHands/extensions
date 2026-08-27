@@ -198,6 +198,7 @@ Source: [`examples/`](https://github.com/OpenHands/software-agent-sdk/tree/main/
 - [`55_persistent_memory.py`](https://github.com/OpenHands/software-agent-sdk/blob/main/examples/01_standalone_sdk/55_persistent_memory.py)
 - [`56_structured_output.py`](https://github.com/OpenHands/software-agent-sdk/blob/main/examples/01_standalone_sdk/56_structured_output.py)
 - [`57_prompt_hooks`](https://github.com/OpenHands/software-agent-sdk/tree/main/examples/01_standalone_sdk/57_prompt_hooks)
+- [`58_ask_oracle_tool`](https://github.com/OpenHands/software-agent-sdk/tree/main/examples/01_standalone_sdk/58_ask_oracle_tool)
 
 ### [`02_remote_agent_server/`](https://github.com/OpenHands/software-agent-sdk/tree/main/examples/02_remote_agent_server)
 
