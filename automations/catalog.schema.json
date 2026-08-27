@@ -21,8 +21,17 @@
       "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
       "description": "Stable identifier. Must equal the name of the directory holding this manifest."
     },
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$",
+      "description": "Semantic version of this template. Present only on entries whose direct setup sends provenance to the automation service; bump it when the prompt, form, or filter changes meaningfully."
+    },
     "name": { "type": "string", "minLength": 1 },
     "category": { "type": "string", "minLength": 1 },
+    "icon": {
+      "description": "The glyph the card shows, named from the same closed set the interface manifest's navigation uses. Absent means the host derives one from requires.integrations, which is right for an automation whose identity is the service it talks to and wrong for one whose identity is the work itself.",
+      "enum": ["layout-dashboard", "sparkles", "bot", "circle-alert", "activity", "timer"]
+    },
     "description": { "type": "string", "minLength": 1 },
     "requires": { "$ref": "#/$defs/requires" },
     "popularityRank": { "type": "integer", "minimum": 0 },
@@ -37,9 +46,34 @@
       "type": "string",
       "minLength": 1
     },
+    "impact": {
+      "description": "The value statement the host renders from an installed automation's run history. Declare it only when its basis honestly backs the phrase: for completed-runs, one completed run must always perform exactly one of the stated units of work, manually dispatched runs included, so a poller that can complete having produced nothing must phrase the run itself, never the downstream outcome.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["basis", "one", "other"],
+      "properties": {
+        "basis": {
+          "description": "What the statement counts. The only basis today is the automation's lifetime COMPLETED-run count; a host that meets a basis it does not know renders nothing.",
+          "const": "completed-runs"
+        },
+        "one": { "$ref": "#/$defs/impactCopy" },
+        "other": {
+          "$comment": "The plural phrase must show the number; the singular may spell it out instead.",
+          "allOf": [{ "$ref": "#/$defs/impactCopy" }],
+          "pattern": "\\{\\{count\\}\\}"
+        }
+      }
+    },
     "setup": { "$ref": "#/$defs/setup" }
   },
   "$defs": {
+    "impactCopy": {
+      "description": "One value-statement phrase. Markup-free, and the only placeholder it may open is {{count}}, which the host substitutes with the formatted run count.",
+      "allOf": [
+        { "$ref": "#/$defs/copy" },
+        { "not": { "pattern": "\\{\\{(?!count\\}\\})" } }
+      ]
+    },
     "setup": {
       "description": "The extension-owned configuration experience for this automation: what the deployment must support, what must be connected first, what the user is asked, how a draft is validated, what request is sent, and which analytics stages are emitted. It never describes what the automation does at runtime - that is the preset, owned by OpenHands/automation. It is data, not code - there is no key that accepts JavaScript, no markup in copy, no free-form URL, and no secret value.",
       "type": "object",
@@ -233,9 +267,8 @@
       "required": ["integrations"],
       "properties": {
         "integrations": {
-          "description": "Keyed by integration id, each of which must resolve to an integrations/catalog entry.",
+          "description": "Keyed by integration id, each of which must resolve to an integrations/catalog entry. Empty when the automation connects to nothing and needs no credential - a requirement worth stating, and the reason the key stays required rather than becoming optional.",
           "type": "object",
-          "minProperties": 1,
           "propertyNames": { "type": "string", "minLength": 1 },
           "additionalProperties": {
             "type": "object",

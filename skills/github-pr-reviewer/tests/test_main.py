@@ -395,6 +395,7 @@ class TestLoadConfig(unittest.TestCase):
                 "trigger_label": "please-review",
                 "review_tone": "friendly",
                 "review_style_instructions": "be kind",
+                "repo_review_guide_path": "docs/review.md",
                 "openhands_url": "http://localhost:8010",
             }
         )
@@ -405,6 +406,7 @@ class TestLoadConfig(unittest.TestCase):
                 "trigger_label": "please-review",
                 "review_tone": "friendly",
                 "review_style_instructions": "be kind",
+                "repo_review_guide_path": "docs/review.md",
                 "openhands_url": "http://localhost:8010",
             },
         )
@@ -447,6 +449,78 @@ class TestLoadConfig(unittest.TestCase):
         directory = self._write(["owner/repo"])
         with self.assertRaises(SystemExit):
             main.load_config(directory)
+
+
+class TestRepoReviewGuide(unittest.TestCase):
+    """The repo-specific review guide is read from the checkout and injected
+    into the prompt when present, and silently absent when not."""
+
+    def _pr(self):
+        return {
+            "number": 42,
+            "title": "Add widget",
+            "body": "ships it",
+            "html_url": "https://github.com/owner/repo/pull/42",
+            "user": {"login": "alice"},
+            "base": {"ref": "main"},
+            "head": {"ref": "feature", "sha": "0123456789abcdef0123456789abcdef01234567"},
+            "labels": [],
+            "changed_files": 1,
+            "additions": 10,
+            "deletions": 2,
+        }
+
+    def test_reads_the_guide_when_present(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            guide_dir = root / ".agents" / "skills"
+            guide_dir.mkdir(parents=True)
+            (guide_dir / "custom-codereview-guide.md").write_text("# Guide\nApprove freely.")
+            with patch.object(main, "REPO_REVIEW_GUIDE_PATH", ".agents/skills/custom-codereview-guide.md"):
+                text = main._load_repo_review_guide(root)
+            self.assertEqual(text, "# Guide\nApprove freely.")
+
+    def test_returns_none_when_absent(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            with patch.object(main, "REPO_REVIEW_GUIDE_PATH", ".agents/skills/custom-codereview-guide.md"):
+                self.assertIsNone(main._load_repo_review_guide(Path(tmp)))
+
+    def test_empty_path_disables(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "guide.md").write_text("irrelevant")
+            with patch.object(main, "REPO_REVIEW_GUIDE_PATH", ""):
+                self.assertIsNone(main._load_repo_review_guide(root))
+
+    def test_guide_text_is_injected_into_the_prompt(self):
+        pr = self._pr()
+        prompt = main._build_review_prompt(
+            "owner/repo", pr, "0123456789abcdef", {"id": "1", "created_at": "t"},
+            repo_review_guide="APPROVE all low-risk PRs.",
+        )
+        self.assertIn("APPROVE all low-risk PRs.", prompt)
+        self.assertIn("Repo-specific review guide", prompt)
+
+    def test_no_guide_section_when_guide_is_none(self):
+        pr = self._pr()
+        prompt = main._build_review_prompt(
+            "owner/repo", pr, "0123456789abcdef", {"id": "1", "created_at": "t"},
+            repo_review_guide=None,
+        )
+        self.assertNotIn("Repo-specific review guide", prompt)
+
+    def test_prompt_requires_reading_repository_guidance(self):
+        prompt = main._build_review_prompt(
+            "owner/repo",
+            self._pr(),
+            "0123456789abcdef",
+            {"id": "1", "created_at": "t"},
+        )
+
+        self.assertIn("MUST read", prompt)
+        self.assertIn("AGENTS.md", prompt)
+        self.assertIn("CONTRIBUTING.md", prompt)
+        self.assertIn("nested `AGENTS.md`", prompt)
 
 
 class TestNormalizeRepo(unittest.TestCase):

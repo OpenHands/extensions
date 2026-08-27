@@ -5,7 +5,7 @@
     "email": "contact@all-hands.dev"
   },
   "metadata": {
-    "description": "Official skills and plugins for OpenHands \u2014 the open-source AI software engineer.",
+    "description": "Official skills and plugins for OpenHands — the open-source AI software engineer.",
     "maintainer": "OpenHands",
     "homepage": "https://github.com/OpenHands/extensions"
   },
@@ -13,7 +13,7 @@
     {
       "name": "agent-creator",
       "source": "./skills/agent-creator",
-      "description": "Create file-based sub-agents as Markdown files \u2014 no Python code required. Guides the user through a structured interview and generates a ready-to-deploy .md agent file following the OpenHands SDK specification.",
+      "description": "Create file-based sub-agents as Markdown files — no Python code required. Guides the user through a structured interview and generates a ready-to-deploy .md agent file following the OpenHands SDK specification.",
       "category": "agent-authoring",
       "keywords": [
         "agent",
@@ -29,6 +29,7 @@
       "source": "./skills/add-skill",
       "description": "Add (import) an OpenHands skill from a GitHub repository into the current workspace.",
       "category": "agent-authoring",
+      "defaultEnabled": true,
       "keywords": [
         "skill",
         "import",
@@ -41,6 +42,7 @@
       "source": "./skills/agent-memory",
       "description": "Persist and retrieve repository-specific knowledge using AGENTS.md files. Use when you want to save important information about a codebase (build commands, code style, workflows) for future sessions.",
       "category": "agent-authoring",
+      "defaultEnabled": true,
       "keywords": [
         "memory",
         "knowledge",
@@ -53,6 +55,7 @@
       "source": "./skills/agent-sdk-builder",
       "description": "Guided workflow for building custom AI agents using the OpenHands Software Agent SDK. Use when you want to create a new agent through an interactive interview process that gathers requirements and generates implementation plans.",
       "category": "agent-authoring",
+      "defaultEnabled": true,
       "keywords": [
         "agent",
         "sdk",
@@ -80,6 +83,7 @@
       "source": "./skills/openhands-automation",
       "description": "Create and manage OpenHands automations - scheduled tasks that run in sandboxes. Use the prompt preset to create automations from natural language, or manage existing automations.",
       "category": "automations",
+      "defaultEnabled": true,
       "keywords": [
         "automation",
         "cron",
@@ -93,6 +97,7 @@
       "source": "./skills/agent-canvas-environment",
       "description": "Work effectively inside a local Agent Canvas environment, including local agent-server auth, safe workspace hygiene, and local conversation delegation.",
       "category": "agent-authoring",
+      "defaultEnabled": true,
       "keywords": [
         "agent-canvas",
         "openhands",
@@ -106,6 +111,7 @@
       "source": "./skills/openhands-sdk",
       "description": "Reference skill for the OpenHands Software Agent SDK - build AI agents with custom tools, LLM configuration, conversations, sub-agent delegation, MCP integration, security, and persistence.",
       "category": "agent-authoring",
+      "defaultEnabled": true,
       "keywords": [
         "sdk",
         "agent",
@@ -182,6 +188,7 @@
       "source": "./skills/code-review",
       "description": "Rigorous code review focusing on data structures, simplicity, security, pragmatism, and risk/safety evaluation. Provides brutally honest, actionable feedback on pull requests or merge requests, including a risk assessment for every review. Use when reviewing code changes.",
       "category": "code-quality",
+      "defaultEnabled": true,
       "keywords": [
         "code-review",
         "quality",
@@ -232,6 +239,7 @@
       "source": "./skills/docker",
       "description": "Run Docker commands within a container environment, including starting the Docker daemon and managing containers. Use when building, running, or managing Docker containers and images.",
       "category": "environment",
+      "defaultEnabled": true,
       "keywords": [
         "docker",
         "container",
@@ -268,6 +276,7 @@
       "source": "./skills/github",
       "description": "Interact with GitHub repositories, pull requests, issues, and workflows using the GITHUB_TOKEN environment variable and GitHub CLI. Use when working with code hosted on GitHub or managing GitHub resources.",
       "category": "code-hosting",
+      "defaultEnabled": true,
       "keywords": [
         "github",
         "git",
@@ -429,7 +438,7 @@
     {
       "name": "openhands",
       "source": "./plugins/openhands",
-      "description": "Unified OpenHands plugin \u2014 bundles Cloud CLI, REST API (openhands-api), and Automations (openhands-automation) into a single plugin.",
+      "description": "Unified OpenHands plugin — bundles Cloud CLI, REST API (openhands-api), and Automations (openhands-automation) into a single plugin.",
       "category": "openhands",
       "keywords": [
         "openhands",
@@ -444,6 +453,7 @@
       "source": "./skills/openhands-api",
       "description": "Use the OpenHands Cloud REST API (V1) and agent-server APIs to create and manage Cloud or local backend conversations, including multi-conversation delegation workflows. Includes minimal Python and TypeScript clients under scripts/.",
       "category": "agent-authoring",
+      "defaultEnabled": true,
       "keywords": [
         "openhands",
         "api",
@@ -470,7 +480,7 @@
     {
       "name": "pr-review",
       "source": "./plugins/pr-review",
-      "description": "Automated PR code review \u2014 analyzes diffs and posts inline review comments via the GitHub API.",
+      "description": "Automated PR code review — analyzes diffs and posts inline review comments via the GitHub API.",
       "category": "code-quality",
       "keywords": [
         "pr-review",
@@ -482,7 +492,7 @@
     {
       "name": "qa-changes",
       "source": "./plugins/qa-changes",
-      "description": "Validate pull request changes by actually running the code \u2014 setting up the environment, exercising changed behavior, and posting a structured QA report.",
+      "description": "Validate pull request changes by actually running the code — setting up the environment, exercising changed behavior, and posting a structured QA report.",
       "category": "quality-assurance",
       "keywords": [
         "qa",
@@ -534,6 +544,7 @@
       "source": "./skills/skill-creator",
       "description": "Guide for creating effective skills. This skill should be used when users want to create a new skill (or update an existing skill) that extends Claude's capabilities with specialized knowledge, workflows, or tool integrations.",
       "category": "agent-authoring",
+      "defaultEnabled": true,
       "keywords": [
         "skill",
         "plugin",
@@ -645,7 +656,7 @@
     {
       "name": "iterate",
       "source": "./skills/iterate",
-      "description": "Iterate on a GitHub pull request \u2014 drive it through CI, code review, and QA until merge-ready. Monitors state, fixes failures, addresses review feedback, retries flaky checks, and pushes fixes in one continuous loop.",
+      "description": "Iterate on a GitHub pull request — drive it through CI, code review, and QA until merge-ready. Monitors state, fixes failures, addresses review feedback, retries flaky checks, and pushes fixes in one continuous loop.",
       "category": "code-quality",
       "keywords": [
         "github",
@@ -668,6 +679,32 @@
         "verification",
         "documentation",
         "official"
+      ]
+    },
+    {
+      "name": "github-agents-md-maintainer",
+      "source": "./skills/github-agents-md-maintainer",
+      "description": "Create an automation that keeps AGENTS.md current in one or more GitHub repositories. On a schedule an agent reads the repository, creates or updates AGENTS.md, and opens a pull request - staying quiet while one of its own pull requests is still open.",
+      "category": "automations",
+      "keywords": [
+        "github",
+        "agents-md",
+        "documentation",
+        "maintenance",
+        "automation"
+      ]
+    },
+    {
+      "name": "github-issue-to-pr",
+      "source": "./skills/github-issue-to-pr",
+      "description": "Create an automation that implements GitHub issues when a configurable trigger label is applied. Clones the default branch for the agent, then commits, pushes, and opens the pull request itself - the agent is handed no GitHub credential.",
+      "category": "automations",
+      "keywords": [
+        "github",
+        "issue",
+        "pull-request",
+        "automation",
+        "integration"
       ]
     },
     {
@@ -769,6 +806,33 @@
       "keywords": [
         "jira",
         "atlassian"
+      ]
+    },
+    {
+      "name": "news-digest",
+      "source": "./skills/news-digest",
+      "description": "Create an automation that reads public RSS and Atom feeds on a schedule, keeps what is new and matches the configured topics, and has an agent write a short digest of it. Needs no credentials.",
+      "category": "automations",
+      "keywords": [
+        "news",
+        "rss",
+        "atom",
+        "digest"
+      ]
+    },
+    {
+      "name": "ticket-to-code-change",
+      "source": "./skills/ticket-to-code-change",
+      "description": "Set up Jira or Linear ticket-to-code-change automations for GitHub, GitLab, and Bitbucket.",
+      "category": "automations",
+      "keywords": [
+        "jira",
+        "linear",
+        "github",
+        "gitlab",
+        "bitbucket",
+        "pull-request",
+        "automation"
       ]
     }
   ]

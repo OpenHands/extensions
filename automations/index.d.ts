@@ -1,7 +1,24 @@
 export interface RecommendedAutomation {
   id: string;
+  /**
+   * Semantic version of this template. Present only on entries whose direct
+   * setup sends provenance to the automation service; bumped when the prompt,
+   * form, or filter changes meaningfully.
+   */
+  version?: string;
   name: string;
   category: string;
+  /**
+   * The glyph the card shows, from the closed set the interface manifest's
+   * navigation uses. Absent means the host derives one from the integrations.
+   */
+  icon?:
+    | "layout-dashboard"
+    | "sparkles"
+    | "bot"
+    | "circle-alert"
+    | "activity"
+    | "timer";
   description: string;
   requires: AutomationPrerequisites;
   popularityRank: number;
@@ -13,8 +30,24 @@ export interface RecommendedAutomation {
    */
   skill?: string;
   exampleImplementation: string;
+  /**
+   * The value statement the host renders from an installed automation's run
+   * history. Declared only when its basis honestly backs the phrase: for
+   * `completed-runs`, one completed run must always perform exactly one of
+   * the stated units of work, manually dispatched runs included, so a poller
+   * that can complete having produced nothing phrases the run itself, never
+   * the downstream outcome. `{{count}}` is the host-substituted run count; a
+   * host that meets a basis it does not know renders nothing.
+   */
+  impact?: AutomationImpact;
   /** Present when this automation ships an extension-owned setup experience. */
   setup?: AutomationSetup;
+}
+
+export interface AutomationImpact {
+  basis: "completed-runs";
+  one: string;
+  other: string;
 }
 
 /**
@@ -83,7 +116,7 @@ export interface AutomationIntegrationRequirement {
 }
 
 export interface AutomationPrerequisites {
-  /** Keyed by integration catalog id. */
+  /** Keyed by integration catalog id. Empty when the automation needs nothing connected. */
   integrations: Record<string, AutomationIntegrationRequirement>;
   /** Deployment capabilities this automation cannot run without. */
   features?: string[];

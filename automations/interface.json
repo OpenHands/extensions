@@ -150,7 +150,9 @@
   },
   "featuredAutomationIds": [
     "github-pr-reviewer",
-    "github-repo-monitor",
+    "github-agents-md-maintainer",
+    "news-digest",
+    "github-issue-to-pr",
     "slack-channel-monitor"
   ],
   "responderIntegrationIds": ["github", "slack"]

@@ -278,6 +278,16 @@ def _render_payload(entry: dict, form_values: dict, tarball_path: str = "") -> d
 
     body["trigger"] = _derive_trigger(entry, form_values)
 
+    # A versioned entry sends its provenance: the service stores it opaquely,
+    # keyed by id for idempotent creation. The form values are non-secret by
+    # design (credentials come only from connected integrations).
+    if "version" in entry:
+        body["template"] = {
+            "id": entry["id"],
+            "version": entry["version"],
+            "config": dict(form_values),
+        }
+
     return body
 
 
@@ -497,11 +507,37 @@ def test_schema_rejects_content_a_setup_block_must_never_carry() -> None:
     with_repeated_identity["setup"]["description"] = "a second description"
     rejected.append(("description", with_repeated_identity))
 
+    with_bad_version = deepcopy(entry)
+    with_bad_version["version"] = "1.0"
+    rejected.append(("'1.0' does not match", with_bad_version))
+
     for expected_fragment, invalid in rejected:
         errors = list(VALIDATOR.iter_errors(invalid))
         assert any(expected_fragment in error.message for error in errors), (
             f"schema accepted an entry it must reject ({expected_fragment}): {errors}"
         )
+
+
+IMPACT_REJECTIONS: list[tuple[str, dict]] = [
+    ("a basis the host does not know how to compute", {"basis": "run-counter"}),
+    ("markup in a phrase", {"one": "<b>1 sweep</b>"}),
+    ("a placeholder from another namespace", {"other": "{{count}} sweeps for {{form.repo}}"}),
+    ("a plural phrase that hides the count", {"other": "many sweeps completed"}),
+    ("an extra key beside the declared three", {"detail": "and saved hours"}),
+]
+
+
+@pytest.mark.parametrize(
+    ("case", "override"),
+    [pytest.param(case, override, id=case) for case, override in IMPACT_REJECTIONS],
+)
+def test_schema_refuses_an_impact_statement_the_host_must_never_render(
+    case: str, override: dict
+) -> None:
+    entry = deepcopy(_load(CATALOG_DIR / "github-pr-reviewer" / "manifest.json"))
+    entry["impact"].update(override)
+
+    assert list(VALIDATOR.iter_errors(entry)), f"schema admitted {case}"
 
 
 @pytest.mark.parametrize("entry_path", list(_setup_paths()))
@@ -518,6 +554,26 @@ def test_form_placeholders_reference_declared_fields(entry_path: Path) -> None:
     }
 
     assert referenced - fields == set()
+
+
+@pytest.mark.parametrize("entry_path", list(_setup_paths()))
+def test_the_declared_features_match_the_archetype(entry_path: Path) -> None:
+    """A bundle needs a deployment that runs a client-supplied tarball; a prompt
+    needs the preset endpoint. Declaring the other one's features is a check the
+    host runs against the wrong capability, so the entry is either offered where
+    it cannot run or withheld where it can."""
+    entry = _load(entry_path)
+    features = set(entry["requires"].get("features", []))
+
+    if _is_bundle(entry):
+        assert "customTarball" in features, f"{entry['id']}: a bundle must declare customTarball"
+        assert "presetPrompt" not in features, (
+            f"{entry['id']}: a bundle creates through {BUNDLE_CREATE_PATH}, not the preset endpoint"
+        )
+    else:
+        assert "customTarball" not in features, (
+            f"{entry['id']}: only a bundle uploads a tarball"
+        )
 
 
 @pytest.mark.parametrize("entry_path", list(_setup_paths()))
