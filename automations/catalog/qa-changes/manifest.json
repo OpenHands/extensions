@@ -1,0 +1,72 @@
+{
+  "id": "qa-changes",
+  "name": "QA Changes Agent",
+  "category": "Code review",
+  "description": "When a pull request is opened for review, run the QA changes methodology — set up the environment, exercise the changed behavior as a real user would, and post the outcome by editing the PR description with a QA Agent section.",
+  "requires": {
+    "integrations": {
+      "github": {
+        "message": "Used to read the pull request, check the author's commit history, and edit the PR description."
+      }
+    },
+    "features": [
+      "repoClone",
+      "presetPrompt",
+      "webhookDelivery"
+    ]
+  },
+  "popularityRank": 85,
+  "estimatedSetupMinutes": 5,
+  "skill": "qa-changes",
+  "exampleImplementation": "Trigger: GitHub pull_request.opened and pull_request.ready_for_review events\nRequired secret: GITHUB_TOKEN\n\n1. Receive a GitHub pull_request event (opened or ready_for_review).\n2. Filter: the PR must not be a draft (draft == false), the PR description must not already contain a QA Agent section, and the PR author must have more than 3 commits already in main.\n3. Start an OpenHands conversation that clones the repo, checks out the PR head, and runs the /qa-changes methodology: understand the change, set up the environment, exercise the changed behavior as a real user would.\n4. Instead of posting a review comment, edit the PR description to append a horizontal rule followed by a QA Agent section containing the structured QA report.",
+  "setup": {
+    "version": "1.0",
+    "mode": "direct",
+    "form": {
+      "triggers": {
+        "event": {
+          "on": {
+            "type": "select",
+            "label": "Trigger on",
+            "help": "Which GitHub pull request event starts a QA run. Opened fires when a non-draft PR is created; Ready for review fires when a draft PR is marked ready.",
+            "default": "pull_request.opened",
+            "required": true,
+            "options": [
+              {
+                "value": "pull_request.opened",
+                "label": "Pull request opened"
+              },
+              {
+                "value": "pull_request.ready_for_review",
+                "label": "Pull request ready for review"
+              }
+            ]
+          }
+        }
+      },
+      "args": {
+        "repository": {
+          "type": "repo-picker",
+          "label": "Repository",
+          "help": "The repository whose pull requests will be QA'd.",
+          "provider": "github",
+          "required": true
+        },
+        "ref": {
+          "type": "text",
+          "label": "Base branch",
+          "help": "Branch checked out when the agent runs QA.",
+          "default": "main",
+          "required": true,
+          "constraints": {
+            "minLength": 1,
+            "maxLength": 255
+          }
+        }
+      }
+    },
+    "prompt": "A pull request was opened or marked ready for review in {{form.repository}}. Before doing any QA work, run these gate checks and stop immediately (making no changes) if any fails:\n\n1. The PR must not be a draft — it must be open for review. If the PR is a draft, stop.\n2. The PR author (the human who opened it) must have more than 3 commits already merged into the {{form.ref}} branch. Use the GitHub API to count the author's commits in {{form.ref}}. If the count is 3 or fewer, stop without making any changes.\n3. The PR description must not already contain a section named QA Agent (i.e., a header like ## QA Agent or ### QA Agent). If that section already exists, stop without making any changes or starting a conversation.\n\nIf all gate checks pass, proceed with the QA validation using the /qa-changes skill methodology:\n\n- Phase 1: Understand the change. Read the PR diff, title, and description. Identify the goal of the PR. Classify every changed file. Form a hypothesis about what the PR should achieve.\n- Phase 2: Set up the environment. Read the repo's bootstrap instructions, install dependencies, and build if needed. Note CI status but do not re-run tests.\n- Phase 3: Exercise the changed behavior. Actually run the software the way a real user would — start servers, run CLI commands, make HTTP requests, open browsers. Do NOT run the test suite, linters, or code analysis. For bug fixes, reproduce the bug before and after the fix. Show before/after evidence.\n- Phase 4: Report results.\n\nIMPORTANT — how to post your report:\nDo NOT post a new comment, review, or inline review comment. Instead, EDIT the PR description (the pull request body) to append your QA report at the very end, after a horizontal rule (---), under a new section titled QA Agent. Use the GitHub API (PATCH /repos/{owner}/{repo}/pulls/{pr_number} with a body field) to update the PR description. Append the following structure to the existing PR body:\n\n---\n\n## QA Agent\n\n{Your full QA report following the /qa-changes skill report format: verdict, summary, Does this PR achieve its stated goal? section, status table, collapsible evidence in details blocks, and issues found.}\n\nDo not make any other changes to the PR description — only append the QA Agent section at the end. Do not post any comments or reviews.",
+    "filter": "!pull_request.draft && !icontains(pull_request.body, 'QA Agent') && glob(repository.full_name, '{{form.repository}}')",
+    "message": "This deployment cannot run the webhook-driven QA automation directly. Set it up in this conversation instead: confirm the repository to QA, the base branch, and the PR event to trigger on, then create the automation."
+  }
+}

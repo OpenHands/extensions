@@ -144,11 +144,15 @@
     "capabilities": "/v1/capabilities",
     "validate": "/v1/validate",
     "createPrompt": "/v1/preset/prompt",
-    "createPlugin": "/v1/preset/plugin"
+    "createPlugin": "/v1/preset/plugin",
+    "createBundle": "/v1",
+    "uploads": "/v1/uploads"
   },
   "featuredAutomationIds": [
     "github-pr-reviewer",
-    "github-repo-monitor",
+    "github-agents-md-maintainer",
+    "news-digest",
+    "github-issue-to-pr",
     "slack-channel-monitor"
   ],
   "responderIntegrationIds": ["github", "slack"]
