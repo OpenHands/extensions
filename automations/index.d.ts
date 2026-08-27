@@ -30,8 +30,24 @@ export interface RecommendedAutomation {
    */
   skill?: string;
   exampleImplementation: string;
+  /**
+   * The value statement the host renders from an installed automation's run
+   * history. Declared only when its basis honestly backs the phrase: for
+   * `completed-runs`, one completed run must always perform exactly one of
+   * the stated units of work, manually dispatched runs included, so a poller
+   * that can complete having produced nothing phrases the run itself, never
+   * the downstream outcome. `{{count}}` is the host-substituted run count; a
+   * host that meets a basis it does not know renders nothing.
+   */
+  impact?: AutomationImpact;
   /** Present when this automation ships an extension-owned setup experience. */
   setup?: AutomationSetup;
+}
+
+export interface AutomationImpact {
+  basis: "completed-runs";
+  one: string;
+  other: string;
 }
 
 /**
