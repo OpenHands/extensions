@@ -1,0 +1,5 @@
+{
+  "name": "python-type-annotations",
+  "version": "1.0.0",
+  "description": "Add valid Python type annotations to files or directories"
+}
