@@ -528,6 +528,19 @@
       ]
     },
     {
+      "name": "hol-guard",
+      "source": "./skills/hol-guard",
+      "description": "Use HOL Guard to protect supported local AI harnesses, review Guard approvals and receipts, and scan agent plugins, skills, MCP servers, and marketplace packages before use.",
+      "category": "code-quality",
+      "keywords": [
+        "hol-guard",
+        "security",
+        "ai-agents",
+        "plugin-scanner",
+        "approvals"
+      ]
+    },
+    {
       "name": "security",
       "source": "./skills/security",
       "description": "Security best practices for secure coding, authentication, authorization, and data protection. Use when developing features that handle sensitive data, user authentication, or require security review.",

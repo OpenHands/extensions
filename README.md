@@ -96,7 +96,7 @@ The JS and Python versions are kept in lock-step by `release-please` and guarded
 ## Extensions Catalog
 
 <!-- BEGIN AUTO-GENERATED CATALOG -->
-This repository contains **2 marketplace(s)** with **68 extensions** (58 skills, 10 plugins).
+This repository contains **2 marketplace(s)** with **69 extensions** (59 skills, 10 plugins).
 
 ### large-codebase
 
@@ -115,7 +115,7 @@ OpenHands skills for interacting, improving, and refactoring large codebases
 
 Official skills and plugins for OpenHands — the open-source AI software engineer.
 
-**64 extensions** (56 skills, 8 plugins)
+**65 extensions** (57 skills, 8 plugins)
 
 | Name | Type | Description | Commands |
 |------|------|-------------|----------|
@@ -146,6 +146,7 @@ Official skills and plugins for OpenHands — the open-source AI software engine
 | github-pr-reviewer | skill | Create an automation that reviews GitHub pull requests when they are opened or updated. Inspects the diff, changed fi... | `/pr-reviewer:setup` |
 | github-repo-monitor | skill | Create a cron automation that polls a GitHub repository for issue and PR comments containing a configurable trigger p... | `/github-monitor:poll` |
 | gitlab | skill | Interact with GitLab repositories, merge requests, and APIs using the GITLAB_TOKEN environment variable. Use when wor... | — |
+| hol-guard | skill | Use HOL Guard to protect supported local AI harnesses, review Guard approvals and receipts, and scan agent plugins, s... | — |
 | incident-retrospective | skill | Create an automation that drafts incident retrospectives by gathering incident-channel messages from Slack, collectin... | `/incident-retro:setup` |
 | iterate | skill | Iterate on a GitHub pull request — drive it through CI, code review, and QA until merge-ready. Monitors state, fixes ... | `/iterate`, `/verify`, `/babysit` |
 | jira-issue-to-pr | skill | Deploy a cron-based OpenHands automation that watches a Jira Cloud project for issues labeled with a configurable lab... | — |
