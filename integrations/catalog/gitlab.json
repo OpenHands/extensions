@@ -8,7 +8,7 @@
   ],
   "appUrl": "https://gitlab.com",
   "docsUrl": "https://docs.gitlab.com/user/model_context_protocol/mcp_server/",
-  "notes": "Supports GitLab.com through either the official MCP server (beta) with OAuth or the API with a personal access token. MCP access must be allowed for the top-level group. For GitLab Self-Managed, edit the MCP URL and use host-specific OAuth endpoints.",
+  "notes": "Supports GitLab.com through either the official MCP server (beta) with OAuth or the API with a personal access token. MCP access must be allowed for the top-level group. For GitLab Self-Managed, edit the MCP URL to your instance's server and the OAuth flow discovers the host-specific endpoints.",
   "popularityRank": 60,
   "connectionOptions": [
     {
@@ -34,9 +34,6 @@
       "auth": {
         "strategy": "oauth2",
         "oauth": {
-          "authorizationUrl": "https://gitlab.com/oauth/authorize",
-          "tokenUrl": "https://gitlab.com/oauth/token",
-          "registrationUrl": "https://gitlab.com/oauth/register",
           "scopes": [
             "mcp"
           ],
