@@ -59,5 +59,5 @@
     "mr",
     "devops"
   ],
-  "installHint": "Prefer the OAuth MCP connection. The GitLab MCP server supports OAuth 2.0 with dynamic client registration using the mcp scope. Before installing, make sure MCP server access is enabled for a top-level group you belong to: set GitLab Duo availability to Always on or On by default for the top-level group, turn on beta and experimental features, and allow access to the MCP server. Be sure your GitLab admin has enabled MCP Client Access in the top-level GitLab group. If this prerequisite isn't met, GitLab returns 404 after OAuth and the connection fails with 'Session terminated'. For GitLab Self-Managed, edit the URL to https://<your-instance>/api/v4/mcp and make sure MCP server access is enabled for the instance."
+  "installHint": "The GitLab MCP server supports OAuth 2.0. Before installing, make sure an admin has enabled "MCP client access" for the top-level GitLab group you belong to. If this prerequisite isn't met, GitLab returns 404 after OAuth and the connection fails with 'Session terminated'. For GitLab Self-Managed, edit the URL to https://<your-instance>/api/v4/mcp and make sure MCP server access is enabled for the instance."
 }
