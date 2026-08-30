@@ -37,6 +37,17 @@
                 "type": "cron",
                 "schedule": "*/15 * * * *",
                 "timezone": "UTC"
+              },
+              "template": {
+                "id": "github-repo-monitor",
+                "version": "1.0.0",
+                "config": {
+                  "repository": "OpenHands/agent-server-gui",
+                  "triggerPhrase": "@openhands",
+                  "ref": "main",
+                  "schedule": "*/15 * * * *",
+                  "timezone": "UTC"
+                }
               }
             },
             "requirements": {
@@ -89,6 +100,17 @@
               "type": "cron",
               "schedule": "*/15 * * * *",
               "timezone": "UTC"
+            },
+            "template": {
+              "id": "github-repo-monitor",
+              "version": "1.0.0",
+              "config": {
+                "repository": "OpenHands/agent-server-gui",
+                "triggerPhrase": "@openhands",
+                "ref": "main",
+                "schedule": "*/15 * * * *",
+                "timezone": "UTC"
+              }
             }
           }
         },
@@ -101,6 +123,28 @@
             "model": null,
             "name": "GitHub repository monitor - OpenHands/agent-server-gui",
             "prompt": "Poll OpenHands/agent-server-gui for any new issue or pull request comments since the last run. For every comment mentioning '@openhands', read the surrounding issue or pull request context and post a helpful reply as a comment on the same thread.",
+            "preset_metadata": {
+              "preset_type": "prompt",
+              "prompt": "Poll OpenHands/agent-server-gui for any new issue or pull request comments since the last run. For every comment mentioning '@openhands', read the surrounding issue or pull request context and post a helpful reply as a comment on the same thread.",
+              "repos": [
+                {
+                  "url": "OpenHands/agent-server-gui",
+                  "ref": "main",
+                  "provider": "github"
+                }
+              ],
+              "template": {
+                "id": "github-repo-monitor",
+                "version": "1.0.0",
+                "config": {
+                  "repository": "OpenHands/agent-server-gui",
+                  "triggerPhrase": "@openhands",
+                  "ref": "main",
+                  "schedule": "*/15 * * * *",
+                  "timezone": "UTC"
+                }
+              }
+            },
             "trigger": {
               "type": "cron",
               "schedule": "*/15 * * * *",
@@ -150,6 +194,17 @@
                 "type": "cron",
                 "schedule": "*/1 * * * *",
                 "timezone": "UTC"
+              },
+              "template": {
+                "id": "github-repo-monitor",
+                "version": "1.0.0",
+                "config": {
+                  "repository": "OpenHands/agent-server-gui",
+                  "triggerPhrase": "@openhands",
+                  "ref": "main",
+                  "schedule": "*/1 * * * *",
+                  "timezone": "UTC"
+                }
               }
             },
             "requirements": {
@@ -222,6 +277,17 @@
               "type": "cron",
               "schedule": "0 0 31 2 *",
               "timezone": "UTC"
+            },
+            "template": {
+              "id": "github-repo-monitor",
+              "version": "1.0.0",
+              "config": {
+                "repository": "OpenHands/agent-server-gui",
+                "triggerPhrase": "@openhands",
+                "ref": "main",
+                "schedule": "0 0 31 2 *",
+                "timezone": "UTC"
+              }
             }
           }
         },
@@ -273,6 +339,17 @@
               "type": "cron",
               "schedule": "*/15 * * * *",
               "timezone": "UTC"
+            },
+            "template": {
+              "id": "github-repo-monitor",
+              "version": "1.0.0",
+              "config": {
+                "repository": "OpenHands/agent-server-gui",
+                "triggerPhrase": "@openhands",
+                "ref": "main",
+                "schedule": "*/15 * * * *",
+                "timezone": "UTC"
+              }
             }
           }
         },

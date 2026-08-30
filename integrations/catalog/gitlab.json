@@ -1,0 +1,63 @@
+{
+  "id": "gitlab",
+  "name": "GitLab",
+  "description": "Access projects, issues, merge requests, and CI/CD workflows through GitLab's official MCP server or API.",
+  "categories": [
+    "Engineering",
+    "Source control"
+  ],
+  "appUrl": "https://gitlab.com",
+  "docsUrl": "https://docs.gitlab.com/user/model_context_protocol/mcp_server/",
+  "notes": "Supports GitLab.com through either the official MCP server (beta) with OAuth or the API with a personal access token. For the OAuth MCP connection to work on GitLab.com, MCP server access must be enabled for a top-level group you belong to (set GitLab Duo availability to Always on or On by default for the top-level group, turn on beta and experimental features, and allow access to the MCP server); otherwise GitLab rejects the connection with a 404 after OAuth, which the client reports as 'Session terminated'. For GitLab Self-Managed, edit the MCP URL to your instance's server and the OAuth flow discovers the host-specific endpoints.",
+  "popularityRank": 60,
+  "connectionOptions": [
+    {
+      "id": "api",
+      "provider": "http",
+      "auth": {
+        "strategy": "api_key",
+        "apiKeyHeaderName": "PRIVATE-TOKEN",
+        "credentialLabel": "Personal access token",
+        "credentialPlaceholder": "glpat-...",
+        "credentialHelp": "Create a token in [GitLab access token settings](https://gitlab.com/-/user_settings/personal_access_tokens) with the api scope.",
+        "credentialSecretName": "GITLAB_TOKEN",
+        "saveCredentialAsSecretByDefault": true
+      },
+      "http": {
+        "apiBaseUrl": "https://gitlab.com/api/v4",
+        "openApiUrl": "https://gitlab.com/gitlab-org/gitlab/-/raw/master/doc/api/openapi/openapi_v2.yaml"
+      }
+    },
+    {
+      "id": "oauth",
+      "provider": "mcp",
+      "auth": {
+        "strategy": "oauth2",
+        "oauth": {
+          "scopes": [
+            "mcp"
+          ],
+          "pkce": true,
+          "clientAuthentication": "none"
+        }
+      },
+      "transport": {
+        "kind": "shttp",
+        "url": "https://gitlab.com/api/v4/mcp",
+        "urlEditable": true
+      }
+    }
+  ],
+  "iconBg": "var(--oh-surface)",
+  "logoUrl": "https://cdn.simpleicons.org/gitlab/FC6D26",
+  "keywords": [
+    "git",
+    "merge request",
+    "repo",
+    "issues",
+    "code",
+    "mr",
+    "devops"
+  ],
+  "installHint": "The GitLab MCP server supports OAuth 2.0. Before installing, make sure an admin has enabled 'MCP client access' for the top-level GitLab group you belong to. If this prerequisite isn't met, GitLab returns 404 after OAuth and the connection fails with 'Session terminated'. For GitLab Self-Managed, edit the URL to https://<your-instance>/api/v4/mcp and make sure MCP server access is enabled for the instance."
+}

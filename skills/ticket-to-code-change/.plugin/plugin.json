@@ -1,0 +1,21 @@
+{
+  "name": "ticket-to-code-change",
+  "version": "1.0.0",
+  "description": "Create pull or merge requests from Jira or Linear tickets across GitHub, GitLab, and Bitbucket.",
+  "author": {
+    "name": "OpenHands",
+    "email": "contact@all-hands.dev"
+  },
+  "homepage": "https://github.com/OpenHands/extensions",
+  "repository": "https://github.com/OpenHands/extensions",
+  "license": "MIT",
+  "keywords": [
+    "jira",
+    "linear",
+    "github",
+    "gitlab",
+    "bitbucket",
+    "pull-request",
+    "automation"
+  ]
+}

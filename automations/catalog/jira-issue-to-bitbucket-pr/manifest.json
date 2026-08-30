@@ -1,0 +1,23 @@
+{
+  "id": "jira-issue-to-bitbucket-pr",
+  "name": "Jira issue to Bitbucket PR",
+  "category": "Project management",
+  "description": "Watch Jira for implementation-ready issues, start an agent to make the requested code change, and open a Bitbucket pull request.",
+  "requires": {
+    "integrations": {
+      "jira": {
+        "message": "Reads implementation-ready issues and posts progress back to Jira."
+      },
+      "bitbucket": {
+        "message": "Clones the target repository, pushes a branch, and opens the pull request."
+      }
+    },
+    "features": [
+      "conversationDispatch"
+    ]
+  },
+  "popularityRank": 83,
+  "estimatedSetupMinutes": 6,
+  "skill": "ticket-to-code-change",
+  "exampleImplementation": "Trigger: Jira issue marked implementation-ready\nRequired integrations: Jira, Bitbucket\n\n1. Watch the selected Jira team or project for issues carrying a configurable implementation-ready label or state.\n2. Deduplicate issue IDs so each transition dispatches once.\n3. Read the issue, linked dependencies, acceptance criteria, and target repository.\n4. Start an independent OpenHands conversation that clones the Bitbucket repository, creates an issue-keyed branch, implements and tests the change, and opens a pull request.\n5. Post the conversation and pull request links back to the Jira issue and update its status according to the team's workflow."
+}

