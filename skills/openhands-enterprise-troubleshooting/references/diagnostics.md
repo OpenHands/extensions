@@ -261,8 +261,14 @@ kubectl logs -n keycloak $KEYCLOAK_POD --tail=200
 # Keycloak requires database - check DB pod
 kubectl get pods -n keycloak | grep -E "postgres|mysql|database"
 
-# Check DB connectivity from Keycloak pod
-kubectl exec -n keycloak $KEYCLOAK_POD -- bash -c 'nc -zv $DB_HOST $DB_PORT || echo "DB unreachable"'
+# Ask the pod what database it is configured against, rather than assuming
+KEYCLOAK_POD=$(kubectl get pods -n keycloak -l app=keycloak -o jsonpath='{.items[0].metadata.name}')
+kubectl exec -n keycloak $KEYCLOAK_POD -- printenv \
+  | grep -iE 'KC_DB|DB_ADDR|DB_URL|JDBC|DATABASE' | sort
+
+# The database error itself is usually in the log, and needs no in-pod tooling
+kubectl logs -n keycloak $KEYCLOAK_POD --tail=200 \
+  | grep -iE 'connection refused|unknown host|timeout|FATAL|could not connect'
 ```
 
 ### Check Keycloak Realm Configuration
@@ -286,7 +292,11 @@ curl -s -o /dev/null -w "%{http_code}" \
 ### Keycloak Health Check
 
 ```bash
-kubectl exec -n keycloak deploy/keycloak -- /opt/keycloak/bin/kc.sh health --metrics
+# Health is served over HTTP on the management port (9000 by default), not by kc.sh.
+# It must be enabled on the server (health-enabled); a 404 means it is switched off,
+# not that Keycloak is unhealthy.
+kubectl port-forward -n keycloak deploy/keycloak 9000:9000 &
+curl -fsS -o /dev/null -w '%{http_code}\n' http://localhost:9000/health/ready
 ```
 
 ---
