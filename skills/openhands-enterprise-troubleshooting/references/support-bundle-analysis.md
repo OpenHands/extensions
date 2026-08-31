@@ -73,10 +73,15 @@ Use it to orient, then go to the raw files for anything it surfaces.
 | `cluster-resources/nodes.json` | Node count, capacity, conditions, taints |
 | `kots/admin_console/app-info.json` | App status, channel, sequence, KOTS + embedded-cluster versions |
 
-`analysis.json` is the highest-value file in the bundle and the most frequently skipped. It ships
+`analysis.json` is the fastest orientation in the bundle and the most frequently skipped. It ships
 verdicts like `event.oom.check: "No OOMKilling event detected"` and
-`node.resources.for.openhands: "Node resources are sufficient"` already computed. Read it before
-writing any `jq`.
+`node.resources.for.openhands: "Node resources are sufficient"` already computed.
+
+Read it first, but do not stop there. Its analyzers are narrow — the OOM analyzer keys on *events*,
+so it reports "No OOMKilling event detected" on a bundle whose pod objects clearly record
+`OOMKilled` containers, simply because the events aged out of the TTL window. **A clean
+`analysis.json` is not evidence of a clean cluster**, only that no analyzer's specific trigger
+fired.
 
 ```bash
 # Failing analyzers, deduped
@@ -109,6 +114,11 @@ Cluster-scoped resources are single files at `cluster-resources/*.json` (`nodes`
 resources are a directory per kind with one file per namespace.
 
 ## Namespaces and workloads
+
+The namespaces that carry workloads worth reading. This is a curated subset, not the full list — a
+bundle also contains `default`, `kube-public`, `kube-node-lease`, and `k0s-autopilot` (k0s's
+in-place updater). Enumerate `cluster-resources/pods/*.json` rather than assuming this table is
+exhaustive.
 
 | Namespace | Contents |
 |---|---|
@@ -205,9 +215,18 @@ Two different questions, two different sources:
 
 - **Actual usage** — `node-metrics/<node>.json`, the kubelet summary API. Per-pod and per-container
   CPU, memory working set, and ephemeral storage, plus node-level `fs` / `imageFs` capacity.
-- **Scheduling headroom** — sum `.spec.containers[].resources.requests` over pods that have a
-  `.spec.nodeName`, and compare to `.status.allocatable` in `nodes.json`. This is what
-  `kubectl describe node` shows under "Allocated resources", and it is what the scheduler acts on.
+- **Scheduling headroom** — sum each pod's *effective* request over pods that have a
+  `.spec.nodeName` **and are still `Running` or `Pending`**, then compare to `.status.allocatable`
+  in `nodes.json`. This is what `kubectl describe node` shows under "Allocated resources", and it is
+  what the scheduler acts on. Two things make this easy to get wrong:
+
+  - A pod's effective request is `max(sum(regular containers), max(init container))`, **not** the sum
+    of both — init containers finish before the regular ones start. Native sidecars
+    (`initContainers` with `restartPolicy: Always`) keep running, so they belong in the regular sum.
+  - `Succeeded` pods still carry a `nodeName`. Counting completed Jobs inflates the total against a
+    node that has long since reclaimed their capacity.
+
+  `bundle_triage.py --section alloc` implements both rules.
 
 Requests, not usage, decide whether the next pod schedules. A node at 17% memory usage can still
 refuse to schedule anything. Check `ephemeral-storage` too — it is a real and frequently-hit
@@ -285,6 +304,57 @@ are **symlink farms** pointing back at the canonical path. Do not treat them as 
 Host-level journald logs live outside the pod tree: `k0scontroller/<node>.log`,
 `k0sworker/<node>.log`, `local-artifact-mirror/<node>.log`. These partly compensate for the missing
 node events.
+
+### Triaging a log file
+
+Logs are the largest thing in a bundle and the easiest to skim badly. Three moves, in order:
+
+**1. Check the format before filtering.** Log files are a mix of JSON-per-line and plain text, and
+the same file often contains both. Most files in a bundle are entirely plain text; only the OpenHands
+application services log JSON. A `jq`- or `.severity`-based filter **silently skips every non-JSON
+line**, which is where a lot of real failures live — an uncaught Python exception is printed bare,
+with no `severity` field and often without the word "error" at all.
+
+```bash
+# What am I dealing with? (JSON lines vs total)
+for f in <logs>; do
+  total=$(wc -l < "$f"); js=$(grep -c '^{' "$f")
+  echo "$((total-js))\tnon-JSON\t$js\tJSON\t$f"
+done | sort -rn
+```
+
+Always make a separate pass over the non-JSON lines:
+
+```bash
+grep -v '^{' app.log | grep -vE '^\s*$' | sort | uniq -c | sort -rn | head -30
+```
+
+**2. Cluster by message shape, not by count.** Raw counts mislead badly: 107 warnings in one
+observed log were a single issue repeated inside a four-second window, and 224 of 228 non-JSON lines
+in another were one repeated message. Normalise the volatile parts (UUIDs, numbers, addresses) and
+count the shapes. Key on the *message*, not a logger or module field — some records have neither.
+
+Note the `grep '^{'` in front of every `jq`: without it `jq` hits the first plain-text line and
+aborts with `Invalid numeric literal`, printing nothing. A silent empty result from a file you know
+has content means the filter died, not that the cluster is clean.
+
+```bash
+grep '^{' app.log | jq -r 'select(.severity=="WARNING") | .message' \
+  | sed -E 's/[0-9a-f-]{36}/<uuid>/g; s/[0-9]+/<n>/g' \
+  | cut -c1-110 | sort | uniq -c | sort -rn
+```
+
+Typical OpenHands service records carry `ts`, `severity`, `message`, `module`, `funcName`, `lineno`.
+
+**3. Bucket by time before concluding anything.** A flat rate is usually health probes; incidents are
+bursts. Compare the log's own span against the bundle capture time — steady low-volume traffic across
+hours with one dense cluster tells you where to look, and a count alone does not.
+
+```bash
+grep '^{' app.log | jq -r '.ts[:16]' | sort | uniq -c
+```
+
+Then read the burst, not the file.
 
 Three traps:
 
@@ -395,7 +465,10 @@ These are the things a bundle cannot tell you. Say so explicitly rather than inf
   `kots/admin_console/kotsadm/*/kotsadm/tmp/last-preflight-result/` holds a second full snapshot
   from the last preflight run, giving you two points to compare.
 - **Events are TTL-limited** (see above).
-- **`*-errors.json` paths are directories**, not files — they record collector failures, not data.
+- **Collector-error paths are usually directories.** `collector-errors/` and `secrets-errors/` are
+  directories recording collector failures, not data — but the `-errors` suffix is not a reliable
+  signal on its own: some genuine `*-errors.json` files exist (for example under `kots/goldpinger/`).
+  Stat the path rather than assuming from the name.
 
 ## Anti-patterns
 
@@ -408,3 +481,22 @@ These are the things a bundle cannot tell you. Say so explicitly rather than inf
 - Reporting "the pod logged nothing" from an empty 2-byte file.
 - Assuming a Pending pod is resource-starved without reading the `PodScheduled` condition message.
 - Drawing platform-health conclusions from pod counts inflated by `runtime-*` sandboxes.
+- Running a severity filter over a log without first checking whether the file is even JSON.
+
+## Validation status
+
+What in this guide has been checked against a real bundle, and what has not. Treat the second list
+as plausible but unproven — if you exercise one of those paths, correct this file.
+
+**Verified against a real single-node Embedded Cluster bundle:** directory layout and the
+container-name log convention; `analysis.json`, `nodes.json`, `cluster_version.json`, `app-info.json`
+and per-namespace pod file shapes; the symlink farms; empty-vs-missing logs; `"items": null` on empty
+events; absence of node-scoped events and of `describe` output; the mtime trap; historical
+(`lastState`) OOM detection; the allocated-resources arithmetic; and the log-format and
+message-clustering recipes above.
+
+**Not yet exercised against real data — fixture-only:** an actively OOMing container; a true crash
+loop and the "simultaneous restarts = host reboot" heuristic; `Pending` pod analysis, `PodScheduled`
+messages, and the "EXCEEDS ALLOCATABLE" path; the failing-analyzer (`FAIL`) grouping, since every
+analyzer passed; `runtime-*` pod-count inflation at scale; and `***HIDDEN***` versus a genuinely
+unset value.

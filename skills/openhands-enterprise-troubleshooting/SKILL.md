@@ -203,13 +203,16 @@ Then the four things that most often answer the question outright:
 | What did a container log? | `cluster-resources/pods/logs/<ns>/<pod>/<container>.log` |
 | What is the install running? | `kots/admin_console/app-info.json` — version, channel, sequence |
 
-Three traps worth knowing before you start:
+Four traps worth knowing before you start:
 
 - **Never use file mtimes for timing.** They record when you extracted the archive. Take the capture
   time from the bundle directory name, which is UTC.
 - **Log filenames are container names, not pod names.** Init-container failures (`migrate-db`,
   `wait-for-db`) are invisible to `kubectl logs <pod>` and are the easiest real failure to miss.
 - **`***HIDDEN***` means "redacted", not "unset".** The redactor over-redacts, including non-secrets.
+- **Check a log's format before filtering it.** Most bundle logs are plain text, not JSON, and `jq`
+  aborts on the first non-JSON line — so a severity filter can print nothing on a file full of
+  errors. Prefix with `grep '^{'`, and read the non-JSON lines separately.
 
 Once triage points at a failure mode, use `references/diagnostics.md` for that mode's specific
 commands and error patterns.

@@ -178,6 +178,21 @@ def all_pods(root: Path) -> list[tuple[str, dict]]:
     return out
 
 
+# Conditions whose polarity is known. Anything else — including vendor conditions
+# named positively, like ContainerdHasNoDeprecations — is left unflagged: guessing
+# polarity from the name raises false alarms on healthy nodes.
+PRESSURE_CONDITIONS = {"MemoryPressure", "DiskPressure", "PIDPressure", "NetworkUnavailable"}
+
+
+def bad_condition(cond: dict) -> bool:
+    kind, status = cond.get("type"), cond.get("status")
+    if kind == "Ready":
+        return status != "True"
+    if kind in PRESSURE_CONDITIONS:
+        return status == "True"
+    return False
+
+
 def header(title: str) -> None:
     print()
     print("=" * 78)
@@ -222,9 +237,7 @@ def section_meta(root: Path, now: dt.datetime) -> None:
         print(f"    os/runtime  : {info.get('osImage')} | {info.get('containerRuntimeVersion')} "
               f"| kubelet {info.get('kubeletVersion')}")
         for cond in status.get("conditions", []):
-            bad = (cond["type"] == "Ready" and cond["status"] != "True") or \
-                  (cond["type"] != "Ready" and cond["status"] == "True")
-            print(f"    {'!!' if bad else '  '} {cond['type']:<18} {cond['status']:<6} "
+            print(f"    {'!!' if bad_condition(cond) else '  '} {cond['type']:<18} {cond['status']:<6} "
                   f"{cond.get('reason', '')} (since {cond.get('lastTransitionTime')})")
         taints = (node.get("spec") or {}).get("taints")
         if taints:
@@ -316,16 +329,53 @@ def section_restarts(root: Path, now: dt.datetime) -> None:
             for key in ("lastState", "state"):
                 term = (cs.get(key) or {}).get("terminated")
                 if term and term.get("reason") not in (None, "Completed"):
+                    # `state` is how the container is *now*; `lastState` is a previous
+                    # boot it has already recovered from. Conflating them reports a
+                    # long-since-recovered kill as an active incident.
+                    # Test key presence, not truthiness: a running block can be `{}`.
+                    current = "terminated" if key == "state" else (
+                        "running" if "running" in (cs.get("state") or {}) else "waiting")
                     rows.append((ns, pod["metadata"]["name"], cs["name"], term.get("reason"),
                                  term.get("exitCode"), cs.get("restartCount", 0),
-                                 term.get("finishedAt")))
+                                 term.get("finishedAt"), current, bool(cs.get("ready"))))
 
     oom = [r for r in rows if r[3] == "OOMKilled"]
-    print(f"  OOMKilled containers: {len(oom)}")
+    live_oom = [r for r in oom if r[7] == "terminated" or not r[8]]
+    print(f"  OOMKilled containers: {len(oom)}"
+          f"  ({len(live_oom)} not currently healthy, {len(oom) - len(live_oom)} recovered)")
     for row in oom:
-        print(f"    !! {row[0]}/{row[1]} c={row[2]} restarts={row[5]} at={row[6]}")
+        healthy = row[7] == "running" and row[8]
+        print(f"    {'  ' if healthy else '!!'} {row[0]}/{row[1]} c={row[2]} "
+              f"restarts={row[5]} at={row[6]} ({age(row[6], now)} ago) "
+              f"now={row[7]}{'' if row[8] else ', not ready'}")
+    if oom and not live_oom:
+        print("     All OOMKills are historical (lastState) on containers that are running and")
+        print("     ready now. Recovered, not active — but they still show the workload has hit")
+        print("     its memory ceiling at least once.")
     if not oom:
         print("     (no OOMKilled anywhere in the bundle)")
+
+    # The three OOM sources disagree routinely: events age out of the TTL window and
+    # the analyzer keys on events, so both can report clean while container state
+    # still records kills. Reconcile here rather than leaving two numbers in two
+    # sections for the reader to trip over.
+    analyzer_clean = any(
+        "oom" in (a.get("name") or "").lower() and a.get("severity") in ("debug", "info")
+        for a in (load(root / "analysis.json") or [])
+    )
+    event_hits = 0
+    for path in sorted((root / "cluster-resources" / "events").glob("*.json")):
+        for event in items(path):
+            if re.search(r"OOM|Evict|MemoryPressure",
+                         f"{event.get('reason', '')}{event.get('message', '')}", re.I):
+                event_hits += 1
+    if oom and (analyzer_clean or event_hits == 0):
+        print()
+        print(f"  NOTE: sources disagree — container state finds {len(oom)}, events find "
+              f"{event_hits}, analyzer reports {'clean' if analyzer_clean else 'a problem'}.")
+        print("  Container state is the authoritative one here: events expire and the analyzer")
+        print("  keys on them. Trust the pod objects, and do not read the clean analyzer verdict")
+        print("  as confirmation that no OOM happened.")
 
     def fit(value, width):
         text = str(value)
@@ -334,7 +384,7 @@ def section_restarts(root: Path, now: dt.datetime) -> None:
     print()
     print(f"  Other abnormal terminations: {len(rows) - len(oom)}")
     print(f"  {'NS':<17}{'POD':<45}{'CONTAINER':<23}{'REASON':<11}{'EXIT':>5}{'RST':>5}  FINISHED")
-    for ns, pod, container, reason, code, count, finished in sorted(rows, key=lambda r: -r[5]):
+    for ns, pod, container, reason, code, count, finished, _, _ in sorted(rows, key=lambda r: -r[5]):
         if reason == "OOMKilled":
             continue
         print(f"  {fit(ns, 16):<17}{fit(pod, 44):<45}{fit(container, 22):<23}"
@@ -409,13 +459,31 @@ def section_alloc(root: Path) -> None:
     def totals(pods):
         acc = collections.defaultdict(float)
         for _, pod in pods:
-            containers = pod["spec"].get("containers", []) + pod["spec"].get("initContainers", [])
-            for c in containers:
-                res = c.get("resources", {})
-                for key, value in (res.get("requests") or {}).items():
-                    acc["req_" + key] += quantity(value)
-                for key, value in (res.get("limits") or {}).items():
-                    acc["lim_" + key] += quantity(value)
+            spec = pod["spec"]
+            regular = spec.get("containers", [])
+            # Init containers run sequentially and finish before the regular ones
+            # start, so a pod's effective request is max(sum(regular), max(init)) --
+            # not the sum of both, which over-counts every pod that has init steps.
+            # Native sidecars (restartPolicy: Always) keep running, so they count
+            # toward the regular sum instead.
+            init, sidecars = [], []
+            for c in spec.get("initContainers", []):
+                (sidecars if c.get("restartPolicy") == "Always" else init).append(c)
+
+            def sum_over(containers, field):
+                out = collections.defaultdict(float)
+                for c in containers:
+                    for key, value in ((c.get("resources") or {}).get(field) or {}).items():
+                        out[key] += quantity(value)
+                return out
+
+            for field, prefix in (("requests", "req_"), ("limits", "lim_")):
+                base = sum_over(regular + sidecars, field)
+                for c in init:
+                    for key, value in ((c.get("resources") or {}).get(field) or {}).items():
+                        base[key] = max(base[key], quantity(value))
+                for key, value in base.items():
+                    acc[prefix + key] += value
         return acc
 
     used = totals(scheduled)
