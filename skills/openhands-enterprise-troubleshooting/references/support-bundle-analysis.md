@@ -84,9 +84,15 @@ so it reports "No OOMKilling event detected" on a bundle whose pod objects clear
 fired.
 
 ```bash
-# Failing analyzers, deduped
+# Failing analyzers, keeping severity and the distinct message
+jq -r '.[] | select(.severity|test("error|warn|fail"))
+       | "\(.severity)\t\(.name)\t\(.insight.detail)"' analysis.json | sort
+
+# Collapsing per-instance analyzers: replace only the identifier segments (long
+# digit runs, hashes), never the whole middle -- wildcarding `a.b.*.status` merges
+# unrelated subsystems and hides real failures behind an unrelated example.
 jq -r '.[] | select(.severity|test("error|warn|fail")) | .name' analysis.json \
-  | sed -E 's/^([^.]+\.[^.]+)\..*\.([^.]+)$/\1.*.\2/' | sort | uniq -c | sort -rn
+  | sed -E 's/\.[0-9]{4,}\./.*./g' | sort | uniq -c | sort -rn
 
 # Passing analyzers (what the collector already confirmed is fine)
 jq -r '.[] | select(.severity=="debug") | "\(.name): \(.insight.detail)"' analysis.json
@@ -479,7 +485,12 @@ These are the things a bundle cannot tell you. Say so explicitly rather than inf
 - Treating `***HIDDEN***` as "secret" or "unset".
 - Counting the symlink farms as additional log coverage.
 - Reporting "the pod logged nothing" from an empty 2-byte file.
-- Assuming a Pending pod is resource-starved without reading the `PodScheduled` condition message.
+- Assuming a Pending pod is resource-starved without reading the `PodScheduled` condition message —
+  and then assuming `PodScheduled` is where the answer lives. **Pending does not mean unschedulable.**
+  The common case in practice is a pod that scheduled fine and is stuck starting
+  (`CreateContainerConfigError`, `ImagePullBackOff`), which has a `nodeName` and `PodScheduled=True`;
+  its reason is in `.status.initContainerStatuses[].state.waiting` / `containerStatuses[]`, not in
+  the conditions. Check both.
 - Drawing platform-health conclusions from pod counts inflated by `runtime-*` sandboxes.
 - Running a severity filter over a log without first checking whether the file is even JSON.
 
@@ -488,15 +499,23 @@ These are the things a bundle cannot tell you. Say so explicitly rather than inf
 What in this guide has been checked against a real bundle, and what has not. Treat the second list
 as plausible but unproven — if you exercise one of those paths, correct this file.
 
-**Verified against a real single-node Embedded Cluster bundle:** directory layout and the
+**Verified against real single-node Embedded Cluster bundles:** directory layout and the
 container-name log convention; `analysis.json`, `nodes.json`, `cluster_version.json`, `app-info.json`
 and per-namespace pod file shapes; the symlink farms; empty-vs-missing logs; `"items": null` on empty
 events; absence of node-scoped events and of `describe` output; the mtime trap; historical
-(`lastState`) OOM detection; the allocated-resources arithmetic; and the log-format and
-message-clustering recipes above.
+(`lastState`) OOM detection; the allocated-resources arithmetic, including exclusion of `Succeeded`
+pods; the log-format and message-clustering recipes above; failing-analyzer grouping across error and
+warn severities; `Pending` pods blocked in init (`CreateContainerConfigError`); init-container
+attribution by container name; and `runtime-*` collapse at 25 sandboxes.
 
-**Not yet exercised against real data — fixture-only:** an actively OOMing container; a true crash
-loop and the "simultaneous restarts = host reboot" heuristic; `Pending` pod analysis, `PodScheduled`
-messages, and the "EXCEEDS ALLOCATABLE" path; the failing-analyzer (`FAIL`) grouping, since every
-analyzer passed; `runtime-*` pod-count inflation at scale; and `***HIDDEN***` versus a genuinely
-unset value.
+**Not yet exercised against real data — fixture-only:** an actively OOMing container
+(`state.terminated`, as opposed to a recovered `lastState` one); a truly unschedulable pod
+(`PodScheduled=False`) and the "EXCEEDS ALLOCATABLE" path; the "simultaneous restarts = host reboot"
+heuristic, which needs five same-second terminations; native sidecars (`initContainers` with
+`restartPolicy: Always`) in the allocation sum; a container carrying *both* an abnormal `state` and
+an abnormal `lastState`, which would be counted twice by the restart scan; and `***HIDDEN***` versus
+a genuinely unset value.
+
+**Not verified at all:** multi-node, HA, and non-Embedded-Cluster installs. Every bundle checked so
+far is single-node k0s Embedded Cluster. Node-count-dependent claims should be treated as unproven
+there.

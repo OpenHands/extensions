@@ -253,22 +253,37 @@ def section_analyzers(root: Path) -> None:
     print(f"  {len(analysis)} analyzers: {dict(by_sev)}")
 
     # Per-sandbox analyzers are generated one-per-pod and otherwise drown out
-    # everything else. Collapse the object-specific middle of the dotted name.
+    # everything else. Collapse only the segments that are instance identifiers —
+    # wildcarding the whole middle merges unrelated subsystems (a db-cleanup
+    # failure and a warm-runtimes failure) into one line and hides real failures.
     def family(name: str) -> str:
-        parts = name.split(".")
-        return ".".join(parts[:2] + ["*"] + parts[-1:]) if len(parts) > 3 else name
+        return ".".join(
+            "*" if re.fullmatch(r"\d{4,}|[0-9a-f]{8,}|[a-z0-9]{6,}-[a-z0-9]{4,}", part) else part
+            for part in name.split(".")
+        )
 
-    grouped: dict[str, list] = collections.defaultdict(list)
+    grouped: dict[tuple[str, str], list] = collections.defaultdict(list)
     for entry in analysis:
         if entry.get("severity") not in ("debug", "info"):
-            grouped[family(entry["name"])].append(entry)
+            grouped[(entry.get("severity") or "unknown", family(entry["name"]))].append(entry)
 
     if grouped:
         print()
-        for name, entries in sorted(grouped.items(), key=lambda kv: -len(kv[1])):
+        # Worst severity first, then noisiest.
+        rank = {"error": 0, "fail": 0, "warn": 1, "warning": 1}
+        for (severity, name), entries in sorted(
+                grouped.items(), key=lambda kv: (rank.get(kv[0][0], 2), -len(kv[1]))):
             count = f"  [x{len(entries)}]" if len(entries) > 1 else ""
-            print(f"  FAIL  {name}{count}")
-            print(f"        e.g. {entries[0]['insight'].get('detail', '')[:110]}")
+            print(f"  {severity.upper():<7} {name}{count}")
+            seen = []
+            for entry in entries:
+                detail = (entry.get("insight") or {}).get("detail", "")[:110]
+                if detail and detail not in seen:
+                    seen.append(detail)
+            for detail in seen[:3]:
+                print(f"          {detail}")
+            if len(seen) > 3:
+                print(f"          … and {len(seen) - 3} other distinct messages")
 
     passed = [e for e in analysis if e.get("severity") in ("debug", "info")]
     if passed:
@@ -317,6 +332,29 @@ def section_pods(root: Path, ns: str, now: dt.datetime, expand: bool) -> None:
                     reasons[(cond.get("reason"), msg)] += 1
         for (reason, msg), count in reasons.most_common(10):
             print(f"    [{count:>3}x] {reason}: {msg}")
+
+    # Pending does not imply unschedulable. A pod that scheduled fine but is stuck
+    # pulling an image or building a container config is Pending with a nodeName and
+    # PodScheduled=True, so the block above never sees it -- in practice the most
+    # common Pending cause. Its reason lives in the container statuses.
+    stuck = [p for p in pods
+             if p["status"].get("phase") == "Pending" and p["spec"].get("nodeName")]
+    if stuck:
+        print()
+        print(f"  PENDING BUT SCHEDULED: {len(stuck)} — placed on a node, blocked starting:")
+        blocked = collections.Counter()
+        for pod in stuck:
+            statuses = (pod["status"].get("initContainerStatuses") or []) + \
+                       (pod["status"].get("containerStatuses") or [])
+            for cs in statuses:
+                waiting = (cs.get("state") or {}).get("waiting")
+                if waiting:
+                    blocked[(cs["name"], waiting.get("reason"),
+                             (waiting.get("message") or "")[:80])] += 1
+        for (container, reason, msg), count in blocked.most_common(10):
+            print(f"    [{count:>3}x] c={container} {reason}{': ' + msg if msg else ''}")
+        if not blocked:
+            print("    (no waiting container state recorded — check events)")
 
 
 def section_restarts(root: Path, now: dt.datetime) -> None:
@@ -502,10 +540,14 @@ def section_alloc(root: Path) -> None:
     print(f"\n  allocatable: " + "  ".join(
         f"{k}={allocatable.get(k)}" for k in ("cpu", "memory", "ephemeral-storage", "pods")))
 
-    if pending:
-        extra = totals(pending)
+    # A Pending pod that already carries a nodeName is inside the baseline above,
+    # so projecting it on top would count it twice. Only genuinely unscheduled
+    # pods add anything.
+    unscheduled = [(ns, p) for ns, p in pending if not p["spec"].get("nodeName")]
+    if unscheduled:
+        extra = totals(unscheduled)
         print()
-        print(f"  If the {len(pending)} Pending pods were also scheduled they would add:")
+        print(f"  If the {len(unscheduled)} unscheduled Pending pods were placed here they would add:")
         for key in ("cpu", "memory", "ephemeral-storage"):
             cap = quantity(allocatable.get(key))
             if not cap:
