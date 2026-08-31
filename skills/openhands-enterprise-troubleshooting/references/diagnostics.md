@@ -1,8 +1,19 @@
 # OHE Diagnostics Reference
 
 Detailed diagnostic procedures for each OpenHands Enterprise failure mode. Run these commands on the
-VM via SSH. On an Embedded Cluster install, start `sudo ./openhands shell` first — it exports the
-kubeconfig and puts `kubectl` on your PATH.
+VM via SSH.
+
+**`kubectl` is not on the PATH by default**, so nothing below works until you get a working client.
+`sudo ./openhands shell` exports the kubeconfig and puts `kubectl` on your PATH — but it needs a TTY,
+so it will not work from a non-interactive session or an agent without one. In that case use the
+bundled k0s client instead, which needs no TTY:
+
+```bash
+sudo k0s kubectl get pods -A
+```
+
+Note that `kubectl support-bundle` resolves only inside `openhands shell`; the plugin is not on the
+PATH for `sudo k0s kubectl`.
 
 **Working from a support bundle instead of a live cluster?** Every command here has an offline
 equivalent. See [`support-bundle-analysis.md`](support-bundle-analysis.md) for the full mapping; the
@@ -247,9 +258,14 @@ status on every failed call.
 # Check if pods have network policies
 kubectl get networkpolicy -n openhands
 
-# Test DNS resolution from pod
-kubectl exec -n openhands deploy/openhands -- nslookup api.openai.com
+# Test DNS resolution from pod. The app image ships no `nslookup` or `dig`,
+# so use getent, which is part of libc and always present.
+kubectl exec -n openhands deploy/openhands -- getent hosts api.openai.com
 ```
+
+No output from `getent` means the name did not resolve. If you need to prove the whole path rather
+than just DNS, `curl -sS -o /dev/null -w '%{http_code}\n' https://api.openai.com` distinguishes a
+resolution failure from a routing or TLS one by the error it reports.
 
 ### Common LLM Errors
 
@@ -291,13 +307,17 @@ kubectl logs -n openhands keycloak-0 --tail=200 \
 ### Check Keycloak Realm Configuration
 
 > **Do not decode the admin credential into your shell.** On a live install that writes a working
-> password into your terminal history and into any agent transcript. Recent charts do not ship a
-> `keycloak-admin` secret at all — the bootstrap admin is supplied via
-> `KC_BOOTSTRAP_ADMIN_PASSWORD_FILE` — so read the wiring, not the value:
+> password into your terminal history and into any agent transcript.
+
+The admin credential is wired differently across versions, so check rather than assume. Some installs
+carry a `keycloak-admin` secret mounted via `KC_BOOTSTRAP_ADMIN_PASSWORD_FILE`; others expose only a
+`keycloak-realm` secret and no `-admin` secret at all. Read the wiring, never the value:
 
 ```bash
-# What credential mechanism is in use? Key names only, never values.
+# Which keycloak secrets exist here? Names only.
 kubectl get secret -n openhands -o name | grep -i keycloak
+
+# Which bootstrap mechanism is in use? Values masked.
 kubectl exec -n openhands keycloak-0 -- printenv | grep -i 'KC_BOOTSTRAP_ADMIN' | sed 's/=.*/=<set>/'
 ```
 
@@ -319,27 +339,25 @@ The realm check above is the one that answers the question that actually matters
 reach Keycloak — because it goes through the ingress and so exercises DNS, TLS, and routing. Prefer
 it, and read a failure there as a fault in the path rather than in the server.
 
-The `/health` endpoints are the exception. From Keycloak 25 they moved to a separate management
-interface on port 9000, which exists precisely so health and metrics stay off the public route — the
-ingress fronts the main HTTP port and does not carry them. So `$KEYCLOAK_URL/health/ready` will not
-work, and reaching health means going to the pod directly:
+**Do not rely on `/health` here.** These installs ship Bitnami's Keycloak image, which does not
+expose the management interface that upstream Keycloak 25+ serves on port 9000. On a verified
+v0.58.0 install running Bitnami Keycloak 26.3.0, only `8080` and `7800` are exposed, `:9000` refuses
+the connection outright, `:8080/health*` returns 404, and the realm endpoint is the only thing that
+answers 200. A health check against this pod tells you nothing about Keycloak's state.
+
+Confirm what the pod actually exposes before assuming any health port exists:
 
 ```bash
-# Port 9000 is served internally even though the pod spec declares only 8080
-kubectl exec -n openhands keycloak-0 -- \
-  curl -fsS -o /dev/null -w '%{http_code}\n' http://localhost:9000/health/ready
+kubectl get pod -n openhands keycloak-0 \
+  -o jsonpath='{range .spec.containers[*].ports[*]}{.name}:{.containerPort}{"\n"}{end}'
+kubectl get pod -n openhands keycloak-0 -o jsonpath='{.spec.containers[*].image}{"\n"}'
 ```
 
-Two ways this misleads. A 404 means health is disabled on the server rather than Keycloak being
-unhealthy — `health-enabled` is off, or `--legacy-observability-interface=true` has kept the
-endpoints on the main port. And the image may ship without `curl`, in which case the exec fails for
-reasons unrelated to Keycloak. In that case fall back to a port-forward, run in a separate shell:
-
-```bash
-kubectl port-forward -n openhands statefulset/keycloak 9000:9000
-# then, from your own machine:
-curl -fsS -o /dev/null -w '%{http_code}\n' http://localhost:9000/health/ready
-```
+If the image is `bitnami/keycloak` or `bitnamilegacy/keycloak`, use the realm check above as the
+liveness signal and stop there. Only on an upstream `quay.io/keycloak/keycloak` image at 25 or newer
+is `:9000/health/ready` meaningful, and even then a 404 means health is disabled on the server —
+`health-enabled` is off, or `--legacy-observability-interface=true` has kept the endpoints on the
+main port — rather than Keycloak being unhealthy.
 
 ---
 
@@ -503,8 +521,10 @@ kubectl exec -n openhands deploy/openhands -- ls /proc/self/fd | wc -l
 # Node disk pressure
 kubectl get nodes -o jsonpath='{range .items[*]}{.metadata.name}{"\t"}{.status.conditions[?(@.type=="DiskPressure")].status}{"\n"}'
 
-# Find large directories
-kubectl exec -n openhands deploy/openhands -- du -sh /var/*
+# Find large directories. The container runs as non-root, so du reports
+# "Permission denied" on paths it cannot read and exits 1 even when it
+# succeeded elsewhere — read the sizes, not the exit code.
+kubectl exec -n openhands deploy/openhands -- du -sh /var/* 2>/dev/null
 ```
 
 ### Common Resource Exhaustion Fixes

@@ -159,11 +159,12 @@ kubectl top pods -n openhands
 echo | openssl s_client -connect HOST:443 2>/dev/null | openssl x509 -noout -dates
 
 # Check the Replicated components. On Embedded Cluster these are the Admin
-# Console in `kotsadm` and the operator in `embedded-cluster`; a `replicated`
+# Console in `kotsadm`, the operator in `embedded-cluster`, and the Replicated
+# SDK in `openhands` under app.kubernetes.io/name=replicated. A `replicated`
 # namespace belongs to the older kURL topology and is absent here.
 kubectl get pods -n kotsadm
 kubectl get pods -n embedded-cluster
-kubectl logs -n embedded-cluster -l app.kubernetes.io/name=embedded-cluster-operator --tail=100
+kubectl get pods -n openhands -l app.kubernetes.io/name=replicated
 ```
 
 ## Support Bundle Generation
