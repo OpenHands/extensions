@@ -74,21 +74,17 @@ kubectl get pods -A -l app.kubernetes.io/name=sysbox-installer
 kubectl exec -n openhands <runtime-pod> -- df -h
 ```
 
-A missing runtime is not the only reason sandboxes stay Pending. Where the install reserves nodes
-for sandboxes, `runtime-api` is given `RUNTIME_NODE_SELECTOR={"openhands.dev/sandbox":"true"}`, so
-a sandbox can only land on a node carrying that label — and free capacity anywhere else is
-unreachable:
+A missing runtime is not the only reason a sandbox stays Pending. If `runtime-api` is configured
+with a `RUNTIME_NODE_SELECTOR`, sandboxes can only land on nodes carrying the labels it names, and
+capacity on any other node is unreachable. The scheduler says which it was:
 
 ```bash
-# Which nodes carry which roles
-kubectl get nodes -L node-role.kubernetes.io/control-plane,openhands.dev/app,openhands.dev/sandbox
-
-# Why the scheduler refused: the message names the selector or the affinity
+# The scheduler's own reason — names the selector, the affinity, or the missing resource
 kubectl describe pod -n openhands <runtime-pod> | grep -A5 Events
-```
 
-If no node carries `openhands.dev/sandbox`, sandboxes have nowhere to go. The labels are applied at
-join time only, so a node joined before the role existed will not have one until it is relabelled.
+# What the nodes actually offer
+kubectl get nodes --show-labels
+```
 
 ---
 

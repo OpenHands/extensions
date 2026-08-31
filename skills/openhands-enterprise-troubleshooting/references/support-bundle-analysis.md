@@ -237,49 +237,35 @@ Two different questions, two different sources:
   - `Succeeded` pods still carry a `nodeName`. Counting completed Jobs inflates the total against a
     node that has long since reclaimed their capacity.
 
-  `bundle_triage.py --section alloc` applies neither rule: it adds init containers to the regular
-  sum, and it divides cluster-wide requests by the first node's allocatable, so on a cluster with
-  more than one node the percentages are inflated further still. Treat its output as a starting
-  point and recompute by hand before concluding a node is short of capacity.
+  `bundle_triage.py --section alloc` applies neither rule — it adds init-container requests to the
+  regular sum, so any pod with init steps is over-charged. Treat its percentages as a starting point
+  and recompute by hand before concluding a node is short of capacity.
 
 Requests, not usage, decide whether the next pod schedules. A node at 17% memory usage can still
 refuse to schedule anything. Check `ephemeral-storage` too — it is a real and frequently-hit
 ceiling that nobody thinks to look at.
 
-### Node roles and where workloads are allowed to land
-
-Start by reading the node labels out of `nodes.json`, because they determine which nodes a given pod
-was ever eligible for:
+A `Pending` pod is not always short of resources. If it carries a `spec.nodeSelector` or a
+`spec.affinity`, the scheduler will only consider nodes matching it, and free capacity elsewhere
+counts for nothing. Check the constraint against the labels actually present before reading the
+allocation numbers as the answer:
 
 ```bash
+# What the pod demands of a node
+jq -r '.items[] | select(.status.phase == "Pending")
+  | .metadata.name, (.spec.nodeSelector // {}), (.spec.affinity // {})' \
+  cluster-resources/pods/openhands.json
+
+# What the nodes actually offer
 jq -r '.items[] | .metadata.name + "\t" + ((.metadata.labels // {}) | to_entries
   | map(select(.key | test("node-role|openhands.dev"))) | map(.key) | join(","))' \
   cluster-resources/nodes.json
 ```
 
-- `node-role.kubernetes.io/control-plane` — stamped by k0s.
-- `openhands.dev/app` — carries the app workloads.
-- `openhands.dev/sandbox` — reserved for sandboxes.
-
-These labels are applied when a node joins and are never reconciled afterwards, so a node that
-joined before its role existed will not carry one. An absent label is not evidence the role was
-never intended.
-
-Where the install enables dedicated sandbox nodes, app workloads get a required `nodeAffinity` for
-control-plane or `openhands.dev/app`, and `runtime-api` is given
-`RUNTIME_NODE_SELECTOR={"openhands.dev/sandbox":"true"}` so sandboxes only land on sandbox nodes.
-Two failure modes follow, and both look like a capacity problem until you check the labels:
-
-- **Sandboxes Pending, cluster looks idle.** No node carries `openhands.dev/sandbox`, or the ones
-  that do are full. Spare capacity on the app nodes is unreachable — the selector forbids it. A
-  preflight warns about the no-sandbox-node case at install time, but it warns rather than fails, so
-  a cluster can be running in that state.
-- **App pods Pending while sandbox nodes sit empty.** The mirror image: the app affinity excludes
-  the sandbox nodes.
-
-Check the pod's `spec.nodeSelector` and `spec.affinity` against the labels actually present before
-concluding the cluster is out of room. `Pending` with no `nodeName` and no scheduling event is the
-signature — see the events caveat below, since the bundle may not have captured the reason.
+Node labels are applied at join time and are not reconciled afterwards, so an absent label is not
+evidence the role was never intended. `Pending` with no `nodeName` and no scheduling event is the
+signature of a constraint nothing satisfies — see the events caveat below, since the bundle may not
+have captured the reason.
 
 ```bash
 NODE=$(ls node-metrics/*.json | head -1)
@@ -594,13 +580,7 @@ a genuinely unset value.
 
 **Not verified at all:** non-Embedded-Cluster installs.
 
-**Read the allocation section per node.** `--section alloc` reports one set of percentages computed
-from the first node's allocatable against requests summed across every pod in the cluster. Where the
-cluster has more than one node those percentages do not describe any node, and `EXCEEDS ALLOCATABLE`
-does not mean what it says. `nodes.json` and the `NODE` column of the pod table carry what you need
-to redo it properly: group the pods by `spec.nodeName` and compare each group against that node's
-own `status.allocatable`.
-
-This matters most on installs using dedicated sandbox nodes, where it is normal for capacity to be
-tight on the sandbox nodes and idle on the app nodes at the same moment — a cluster-wide average
-hides exactly the imbalance you are looking for.
+**Check the allocation section by hand before acting on it.** `--section alloc` adds init-container
+requests to the regular sum rather than taking `max(sum(regular), max(init))`, so its percentages
+run high for any pod with init steps. The pod table's `NODE` column and `status.allocatable` in
+`nodes.json` are what you need to redo the sum properly.
