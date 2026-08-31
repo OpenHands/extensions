@@ -19,7 +19,7 @@ An agent-runnable skill for diagnosing and resolving common issues on **OpenHand
 - Maps the `kubectl` commands you would normally run onto the files that actually hold that data
 - Ships an offline triage script that reconstructs the standard first pass in one command
 - Documents what a bundle does *not* contain, so a negative result is not misread
-- Reduces back-and-forth with the platform team
+- Reduces back-and-forth with the OpenHands team
 
 ### 4. Escalation Handoff
 - Produces a clear summary when issues cannot be resolved

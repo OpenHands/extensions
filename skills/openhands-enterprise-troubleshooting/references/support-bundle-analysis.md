@@ -311,6 +311,11 @@ pod IPs, CIDRs inside `NO_PROXY`, and non-secret values that merely pattern-matc
 and **not** "this is unset". You can always confirm that an env var is set and where its value comes
 from; you cannot always read the value.
 
+Over-redaction does not imply completeness. The redactor is pattern-based, so identifying data it
+has no pattern for — hostnames, user and installation identifiers, internal URLs — routinely
+survives into the bundle. Treat the archive as confidential regardless of how much of it is masked,
+and redact identifiers yourself before quoting bundle contents anywhere public.
+
 ## Config and Helm values
 
 **Not in the bundle:** rendered Helm values, `sh.helm.release.v1.*` secrets, and the KOTS

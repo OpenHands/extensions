@@ -28,7 +28,7 @@ When a user reports an OHE issue:
 3. **Run targeted diagnostics** - Use commands in `references/diagnostics.md`
 4. **Guide recovery** - Follow resolution steps for the identified issue
 5. **Verify fix** - Confirm the issue is resolved
-6. **Generate handoff** - If unresolved, produce a clear summary for the platform team
+6. **Generate handoff** - If unresolved, produce a clear summary for the OpenHands team
 
 ## Common Failure Modes
 
@@ -173,7 +173,12 @@ kubectl support-bundle --load-cluster-specs /var/lib/embedded-cluster/support/ho
 ```
 
 The bundle is written to the working directory as `support-bundle-<UTC timestamp>.tar.gz`. Share it
-with the platform team, or analyze it directly with the steps below.
+with the OpenHands team, or analyze it directly with the steps below.
+
+Support bundles carry potentially sensitive data. Replicated's redactor masks common secret patterns
+as `***HIDDEN***`, but it is not a guarantee — hostnames, user and installation identifiers, and
+config values routinely survive it. Treat a bundle as confidential, send it only through the channel
+the OpenHands team gives you, and avoid pasting raw excerpts into public issues or chats.
 
 ### Analyzing the Support Bundle
 
