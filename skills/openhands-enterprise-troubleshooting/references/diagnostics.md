@@ -22,10 +22,18 @@ Start with `python3 scripts/bundle_triage.py <bundle>` and `analysis.json` befor
 
 ## Sandbox Startup
 
-### Check Sandbox Pod Status
+Sandboxes are created on demand by the **`runtime-api`** service; each one is its own
+`runtime-*` pod. There is no long-lived "sandbox" deployment, so start with `runtime-api` when
+sandboxes fail to start at all, and with the individual `runtime-*` pod when one specific
+conversation fails.
 
 ```bash
-kubectl get pods -n openhands -l app=sandbox --watch
+# The service that creates sandboxes
+kubectl get pods -n openhands -l app.kubernetes.io/name=runtime-api
+kubectl logs -n openhands -l app.kubernetes.io/name=runtime-api --tail=100
+
+# The sandboxes themselves
+kubectl get pods -n openhands | grep '^runtime-'
 ```
 
 Look for: `Running` status, multiple restarts, `ImagePullBackOff`, `CrashLoopBackOff`
@@ -33,14 +41,11 @@ Look for: `Running` status, multiple restarts, `ImagePullBackOff`, `CrashLoopBac
 ### Check Sandbox Logs
 
 ```bash
-# Get sandbox pod name
-SANDBOX_POD=$(kubectl get pods -n openhands -l app=sandbox -o jsonpath='{.items[0].metadata.name}')
+# A specific sandbox pod
+kubectl logs -n openhands <runtime-pod> --tail=100
 
-# View recent logs
-kubectl logs -n openhands $SANDBOX_POD --tail=100
-
-# View previous log (if pod restarted)
-kubectl logs -n openhands $SANDBOX_POD --previous
+# Previous log, if it restarted
+kubectl logs -n openhands <runtime-pod> --previous
 ```
 
 ### Common Sandbox Startup Errors
@@ -54,62 +59,87 @@ kubectl logs -n openhands $SANDBOX_POD --previous
 
 ### Sandbox Runtime Check
 
+Sandboxes run under the **`sysbox-runc`** RuntimeClass, which maps to a sysbox containerd runtime
+registered on each node by a DaemonSet. If that registration failed, every sandbox stays Pending or
+fails to create while the rest of the platform looks healthy.
+
 ```bash
-# Check if container runtime is responsive
-kubectl exec -n openhands deploy/sandbox -- crictl info
+# The RuntimeClass sandboxes depend on
+kubectl get runtimeclass sysbox-runc
 
-# Check sandbox disk space
-kubectl exec -n openhands deploy/sandbox -- df -h
+# The installer that registers it on each node
+kubectl get pods -A -l app.kubernetes.io/name=sysbox-installer
 
-# Check sandbox file descriptors
-kubectl exec -n openhands deploy/sandbox -- ls /proc/self/fd | wc -l
+# Disk space inside a running sandbox
+kubectl exec -n openhands <runtime-pod> -- df -h
 ```
 
 ---
 
 ## Git Provider Auth
 
-### Check GitHub App Status
+Four providers are supported, each configured independently: **GitHub**, **GitLab**,
+**Bitbucket Data Center**, and **Azure DevOps**. There is no `git-provider-secret` and no
+per-provider pod — each provider is one Secret, consumed as environment variables by the main
+`openhands` deployment. So provider auth failures show up in the app's own logs, not in a
+dedicated workload.
+
+| Provider | Secret | Keys |
+|---|---|---|
+| GitHub | `github-app` | `app-id`, `app-slug`, `client-id`, `client-secret`, `private-key`, `webhook-secret` |
+| GitLab | `gitlab-app` | `client-id`, `client-secret` |
+| Bitbucket Data Center | `bitbucket-data-center-app` | `host`, `client-id`, `client-secret`, `bot-token` |
+| Azure DevOps | `azure-devops-app` | `client-id`, `client-secret`, `webhook-secret` |
+
+### Which providers are configured
 
 ```bash
-kubectl get pods -n openhands -l app=github-app
+# Only configured providers have a secret -- absence is the usual "auth broken" cause
+kubectl get secret -n openhands github-app gitlab-app bitbucket-data-center-app azure-devops-app 2>&1
 
-# Check GitHub App secret exists
-kubectl get secret -n openhands -o yaml | grep -i github
+# Confirm the app was actually told to enable it (secret present but disabled is a common trap)
+kubectl set env deploy/openhands -n openhands --list | grep -E '^(GITHUB|GITLAB|BITBUCKET|AZURE)'
 ```
 
-### Check Git Provider Secrets
+### Check a provider secret has the keys it needs
+
+Replace `<secret>` with the row from the table above. This prints key names and byte lengths, never
+the values:
 
 ```bash
-# List git provider secrets
-kubectl get secrets -n openhands | grep -i git
-
-# Check if secret has data
-kubectl get secret -n openhands git-provider-secret -o yaml
+kubectl get secret -n openhands <secret> \
+  -o go-template='{{range $k,$v := .data}}{{$k}}={{len $v}} bytes{{"\n"}}{{end}}'
 ```
 
-### Validate GitHub Token
+A key present but zero-length is the failure worth looking for — Helm renders empty values into a
+valid Secret, so the object exists and looks correct while auth fails.
+
+### Validate credentials against the provider
+
+Each provider uses a different auth scheme and endpoint. Bitbucket Data Center and Azure DevOps are
+self-hosted, so the host comes from your config, not a fixed domain.
 
 ```bash
-# Get the token from secret (decode base64)
-GITHUB_TOKEN=$(kubectl get secret -n openhands git-provider-secret -o jsonpath='{.data.token}' | base64 -d)
+# GitHub App -- requires a signed JWT, so a plain token check is not meaningful.
+# Verify the app can see its installations (run from a pod with the credentials):
+curl -s -H "Authorization: Bearer $GITHUB_JWT" https://api.github.com/app/installations
 
-# Test token validity
-curl -s -H "Authorization: token $GITHUB_TOKEN" https://api.github.com/app
-
-# Check GitHub App installation
-curl -s -H "Authorization: token $GITHUB_TOKEN" https://api.github.com/app/installations
-```
-
-### Check GitLab Token
-
-```bash
-# Get GitLab token
-GITLAB_TOKEN=$(kubectl get secret -n openhands git-provider-secret -o jsonpath='{.data.gitlab_token}' | base64 -d)
-
-# Test token validity
+# GitLab
 curl -s -H "PRIVATE-TOKEN: $GITLAB_TOKEN" "https://gitlab.com/api/v4/user"
+
+# Bitbucket Data Center -- self-hosted, REST API 1.0, bot token
+curl -s -H "Authorization: Bearer $BITBUCKET_DATA_CENTER_BOT_TOKEN" \
+  "https://$BITBUCKET_DATA_CENTER_HOST/rest/api/1.0/users"
+
+# Azure DevOps -- PAT, basic auth with an empty username
+curl -s -u ":$AZURE_DEVOPS_TOKEN" \
+  "https://dev.azure.com/$AZURE_DEVOPS_ORG/_apis/projects?api-version=7.0"
 ```
+
+For a self-hosted provider, an auth failure is often really a **network or TLS** failure: the
+cluster may not be able to reach the Bitbucket or Azure DevOps host at all, or may reject its
+certificate. Test reachability from inside a pod before assuming the credentials are wrong, and see
+the Certificate Issues section below for private CAs.
 
 ---
 
@@ -461,7 +491,7 @@ kubectl get events -n openhands --field-selector type=Warning
 kubectl get pods -n openhands -o wide
 
 # Tail logs from all pods with a label
-kubectl logs -n openhands -l app=sandbox --tail=50 -f
+kubectl logs -n openhands -l app.kubernetes.io/name=runtime-api --tail=50 -f
 
 # Get pod restart count
 kubectl get pods -n openhands -o jsonpath='{range .items[*]}{.metadata.name}{"\t"}{.status.containerStatuses[*].restartCount}{"\n"}'

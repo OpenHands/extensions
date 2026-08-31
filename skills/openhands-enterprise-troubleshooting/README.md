@@ -29,7 +29,7 @@ An agent-runnable skill for diagnosing and resolving common issues on **OpenHand
 ## Common Issues Covered
 
 - Sandbox fails to start / 120s timeout
-- Git provider auth broken (GitHub App, GitLab token)
+- Git provider auth broken (GitHub, GitLab, Bitbucket Data Center, Azure DevOps)
 - Certificate errors (self-signed, expired, chain issues)
 - LLM connectivity failures (endpoint unreachable, bad credentials)
 - Keycloak login issues

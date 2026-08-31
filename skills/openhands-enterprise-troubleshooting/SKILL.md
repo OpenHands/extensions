@@ -39,18 +39,21 @@ When a user reports an OHE issue:
 - "Sandbox failed to start" error
 - 120-second timeout in logs
 
-**Diagnosis:** Check sandbox service status, podman/docker runtime, resource availability
+**Diagnosis:** Check sandbox service status, the `sysbox-runc` RuntimeClass and its containerd
+runtime, resource availability
 
 **Reference:** See `references/diagnostics.md` - Section "Sandbox Startup"
 
 ### 2. Git Provider Auth Broken
 
 **Symptoms:**
-- "Authentication failed" for GitHub/GitLab
+- "Authentication failed" for the configured provider
 - Can't clone or push repos
-- GitHub App shows as disconnected
+- The provider shows as disconnected
 
-**Diagnosis:** Check gitProvider secrets in kubernetes, GitHub App installation status
+**Diagnosis:** Check the provider's secret in Kubernetes and that the provider is enabled. GitHub,
+GitLab, Bitbucket Data Center, and Azure DevOps are each configured separately — confirm which one
+the user is actually on before diagnosing
 
 **Reference:** See `references/diagnostics.md` - Section "Git Provider Auth"
 
