@@ -48,22 +48,14 @@ library only, no dependencies.
 python3 scripts/bundle_triage.py /path/to/support-bundle-2026-07-28T06_54_18
 ```
 
-It opens with a **FINDINGS** block — everything that looks wrong, ranked *BROKEN NOW* / *DEGRADED* /
-*CONTEXT*, each pointing at the section that explains it. Read that first and jump; the rest of the
-output is there to confirm a finding, not to be read top to bottom.
+It prints, in order: bundle metadata and node capacity, analyzer verdicts, a
+`kubectl get pods -o wide` table, an OOM/restart scan across every namespace, a `kubectl top pods`
+equivalent, allocated-vs-allocatable resources, and an events summary.
 
-After it: bundle metadata and node capacity, analyzer verdicts, a `kubectl get pods -o wide` table,
-an OOM/restart scan across every namespace, a `kubectl top pods` equivalent,
-allocated-vs-allocatable resources, and an events summary.
-
-```bash
-# Just the ranked findings
-python3 scripts/bundle_triage.py <bundle> --section findings
-```
-
-The ranking is mechanical — it reflects what the objects say, not which finding explains the
-symptom the user reported. A `BROKEN NOW` line can be long-standing and irrelevant, and the thing
-that actually broke may not appear at all (see below).
+The script reports; it does not rank or diagnose. Reading the output for which of its observations
+explains the symptom the user reported is the part that needs judgement, and it is yours to do. An
+alarming-looking line can be long-standing and irrelevant, and the thing that actually broke may not
+appear in the output at all (see below).
 
 ```bash
 # Focus one namespace, or one section at a time
@@ -83,7 +75,7 @@ Use it to orient, then go to the raw files for anything it surfaces.
 | `analysis.json` | Pre-computed analyzer verdicts — often answers the question outright |
 | `version.yaml` | Troubleshoot spec version |
 | `cluster-info/cluster_version.json` | Kubernetes version |
-| `cluster-resources/nodes.json` | Node count, capacity, conditions, taints |
+| `cluster-resources/nodes.json` | Nodes, their labels and roles, capacity, conditions, taints |
 | `kots/admin_console/app-info.json` | App status, channel, sequence, KOTS + embedded-cluster versions |
 
 `analysis.json` is the fastest orientation in the bundle and the most frequently skipped. It ships
@@ -245,11 +237,49 @@ Two different questions, two different sources:
   - `Succeeded` pods still carry a `nodeName`. Counting completed Jobs inflates the total against a
     node that has long since reclaimed their capacity.
 
-  `bundle_triage.py --section alloc` implements both rules.
+  `bundle_triage.py --section alloc` applies neither rule: it adds init containers to the regular
+  sum, and it divides cluster-wide requests by the first node's allocatable, so on a cluster with
+  more than one node the percentages are inflated further still. Treat its output as a starting
+  point and recompute by hand before concluding a node is short of capacity.
 
 Requests, not usage, decide whether the next pod schedules. A node at 17% memory usage can still
 refuse to schedule anything. Check `ephemeral-storage` too — it is a real and frequently-hit
 ceiling that nobody thinks to look at.
+
+### Node roles and where workloads are allowed to land
+
+Start by reading the node labels out of `nodes.json`, because they determine which nodes a given pod
+was ever eligible for:
+
+```bash
+jq -r '.items[] | .metadata.name + "\t" + ((.metadata.labels // {}) | to_entries
+  | map(select(.key | test("node-role|openhands.dev"))) | map(.key) | join(","))' \
+  cluster-resources/nodes.json
+```
+
+- `node-role.kubernetes.io/control-plane` — stamped by k0s.
+- `openhands.dev/app` — carries the app workloads.
+- `openhands.dev/sandbox` — reserved for sandboxes.
+
+These labels are applied when a node joins and are never reconciled afterwards, so a node that
+joined before its role existed will not carry one. An absent label is not evidence the role was
+never intended.
+
+Where the install enables dedicated sandbox nodes, app workloads get a required `nodeAffinity` for
+control-plane or `openhands.dev/app`, and `runtime-api` is given
+`RUNTIME_NODE_SELECTOR={"openhands.dev/sandbox":"true"}` so sandboxes only land on sandbox nodes.
+Two failure modes follow, and both look like a capacity problem until you check the labels:
+
+- **Sandboxes Pending, cluster looks idle.** No node carries `openhands.dev/sandbox`, or the ones
+  that do are full. Spare capacity on the app nodes is unreachable — the selector forbids it. A
+  preflight warns about the no-sandbox-node case at install time, but it warns rather than fails, so
+  a cluster can be running in that state.
+- **App pods Pending while sandbox nodes sit empty.** The mirror image: the app affinity excludes
+  the sandbox nodes.
+
+Check the pod's `spec.nodeSelector` and `spec.affinity` against the labels actually present before
+concluding the cluster is out of room. `Pending` with no `nodeName` and no scheduling event is the
+signature — see the events caveat below, since the bundle may not have captured the reason.
 
 ```bash
 NODE=$(ls node-metrics/*.json | head -1)
@@ -545,7 +575,7 @@ Healthy bundles were used only to establish what normal looks like and to catch 
 every claim about a failure mode below was checked against a bundle actually exhibiting it, or is
 listed as unproven.
 
-**Verified against real single-node Embedded Cluster bundles:** directory layout and the
+**Verified against real Embedded Cluster bundles:** directory layout and the
 container-name log convention; `analysis.json`, `nodes.json`, `cluster_version.json`, `app-info.json`
 and per-namespace pod file shapes; the symlink farms; empty-vs-missing logs; `"items": null` on empty
 events; absence of node-scoped events and of `describe` output; the mtime trap; historical
@@ -562,11 +592,15 @@ heuristic, which needs five same-second terminations; native sidecars (`initCont
 an abnormal `lastState`, which would be counted twice by the restart scan; and `***HIDDEN***` versus
 a genuinely unset value.
 
-**Not verified at all:** multi-node, HA, and non-Embedded-Cluster installs. Every bundle checked so
-far is single-node k0s Embedded Cluster. Node-count-dependent claims should be treated as unproven
-there.
+**Not verified at all:** non-Embedded-Cluster installs.
 
-**Known wrong on multi-node:** the allocation section reads allocatable from the first node only
-while summing requests across every pod in the cluster, so its percentages are inflated roughly in
-proportion to the node count and `EXCEEDS ALLOCATABLE` becomes meaningless. On a multi-node cluster,
-ignore that section and compute headroom per node by hand.
+**Read the allocation section per node.** `--section alloc` reports one set of percentages computed
+from the first node's allocatable against requests summed across every pod in the cluster. Where the
+cluster has more than one node those percentages do not describe any node, and `EXCEEDS ALLOCATABLE`
+does not mean what it says. `nodes.json` and the `NODE` column of the pod table carry what you need
+to redo it properly: group the pods by `spec.nodeName` and compare each group against that node's
+own `status.allocatable`.
+
+This matters most on installs using dedicated sandbox nodes, where it is normal for capacity to be
+tight on the sandbox nodes and idle on the app nodes at the same moment — a cluster-wide average
+hides exactly the imbalance you are looking for.

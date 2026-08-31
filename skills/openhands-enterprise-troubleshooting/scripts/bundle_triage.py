@@ -32,7 +32,7 @@ from pathlib import Path
 # Collapse them to a summary unless --expand-runtimes is passed.
 RUNTIME_PREFIX = "runtime-"
 
-SECTIONS = ("findings", "meta", "analyzers", "pods", "restarts", "top", "alloc", "events")
+SECTIONS = ("meta", "analyzers", "pods", "restarts", "top", "alloc", "events")
 
 
 # --------------------------------------------------------------------------
@@ -178,21 +178,6 @@ def all_pods(root: Path) -> list[tuple[str, dict]]:
     return out
 
 
-# Conditions whose polarity is known. Anything else — including vendor conditions
-# named positively, like ContainerdHasNoDeprecations — is left unflagged: guessing
-# polarity from the name raises false alarms on healthy nodes.
-PRESSURE_CONDITIONS = {"MemoryPressure", "DiskPressure", "PIDPressure", "NetworkUnavailable"}
-
-
-def bad_condition(cond: dict) -> bool:
-    kind, status = cond.get("type"), cond.get("status")
-    if kind == "Ready":
-        return status != "True"
-    if kind in PRESSURE_CONDITIONS:
-        return status == "True"
-    return False
-
-
 def header(title: str) -> None:
     print()
     print("=" * 78)
@@ -203,99 +188,6 @@ def header(title: str) -> None:
 # --------------------------------------------------------------------------
 # sections
 # --------------------------------------------------------------------------
-
-def collect_findings(root: Path, now: dt.datetime) -> list[tuple[int, str, str]]:
-    """Everything that looks wrong, as (rank, headline, where-to-look).
-
-    Rank 0 is actively broken now, 1 is degraded or historical, 2 is context. The
-    ranking is deliberately conservative: anything ambiguous lands at 1 rather
-    than being promoted, so a loud finding means something.
-    """
-    out: list[tuple[int, str, str]] = []
-
-    for entry in load(root / "analysis.json") or []:
-        severity = entry.get("severity")
-        if severity in ("debug", "info"):
-            continue
-        detail = (entry.get("insight") or {}).get("detail", "")[:100]
-        rank = 0 if severity in ("error", "fail") else 1
-        out.append((rank, f"analyzer {severity}: {entry.get('name')}", detail))
-
-    stuck_phase, not_ready, oom_live, oom_old, crashloops = [], [], [], [], []
-    for ns, pod in all_pods(root):
-        name, phase = pod["metadata"]["name"], pod["status"].get("phase")
-        if phase in ("Failed", "Unknown"):
-            stuck_phase.append(f"{ns}/{name} ({pod_status(pod)})")
-        elif phase == "Pending":
-            stuck_phase.append(f"{ns}/{name} ({pod_status(pod)})")
-        statuses = (pod["status"].get("containerStatuses") or []) + \
-                   (pod["status"].get("initContainerStatuses") or [])
-        for cs in statuses:
-            state = cs.get("state") or {}
-            waiting = (state.get("waiting") or {}).get("reason") or ""
-            if "CrashLoopBackOff" in waiting:
-                crashloops.append(f"{ns}/{name} c={cs['name']} restarts={cs.get('restartCount', 0)}")
-            if (state.get("terminated") or {}).get("reason") == "OOMKilled":
-                oom_live.append(f"{ns}/{name} c={cs['name']}")
-            elif ((cs.get("lastState") or {}).get("terminated") or {}).get("reason") == "OOMKilled":
-                target = oom_old if cs.get("ready") else oom_live
-                target.append(f"{ns}/{name} c={cs['name']} restarts={cs.get('restartCount', 0)}")
-        if phase == "Running" and not all(c.get("ready") for c in
-                                          pod["status"].get("containerStatuses") or []):
-            not_ready.append(f"{ns}/{name}")
-
-    def add(rank, items, label, where, limit=4):
-        if items:
-            shown = ", ".join(items[:limit])
-            more = f" (+{len(items) - limit} more)" if len(items) > limit else ""
-            out.append((rank, f"{len(items)} {label}", f"{shown}{more} — {where}"))
-
-    add(0, crashloops, "container(s) in CrashLoopBackOff", "--section restarts")
-    add(0, oom_live, "container(s) OOMKilled and not healthy now", "--section restarts")
-    add(0, stuck_phase, "pod(s) not Running/Succeeded", "--section pods")
-    add(1, not_ready, "Running pod(s) with containers not ready", "--section pods")
-    add(1, oom_old, "container(s) with a recovered OOMKill", "--section restarts")
-
-    nodes = items(root / "cluster-resources" / "nodes.json")
-    for node in nodes:
-        for cond in (node.get("status") or {}).get("conditions", []):
-            if bad_condition(cond):
-                out.append((0, f"node {node['metadata']['name']}: {cond['type']}={cond['status']}",
-                            cond.get("reason", "")))
-
-    if not nodes:
-        out.append((2, "no node objects captured",
-                    "cluster-scoped collectors may have failed — most checks below are blind"))
-    return out
-
-
-def section_findings(root: Path, now: dt.datetime) -> None:
-    header("FINDINGS  (what looks wrong — read this first)")
-    findings = collect_findings(root, now)
-    if not findings:
-        print("  Nothing anomalous found by the checks this script performs.")
-        print()
-        print("  That is not the same as a healthy install. This script sees pod objects,")
-        print("  analyzer verdicts, node conditions and resource totals — it does not read")
-        print("  application logs, and the bundle has no node-scoped events. If a user is")
-        print("  reporting a problem, it is in something not covered here: read the logs for")
-        print("  the failing component and see references/support-bundle-analysis.md.")
-        return
-
-    labels = {0: "BROKEN NOW", 1: "DEGRADED", 2: "CONTEXT"}
-    for rank in (0, 1, 2):
-        group = [f for f in findings if f[0] == rank]
-        if not group:
-            continue
-        print(f"  {labels[rank]}")
-        for _, headline, detail in group:
-            print(f"    - {headline}")
-            if detail:
-                print(f"        {detail}")
-        print()
-    print("  Ranking is mechanical, not a diagnosis: it reflects what the objects say, not")
-    print("  which finding explains the user's symptom. Confirm against the sections below.")
-
 
 def section_meta(root: Path, now: dt.datetime) -> None:
     header("BUNDLE METADATA")
@@ -320,21 +212,22 @@ def section_meta(root: Path, now: dt.datetime) -> None:
     for node in items(root / "cluster-resources" / "nodes.json") or (
         load(root / "cluster-resources" / "nodes.json") or {}
     ).get("items") or []:
-        status = node.get("status") or {}
-        cap = status.get("capacity") or {}
-        info = status.get("nodeInfo") or {}
+        status = node["status"]
+        cap = status["capacity"]
+        info = status["nodeInfo"]
         print()
-        print(f"  NODE {node.get('metadata', {}).get('name')}")
+        print(f"  NODE {node['metadata']['name']}")
         print(f"    capacity    : cpu={cap.get('cpu')} memory={gib(quantity(cap.get('memory')))} "
               f"pods={cap.get('pods')} ephemeral={gib(quantity(cap.get('ephemeral-storage')))}")
         print(f"    os/runtime  : {info.get('osImage')} | {info.get('containerRuntimeVersion')} "
               f"| kubelet {info.get('kubeletVersion')}")
         for cond in status.get("conditions", []):
-            print(f"    {'!!' if bad_condition(cond) else '  '} {cond['type']:<18} {cond['status']:<6} "
+            bad = (cond["type"] == "Ready" and cond["status"] != "True") or \
+                  (cond["type"] != "Ready" and cond["status"] == "True")
+            print(f"    {'!!' if bad else '  '} {cond['type']:<18} {cond['status']:<6} "
                   f"{cond.get('reason', '')} (since {cond.get('lastTransitionTime')})")
-        taints = (node.get("spec") or {}).get("taints")
-        if taints:
-            print(f"    taints      : {json.dumps(taints)}")
+        if node["spec"].get("taints"):
+            print(f"    taints      : {json.dumps(node['spec']['taints'])}")
 
 
 def section_analyzers(root: Path) -> None:
@@ -346,37 +239,22 @@ def section_analyzers(root: Path) -> None:
     print(f"  {len(analysis)} analyzers: {dict(by_sev)}")
 
     # Per-sandbox analyzers are generated one-per-pod and otherwise drown out
-    # everything else. Collapse only the segments that are instance identifiers —
-    # wildcarding the whole middle merges unrelated subsystems (a db-cleanup
-    # failure and a warm-runtimes failure) into one line and hides real failures.
+    # everything else. Collapse the object-specific middle of the dotted name.
     def family(name: str) -> str:
-        return ".".join(
-            "*" if re.fullmatch(r"\d{4,}|[0-9a-f]{8,}|[a-z0-9]{6,}-[a-z0-9]{4,}", part) else part
-            for part in name.split(".")
-        )
+        parts = name.split(".")
+        return ".".join(parts[:2] + ["*"] + parts[-1:]) if len(parts) > 3 else name
 
-    grouped: dict[tuple[str, str], list] = collections.defaultdict(list)
+    grouped: dict[str, list] = collections.defaultdict(list)
     for entry in analysis:
         if entry.get("severity") not in ("debug", "info"):
-            grouped[(entry.get("severity") or "unknown", family(entry["name"]))].append(entry)
+            grouped[family(entry["name"])].append(entry)
 
     if grouped:
         print()
-        # Worst severity first, then noisiest.
-        rank = {"error": 0, "fail": 0, "warn": 1, "warning": 1}
-        for (severity, name), entries in sorted(
-                grouped.items(), key=lambda kv: (rank.get(kv[0][0], 2), -len(kv[1]))):
+        for name, entries in sorted(grouped.items(), key=lambda kv: -len(kv[1])):
             count = f"  [x{len(entries)}]" if len(entries) > 1 else ""
-            print(f"  {severity.upper():<7} {name}{count}")
-            seen = []
-            for entry in entries:
-                detail = (entry.get("insight") or {}).get("detail", "")[:110]
-                if detail and detail not in seen:
-                    seen.append(detail)
-            for detail in seen[:3]:
-                print(f"          {detail}")
-            if len(seen) > 3:
-                print(f"          … and {len(seen) - 3} other distinct messages")
+            print(f"  FAIL  {name}{count}")
+            print(f"        e.g. {entries[0]['insight'].get('detail', '')[:110]}")
 
     passed = [e for e in analysis if e.get("severity") in ("debug", "info")]
     if passed:
@@ -426,29 +304,6 @@ def section_pods(root: Path, ns: str, now: dt.datetime, expand: bool) -> None:
         for (reason, msg), count in reasons.most_common(10):
             print(f"    [{count:>3}x] {reason}: {msg}")
 
-    # Pending does not imply unschedulable. A pod that scheduled fine but is stuck
-    # pulling an image or building a container config is Pending with a nodeName and
-    # PodScheduled=True, so the block above never sees it -- in practice the most
-    # common Pending cause. Its reason lives in the container statuses.
-    stuck = [p for p in pods
-             if p["status"].get("phase") == "Pending" and p["spec"].get("nodeName")]
-    if stuck:
-        print()
-        print(f"  PENDING BUT SCHEDULED: {len(stuck)} — placed on a node, blocked starting:")
-        blocked = collections.Counter()
-        for pod in stuck:
-            statuses = (pod["status"].get("initContainerStatuses") or []) + \
-                       (pod["status"].get("containerStatuses") or [])
-            for cs in statuses:
-                waiting = (cs.get("state") or {}).get("waiting")
-                if waiting:
-                    blocked[(cs["name"], waiting.get("reason"),
-                             (waiting.get("message") or "")[:80])] += 1
-        for (container, reason, msg), count in blocked.most_common(10):
-            print(f"    [{count:>3}x] c={container} {reason}{': ' + msg if msg else ''}")
-        if not blocked:
-            print("    (no waiting container state recorded — check events)")
-
 
 def section_restarts(root: Path, now: dt.datetime) -> None:
     header("RESTART / TERMINATION SCAN  (all namespaces)")
@@ -460,53 +315,16 @@ def section_restarts(root: Path, now: dt.datetime) -> None:
             for key in ("lastState", "state"):
                 term = (cs.get(key) or {}).get("terminated")
                 if term and term.get("reason") not in (None, "Completed"):
-                    # `state` is how the container is *now*; `lastState` is a previous
-                    # boot it has already recovered from. Conflating them reports a
-                    # long-since-recovered kill as an active incident.
-                    # Test key presence, not truthiness: a running block can be `{}`.
-                    current = "terminated" if key == "state" else (
-                        "running" if "running" in (cs.get("state") or {}) else "waiting")
                     rows.append((ns, pod["metadata"]["name"], cs["name"], term.get("reason"),
                                  term.get("exitCode"), cs.get("restartCount", 0),
-                                 term.get("finishedAt"), current, bool(cs.get("ready"))))
+                                 term.get("finishedAt")))
 
     oom = [r for r in rows if r[3] == "OOMKilled"]
-    live_oom = [r for r in oom if r[7] == "terminated" or not r[8]]
-    print(f"  OOMKilled containers: {len(oom)}"
-          f"  ({len(live_oom)} not currently healthy, {len(oom) - len(live_oom)} recovered)")
+    print(f"  OOMKilled containers: {len(oom)}")
     for row in oom:
-        healthy = row[7] == "running" and row[8]
-        print(f"    {'  ' if healthy else '!!'} {row[0]}/{row[1]} c={row[2]} "
-              f"restarts={row[5]} at={row[6]} ({age(row[6], now)} ago) "
-              f"now={row[7]}{'' if row[8] else ', not ready'}")
-    if oom and not live_oom:
-        print("     All OOMKills are historical (lastState) on containers that are running and")
-        print("     ready now. Recovered, not active — but they still show the workload has hit")
-        print("     its memory ceiling at least once.")
+        print(f"    !! {row[0]}/{row[1]} c={row[2]} restarts={row[5]} at={row[6]}")
     if not oom:
         print("     (no OOMKilled anywhere in the bundle)")
-
-    # The three OOM sources disagree routinely: events age out of the TTL window and
-    # the analyzer keys on events, so both can report clean while container state
-    # still records kills. Reconcile here rather than leaving two numbers in two
-    # sections for the reader to trip over.
-    analyzer_clean = any(
-        "oom" in (a.get("name") or "").lower() and a.get("severity") in ("debug", "info")
-        for a in (load(root / "analysis.json") or [])
-    )
-    event_hits = 0
-    for path in sorted((root / "cluster-resources" / "events").glob("*.json")):
-        for event in items(path):
-            if re.search(r"OOM|Evict|MemoryPressure",
-                         f"{event.get('reason', '')}{event.get('message', '')}", re.I):
-                event_hits += 1
-    if oom and (analyzer_clean or event_hits == 0):
-        print()
-        print(f"  NOTE: sources disagree — container state finds {len(oom)}, events find "
-              f"{event_hits}, analyzer reports {'clean' if analyzer_clean else 'a problem'}.")
-        print("  Container state is the authoritative one here: events expire and the analyzer")
-        print("  keys on them. Trust the pod objects, and do not read the clean analyzer verdict")
-        print("  as confirmation that no OOM happened.")
 
     def fit(value, width):
         text = str(value)
@@ -515,7 +333,7 @@ def section_restarts(root: Path, now: dt.datetime) -> None:
     print()
     print(f"  Other abnormal terminations: {len(rows) - len(oom)}")
     print(f"  {'NS':<17}{'POD':<45}{'CONTAINER':<23}{'REASON':<11}{'EXIT':>5}{'RST':>5}  FINISHED")
-    for ns, pod, container, reason, code, count, finished, _, _ in sorted(rows, key=lambda r: -r[5]):
+    for ns, pod, container, reason, code, count, finished in sorted(rows, key=lambda r: -r[5]):
         if reason == "OOMKilled":
             continue
         print(f"  {fit(ns, 16):<17}{fit(pod, 44):<45}{fit(container, 22):<23}"
@@ -582,7 +400,6 @@ def section_alloc(root: Path) -> None:
     if not nodes:
         return
     allocatable = nodes[0]["status"]["allocatable"]
-    multinode = len(nodes) > 1
 
     scheduled = [(ns, p) for ns, p in all_pods(root)
                  if p["spec"].get("nodeName") and p["status"].get("phase") in ("Running", "Pending")]
@@ -591,38 +408,17 @@ def section_alloc(root: Path) -> None:
     def totals(pods):
         acc = collections.defaultdict(float)
         for _, pod in pods:
-            spec = pod["spec"]
-            regular = spec.get("containers", [])
-            # Init containers run sequentially and finish before the regular ones
-            # start, so a pod's effective request is max(sum(regular), max(init)) --
-            # not the sum of both, which over-counts every pod that has init steps.
-            # Native sidecars (restartPolicy: Always) keep running, so they count
-            # toward the regular sum instead.
-            init, sidecars = [], []
-            for c in spec.get("initContainers", []):
-                (sidecars if c.get("restartPolicy") == "Always" else init).append(c)
-
-            def sum_over(containers, field):
-                out = collections.defaultdict(float)
-                for c in containers:
-                    for key, value in ((c.get("resources") or {}).get(field) or {}).items():
-                        out[key] += quantity(value)
-                return out
-
-            for field, prefix in (("requests", "req_"), ("limits", "lim_")):
-                base = sum_over(regular + sidecars, field)
-                for c in init:
-                    for key, value in ((c.get("resources") or {}).get(field) or {}).items():
-                        base[key] = max(base[key], quantity(value))
-                for key, value in base.items():
-                    acc[prefix + key] += value
+            containers = pod["spec"].get("containers", []) + pod["spec"].get("initContainers", [])
+            for c in containers:
+                res = c.get("resources", {})
+                for key, value in (res.get("requests") or {}).items():
+                    acc["req_" + key] += quantity(value)
+                for key, value in (res.get("limits") or {}).items():
+                    acc["lim_" + key] += quantity(value)
         return acc
 
     used = totals(scheduled)
     header("ALLOCATED RESOURCES  (kubectl describe node → 'Allocated resources')")
-    if multinode:
-        print(f"  !! {len(nodes)}-node cluster: percentages below divide cluster-wide requests by")
-        print("     one node's allocatable and are therefore too high. Read them per node instead.")
     print(f"  {'RESOURCE':<20}{'REQUESTS':>14}{'%':>8}{'LIMITS':>14}{'%':>8}")
     for key in ("cpu", "memory", "ephemeral-storage"):
         cap = quantity(allocatable.get(key))
@@ -632,22 +428,15 @@ def section_alloc(root: Path) -> None:
         fmt = (lambda v: f"{v:.2f}") if key == "cpu" else gib
         print(f"  {key:<20}{fmt(req):>14}{req / cap * 100:>7.1f}%{fmt(lim):>14}{lim / cap * 100:>7.1f}%")
     pod_cap = int(quantity(allocatable.get("pods")))
-    if pod_cap:
-        print(f"  {'pods':<20}{len(scheduled):>14}{len(scheduled) / pod_cap * 100:>7.1f}%"
-              f"   (capacity {pod_cap})")
-    else:
-        print(f"  {'pods':<20}{len(scheduled):>14}         (capacity not reported)")
+    print(f"  {'pods':<20}{len(scheduled):>14}{len(scheduled) / pod_cap * 100:>7.1f}%"
+          f"   (capacity {pod_cap})")
     print(f"\n  allocatable: " + "  ".join(
         f"{k}={allocatable.get(k)}" for k in ("cpu", "memory", "ephemeral-storage", "pods")))
 
-    # A Pending pod that already carries a nodeName is inside the baseline above,
-    # so projecting it on top would count it twice. Only genuinely unscheduled
-    # pods add anything.
-    unscheduled = [(ns, p) for ns, p in pending if not p["spec"].get("nodeName")]
-    if unscheduled:
-        extra = totals(unscheduled)
+    if pending:
+        extra = totals(pending)
         print()
-        print(f"  If the {len(unscheduled)} unscheduled Pending pods were placed here they would add:")
+        print(f"  If the {len(pending)} Pending pods were also scheduled they would add:")
         for key in ("cpu", "memory", "ephemeral-storage"):
             cap = quantity(allocatable.get(key))
             if not cap:
@@ -721,8 +510,6 @@ def main() -> int:
     wanted = args.section or list(SECTIONS)
     now = capture_time(root)
 
-    if "findings" in wanted:
-        section_findings(root, now)
     if "meta" in wanted:
         section_meta(root, now)
     if "analyzers" in wanted:

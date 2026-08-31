@@ -189,9 +189,9 @@ the OpenHands team gives you, and avoid pasting raw excerpts into public issues 
 Read it before drawing conclusions — the bundle's layout is not what you would guess from `kubectl`,
 and several of its gaps produce convincing false negatives.
 
-Fast path — the bundled triage script reconstructs the standard first pass (pod table, OOM and
-restart scan, `top` equivalent, allocatable headroom, events) in one command, and leads with a
-ranked **FINDINGS** block so you can jump straight to what looks wrong:
+Fast path — the bundled triage script reconstructs the standard first pass (cluster meta, analyzer
+results, pod table, OOM and restart scan, `top` equivalent, allocatable headroom, events) in one
+command. It reports; the ranking and the diagnosis are yours to make:
 
 ```bash
 tar -xzf support-bundle-2026-07-28T06_54_18.tar.gz
