@@ -48,9 +48,22 @@ library only, no dependencies.
 python3 scripts/bundle_triage.py /path/to/support-bundle-2026-07-28T06_54_18
 ```
 
-It prints bundle metadata and node capacity, failing analyzer verdicts, a `kubectl get pods -o wide`
-table, an OOM/restart scan across every namespace, a `kubectl top pods` equivalent,
+It opens with a **FINDINGS** block — everything that looks wrong, ranked *BROKEN NOW* / *DEGRADED* /
+*CONTEXT*, each pointing at the section that explains it. Read that first and jump; the rest of the
+output is there to confirm a finding, not to be read top to bottom.
+
+After it: bundle metadata and node capacity, analyzer verdicts, a `kubectl get pods -o wide` table,
+an OOM/restart scan across every namespace, a `kubectl top pods` equivalent,
 allocated-vs-allocatable resources, and an events summary.
+
+```bash
+# Just the ranked findings
+python3 scripts/bundle_triage.py <bundle> --section findings
+```
+
+The ranking is mechanical — it reflects what the objects say, not which finding explains the
+symptom the user reported. A `BROKEN NOW` line can be long-standing and irrelevant, and the thing
+that actually broke may not appear at all (see below).
 
 ```bash
 # Focus one namespace, or one section at a time
@@ -476,6 +489,35 @@ These are the things a bundle cannot tell you. Say so explicitly rather than inf
   signal on its own: some genuine `*-errors.json` files exist (for example under `kots/goldpinger/`).
   Stat the path rather than assuming from the name.
 
+## When the bundle looks clean but the user has a problem
+
+This is the normal hard case, not an edge case. Nobody sends a support bundle because things are
+working, so "no findings" means the failure is somewhere the cluster-resources objects do not
+reach — not that the install is fine. What a clean triage run has actually ruled out is narrow:
+pod objects, analyzer verdicts, node conditions, and resource totals.
+
+What it has *not* looked at, roughly in order of how often it pays off:
+
+1. **Application logs.** The script reads none. A component can be `Running`, `1/1 Ready`, zero
+   restarts, and failing every request. Start with the logs for whatever the user's symptom points
+   at, and see the log triage section above — a severity filter that silently skips non-JSON lines
+   will show you nothing on a file full of errors.
+2. **Anything outside the capture window.** Events have a short TTL and the bundle is one instant.
+   An incident that resolved before capture leaves almost nothing behind; `lastState`, restart
+   counts, and pod age are the only real memory the bundle has.
+3. **Config, not runtime.** A wrong secret, a bad URL, a disabled feature flag, an expired
+   licence — all render as a healthy pod. Check the ConfigMaps and the app config, and remember
+   `***HIDDEN***` means redacted, not unset.
+4. **Whatever the collectors missed.** Check `collector-errors/` before concluding a subsystem is
+   healthy: an empty or absent file is indistinguishable from a clean one, and a failed collector
+   produces exactly that.
+5. **Off-cluster.** Ingress, DNS, TLS, an external database, an egress proxy, the licence endpoint.
+   Nothing outside the cluster appears in these objects at all.
+
+If you find nothing, say so plainly and ask for what would actually settle it — the exact user-facing
+symptom, a timestamp, and the component involved. "The bundle looks healthy" is an unhelpful answer
+on its own, and a confident wrong diagnosis drawn from a clean bundle is worse than none.
+
 ## Anti-patterns
 
 - Concluding "no OOM" from the pod objects alone — check events and `analysis.json` too, and state
@@ -498,6 +540,10 @@ These are the things a bundle cannot tell you. Say so explicitly rather than inf
 
 What in this guide has been checked against a real bundle, and what has not. Treat the second list
 as plausible but unproven — if you exercise one of those paths, correct this file.
+
+Healthy bundles were used only to establish what normal looks like and to catch false positives;
+every claim about a failure mode below was checked against a bundle actually exhibiting it, or is
+listed as unproven.
 
 **Verified against real single-node Embedded Cluster bundles:** directory layout and the
 container-name log convention; `analysis.json`, `nodes.json`, `cluster_version.json`, `app-info.json`

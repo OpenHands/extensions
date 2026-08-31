@@ -32,7 +32,7 @@ from pathlib import Path
 # Collapse them to a summary unless --expand-runtimes is passed.
 RUNTIME_PREFIX = "runtime-"
 
-SECTIONS = ("meta", "analyzers", "pods", "restarts", "top", "alloc", "events")
+SECTIONS = ("findings", "meta", "analyzers", "pods", "restarts", "top", "alloc", "events")
 
 
 # --------------------------------------------------------------------------
@@ -203,6 +203,99 @@ def header(title: str) -> None:
 # --------------------------------------------------------------------------
 # sections
 # --------------------------------------------------------------------------
+
+def collect_findings(root: Path, now: dt.datetime) -> list[tuple[int, str, str]]:
+    """Everything that looks wrong, as (rank, headline, where-to-look).
+
+    Rank 0 is actively broken now, 1 is degraded or historical, 2 is context. The
+    ranking is deliberately conservative: anything ambiguous lands at 1 rather
+    than being promoted, so a loud finding means something.
+    """
+    out: list[tuple[int, str, str]] = []
+
+    for entry in load(root / "analysis.json") or []:
+        severity = entry.get("severity")
+        if severity in ("debug", "info"):
+            continue
+        detail = (entry.get("insight") or {}).get("detail", "")[:100]
+        rank = 0 if severity in ("error", "fail") else 1
+        out.append((rank, f"analyzer {severity}: {entry.get('name')}", detail))
+
+    stuck_phase, not_ready, oom_live, oom_old, crashloops = [], [], [], [], []
+    for ns, pod in all_pods(root):
+        name, phase = pod["metadata"]["name"], pod["status"].get("phase")
+        if phase in ("Failed", "Unknown"):
+            stuck_phase.append(f"{ns}/{name} ({pod_status(pod)})")
+        elif phase == "Pending":
+            stuck_phase.append(f"{ns}/{name} ({pod_status(pod)})")
+        statuses = (pod["status"].get("containerStatuses") or []) + \
+                   (pod["status"].get("initContainerStatuses") or [])
+        for cs in statuses:
+            state = cs.get("state") or {}
+            waiting = (state.get("waiting") or {}).get("reason") or ""
+            if "CrashLoopBackOff" in waiting:
+                crashloops.append(f"{ns}/{name} c={cs['name']} restarts={cs.get('restartCount', 0)}")
+            if (state.get("terminated") or {}).get("reason") == "OOMKilled":
+                oom_live.append(f"{ns}/{name} c={cs['name']}")
+            elif ((cs.get("lastState") or {}).get("terminated") or {}).get("reason") == "OOMKilled":
+                target = oom_old if cs.get("ready") else oom_live
+                target.append(f"{ns}/{name} c={cs['name']} restarts={cs.get('restartCount', 0)}")
+        if phase == "Running" and not all(c.get("ready") for c in
+                                          pod["status"].get("containerStatuses") or []):
+            not_ready.append(f"{ns}/{name}")
+
+    def add(rank, items, label, where, limit=4):
+        if items:
+            shown = ", ".join(items[:limit])
+            more = f" (+{len(items) - limit} more)" if len(items) > limit else ""
+            out.append((rank, f"{len(items)} {label}", f"{shown}{more} — {where}"))
+
+    add(0, crashloops, "container(s) in CrashLoopBackOff", "--section restarts")
+    add(0, oom_live, "container(s) OOMKilled and not healthy now", "--section restarts")
+    add(0, stuck_phase, "pod(s) not Running/Succeeded", "--section pods")
+    add(1, not_ready, "Running pod(s) with containers not ready", "--section pods")
+    add(1, oom_old, "container(s) with a recovered OOMKill", "--section restarts")
+
+    nodes = items(root / "cluster-resources" / "nodes.json")
+    for node in nodes:
+        for cond in (node.get("status") or {}).get("conditions", []):
+            if bad_condition(cond):
+                out.append((0, f"node {node['metadata']['name']}: {cond['type']}={cond['status']}",
+                            cond.get("reason", "")))
+
+    if not nodes:
+        out.append((2, "no node objects captured",
+                    "cluster-scoped collectors may have failed — most checks below are blind"))
+    return out
+
+
+def section_findings(root: Path, now: dt.datetime) -> None:
+    header("FINDINGS  (what looks wrong — read this first)")
+    findings = collect_findings(root, now)
+    if not findings:
+        print("  Nothing anomalous found by the checks this script performs.")
+        print()
+        print("  That is not the same as a healthy install. This script sees pod objects,")
+        print("  analyzer verdicts, node conditions and resource totals — it does not read")
+        print("  application logs, and the bundle has no node-scoped events. If a user is")
+        print("  reporting a problem, it is in something not covered here: read the logs for")
+        print("  the failing component and see references/support-bundle-analysis.md.")
+        return
+
+    labels = {0: "BROKEN NOW", 1: "DEGRADED", 2: "CONTEXT"}
+    for rank in (0, 1, 2):
+        group = [f for f in findings if f[0] == rank]
+        if not group:
+            continue
+        print(f"  {labels[rank]}")
+        for _, headline, detail in group:
+            print(f"    - {headline}")
+            if detail:
+                print(f"        {detail}")
+        print()
+    print("  Ranking is mechanical, not a diagnosis: it reflects what the objects say, not")
+    print("  which finding explains the user's symptom. Confirm against the sections below.")
+
 
 def section_meta(root: Path, now: dt.datetime) -> None:
     header("BUNDLE METADATA")
@@ -535,8 +628,11 @@ def section_alloc(root: Path) -> None:
         fmt = (lambda v: f"{v:.2f}") if key == "cpu" else gib
         print(f"  {key:<20}{fmt(req):>14}{req / cap * 100:>7.1f}%{fmt(lim):>14}{lim / cap * 100:>7.1f}%")
     pod_cap = int(quantity(allocatable.get("pods")))
-    print(f"  {'pods':<20}{len(scheduled):>14}{len(scheduled) / pod_cap * 100:>7.1f}%"
-          f"   (capacity {pod_cap})")
+    if pod_cap:
+        print(f"  {'pods':<20}{len(scheduled):>14}{len(scheduled) / pod_cap * 100:>7.1f}%"
+              f"   (capacity {pod_cap})")
+    else:
+        print(f"  {'pods':<20}{len(scheduled):>14}         (capacity not reported)")
     print(f"\n  allocatable: " + "  ".join(
         f"{k}={allocatable.get(k)}" for k in ("cpu", "memory", "ephemeral-storage", "pods")))
 
@@ -621,6 +717,8 @@ def main() -> int:
     wanted = args.section or list(SECTIONS)
     now = capture_time(root)
 
+    if "findings" in wanted:
+        section_findings(root, now)
     if "meta" in wanted:
         section_meta(root, now)
     if "analyzers" in wanted:

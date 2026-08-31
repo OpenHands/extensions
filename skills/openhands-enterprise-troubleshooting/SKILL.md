@@ -187,12 +187,18 @@ Read it before drawing conclusions — the bundle's layout is not what you would
 and several of its gaps produce convincing false negatives.
 
 Fast path — the bundled triage script reconstructs the standard first pass (pod table, OOM and
-restart scan, `top` equivalent, allocatable headroom, events) in one command:
+restart scan, `top` equivalent, allocatable headroom, events) in one command, and leads with a
+ranked **FINDINGS** block so you can jump straight to what looks wrong:
 
 ```bash
 tar -xzf support-bundle-2026-07-28T06_54_18.tar.gz
 python3 scripts/bundle_triage.py support-bundle-2026-07-28T06_54_18
 ```
+
+You are reading this bundle because something is broken, so treat a clean run as "not here" rather
+than "nothing wrong" — the script sees pod objects, analyzer verdicts, node conditions and resource
+totals, and reads no application logs at all. `references/support-bundle-analysis.md` has a section
+on where to look next when the objects come back clean.
 
 Then the four things that most often answer the question outright:
 
