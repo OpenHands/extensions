@@ -158,9 +158,12 @@ kubectl top pods -n openhands
 # Check certificate expiry
 echo | openssl s_client -connect HOST:443 2>/dev/null | openssl x509 -noout -dates
 
-# Check Replicated operator
-kubectl get pods -n replicated
-kubectl logs -n replicated -l app=replicated-operator
+# Check the Replicated components. On Embedded Cluster these are the Admin
+# Console in `kotsadm` and the operator in `embedded-cluster`; a `replicated`
+# namespace belongs to the older kURL topology and is absent here.
+kubectl get pods -n kotsadm
+kubectl get pods -n embedded-cluster
+kubectl logs -n embedded-cluster -l app.kubernetes.io/name=embedded-cluster-operator --tail=100
 ```
 
 ## Support Bundle Generation

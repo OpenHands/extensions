@@ -164,8 +164,13 @@ the Certificate Issues section below for private CAs.
 HOST="your-openhands-domain.com"
 echo | openssl s_client -connect $HOST:443 -servername $HOST 2>/dev/null | openssl x509 -noout -dates
 
-# Check all certs in kubernetes secret
-kubectl get secret -n openhands -l app=ingress-tls -o jsonpath='{.items[*]}' | jq -r '.[].data."tls.crt"' | base64 -d | openssl x509 -noout -dates
+# Find the TLS secret the ingress actually references, then read its certificate.
+# There is no `app=ingress-tls` label — the secret is named in the ingress spec.
+kubectl get ingress -n openhands \
+  -o jsonpath='{range .items[*]}{.metadata.name}{"\t"}{.spec.tls[*].secretName}{"\n"}{end}'
+
+kubectl get secret -n openhands <tls-secret> -o jsonpath='{.data.tls\.crt}' \
+  | base64 -d | openssl x509 -noout -dates -subject -issuer
 ```
 
 ### Check Certificate Chain
@@ -199,28 +204,42 @@ kubectl get ingress -n openhands -o yaml | grep -A5 "tls:"
 
 ### Check LLM Configuration
 
-```bash
-# Get LLM config (masked)
-kubectl get configmap -n openhands -o jsonpath='{.items[?(@.metadata.name=="llm-config")].data}' | jq .
+LLM wiring lives in the LiteLLM config map and the env secrets, not in a `llm-config` /
+`llm-credentials` pair:
 
-# Check LLM secret
-kubectl get secret -n openhands -o jsonpath='{.items[?(@.metadata.name=="llm-credentials")].data}' | jq -r 'keys'
+```bash
+# Model routing: which models are defined and where they point
+kubectl get configmap -n openhands openhands-litellm-config \
+  -o jsonpath='{.data.config\.yaml}'
+
+# Credential wiring — key names only, never values
+kubectl get secret -n openhands litellm-env-secrets \
+  -o go-template='{{range $k,$v := .data}}{{$k}}={{len $v}} bytes{{"\n"}}{{end}}'
+kubectl get secret -n openhands openhands-env-secrets \
+  -o go-template='{{range $k,$v := .data}}{{$k}}={{len $v}} bytes{{"\n"}}{{end}}'
 ```
+
+Expect keys along the lines of `LLM_API_KEY`, `LLM_BASE_URL`, `LLM_MODEL`. A key that is present but
+zero bytes is the failure worth finding: Helm renders an empty value into a valid Secret, so the
+object looks correct while every request fails to authenticate.
 
 ### Test LLM Endpoint
 
+> **Do not decode the API key into your shell.** It is a live credential, and on a real install that
+> puts it into your terminal history and any agent transcript. Run the request *inside* the pod that
+> already holds the key, so the value never leaves the container:
+
 ```bash
-# Get LLM endpoint from config
-LLM_ENDPOINT=$(kubectl get configmap -n openhands llm-config -o jsonpath='{.data.endpoint}')
-
-# Get API key
-LLM_API_KEY=$(kubectl get secret -n openhands llm-credentials -o jsonpath='{.data.api_key}' | base64 -d)
-
-# Test connectivity (example for OpenAI-compatible endpoint)
-curl -s -X POST $LLM_ENDPOINT/v1/models \
-  -H "Authorization: Bearer $LLM_API_KEY" \
-  -w "\nHTTP_CODE:%{http_code}"
+kubectl exec -n openhands deploy/openhands -- sh -c '
+  curl -s -o /dev/null -w "HTTP_CODE:%{http_code}\n" \
+    -H "Authorization: Bearer $LLM_API_KEY" \
+    "$LLM_BASE_URL/v1/models"'
 ```
+
+A 401 or 403 means the credential is wrong; a timeout or `connection refused` means the endpoint is
+unreachable from the cluster, which is a network problem rather than a credential one. If `curl` is
+absent from the image, read the failure out of the application log instead — it reports the upstream
+status on every failed call.
 
 ### Network Policy Check
 
@@ -229,7 +248,7 @@ curl -s -X POST $LLM_ENDPOINT/v1/models \
 kubectl get networkpolicy -n openhands
 
 # Test DNS resolution from pod
-kubectl exec -n openhands deploy/agent-server -- nslookup api.openai.com
+kubectl exec -n openhands deploy/openhands -- nslookup api.openai.com
 ```
 
 ### Common LLM Errors
@@ -245,64 +264,60 @@ kubectl exec -n openhands deploy/agent-server -- nslookup api.openai.com
 
 ## Keycloak
 
+Keycloak runs **in the `openhands` namespace**, as a StatefulSet rather than a Deployment — so the
+pod is `keycloak-0` and the selector is `app.kubernetes.io/name=keycloak`. There is no `keycloak`
+namespace and no `app=keycloak` label. Addressing it as a Deployment, or in its own namespace, is
+the most common way these commands silently return nothing.
+
 ### Check Keycloak Pods
 
 ```bash
-kubectl get pods -n keycloak --watch
-
-# Check Keycloak logs
-KEYCLOAK_POD=$(kubectl get pods -n keycloak -l app=keycloak -o jsonpath='{.items[0].metadata.name}')
-kubectl logs -n keycloak $KEYCLOAK_POD --tail=200
+kubectl get pods -n openhands -l app.kubernetes.io/name=keycloak
+kubectl logs -n openhands keycloak-0 --tail=200
 ```
 
 ### Check Keycloak Database Connectivity
 
 ```bash
-# Keycloak requires database - check DB pod
-kubectl get pods -n keycloak | grep -E "postgres|mysql|database"
-
 # Ask the pod what database it is configured against, rather than assuming
-KEYCLOAK_POD=$(kubectl get pods -n keycloak -l app=keycloak -o jsonpath='{.items[0].metadata.name}')
-kubectl exec -n keycloak $KEYCLOAK_POD -- printenv \
+kubectl exec -n openhands keycloak-0 -- printenv \
   | grep -iE 'KC_DB|DB_ADDR|DB_URL|JDBC|DATABASE' | sort
 
 # The database error itself is usually in the log, and needs no in-pod tooling
-kubectl logs -n keycloak $KEYCLOAK_POD --tail=200 \
+kubectl logs -n openhands keycloak-0 --tail=200 \
   | grep -iE 'connection refused|unknown host|timeout|FATAL|could not connect'
 ```
 
 ### Check Keycloak Realm Configuration
 
+> **Do not decode the admin credential into your shell.** On a live install that writes a working
+> password into your terminal history and into any agent transcript. Recent charts do not ship a
+> `keycloak-admin` secret at all — the bootstrap admin is supplied via
+> `KC_BOOTSTRAP_ADMIN_PASSWORD_FILE` — so read the wiring, not the value:
+
 ```bash
-# Get Keycloak admin credentials
-KEYCLOAK_ADMIN=$(kubectl get secret -n keycloak keycloak-admin -o jsonpath='{.data.username}' | base64 -d)
-KEYCLOAK_PASS=$(kubectl get secret -n keycloak keycloak-admin -o jsonpath='{.data.password}' | base64 -d)
+# What credential mechanism is in use? Key names only, never values.
+kubectl get secret -n openhands -o name | grep -i keycloak
+kubectl exec -n openhands keycloak-0 -- printenv | grep -i 'KC_BOOTSTRAP_ADMIN' | sed 's/=.*/=<set>/'
+```
 
-# Get Keycloak URL. jsonpath returns a bare host, so add the scheme —
-# without it curl defaults to http:// and a TLS-fronted Keycloak just redirects.
-KEYCLOAK_URL=https://$(kubectl get ingress -n keycloak -o jsonpath='{.items[0].spec.rules[0].host}')
+To confirm Keycloak is serving its realm, use the public endpoint, which needs no credential:
 
-# Test Keycloak admin access
-curl -s -o /dev/null -w "%{http_code}" \
-  -d "username=$KEYCLOAK_ADMIN" \
-  -d "password=$KEYCLOAK_PASS" \
-  -d "grant_type=password" \
-  "$KEYCLOAK_URL/realms/master/protocol/openid-connect/token"
+```bash
+KEYCLOAK_URL=https://$(kubectl get ingress -n openhands keycloak \
+  -o jsonpath='{.spec.rules[0].host}')
+
+# jsonpath returns a bare host, so the scheme above matters — without it curl
+# defaults to http:// and a TLS-fronted Keycloak just redirects.
+curl -fsS -o /dev/null -w '%{http_code}\n' \
+  "$KEYCLOAK_URL/realms/master/.well-known/openid-configuration"
 ```
 
 ### Keycloak Health Check
 
-Check the ingress first — it answers the question that actually matters, which is whether users can
-reach Keycloak. It also exercises DNS, TLS, and routing, so a failure here localises the fault to the
-path rather than the server.
-
-```bash
-KEYCLOAK_URL=https://$(kubectl get ingress -n keycloak -o jsonpath='{.items[0].spec.rules[0].host}')
-
-# Serving realm metadata means Keycloak is up and reachable end to end
-curl -fsS -o /dev/null -w '%{http_code}\n' \
-  "$KEYCLOAK_URL/realms/master/.well-known/openid-configuration"
-```
+The realm check above is the one that answers the question that actually matters — whether users can
+reach Keycloak — because it goes through the ingress and so exercises DNS, TLS, and routing. Prefer
+it, and read a failure there as a fault in the path rather than in the server.
 
 The `/health` endpoints are the exception. From Keycloak 25 they moved to a separate management
 interface on port 9000, which exists precisely so health and metrics stay off the public route — the
@@ -310,9 +325,8 @@ ingress fronts the main HTTP port and does not carry them. So `$KEYCLOAK_URL/hea
 work, and reaching health means going to the pod directly:
 
 ```bash
-# Prefer an in-pod request; no local port to bind and nothing to clean up
-KEYCLOAK_POD=$(kubectl get pods -n keycloak -l app=keycloak -o jsonpath='{.items[0].metadata.name}')
-kubectl exec -n keycloak $KEYCLOAK_POD -- \
+# Port 9000 is served internally even though the pod spec declares only 8080
+kubectl exec -n openhands keycloak-0 -- \
   curl -fsS -o /dev/null -w '%{http_code}\n' http://localhost:9000/health/ready
 ```
 
@@ -322,7 +336,7 @@ endpoints on the main port. And the image may ship without `curl`, in which case
 reasons unrelated to Keycloak. In that case fall back to a port-forward, run in a separate shell:
 
 ```bash
-kubectl port-forward -n keycloak deploy/keycloak 9000:9000
+kubectl port-forward -n openhands statefulset/keycloak 9000:9000
 # then, from your own machine:
 curl -fsS -o /dev/null -w '%{http_code}\n' http://localhost:9000/health/ready
 ```
@@ -480,7 +494,7 @@ cat /proc/sys/fs/file-max
 ulimit -n
 
 # Check pod fd usage
-kubectl exec -n openhands deploy/agent-server -- ls /proc/self/fd | wc -l
+kubectl exec -n openhands deploy/openhands -- ls /proc/self/fd | wc -l
 ```
 
 ### Check Disk Space
@@ -490,7 +504,7 @@ kubectl exec -n openhands deploy/agent-server -- ls /proc/self/fd | wc -l
 kubectl get nodes -o jsonpath='{range .items[*]}{.metadata.name}{"\t"}{.status.conditions[?(@.type=="DiskPressure")].status}{"\n"}'
 
 # Find large directories
-kubectl exec -n openhands deploy/agent-server -- du -sh /var/*
+kubectl exec -n openhands deploy/openhands -- du -sh /var/*
 ```
 
 ### Common Resource Exhaustion Fixes
