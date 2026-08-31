@@ -32,7 +32,7 @@ from pathlib import Path
 # Collapse them to a summary unless --expand-runtimes is passed.
 RUNTIME_PREFIX = "runtime-"
 
-SECTIONS = ("findings", "meta", "analyzers", "pods", "restarts", "top", "alloc", "events")
+SECTIONS = ("findings", "meta", "analyzers", "pods", "restarts", "logs", "top", "alloc", "events")
 
 
 # --------------------------------------------------------------------------
@@ -204,6 +204,105 @@ def header(title: str) -> None:
 # sections
 # --------------------------------------------------------------------------
 
+LOG_ROOT = ("cluster-resources", "pods", "logs")
+
+# Bare tracebacks and fatal messages carry no severity field, so a JSON-only
+# filter misses exactly the lines that matter most.
+PLAIN_ALERT = re.compile(
+    r"Traceback \(most recent call last\)|^\s*[\w.]*(Error|Exception)\b"
+    r"|panic:|FATAL|CRITICAL|OOMKilled|connection refused|no such host"
+    r"|permission denied|certificate (verify failed|has expired|signed by unknown)",
+    re.M | re.I)
+
+NOISE = re.compile(r"[0-9a-f]{8}-[0-9a-f-]{27}|0x[0-9a-f]+|\b\d+\b|"
+                   r"\b\d{1,3}(?:\.\d{1,3}){3}\b")
+
+
+def log_files(root: Path):
+    """Canonical per-container log files. The convenience trees are symlink
+    farms into this one, so following them would double-count."""
+    base = root.joinpath(*LOG_ROOT)
+    if not base.is_dir():
+        return
+    for path in sorted(base.glob("*/*/*.log")):
+        if not path.is_symlink():
+            yield path
+
+
+def scan_log(path: Path, cap: int = 4_000_000) -> dict:
+    """Severity-aware summary of one log file, JSON and plain text alike."""
+    try:
+        text = path.read_text(errors="replace")[:cap]
+    except OSError:
+        return {}
+    lines = text.splitlines()
+    out = {"lines": len(lines), "bytes": path.stat().st_size,
+           "json": 0, "plain": 0, "alerts": collections.Counter(),
+           "first_ts": None, "last_ts": None}
+    for line in lines:
+        if line.startswith("{"):
+            out["json"] += 1
+            try:
+                rec = json.loads(line)
+            except ValueError:
+                continue
+            ts = rec.get("ts") or rec.get("timestamp")
+            if isinstance(ts, str):
+                out["first_ts"] = out["first_ts"] or ts
+                out["last_ts"] = ts
+            sev = str(rec.get("severity") or rec.get("level") or "").upper()
+            if sev in ("ERROR", "CRITICAL", "FATAL", "PANIC"):
+                msg = str(rec.get("message") or rec.get("msg") or "")[:100]
+                out["alerts"][NOISE.sub("<n>", msg) or sev] += 1
+        elif line.strip():
+            out["plain"] += 1
+            if PLAIN_ALERT.search(line):
+                out["alerts"][NOISE.sub("<n>", line.strip()[:100])] += 1
+    return out
+
+
+def section_logs(root: Path, ns: str | None = None) -> None:
+    header("LOG SCAN  (severity across every container log)")
+    scanned = [(p, scan_log(p)) for p in log_files(root)]
+    scanned = [(p, s) for p, s in scanned if s]
+    if not scanned:
+        print("  No container logs in this bundle.")
+        return
+
+    empty = [p for p, s in scanned if s["bytes"] <= 2]
+    total_alerts = sum(sum(s["alerts"].values()) for _, s in scanned)
+    print(f"  {len(scanned)} log files, {total_alerts} error-level lines, "
+          f"{len(empty)} empty (pod never started or never logged)")
+
+    hits = [(p, s) for p, s in scanned if s["alerts"]]
+    if not hits:
+        print("\n  No error-level lines found. Note this scan keys on JSON severity")
+        print("  fields and common plain-text failure patterns — a failure that logs")
+        print("  neither will not appear here.")
+        return
+
+    print()
+    for path, summary in sorted(hits, key=lambda kv: -sum(kv[1]["alerts"].values())):
+        container = path.stem
+        pod = path.parent.name
+        namespace = path.parent.parent.name
+        if ns and namespace != ns:
+            continue
+        count = sum(summary["alerts"].values())
+        shapes = len(summary["alerts"])
+        # Distinct shapes matter more than raw count: one message repeated 200
+        # times is one incident, not two hundred.
+        print(f"  {namespace}/{pod} c={container} — {count} error lines, "
+              f"{shapes} distinct")
+        for msg, n in summary["alerts"].most_common(3):
+            print(f"      [x{n}] {msg}")
+        if shapes > 3:
+            print(f"      … and {shapes - 3} other distinct messages")
+    print()
+    print("  Counts are per message shape, not per line. Read the burst, not the file:")
+    print("  see references/support-bundle-analysis.md for time-bucketing recipes.")
+
+
 def collect_findings(root: Path, now: dt.datetime) -> list[tuple[int, str, str]]:
     """Everything that looks wrong, as (rank, headline, where-to-look).
 
@@ -255,6 +354,20 @@ def collect_findings(root: Path, now: dt.datetime) -> list[tuple[int, str, str]]
     add(0, stuck_phase, "pod(s) not Running/Succeeded", "--section pods")
     add(1, not_ready, "Running pod(s) with containers not ready", "--section pods")
     add(1, oom_old, "container(s) with a recovered OOMKill", "--section restarts")
+
+    # Logs are the only place a failure that leaves the objects healthy can show
+    # up, so a loud log ranks alongside a broken object rather than below it.
+    log_hits = []
+    for path in log_files(root):
+        summary = scan_log(path)
+        if summary and summary["alerts"]:
+            log_hits.append((sum(summary["alerts"].values()), len(summary["alerts"]),
+                             f"{path.parent.parent.name}/{path.parent.name} c={path.stem}",
+                             summary["alerts"].most_common(1)[0][0]))
+    for count, shapes, where, example in sorted(log_hits, reverse=True)[:5]:
+        out.append((0 if count >= 5 else 1,
+                    f"{where}: {count} error lines ({shapes} distinct)",
+                    f"{example} — --section logs"))
 
     nodes = items(root / "cluster-resources" / "nodes.json")
     for node in nodes:
@@ -727,6 +840,8 @@ def main() -> int:
         section_pods(root, args.namespace, now, args.expand_runtimes)
     if "restarts" in wanted:
         section_restarts(root, now)
+    if "logs" in wanted:
+        section_logs(root)
     if "top" in wanted:
         section_top(root, args.namespace)
     if "alloc" in wanted:
