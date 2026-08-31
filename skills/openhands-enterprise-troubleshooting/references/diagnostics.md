@@ -278,8 +278,9 @@ kubectl logs -n keycloak $KEYCLOAK_POD --tail=200 \
 KEYCLOAK_ADMIN=$(kubectl get secret -n keycloak keycloak-admin -o jsonpath='{.data.username}' | base64 -d)
 KEYCLOAK_PASS=$(kubectl get secret -n keycloak keycloak-admin -o jsonpath='{.data.password}' | base64 -d)
 
-# Get Keycloak URL
-KEYCLOAK_URL=$(kubectl get ingress -n keycloak -o jsonpath='{.items[0].spec.rules[0].host}')
+# Get Keycloak URL. jsonpath returns a bare host, so add the scheme —
+# without it curl defaults to http:// and a TLS-fronted Keycloak just redirects.
+KEYCLOAK_URL=https://$(kubectl get ingress -n keycloak -o jsonpath='{.items[0].spec.rules[0].host}')
 
 # Test Keycloak admin access
 curl -s -o /dev/null -w "%{http_code}" \
@@ -291,11 +292,38 @@ curl -s -o /dev/null -w "%{http_code}" \
 
 ### Keycloak Health Check
 
+Check the ingress first — it answers the question that actually matters, which is whether users can
+reach Keycloak. It also exercises DNS, TLS, and routing, so a failure here localises the fault to the
+path rather than the server.
+
 ```bash
-# Health is served over HTTP on the management port (9000 by default), not by kc.sh.
-# It must be enabled on the server (health-enabled); a 404 means it is switched off,
-# not that Keycloak is unhealthy.
-kubectl port-forward -n keycloak deploy/keycloak 9000:9000 &
+KEYCLOAK_URL=https://$(kubectl get ingress -n keycloak -o jsonpath='{.items[0].spec.rules[0].host}')
+
+# Serving realm metadata means Keycloak is up and reachable end to end
+curl -fsS -o /dev/null -w '%{http_code}\n' \
+  "$KEYCLOAK_URL/realms/master/.well-known/openid-configuration"
+```
+
+The `/health` endpoints are the exception. From Keycloak 25 they moved to a separate management
+interface on port 9000, which exists precisely so health and metrics stay off the public route — the
+ingress fronts the main HTTP port and does not carry them. So `$KEYCLOAK_URL/health/ready` will not
+work, and reaching health means going to the pod directly:
+
+```bash
+# Prefer an in-pod request; no local port to bind and nothing to clean up
+KEYCLOAK_POD=$(kubectl get pods -n keycloak -l app=keycloak -o jsonpath='{.items[0].metadata.name}')
+kubectl exec -n keycloak $KEYCLOAK_POD -- \
+  curl -fsS -o /dev/null -w '%{http_code}\n' http://localhost:9000/health/ready
+```
+
+Two ways this misleads. A 404 means health is disabled on the server rather than Keycloak being
+unhealthy — `health-enabled` is off, or `--legacy-observability-interface=true` has kept the
+endpoints on the main port. And the image may ship without `curl`, in which case the exec fails for
+reasons unrelated to Keycloak. In that case fall back to a port-forward, run in a separate shell:
+
+```bash
+kubectl port-forward -n keycloak deploy/keycloak 9000:9000
+# then, from your own machine:
 curl -fsS -o /dev/null -w '%{http_code}\n' http://localhost:9000/health/ready
 ```
 
