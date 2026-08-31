@@ -582,6 +582,7 @@ def section_alloc(root: Path) -> None:
     if not nodes:
         return
     allocatable = nodes[0]["status"]["allocatable"]
+    multinode = len(nodes) > 1
 
     scheduled = [(ns, p) for ns, p in all_pods(root)
                  if p["spec"].get("nodeName") and p["status"].get("phase") in ("Running", "Pending")]
@@ -619,6 +620,9 @@ def section_alloc(root: Path) -> None:
 
     used = totals(scheduled)
     header("ALLOCATED RESOURCES  (kubectl describe node → 'Allocated resources')")
+    if multinode:
+        print(f"  !! {len(nodes)}-node cluster: percentages below divide cluster-wide requests by")
+        print("     one node's allocatable and are therefore too high. Read them per node instead.")
     print(f"  {'RESOURCE':<20}{'REQUESTS':>14}{'%':>8}{'LIMITS':>14}{'%':>8}")
     for key in ("cpu", "memory", "ephemeral-storage"):
         cap = quantity(allocatable.get(key))

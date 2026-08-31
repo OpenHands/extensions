@@ -565,3 +565,8 @@ a genuinely unset value.
 **Not verified at all:** multi-node, HA, and non-Embedded-Cluster installs. Every bundle checked so
 far is single-node k0s Embedded Cluster. Node-count-dependent claims should be treated as unproven
 there.
+
+**Known wrong on multi-node:** the allocation section reads allocatable from the first node only
+while summing requests across every pod in the cluster, so its percentages are inflated roughly in
+proportion to the node count and `EXCEEDS ALLOCATABLE` becomes meaningless. On a multi-node cluster,
+ignore that section and compute headroom per node by hand.
