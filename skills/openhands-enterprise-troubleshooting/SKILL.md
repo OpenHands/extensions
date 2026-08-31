@@ -1,6 +1,6 @@
 ---
 name: openhands-enterprise-troubleshooting
-description: This skill should be used when a user reports an issue with OpenHands Enterprise (OHE) on a self-hosted (Replicated VM-based) installation. Use for diagnosing sandbox startup failures, auth issues, certificate errors, LLM connectivity problems, Keycloak login issues, Replicated Admin Console access, upgrade failures, or resource exhaustion. Helps triage symptoms, run diagnostic commands, guide through recovery steps, generate support bundles, and produce escalation handoffs.
+description: This skill should be used when a user reports an issue with OpenHands Enterprise (OHE) on a self-hosted (Replicated VM-based) installation. Use for diagnosing sandbox startup failures, auth issues, certificate errors, LLM connectivity problems, Keycloak login issues, Replicated Admin Console access, upgrade failures, or resource exhaustion. Helps triage symptoms, run diagnostic commands, guide through recovery steps, generate and analyze Replicated support bundles offline, and produce escalation handoffs.
 triggers:
 - openhands enterprise
 - OHE troubleshooting
@@ -149,31 +149,65 @@ kubectl logs -n replicated -l app=replicated-operator
 
 ## Support Bundle Generation
 
-When the issue requires deeper investigation, guide the user to generate a support bundle.
+When the issue requires deeper investigation — or before escalating — generate a support bundle. It
+captures both host- and cluster-level state in one archive.
 
 ### Generating the Support Bundle
 
-1. Access the VM via SSH
-2. Run the Replicated support bundle command:
+SSH to the VM, then from the directory containing the installer binary:
 
 ```bash
-replicated admin support-bundle --kubecontext=KUBE_CONTEXT --namespace=openhands
+sudo ./openhands support-bundle
 ```
 
-3. The bundle will be saved locally, then upload/share with the platform team
+This uses the default Embedded Cluster spec to collect cluster- *and* host-level information, and
+automatically includes the OpenHands application-specific collectors. Run it on a **controller
+node** — on a non-controller node it cannot capture cluster-wide information.
 
-### Parsing the Support Bundle
+For Embedded Cluster versions earlier than 1.17.0, use the support-bundle plugin from within the
+cluster shell instead:
 
-After obtaining a support bundle:
+```bash
+sudo ./openhands shell
+kubectl support-bundle --load-cluster-specs /var/lib/embedded-cluster/support/host-support-bundle.yaml
+```
 
-1. Extract the archive
-2. Focus on these key files:
-   - `pod-status.json` - Current pod states
-   - `pod-logs/*.log` - Container logs
-   - `events.json` - Kubernetes events
-   - `nodes.json` - Node resource info
+The bundle is written to the working directory as `support-bundle-<UTC timestamp>.tar.gz`. Share it
+with the platform team, or analyze it directly with the steps below.
 
-3. Look for patterns in `references/diagnostics.md`
+### Analyzing the Support Bundle
+
+**Full guide: [`references/support-bundle-analysis.md`](references/support-bundle-analysis.md).**
+Read it before drawing conclusions — the bundle's layout is not what you would guess from `kubectl`,
+and several of its gaps produce convincing false negatives.
+
+Fast path — the bundled triage script reconstructs the standard first pass (pod table, OOM and
+restart scan, `top` equivalent, allocatable headroom, events) in one command:
+
+```bash
+tar -xzf support-bundle-2026-07-28T06_54_18.tar.gz
+python3 scripts/bundle_triage.py support-bundle-2026-07-28T06_54_18
+```
+
+Then the four things that most often answer the question outright:
+
+| Question | Where to look |
+|---|---|
+| What did the collector already conclude? | `analysis.json` — pre-computed verdicts, highest-value file in the bundle |
+| What is each pod actually doing? | `cluster-resources/pods/<namespace>.json` |
+| What did a container log? | `cluster-resources/pods/logs/<ns>/<pod>/<container>.log` |
+| What is the install running? | `kots/admin_console/app-info.json` — version, channel, sequence |
+
+Three traps worth knowing before you start:
+
+- **Never use file mtimes for timing.** They record when you extracted the archive. Take the capture
+  time from the bundle directory name, which is UTC.
+- **Log filenames are container names, not pod names.** Init-container failures (`migrate-db`,
+  `wait-for-db`) are invisible to `kubectl logs <pod>` and are the easiest real failure to miss.
+- **`***HIDDEN***` means "redacted", not "unset".** The redactor over-redacts, including non-secrets.
+
+Once triage points at a failure mode, use `references/diagnostics.md` for that mode's specific
+commands and error patterns.
 
 ## Escalation Handoff Template
 
@@ -208,10 +242,13 @@ When an issue cannot be resolved, produce this summary:
 
 ## Additional Resources
 
-- **Diagnostic Reference:** `references/diagnostics.md` - Detailed commands and log interpretation for each failure mode
-- **Replicated Docs:** https://docs.replicated.com/vendor/support-bundle-generating
-- **OHE Architecture:** Internal docs on OHE components and their relationships
+- **Diagnostic Reference:** [`references/diagnostics.md`](references/diagnostics.md) — detailed commands and log interpretation for each failure mode
+- **Support Bundle Analysis:** [`references/support-bundle-analysis.md`](references/support-bundle-analysis.md) — reading a bundle offline: file map, interpretation traps, known gaps
+- **Triage Script:** `scripts/bundle_triage.py` — offline first-pass triage, standard library only
+- **Replicated Docs:** [Generating support bundles for Embedded Cluster](https://docs.replicated.com/vendor/support-bundle-embedded)
 
 ## Maintenance
 
-As new failure modes are discovered in the field, add them to this skill. Update `references/diagnostics.md` with new patterns and resolution steps.
+As new failure modes are discovered in the field, add them to this skill. Update
+`references/diagnostics.md` with new patterns and resolution steps, and add the offline equivalent to
+`references/support-bundle-analysis.md` when the failure is diagnosable from a bundle.

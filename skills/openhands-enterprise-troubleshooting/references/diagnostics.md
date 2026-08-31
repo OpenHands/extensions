@@ -1,6 +1,24 @@
 # OHE Diagnostics Reference
 
-Detailed diagnostic procedures for each OpenHands Enterprise failure mode. Run these commands on the VM via SSH.
+Detailed diagnostic procedures for each OpenHands Enterprise failure mode. Run these commands on the
+VM via SSH. On an Embedded Cluster install, start `sudo ./openhands shell` first — it exports the
+kubeconfig and puts `kubectl` on your PATH.
+
+**Working from a support bundle instead of a live cluster?** Every command here has an offline
+equivalent. See [`support-bundle-analysis.md`](support-bundle-analysis.md) for the full mapping; the
+short version:
+
+| Live command | In the bundle |
+|---|---|
+| `kubectl get pods -n <ns>` | `cluster-resources/pods/<ns>.json` |
+| `kubectl logs <pod> -c <container>` | `cluster-resources/pods/logs/<ns>/<pod>/<container>.log` |
+| `kubectl describe pod` | Reconstruct from `cluster-resources/pods/<ns>.json` (no `describe` is stored) |
+| `kubectl get events -n <ns>` | `cluster-resources/events/<ns>.json` (short TTL window) |
+| `kubectl top pods` / `top nodes` | `node-metrics/<node>.json` |
+| `kubectl get ingress -n <ns>` | `cluster-resources/ingress/<ns>.json` |
+| `kubectl get configmap/secret` | `cluster-resources/configmaps/<ns>.json`, `secrets/<ns>/` (keys only) |
+
+Start with `python3 scripts/bundle_triage.py <bundle>` and `analysis.json` before hand-writing `jq`.
 
 ## Sandbox Startup
 
@@ -233,40 +251,67 @@ kubectl exec -n keycloak deploy/keycloak -- /opt/keycloak/bin/kc.sh health --met
 
 ## Replicated Admin Console
 
-### Check Replicated Operator
+The Admin Console (KOTS) runs in the `kotsadm` namespace. The Embedded Cluster operator runs in
+`embedded-cluster`. Start a cluster shell first — it exports the kubeconfig and puts `kubectl` on
+your PATH:
 
 ```bash
-kubectl get pods -n replicated --watch
-
-# Check operator logs
-kubectl logs -n replicated -l app=replicated-operator --tail=100 --follow
+sudo ./openhands shell
 ```
 
-### Check Replicated Services
+### Check Admin Console Pods
 
 ```bash
-kubectl get svc -n replicated
+kubectl get pods -n kotsadm
 
-# Check if operator service is exposed
-kubectl get ingress -n replicated
+# Admin console logs
+kubectl logs -n kotsadm -l app=kotsadm --tail=100
+
+# rqlite is the admin console's datastore; kotsadm will not start without it
+kubectl get pods -n kotsadm -l app=kotsadm-rqlite
 ```
 
-### Common Replicated Issues
+### Check Embedded Cluster Operator
+
+```bash
+kubectl get pods -n embedded-cluster
+kubectl logs -n embedded-cluster -l app.kubernetes.io/name=embedded-cluster-operator --tail=100
+```
+
+### Check Services and Ingress
+
+```bash
+kubectl get svc -n kotsadm
+
+# The console is exposed on port 30000 by default, via kurl-proxy
+kubectl get svc -n kotsadm kurl-proxy-kotsadm
+
+# From the VM itself, bypassing any external networking
+curl -sk -o /dev/null -w "%{http_code}\n" https://localhost:30000
+```
+
+### Common Admin Console Issues
 
 | Symptom | Check | Fix |
 |---------|-------|-----|
-| "Connection refused" on admin console | Operator pod status | Restart operator pod |
-| Admin console shows blank page | Operator logs | Check for migration errors |
-| Can't run admin commands | `replicated` CLI version | Update replicated CLI |
+| "Connection refused" on admin console | `kubectl get pods -n kotsadm` | Restart the kotsadm pod |
+| Reachable on localhost:30000 but not externally | Host firewall / security group | Open port 30000 to the client |
+| Admin console shows blank page | kotsadm logs | Check for migration errors |
+| kotsadm stuck in `Init` | rqlite pod status | Fix rqlite first — kotsadm waits on it |
 
-### Replicated CLI Diagnostics
+### Cluster Status from the Host
 
 ```bash
-# SSH to the VM, then:
-replicated admin status
-replicated admin console logs --since 1h
-replicated apps list
+# Version and install state
+sudo ./openhands version
+
+# The embedded cluster runs on k0s; check the host service if the API is unreachable
+sudo systemctl status k0scontroller
+sudo journalctl -u k0scontroller --since "1 hour ago" --no-pager | tail -50
 ```
+
+> The `replicated` CLI is a **vendor-side** tool and is not present on a customer VM. Use the
+> application binary (`sudo ./openhands …`) and `kubectl` from within `sudo ./openhands shell`.
 
 ---
 
@@ -284,23 +329,32 @@ kubectl logs -n openhands job/$UPGRADE_JOB
 
 ### Check Pre-flight Status
 
-```bash
-# Run pre-flight checks manually
-replicated admin preflight --kubecontext=KUBE_CONTEXT --namespace=openHands
-
-# Check pre-flight results
-kubectl get configmap -n replicated -o jsonpath='{.items[?(@.metadata.name=="preflight-results")].data}'
-```
-
-### Rollback Procedure
+Preflight results for the current version are shown in the Admin Console under the version history
+entry. From the CLI:
 
 ```bash
-# List available releases
-replicated releases --app=APP_NAME
-
-# Rollback to previous release
-replicated release rollback --app=APP_NAME --sequence=PREVIOUS_SEQUENCE
+# Preflight state for the deployed version
+kubectl get pods -n kotsadm -l app=kotsadm -o name \
+  | head -1 | xargs -I{} kubectl logs -n kotsadm {} --tail=200 | grep -i preflight
 ```
+
+The last preflight run also leaves a full cluster snapshot inside any support bundle at
+`kots/admin_console/kotsadm/*/kotsadm/tmp/last-preflight-result/` — useful as a second point in time
+to diff against. See `support-bundle-analysis.md`.
+
+### Rollback
+
+Rollback is only possible if the application enables it (`allowRollback` in the KOTS Application
+spec). It is driven from the **Admin Console** version history, not from a customer-side CLI:
+
+1. Open the Admin Console (`https://<vm-host>:30000`) → **Version history**
+2. Find the previously deployed version
+3. Click **Deploy** on that version
+
+> Do not attempt to roll back by editing Helm releases or deleting resources directly — the Admin
+> Console owns the deployment state, and hand-edits will desync it from what KOTS believes is
+> deployed. If rollback is unavailable and the install is broken, collect a support bundle and
+> escalate rather than improvising.
 
 ### Common Upgrade Failures
 
