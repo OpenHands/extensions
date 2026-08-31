@@ -26,9 +26,22 @@ When a user reports an OHE issue:
 1. **Collect symptoms** - Ask user to describe what they see, error messages, when it started
 2. **Identify failure mode** - Match symptoms to one of the common issues below
 3. **Run targeted diagnostics** - Use commands in `references/diagnostics.md`
-4. **Guide recovery** - Follow resolution steps for the identified issue
-5. **Verify fix** - Confirm the issue is resolved
+4. **Guide recovery** - Follow resolution steps for the identified issue, one at a time
+5. **Verify fix** - Confirm the original symptom is gone, not just that the last command succeeded
 6. **Generate handoff** - If unresolved, produce a clear summary for the OpenHands team
+
+Take recovery one step at a time. Before each step, state what it will change and what you expect to
+see afterwards; after it, run the check that confirms it before moving on. If the check fails or
+shows something unexpected, stop and re-diagnose — a step applied on top of a failed one buries the
+evidence, and several applied blind can leave the install worse than the fault you started with.
+Destructive steps (restarts, rollbacks, config changes) need the user's agreement first, and are
+worth recording as you go so the handoff can say exactly what was changed.
+
+Work from whatever the user has. A described symptom starts at step 1; a support bundle goes to
+[Analyzing the Support Bundle](#analyzing-the-support-bundle). If they paste raw log output, the
+triage method in
+[`references/support-bundle-analysis.md`](references/support-bundle-analysis.md#triaging-a-log-file)
+applies to pasted text as well as to files, and notes what a hand-picked excerpt can hide.
 
 ## Common Failure Modes
 
@@ -225,6 +238,46 @@ Four traps worth knowing before you start:
 
 Once triage points at a failure mode, use `references/diagnostics.md` for that mode's specific
 commands and error patterns.
+
+### Summarizing the Bundle: Most Likely Root Cause
+
+The script reports; deciding which of its observations explains the user's symptom is your job. Work
+through its output in this order, because it is roughly the order in which a finding is likely to be
+the actual cause rather than a side effect.
+
+**1. Start from the symptom and the clock, not from the output.** Get the capture time from the
+bundle directory name (UTC) and establish when the user says it broke. A finding that predates the
+symptom by weeks is background; one that starts within the window is a candidate. Ages in the pod
+table are the cheapest way to place an event in time.
+
+**2. Read `analysis.json` first — but not literally.** The collector's own verdicts are the
+highest-value content in the bundle. Two cautions when reading them through the script: everything
+non-passing prints under a `FAIL` heading, including `warn`-severity entries that may be advisory,
+so check the severity in `analysis.json` before calling one a failure; and per-object analyzers are
+collapsed into families with one example each, so `[x12]` means twelve objects affected and the
+example shown is arbitrary. Open the file directly before quoting an analyzer verdict to a customer.
+
+**3. Rank what remains by how directly it explains the symptom.** In descending order of
+usefulness — a container in `CrashLoopBackOff` or actively OOM-killed right now; a pod that never
+started (`Pending`, `CreateContainerConfigError`, an init container that never completed); a pod
+that is `Running` but not `Ready`, which fails a health check and takes traffic out of rotation; a
+node condition that is genuinely bad; and resource pressure, which is usually a consequence rather
+than a cause. A recovered termination — visible only as `lastState` with an older age — explains a
+past blip, not a live outage; do not lead with one.
+
+**4. Prefer the cause nearest the symptom.** A failed `migrate-db` init container and an app pod
+stuck `Pending` are one finding, not two, and the init container is the one to report. When several
+findings share a timestamp, look for the common dependency rather than listing all of them.
+
+**5. Say what you ruled out.** The script reads pod objects, analyzer verdicts, node conditions and
+resource totals — and no application logs. If nothing in the objects explains the symptom, that is
+itself a result: it puts the cause in the application logs, in the network path, or outside the
+cluster. Name which, rather than reporting that the bundle looked healthy.
+
+State the conclusion with its evidence and its confidence — the object or analyzer it rests on, and
+whether it explains the reported symptom or merely coincides with it. A ranked shortlist of two or
+three candidates is more useful than a single confident guess, and it drops straight into the
+**Likely Root Cause** field of the handoff template below.
 
 ## Escalation Handoff Template
 

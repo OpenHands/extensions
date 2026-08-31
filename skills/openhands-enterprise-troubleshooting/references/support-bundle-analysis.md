@@ -342,7 +342,17 @@ node events.
 
 ### Triaging a log file
 
-Logs are the largest thing in a bundle and the easiest to skim badly. Three moves, in order:
+Logs are the largest thing in a bundle and the easiest to skim badly. Three moves, in order.
+
+The same three moves apply to logs a user pastes into the conversation, with no bundle involved —
+read them directly rather than reaching for the commands. Check the format before filtering, group
+by message shape rather than counting lines, and find the burst before reading line by line. A
+pasted excerpt carries two extra hazards worth naming: it is a *selection*, chosen by someone who
+already had a theory, so the cause may sit in the lines just before what you were given — ask for
+more context around the interesting entry rather than reasoning from the fragment. And it usually
+arrives with no filename, so you do not know which container produced it; ask, because a stack trace
+from an init container and the same trace from the main container mean different things. Where a
+timestamp is present, place it against when the symptom started before treating it as the cause.
 
 **1. Check the format before filtering.** Log files are a mix of JSON-per-line and plain text, and
 the same file often contains both. Most files in a bundle are entirely plain text; only the OpenHands
