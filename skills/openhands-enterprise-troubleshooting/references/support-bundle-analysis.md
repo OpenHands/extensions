@@ -53,12 +53,8 @@ It opens with a **FINDINGS** block — everything that looks wrong, ranked *BROK
 output is there to confirm a finding, not to be read top to bottom.
 
 After it: bundle metadata and node capacity, analyzer verdicts, a `kubectl get pods -o wide` table,
-an OOM/restart scan across every namespace, an error-level scan of every container log, a
-`kubectl top pods` equivalent, allocated-vs-allocatable resources, and an events summary.
-
-The log scan reads both JSON-per-line and plain-text logs, counts by *message shape* rather than
-raw line, and covers init containers — so a bare `Traceback` in `migrate-db.log`, which has no
-severity field and is invisible to `kubectl logs <pod>`, surfaces without being hunted for.
+an OOM/restart scan across every namespace, a `kubectl top pods` equivalent,
+allocated-vs-allocatable resources, and an events summary.
 
 ```bash
 # Just the ranked findings
@@ -502,10 +498,10 @@ pod objects, analyzer verdicts, node conditions, and resource totals.
 
 What it has *not* looked at, roughly in order of how often it pays off:
 
-1. **Application logs, beyond the error-level scan.** `--section logs` keys on JSON severity fields
-   and common plain-text failure patterns; a component can log a failure in neither form. Read the
-   logs for whatever the user's symptom points at, and see the log triage section above — cluster by
-   message shape and bucket by time rather than trusting a count.
+1. **Application logs.** The script reads none. A component can be `Running`, `1/1 Ready`, zero
+   restarts, and failing every request. Start with the logs for whatever the user's symptom points
+   at, and see the log triage section above — a severity filter that silently skips non-JSON lines
+   will show you nothing on a file full of errors.
 2. **Anything outside the capture window.** Events have a short TTL and the bundle is one instant.
    An incident that resolved before capture leaves almost nothing behind; `lastState`, restart
    counts, and pod age are the only real memory the bundle has.
@@ -557,12 +553,6 @@ events; absence of node-scoped events and of `describe` output; the mtime trap; 
 pods; the log-format and message-clustering recipes above; failing-analyzer grouping across error and
 warn severities; `Pending` pods blocked in init (`CreateContainerConfigError`); init-container
 attribution by container name; and `runtime-*` collapse at 25 sandboxes.
-
-**Verified against synthetic log fixtures only:** the `--section logs` scan — JSON severity
-extraction, plain-text traceback detection, message-shape clustering, and the empty-log count. The
-patterns it keys on come from real bundles, but the scan itself has not been run against a real log
-corpus, so treat its recall as unproven: it finds what it matches, and nothing tells you what it
-missed.
 
 **Not yet exercised against real data — fixture-only:** an actively OOMing container
 (`state.terminated`, as opposed to a recovered `lastState` one); a truly unschedulable pod

@@ -199,10 +199,9 @@ python3 scripts/bundle_triage.py support-bundle-2026-07-28T06_54_18
 ```
 
 You are reading this bundle because something is broken, so treat a clean run as "not here" rather
-than "nothing wrong". The scan covers pod objects, analyzer verdicts, node conditions, resource
-totals, and error-level lines in every container log — but a failure that logs neither a severity
-field nor a recognisable error pattern will not appear.
-`references/support-bundle-analysis.md` has a section on where to look next when it comes back clean.
+than "nothing wrong" — the script sees pod objects, analyzer verdicts, node conditions and resource
+totals, and reads no application logs at all. `references/support-bundle-analysis.md` has a section
+on where to look next when the objects come back clean.
 
 Then the four things that most often answer the question outright:
 
