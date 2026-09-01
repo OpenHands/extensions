@@ -191,15 +191,20 @@ the Certificate Issues section below for private CAs.
 ```bash
 HOST="your-openhands-domain.com"
 
-# From the VM the public name usually does not resolve, so connect to the local
-# listener and pass the name as SNI. From outside, use -connect $HOST:443.
-echo | openssl s_client -connect 127.0.0.1:443 -servername $HOST 2>/dev/null \
+# The public name generally does not resolve from the VM itself, so connecting to
+# $HOST:443 there fails before TLS starts. Find the port that is actually
+# listening locally first — traefik may publish 443 via hostPort or only on a
+# NodePort in the 30000-32767 range.
+sudo ss -lntp | grep -E ':(443|8443|3[0-9]{4})\b'
+
+# Then use whatever that shows as PORT, passing the public name as SNI:
+echo | openssl s_client -connect 127.0.0.1:PORT -servername $HOST 2>/dev/null \
   | openssl x509 -noout -dates
 
 # s_client does NOT check the hostname unless you ask it to: a certificate for
 # the wrong name still reports "Verify return code: 0 (ok)". Add -verify_hostname
 # to actually test the name, or a mismatch will read as healthy.
-echo | openssl s_client -connect 127.0.0.1:443 -servername $HOST \
+echo | openssl s_client -connect 127.0.0.1:PORT -servername $HOST \
   -verify_hostname $HOST 2>/dev/null | grep -E "Verify return code"
 
 # Find the TLS secret the ingress actually references, then read its certificate.
@@ -223,12 +228,14 @@ kubectl get svc -A | grep -iE 'traefik|ingress-nginx'
 
 ### Check Certificate Chain
 
+`PORT` is whatever the `ss` check above found listening; from outside the VM use `$HOST:443`.
+
 ```bash
 # Get full certificate chain
-echo | openssl s_client -connect 127.0.0.1:443 -servername $HOST -showcerts 2>/dev/null
+echo | openssl s_client -connect 127.0.0.1:PORT -servername $HOST -showcerts 2>/dev/null
 
 # Check chain completeness
-echo | openssl s_client -connect 127.0.0.1:443 -servername $HOST 2>/dev/null | grep -A2 "Certificate chain"
+echo | openssl s_client -connect 127.0.0.1:PORT -servername $HOST 2>/dev/null | grep -A2 "Certificate chain"
 ```
 
 ### Common Certificate Errors
@@ -636,7 +643,14 @@ App logs are structured JSON with a `severity` key, and the app is Python/uvicor
 
 ```bash
 kubectl logs -n openhands deploy/openhands --tail=2000 \
-  | grep -E '"severity":"(ERROR|CRITICAL)"'
+  | grep -E '"severity": ?"(ERROR|CRITICAL)"'
+```
+
+If that returns nothing on an install you know has errors, print one line first and match the field
+as it is really formatted — quoting and spacing vary by log library:
+
+```bash
+kubectl logs -n openhands deploy/openhands --tail=1
 ```
 
 ```bash
