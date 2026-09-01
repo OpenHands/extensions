@@ -487,9 +487,9 @@ spec). It is driven from the **Admin Console** version history:
 2. Find the previously deployed version
 3. Click **Deploy** on that version
 
-> If rollback is unavailable and the install is broken, collect a support bundle and escalate. The
-> Admin Console owns the deployment state, so restoring a working version is a job for the Console
-> or for the OpenHands team.
+> If the install is broken, collect a support bundle and escalate. The Admin Console owns the
+> deployment state, so restoring a working version is a job for the Console or for the OpenHands
+> team.
 
 ### Common Upgrade Failures
 
