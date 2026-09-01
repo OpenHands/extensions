@@ -140,9 +140,18 @@ the user is actually on before diagnosing
 
 ## Diagnostic Commands Quick Reference
 
-Access the VM and run these common commands:
+Access the VM and run these common commands.
+
+**An empty result never means "healthy".** `kubectl get pods -l <selector>` prints `No resources
+found` and exits 0 both when a component is down and when the selector is wrong, so the two are
+indistinguishable. When you need to know whether something is running, ask its Deployment or
+StatefulSet for a READY count instead — that object exists either way, and `0/1` means down while a
+`NotFound` error means you had the name wrong.
 
 ```bash
+# Is it up? READY answers this; an empty pod list does not.
+kubectl get deploy,statefulset -n openhands
+
 # Check overall pod status
 kubectl get pods -n openhands
 

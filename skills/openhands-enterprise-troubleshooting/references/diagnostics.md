@@ -49,6 +49,11 @@ kubectl get pods -n openhands | grep '^runtime-'
 
 Look for: `Running` status, multiple restarts, `ImagePullBackOff`, `CrashLoopBackOff`
 
+Zero `runtime-` pods is not itself a fault. These are per-conversation sandboxes plus any warm pool,
+so an idle install with the pool at zero legitimately has none, and a pod that is present may be a
+warm spare rather than anyone's session. Judge sandbox startup by whether a *new* conversation gets
+one, and by `runtime-api` logs — not by the count here.
+
 ### Check Sandbox Logs
 
 ```bash
@@ -120,19 +125,32 @@ dedicated workload.
 # Only configured providers have a secret -- absence is the usual "auth broken" cause
 kubectl get secret -n openhands github-app gitlab-app bitbucket-data-center-app azure-devops-app 2>&1
 
-# Confirm the app was actually told to enable it (secret present but disabled is a common trap)
-kubectl set env deploy/openhands -n openhands --list | grep -E '^(GITHUB|GITLAB|BITBUCKET|AZURE)'
+# Confirm the app was actually told to enable it (secret present but disabled is a common trap).
+# Provider variables are not all bare-prefixed — expect OPENHANDS_*_SERVICE_CLS,
+# OH_WEB_CLIENT_PROVIDERS_CONFIGURED and *_APP_CLIENT_* alongside GITHUB_/GITLAB_.
+kubectl set env deploy/openhands -n openhands --list \
+  | grep -iE 'github|gitlab|bitbucket|azure|providers_configured'
 ```
+
+`OH_WEB_CLIENT_PROVIDERS_CONFIGURED` is the most direct answer to "which provider does the app think
+it has": it lists them.
 
 ### Check a provider secret has the keys it needs
 
-Replace `<secret>` with the row from the table above. This prints key names and byte lengths, never
-the values:
+Drive this off whichever secret actually exists rather than assuming GitHub — most installs have one
+provider, and the other three will be `NotFound`. This prints key names and byte lengths, never the
+values:
 
 ```bash
-kubectl get secret -n openhands <secret> \
-  -o go-template='{{range $k,$v := .data}}{{$k}}={{len $v}} bytes{{"\n"}}{{end}}'
+for s in github-app gitlab-app bitbucket-data-center-app azure-devops-app; do
+  kubectl get secret -n openhands "$s" >/dev/null 2>&1 || continue
+  echo "== $s"
+  kubectl get secret -n openhands "$s" \
+    -o go-template='{{range $k,$v := .data}}{{$k}}={{len $v}} bytes{{"\n"}}{{end}}'
+done
 ```
+
+Compare the keys against the row for that provider in the table above.
 
 A key present but zero-length is the failure worth looking for — Helm renders empty values into a
 valid Secret, so the object exists and looks correct while auth fails.
@@ -300,6 +318,18 @@ the most common way these commands silently return nothing.
 
 ### Check Keycloak Pods
 
+**Start with the StatefulSet, not the pod list.** A pod query returns `No resources found` and exits
+0 whether Keycloak is scaled to zero or your selector is simply wrong — the two are byte-identical,
+and you cannot tell a dead component from a bad query. The workload object always exists, so its
+READY count answers the question directly: `0/0` is scaled down, `0/1` is failing to start, `1/1` is
+up.
+
+```bash
+kubectl get statefulset -n openhands keycloak
+```
+
+Then, once READY tells you what you are looking at:
+
 ```bash
 kubectl get pods -n openhands -l app.kubernetes.io/name=keycloak
 kubectl logs -n openhands keycloak-0 --tail=200
@@ -392,6 +422,11 @@ sudo ./openhands shell
 
 ### Check Admin Console Pods
 
+The admin console chart uses bare `app=` labels — `app=kotsadm`,
+`app=kotsadm-rqlite`, `app=kurl-proxy-kotsadm` — unlike the rest of the platform. Its
+`app.kubernetes.io/name` is `admin-console`, so "correcting" these to
+`app.kubernetes.io/name=kotsadm` breaks them.
+
 ```bash
 kubectl get pods -n kotsadm
 
@@ -412,9 +447,8 @@ kubectl logs -n embedded-cluster -l app.kubernetes.io/name=embedded-cluster-oper
 ### Check Services and Ingress
 
 ```bash
-# The console is exposed on port 30000 by default. Read the service rather than
-# assuming its name — `kurl-proxy-kotsadm` is the kURL-era name and may not exist
-# on Embedded Cluster.
+# The console is served by kurl-proxy-kotsadm, a NodePort on 8800:30000. The
+# name is a kURL leftover but the service is still there on Embedded Cluster.
 kubectl get svc -n kotsadm -o wide
 
 # From the VM itself, bypassing any external networking
@@ -469,10 +503,15 @@ Preflight results for the current version are shown in the Admin Console under t
 entry. From the CLI:
 
 ```bash
-# Preflight state for the deployed version
+# Preflight state for the deployed version. Preflight runs once at deploy, so on
+# anything but a just-installed cluster those lines have scrolled out of a short
+# tail — search the whole log, not the last N lines.
 kubectl get pods -n kotsadm -l app=kotsadm -o name \
-  | head -1 | xargs -I{} kubectl logs -n kotsadm {} --tail=200 | grep -i preflight
+  | head -1 | xargs -I{} kubectl logs -n kotsadm {} | grep -i preflight
 ```
+
+Silence here means the log no longer reaches back to the deploy, not that preflight passed. The
+Admin Console version history is the reliable source; treat the log as a shortcut that expires.
 
 The last preflight run also leaves a full cluster snapshot inside any support bundle at
 `kots/admin_console/kotsadm/*/kotsadm/tmp/last-preflight-result/` — useful as a second point in time
