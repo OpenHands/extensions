@@ -412,10 +412,10 @@ kubectl logs -n embedded-cluster -l app.kubernetes.io/name=embedded-cluster-oper
 ### Check Services and Ingress
 
 ```bash
-kubectl get svc -n kotsadm
-
-# The console is exposed on port 30000 by default, via kurl-proxy
-kubectl get svc -n kotsadm kurl-proxy-kotsadm
+# The console is exposed on port 30000 by default. Read the service rather than
+# assuming its name — `kurl-proxy-kotsadm` is the kURL-era name and may not exist
+# on Embedded Cluster.
+kubectl get svc -n kotsadm -o wide
 
 # From the VM itself, bypassing any external networking
 curl -sk -o /dev/null -w "%{http_code}\n" https://localhost:30000
@@ -447,6 +447,15 @@ sudo journalctl -u k0scontroller --since "1 hour ago" --no-pager | tail -50
 ---
 
 ## Upgrade Issues
+
+> **Upgrades are driven from the Admin Console, not from here.** Everything in this section is
+> read-only diagnosis for an upgrade that has already gone wrong. Do not drive an upgrade or a
+> rollback from the CLI — KOTS owns the deployment state, and CLI-side changes desync it from what
+> the Admin Console believes is deployed.
+>
+> Unlike the rest of this file, these commands have **not been validated against a live install**;
+> doing so requires deliberately breaking an upgrade. Treat them as a starting point, confirm what
+> you find against the Admin Console, and escalate rather than improvising if they disagree.
 
 ### Check Failed Upgrade Jobs
 
