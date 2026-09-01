@@ -188,23 +188,26 @@ the Certificate Issues section below for private CAs.
 
 ### Check Certificate Expiry
 
+Read the port off the ingress controller Service. Do not go looking for a listening socket: a
+NodePort is served by kube-proxy DNAT rules, so `ss -lntp` shows nothing even though the port works.
+
 ```bash
+kubectl get svc -A | grep -iE 'traefik|ingress-nginx'   # e.g. 80:80/TCP,443:443/TCP
+
+# HOST must be a bare hostname, not a URL — a leading https:// makes the
+# hostname check below fail against a perfectly good certificate.
 HOST="your-openhands-domain.com"
 
-# The public name generally does not resolve from the VM itself, so connecting to
-# $HOST:443 there fails before TLS starts. Find the port that is actually
-# listening locally first — traefik may publish 443 via hostPort or only on a
-# NodePort in the 30000-32767 range.
-sudo ss -lntp | grep -E ':(443|8443|3[0-9]{4})\b'
-
-# Then use whatever that shows as PORT, passing the public name as SNI:
-echo | openssl s_client -connect 127.0.0.1:PORT -servername $HOST 2>/dev/null \
+# The public name generally does not resolve from the VM itself, so connect to
+# the local listener and pass the name as SNI.
+echo | openssl s_client -connect 127.0.0.1:443 -servername $HOST 2>/dev/null \
   | openssl x509 -noout -dates
 
 # s_client does NOT check the hostname unless you ask it to: a certificate for
 # the wrong name still reports "Verify return code: 0 (ok)". Add -verify_hostname
 # to actually test the name, or a mismatch will read as healthy.
-echo | openssl s_client -connect 127.0.0.1:PORT -servername $HOST \
+# Expect 0 (ok) for the right name, 62 (hostname mismatch) for the wrong one.
+echo | openssl s_client -connect 127.0.0.1:443 -servername $HOST \
   -verify_hostname $HOST 2>/dev/null | grep -E "Verify return code"
 
 # Find the TLS secret the ingress actually references, then read its certificate.
@@ -219,23 +222,16 @@ kubectl get secret -n openhands <tls-secret> -o jsonpath='{.data.tls\.crt}' \
 A blank `secretName` against a `runtime-<id>` ingress is normal, not a fault: sandbox routing is
 HTTP-only and TLS for it is handled by the ingress controller's default certificate.
 
-TLS is terminated by the ingress controller, which lives in its own namespace — looking for a
-`:443` service in `openhands` finds nothing:
-
-```bash
-kubectl get svc -A | grep -iE 'traefik|ingress-nginx'
-```
-
 ### Check Certificate Chain
 
-`PORT` is whatever the `ss` check above found listening; from outside the VM use `$HOST:443`.
+From outside the VM, use `-connect $HOST:443` instead.
 
 ```bash
 # Get full certificate chain
-echo | openssl s_client -connect 127.0.0.1:PORT -servername $HOST -showcerts 2>/dev/null
+echo | openssl s_client -connect 127.0.0.1:443 -servername $HOST -showcerts 2>/dev/null
 
 # Check chain completeness
-echo | openssl s_client -connect 127.0.0.1:PORT -servername $HOST 2>/dev/null | grep -A2 "Certificate chain"
+echo | openssl s_client -connect 127.0.0.1:443 -servername $HOST 2>/dev/null | grep -A2 "Certificate chain"
 ```
 
 ### Common Certificate Errors
@@ -651,6 +647,15 @@ as it is really formatted — quoting and spacing vary by log library:
 
 ```bash
 kubectl logs -n openhands deploy/openhands --tail=1
+```
+
+A clean severity filter does **not** mean no errors. Error-shaped events are routinely logged at
+`INFO` — handled exceptions such as `NoCredentialsError` carry the exception name in the message
+while the severity field stays `INFO`. Search the text too before concluding the app is quiet:
+
+```bash
+kubectl logs -n openhands deploy/openhands --tail=5000 \
+  | grep -iE 'error|exception|traceback' | head -20
 ```
 
 ```bash
