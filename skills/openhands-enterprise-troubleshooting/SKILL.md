@@ -146,8 +146,7 @@ Access the VM and run these common commands.
 found` and exits 0 both when a component is down and when the selector is wrong, so the two are
 indistinguishable. When you need to know whether something is running, ask its Deployment or
 StatefulSet for a READY count instead — that object exists either way, and `0/1` means down while a
-`NotFound` error means you had the name wrong. The same applies to log filters: a severity search
-that returns nothing may just mean the errors were logged at `INFO`.
+`NotFound` error means you had the name wrong.
 
 ```bash
 # Is it up? READY answers this; an empty pod list does not.

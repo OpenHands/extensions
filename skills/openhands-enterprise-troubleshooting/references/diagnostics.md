@@ -649,15 +649,6 @@ as it is really formatted — quoting and spacing vary by log library:
 kubectl logs -n openhands deploy/openhands --tail=1
 ```
 
-A clean severity filter does **not** mean no errors. Error-shaped events are routinely logged at
-`INFO` — handled exceptions such as `NoCredentialsError` carry the exception name in the message
-while the severity field stays `INFO`. Search the text too before concluding the app is quiet:
-
-```bash
-kubectl logs -n openhands deploy/openhands --tail=5000 \
-  | grep -iE 'error|exception|traceback' | head -20
-```
-
 ```bash
 # In pod logs, search for these patterns:
 grep -E "ERROR|CRITICAL|Exception|Traceback" /path/to/logs
