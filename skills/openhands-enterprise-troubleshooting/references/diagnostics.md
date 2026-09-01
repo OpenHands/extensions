@@ -451,11 +451,8 @@ sudo journalctl -u k0scontroller --since "1 hour ago" --no-pager | tail -50
 > **Upgrades are driven from the Admin Console, not from here.** Everything in this section is
 > read-only diagnosis for an upgrade that has already gone wrong. Do not drive an upgrade or a
 > rollback from the CLI — KOTS owns the deployment state, and CLI-side changes desync it from what
-> the Admin Console believes is deployed.
->
-> Unlike the rest of this file, these commands have **not been validated against a live install**;
-> doing so requires deliberately breaking an upgrade. Treat them as a starting point, confirm what
-> you find against the Admin Console, and escalate rather than improvising if they disagree.
+> the Admin Console believes is deployed. Confirm what you find against the Admin Console, and
+> escalate rather than improvising if they disagree.
 
 ### Check Failed Upgrade Jobs
 
