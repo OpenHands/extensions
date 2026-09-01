@@ -448,11 +448,10 @@ sudo journalctl -u k0scontroller --since "1 hour ago" --no-pager | tail -50
 
 ## Upgrade Issues
 
-> **Upgrades are driven from the Admin Console, not from here.** Everything in this section is
-> read-only diagnosis for an upgrade that has already gone wrong. Do not drive an upgrade or a
-> rollback from the CLI — KOTS owns the deployment state, and CLI-side changes desync it from what
-> the Admin Console believes is deployed. Confirm what you find against the Admin Console, and
-> escalate rather than improvising if they disagree.
+> **Upgrades and rollbacks belong in the Admin Console.** KOTS owns the deployment state, so the
+> Admin Console is the only place that can change it safely. Everything in this section is read-only
+> diagnosis for an upgrade that has already gone wrong: use it to work out *what* failed, then act
+> in the Admin Console. Confirm what you find there, and escalate if the two disagree.
 
 ### Check Failed Upgrade Jobs
 
@@ -482,16 +481,15 @@ to diff against. See `support-bundle-analysis.md`.
 ### Rollback
 
 Rollback is only possible if the application enables it (`allowRollback` in the KOTS Application
-spec). It is driven from the **Admin Console** version history, not from a customer-side CLI:
+spec). It is driven from the **Admin Console** version history:
 
 1. Open the Admin Console (`https://<vm-host>:30000`) → **Version history**
 2. Find the previously deployed version
 3. Click **Deploy** on that version
 
-> Do not attempt to roll back by editing Helm releases or deleting resources directly — the Admin
-> Console owns the deployment state, and hand-edits will desync it from what KOTS believes is
-> deployed. If rollback is unavailable and the install is broken, collect a support bundle and
-> escalate rather than improvising.
+> If rollback is unavailable and the install is broken, collect a support bundle and escalate. The
+> Admin Console owns the deployment state, so restoring a working version is a job for the Console
+> or for the OpenHands team.
 
 ### Common Upgrade Failures
 
