@@ -482,6 +482,13 @@ jq -r '.items[] | select(.metadata.name=="openhands")
       elif .valueFrom.configMapKeyRef then "<cm \(.valueFrom.configMapKeyRef.name)/\(.valueFrom.configMapKeyRef.key)>"
       else "<other>" end)"' cluster-resources/deployments/$NS.json | column -t -s $'\t'
 
+# Not every workload is a Deployment, and StatefulSet capture is version-dependent.
+# Keycloak, redis and rqlite are StatefulSets; older bundle specs omit them
+# entirely, so an absent statefulsets/ means "not collected", not "not deployed".
+# Fall back to the pod list, which is always present.
+ls cluster-resources/statefulsets/ 2>/dev/null || \
+  jq -r '.items[].metadata.name' cluster-resources/pods/$NS.json
+
 # LiteLLM model config
 jq -r '.items[] | select(.metadata.name=="openhands-litellm-config") | .data["config.yaml"]' \
   cluster-resources/configmaps/$NS.json

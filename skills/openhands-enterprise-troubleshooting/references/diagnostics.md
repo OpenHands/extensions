@@ -201,7 +201,7 @@ echo | openssl s_client -connect $HOST:443 -servername $HOST 2>/dev/null | grep 
 | `CERT_HAS_EXPIRED` | Certificate expired | Renew certificate |
 | `self signed certificate` | Self-signed in chain | Install proper chain |
 | `UNABLE_TO_VERIFY_LEAF_SIGNATURE` | Intermediate missing | Ensure full chain in ingress |
-| `certificate hostname mismatch` | Wrong CN/SAN | Reissue with correct hostname |
+| `Hostname mismatch`, `doesn't match either of` | Wrong CN/SAN | Reissue with correct hostname |
 
 ### Ingress TLS Check
 
@@ -238,19 +238,32 @@ object looks correct while every request fails to authenticate.
 
 > **Do not decode the API key into your shell.** It is a live credential, and on a real install that
 > puts it into your terminal history and any agent transcript. Run the request *inside* the pod that
-> already holds the key, so the value never leaves the container:
+> already holds the key, so the value never leaves the container.
+
+**The secret key names are not the pod's variable names.** The keys above are what the Secret
+contains; the app pod exposes the endpoint as `LITE_LLM_API_URL` and `LITE_LLM_API_KEY`. Always list
+what the pod actually has before building a request against it:
+
+```bash
+kubectl exec -n openhands deploy/openhands -- printenv \
+  | grep -iE 'LLM|LITE_LLM' | sed 's/=.*/=<set>/'
+```
+
+Then use the names it reports:
 
 ```bash
 kubectl exec -n openhands deploy/openhands -- sh -c '
   curl -s -o /dev/null -w "HTTP_CODE:%{http_code}\n" \
-    -H "Authorization: Bearer $LLM_API_KEY" \
-    "$LLM_BASE_URL/v1/models"'
+    -H "Authorization: Bearer $LITE_LLM_API_KEY" \
+    "$LITE_LLM_API_URL/v1/models"'
 ```
 
-A 401 or 403 means the credential is wrong; a timeout or `connection refused` means the endpoint is
-unreachable from the cluster, which is a network problem rather than a credential one. If `curl` is
-absent from the image, read the failure out of the application log instead — it reports the upstream
-status on every failed call.
+A 200 confirms the credential and the network path. A 401 or 403 means the credential is wrong; a
+timeout or `connection refused` means the endpoint is unreachable from the cluster, which is a
+network problem rather than a credential one. An empty variable in the request — producing a URL like
+`/v1/models` with no host — means you used a secret key name rather than the pod's variable name.
+If `curl` is absent from the image, read the failure out of the application log instead: it reports
+the upstream status on every failed call.
 
 ### Network Policy Check
 
@@ -274,7 +287,7 @@ resolution failure from a routing or TLS one by the error it reports.
 | `connection refused` | Wrong endpoint | Verify LLM endpoint URL |
 | `401 Unauthorized` | Bad API key | Re-create/rotate API key |
 | `403 Forbidden` | Insufficient permissions | Check model access |
-| `connection timeout` | Network policy/firewall | Check network policies |
+| `timed out`, `Connection timed out`, `context deadline exceeded` | Network policy/firewall | Check network policies |
 
 ---
 
@@ -294,10 +307,14 @@ kubectl logs -n openhands keycloak-0 --tail=200
 
 ### Check Keycloak Database Connectivity
 
+Bitnami images wire the database through `KEYCLOAK_DATABASE_*` rather than upstream's `KC_DB_*`, so
+grepping only for `KC_DB` comes back empty on these installs and looks like nothing is configured.
+Match both:
+
 ```bash
 # Ask the pod what database it is configured against, rather than assuming
 kubectl exec -n openhands keycloak-0 -- printenv \
-  | grep -iE 'KC_DB|DB_ADDR|DB_URL|JDBC|DATABASE' | sort
+  | grep -iE 'KC_DB|KEYCLOAK_DATABASE|DB_ADDR|DB_URL|JDBC|DATABASE' | sort
 
 # The database error itself is usually in the log, and needs no in-pod tooling
 kubectl logs -n openhands keycloak-0 --tail=200 \
@@ -324,13 +341,15 @@ kubectl exec -n openhands keycloak-0 -- printenv | grep -i 'KC_BOOTSTRAP_ADMIN' 
 To confirm Keycloak is serving its realm, use the public endpoint, which needs no credential:
 
 ```bash
-KEYCLOAK_URL=https://$(kubectl get ingress -n openhands keycloak \
-  -o jsonpath='{.spec.rules[0].host}')
+# Select by the host it serves rather than by resource name — the ingress is
+# named `keycloak` on current builds, but the auth host is the stable property.
+KEYCLOAK_HOST=$(kubectl get ingress -n openhands \
+  -o jsonpath='{range .items[*].spec.rules[*]}{.host}{"\n"}{end}' | grep -i '^auth\.' | head -1)
 
-# jsonpath returns a bare host, so the scheme above matters — without it curl
-# defaults to http:// and a TLS-fronted Keycloak just redirects.
+# The scheme matters — without it curl defaults to http:// and a TLS-fronted
+# Keycloak just redirects.
 curl -fsS -o /dev/null -w '%{http_code}\n' \
-  "$KEYCLOAK_URL/realms/master/.well-known/openid-configuration"
+  "https://$KEYCLOAK_HOST/realms/master/.well-known/openid-configuration"
 ```
 
 ### Keycloak Health Check

@@ -45,12 +45,14 @@ applies to pasted text as well as to files, and notes what a hand-picked excerpt
 
 ## Common Failure Modes
 
-### 1. Sandbox Fails to Start / 120s Timeout
+### 1. Sandbox Fails to Start / Timeout
 
 **Symptoms:**
 - Conversation hangs then times out
 - "Sandbox failed to start" error
-- 120-second timeout in logs
+- A timeout in the logs. Read the actual value rather than assuming one: the timeouts in
+  `runtime-api` are configurable and differ between the Kubernetes client and the app, so quoting a
+  fixed number back to a customer is how you end up chasing the wrong one.
 
 **Diagnosis:** Check sandbox service status, the `sysbox-runc` RuntimeClass and its containerd
 runtime, resource availability
