@@ -189,9 +189,18 @@ the Certificate Issues section below for private CAs.
 ### Check Certificate Expiry
 
 ```bash
-# For a specific host
 HOST="your-openhands-domain.com"
-echo | openssl s_client -connect $HOST:443 -servername $HOST 2>/dev/null | openssl x509 -noout -dates
+
+# From the VM the public name usually does not resolve, so connect to the local
+# listener and pass the name as SNI. From outside, use -connect $HOST:443.
+echo | openssl s_client -connect 127.0.0.1:443 -servername $HOST 2>/dev/null \
+  | openssl x509 -noout -dates
+
+# s_client does NOT check the hostname unless you ask it to: a certificate for
+# the wrong name still reports "Verify return code: 0 (ok)". Add -verify_hostname
+# to actually test the name, or a mismatch will read as healthy.
+echo | openssl s_client -connect 127.0.0.1:443 -servername $HOST \
+  -verify_hostname $HOST 2>/dev/null | grep -E "Verify return code"
 
 # Find the TLS secret the ingress actually references, then read its certificate.
 # There is no `app=ingress-tls` label — the secret is named in the ingress spec.
@@ -202,14 +211,24 @@ kubectl get secret -n openhands <tls-secret> -o jsonpath='{.data.tls\.crt}' \
   | base64 -d | openssl x509 -noout -dates -subject -issuer
 ```
 
+A blank `secretName` against a `runtime-<id>` ingress is normal, not a fault: sandbox routing is
+HTTP-only and TLS for it is handled by the ingress controller's default certificate.
+
+TLS is terminated by the ingress controller, which lives in its own namespace — looking for a
+`:443` service in `openhands` finds nothing:
+
+```bash
+kubectl get svc -A | grep -iE 'traefik|ingress-nginx'
+```
+
 ### Check Certificate Chain
 
 ```bash
 # Get full certificate chain
-echo | openssl s_client -connect $HOST:443 -servername $HOST -showcerts 2>/dev/null
+echo | openssl s_client -connect 127.0.0.1:443 -servername $HOST -showcerts 2>/dev/null
 
 # Check chain completeness
-echo | openssl s_client -connect $HOST:443 -servername $HOST 2>/dev/null | grep -A2 "Certificate chain"
+echo | openssl s_client -connect 127.0.0.1:443 -servername $HOST 2>/dev/null | grep -A2 "Certificate chain"
 ```
 
 ### Common Certificate Errors
@@ -219,7 +238,7 @@ echo | openssl s_client -connect $HOST:443 -servername $HOST 2>/dev/null | grep 
 | `CERT_HAS_EXPIRED` | Certificate expired | Renew certificate |
 | `self signed certificate` | Self-signed in chain | Install proper chain |
 | `UNABLE_TO_VERIFY_LEAF_SIGNATURE` | Intermediate missing | Ensure full chain in ingress |
-| `Hostname mismatch`, `doesn't match either of` | Wrong CN/SAN | Reissue with correct hostname |
+| `hostname mismatch` (openssl, verify code 62); `no alternative certificate subject name matches target host name` (curl) | Wrong CN/SAN | Reissue with correct hostname |
 
 ### Ingress TLS Check
 
@@ -549,8 +568,11 @@ spec). It is driven from the **Admin Console** version history:
 # Node CPU/memory
 kubectl top nodes
 
-# Node disk usage
-kubectl debug node/NODE_NAME -it -- df -h
+# Node disk usage. This is a single-node install, so `df -h /` in an SSH session
+# on the VM answers the same question without a debug pod. `kubectl debug` also
+# needs a TTY, which an agent shell may not have; the node filesystem appears
+# under /host inside it.
+df -h /
 
 # Check if OOMKilled
 kubectl get events -n openhands | grep -i "oom\|killed"
@@ -568,14 +590,19 @@ kubectl get pods -n openhands -o jsonpath='{range .items[*]}{.metadata.name}{"\t
 
 ### Check File Descriptor Usage
 
-```bash
-# Check fd limit on node
-cat /proc/sys/fs/file-max
-ulimit -n
+Ask the **server process** (PID 1 in the container), not your own shell and not the `ls` you just
+spawned. `ulimit -n` reports the limit of whatever shell you are sitting in, `/proc/sys/fs/file-max`
+is a host-wide ceiling, and `ls /proc/self/fd` counts the handles of `ls` itself — all three return
+a confident, plausible number that says nothing about the app:
 
-# Check pod fd usage
-kubectl exec -n openhands deploy/openhands -- ls /proc/self/fd | wc -l
+```bash
+# The app's actual fd limit and current usage
+kubectl exec -n openhands deploy/openhands -- sh -c \
+  'grep -i "open files" /proc/1/limits; ls /proc/1/fd | wc -l'
 ```
+
+Compare the count against the limit. If they are not close, fd exhaustion is not your fault — look
+elsewhere before raising limits.
 
 ### Check Disk Space
 
@@ -595,7 +622,7 @@ kubectl exec -n openhands deploy/openhands -- du -sh /var/* 2>/dev/null
 |----------|-------|-----|
 | Memory OOM | `kubectl top pods` | Increase pod memory limits |
 | Disk full | `du -sh` | Clean up logs, increase PV size |
-| FD exhaustion | `ls /proc/*/fd \| wc` | Increase ulimit |
+| FD exhaustion | `/proc/1/limits` vs `ls /proc/1/fd \| wc -l` in the pod | Increase the container's limit |
 | CPU throttling | `kubectl top pods` | Adjust CPU limits |
 
 ---
@@ -604,9 +631,17 @@ kubectl exec -n openhands deploy/openhands -- du -sh /var/* 2>/dev/null
 
 ### Search for Common Error Patterns
 
+App logs are structured JSON with a `severity` key, and the app is Python/uvicorn — whose top tier is
+`CRITICAL`, not `FATAL`, so grepping for `FATAL` never matches. Filter on the field:
+
+```bash
+kubectl logs -n openhands deploy/openhands --tail=2000 \
+  | grep -E '"severity":"(ERROR|CRITICAL)"'
+```
+
 ```bash
 # In pod logs, search for these patterns:
-grep -E "ERROR|FATAL|Exception|Traceback" /path/to/logs
+grep -E "ERROR|CRITICAL|Exception|Traceback" /path/to/logs
 
 # Search for timeout patterns
 grep -E "timeout|timed out|deadline" /path/to/logs
