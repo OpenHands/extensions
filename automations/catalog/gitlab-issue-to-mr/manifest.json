@@ -1,6 +1,6 @@
 {
   "id": "gitlab-issue-to-mr",
-  "name": "GitLab Issue to MR Agent",
+  "name": "GitLab Issue to MR",
   "category": "Software development",
   "description": "Watch for a configurable label on GitLab issues, implement the issue in a clone of the default branch, and open a merge request for each label event.",
   "requires": {
