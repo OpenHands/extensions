@@ -70,9 +70,13 @@ export type AutomationFieldType =
   | "text"
   | "textarea"
   | "select"
+  | "number"
   | "cron"
   | "timezone"
-  | "repo-picker";
+  | "repo-picker"
+  | "llm-profile"
+  | "event-source"
+  | "event-type";
 export type AutomationGitProvider = "github" | "gitlab" | "bitbucket";
 export type AutomationTriggerKind = "cron" | "event";
 
@@ -84,6 +88,8 @@ export interface AutomationFieldOption {
 export interface AutomationFieldConstraints {
   minLength?: number;
   maxLength?: number;
+  min?: number;
+  max?: number;
   /** Host-implemented check, named from a closed set. Entries supply no regex. */
   format?: "safeExpressionLiteral";
 }
@@ -93,7 +99,7 @@ export interface AutomationFormField {
   label: string;
   help: string;
   placeholder?: string;
-  default?: string;
+  default?: string | number | boolean | null;
   required: boolean;
   provider?: AutomationGitProvider;
   /**

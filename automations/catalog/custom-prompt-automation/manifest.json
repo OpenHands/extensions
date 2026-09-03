@@ -1,0 +1,135 @@
+{
+  "id": "custom-prompt-automation",
+  "name": "Custom prompt automation",
+  "category": "Custom",
+  "icon": "sparkles",
+  "description": "Create a prompt-based automation from your own instructions, either on a schedule or when a supported event arrives.",
+  "requires": {
+    "integrations": {
+      "github": {
+        "message": "Optional. Used when you choose a GitHub repository to clone or trigger from GitHub events.",
+        "required": false
+      }
+    },
+    "features": [
+      "repoClone",
+      "presetPrompt"
+    ]
+  },
+  "popularityRank": 99,
+  "estimatedSetupMinutes": 3,
+  "skill": "openhands-automation",
+  "exampleImplementation": "Trigger: a user-selected cron schedule or event source and event type\n\n1. Ask for an automation name, prompt, optional repository, optional branch, model profile, and timeout.\n2. Ask whether it should run on a schedule or from an event.\n3. Create a prompt automation through /v1/preset/prompt with the selected trigger and optional repository clone settings.\n4. The automation starts a conversation on each run and executes the user-provided prompt.",
+  "setup": {
+    "version": "1.0",
+    "mode": "direct",
+    "form": {
+      "note": "Use this for prompt-based automations that need agent reasoning. For deterministic high-frequency tasks, a custom script is cheaper and more reliable.",
+      "triggers": {
+        "cron": {
+          "schedule": {
+            "type": "cron",
+            "label": "Schedule",
+            "help": "How often this automation should run.",
+            "default": "0 9 * * *",
+            "required": true
+          },
+          "timezone": {
+            "type": "timezone",
+            "label": "Timezone",
+            "help": "Timezone used to evaluate the schedule.",
+            "default": "UTC",
+            "required": true
+          }
+        },
+        "event": {
+          "source": {
+            "type": "event-source",
+            "label": "Event source",
+            "help": "Webhook source that starts the automation.",
+            "default": "github",
+            "required": true
+          },
+          "on": {
+            "type": "event-type",
+            "label": "Event type",
+            "help": "Event key or wildcard pattern that starts the automation.",
+            "placeholder": "issue_comment.created",
+            "required": true
+          },
+          "filter": {
+            "type": "textarea",
+            "label": "Event filter",
+            "help": "Optional JMESPath expression evaluated against the event payload.",
+            "placeholder": "glob(repository.full_name, 'OpenHands/*')",
+            "required": false,
+            "constraints": {
+              "maxLength": 2000
+            }
+          }
+        }
+      },
+      "args": {
+        "name": {
+          "type": "text",
+          "label": "Automation name",
+          "help": "Name shown in the automations list.",
+          "placeholder": "Daily repository summary",
+          "required": true,
+          "constraints": {
+            "minLength": 1,
+            "maxLength": 500
+          }
+        },
+        "prompt": {
+          "type": "textarea",
+          "label": "Prompt",
+          "help": "Instructions the agent follows every time the automation runs.",
+          "placeholder": "Summarize recent repository activity and post the result to Slack.",
+          "required": true,
+          "constraints": {
+            "minLength": 1,
+            "maxLength": 50000
+          }
+        },
+        "repository": {
+          "type": "repo-picker",
+          "label": "Repository",
+          "help": "Optional GitHub repository to clone before each run.",
+          "provider": "github",
+          "required": false
+        },
+        "ref": {
+          "type": "text",
+          "label": "Branch or ref",
+          "help": "Branch, tag, or commit to check out when a repository is selected.",
+          "placeholder": "main",
+          "required": false,
+          "constraints": {
+            "minLength": 1,
+            "maxLength": 255
+          }
+        },
+        "model": {
+          "type": "llm-profile",
+          "label": "LLM profile",
+          "help": "Optional model profile used for automation runs. Leave blank to use the active profile.",
+          "required": false
+        },
+        "timeout": {
+          "type": "number",
+          "label": "Timeout (seconds)",
+          "help": "Maximum time a single run may take. Leave blank for the service default.",
+          "required": false,
+          "constraints": {
+            "min": 1,
+            "max": 1800
+          }
+        }
+      }
+    },
+    "prompt": "{{form.prompt}}",
+    "filter": "{{form.filter}}",
+    "message": "This deployment cannot create the custom prompt automation directly. Set it up in this conversation instead: confirm the automation name, prompt, optional repository, selected trigger, model profile, and timeout, then create the automation."
+  }
+}

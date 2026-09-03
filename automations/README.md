@@ -42,13 +42,14 @@ two records of the same fact from drifting apart, and it is why the file is as s
 | The setup route | `/automations/new/<id>` |
 | The integrations the card lists | `requires.integrations`, which every entry carries |
 | The capabilities endpoint | The host queries it for every automation |
-| The trigger kinds a deployment must support | The keys of `setup.form.triggers` |
-| Schedule limits and the timezone list | The `cron` and `timezone` field types |
-| Local validation rules | The `required` flag and `constraints` on each field |
+| The trigger variants a deployment can offer | The keys of `setup.form.triggers`; an entry with multiple keys is usable when at least one variant is supported |
+| Schedule limits, timezone list, event choices, and model profiles | The `cron`, `timezone`, `event-source`, `event-type`, and `llm-profile` field types |
+| Local validation rules | The `required` flag and `constraints` on each field, applied to the selected trigger variant |
 | The preflight call | `POST /v1/validate` with the entry id, the create endpoint, and the rendered payload |
-| The created automation's name | The entry's `name`, plus the repository that was picked |
-| `repos` in the create request | The repo-picker field, its declared `provider`, and a field named `ref` if there is one |
-| `trigger` in the create request | The key under `form.triggers`, and the fields under it named after trigger properties |
+| The created automation's name | A form field named `name`, or the entry's `name` plus the repository that was picked |
+| `repos` in the create request | The repo-picker field, its declared `provider`, and a non-empty field named `ref` if there is one |
+| `model` and `timeout` in the create request | Same-named form fields when they have values |
+| `trigger` in the create request | The selected key under `form.triggers`, and the fields under it named after trigger properties |
 | Which input a rejected payload path belongs to | Rebuilding that body with each field standing in for its own value |
 | The review screen | The fields and their labels |
 | The create endpoint | `POST /v1/preset/prompt`, or `POST /v1` for an entry that ships a bundle |
@@ -97,32 +98,34 @@ three entries whose names differ from their skill state it. The command that lau
 repeated here: it lives once, in the skill's own `triggers:` frontmatter, and the skills catalog exposes it.
 That way a skill can rename its trigger without leaving a stale copy behind in this catalog.
 
-`setup` is optional. Three of eight entries carry one today. It never repeats `id`, `name`, `category`, or
-`description`. `setup.version` selects how the block is interpreted; a future format ships a new constant.
+`setup` is optional. Entries that carry one never repeat `id`, `name`, `category`, or `description`.
+`setup.version` selects how the block is interpreted; a future format ships a new constant.
 
 ### Triggers and args
 
 `form` separates the two things a user is configuring, and both are keyed by field name:
 
 - **`form.triggers`** decides *when* the automation runs, keyed by trigger kind (`cron` or `event`).
-  `github-pr-reviewer` and `github-repo-monitor` each ask for a schedule and a timezone.
+  If an entry declares more than one key, the host renders those keys as selectable variants and validates
+  only the selected variant's fields before building the payload.
 - **`form.args`** is everything else: the arguments to the automation itself, such as the repository to
-  clone and the tone of the review.
+  clone, the prompt to run, or the tone of the review.
 
 An assisted entry declares no triggers, because the trigger is settled during the conversation.
 
 ### What the form produces
 
 - **`mode: "direct"`** declares a `prompt`: what the automation is told to do. The rest of the create
-  request restates the form, so it is not written out. An event trigger also declares a `filter`, because
-  composing form values into a JMESPath expression is the one part of an event trigger that cannot be read
-  off the form.
+  request restates the form, so it is not written out. A form field named `name`, `model`, or `timeout`
+  fills the matching top-level create property. An event trigger may also declare a `filter`, because
+  composing form values into a JMESPath expression is the one part of an event trigger that cannot always be
+  read off the form.
 - **`mode: "assisted"`** declares a `message`: setup context handed to an agent conversation that finishes
   the job. The command that opens that conversation comes from the skill, so it is not repeated here.
 
 A direct entry may also declare a `message`. It is the seed for the fallback conversation the host offers
-when the deployment cannot run the direct path - a deployment whose capabilities lack the entry's trigger
-kind or required features. The same 2000-character cap applies, and because the fallback fires before the
+when the deployment cannot run the direct path - a deployment whose capabilities lack every declared trigger
+variant or required features. The same 2000-character cap applies, and because the fallback fires before the
 form is trustworthy, a direct `message` should not reference `{{form.*}}`.
 
 A `repo-picker` may declare `multiple: true`, and then it collects several
@@ -135,9 +138,9 @@ repository when there is one and after the count when there are several, since a
 list of names does not fit a name.
 
 A form field is named after the property it fills. `schedule` and `timezone` under `triggers.cron` become
-`trigger.schedule` and `trigger.timezone`; `on` under `triggers.event` becomes `trigger.on`; a field named
-`ref` becomes `repos[].ref`. Any other field under a trigger kind, such as a phrase to match, is an input
-to `filter` rather than a trigger property.
+`trigger.schedule` and `trigger.timezone`; `source` and `on` under `triggers.event` become `trigger.source`
+and `trigger.on`; a field named `ref` becomes `repos[].ref` when it has a value. Any other field under a
+trigger kind, such as a phrase to match, is an input to `filter` rather than a trigger property.
 
 ### Entries that ship a script
 
@@ -208,17 +211,19 @@ trust boundary. It enforces:
 Placeholders are namespaced and the schema rejects any other namespace: `{{form.*}}` for what the user
 entered and `{{automation.*}}` for the entry itself. There is deliberately no secrets namespace.
 
-### The three archetypes
+### The archetypes
 
 | Entry | Archetype | Trigger | Produces |
 | --- | --- | --- | --- |
 | `github-pr-reviewer` | Direct scheduled, script bundle | `cron` | an upload, then a create payload |
 | `github-repo-monitor` | Direct scheduled | `cron` | a create payload |
+| `qa-changes` | Direct event | `event` | a create payload |
+| `custom-prompt-automation` | Direct prompt with selectable trigger variants | `cron` or `event` | a create payload |
 | `incident-retrospective-drafter` | Assisted conversation | decided during the conversation | a seed message |
 
-An event archetype is still expressible - `github-repo-monitor` used one until its deployment could no
-longer receive webhooks, and was converted to the polled `cron` form. The schema keeps supporting `event`
-triggers for deployments that can. See the `event` key under `setup.form.triggers` in `catalog.schema.json`.
+An entry can declare both `cron` and `event` under `setup.form.triggers`. The host treats those keys as
+selectable variants and creates the payload from the selected one; a deployment that only supports one of
+the variants can still offer that supported path.
 
 The assisted archetype has no payload and no preflight, because at the end of its flow no automation exists
 yet. The agent creates it during the conversation, and the service validates it there. That is the defining
@@ -300,9 +305,11 @@ import scenarios from "@openhands/extensions/testing/automations/github-pr-revie
 must result. That pairing is the contract: form shape and API shape genuinely differ, the create endpoint
 is declared `extra="forbid"`, and a mapping mistake is a 422 discovered only at creation time.
 
-Each scenario carries whichever blocks apply: `formValues`, `integrationState`, `localValidation`,
-`preflight`, `create`, `conversation`, `expectedFieldErrors`, `expectedPrerequisiteOutcome`.
-`capabilities.json` holds three deployment shapes so the unsupported paths have coverage too.
+Each scenario carries whichever blocks apply: `formValues`, `selectedTrigger`, `integrationState`,
+`localValidation`, `preflight`, `create`, `conversation`, `expectedFieldErrors`,
+`expectedPrerequisiteOutcome`. `selectedTrigger` is required when an entry declares multiple trigger
+variants and the scenario records a create or preflight payload. `capabilities.json` holds deployment
+shapes so the unsupported paths have coverage too.
 
 Beyond the derivation checks, every request body here has been verified against the live Pydantic models in
 `OpenHands/automation`:
@@ -359,7 +366,7 @@ questions to this work. What changed and why:
 | `analytics` | Removed. The same stages fire for every automation, so they belong in shared host code. |
 | `workflow.steps` | Removed. It restated which keys were present, creating a second source of truth that could contradict the file. |
 | `form.intent: "seed"` | Removed. Derivable from `setup.mode: "assisted"`. |
-| `triggerKindsAnyOf` | Removed. The keys of `form.triggers` are the trigger kinds. |
+| `triggerKindsAnyOf` | Removed. The keys of `form.triggers` are the available trigger variants, and multiple keys already mean the host can offer any supported one. |
 | `{{form.filledCount}}` | Removed. It overloaded the `form` namespace with a computed value that names no field. |
 | `submit.message` | Kept as `setup.message`, capped at 2000 characters, so seed messages cannot grow back into the giant runtime prompts that recommended automation cards were already fixed to stop sending. |
 

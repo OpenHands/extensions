@@ -303,7 +303,7 @@
       "properties": {
         "note": { "$ref": "#/$defs/copy" },
         "triggers": {
-          "description": "Inputs that decide when the automation runs, keyed by trigger kind. The key set is the trigger kinds the deployment must support, so it is not restated anywhere else.",
+          "description": "Inputs that decide when the automation runs, keyed by trigger kind. Multiple keys are selectable variants; a deployment can offer any variant whose trigger kind it supports.",
           "type": "object",
           "additionalProperties": false,
           "minProperties": 1,
@@ -331,20 +331,27 @@
       "required": ["type", "label", "help", "required"],
       "properties": {
         "type": {
-          "description": "Semantic field types. The host renders a cron field without knowing what cron means to an automation, and resolves the deployment's schedule limits and timezone list for the cron and timezone types, so an entry never restates them.",
+          "description": "Semantic field types. The host renders cron, timezone, llm-profile, event-source, and event-type fields from deployment capabilities or user settings rather than entry-owned option lists.",
           "enum": [
             "text",
             "textarea",
             "select",
+            "number",
             "cron",
             "timezone",
-            "repo-picker"
+            "repo-picker",
+            "llm-profile",
+            "event-source",
+            "event-type"
           ]
         },
         "label": { "$ref": "#/$defs/copy" },
         "help": { "$ref": "#/$defs/copy" },
         "placeholder": { "$ref": "#/$defs/copy" },
-        "default": { "type": "string" },
+        "default": {
+          "description": "Initial value for fields whose defaults are entry-owned. Semantic fields may ignore it.",
+          "type": ["string", "number", "boolean", "null"]
+        },
         "required": { "type": "boolean" },
         "provider": { "enum": ["github", "gitlab", "bitbucket"] },
         "multiple": {
@@ -371,6 +378,8 @@
           "properties": {
             "minLength": { "type": "integer", "minimum": 0 },
             "maxLength": { "type": "integer", "minimum": 1 },
+            "min": { "type": "integer", "minimum": 0 },
+            "max": { "type": "integer", "minimum": 1 },
             "format": {
               "description": "A host-implemented check, named from a closed set. Setup blocks cannot supply their own regex, so one cannot hand the host a pathological pattern. safeExpressionLiteral marks a value that is interpolated into a filter expression string literal, so quotes and backslashes must be rejected before they can break the expression.",
               "enum": ["safeExpressionLiteral"]
