@@ -113,11 +113,13 @@ Entrypoint must be `python3 main.py` (no `setup.sh` needed). Wrap your main logi
 
 ## Authentication
 
-All requests require Bearer authentication:
+All requests require authentication:
 
-```bash
--H "Authorization: Bearer ${OPENHANDS_API_KEY}"
-```
+- Cloud (default `https://app.all-hands.dev`): Bearer token:
+
+  `-H "Authorization: Bearer ${OPENHANDS_API_KEY}"`
+
+- Local Agent Canvas (`http://localhost:8001`): session API key through `X-Session-API-Key` (e.g. `$OPENHANDS_AUTOMATION_API_KEY` or `$SESSION_API_KEY`).
 
 ## API Endpoints
 
