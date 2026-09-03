@@ -50,7 +50,7 @@
             "automationId": "github-pr-reviewer",
             "endpoint": "/v1",
             "draft": {
-              "name": "GitHub Code Review Agent - OpenHands/agent-server-gui",
+              "name": "GitHub code review - OpenHands/agent-server-gui",
               "trigger": {
                 "type": "cron",
                 "schedule": "*/15 * * * *",
@@ -86,7 +86,7 @@
           "method": "POST",
           "path": "/v1",
           "body": {
-            "name": "GitHub Code Review Agent - OpenHands/agent-server-gui",
+            "name": "GitHub code review - OpenHands/agent-server-gui",
             "trigger": {
               "type": "cron",
               "schedule": "*/15 * * * *",
@@ -115,7 +115,7 @@
             "user_id": "1a2b3c4d-0000-4000-8000-000000000001",
             "org_id": "1a2b3c4d-0000-4000-8000-000000000002",
             "model": null,
-            "name": "GitHub Code Review Agent - OpenHands/agent-server-gui",
+            "name": "GitHub code review - OpenHands/agent-server-gui",
             "prompt": "Review pull requests labeled 'openhands-review' in OpenHands/agent-server-gui. Review tone: thorough.",
             "trigger": {
               "type": "cron",
@@ -179,7 +179,7 @@
             "automationId": "github-pr-reviewer",
             "endpoint": "/v1",
             "draft": {
-              "name": "GitHub Code Review Agent - 2 repositories",
+              "name": "GitHub code review - 2 repositories",
               "trigger": {
                 "type": "cron",
                 "schedule": "*/15 * * * *",
@@ -216,7 +216,7 @@
           "method": "POST",
           "path": "/v1",
           "body": {
-            "name": "GitHub Code Review Agent - 2 repositories",
+            "name": "GitHub code review - 2 repositories",
             "trigger": {
               "type": "cron",
               "schedule": "*/15 * * * *",
@@ -246,7 +246,7 @@
             "user_id": "1a2b3c4d-0000-4000-8000-000000000001",
             "org_id": "1a2b3c4d-0000-4000-8000-000000000002",
             "model": null,
-            "name": "GitHub Code Review Agent - 2 repositories",
+            "name": "GitHub code review - 2 repositories",
             "prompt": "Review pull requests labeled 'openhands-review' in OpenHands/agent-server-gui. Review tone: thorough.",
             "trigger": {
               "type": "cron",
@@ -300,7 +300,7 @@
             "automationId": "github-pr-reviewer",
             "endpoint": "/v1",
             "draft": {
-              "name": "GitHub Code Review Agent - OpenHands/agent-server-gui",
+              "name": "GitHub code review - OpenHands/agent-server-gui",
               "trigger": {
                 "type": "cron",
                 "schedule": "*/1 * * * *",
@@ -381,7 +381,7 @@
           "method": "POST",
           "path": "/v1",
           "body": {
-            "name": "GitHub Code Review Agent - OpenHands/agent-server-gui",
+            "name": "GitHub code review - OpenHands/agent-server-gui",
             "trigger": {
               "type": "cron",
               "schedule": "0 0 31 2 *",
@@ -465,7 +465,7 @@
           "method": "POST",
           "path": "/v1",
           "body": {
-            "name": "GitHub Code Review Agent - OpenHands/agent-server-gui",
+            "name": "GitHub code review - OpenHands/agent-server-gui",
             "trigger": {
               "type": "cron",
               "schedule": "*/15 * * * *",

@@ -1,6 +1,6 @@
 {
   "id": "github-issue-to-pr",
-  "name": "GitHub Issue to PR Agent",
+  "name": "GitHub issue to PR",
   "category": "Software development",
   "description": "Watch for a configurable label on GitHub issues, implement the issue in a clone of the default branch, and open a pull request for each label event.",
   "requires": {

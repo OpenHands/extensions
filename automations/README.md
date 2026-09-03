@@ -64,7 +64,7 @@ checks them against the recorded fixtures, so these deletions stay honest rather
 ```jsonc
 {
   "id": "github-pr-reviewer",
-  "name": "GitHub Code Review Agent",
+  "name": "GitHub code review",
   "category": "Code review",
   "description": "...",
   "requires": {
