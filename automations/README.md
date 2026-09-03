@@ -52,7 +52,7 @@ two records of the same fact from drifting apart, and it is why the file is as s
 | `trigger` in the create request | The selected key under `form.triggers`, and the fields under it named after trigger properties |
 | Which input a rejected payload path belongs to | Rebuilding that body with each field standing in for its own value |
 | The review screen | The fields and their labels |
-| The create endpoint | `POST /v1/preset/prompt`, or `POST /v1` for an entry that ships a bundle |
+| The create endpoint | `POST /v1/preset/prompt`, `POST /v1/preset/plugin`, or `POST /v1` for an uploaded or bundled tarball |
 | The files a bundle packs | `setup.bundle.files`, read from this repository at build time |
 | Where a success navigates | The created automation, or the started conversation |
 | The analytics stages | The same stages for every automation |
@@ -108,18 +108,24 @@ That way a skill can rename its trigger without leaving a stale copy behind in t
 - **`form.triggers`** decides *when* the automation runs, keyed by trigger kind (`cron` or `event`).
   If an entry declares more than one key, the host renders those keys as selectable variants and validates
   only the selected variant's fields before building the payload.
-- **`form.args`** is everything else: the arguments to the automation itself, such as the repository to
-  clone, the prompt to run, or the tone of the review.
+- **`form.args`** is everything else that is common to every creation path, such as the automation name,
+  model profile, or timeout.
+- **`setup.actions`** is optional and declares user-selectable creation paths for one card. The host renders
+  the common form plus the selected action's `args`, checks that action's `features`, and creates through
+  the endpoint implied by the action key: `prompt` -> `/v1/preset/prompt`, `plugin` -> `/v1/preset/plugin`,
+  and `upload` -> `/v1/uploads` followed by `/v1`.
 
 An assisted entry declares no triggers, because the trigger is settled during the conversation.
 
 ### What the form produces
 
-- **`mode: "direct"`** declares a `prompt`: what the automation is told to do. The rest of the create
-  request restates the form, so it is not written out. A form field named `name`, `model`, or `timeout`
-  fills the matching top-level create property. An event trigger may also declare a `filter`, because
-  composing form values into a JMESPath expression is the one part of an event trigger that cannot always be
-  read off the form.
+- **`mode: "direct"`** declares exactly one creation archetype: a `prompt`, a repository-shipped `bundle`,
+  or `actions`. A prompt creates through `/v1/preset/prompt`. A bundle is packed and uploaded by the host,
+  then creates through `/v1`. An actions block lets the user choose between prompt, plugin, and uploaded
+  tarball paths in one card. The rest of the create request restates the form, so it is not written out. A
+  form field named `name`, `model`, or `timeout` fills the matching top-level create property. An event
+  trigger may also declare a `filter`, because composing form values into a JMESPath expression is the one
+  part of an event trigger that cannot always be read off the form.
 - **`mode: "assisted"`** declares a `message`: setup context handed to an agent conversation that finishes
   the job. The command that opens that conversation comes from the skill, so it is not repeated here.
 
@@ -144,11 +150,11 @@ trigger kind, such as a phrase to match, is an input to `filter` rather than a t
 
 ### Entries that ship a script
 
-`mode: "direct"` produces either a `prompt` or a `bundle`, never both. A prompt
-is the right shape when the automation *is* the judgement: the agent reads the
-prompt and does the work. A bundle is the right shape when most of what the
-automation does is deterministic machinery - polling, dedupe, state, fixed API
-calls - and the agent is needed only for the part that genuinely needs judgement.
+`mode: "direct"` produces exactly one of `prompt`, `bundle`, or `actions`. A
+prompt is the right shape when the automation *is* the judgement: the agent
+reads the prompt and does the work. A bundle is the right shape when most of
+what the automation does is deterministic machinery - polling, dedupe, state,
+fixed API calls - and the agent is needed only for the part that genuinely needs judgement.
 `github-pr-reviewer` is the first: its script owns discovery, label-event
 dedupe, per-repo state and the review checkout, and starts a conversation only
 once a pull request actually needs reviewing.
@@ -191,7 +197,10 @@ Two things follow from the archetype rather than being stated:
 A bundle declares `requires.features: ["customTarball"]`: a deployment that
 cannot run a client-supplied tarball cannot run the entry, whatever trigger kinds
 it offers. It never declares `repos` - the raw create endpoint has no such field,
-and a bundle fetches what it needs itself.
+and a bundle fetches what it needs itself. In an `actions` entry, creation-path
+features move down to each action (`presetPrompt`, `presetPlugin`, or
+`customTarball`) so a deployment can offer the supported choices without needing
+every creation path.
 
 ### Format constraints
 
@@ -218,7 +227,7 @@ entered and `{{automation.*}}` for the entry itself. There is deliberately no se
 | `github-pr-reviewer` | Direct scheduled, script bundle | `cron` | an upload, then a create payload |
 | `github-repo-monitor` | Direct scheduled | `cron` | a create payload |
 | `qa-changes` | Direct event | `event` | a create payload |
-| `custom-prompt-automation` | Direct prompt with selectable trigger variants | `cron` or `event` | a create payload |
+| `custom-automation` | Direct custom action with prompt, plugin, or upload variants | `cron` or `event` | a create payload, or an upload then create payload |
 | `incident-retrospective-drafter` | Assisted conversation | decided during the conversation | a seed message |
 
 An entry can declare both `cron` and `event` under `setup.form.triggers`. The host treats those keys as

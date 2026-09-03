@@ -39,27 +39,28 @@ CAPABILITIES_PATH = FIXTURE_DIR / "capabilities.json"
 
 # The standardized parts of a direct setup, identical for every automation and
 # therefore not declared in any entry. Which create endpoint is used follows
-# from what the entry produces: a prompt is a preset, a bundle is a tarball the
-# host uploads and then creates from, which is the raw endpoint.
-CREATE_PATH = "/v1/preset/prompt"
+# from the selected action: prompt and plugin actions use preset endpoints;
+# uploaded tarballs and repository-shipped bundles use the raw endpoint.
+PROMPT_CREATE_PATH = "/v1/preset/prompt"
+PLUGIN_CREATE_PATH = "/v1/preset/plugin"
 BUNDLE_CREATE_PATH = "/v1"
 BUNDLE_UPLOAD_PATH = "/v1/uploads"
 PREFLIGHT_PATH = "/v1/validate"
 
 # Preflight runs while the form is being filled in and the upload happens once,
-# at submit, so a bundle draft has no tarball path to send yet. The service
-# checks that field's scheme at preflight and its ownership only at creation,
-# so a well-formed stand-in validates what preflight is for - the rest of the
-# body - without uploading an archive per keystroke.
+# at submit, so an uploaded-tarball draft has no tarball path to send yet. The
+# service checks that field's scheme at preflight and its ownership only at
+# creation, so a well-formed stand-in validates what preflight is for.
 PREFLIGHT_TARBALL_PATH = "oh-internal://uploads/00000000-0000-0000-0000-000000000000"
 
 # The trigger properties the service accepts, per kind. A form field named
 # after one of them fills it; the rest are inputs to the declared filter.
 TRIGGER_PROPERTIES = {"cron": ("schedule", "timezone"), "event": ("source", "on")}
 
-# Optional top-level fields accepted by /v1/preset/prompt. A form field with
-# one of these names fills the matching request property when it has a value.
-OPTIONAL_PROMPT_PROPERTIES = ("model", "timeout")
+# Optional top-level fields accepted by every creation path represented here. A
+# form field with one of these names fills the matching request property when it
+# has a value.
+OPTIONAL_CREATE_PROPERTIES = ("model", "timeout")
 
 _SCHEMA = json.loads(SCHEMA_PATH.read_text())
 VALIDATOR = Draft202012Validator(_SCHEMA)
@@ -178,13 +179,38 @@ def _selected_trigger_kind(entry: dict, selected_trigger: str | None = None) -> 
     )
     return next(iter(trigger_groups))
 
+
+def _actions(entry: dict) -> dict:
+    return entry.get("setup", {}).get("actions", {})
+
+
+def _selected_action_kind(entry: dict, selected_action: str | None = None) -> str:
+    """The active creation-path variant for this form submission."""
+    actions = _actions(entry)
+    if actions:
+        assert selected_action in actions, (
+            f"{entry['id']}: selectedAction {selected_action!r} is not declared"
+        )
+        return selected_action
+    return "bundle" if _is_bundle(entry) else "prompt"
+
+
+def _selected_action(entry: dict, selected_action: str | None = None) -> dict | None:
+    actions = _actions(entry)
+    if not actions:
+        return None
+    return actions[_selected_action_kind(entry, selected_action)]
+
+
 def _context(entry: dict, form_values: dict) -> dict:
     """`automation` resolves against the catalog entry the setup block sits in."""
     return {"form": form_values, "automation": entry}
 
 
-def _repo_picker(setup: dict) -> tuple[str | None, dict | None]:
-    for name, field in _fields(setup).items():
+def _repo_picker(
+    setup: dict, selected_action: str | None = None
+) -> tuple[str | None, dict | None]:
+    for name, field in _fields(setup, selected_action).items():
         if field["type"] == "repo-picker":
             return name, field
     return None, None
@@ -195,17 +221,20 @@ def _is_bundle(entry: dict) -> bool:
     return "bundle" in entry.get("setup", {})
 
 
-def _create_path(entry: dict) -> str:
-    return BUNDLE_CREATE_PATH if _is_bundle(entry) else CREATE_PATH
+def _create_path(entry: dict, selected_action: str | None = None) -> str:
+    kind = _selected_action_kind(entry, selected_action)
+    if kind == "prompt":
+        return PROMPT_CREATE_PATH
+    if kind == "plugin":
+        return PLUGIN_CREATE_PATH
+    return BUNDLE_CREATE_PATH
 
 
-def _repo_values(setup: dict, form_values: dict) -> list[str]:
-    """Every repository the form collected, whether it collects one or many.
-
-    A `multiple` picker holds a list; a single one holds a string. Reading both
-    as a list is what keeps the rest of the derivation from branching.
-    """
-    name, field = _repo_picker(setup)
+def _repo_values(
+    setup: dict, form_values: dict, selected_action: str | None = None
+) -> list[str]:
+    """Every repository the selected action collected."""
+    name, field = _repo_picker(setup, selected_action)
     if not name:
         return []
     value = form_values.get(name)
@@ -216,16 +245,14 @@ def _repo_values(setup: dict, form_values: dict) -> list[str]:
     return [value]
 
 
-def _derive_name(entry: dict, form_values: dict) -> str:
-    """The created automation's name.
-
-    Most templates derive it from the entry and selected repositories. A generic
-    prompt template lets the user supply it directly with a field named `name`.
-    """
-    if "name" in _fields(entry["setup"]) and "name" in form_values:
+def _derive_name(
+    entry: dict, form_values: dict, selected_action: str | None = None
+) -> str:
+    """The created automation's name."""
+    if "name" in _fields(entry["setup"], selected_action) and "name" in form_values:
         return form_values["name"]
 
-    repos = _repo_values(entry["setup"], form_values)
+    repos = _repo_values(entry["setup"], form_values, selected_action)
     if not repos:
         return entry["name"]
     if len(repos) == 1:
@@ -268,13 +295,7 @@ def _render_bundle_payload(
     tarball_path: str,
     selected_trigger: str | None = None,
 ) -> dict:
-    """The raw create body a bundle entry produces.
-
-    `tarball_path` is the one value that is neither declared nor derived: the
-    host uploads the packed bundle first and creates from what came back. The
-    rest follows the same rule as the preset path - only `config` is declared,
-    because only the entry knows which key of its own script each field fills.
-    """
+    """The raw create body a repository-shipped bundle entry produces."""
     bundle = entry["setup"]["bundle"]
     body: dict = {
         "name": _derive_name(entry, form_values),
@@ -294,81 +315,120 @@ def _render_bundle_payload(
     return body
 
 
+def _add_optional_create_properties(
+    body: dict, setup: dict, form_values: dict, selected_action: str | None = None
+) -> None:
+    for name in OPTIONAL_CREATE_PROPERTIES:
+        if name in _fields(setup, selected_action) and _has_value(form_values.get(name)):
+            body[name] = form_values[name]
+
+
+def _add_repo_property(
+    body: dict, setup: dict, form_values: dict, selected_action: str | None = None
+) -> None:
+    _, repo_field = _repo_picker(setup, selected_action)
+    repos = _repo_values(setup, form_values, selected_action)
+    if not repos:
+        return
+    ref = form_values.get("ref")
+    body["repos"] = [
+        {
+            "url": repo,
+            "provider": repo_field["provider"],
+            **({"ref": ref} if _has_value(ref) else {}),
+        }
+        for repo in repos
+    ]
+
+
+def _render_upload_payload(
+    entry: dict,
+    form_values: dict,
+    tarball_path: str,
+    selected_trigger: str | None = None,
+    selected_action: str | None = None,
+) -> dict:
+    """The raw create body a user-uploaded tarball action produces."""
+    setup = entry["setup"]
+    action = _selected_action(entry, selected_action)
+    assert action is not None
+    context = _context(entry, form_values)
+    body: dict = {
+        "name": _derive_name(entry, form_values, selected_action),
+        "trigger": _derive_trigger(entry, form_values, selected_trigger),
+        "tarball_path": tarball_path or _interpolate(action["tarballPath"], context),
+        "entrypoint": _interpolate(action["entrypoint"], context),
+    }
+    if "setupScript" in action:
+        setup_script = _interpolate(action["setupScript"], context)
+        if _has_value(setup_script):
+            body["setup_script_path"] = setup_script
+    _add_optional_create_properties(body, setup, form_values, selected_action)
+    return body
+
+
 def _render_payload(
     entry: dict,
     form_values: dict,
     tarball_path: str = "",
     selected_trigger: str | None = None,
+    selected_action: str | None = None,
 ) -> dict:
-    """The create request body these form values produce.
-
-    No entry declares this. `name` comes from the entry, or from a field named
-    `name`; `repos` from the repo-picker field and its provider; optional model
-    and timeout from same-named fields; and `trigger` from the selected key and
-    fields under `form.triggers`. Only `prompt` (or, for a bundle, `config`) and
-    an event `filter` are declared, because only they cannot be read off the form.
-    """
-    if _is_bundle(entry):
-        return _render_bundle_payload(
-            entry, form_values, tarball_path, selected_trigger
+    """The create request body these form values produce."""
+    selected_action_kind = _selected_action_kind(entry, selected_action)
+    if selected_action_kind == "bundle":
+        return _render_bundle_payload(entry, form_values, tarball_path, selected_trigger)
+    if selected_action_kind == "upload":
+        return _render_upload_payload(
+            entry, form_values, tarball_path, selected_trigger, selected_action
         )
 
     setup = entry["setup"]
+    action = _selected_action(entry, selected_action)
     context = _context(entry, form_values)
-    _, repo_field = _repo_picker(setup)
-    repos = _repo_values(setup, form_values)
-
+    prompt_template = action["prompt"] if action else setup["prompt"]
     body: dict = {
-        "name": _derive_name(entry, form_values),
-        "prompt": _interpolate(setup["prompt"], context),
+        "name": _derive_name(entry, form_values, selected_action),
+        "prompt": _interpolate(prompt_template, context),
     }
+    if selected_action_kind == "plugin":
+        assert action is not None
+        body["plugins"] = _interpolate(action["plugins"], context)
 
-    for name in OPTIONAL_PROMPT_PROPERTIES:
-        if name in _fields(setup) and _has_value(form_values.get(name)):
-            body[name] = form_values[name]
-
-    if repos:
-        ref = form_values.get("ref")
-        body["repos"] = [
-            {
-                "url": repo,
-                "provider": repo_field["provider"],
-                **({"ref": ref} if _has_value(ref) else {}),
-            }
-            for repo in repos
-        ]
-
+    _add_optional_create_properties(body, setup, form_values, selected_action)
+    _add_repo_property(body, setup, form_values, selected_action)
     body["trigger"] = _derive_trigger(entry, form_values, selected_trigger)
 
-    # A versioned entry sends its provenance: the service stores it opaquely,
-    # keyed by id for idempotent creation. The form values are non-secret by
-    # design (credentials come only from connected integrations).
     if "version" in entry:
         body["template"] = {
             "id": entry["id"],
             "version": entry["version"],
             "config": dict(form_values),
         }
-
     return body
 
 
 def _derive_preflight_body(
-    entry: dict, form_values: dict, selected_trigger: str | None = None
+    entry: dict,
+    form_values: dict,
+    selected_trigger: str | None = None,
+    selected_action: str | None = None,
 ) -> dict:
     """The preflight body the host sends. The same shape for every automation,
     so no entry declares it."""
     return {
         "automationId": entry["id"],
-        "endpoint": _create_path(entry),
+        "endpoint": _create_path(entry, selected_action),
         "draft": _render_payload(
-            entry, form_values, PREFLIGHT_TARBALL_PATH, selected_trigger
+            entry, form_values, PREFLIGHT_TARBALL_PATH, selected_trigger, selected_action
         ),
     }
 
 
 def _derive_error_map(
-    entry: dict, selected_trigger: str | None = None
+    entry: dict,
+    selected_trigger: str | None = None,
+    selected_action: str | None = None,
 ) -> dict[str, list[str]]:
     """Which form fields built each payload path.
 
@@ -378,7 +438,7 @@ def _derive_error_map(
     an entry does not declare it.
     """
     mapping: dict[str, list[str]] = {}
-    if "prompt" not in entry["setup"] and not _is_bundle(entry):
+    if "prompt" not in entry["setup"] and not _is_bundle(entry) and not _actions(entry):
         return mapping
 
     stand_ins = {
@@ -388,6 +448,11 @@ def _derive_error_map(
     trigger_variants = [selected_trigger if selected_trigger else None]
     if not selected_trigger and len(trigger_groups) > 1:
         trigger_variants = list(trigger_groups)
+
+    action_groups = _actions(entry)
+    action_variants = [selected_action if selected_action else None]
+    if action_groups and selected_action is None:
+        action_variants = list(action_groups)
 
     def walk(node, path: str) -> None:
         if isinstance(node, dict):
@@ -407,11 +472,16 @@ def _derive_error_map(
                     dict.fromkeys([*mapping.get(path, []), *names])
                 )
 
-    for trigger_variant in trigger_variants:
-        template = _render_payload(
-            entry, stand_ins, selected_trigger=trigger_variant
-        )
-        walk(template, "")
+    for action_variant in action_variants:
+        for trigger_variant in trigger_variants:
+            template = _render_payload(
+                entry,
+                stand_ins,
+                "" if action_variant == "upload" else PREFLIGHT_TARBALL_PATH,
+                selected_trigger=trigger_variant,
+                selected_action=action_variant,
+            )
+            walk(template, "")
     return mapping
 
 
@@ -430,12 +500,22 @@ def _payload_path_exists(payload, path: str) -> bool:
     return True
 
 
-def _fields(setup: dict) -> dict[str, dict]:
-    """Every input the form declares, keyed by name, whichever half it is in."""
+def _fields(setup: dict, selected_action: str | None = None) -> dict[str, dict]:
+    """Every input the form declares, keyed by name.
+
+    Common args are always present. Action args are conditional in the UI; when
+    no action is selected, include all of them for placeholder and safety tests.
+    """
     fields = {}
     for group in setup["form"].get("triggers", {}).values():
         fields.update(group)
     fields.update(setup["form"]["args"])
+    actions = setup.get("actions", {})
+    if selected_action:
+        fields.update(actions[selected_action].get("args", {}))
+    else:
+        for action in actions.values():
+            fields.update(action.get("args", {}))
     return fields
 
 
@@ -477,12 +557,18 @@ def _reported_fields(entry: dict, scenario: dict) -> dict[str, str]:
     """Apply the derived error map to whatever rejected this scenario."""
     setup = entry["setup"]
     selected_trigger = scenario.get("selectedTrigger")
-    error_map = _derive_error_map(entry, selected_trigger)
+    selected_action = scenario.get("selectedAction")
+    error_map = _derive_error_map(entry, selected_trigger, selected_action)
     payload = (
         _render_payload(
-            entry, scenario["formValues"], _uploaded_path(scenario), selected_trigger
+            entry,
+            scenario["formValues"],
+            _uploaded_path(scenario),
+            selected_trigger,
+            selected_action,
         )
-        if ("prompt" in setup or _is_bundle(entry)) and "formValues" in scenario
+        if ("prompt" in setup or _is_bundle(entry) or _actions(entry))
+        and "formValues" in scenario
         else {}
     )
 
@@ -508,15 +594,23 @@ def _reported_fields(entry: dict, scenario: dict) -> dict[str, str]:
 
 
 def _capabilities_satisfied(entry: dict, deployment: dict) -> bool:
-    """A deployment can run this automation when it offers every feature the
-    entry requires and at least one declared trigger variant."""
+    """Whether at least one trigger and action variant can run here."""
+    deployment_features = set(deployment.get("features", []))
     needed_features = set(entry["requires"].get("features", []))
-    if not needed_features.issubset(set(deployment.get("features", []))):
+    if not needed_features.issubset(deployment_features):
         return False
+
     needed_kinds = set(entry.get("setup", {}).get("form", {}).get("triggers", {}))
-    if not needed_kinds:
+    if needed_kinds and needed_kinds.isdisjoint(set(deployment.get("triggerKinds", []))):
+        return False
+
+    actions = _actions(entry)
+    if not actions:
         return True
-    return not needed_kinds.isdisjoint(set(deployment.get("triggerKinds", [])))
+    return any(
+        set(action.get("features", [])).issubset(deployment_features)
+        for action in actions.values()
+    )
 
 
 def _iter_strings(node):
@@ -661,6 +755,23 @@ def test_multi_trigger_fixture_scenarios_name_the_selected_variant(
         assert scenario.get("selectedTrigger") in trigger_groups, scenario["id"]
 
 
+@pytest.mark.parametrize("fixture_path", list(_fixture_bundles()))
+def test_multi_action_fixture_scenarios_name_the_selected_variant(
+    fixture_path: Path,
+) -> None:
+    """The active creation path is UI state, not another form field."""
+    bundle = _load(fixture_path)
+    entry = _entry_for(bundle)
+    actions = _actions(entry)
+    if len(actions) <= 1:
+        pytest.skip("entry has one or no action variants")
+
+    for scenario in bundle["scenarios"]:
+        if not ({"preflight", "create"} & set(scenario)):
+            continue
+        assert scenario.get("selectedAction") in actions, scenario["id"]
+
+
 @pytest.mark.parametrize("entry_path", list(_setup_paths()))
 def test_the_declared_features_match_the_archetype(entry_path: Path) -> None:
     """A bundle needs a deployment that runs a client-supplied tarball; a prompt
@@ -669,6 +780,20 @@ def test_the_declared_features_match_the_archetype(entry_path: Path) -> None:
     it cannot run or withheld where it can."""
     entry = _load(entry_path)
     features = set(entry["requires"].get("features", []))
+
+    actions = _actions(entry)
+    if actions:
+        assert not ({"presetPrompt", "presetPlugin", "customTarball"} & features), (
+            f"{entry['id']}: creation-path features belong on action variants"
+        )
+        expected = {
+            "prompt": "presetPrompt",
+            "plugin": "presetPlugin",
+            "upload": "customTarball",
+        }
+        for action_name, action in actions.items():
+            assert expected[action_name] in set(action.get("features", []))
+        return
 
     if _is_bundle(entry):
         assert "customTarball" in features, f"{entry['id']}: a bundle must declare customTarball"
@@ -711,10 +836,13 @@ def test_derived_body_reproduces_the_create_request(
         scenario["formValues"],
         _uploaded_path(scenario),
         scenario.get("selectedTrigger"),
+        scenario.get("selectedAction"),
     )
 
     assert derived == scenario["create"]["request"]["body"]
-    assert scenario["create"]["request"]["path"] == _create_path(entry)
+    assert scenario["create"]["request"]["path"] == _create_path(
+        entry, scenario.get("selectedAction")
+    )
 
 
 @pytest.mark.parametrize(("bundle", "scenario"), list(_scenarios("preflight")))
@@ -726,7 +854,10 @@ def test_derived_preflight_body_reproduces_the_preflight_request(
     entry = _entry_for(bundle)
 
     derived = _derive_preflight_body(
-        entry, scenario["formValues"], scenario.get("selectedTrigger")
+        entry,
+        scenario["formValues"],
+        scenario.get("selectedTrigger"),
+        scenario.get("selectedAction"),
     )
 
     assert derived == scenario["preflight"]["request"]["body"]
@@ -850,7 +981,7 @@ def test_schema_refuses_an_unsafe_bundle(case: str, override: dict) -> None:
     assert list(VALIDATOR.iter_errors(entry)), f"schema admitted {case}"
 
 
-def test_a_direct_entry_declares_a_prompt_or_a_bundle_but_not_both() -> None:
+def test_a_direct_entry_declares_exactly_one_creation_archetype() -> None:
     entry = deepcopy(_load(CATALOG_DIR / "github-pr-reviewer" / "manifest.json"))
     entry["setup"]["prompt"] = "Review pull requests."
 
@@ -858,6 +989,11 @@ def test_a_direct_entry_declares_a_prompt_or_a_bundle_but_not_both() -> None:
 
     del entry["setup"]["prompt"]
     del entry["setup"]["bundle"]
+
+    assert list(VALIDATOR.iter_errors(entry))
+
+    entry = deepcopy(_load(CATALOG_DIR / "custom-automation" / "manifest.json"))
+    entry["setup"]["prompt"] = "Run this too."
 
     assert list(VALIDATOR.iter_errors(entry))
 

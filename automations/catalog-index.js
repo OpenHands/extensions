@@ -3,7 +3,7 @@
 // run: npm run build:automations
 
 import entry0 from "./catalog/github-pr-reviewer/manifest.json" with { type: "json" };
-import entry1 from "./catalog/custom-prompt-automation/manifest.json" with { type: "json" };
+import entry1 from "./catalog/custom-automation/manifest.json" with { type: "json" };
 import entry2 from "./catalog/github-repo-monitor/manifest.json" with { type: "json" };
 import entry3 from "./catalog/github-issue-to-pr/manifest.json" with { type: "json" };
 import entry4 from "./catalog/slack-standup-digest/manifest.json" with { type: "json" };
