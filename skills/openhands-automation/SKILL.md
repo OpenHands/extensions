@@ -119,7 +119,11 @@ All requests require authentication:
 
   `-H "Authorization: Bearer ${OPENHANDS_API_KEY}"`
 
-- Local Agent Canvas (`http://localhost:8001`): session API key through `X-Session-API-Key` (e.g. `$OPENHANDS_AUTOMATION_API_KEY` or `$SESSION_API_KEY`).
+- Local Agent Canvas (`http://localhost:8001`): session API key through `X-Session-API-Key`:
+
+  `-H "X-Session-API-Key: ${OPENHANDS_AUTOMATION_API_KEY:-${SESSION_API_KEY}}"`
+
+The curl examples below show cloud Bearer authentication. For local Agent Canvas, replace that header with the `X-Session-API-Key` header above.
 
 ## API Endpoints
 
@@ -136,9 +140,10 @@ The automation service may run at a different URL from the agent server. In the 
 For a local Agent Canvas server, validate the endpoint before making a mutating request and authenticate with the session key through `X-Session-API-Key` when that API requires it. Do not use the cloud default merely because no `<HOST>` value is present.
 
 ```bash
-OPENHANDS_HOST="http://localhost:8001"  # local Agent Canvas default when detected
+# Choose the host that matches the detected environment:
+OPENHANDS_HOST="http://localhost:8001"       # local Agent Canvas
+# OPENHANDS_HOST="https://app.all-hands.dev" # OpenHands Cloud
 ```
-
 
 ### Automation Endpoints
 
