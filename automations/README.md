@@ -45,7 +45,7 @@ two records of the same fact from drifting apart, and it is why the file is as s
 | The trigger kinds a deployment must support | The keys of `setup.form.triggers` |
 | Schedule limits and the timezone list | The `cron` and `timezone` field types |
 | Local validation rules | The `required` flag and `constraints` on each field |
-| The preflight call | `POST /v1/validate` with the entry id, the create endpoint, and the rendered payload |
+| The preflight call | `POST /v1/validate` with the entry id, the create endpoint, the rendered payload, and required MCP alternatives derived from `requires.integrations` plus the integration catalog |
 | The created automation's name | The entry's `name`, plus the repository that was picked |
 | `repos` in the create request | The repo-picker field, its declared `provider`, and a field named `ref` if there is one |
 | `trigger` in the create request | The key under `form.triggers`, and the fields under it named after trigger properties |
@@ -58,6 +58,9 @@ two records of the same fact from drifting apart, and it is why the file is as s
 
 `tests/test_automation_setup.py` derives the preflight body and the payload-path mapping from the entry and
 checks them against the recorded fixtures, so these deletions stay honest rather than becoming assumptions.
+The derived integration requirements include only MCP locators, authentication strategies, and required
+secret names. Secret values remain in the deployment's credential store and are never included in the
+preflight request.
 
 ## What an entry carries
 

@@ -53,7 +53,10 @@ for (const { entry } of automations) {
         `${entry.id}: bundle file "${packedPath}" names ${source}, which is outside skills/ or automations/`,
       );
     }
-    bundles[entry.id][packedPath] = await readFile(path.join(root, source), "utf8");
+    // Git may check text files out with platform line endings. Normalize the
+    // inlined source so the published bundle is deterministic across hosts.
+    bundles[entry.id][packedPath] = (await readFile(path.join(root, source), "utf8"))
+      .replace(/\r\n?/g, "\n");
   }
 }
 

@@ -36,6 +36,7 @@ BUNDLE_INDEX = ROOT / "automations" / "bundle-index.js"
 BUILD_SCRIPT = ROOT / "scripts" / "build-automation-catalog.mjs"
 FIXTURE_DIR = ROOT / "tests" / "fixtures" / "automations"
 CAPABILITIES_PATH = FIXTURE_DIR / "capabilities.json"
+INTEGRATION_CATALOG_DIR = ROOT / "integrations" / "catalog"
 
 # The standardized parts of a direct setup, identical for every automation and
 # therefore not declared in any entry. Which create endpoint is used follows
@@ -298,7 +299,74 @@ def _derive_preflight_body(entry: dict, form_values: dict) -> dict:
         "automationId": entry["id"],
         "endpoint": _create_path(entry),
         "draft": _render_payload(entry, form_values, PREFLIGHT_TARBALL_PATH),
+        "requirements": _derive_preflight_requirements(entry),
     }
+
+
+def _required_secret_fields(fields: list[dict] | None) -> list[str]:
+    return [
+        field["key"]
+        for field in fields or []
+        if field.get("required") and field.get("type") == "password"
+    ]
+
+
+def _derive_preflight_requirements(entry: dict) -> dict:
+    """Derive deployment checks from required integration catalog entries."""
+    integrations = []
+    for integration_id, requirement in entry["requires"]["integrations"].items():
+        if requirement.get("required") is False:
+            continue
+        catalog_path = INTEGRATION_CATALOG_DIR / f"{integration_id}.json"
+        alternatives = []
+        if catalog_path.exists():
+            catalog_entry = _load(catalog_path)
+            for option in catalog_entry["connectionOptions"]:
+                transport = option.get("transport")
+                if option.get("provider") != "mcp" or not transport:
+                    continue
+                auth = option["auth"]
+                locator = (
+                    transport["serverName"]
+                    if transport["kind"] == "stdio"
+                    else transport["url"]
+                )
+                credential_optional = auth.get("apiKeyOptional", False) or (
+                    transport["kind"] != "stdio"
+                    and transport.get("apiKeyOptional", False)
+                )
+                if transport["kind"] == "stdio":
+                    transport_secret_names = [
+                        *_required_secret_fields(transport.get("envFields")),
+                        *_required_secret_fields(transport.get("argFields")),
+                    ]
+                else:
+                    transport_secret_names = _required_secret_fields(
+                        transport.get("headerFields")
+                    )
+                secret_names = list(
+                    dict.fromkeys(
+                        [
+                            *(
+                                [auth["credentialSecretName"]]
+                                if not credential_optional
+                                and auth.get("credentialSecretName")
+                                else []
+                            ),
+                            *transport_secret_names,
+                        ]
+                    )
+                )
+                alternative = {
+                    "transport": transport["kind"],
+                    "locator": locator,
+                    "authStrategy": auth["strategy"],
+                }
+                if secret_names:
+                    alternative["secretNames"] = secret_names
+                alternatives.append(alternative)
+        integrations.append({"id": integration_id, "alternatives": alternatives})
+    return {"integrations": integrations}
 
 
 def _derive_error_map(entry: dict) -> dict[str, list[str]]:
@@ -510,6 +578,17 @@ def test_schema_rejects_content_a_setup_block_must_never_carry() -> None:
     with_bad_version = deepcopy(entry)
     with_bad_version["version"] = "1.0"
     rejected.append(("'1.0' does not match", with_bad_version))
+
+    with_multiple_triggers = deepcopy(entry)
+    with_multiple_triggers["setup"]["form"]["triggers"]["event"] = {
+        "on": {
+            "type": "text",
+            "label": "Event",
+            "help": "Event type",
+            "required": True,
+        }
+    }
+    rejected.append(("has too many properties", with_multiple_triggers))
 
     for expected_fragment, invalid in rejected:
         errors = list(VALIDATOR.iter_errors(invalid))
