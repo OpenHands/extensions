@@ -1,0 +1,20 @@
+{
+  "name": "openhands-enterprise-troubleshooting",
+  "version": "1.0.0",
+  "description": "Diagnose and resolve common issues on OpenHands Enterprise self-hosted installations. Covers sandbox startup failures, auth issues, certificate errors, LLM connectivity, Keycloak login, Replicated Admin Console access, upgrade failures, and resource exhaustion. Includes support bundle generation, offline bundle analysis with a bundled triage script, and escalation handoffs.",
+  "author": {
+    "name": "OpenHands",
+    "email": "contact@all-hands.dev"
+  },
+  "homepage": "https://github.com/OpenHands/extensions",
+  "repository": "https://github.com/OpenHands/extensions",
+  "license": "MIT",
+  "keywords": [
+    "openhands",
+    "enterprise",
+    "troubleshooting",
+    "replicated",
+    "support-bundle",
+    "kubernetes"
+  ]
+}
