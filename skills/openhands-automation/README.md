@@ -26,7 +26,7 @@ This skill is activated by keywords:
 
 ## API Base URL
 
-All automation endpoints are at: `https://app.all-hands.dev/api/automation/v1`
+Use an explicitly provided host first. When a local Agent Canvas automation server is running and no host is provided, use `http://localhost:8001/api/automation/v1`. Otherwise use the cloud default: `https://app.all-hands.dev/api/automation/v1`.
 
 ## Quick Start
 
