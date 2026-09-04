@@ -1,0 +1,32 @@
+{
+  "id": "pilot-protocol",
+  "name": "Pilot Protocol",
+  "description": "Discover specialist agents and exchange messages with trusted peers.",
+  "appUrl": "https://pilotprotocol.network",
+  "docsUrl": "https://github.com/pilot-protocol/pilot-mcp",
+  "iconBg": "#111827",
+  "keywords": [
+    "agents",
+    "agent-to-agent",
+    "peer-to-peer",
+    "discovery"
+  ],
+  "connectionOptions": [
+    {
+      "id": "local",
+      "provider": "mcp",
+      "transport": {
+        "kind": "stdio",
+        "serverName": "pilot",
+        "command": "npx",
+        "args": [
+          "-y",
+          "pilotprotocol-mcp"
+        ]
+      },
+      "auth": {
+        "strategy": "none"
+      }
+    }
+  ]
+}
