@@ -1,0 +1,124 @@
+{
+  "id": "gitlab-issue-to-mr",
+  "name": "GitLab issue to MR",
+  "category": "Software development",
+  "description": "Watch for a configurable label on GitLab issues, implement the issue in a clone of the default branch, and open a merge request for each label event.",
+  "requires": {
+    "integrations": {
+      "gitlab": {
+        "message": "Used to read labelled issues, push the branch, and open the merge request."
+      }
+    },
+    "features": [
+      "customTarball"
+    ]
+  },
+  "popularityRank": 88,
+  "estimatedSetupMinutes": 4,
+  "exampleImplementation": "Trigger: cron polling for open GitLab issues with a configured label such as openhands\nRequired secret: GITLAB_TOKEN, a personal or project access token with the api scope and at least the Developer role\n\n1. Read the projects, trigger label, branch prefix, merge request mode, GitLab API URL, and polling schedule from setup.\n2. Poll each project independently, with its own state, so issue IIDs never collide.\n3. List open labelled issues and find the latest matching GitLab label resource event for each.\n4. Deduplicate on the label event ID so every label application queues exactly one attempt.\n5. Clone the default branch into a directory of its own, create the working branch, and start an OpenHands conversation with that directory as its workspace. The clone carries no credential and the agent is handed no secrets, because the prompt is built from an issue body that anyone can write.\n6. Comment on the issue with the branch and the conversation link.\n7. Once the conversation has stopped, commit whatever the agent left, push the branch, open a merge request titled after the issue and prefixed with Draft:, and comment the link on the issue. An agent that made no changes gets its answer posted instead.\n8. Remove the clone once the conversation has stopped, so nothing accumulates between runs.",
+  "impact": {
+    "basis": "completed-runs",
+    "one": "1 issue sweep completed",
+    "other": "{{count}} issue sweeps completed"
+  },
+  "setup": {
+    "version": "1.0",
+    "mode": "direct",
+    "form": {
+      "triggers": {
+        "cron": {
+          "schedule": {
+            "type": "cron",
+            "label": "Check frequency",
+            "help": "How often to look for newly labelled issues.",
+            "default": "*/15 * * * *",
+            "required": true
+          },
+          "timezone": {
+            "type": "timezone",
+            "label": "Timezone",
+            "help": "Timezone the schedule is interpreted in.",
+            "default": "UTC",
+            "required": true
+          }
+        }
+      },
+      "args": {
+        "projects": {
+          "type": "repo-picker",
+          "label": "Projects",
+          "help": "The GitLab projects whose labelled issues are implemented. Each is polled independently and keeps its own state, so issue numbers never collide between them.",
+          "provider": "gitlab",
+          "multiple": true,
+          "required": true
+        },
+        "triggerLabel": {
+          "type": "text",
+          "label": "Trigger label",
+          "help": "Only issues carrying this label are worked on.",
+          "default": "openhands",
+          "required": true,
+          "constraints": {
+            "minLength": 1,
+            "maxLength": 50
+          }
+        },
+        "branchPrefix": {
+          "type": "text",
+          "label": "Branch prefix",
+          "help": "Branches are named after this prefix and the issue number, such as openhands/issue-42.",
+          "default": "openhands/issue",
+          "required": true,
+          "constraints": {
+            "minLength": 1,
+            "maxLength": 50
+          }
+        },
+        "mergeRequestMode": {
+          "type": "select",
+          "label": "Merge request mode",
+          "help": "Whether the merge request is opened as a draft or ready for review. GitLab marks a draft by prefixing its title with Draft:.",
+          "default": "draft",
+          "required": true,
+          "options": [
+            {
+              "value": "draft",
+              "label": "Draft"
+            },
+            {
+              "value": "ready",
+              "label": "Ready for review"
+            }
+          ]
+        },
+        "gitlabApiUrl": {
+          "type": "text",
+          "label": "GitLab API URL",
+          "help": "The API root of the GitLab instance. Change it for a self-managed instance, such as https://gitlab.example.com/api/v4.",
+          "default": "https://gitlab.com/api/v4",
+          "required": true,
+          "constraints": {
+            "minLength": 1,
+            "maxLength": 200
+          }
+        }
+      }
+    },
+    "bundle": {
+      "version": "1.0.0",
+      "entrypoint": "python3 main.py",
+      "timeout": 900,
+      "files": {
+        "main.py": "skills/gitlab-issue-to-mr/scripts/main.py"
+      },
+      "config": {
+        "projects": "{{form.projects}}",
+        "trigger_label": "{{form.triggerLabel}}",
+        "branch_prefix": "{{form.branchPrefix}}",
+        "merge_request_mode": "{{form.mergeRequestMode}}",
+        "gitlab_api_url": "{{form.gitlabApiUrl}}"
+      }
+    },
+    "message": "This deployment cannot run the scheduled issue-to-MR automation directly. Set it up in this conversation instead: confirm the GitLab projects to watch, the trigger label, the branch prefix, whether merge requests open as drafts, the GitLab API URL, and the polling schedule, then create the automation."
+  }
+}
