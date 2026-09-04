@@ -56,11 +56,15 @@ MAX_NEW_PER_RUN = 3
 GITLAB_API_URL = "https://gitlab.com/api/v4"
 # Secrets forwarded to the agent conversation, by name. The GitLab token is
 # here because the agent reads the issue and its discussion itself rather than
-# being handed a copy; without it, private projects are unreadable. It is still
-# an allow-list rather than the whole secret store, and no MCP server is
-# attached, so this is the one credential a prompt injected through an issue
-# can reach. Add another name only when the project's own build needs it, such
-# as a package registry token.
+# being handed a copy; without it, private projects are unreadable. It stays an
+# allow-list rather than the whole secret store. Add another name only when the
+# project's own build needs it, such as a package registry token.
+#
+# The deployment's MCP servers are forwarded whole, as github-pr-reviewer does,
+# so a connected GitLab server gives the agent typed tools instead of curl.
+# Everything reachable through those servers is therefore reachable from a
+# prompt written by whoever opened the issue; connect only servers that may be
+# driven by untrusted text.
 AGENT_SECRET_NAMES: list[str] = ["GITLAB_TOKEN"]
 DEFAULT_OPENHANDS_URL = "http://localhost:8000"
 
@@ -843,6 +847,23 @@ def _get_agent_dict(agent_url: str, api_key: str) -> dict:
     }
 
 
+def _get_mcp_config(agent_url: str, api_key: str) -> dict | None:
+    """The deployment's MCP servers, or None when it has none configured.
+
+    A conversation that cannot reach the server list is still worth starting -
+    the agent falls back to the REST calls the prompt spells out - so a failure
+    here is a warning rather than a dropped task.
+    """
+    try:
+        data = _fetch_settings(agent_url, api_key)
+        mcp_config = data.get("agent_settings", {}).get("mcp_config")
+        if isinstance(mcp_config, dict) and mcp_config.get("mcpServers"):
+            return mcp_config
+    except Exception as exc:
+        print(f"Warning: could not fetch MCP config: {exc}")
+    return None
+
+
 def _list_secret_names(agent_url: str, api_key: str) -> list[dict]:
     try:
         result = _oh_request(agent_url, api_key, "GET", "/api/settings/secrets")
@@ -893,9 +914,9 @@ def create_conversation(
     secrets = _build_secrets_payload(agent_url, api_key)
     if secrets:
         payload["secrets"] = secrets
-    # The deployment's MCP servers are deliberately not forwarded: a connected
-    # GitLab MCP server would hand the conversation the same write access the
-    # narrow secrets payload just withheld.
+    mcp_config = _get_mcp_config(agent_url, api_key)
+    if mcp_config:
+        payload["mcp_config"] = mcp_config
     result = _oh_request(agent_url, api_key, "POST", "/api/conversations", payload)
     return result["id"]
 
@@ -958,7 +979,11 @@ def _build_implementation_prompt(
         "already here, and the branch is the one the merge request comes from.\n"
         "- `origin` carries no credential. Every command that talks to GitLab must "
         "name `GITLAB_TOKEN`, because the value is only put in the environment of a "
-        "command that mentions it. Never echo it.\n\n"
+        "command that mentions it. Never echo it.\n"
+        "- If GitLab tools from a connected MCP server are available to you, prefer "
+        "them for reading the issue and for opening the merge request. The commands "
+        "below are the fallback when they are not, and the git push is a git "
+        "operation either way.\n\n"
         "Required workflow:\n"
         "1. Read the issue first. Its title above is all you have been told; fetch the "
         "rest yourself:\n"

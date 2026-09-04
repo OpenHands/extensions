@@ -34,11 +34,16 @@ fetches the description, the discussion, and anything they link to itself - a
 copy pasted at dispatch would already be stale, and it would stop where the
 issue's own text stops.
 
-Reading that needs credentials, so the conversation is handed exactly one secret,
-`GITLAB_TOKEN`, and none of the deployment's MCP servers. `AGENT_SECRET_NAMES` is
-an allow-list, so the rest of the secret store stays out of reach of a
-conversation whose instructions came from an issue. Set it to `[]` for public
-projects if you would rather it held nothing.
+Reading that needs credentials, so the conversation is handed one secret,
+`GITLAB_TOKEN`. `AGENT_SECRET_NAMES` is an allow-list, so the rest of the secret
+store stays out of reach of a conversation whose instructions came from an issue.
+Set it to `[]` for public projects if you would rather it held nothing.
+
+The deployment's MCP servers are forwarded whole, as `github-pr-reviewer` does,
+so a connected GitLab server gives the agent typed tools instead of curl. That
+cuts both ways: everything reachable through those servers is reachable from a
+prompt written by whoever opened the issue. Connect only servers you are willing
+to have driven by untrusted text.
 
 The agent commits, pushes its branch, and opens the merge request itself, so it
 appears as soon as the agent stops instead of waiting for the next poll. The

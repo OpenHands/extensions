@@ -25,10 +25,14 @@ The agent is told **which** issue to implement, not what it says. It fetches the
 description, the discussion, and whatever they link to itself, so nothing in the
 prompt goes stale between dispatch and the moment the agent reads it.
 
-That needs read access, so the conversation is handed exactly one secret,
-`GITLAB_TOKEN`, and no MCP servers. `AGENT_SECRET_NAMES` stays an allow-list: the
-rest of the deployment's secret store is not reachable from a conversation whose
-instructions came from an issue.
+That needs read access, so the conversation is handed one secret, `GITLAB_TOKEN`.
+`AGENT_SECRET_NAMES` stays an allow-list: the rest of the deployment's secret
+store is not reachable from a conversation whose instructions came from an issue.
+
+The deployment's MCP servers are forwarded whole, matching `github-pr-reviewer`,
+so a connected GitLab server gives the agent typed tools rather than curl. What
+those servers reach is reachable from an issue-authored prompt, so connect only
+servers that may be driven by untrusted text.
 
 The agent also finishes the job: it commits, pushes its branch, and opens the
 merge request, so the merge request appears when the agent stops rather than on
@@ -195,6 +199,12 @@ If the projects are public and you would rather the conversation held no
 credential at all, set the list to `[]` - the agent can still read a public issue
 unauthenticated, and private projects then stop working.
 
+The deployment's MCP servers are a separate matter: they are forwarded whole, so
+the conversation can reach everything they expose. Say so, and check the user is
+willing to have those servers driven by text written by whoever opened an issue.
+Removing a server from the deployment's MCP settings is the only way to keep it
+out of these conversations.
+
 ### Step 9 - Generate the automation script
 
 Read `scripts/main.py` from this skill's directory. Apply exactly six constant
@@ -332,8 +342,8 @@ For each project:
      sets the commit identity, and creates the branch. `origin` keeps its plain
      HTTPS URL, so the workspace holds no credential.
    - Starts an OpenHands conversation **whose working directory is that clone**,
-     told which issue to read, with only the secrets named in
-     `AGENT_SECRET_NAMES` attached.
+     told which issue to read, with the secrets named in `AGENT_SECRET_NAMES`
+     and the deployment's MCP servers attached.
    - Comments on the issue with the branch, the label event, and the conversation
      link.
    - Records the task with `status: "active"`.
@@ -393,5 +403,6 @@ The completion callback fires once for the whole run.
 | Issue commented "did not change any code" | The agent judged the issue too ambiguous, or made no edits | Read its answer in the comment, add the missing detail to the issue, then re-apply the label |
 | Same issue not picked up again after new comments | Its label event was already processed | Remove and re-apply the trigger label |
 | Agent reports it cannot push or open an MR | By design - it has no push credentials in `origin` | No action; the automation pushes and opens the merge request after the agent stops |
+| `Warning: could not fetch MCP config` in run logs | The settings endpoint was unreachable | Non-fatal; the agent falls back to the REST calls in the prompt |
 | A backlog of labelled issues starts slowly | `MAX_NEW_PER_RUN` caps how many conversations one poll starts | Wait for the next polls, or raise the cap in the script |
 | Clones remain under `issue-to-mr/` | Their conversations had not stopped yet | They are removed by a later poll once the conversation is terminal |

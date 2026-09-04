@@ -329,6 +329,7 @@ def test_the_conversation_payload_carries_no_secrets_block_when_there_are_none(
 
     monkeypatch.setattr(main, "_get_agent_dict", lambda url, key: {"kind": "Agent"})
     monkeypatch.setattr(main, "_build_secrets_payload", lambda url, key: {})
+    monkeypatch.setattr(main, "_get_mcp_config", lambda url, key: None)
 
     def fake_request(agent_url, api_key, method, path, body=None):
         sent["body"] = body
@@ -340,7 +341,60 @@ def test_the_conversation_payload_carries_no_secrets_block_when_there_are_none(
 
     assert conv_id == "conv-1"
     assert "secrets" not in sent["body"]
+    assert "mcp_config" not in sent["body"]
     assert sent["body"]["workspace"] == {"working_dir": str(tmp_path)}
+
+
+# ── MCP servers handed to the conversation ────────────────────────────────────
+
+
+def test_the_deployments_mcp_servers_are_forwarded(main, monkeypatch):
+    """A connected GitLab server gives the agent typed tools instead of curl."""
+    config = {"mcpServers": {"gitlab": {"url": "https://gitlab.com/api/v4/mcp"}}}
+    monkeypatch.setattr(
+        main, "_fetch_settings", lambda url, key: {"agent_settings": {"mcp_config": config}}
+    )
+
+    assert main._get_mcp_config("http://agent", "key") == config
+
+
+def test_a_deployment_with_no_mcp_servers_forwards_nothing(main, monkeypatch):
+    monkeypatch.setattr(
+        main,
+        "_fetch_settings",
+        lambda url, key: {"agent_settings": {"mcp_config": {"mcpServers": {}}}},
+    )
+
+    assert main._get_mcp_config("http://agent", "key") is None
+
+
+def test_an_unreadable_mcp_config_does_not_drop_the_task(main, monkeypatch):
+    """The agent falls back to the REST calls the prompt spells out, so this is
+    a warning rather than a task that never starts."""
+    def boom(url, key):
+        raise RuntimeError("settings unreachable")
+
+    monkeypatch.setattr(main, "_fetch_settings", boom)
+
+    assert main._get_mcp_config("http://agent", "key") is None
+
+
+def test_the_conversation_carries_the_mcp_config_when_there_is_one(main, monkeypatch, tmp_path):
+    sent = {}
+    config = {"mcpServers": {"gitlab": {"url": "https://gitlab.com/api/v4/mcp"}}}
+
+    monkeypatch.setattr(main, "_get_agent_dict", lambda url, key: {"kind": "Agent"})
+    monkeypatch.setattr(main, "_build_secrets_payload", lambda url, key: {})
+    monkeypatch.setattr(main, "_get_mcp_config", lambda url, key: config)
+
+    def fake_request(agent_url, api_key, method, path, body=None):
+        sent["body"] = body
+        return {"id": "conv-1"}
+
+    monkeypatch.setattr(main, "_oh_request", fake_request)
+    main.create_conversation("http://agent", "key", "do the thing", tmp_path)
+
+    assert sent["body"]["mcp_config"] == config
 
 
 # ── Issue discovery ───────────────────────────────────────────────────────────
@@ -704,6 +758,15 @@ def test_the_prompt_keeps_the_untrusted_input_boundary(main):
 
     assert "untrusted input" in prompt
     assert "projects other than group/project" in prompt
+
+
+def test_the_prompt_prefers_mcp_tools_when_they_are_there(main):
+    """The curl commands stay as the fallback, and the push is git either way."""
+    prompt = _prompt(main)
+
+    assert "connected MCP server" in prompt
+    assert "prefer" in prompt
+    assert "git push" in prompt
 
 
 def test_a_ready_for_review_configuration_drops_the_draft_prefix(main, monkeypatch):
