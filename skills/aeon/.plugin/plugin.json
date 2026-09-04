@@ -1,0 +1,19 @@
+{
+  "name": "aeon",
+  "version": "1.0.0",
+  "description": "Set up and operate an Aeon autonomous-agent instance from your coding agent - enable, schedule, edit, and debug skills that run on a schedule in GitHub Actions, wire secrets and channels, set strategy and voice, and turn past coding-agent chats into scheduled skills.",
+  "author": {
+    "name": "Aeon Inc"
+  },
+  "homepage": "https://aeon.fun",
+  "repository": "https://github.com/aeonfun/aeon",
+  "license": "MIT",
+  "keywords": [
+    "aeon",
+    "agent",
+    "skills",
+    "automation",
+    "github-actions",
+    "cron"
+  ]
+}

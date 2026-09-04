@@ -96,7 +96,7 @@ The JS and Python versions are kept in lock-step by `release-please` and guarded
 ## Extensions Catalog
 
 <!-- BEGIN AUTO-GENERATED CATALOG -->
-This repository contains **2 marketplace(s)** with **68 extensions** (58 skills, 10 plugins).
+This repository contains **2 marketplace(s)** with **69 extensions** (59 skills, 10 plugins).
 
 ### large-codebase
 
@@ -115,11 +115,12 @@ OpenHands skills for interacting, improving, and refactoring large codebases
 
 Official skills and plugins for OpenHands — the open-source AI software engineer.
 
-**64 extensions** (56 skills, 8 plugins)
+**65 extensions** (57 skills, 8 plugins)
 
 | Name | Type | Description | Commands |
 |------|------|-------------|----------|
 | add-skill | skill | Add (import) an OpenHands skill from a GitHub repository into the current workspace. | — |
+| aeon | skill | Set up and operate an Aeon autonomous-agent instance from your coding agent - enable, schedule, edit, and debug skill... | — |
 | agent-canvas-environment | skill | Work effectively inside a local Agent Canvas environment, including local agent-server auth, safe workspace hygiene, ... | — |
 | agent-creator | skill | Create file-based sub-agents as Markdown files — no Python code required. Guides the user through a structured interv... | `/agent-creator` |
 | agent-memory | skill | Persist and retrieve repository-specific knowledge using AGENTS.md files. Use when you want to save important informa... | `/remember` |
