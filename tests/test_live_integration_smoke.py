@@ -24,6 +24,11 @@ Preconditions:
 
 Evidence lines are printed as ``[OSS-5193] ...`` and contain only tool names,
 counts, and provider error codes — never credentials or message content.
+
+The anonymous Parallel Search smoke test needs no credentials and runs only
+when explicitly enabled:
+
+    RUN_PARALLEL_MCP_LIVE=1 uv run pytest tests/test_live_integration_smoke.py -k parallel -s
 """
 
 import json
@@ -33,6 +38,7 @@ from contextlib import contextmanager
 import mcp.types
 import pytest
 from openhands.sdk.mcp import MCPError, MCPServer, MCPTimeoutError, create_mcp_tools
+from openhands.sdk.mcp.definition import MCPToolObservation
 
 from openhands_extensions import get_integration_catalog_entry_model
 
@@ -138,6 +144,67 @@ def _first_advertised(tool_names, candidates):
         f"{sorted({name for name, _ in candidates})} are advertised; "
         f"server offers: {sorted(tool_names)}"
     )
+
+
+@pytest.mark.skipif(
+    os.environ.get("RUN_PARALLEL_MCP_LIVE") != "1",
+    reason="set RUN_PARALLEL_MCP_LIVE=1 to run the anonymous Parallel MCP smoke test",
+)
+def test_parallel_anonymous_search_fetch_and_invalid_arguments():
+    option = _installable_option("parallel-search")
+    assert option.auth.strategy == "none"
+    assert option.transport.kind == "shttp"
+    server = MCPServer.model_validate(
+        {"url": option.transport.url, "transport": "http"}
+    )
+
+    with create_mcp_tools({"parallel-search": server}, timeout=HTTP_TIMEOUT) as client:
+        assert {"web_search", "web_fetch"} <= {tool.name for tool in client.tools}
+        for name, arguments in (
+            (
+                "web_search",
+                {
+                    "objective": "Find the official Python documentation for dictionaries.",
+                    "search_queries": ["site:docs.python.org dictionary tutorial"],
+                },
+            ),
+            (
+                "web_fetch",
+                {"urls": ["https://docs.python.org/3/tutorial/datastructures.html"]},
+            ),
+        ):
+            result = client.call_async_from_sync(
+                client.call_tool_mcp,
+                name=name,
+                arguments=arguments,
+                timeout=HTTP_TIMEOUT,
+            )
+            assert not result.isError
+            text = "\n".join(
+                block.text
+                for block in result.content
+                if isinstance(block, mcp.types.TextContent)
+            )
+            payload = json.loads(text)
+            assert payload == result.structuredContent
+            assert payload["results"]
+            assert all(
+                item["url"].startswith(("http://", "https://"))
+                for item in payload["results"]
+            )
+            assert any(item.get("excerpts") for item in payload["results"])
+            observation = MCPToolObservation.from_call_tool_result(name, result)
+            assert not observation.is_error
+            assert text in [block.text for block in observation.content]
+
+        invalid = client.call_async_from_sync(
+            client.call_tool_mcp,
+            name="web_search",
+            arguments={"objective": "Find Python documentation"},
+            timeout=HTTP_TIMEOUT,
+        )
+        assert invalid.isError
+        assert MCPToolObservation.from_call_tool_result("web_search", invalid).is_error
 
 
 @requires_github
