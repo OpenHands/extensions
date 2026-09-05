@@ -834,6 +834,19 @@
         "pull-request",
         "automation"
       ]
+    },
+    {
+      "name": "wavespeed",
+      "source": "./skills/wavespeed",
+      "description": "Generate and edit AI media (image, video, audio, 3D) on the WaveSpeed platform through the open-source wavespeed CLI: live catalog search, per-model schema, price quotes, local-file upload.",
+      "category": "integrations",
+      "keywords": [
+        "wavespeed",
+        "image-generation",
+        "video-generation",
+        "audio",
+        "3d"
+      ]
     }
   ]
 }
