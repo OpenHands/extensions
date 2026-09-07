@@ -1,0 +1,20 @@
+{
+  "name": "wavespeed",
+  "version": "1.0.0",
+  "description": "Generate and edit AI media (image, video, audio, 3D) on the WaveSpeed platform through the open-source wavespeed CLI: live catalog search, per-model schema, price quotes, local-file upload.",
+  "author": {
+    "name": "WaveSpeedAI",
+    "email": "support@wavespeed.ai"
+  },
+  "homepage": "https://github.com/WaveSpeedAI/agent-skills",
+  "repository": "https://github.com/WaveSpeedAI/agent-skills",
+  "license": "MIT",
+  "keywords": [
+    "wavespeed",
+    "image-generation",
+    "video-generation",
+    "audio-generation",
+    "3d-generation",
+    "media"
+  ]
+}
