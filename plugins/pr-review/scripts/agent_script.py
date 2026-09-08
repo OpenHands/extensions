@@ -925,6 +925,7 @@ def validate_environment() -> dict[str, Any]:
         "github_token": os.getenv("GITHUB_TOKEN"),
         "model": os.getenv("LLM_MODEL", "anthropic/claude-sonnet-4-5-20250929"),
         "base_url": os.getenv("LLM_BASE_URL"),
+        "extra_body": os.getenv("LLM_EXTRA_BODY", ""),
         "require_evidence": _get_bool_env("REQUIRE_EVIDENCE"),
         "collect_feedback": _get_bool_env("COLLECT_FEEDBACK"),
         "review_run_url": os.getenv("REVIEW_RUN_URL", ""),
@@ -1076,6 +1077,16 @@ def create_conversation(
     }
     if config["base_url"]:
         llm_config["base_url"] = config["base_url"]
+    if config["extra_body"]:
+        try:
+            extra_body = json.loads(config["extra_body"])
+        except json.JSONDecodeError as exc:
+            logger.error("LLM_EXTRA_BODY is not valid JSON: %s", exc)
+            sys.exit(1)
+        if not isinstance(extra_body, dict):
+            logger.error("LLM_EXTRA_BODY must be a JSON object")
+            sys.exit(1)
+        llm_config["litellm_extra_body"] = extra_body
 
     llm = LLM(**llm_config)
 
