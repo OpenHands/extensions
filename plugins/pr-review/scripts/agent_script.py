@@ -893,6 +893,18 @@ def validate_environment() -> dict[str, Any]:
         sys.exit(1)
 
     api_key = os.getenv("LLM_API_KEY")
+
+    extra_body: dict[str, Any] = {}
+    raw_extra_body = os.getenv("LLM_EXTRA_BODY", "")
+    if raw_extra_body:
+        try:
+            extra_body = json.loads(raw_extra_body)
+        except json.JSONDecodeError as exc:
+            logger.error(f"LLM_EXTRA_BODY is not valid JSON: {exc}")
+            sys.exit(1)
+        if not isinstance(extra_body, dict):
+            logger.error("LLM_EXTRA_BODY must be a JSON object")
+            sys.exit(1)
     if agent_kind == "openhands" and not api_key:
         logger.error(
             "LLM_API_KEY is required when AGENT_KIND is 'openhands'"
@@ -925,7 +937,7 @@ def validate_environment() -> dict[str, Any]:
         "github_token": os.getenv("GITHUB_TOKEN"),
         "model": os.getenv("LLM_MODEL", "anthropic/claude-sonnet-4-5-20250929"),
         "base_url": os.getenv("LLM_BASE_URL"),
-        "extra_body": os.getenv("LLM_EXTRA_BODY", ""),
+        "extra_body": extra_body,
         "require_evidence": _get_bool_env("REQUIRE_EVIDENCE"),
         "collect_feedback": _get_bool_env("COLLECT_FEEDBACK"),
         "review_run_url": os.getenv("REVIEW_RUN_URL", ""),
@@ -1078,15 +1090,7 @@ def create_conversation(
     if config["base_url"]:
         llm_config["base_url"] = config["base_url"]
     if config["extra_body"]:
-        try:
-            extra_body = json.loads(config["extra_body"])
-        except json.JSONDecodeError as exc:
-            logger.error("LLM_EXTRA_BODY is not valid JSON: %s", exc)
-            sys.exit(1)
-        if not isinstance(extra_body, dict):
-            logger.error("LLM_EXTRA_BODY must be a JSON object")
-            sys.exit(1)
-        llm_config["litellm_extra_body"] = extra_body
+        llm_config["litellm_extra_body"] = config["extra_body"]
 
     llm = LLM(**llm_config)
 
