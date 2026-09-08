@@ -49,6 +49,14 @@ inputs:
             models that think by default. Ignored in ACP mode.
         required: false
         default: ''
+    max-iterations:
+        description: >
+            Maximum agent iterations (model call + tool action) for the review
+            run (optional). Bounds runaway exploration so the job ends with a
+            clear error instead of hitting the workflow timeout. Empty uses the
+            SDK default. Ignored in ACP mode.
+        required: false
+        default: ''
     review-style:
         description: "[DEPRECATED] Previously chose between 'standard' and 'roasted' review styles. These have been merged into a single code-review skill. The input is kept for backward compatibility but no longer changes behavior. Will be removed in a future version."
         required: false
@@ -267,6 +275,7 @@ runs:
               LLM_MODEL: ${{ steps.select-model.outputs.selected_model }}
               LLM_BASE_URL: ${{ inputs.llm-base-url }}
               LLM_EXTRA_BODY: ${{ inputs.llm-extra-body }}
+              MAX_ITERATIONS: ${{ inputs.max-iterations }}
               REVIEW_STYLE: ${{ inputs.review-style }}
               REQUIRE_EVIDENCE: ${{ inputs.require-evidence }}
               COLLECT_FEEDBACK: ${{ inputs.collect-feedback }}
