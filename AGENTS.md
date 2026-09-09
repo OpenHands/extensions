@@ -118,6 +118,31 @@ When editing or adding skills in this repo, follow these rules (and add new skil
 - `plugins/release-notes` now has a standalone validator at `plugins/release-notes/scripts/validate_release_notes.py`; it rebuilds the deterministic tag-range context, fails if a change bullet omits explicit PR/commit refs or matching author handles, and enforces full PR/author coverage by appending a compact `### 🔎 Small Fixes/Internal Changes` appendix grouped by author when the agent omits lower-signal items. New contributor detection in `generate_release_notes.py` should use merged PR history for human authors (excluding bots) rather than commit-author lookup.
 
 
+## PR-specific documents (`.pr/`)
+
+When working on a PR that requires design documents, live-test logs, development-only scripts, or other temporary artifacts that should **not** be merged to `main`, store them in a `.pr/` directory at the repository root.
+
+```bash
+mkdir -p .pr
+
+.pr/
+├── design.md       # Design decisions and architecture notes
+├── analysis.md     # Investigation or debugging notes
+└── notes.md        # Any other PR-specific content
+```
+
+The `PR Artifacts` workflow (`.github/workflows/pr-artifacts.yml`) owns the lifecycle of this directory:
+
+1. **Notification**: When a PR contains `.pr/`, a single comment is posted to the PR conversation alerting reviewers.
+2. **Auto-cleanup on approval**: For same-repository PRs, the directory is automatically removed by a follow-up commit when the PR is approved.
+3. **Auto-cleanup after merge**: Fork PRs cannot be pushed to, so the directory is automatically removed from `main` immediately after the PR is merged.
+
+Important notes:
+
+- Do not put anything in `.pr/` that needs to be preserved.
+- The `.pr/` check is informational during development; it posts a notice rather than blocking the PR.
+- For fork PRs, `.pr/` is cleaned up from `main` after merge automatically; no manual step is required.
+
 ## CI / validation gotchas
 
 - The test suite expects **every directory under `skills/`** to be listed in a marketplace. If you add a new skill (or rebase onto a main branch that added skills), update the appropriate marketplace file or CI will fail with `Skills missing from marketplace: [...]`.
