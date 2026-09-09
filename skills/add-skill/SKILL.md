@@ -1,6 +1,6 @@
 ---
 name: add-skill
-description: Add an external skill from a GitHub repository to the current workspace. Use when users want to import, install, or add a skill from a GitHub URL (e.g., `/add-skill https://github.com/OpenHands/extensions/tree/main/skills/codereview` or "add the codereview skill from https://github.com/OpenHands/extensions/"). Handles fetching the skill files and placing them in .agents/skills/.
+description: Import an existing skill from a GitHub repository URL into the current workspace. Use only when the user provides or references a GitHub URL/repo to fetch from (e.g., `/add-skill https://github.com/OpenHands/extensions/tree/main/skills/codereview` or "add the codereview skill from https://github.com/OpenHands/extensions/"). Handles fetching the skill files and placing them in .agents/skills/. This does not author new skills — to create a new skill from scratch (no source URL), use the skill-creator skill instead.
 ---
 
 # Add Skill

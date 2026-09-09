@@ -8,7 +8,7 @@
   ],
   "appUrl": "https://posthog.com",
   "docsUrl": "https://posthog.com/docs/model-context-protocol",
-  "notes": "Relevant for product analytics and experimentation workflows.",
+  "notes": "Uses PostHog's official hosted MCP server. OAuth is preferred; the bearer-token option remains for clients or deployments that require a personal API key. The OAuth URL defaults to read-only mode; remove readonly=true only when write access has been approved.",
   "popularityRank": 37,
   "iconBg": "#1D4AFF",
   "logoUrl": "https://cdn.simpleicons.org/posthog/FFFFFF",
@@ -18,8 +18,44 @@
     "product",
     "experiments"
   ],
-  "installHint": "Authenticate with a PostHog personal API key (PostHog → User settings → API keys, MCP Server preset) — sent as a Bearer token.",
+  "installHint": "Prefer OAuth. The default OAuth connection uses read-only MCP mode; edit the URL or use the bearer-key fallback only when a workflow needs approved write access. For API keys, create a PostHog personal API key with the MCP Server preset.",
   "connectionOptions": [
+    {
+      "id": "oauth",
+      "provider": "mcp",
+      "auth": {
+        "strategy": "oauth2",
+        "oauth": {
+          "authorizationUrl": "https://oauth.posthog.com/oauth/authorize/",
+          "tokenUrl": "https://oauth.posthog.com/oauth/token/",
+          "registrationUrl": "https://oauth.posthog.com/oauth/register/",
+          "scopes": [
+            "openid",
+            "profile",
+            "email",
+            "organization:read",
+            "project:read",
+            "dashboard:read",
+            "insight:read",
+            "query:read",
+            "event_definition:read"
+          ],
+          "pkce": true,
+          "clientAuthentication": "none",
+          "additionalAuthorizationParams": {
+            "resource": "https://mcp.posthog.com/mcp"
+          },
+          "additionalTokenParams": {
+            "resource": "https://mcp.posthog.com/mcp"
+          }
+        }
+      },
+      "transport": {
+        "kind": "shttp",
+        "url": "https://mcp.posthog.com/mcp?readonly=true",
+        "urlEditable": true
+      }
+    },
     {
       "id": "api-key",
       "provider": "mcp",
@@ -31,7 +67,9 @@
         "strategy": "bearer",
         "credentialLabel": "PostHog personal API key",
         "credentialPlaceholder": "Paste your PostHog personal API key",
-        "credentialHelp": "Create one under PostHog → User settings → API keys (MCP Server preset). Sent as Authorization: Bearer <token>."
+        "credentialHelp": "Create one under PostHog > User settings > API keys using the MCP Server preset. Sent as Authorization: Bearer <token>.",
+        "credentialSecretName": "POSTHOG_PERSONAL_API_KEY",
+        "saveCredentialAsSecretByDefault": true
       }
     }
   ]

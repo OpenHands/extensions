@@ -1,0 +1,23 @@
+{
+  "id": "linear-issue-to-github-pr",
+  "name": "Linear issue to GitHub PR",
+  "category": "Project management",
+  "description": "Watch Linear for implementation-ready issues, start an agent to make the requested code change, and open a GitHub pull request.",
+  "requires": {
+    "integrations": {
+      "linear": {
+        "message": "Reads implementation-ready issues and posts progress back to Linear."
+      },
+      "github": {
+        "message": "Clones the target repository, pushes a branch, and opens the pull request."
+      }
+    },
+    "features": [
+      "conversationDispatch"
+    ]
+  },
+  "popularityRank": 89,
+  "estimatedSetupMinutes": 6,
+  "skill": "ticket-to-code-change",
+  "exampleImplementation": "Trigger: Linear issue marked implementation-ready\nRequired integrations: Linear, GitHub\n\n1. Watch the selected Linear team or project for issues carrying a configurable implementation-ready label or state.\n2. Deduplicate issue IDs so each transition dispatches once.\n3. Read the issue, linked dependencies, acceptance criteria, and target repository.\n4. Start an independent OpenHands conversation that clones the GitHub repository, creates an issue-keyed branch, implements and tests the change, and opens a pull request.\n5. Post the conversation and pull request links back to the Linear issue and update its status according to the team's workflow."
+}

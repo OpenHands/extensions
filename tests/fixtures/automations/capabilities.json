@@ -46,6 +46,7 @@
         },
         "features": [
           "conversationDispatch",
+          "customTarball",
           "mcpTools",
           "presetPlugin",
           "presetPrompt",
@@ -70,9 +71,38 @@
         },
         "features": [
           "conversationDispatch",
+          "customTarball",
           "mcpTools",
           "presetPrompt",
           "repoClone"
+        ]
+      }
+    },
+    "noCustomTarball": {
+      "description": "A ready deployment running a service that predates bundle support, so it can run a preset but not a tarball the client supplies. An entry whose setup ships a bundle is blocked here even though every trigger kind it needs is available.",
+      "status": 200,
+      "body": {
+        "ready": true,
+        "triggerKinds": ["cron", "event"],
+        "eventSources": ["github"],
+        "eventTypes": ["pull_request.labeled"],
+        "triggers": {
+          "cron": {
+            "minIntervalSeconds": 300,
+            "timezones": ["UTC"]
+          },
+          "event": {
+            "filterLanguage": "jmespath",
+            "filterFunctions": ["contains", "icontains"]
+          }
+        },
+        "features": [
+          "conversationDispatch",
+          "mcpTools",
+          "presetPlugin",
+          "presetPrompt",
+          "repoClone",
+          "webhookDelivery"
         ]
       }
     },

@@ -1,0 +1,78 @@
+{
+  "id": "sonarqube",
+  "name": "SonarQube",
+  "description": "Inspect code quality and security findings, quality gates, and analyze code snippets from SonarQube Server or Cloud.",
+  "categories": [
+    "Engineering",
+    "Security"
+  ],
+  "appUrl": "https://www.sonarsource.com/products/sonarqube/mcp-server/",
+  "docsUrl": "https://github.com/SonarSource/sonarqube-mcp-server",
+  "notes": "Uses SonarSource's official SonarQube MCP Server, run locally as a Docker container. Provide a SonarQube user token. Set SONARQUBE_ORG for SonarQube Cloud, or SONARQUBE_URL for a self-managed SonarQube Server (or https://sonarqube.us for SonarQube Cloud US).",
+  "popularityRank": 43,
+  "installHint": "SONARQUBE_TOKEN is always required. For SonarQube Cloud, set your organization key in SONARQUBE_ORG. For a self-managed SonarQube Server, set SONARQUBE_URL to your server URL; for SonarQube Cloud US, set SONARQUBE_URL to https://sonarqube.us. Requires a container runtime such as Docker.",
+  "connectionOptions": [
+    {
+      "id": "api",
+      "provider": "mcp",
+      "transport": {
+        "kind": "stdio",
+        "serverName": "sonarqube",
+        "command": "docker",
+        "args": [
+          "run",
+          "--init",
+          "--pull=always",
+          "-i",
+          "--rm",
+          "-e",
+          "SONARQUBE_TOKEN",
+          "-e",
+          "SONARQUBE_ORG",
+          "-e",
+          "SONARQUBE_URL",
+          "sonarsource/sonarqube-mcp"
+        ],
+        "envFields": [
+          {
+            "key": "SONARQUBE_TOKEN",
+            "label": "SonarQube token",
+            "type": "password",
+            "required": true,
+            "helperText": "User token generated in your SonarQube Server or Cloud account settings.",
+            "helperLink": "https://docs.sonarsource.com/sonarqube-cloud/managing-your-account/managing-tokens/"
+          },
+          {
+            "key": "SONARQUBE_ORG",
+            "label": "Organization key (SonarQube Cloud)",
+            "type": "text",
+            "required": false,
+            "placeholder": "my-org",
+            "helperText": "Required for SonarQube Cloud. Your organization key, found in SonarQube Cloud."
+          },
+          {
+            "key": "SONARQUBE_URL",
+            "label": "Server URL (SonarQube Server)",
+            "type": "text",
+            "required": false,
+            "placeholder": "https://sonarqube.example.com",
+            "helperText": "Required for a self-managed SonarQube Server. For SonarQube Cloud US, use https://sonarqube.us."
+          }
+        ]
+      },
+      "auth": {
+        "strategy": "api_key"
+      }
+    }
+  ],
+  "iconBg": "#126ED3",
+  "logoUrl": "https://cdn.simpleicons.org/sonarqubeserver/FFFFFF",
+  "keywords": [
+    "code quality",
+    "static analysis",
+    "security",
+    "sast",
+    "quality gate",
+    "sonarcloud"
+  ]
+}

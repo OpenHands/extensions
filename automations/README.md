@@ -2,8 +2,9 @@
 
 `catalog/<id>/` is one automation. Its `manifest.json` is the single hand-authored source of truth: the
 card metadata Agent Canvas renders today and, optionally, a nested `setup` block, the extension-owned
-configuration experience for that automation. Anything else an automation ships, such as a script that is
-uploaded to the automations service as a `.tar.gz`, belongs in the same directory.
+configuration experience for that automation. It is the only file there. A script an automation uploads as
+a `.tar.gz` is not copied into this directory: `setup.bundle.files` names where it already lives, so a
+script shipped by both a skill and the catalog has one copy rather than two.
 
 ```
 catalog/<id>/manifest.json   one automation per directory - card metadata plus an optional `setup` block
@@ -41,16 +42,18 @@ two records of the same fact from drifting apart, and it is why the file is as s
 | The setup route | `/automations/new/<id>` |
 | The integrations the card lists | `requires.integrations`, which every entry carries |
 | The capabilities endpoint | The host queries it for every automation |
-| The trigger kinds a deployment must support | The keys of `setup.form.triggers` |
-| Schedule limits and the timezone list | The `cron` and `timezone` field types |
-| Local validation rules | The `required` flag and `constraints` on each field |
+| The trigger variants a deployment can offer | The keys of `setup.form.triggers`; an entry with multiple keys is usable when at least one variant is supported |
+| Schedule limits, timezone list, event choices, and model profiles | The `cron`, `timezone`, `event-source`, `event-type`, and `llm-profile` field types |
+| Local validation rules | The `required` flag and `constraints` on each field, applied to the selected trigger variant |
 | The preflight call | `POST /v1/validate` with the entry id, the create endpoint, and the rendered payload |
-| The created automation's name | The entry's `name`, plus the repository that was picked |
-| `repos` in the create request | The repo-picker field, its declared `provider`, and a field named `ref` if there is one |
-| `trigger` in the create request | The key under `form.triggers`, and the fields under it named after trigger properties |
+| The created automation's name | A form field named `name`, or the entry's `name` plus the repository that was picked |
+| `repos` in the create request | The repo-picker field, its declared `provider`, and a non-empty field named `ref` if there is one |
+| `model` and `timeout` in the create request | Same-named form fields when they have values |
+| `trigger` in the create request | The selected key under `form.triggers`, and the fields under it named after trigger properties |
 | Which input a rejected payload path belongs to | Rebuilding that body with each field standing in for its own value |
 | The review screen | The fields and their labels |
-| The create endpoint | `POST /v1/preset/prompt` |
+| The create endpoint | `POST /v1/preset/prompt`, `POST /v1/preset/plugin`, or `POST /v1` for an uploaded or bundled tarball |
+| The files a bundle packs | `setup.bundle.files`, read from this repository at build time |
 | Where a success navigates | The created automation, or the started conversation |
 | The analytics stages | The same stages for every automation |
 
@@ -62,7 +65,7 @@ checks them against the recorded fixtures, so these deletions stay honest rather
 ```jsonc
 {
   "id": "github-pr-reviewer",
-  "name": "GitHub Code Review Agent",
+  "name": "GitHub code review",
   "category": "Code review",
   "description": "...",
   "requires": {
@@ -95,39 +98,109 @@ three entries whose names differ from their skill state it. The command that lau
 repeated here: it lives once, in the skill's own `triggers:` frontmatter, and the skills catalog exposes it.
 That way a skill can rename its trigger without leaving a stale copy behind in this catalog.
 
-`setup` is optional. Three of eight entries carry one today. It never repeats `id`, `name`, `category`, or
-`description`. `setup.version` selects how the block is interpreted; a future format ships a new constant.
+`setup` is optional. Entries that carry one never repeat `id`, `name`, `category`, or `description`.
+`setup.version` selects how the block is interpreted; a future format ships a new constant.
 
 ### Triggers and args
 
 `form` separates the two things a user is configuring, and both are keyed by field name:
 
 - **`form.triggers`** decides *when* the automation runs, keyed by trigger kind (`cron` or `event`).
-  `github-pr-reviewer` asks for a schedule and a timezone; `github-repo-monitor` asks which GitHub event to
-  answer and which phrase to match.
-- **`form.args`** is everything else: the arguments to the automation itself, such as the repository to
-  clone and the tone of the review.
+  If an entry declares more than one key, the host renders those keys as selectable variants and validates
+  only the selected variant's fields before building the payload.
+- **`form.args`** is everything else that is common to every creation path, such as the automation name,
+  model profile, or timeout.
+- **`setup.actions`** is optional and declares user-selectable creation paths for one card. The host renders
+  the common form plus the selected action's `args`, checks that action's `features`, and creates through
+  the endpoint implied by the action key: `prompt` -> `/v1/preset/prompt`, `plugin` -> `/v1/preset/plugin`,
+  and `upload` -> `/v1/uploads` followed by `/v1`.
 
 An assisted entry declares no triggers, because the trigger is settled during the conversation.
 
 ### What the form produces
 
-- **`mode: "direct"`** declares a `prompt`: what the automation is told to do. The rest of the create
-  request restates the form, so it is not written out. An event trigger also declares a `filter`, because
-  composing form values into a JMESPath expression is the one part of an event trigger that cannot be read
-  off the form.
+- **`mode: "direct"`** declares exactly one creation archetype: a `prompt`, a repository-shipped `bundle`,
+  or `actions`. A prompt creates through `/v1/preset/prompt`. A bundle is packed and uploaded by the host,
+  then creates through `/v1`. An actions block lets the user choose between prompt, plugin, and uploaded
+  tarball paths in one card. The rest of the create request restates the form, so it is not written out. A
+  form field named `name`, `model`, or `timeout` fills the matching top-level create property. An event
+  trigger may also declare a `filter`, because composing form values into a JMESPath expression is the one
+  part of an event trigger that cannot always be read off the form.
 - **`mode: "assisted"`** declares a `message`: setup context handed to an agent conversation that finishes
   the job. The command that opens that conversation comes from the skill, so it is not repeated here.
 
 A direct entry may also declare a `message`. It is the seed for the fallback conversation the host offers
-when the deployment cannot run the direct path - a deployment whose capabilities lack the entry's trigger
-kind or required features. The same 2000-character cap applies, and because the fallback fires before the
+when the deployment cannot run the direct path - a deployment whose capabilities lack every declared trigger
+variant or required features. The same 2000-character cap applies, and because the fallback fires before the
 form is trustworthy, a direct `message` should not reference `{{form.*}}`.
 
+A `repo-picker` may declare `multiple: true`, and then it collects several
+repositories and its value is a list. A placeholder that is the *whole* value
+resolves to that list rather than to text, which is what lets `"repos":
+"{{form.repositories}}"` produce an array; the same placeholder inside a
+sentence still reads as text. On the preset path the list becomes one `repos[]`
+entry per repository. The created automation is named after the single
+repository when there is one and after the count when there are several, since a
+list of names does not fit a name.
+
 A form field is named after the property it fills. `schedule` and `timezone` under `triggers.cron` become
-`trigger.schedule` and `trigger.timezone`; `on` under `triggers.event` becomes `trigger.on`; a field named
-`ref` becomes `repos[].ref`. Any other field under a trigger kind, such as a phrase to match, is an input
-to `filter` rather than a trigger property.
+`trigger.schedule` and `trigger.timezone`; `source` and `on` under `triggers.event` become `trigger.source`
+and `trigger.on`; a field named `ref` becomes `repos[].ref` when it has a value. Any other field under a
+trigger kind, such as a phrase to match, is an input to `filter` rather than a trigger property.
+
+### Entries that ship a script
+
+`mode: "direct"` produces exactly one of `prompt`, `bundle`, or `actions`. A
+prompt is the right shape when the automation *is* the judgement: the agent
+reads the prompt and does the work. A bundle is the right shape when most of
+what the automation does is deterministic machinery - polling, dedupe, state,
+fixed API calls - and the agent is needed only for the part that genuinely needs judgement.
+`github-pr-reviewer` is the first: its script owns discovery, label-event
+dedupe, per-repo state and the review checkout, and starts a conversation only
+once a pull request actually needs reviewing.
+
+```jsonc
+"bundle": {
+  "version": "1.0.0",                 // provenance; bump when the files or config shape change
+  "entrypoint": "python3 main.py",    // run inside the extracted tarball
+  "timeout": 600,                     // when the service default is not enough
+  "files": {                          // packed path -> where it lives in this repo
+    "main.py": "skills/github-pr-reviewer/scripts/main.py"
+  },
+  "config": {                         // rendered from the form, packed as config.json
+    "repos": "{{form.repositories}}", // a whole-value placeholder, so this is a list
+    "trigger_label": "{{form.triggerLabel}}",
+    "review_tone": "{{form.reviewTone}}"
+  }
+}
+```
+
+The host packs those files plus the rendered `config.json`, `POST`s the archive
+to `uploads`, and creates from the `oh-internal://` path that comes back. What it
+sends is otherwise the same restatement of the form as the preset path, plus the
+`template` provenance that makes enabling an entry twice return the automation
+that already exists rather than a duplicate (`OpenHands/automation#344`).
+
+Two things follow from the archetype rather than being stated:
+
+- **`files` names paths, not contents.** The reviewer script is shipped by both
+  its skill and this catalog, and a second copy would drift. `npm run
+  build:automations` inlines the contents into `automations/bundle-index.js`,
+  which is what `getAutomationBundleFiles(id)` returns - a host packing the
+  archive has the published package, not this repository.
+- **`config` is the bundle's `prompt`.** Everything else in the create request is
+  read off the form; only the entry knows which key of its own script each field
+  fills. The script reads that file over its own defaults, so the agent-driven
+  skill path, which substitutes the same values as constants, keeps working
+  unchanged.
+
+A bundle declares `requires.features: ["customTarball"]`: a deployment that
+cannot run a client-supplied tarball cannot run the entry, whatever trigger kinds
+it offers. It never declares `repos` - the raw create endpoint has no such field,
+and a bundle fetches what it needs itself. In an `actions` entry, creation-path
+features move down to each action (`presetPrompt`, `presetPlugin`, or
+`customTarball`) so a deployment can offer the supported choices without needing
+every creation path.
 
 ### Format constraints
 
@@ -147,13 +220,19 @@ trust boundary. It enforces:
 Placeholders are namespaced and the schema rejects any other namespace: `{{form.*}}` for what the user
 entered and `{{automation.*}}` for the entry itself. There is deliberately no secrets namespace.
 
-### The three archetypes
+### The archetypes
 
 | Entry | Archetype | Trigger | Produces |
 | --- | --- | --- | --- |
-| `github-pr-reviewer` | Direct scheduled | `cron` | a create payload |
-| `github-repo-monitor` | Direct GitHub-event | `event` on `github` with a JMESPath filter | a create payload |
+| `github-pr-reviewer` | Direct scheduled, script bundle | `cron` | an upload, then a create payload |
+| `github-repo-monitor` | Direct scheduled | `cron` | a create payload |
+| `qa-changes` | Direct event | `event` | a create payload |
+| `custom-automation` | Direct custom action with prompt, plugin, or upload variants | `cron` or `event` | a create payload, or an upload then create payload |
 | `incident-retrospective-drafter` | Assisted conversation | decided during the conversation | a seed message |
+
+An entry can declare both `cron` and `event` under `setup.form.triggers`. The host treats those keys as
+selectable variants and creates the payload from the selected one; a deployment that only supports one of
+the variants can still offer that supported path.
 
 The assisted archetype has no payload and no preflight, because at the end of its flow no automation exists
 yet. The agent creates it during the conversation, and the service validates it there. That is the defining
@@ -164,10 +243,10 @@ property of the archetype, not an omission.
 `skill` and `exampleImplementation` describe the **current** path: Agent Canvas launches that skill, and the
 agent builds the automation. `setup` describes the **declarative** path that replaces it.
 
-They can differ in more than wording. `github-repo-monitor`'s skill polls GitHub on a cron and states that
-a webhook variant is out of scope, while its `setup` block creates the webhook form the service already
-supports. Both statements are accurate about their own generation. Retiring the skill path for entries that
-ship a `setup` block belongs to whoever promotes this to production.
+They can differ in more than wording. `github-repo-monitor`'s skill polls GitHub on a cron, and its `setup`
+block declares the same polled `cron` form, so the two generations agree. (It once declared an `event`
+form; when the deployment stopped receiving webhooks it was converted to this polling one.) Retiring the
+skill path for entries that ship a `setup` block belongs to whoever promotes this to production.
 
 ## The interface manifest (`interface.json`)
 
@@ -177,13 +256,26 @@ extension surface tomorrow) rather than between entries, so each is stated once 
 Agent Canvas keeps its rendering components and reads every automation-specific datum from this file,
 falling back to its built-in defaults when the manifest is absent or fails admission:
 
-- **`routes`** - the list, setup, and detail routes. The host must have a registration serving each
-  declared shape, so admission verifies they match what it mounted; the manifest is the single source for
-  link construction.
-- **`navigation`** - the sidebar entry and the command-menu entry.
+- **`routes`** - the list, setup, detail, and templates routes. The host must have a registration serving
+  each declared shape, so admission verifies they match what it mounted; the manifest is the single source
+  for link construction.
+- **`navigation`** - the sidebar entry, the command-menu entry, and `subPages`: the ordered sub-page
+  navigation rendered inside the Automation interface, each item naming a `pages` entry with a label and
+  an icon slug from the host's closed icon map.
 - **`pages`** - page-identity copy: the list title and subtitle, the detail back label, the edit-dialog
-  title. Generic chrome - buttons, toasts, empty states, validation sentences - stays host copy, rendered
-  through the host's translations.
+  title, the templates title and description. Generic chrome - buttons, toasts, empty states, validation
+  sentences - stays host copy, rendered through the host's translations.
+- **`pages.list.overview` / `filters` / `sort` / `insights`** - the list page's dashboard composition.
+  Every value here names something the host implements from a closed set, and the manifest picks and
+  captions it: `overview.tiles[].metric` names a host-computed value (`automations`, `needs-attention`,
+  `total-runs`, `average-duration`), filter option values name host predicates (`status`: enabled /
+  latest-run-failed / disabled; `trigger`: `event` matches event-triggered automations, `schedule`
+  everything else), `sort` values name host comparators, and `insights` captions the host's run-health
+  states and per-automation stats. The health precedence, the run sampling, the value formatting, the
+  relative-time rendering, and the filtered-empty state with its reset button are the host's - a manifest
+  cannot redefine them, only relabel what appears. Tile `detail` copy is plain substitution over the
+  metric's placeholder namespace (only the `automations` metric exposes `{{active}}`); `zeroDetail`
+  replaces `detail` while the value is zero.
 - **`docsUrl`** - the automations documentation link, prefix-pinned to docs.openhands.dev by schema.
 - **`attributes`** - the input surface of an existing Automation: which attributes can be set after
   creation, keyed by the runtime-model property the host sends (`name`, `prompt`, `model`, `timeout`,
@@ -222,9 +314,11 @@ import scenarios from "@openhands/extensions/testing/automations/github-pr-revie
 must result. That pairing is the contract: form shape and API shape genuinely differ, the create endpoint
 is declared `extra="forbid"`, and a mapping mistake is a 422 discovered only at creation time.
 
-Each scenario carries whichever blocks apply: `formValues`, `integrationState`, `localValidation`,
-`preflight`, `create`, `conversation`, `expectedFieldErrors`, `expectedPrerequisiteOutcome`.
-`capabilities.json` holds three deployment shapes so the unsupported paths have coverage too.
+Each scenario carries whichever blocks apply: `formValues`, `selectedTrigger`, `integrationState`,
+`localValidation`, `preflight`, `create`, `conversation`, `expectedFieldErrors`,
+`expectedPrerequisiteOutcome`. `selectedTrigger` is required when an entry declares multiple trigger
+variants and the scenario records a create or preflight payload. `capabilities.json` holds deployment
+shapes so the unsupported paths have coverage too.
 
 Beyond the derivation checks, every request body here has been verified against the live Pydantic models in
 `OpenHands/automation`:
@@ -247,6 +341,8 @@ Two findings came out of that check and are baked into the entries:
 | Endpoint | Status |
 | --- | --- |
 | `POST /v1/preset/prompt` | Exists |
+| `POST /v1/uploads` | Exists |
+| `POST /v1` | Exists; accepts `template` provenance from OpenHands/automation#344 |
 | `GET /v1/capabilities` | Exists (OpenHands/automation#270) |
 | `POST /v1/validate` | Exists (OpenHands/automation#270) |
 
@@ -279,7 +375,7 @@ questions to this work. What changed and why:
 | `analytics` | Removed. The same stages fire for every automation, so they belong in shared host code. |
 | `workflow.steps` | Removed. It restated which keys were present, creating a second source of truth that could contradict the file. |
 | `form.intent: "seed"` | Removed. Derivable from `setup.mode: "assisted"`. |
-| `triggerKindsAnyOf` | Removed. The keys of `form.triggers` are the trigger kinds. |
+| `triggerKindsAnyOf` | Removed. The keys of `form.triggers` are the available trigger variants, and multiple keys already mean the host can offer any supported one. |
 | `{{form.filledCount}}` | Removed. It overloaded the `form` namespace with a computed value that names no field. |
 | `submit.message` | Kept as `setup.message`, capped at 2000 characters, so seed messages cannot grow back into the giant runtime prompts that recommended automation cards were already fixed to stop sending. |
 
@@ -300,8 +396,8 @@ Recorded rather than resolved, because they need an owner outside this contract:
   related fields onto one line, which reads better; if that matters, it is a host concern, not an entry's.
 - **Assisted-setup completion.** The assisted flow ends at a conversation, so the host cannot emit a
   completion event. Until something reports back, the ratio of direct to assisted setup is not measurable.
-- **Delete confirmation and per-run views.** `interface.json` models the list, setup, and detail routes
-  and the settable attributes; deletion, run logs, and the dashboard sub-pages remain host-owned surfaces
-  with no manifest data of their own yet.
+- **Delete confirmation and per-run views.** `interface.json` models the routes, the settable attributes,
+  and the dashboard and templates sub-pages; deletion and run logs remain host-owned surfaces with no
+  manifest data of their own yet.
 - **Types from the schema.** `index.d.ts` is hand-written and mirrors `catalog.schema.json`. Generating it
   would remove that second source of truth.

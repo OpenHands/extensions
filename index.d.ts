@@ -42,5 +42,5 @@ export type {
   AutomationInterfacePages,
   AutomationInterfaceRoutes,
 } from "./automations/index.js";
-export { SKILLS_CATALOG } from "./skills/index.js";
+export { SKILLS_CATALOG, DEFAULT_ENABLED_SKILL_NAMES } from "./skills/index.js";
 export type { SkillCatalogEntry } from "./skills/index.js";

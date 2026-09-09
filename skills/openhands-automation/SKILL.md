@@ -48,7 +48,7 @@ The agent server typically runs inside a **sandbox** (a Docker or Kubernetes con
 |---|---|---|
 | `RUNTIME_URL` | Ambient in cloud environments | Public-facing URL of the **agent server** sandbox. Use this to determine whether external webhook delivery is possible — if unset or local, webhooks cannot be received. The automation service may run at a separate URL (see Determining the API Host). |
 | `AGENT_SERVER_URL` | Injected into scripts at run time only | Internal URL of the agent server. Available inside script execution context; **not** an ambient environment variable outside of a running script. |
-| `OPENHANDS_HOST` | Shell convention only — set manually | Base URL for the automation service API. **Not a real environment variable.** Set it from the `<HOST>` system-prompt value, or default to `https://app.all-hands.dev`. Used in all `curl` examples throughout this skill. |
+| `OPENHANDS_HOST` | Shell convention only — set manually | Base URL for the automation service API. **Not a real environment variable.** Set it from an explicit host, a detected local Agent Canvas server, or the cloud default. Used in all `curl` examples throughout this skill. |
 
 > **⚠️ CRITICAL — Agent behavior rules:**
 >
@@ -113,11 +113,17 @@ Entrypoint must be `python3 main.py` (no `setup.sh` needed). Wrap your main logi
 
 ## Authentication
 
-All requests require Bearer authentication:
+All requests require authentication:
 
-```bash
--H "Authorization: Bearer ${OPENHANDS_API_KEY}"
-```
+- Cloud (default `https://app.all-hands.dev`): Bearer token:
+
+  `-H "Authorization: Bearer ${OPENHANDS_API_KEY}"`
+
+- Local Agent Canvas (`http://localhost:8001`): session API key through `X-Session-API-Key`:
+
+  `-H "X-Session-API-Key: ${OPENHANDS_AUTOMATION_API_KEY:-${SESSION_API_KEY}}"`
+
+The curl examples below show cloud Bearer authentication. For local Agent Canvas, replace that header with the `X-Session-API-Key` header above.
 
 ## API Endpoints
 
@@ -127,13 +133,17 @@ All requests require Bearer authentication:
 
 The automation service may run at a different URL from the agent server. In the examples throughout this skill, `${OPENHANDS_HOST}` is a shell-variable convention for the automation service base URL — it is **not** a real environment variable. Set it from context before running any curl command:
 
-- Look for a `<HOST>` value in the system prompt. If present, use that URL.
+- Look for a `<HOST>` value in the system prompt or runtime-services block. If present, use that URL.
+- If running inside a local Agent Canvas stack and no explicit host is provided, use `http://localhost:8001` for the local automation/agent-server API.
 - Otherwise default to `https://app.all-hands.dev`.
 
-```bash
-OPENHANDS_HOST="https://app.all-hands.dev"  # replace with <HOST> if provided
-```
+For a local Agent Canvas server, validate the endpoint before making a mutating request and authenticate with the session key through `X-Session-API-Key` when that API requires it. Do not use the cloud default merely because no `<HOST>` value is present.
 
+```bash
+# Choose the host that matches the detected environment:
+OPENHANDS_HOST="http://localhost:8001"       # local Agent Canvas
+# OPENHANDS_HOST="https://app.all-hands.dev" # OpenHands Cloud
+```
 
 ### Automation Endpoints
 

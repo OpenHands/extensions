@@ -78,6 +78,8 @@ When posting a review, keep the review body brief unless your active review inst
 
 For dependency update PRs, do **NOT** approve a target version that was published less than 7 days ago. First-party packages maintained by the same organization as the reviewed repository are intentionally excluded from this 7-day waiting rule, but still scrutinize them for supply-chain risk.
 
+Before reviewing, you MUST read the repository's own guidance to understand the repo first: read `AGENTS.md` at the repository root (and any nested `AGENTS.md` covering the changed files), plus other relevant docs when present — e.g. `CONTRIBUTING.md`, `CLAUDE.md`, `.cursorrules`, and any review or coding-guideline docs. Apply that guidance to your review.
+
 Review the PR changes below and identify issues that need to be addressed.
 
 ## Pull Request Information

@@ -31,7 +31,7 @@ def test_post_message_sends_markdown_text(monkeypatch):
         return {"ts": "123.456"}
 
     monkeypatch.setitem(helpers, "slack_post", fake_slack_post)
-    markdown_summary = "✅ Done!\n\n- **Bold:** [link](https://example.com)"
+    markdown_summary = "- **Bold:** [link](https://example.com)"
 
     ts = helpers["post_message"](
         "xoxb-test",
