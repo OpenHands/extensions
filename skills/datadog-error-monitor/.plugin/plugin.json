@@ -1,0 +1,23 @@
+{
+  "name": "datadog-error-monitor",
+  "version": "1.0.0",
+  "description": "Create a cron automation that polls Datadog logs every 15 minutes, maintains a self-evolving regex-based error pattern library, and triggers an OpenHands investigation conversation when new or spiking errors are detected. The agent categorizes unknown errors, investigates root causes in local codebases, optionally creates PRs, and posts a summary to Slack.",
+  "author": {
+    "name": "OpenHands",
+    "email": "contact@all-hands.dev"
+  },
+  "homepage": "https://github.com/OpenHands/extensions",
+  "repository": "https://github.com/OpenHands/extensions",
+  "license": "MIT",
+  "keywords": [
+    "datadog",
+    "monitoring",
+    "errors",
+    "logs",
+    "alerting",
+    "cron",
+    "automation",
+    "slack",
+    "investigation"
+  ]
+}
