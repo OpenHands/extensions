@@ -1,0 +1,51 @@
+{
+  "id": "memanto",
+  "name": "Memanto",
+  "description": "Persistent semantic memory for agents - remember, recall, and answer via MCP.",
+  "docsUrl": "https://docs.memanto.ai/integrations/mcp",
+  "iconBg": "#4F46E5",
+  "keywords": [
+    "memory",
+    "memanto",
+    "moorcheh",
+    "recall",
+    "remember"
+  ],
+  "installHint": "Paste your Moorcheh API key - the memanto-mcp package runs via uvx.",
+  "connectionOptions": [
+    {
+      "id": "api",
+      "provider": "mcp",
+      "transport": {
+        "kind": "stdio",
+        "serverName": "memanto",
+        "command": "uvx",
+        "args": [
+          "memanto-mcp"
+        ],
+        "envFields": [
+          {
+            "key": "MOORCHEH_API_KEY",
+            "label": "Moorcheh API key",
+            "type": "password",
+            "placeholder": "mch_...",
+            "required": true,
+            "helperText": "API key from your Moorcheh account.",
+            "helperLink": "https://docs.memanto.ai/integrations/mcp"
+          },
+          {
+            "key": "MEMANTO_DEFAULT_AGENT_ID",
+            "label": "Default agent ID",
+            "type": "text",
+            "placeholder": "my-assistant",
+            "required": false,
+            "helperText": "Shared memory namespace when the same ID is used across clients."
+          }
+        ]
+      },
+      "auth": {
+        "strategy": "api_key"
+      }
+    }
+  ]
+}
