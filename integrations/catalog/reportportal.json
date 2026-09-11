@@ -1,0 +1,76 @@
+{
+  "id": "reportportal",
+  "name": "ReportPortal",
+  "description": "Query test launches, test items, history, and analysis from your ReportPortal test automation dashboard.",
+  "categories": [
+    "Engineering",
+    "Analytics"
+  ],
+  "appUrl": "https://reportportal.io",
+  "docsUrl": "https://reportportal.io/docs/external-integrations/MCPServer/",
+  "notes": "Uses ReportPortal's official MCP Server, run locally as a Docker container in the default stdio mode. ReportPortal is self-hosted, so there is no public MCP endpoint; the container connects to your own instance. Provide your ReportPortal host URL and an API token from your ReportPortal Profile page.",
+  "installHint": "RP_HOST (the URL of your ReportPortal instance) and RP_API_TOKEN (from your ReportPortal Profile page) are required. RP_PROJECT (a default project name) is optional. Requires a container runtime such as Docker.",
+  "connectionOptions": [
+    {
+      "id": "api",
+      "provider": "mcp",
+      "transport": {
+        "kind": "stdio",
+        "serverName": "reportportal",
+        "command": "docker",
+        "args": [
+          "run",
+          "--init",
+          "--pull=always",
+          "-i",
+          "--rm",
+          "-e",
+          "RP_API_TOKEN",
+          "-e",
+          "RP_HOST",
+          "-e",
+          "RP_PROJECT",
+          "reportportal/mcp-server"
+        ],
+        "envFields": [
+          {
+            "key": "RP_API_TOKEN",
+            "label": "ReportPortal API token",
+            "type": "password",
+            "required": true,
+            "helperText": "API token generated on your ReportPortal Profile page.",
+            "helperLink": "https://reportportal.io/docs/external-integrations/MCPServer/"
+          },
+          {
+            "key": "RP_HOST",
+            "label": "ReportPortal host URL",
+            "type": "text",
+            "required": true,
+            "placeholder": "https://your-reportportal-instance.com",
+            "helperText": "The base URL of your ReportPortal instance."
+          },
+          {
+            "key": "RP_PROJECT",
+            "label": "Default project name",
+            "type": "text",
+            "required": false,
+            "placeholder": "my-project",
+            "helperText": "Optional default ReportPortal project name to use for requests."
+          }
+        ]
+      },
+      "auth": {
+        "strategy": "api_key"
+      }
+    }
+  ],
+  "iconBg": "#00B4D5",
+  "keywords": [
+    "test reporting",
+    "test automation",
+    "qa",
+    "launches",
+    "test analytics",
+    "quality gate"
+  ]
+}
