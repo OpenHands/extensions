@@ -5,7 +5,7 @@
     "email": "contact@all-hands.dev"
   },
   "metadata": {
-    "description": "Official skills and plugins for OpenHands — the open-source AI software engineer.",
+    "description": "Official skills and plugins for OpenHands \u2014 the open-source AI software engineer.",
     "maintainer": "OpenHands",
     "homepage": "https://github.com/OpenHands/extensions"
   },
@@ -13,7 +13,7 @@
     {
       "name": "agent-creator",
       "source": "./skills/agent-creator",
-      "description": "Create file-based sub-agents as Markdown files — no Python code required. Guides the user through a structured interview and generates a ready-to-deploy .md agent file following the OpenHands SDK specification.",
+      "description": "Create file-based sub-agents as Markdown files \u2014 no Python code required. Guides the user through a structured interview and generates a ready-to-deploy .md agent file following the OpenHands SDK specification.",
       "category": "agent-authoring",
       "keywords": [
         "agent",
@@ -147,7 +147,7 @@
     {
       "name": "bitbucket-cloud",
       "source": "./skills/bitbucket-cloud",
-      "description": "Bitbucket Cloud (bitbucket.org) specifics — authenticate with BITBUCKET_TOKEN, use the REST API v2, workspace/repo_slug repositories, and the create_bitbucket_pr tool. Loaded on demand by the bitbucket skill once a Cloud environment is detected.",
+      "description": "Bitbucket Cloud (bitbucket.org) specifics \u2014 authenticate with BITBUCKET_TOKEN, use the REST API v2, workspace/repo_slug repositories, and the create_bitbucket_pr tool. Loaded on demand by the bitbucket skill once a Cloud environment is detected.",
       "category": "code-hosting",
       "keywords": [
         "bitbucket",
@@ -159,7 +159,7 @@
     {
       "name": "bitbucket-data-center",
       "source": "./skills/bitbucket-data-center",
-      "description": "Bitbucket Data Center (self-hosted Bitbucket Server) specifics — authenticate with BITBUCKET_DATA_CENTER_TOKEN, use the REST API 1.0, PROJECT/repo_slug repositories, scm/ git remotes, and the create_bitbucket_data_center_pr tool. Loaded on demand by the bitbucket skill once a Data Center environment is detected.",
+      "description": "Bitbucket Data Center (self-hosted Bitbucket Server) specifics \u2014 authenticate with BITBUCKET_DATA_CENTER_TOKEN, use the REST API 1.0, PROJECT/repo_slug repositories, scm/ git remotes, and the create_bitbucket_data_center_pr tool. Loaded on demand by the bitbucket skill once a Data Center environment is detected.",
       "category": "code-hosting",
       "keywords": [
         "bitbucket",
@@ -438,7 +438,7 @@
     {
       "name": "openhands",
       "source": "./plugins/openhands",
-      "description": "Unified OpenHands plugin — bundles Cloud CLI, REST API (openhands-api), and Automations (openhands-automation) into a single plugin.",
+      "description": "Unified OpenHands plugin \u2014 bundles Cloud CLI, REST API (openhands-api), and Automations (openhands-automation) into a single plugin.",
       "category": "openhands",
       "keywords": [
         "openhands",
@@ -480,7 +480,7 @@
     {
       "name": "pr-review",
       "source": "./plugins/pr-review",
-      "description": "Automated PR code review — analyzes diffs and posts inline review comments via the GitHub API.",
+      "description": "Automated PR code review \u2014 analyzes diffs and posts inline review comments via the GitHub API.",
       "category": "code-quality",
       "keywords": [
         "pr-review",
@@ -492,7 +492,7 @@
     {
       "name": "qa-changes",
       "source": "./plugins/qa-changes",
-      "description": "Validate pull request changes by actually running the code — setting up the environment, exercising changed behavior, and posting a structured QA report.",
+      "description": "Validate pull request changes by actually running the code \u2014 setting up the environment, exercising changed behavior, and posting a structured QA report.",
       "category": "quality-assurance",
       "keywords": [
         "qa",
@@ -656,7 +656,7 @@
     {
       "name": "iterate",
       "source": "./skills/iterate",
-      "description": "Iterate on a GitHub pull request — drive it through CI, code review, and QA until merge-ready. Monitors state, fixes failures, addresses review feedback, retries flaky checks, and pushes fixes in one continuous loop.",
+      "description": "Iterate on a GitHub pull request \u2014 drive it through CI, code review, and QA until merge-ready. Monitors state, fixes failures, addresses review feedback, retries flaky checks, and pushes fixes in one continuous loop.",
       "category": "code-quality",
       "keywords": [
         "github",
@@ -833,6 +833,19 @@
         "bitbucket",
         "pull-request",
         "automation"
+      ]
+    },
+    {
+      "name": "install-openhands-replicated",
+      "source": "./skills/install-openhands-replicated",
+      "description": "Guide supported OpenHands Enterprise VM installations through Replicated Embedded Cluster with capacity planning, read-only preflights, explicit approval gates, and end-to-end validation.",
+      "category": "environment",
+      "keywords": [
+        "openhands-enterprise",
+        "replicated",
+        "embedded-cluster",
+        "vm-install",
+        "preflight"
       ]
     }
   ]

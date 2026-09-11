@@ -1,0 +1,4 @@
+interface:
+  display_name: "Install OpenHands Replicated"
+  short_description: "Install OpenHands Enterprise on Replicated"
+  default_prompt: "Use $install-openhands-replicated to plan, execute, and validate a generic OpenHands Enterprise Replicated install."

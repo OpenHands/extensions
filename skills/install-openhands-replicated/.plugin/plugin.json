@@ -1,0 +1,19 @@
+{
+  "name": "install-openhands-replicated",
+  "version": "1.0.0",
+  "description": "Guide supported OpenHands Enterprise VM installations through Replicated Embedded Cluster with capacity planning, read-only preflights, explicit approval gates, and end-to-end validation.",
+  "author": {
+    "name": "OpenHands",
+    "email": "contact@all-hands.dev"
+  },
+  "homepage": "https://github.com/OpenHands/extensions",
+  "repository": "https://github.com/OpenHands/extensions",
+  "license": "MIT",
+  "keywords": [
+    "openhands-enterprise",
+    "replicated",
+    "embedded-cluster",
+    "vm-install",
+    "preflight"
+  ]
+}
