@@ -57,19 +57,15 @@ The skill then packages and deploys the automation automatically.
 The pattern library is empty on first run - the system builds it organically:
 
 - **First run:** All logs are uncategorized. The investigation agent groups them
-  into named patterns with regex matchers and writes these to the state file.
+  into named patterns with regex matchers and writes these to the KV store.
 - **Subsequent runs:** Logs are matched against known patterns. Only spikes or
   genuinely new error types trigger an investigation.
 - **Over time:** The pattern library grows and stabilises. Investigations become
   rarer and more targeted.
 
-Patterns are stored in the state file at:
-```
-~/.openhands/workspaces/automation-state/dd_monitor_{automation_id}.json
-```
-
-You can inspect and edit this file at any time to rename patterns, fix regexes,
-or remove stale entries. Deleting the file resets the system.
+Patterns are stored in the automation KV store under the `state` key. You can
+inspect and edit them at any time via the KV API to rename patterns, fix regexes,
+or remove stale entries. Clearing the KV keys resets the system.
 
 ## Token efficiency
 
