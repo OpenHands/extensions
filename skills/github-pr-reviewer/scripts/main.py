@@ -26,7 +26,7 @@ import urllib.error
 import urllib.request
 from collections.abc import Callable
 from pathlib import Path, PurePosixPath
-from urllib.parse import quote, urlencode
+from urllib.parse import urlencode
 
 # Configuration. Two setup paths write it, and both end up here:
 #
@@ -644,6 +644,11 @@ def _oh_request(agent_url: str, api_key: str, method: str, path: str, body: dict
 
 
 def _fetch_settings(agent_url: str, api_key: str) -> dict:
+    """Fetch the concrete LLM config used to serialize the child agent.
+
+    Plaintext is returned only to this trusted script and sent straight back to
+    the same authenticated Agent Server in the conversation creation request.
+    """
     req = urllib.request.Request(
         f"{agent_url}/api/settings",
         headers={"X-Session-API-Key": api_key, "X-Expose-Secrets": "plaintext"},
@@ -652,46 +657,12 @@ def _fetch_settings(agent_url: str, api_key: str) -> dict:
         return json.loads(r.read())
 
 
-def _fetch_llm_profile(agent_url: str, api_key: str, profile_name: str) -> dict:
-    req = urllib.request.Request(
-        f"{agent_url}/api/profiles/{quote(profile_name, safe='')}",
-        headers={
-            "X-Session-API-Key": api_key,
-            "X-Expose-Secrets": "plaintext",
-        },
-    )
-    with urllib.request.urlopen(req) as r:
-        config = json.loads(r.read()).get("config")
-    if (
-        not isinstance(config, dict)
-        or not isinstance(config.get("model"), str)
-        or not config["model"].strip()
-    ):
-        raise RuntimeError(f"LLM profile {profile_name!r} returned no configuration")
-    if config.get("provider_connection_id") and not config.get("api_key"):
-        raise RuntimeError(
-            f"LLM profile {profile_name!r} has unresolved provider credentials; "
-            "update the Agent Server to a version that resolves plaintext profile reads"
-        )
-    return config
-
-
 def _get_agent_and_llm_provenance(
     agent_url: str, api_key: str
 ) -> tuple[dict, str, str]:
     data = _fetch_settings(agent_url, api_key)
-    profile = os.environ.get("AUTOMATION_MODEL") or data.get("active_profile")
     llm = data.get("agent_settings", {}).get("llm", {})
-    profile_name = "default"
-    if profile:
-        try:
-            llm = _fetch_llm_profile(agent_url, api_key, profile)
-        except urllib.error.HTTPError as exc:
-            if exc.code != 404:
-                raise
-            print(f"LLM profile {profile!r} was not found; using default LLM settings")
-        else:
-            profile_name = profile
+    profile_name = data.get("active_profile") or "default"
     model = llm.get("model") or "unknown"
     return (
         {

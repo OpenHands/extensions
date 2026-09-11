@@ -54,22 +54,20 @@ def test_post_message_sends_markdown_text(monkeypatch):
     assert "mrkdwn" not in posted["body"]
 
 
-def test_selected_profile_resolves_agent_and_display_metadata(monkeypatch):
+def test_active_profile_matches_agent_and_display_metadata(monkeypatch):
     helpers = load_slack_monitor_helpers()
+    llm = {"model": "anthropic/claude-sonnet-4-6", "api_key": "secret"}
     settings = {
-        "active_profile": "active-profile",
-        "agent_settings": {"llm": {"model": "active-model"}},
+        "active_profile": "slack-profile",
+        "agent_settings": {"llm": llm},
     }
-    selected = {"model": "anthropic/claude-sonnet-4-6", "api_key": "secret"}
-    monkeypatch.setenv("AUTOMATION_MODEL", "slack-profile")
     monkeypatch.setitem(helpers, "_fetch_settings", lambda *_: settings)
-    monkeypatch.setitem(helpers, "_fetch_llm_profile", lambda *_: selected)
 
     agent, profile, model = helpers["_get_agent_and_llm_provenance"](
         "http://agent", "key"
     )
 
-    assert agent["llm"] == selected
+    assert agent["llm"] == llm
     assert profile == "slack-profile"
     assert model == "anthropic/claude-sonnet-4-6"
 

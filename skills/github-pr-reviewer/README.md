@@ -20,9 +20,8 @@ This skill is activated by:
   checkout when the review ends, so nothing accumulates between runs
 - Publishes a real pull request review, with inline comments where a finding
   maps to a changed line, and verifies on GitHub that it landed
-- Shows the LLM profile and model in every published review or fallback result
-- Falls back to the user's default LLM settings when a selected profile was deleted
-  or renamed, and reports the profile and model actually used
+- Shows the active LLM profile and model in every published review or fallback
+  result
 - Verifies and repairs the provenance footer on submitted reviews; publication
   failures remain pending for retry
 - Posts acknowledgement comments with AI disclosure

@@ -37,9 +37,8 @@ This skill is activated by keywords:
   thread immediately on trigger detection
 - **Automatic summaries**: when the conversation reaches a terminal state the
   agent's final response is posted back to the thread; error/stuck states
-  receive a clear error notice, and every result shows the LLM profile and model
-- **Profile fallback**: a renamed or deleted selected profile uses the user's
-  default LLM settings; the result identifies the profile and model actually used
+  receive a clear error notice, and every result shows the active LLM profile
+  and model
 - **Persistent state**: conversation tracking and poll timestamps are stored
   in `automation-state/slack_poller_{automation_id}.json` across runs
 

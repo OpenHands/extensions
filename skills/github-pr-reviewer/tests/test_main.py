@@ -532,23 +532,19 @@ class TestRepoReviewGuide(unittest.TestCase):
 
 
 class TestLlmProvenance(unittest.TestCase):
-    def test_selected_profile_resolves_agent_and_display_metadata(self):
+    def test_active_profile_matches_agent_and_display_metadata(self):
+        llm = {"model": "anthropic/claude-sonnet-4-6", "api_key": "secret"}
         settings = {
-            "active_profile": "active-profile",
-            "agent_settings": {"llm": {"model": "active-model"}},
+            "active_profile": "review-profile",
+            "agent_settings": {"llm": llm},
         }
-        selected = {"model": "anthropic/claude-sonnet-4-6", "api_key": "secret"}
 
-        with (
-            patch.dict(os.environ, {"AUTOMATION_MODEL": "review-profile"}),
-            patch.object(main, "_fetch_settings", return_value=settings),
-            patch.object(main, "_fetch_llm_profile", return_value=selected),
-        ):
+        with patch.object(main, "_fetch_settings", return_value=settings):
             agent, profile, model = main._get_agent_and_llm_provenance(
                 "http://agent", "key"
             )
 
-        self.assertEqual(agent["llm"], selected)
+        self.assertEqual(agent["llm"], llm)
         self.assertEqual(profile, "review-profile")
         self.assertEqual(model, "anthropic/claude-sonnet-4-6")
 

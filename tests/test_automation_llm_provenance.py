@@ -1,9 +1,6 @@
 """Regression coverage for runtime profiles and deterministic review provenance."""
 
-import io
-import json
 import types
-import urllib.error
 from pathlib import Path
 
 import pytest
@@ -30,32 +27,23 @@ def automation(request, monkeypatch, tmp_path):
 @pytest.fixture
 def settings(automation, monkeypatch):
     data = {
-        "active_profile": "default-profile",
+        "active_profile": "active-profile",
         "agent_settings": {
-            "llm": {"model": "openai/default", "api_key": "default-key"}
+            "llm": {
+                "model": "openai/active",
+                "provider_connection_id": "shared-provider",
+                "api_key": "resolved-key",
+                "base_url": "https://provider.example/v1",
+            }
         },
     }
     monkeypatch.setattr(automation, "_fetch_settings", lambda *_: data)
     return data
 
 
-def test_linked_profile_credentials_reach_conversation(
+def test_active_settings_reach_conversation(
     automation, settings, monkeypatch, tmp_path
 ):
-    selected = {
-        "model": "openai/selected",
-        "provider_connection_id": "shared-provider",
-        "api_key": "resolved-key",
-        "base_url": "https://provider.example/v1",
-    }
-    monkeypatch.setenv("AUTOMATION_MODEL", "selected-profile")
-
-    def fetch(request):
-        assert request.full_url == "http://agent/api/profiles/selected-profile"
-        assert request.get_header("X-expose-secrets") == "plaintext"
-        return io.BytesIO(json.dumps({"config": selected}).encode())
-
-    monkeypatch.setattr(automation.urllib.request, "urlopen", fetch)
     agent, profile, model = automation._get_agent_and_llm_provenance(
         "http://agent", "session-key"
     )
@@ -76,62 +64,32 @@ def test_linked_profile_credentials_reach_conversation(
         "http://agent", "session-key", "Review this", **kwargs
     )
 
-    assert payloads[0]["agent"]["llm"] == selected
-    assert (profile, model) == ("selected-profile", "openai/selected")
+    assert payloads[0]["agent"]["llm"] == settings["agent_settings"]["llm"]
+    assert (profile, model) == ("active-profile", "openai/active")
 
 
-@pytest.mark.parametrize("selected", ["deleted-profile", "default-profile"])
-def test_missing_profile_uses_default_with_accurate_provenance(
-    automation, settings, monkeypatch, selected
+def test_automation_model_does_not_mislabel_actual_settings(
+    automation, settings, monkeypatch
 ):
-    monkeypatch.setenv("AUTOMATION_MODEL", selected)
+    monkeypatch.setenv("AUTOMATION_MODEL", "stale-or-unresolved-profile")
 
-    def fetch(_request):
-        raise urllib.error.HTTPError("http://agent", 404, "Not found", {}, None)
-
-    monkeypatch.setattr(automation.urllib.request, "urlopen", fetch)
     agent, profile, model = automation._get_agent_and_llm_provenance(
         "http://agent", "key"
     )
 
     assert agent["llm"] == settings["agent_settings"]["llm"]
-    assert model == "openai/default"
-    # The active pointer can drift from the concrete default settings, so a
-    # fallback must not claim to have loaded that named profile.
-    assert profile == "default"
+    assert (profile, model) == ("active-profile", "openai/active")
 
 
-@pytest.mark.parametrize("status", [401, 403, 500])
-def test_profile_errors_do_not_silently_select_another_model(
-    automation, settings, monkeypatch, status
-):
-    def fetch(_request):
-        raise urllib.error.HTTPError("http://agent", status, "Failure", {}, None)
+def test_unnamed_settings_use_default_profile_label(automation, settings):
+    settings["active_profile"] = None
 
-    monkeypatch.setattr(automation.urllib.request, "urlopen", fetch)
-    with pytest.raises(urllib.error.HTTPError) as caught:
-        automation._get_agent_and_llm_provenance("http://agent", "key")
-    assert caught.value.code == status
-
-
-@pytest.mark.parametrize(
-    "config",
-    [
-        {},
-        "invalid",
-        {"model": "openai/test", "provider_connection_id": "shared", "api_key": None},
-    ],
-)
-def test_malformed_or_unresolved_profiles_fail_before_launch(
-    automation, settings, monkeypatch, config
-):
-    monkeypatch.setattr(
-        automation.urllib.request,
-        "urlopen",
-        lambda _request: io.BytesIO(json.dumps({"config": config}).encode()),
+    agent, profile, model = automation._get_agent_and_llm_provenance(
+        "http://agent", "key"
     )
-    with pytest.raises(RuntimeError):
-        automation._get_agent_and_llm_provenance("http://agent", "key")
+
+    assert agent["llm"] == settings["agent_settings"]["llm"]
+    assert (profile, model) == ("default", "openai/active")
 
 
 def test_provenance_footer_replaces_incorrect_model(automation):
