@@ -388,13 +388,21 @@ def match_log(message: str, known_patterns: dict) -> str | None:
 # ── OpenHands conversation helpers ─────────────────────────────────────────────
 
 def _oh_request(
-    agent_url: str, api_key: str, method: str, path: str, body: dict | None = None
+    agent_url: str,
+    api_key: str,
+    method: str,
+    path: str,
+    body: dict | None = None,
+    extra_headers: dict | None = None,
 ) -> dict:
+    headers = {"X-Session-API-Key": api_key, "Content-Type": "application/json"}
+    if extra_headers:
+        headers.update(extra_headers)
     data = json.dumps(body).encode() if body is not None else None
     req = urllib.request.Request(
         f"{agent_url.rstrip('/')}{path}",
         data=data,
-        headers={"X-Session-API-Key": api_key, "Content-Type": "application/json"},
+        headers=headers,
         method=method,
     )
     try:
@@ -406,22 +414,34 @@ def _oh_request(
         ) from exc
 
 
-def _fetch_settings(agent_url: str, api_key: str) -> dict:
+def _fetch_settings(agent_url: str, api_key: str, encrypted: bool = False) -> dict:
     try:
-        return _oh_request(agent_url, api_key, "GET", "/api/settings")
+        extra = {"X-Expose-Secrets": "encrypted"} if encrypted else None
+        return _oh_request(agent_url, api_key, "GET", "/api/settings", extra_headers=extra)
     except Exception as exc:
         print(f"Warning: could not fetch agent settings: {exc}")
         return {}
 
 
-def _get_agent_dict(agent_url: str, api_key: str) -> dict:
-    data = _fetch_settings(agent_url, api_key)
+def _get_agent_dict(agent_url: str, api_key: str) -> tuple[dict, bool]:
+    """Return (agent_dict, secrets_encrypted).
+
+    Fetches settings with X-Expose-Secrets: encrypted so the real LLM API key
+    (a Fernet token starting with gAAAAA) is included. The caller must pass
+    secrets_encrypted=True when creating the conversation so the agent server
+    decrypts the key server-side. Without this, /api/settings returns the
+    masked placeholder "**********" and the spawned conversation fails with
+    LLMAuthenticationError.
+    """
+    data = _fetch_settings(agent_url, api_key, encrypted=True)
     llm = data.get("agent_settings", {}).get("llm", {})
-    return {
+    agent = {
         "kind": "Agent",
         "llm": llm,
         "tools": [{"name": "terminal"}, {"name": "file_editor"}],
     }
+    has_encrypted_key = isinstance(llm.get("api_key"), str) and llm["api_key"].startswith("gAAAAA")
+    return agent, has_encrypted_key
 
 
 def _get_mcp_config(agent_url: str, api_key: str) -> dict | None:
@@ -458,11 +478,14 @@ def create_conversation(
     agent_url: str, api_key: str, initial_message: str, workspace_dir: str
 ) -> str:
     """Create an OpenHands conversation and return its ID."""
+    agent_dict, has_encrypted_key = _get_agent_dict(agent_url, api_key)
     payload: dict = {
         "workspace": {"working_dir": workspace_dir},
-        "agent": _get_agent_dict(agent_url, api_key),
+        "agent": agent_dict,
         "initial_message": {"content": [{"text": initial_message}]},
     }
+    if has_encrypted_key:
+        payload["secrets_encrypted"] = True
     if secrets := _build_secrets_payload(agent_url, api_key):
         payload["secrets"] = secrets
     if mcp := _get_mcp_config(agent_url, api_key):
