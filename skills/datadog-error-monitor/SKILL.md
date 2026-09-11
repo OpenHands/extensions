@@ -20,13 +20,13 @@ Create a cron automation that polls Datadog logs every 15 minutes.
 
 On each run the script:
 1. Queries Datadog using a configured log filter (e.g. `service:(api OR worker) status:error`)
-2. Matches log events against a library of known error patterns (regex-based, stored in a state file)
+2. Matches log events against a library of known error patterns (regex-based, stored in the KV store)
 3. Tracks hit counts per pattern across runs
 4. When **new/uncategorized logs** or a **significant count spike** is detected,
    starts a single OpenHands investigation conversation
 
 When an investigation conversation runs it:
-- Categorizes uncategorized logs into named patterns and writes them to the state file
+- Categorizes uncategorized logs into named patterns and writes them to the KV store
 - Investigates root causes in the configured local codebases
 - Creates a PR only when highly confident of a code-level fix
 - Posts a concise summary to the configured Slack channel
@@ -331,7 +331,7 @@ Tell the user:
 > - **Alert channel:** `{slack_channel}`
 > - **Repos:** `{repo_paths}`
 > - **Schedule:** every 15 minutes (`*/15 * * * *`)
-> - **State file:** `~/.openhands/workspaces/automation-state/dd_monitor_{id}.json`
+> - **State:** KV store (`state` and `archive` keys)
 >
 > **What happens next:**
 > The first run will treat all matching logs as uncategorized and start an
@@ -339,10 +339,11 @@ Tell the user:
 > After a few runs, the system converges on a stable baseline and only alerts
 > on new error types or significant spikes.
 >
-> State is persisted to the automation KV store (cloud) and a local file
-> (dev/fallback). You can inspect or edit the local state file at any time to
-> adjust patterns, remove stale ones, or reset the system entirely by deleting
-> the file.
+> State is persisted to the automation KV store. Both the cron script and the
+> spawned investigation conversation access it via user-authenticated KV
+> (API key + `automation_id` query parameter). You can inspect or edit state
+> at any time via the KV API to adjust patterns, remove stale ones, or reset
+> the system entirely by clearing the KV keys.
 
 ---
 
@@ -363,7 +364,7 @@ shipped one and then:
 8. **Saves state** and fires the completion callback
 
 The investigation agent (asynchronous):
-- Categorizes unknown logs into named patterns → writes back to state file
+- Categorizes unknown logs into named patterns → writes back to KV store
 - Investigates spiking patterns in the configured repos
 - Creates PRs only if highly confident of a code-level fix
 - Posts a Slack summary with findings
@@ -376,8 +377,8 @@ The investigation agent (asynchronous):
 |---|---|---|
 | `Datadog API error 403` | `DD_APP_KEY` invalid or wrong site | Verify both keys in Datadog Org Settings; re-check `DD_SITE` |
 | No events returned | Query too narrow, wrong site, or no recent errors | Test query in Datadog Logs Explorer UI |
-| Agent creates very specific patterns | LLM being over-literal | Edit state file to merge narrow patterns; the regex quality rules in the prompt help prevent this |
-| Spike keeps re-triggering | Pattern regex too broad (every log matches) | Tighten the regex in the state file; valid Python regex only |
-| Investigation never finishes | Agent stuck on a complex codebase | View conversation in OpenHands UI; clear `active_conversation` in state file to unblock next run |
+| Agent creates very specific patterns | LLM being over-literal | Edit state via KV API to merge narrow patterns; the regex quality rules in the prompt help prevent this |
+| Spike keeps re-triggering | Pattern regex too broad (every log matches) | Tighten the regex in the KV state; valid Python regex only |
+| Investigation never finishes | Agent stuck on a complex codebase | View conversation in OpenHands UI; clear `active_conversation` in KV state to unblock next run |
 | Slack not receiving messages | `SLACK_BOT_TOKEN` missing `chat:write` or bot not in channel | Re-install app with correct scope; invite bot to channel |
-| State file write conflict | Script and agent writing concurrently (rare) | At worst one count update is lost; recovers automatically next run |
+| KV write conflict | Script and agent writing concurrently (rare) | At worst one count update is lost; recovers automatically next run |

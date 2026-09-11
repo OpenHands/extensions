@@ -21,7 +21,7 @@
   "popularityRank": 80,
   "estimatedSetupMinutes": 10,
   "skill": "datadog-error-monitor",
-  "exampleImplementation": "Trigger: cron, every 15 minutes by default\nRequired secrets: DD_API_KEY, DD_APP_KEY, SLACK_BOT_TOKEN\n\n1. Query Datadog logs using a configured filter (e.g. service:api status:error).\n2. Match log events against a regex-based error pattern library stored in a state file.\n3. Track hit counts per pattern; detect spikes (count > 3x rolling baseline).\n4. When new or spiking errors are found, start an investigation conversation.\n5. The agent categorizes unknown errors into named patterns, investigates root causes in the configured codebases, creates a PR if confident, and posts a Slack summary.",
+  "exampleImplementation": "Trigger: cron, every 15 minutes by default\nRequired secrets: DD_API_KEY, DD_APP_KEY, SLACK_BOT_TOKEN\n\n1. Query Datadog logs using a configured filter (e.g. service:api status:error).\n2. Match log events against a regex-based error pattern library stored in the KV store.\n3. Track hit counts per pattern; detect spikes (count > 3x rolling baseline).\n4. When new or spiking errors are found, start an investigation conversation.\n5. The agent categorizes unknown errors into named patterns, investigates root causes in the configured codebases, creates a PR if confident, and posts a Slack summary.",
   "impact": {
     "basis": "completed-runs",
     "one": "1 error poll completed",
@@ -124,7 +124,7 @@
         "examplesPerPattern": {
           "type": "number",
           "label": "Examples per pattern",
-          "help": "How many example logs to keep per error pattern in the state file.",
+          "help": "How many example logs to keep per error pattern in the KV store.",
           "default": 3,
           "required": true,
           "constraints": {

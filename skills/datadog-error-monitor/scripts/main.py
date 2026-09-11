@@ -215,31 +215,59 @@ def fire_callback(
         print(f"Callback error (non-fatal): {exc}")
 
 
-# ── State persistence (KV store with local-file fallback) ─────────────────────
+# ── State persistence (KV store) ──────────────────────────────────────────────
 #
-# The cron script owns state and reads/writes it via the KV store when
-# available (cloud deployments where each run may land on a fresh pod).  A
-# local file is always written too, because the spawned investigation
-# conversation — a separate agent process without AUTOMATION_KV_TOKEN —
-# reads and writes the state file directly via the path passed in its prompt.
+# Both the cron script and the spawned investigation conversation read/write
+# state via the KV store.  Two auth paths are supported:
 #
-# Load order: local file first (has the conversation's latest changes), then
-# KV (recovers state on a fresh pod), then defaults.  Save always writes both.
+# 1. KV JWT token (cron script): AUTOMATION_KV_TOKEN + AUTOMATION_API_URL
+# 2. User auth (spawned conversation): SESSION_API_KEY + AUTOMATION_API_URL
+#    + automation_id query parameter
+#
+# The cron script has both credentials (KV token + session key); it prefers
+# the KV token.  The spawned conversation only has the session key, so it
+# uses user auth with the automation_id query param.
 
 _KV_TOKEN = os.environ.get("AUTOMATION_KV_TOKEN", "")
 _KV_BASE = os.environ.get("AUTOMATION_API_URL", "").rstrip("/")
+_SESSION_KEY = _env_api_key()
 _STATE_KEY = "state"
 _ARCHIVE_KEY = "archive"
 
 
+def _automation_id() -> str:
+    event_payload = json.loads(os.environ.get("AUTOMATION_EVENT_PAYLOAD", "{}"))
+    return event_payload.get("automation_id", "default")
+
+
 def _kv_available() -> bool:
-    return bool(_KV_TOKEN and _KV_BASE)
+    """KV is available if we have a base URL and either a KV token or session key."""
+    return bool(_KV_BASE and (_KV_TOKEN or _SESSION_KEY))
+
+
+def _kv_auth_headers() -> dict:
+    """Return auth headers for KV requests.
+
+    Prefers KV token (self-contained JWT); falls back to session API key
+    (used with automation_id query param for user-authenticated access).
+    """
+    if _KV_TOKEN:
+        return {"Authorization": f"Bearer {_KV_TOKEN}"}
+    return {"X-Session-API-Key": _SESSION_KEY}
+
+
+def _kv_url(key: str) -> str:
+    """Build KV API URL.  User-auth path requires automation_id query param."""
+    url = f"{_KV_BASE}/v1/kv/{key}"
+    if not _KV_TOKEN and _SESSION_KEY:
+        url += f"?automation_id={_automation_id()}"
+    return url
 
 
 def _kv_get(key: str):
     req = urllib.request.Request(
-        f"{_KV_BASE}/v1/kv/{key}",
-        headers={"Authorization": f"Bearer {_KV_TOKEN}"},
+        _kv_url(key),
+        headers=_kv_auth_headers(),
     )
     try:
         with urllib.request.urlopen(req) as r:
@@ -252,42 +280,16 @@ def _kv_get(key: str):
 
 def _kv_set(key: str, value) -> None:
     req = urllib.request.Request(
-        f"{_KV_BASE}/v1/kv/{key}",
+        _kv_url(key),
         data=json.dumps(value).encode(),
         headers={
-            "Authorization": f"Bearer {_KV_TOKEN}",
+            **_kv_auth_headers(),
             "Content-Type": "application/json",
         },
         method="PUT",
     )
     with urllib.request.urlopen(req) as r:
         r.read()
-
-
-def _state_dir() -> Path:
-    workspace_base = os.environ.get("WORKSPACE_BASE", "")
-    if workspace_base:
-        root = Path(workspace_base).resolve().parent.parent
-    else:
-        root = Path.home() / ".openhands" / "workspaces"
-    state_dir = root / "automation-state"
-    state_dir.mkdir(parents=True, exist_ok=True)
-    return state_dir
-
-
-def _automation_id() -> str:
-    event_payload = json.loads(os.environ.get("AUTOMATION_EVENT_PAYLOAD", "{}"))
-    return event_payload.get("automation_id", "default")
-
-
-def _state_file_path() -> str:
-    """Local file path for the state document.
-
-    The spawned investigation conversation reads and writes this file directly
-    (it has no KV token), so the path must be stable across cron runs on the
-    same agent server and passed to the conversation via the prompt.
-    """
-    return str(_state_dir() / f"dd_monitor_{_automation_id()}.json")
 
 
 def _default_since() -> str:
@@ -305,61 +307,29 @@ def _default_state() -> dict:
     }
 
 
-def load_state(path: str) -> dict:
-    # Local file first — it has the conversation's latest changes.
-    if os.path.exists(path):
-        try:
-            with open(path) as f:
-                return json.load(f)
-        except (json.JSONDecodeError, OSError) as exc:
-            print(f"Warning: state file unreadable ({exc}); trying KV")
-
-    # KV fallback — recovers state on a fresh pod where the local file is gone.
+def load_state() -> dict:
+    """Load state from the KV store."""
     if _kv_available():
         data = _kv_get(_STATE_KEY)
         if data is not None:
             print("State loaded from KV store")
-            # Write to local file so the conversation can read it.
-            _write_local_file(path, data)
             return data
-
     return _default_state()
 
 
-def _write_local_file(path: str, state: dict) -> None:
-    """Atomic write - write to .tmp then rename to avoid partial reads."""
-    tmp = path + ".tmp"
-    with open(tmp, "w") as f:
-        json.dump(state, f, indent=2)
-    os.replace(tmp, path)
-
-
-def save_state(path: str, state: dict) -> None:
-    """Write to local file (always) and KV store (when available).
-
-    The local file is the working copy the conversation reads/writes; the KV
-    store is the durable backup that survives pod restarts.
-    """
-    _write_local_file(path, state)
+def save_state(state: dict) -> None:
+    """Write state to the KV store."""
     if _kv_available():
         _kv_set(_STATE_KEY, state)
+    else:
+        print("Warning: KV store not available — state not persisted")
 
 
 # ── Pattern archiving ──────────────────────────────────────────────────────────
 
-def _archive_file_path(state_path: str) -> str:
-    p = Path(state_path)
-    return str(p.parent / (p.stem + "_archive" + p.suffix))
 
-
-def _load_archive(archive_path: str) -> dict:
-    """Load the pattern archive from local file, falling back to KV."""
-    if os.path.exists(archive_path):
-        try:
-            with open(archive_path) as f:
-                return json.load(f)
-        except (json.JSONDecodeError, OSError):
-            pass
+def _load_archive() -> dict:
+    """Load the pattern archive from the KV store."""
     if _kv_available():
         data = _kv_get(_ARCHIVE_KEY)
         if data is not None:
@@ -367,13 +337,12 @@ def _load_archive(archive_path: str) -> dict:
     return {}
 
 
-def _save_archive(archive_path: str, archive: dict) -> None:
-    _write_local_file(archive_path, archive)
+def _save_archive(archive: dict) -> None:
     if _kv_available():
         _kv_set(_ARCHIVE_KEY, archive)
 
 
-def archive_stale_patterns(state: dict, state_path: str) -> int:
+def archive_stale_patterns(state: dict) -> int:
     """Move patterns last seen more than PATTERN_ARCHIVE_DAYS ago to a separate
     archive.  Returns the number of patterns archived.
 
@@ -402,18 +371,17 @@ def archive_stale_patterns(state: dict, state_path: str) -> int:
     if not to_archive:
         return 0
 
-    archive_path = _archive_file_path(state_path)
-    archive = _load_archive(archive_path)
+    archive = _load_archive()
 
     now_str = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     for pid, pattern in to_archive.items():
         archive[pid] = {**pattern, "archived_at": now_str}
 
-    _save_archive(archive_path, archive)
+    _save_archive(archive)
 
     state["known_patterns"] = to_keep
     names = [p.get("name", pid) for pid, p in to_archive.items()]
-    print(f"Archived {len(to_archive)} stale pattern(s) → {archive_path}: {names}")
+    print(f"Archived {len(to_archive)} stale pattern(s) → KV archive: {names}")
     return len(to_archive)
 
 
@@ -614,21 +582,49 @@ def _is_spike(current_count: int, history_before_this_run: list[int]) -> bool:
 # ── Investigation prompt ───────────────────────────────────────────────────────
 
 def _build_prompt(
-    state_file_path: str,
+    automation_id: str,
     from_ts: str,
     to_ts: str,
     unknown_samples: list[str],
     total_unknown: int,
     spiking: list[tuple[str, dict, int]],
 ) -> str:
+    kv_base = _KV_BASE
+    # The spawned conversation uses user auth (SESSION_API_KEY + automation_id)
     lines = [
         "# Datadog Error Monitor - Investigation Request",
         "",
         "## Context",
         f"- **Datadog query:** `{DD_QUERY}`",
         f"- **Time window:** {from_ts} → {to_ts}",
-        f"- **State file:** `{state_file_path}`",
-        f"- **Archive file:** `{_archive_file_path(state_file_path)}`",
+        f"- **KV API base:** `{kv_base}`",
+        f"- **Automation ID:** `{automation_id}`",
+        "",
+        "## State Access (KV Store)",
+        "",
+        "Read and write state via the KV store API.  Use the `X-Session-API-Key`",
+        "header with the `$SESSION_API_KEY` environment variable, and include",
+        f"`automation_id={automation_id}` as a query parameter.",
+        "",
+        "**Read state:**",
+        "```bash",
+        f'curl -s "{kv_base}/v1/kv/state?automation_id={automation_id}"'
+        ' -H "X-Session-API-Key: $SESSION_API_KEY"'
+        " | python3 -c \"import json,sys; print(json.dumps(json.load(sys.stdin)['value'], indent=2))\"",
+        "```",
+        "",
+        "**Write state** (after making changes, write the entire state back):",
+        "```bash",
+        f'curl -s -X PUT "{kv_base}/v1/kv/state?automation_id={automation_id}"'
+        ' -H "X-Session-API-Key: $SESSION_API_KEY"'
+        ' -H "Content-Type: application/json"'
+        " -d '$(cat /tmp/state.json | python3 -c \"import json,sys; print(json.dumps(json.load(sys.stdin)))\")'",
+        "```",
+        "",
+        "> **Important:** Read the state first, modify it locally, then write the",
+        "> complete state back.  Never write a partial state — always include all",
+        "> top-level fields (`version`, `last_poll_timestamp`, `active_conversation`,",
+        "> `known_patterns`).",
         "",
         "## Investigation Budget",
         "",
@@ -645,9 +641,9 @@ def _build_prompt(
         "",
         "## Tasks",
         "",
-        "Work through the following tasks in order. The state file is a JSON document;",
-        "read it, make your changes, then write it back **atomically** (write to a `.tmp`",
-        "file, then `os.replace`). Preserve all existing top-level fields.",
+        "Work through the following tasks in order. The state is a JSON document",
+        "stored in the KV store; read it via the API above, make your changes,",
+        "then write it back. Preserve all existing top-level fields.",
         "",
         "---",
         "",
@@ -665,8 +661,8 @@ def _build_prompt(
             "",
             f"**{total_unknown} log event(s)** did not match any known pattern.{truncation_note}",
             "",
-            "**Before creating any new pattern**, read `known_patterns` from the state file",
-            "and check for overlap with the samples below:",
+            "**Before creating any new pattern**, read `known_patterns` from the state",
+            "via the KV API and check for overlap with the samples below:",
             "",
             "- Test each existing pattern's `regex` against the new samples:",
             "  `re.search(pattern['regex'], sample, re.IGNORECASE | re.DOTALL)`",
@@ -775,8 +771,8 @@ def _build_prompt(
             "   ```",
             "5. If still unclear after step 4: **declare inconclusive** and move on",
             "",
-            "After investigating each pattern, **overwrite its `description`** in the state",
-            "file with your current findings.",
+            "After investigating each pattern, **overwrite its `description`** in the",
+            "state via the KV API with your current findings.",
             "",
         ]
 
@@ -869,12 +865,12 @@ def _build_prompt(
 # ── Main ───────────────────────────────────────────────────────────────────────
 
 def main() -> str | None:
-    state_path = _state_file_path()
-    print(f"State file: {state_path}")
-    state = load_state(state_path)
+    autom_id = _automation_id()
+    print(f"Automation ID: {autom_id}")
+    state = load_state()
 
     # ── Archive patterns not seen recently ───────────────────────────────────
-    archive_stale_patterns(state, state_path)
+    archive_stale_patterns(state)
 
     # ── Resolve Datadog secrets ──────────────────────────────────────────────
     try:
@@ -979,7 +975,7 @@ def main() -> str | None:
         else:
             # Investigation still running - save updated pattern data and exit
             state["last_poll_timestamp"] = to_ts
-            save_state(state_path, state)
+            save_state(state)
             print("Investigation in progress - skipping trigger evaluation")
             return conv_id
 
@@ -1001,7 +997,7 @@ def main() -> str | None:
             os.makedirs(workspace_dir, exist_ok=True)
 
         prompt = _build_prompt(
-            state_file_path=state_path,
+            automation_id=autom_id,
             from_ts=from_ts,
             to_ts=to_ts,
             unknown_samples=unknown_samples,
@@ -1034,7 +1030,7 @@ def main() -> str | None:
 
     # ── Save state and return ─────────────────────────────────────────────────
     state["last_poll_timestamp"] = to_ts
-    save_state(state_path, state)
+    save_state(state)
     print(f"State saved. Next poll window starts from: {to_ts}")
     return conversation_id
 

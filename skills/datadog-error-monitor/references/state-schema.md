@@ -1,17 +1,20 @@
-# State File Schema
+# State Schema
 
-The monitor persists all state between cron runs in a single JSON file.
+The monitor persists all state between cron runs in the automation KV store.
 
 ## Location
 
+State is stored in the KV store under the key `state` (archive under `archive`).
+Both the cron script and spawned investigation conversations access it via
+user-authenticated KV (API key + `automation_id` query parameter).
+
 ```
-~/.openhands/workspaces/automation-state/dd_monitor_{automation_id}.json
+GET  /v1/kv/state?automation_id={id}     -H "X-Session-API-Key: $SESSION_API_KEY"
+PUT  /v1/kv/state?automation_id={id}     -H "X-Session-API-Key: $SESSION_API_KEY"
 ```
 
-The path is derived at runtime from the `WORKSPACE_BASE` environment variable
-(two levels up, into `automation-state/`). The file is created on the first run
-and is safe to delete - the monitor will rebuild from scratch, treating all logs
-as uncategorized on the next run.
+The state is created on the first run and is safe to clear — the monitor will
+rebuild from scratch, treating all logs as uncategorized on the next run.
 
 ---
 
