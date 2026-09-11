@@ -135,13 +135,13 @@ The `PR Artifacts` workflow (`.github/workflows/pr-artifacts.yml`) owns the life
 
 1. **Notification**: When a PR contains `.pr/`, a single comment is posted to the PR conversation alerting reviewers.
 2. **Auto-cleanup on approval**: For same-repository PRs, the directory is automatically removed by a follow-up commit when the PR is approved.
-3. **Auto-cleanup after merge**: Fork PRs cannot be pushed to, so the directory is automatically removed from `main` immediately after the PR is merged.
+3. **Post-merge cleanup**: If artifacts reach `main`, including through a fork PR, the workflow opens or updates a cleanup PR against `main`.
 
 Important notes:
 
 - Do not put anything in `.pr/` that needs to be preserved.
 - The `.pr/` check is informational during development; it posts a notice rather than blocking the PR.
-- For fork PRs, `.pr/` is cleaned up from `main` after merge automatically; no manual step is required.
+- Cleanup PRs follow the normal review and required-check protections for `main`.
 
 ## CI / validation gotchas
 
