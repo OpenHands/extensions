@@ -339,8 +339,10 @@ Tell the user:
 > After a few runs, the system converges on a stable baseline and only alerts
 > on new error types or significant spikes.
 >
-> You can inspect or edit the state file at any time to adjust patterns, remove
-> stale ones, or reset the system entirely by deleting the file.
+> State is persisted to the automation KV store (cloud) and a local file
+> (dev/fallback). You can inspect or edit the local state file at any time to
+> adjust patterns, remove stale ones, or reset the system entirely by deleting
+> the file.
 
 ---
 

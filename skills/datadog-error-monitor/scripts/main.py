@@ -215,26 +215,79 @@ def fire_callback(
         print(f"Callback error (non-fatal): {exc}")
 
 
-# ── State management ───────────────────────────────────────────────────────────
+# ── State persistence (KV store with local-file fallback) ─────────────────────
+#
+# The cron script owns state and reads/writes it via the KV store when
+# available (cloud deployments where each run may land on a fresh pod).  A
+# local file is always written too, because the spawned investigation
+# conversation — a separate agent process without AUTOMATION_KV_TOKEN —
+# reads and writes the state file directly via the path passed in its prompt.
+#
+# Load order: local file first (has the conversation's latest changes), then
+# KV (recovers state on a fresh pod), then defaults.  Save always writes both.
 
-def _state_file_path() -> str:
-    """Derive a persistent storage path stable across cron runs.
+_KV_TOKEN = os.environ.get("AUTOMATION_KV_TOKEN", "")
+_KV_BASE = os.environ.get("AUTOMATION_API_URL", "").rstrip("/")
+_STATE_KEY = "state"
+_ARCHIVE_KEY = "archive"
 
-    WORKSPACE_BASE = {root}/automation-runs/{run_id}
-    State lives at   {root}/automation-state/dd_monitor_{automation_id}.json
-    """
+
+def _kv_available() -> bool:
+    return bool(_KV_TOKEN and _KV_BASE)
+
+
+def _kv_get(key: str):
+    req = urllib.request.Request(
+        f"{_KV_BASE}/v1/kv/{key}",
+        headers={"Authorization": f"Bearer {_KV_TOKEN}"},
+    )
+    try:
+        with urllib.request.urlopen(req) as r:
+            return json.loads(r.read())["value"]
+    except urllib.error.HTTPError as exc:
+        if exc.code == 404:
+            return None
+        raise
+
+
+def _kv_set(key: str, value) -> None:
+    req = urllib.request.Request(
+        f"{_KV_BASE}/v1/kv/{key}",
+        data=json.dumps(value).encode(),
+        headers={
+            "Authorization": f"Bearer {_KV_TOKEN}",
+            "Content-Type": "application/json",
+        },
+        method="PUT",
+    )
+    with urllib.request.urlopen(req) as r:
+        r.read()
+
+
+def _state_dir() -> Path:
     workspace_base = os.environ.get("WORKSPACE_BASE", "")
-    event_payload = json.loads(os.environ.get("AUTOMATION_EVENT_PAYLOAD", "{}"))
-    automation_id = event_payload.get("automation_id", "default")
-
     if workspace_base:
         root = Path(workspace_base).resolve().parent.parent
     else:
         root = Path.home() / ".openhands" / "workspaces"
-
     state_dir = root / "automation-state"
     state_dir.mkdir(parents=True, exist_ok=True)
-    return str(state_dir / f"dd_monitor_{automation_id}.json")
+    return state_dir
+
+
+def _automation_id() -> str:
+    event_payload = json.loads(os.environ.get("AUTOMATION_EVENT_PAYLOAD", "{}"))
+    return event_payload.get("automation_id", "default")
+
+
+def _state_file_path() -> str:
+    """Local file path for the state document.
+
+    The spawned investigation conversation reads and writes this file directly
+    (it has no KV token), so the path must be stable across cron runs on the
+    same agent server and passed to the conversation via the prompt.
+    """
+    return str(_state_dir() / f"dd_monitor_{_automation_id()}.json")
 
 
 def _default_since() -> str:
@@ -243,13 +296,7 @@ def _default_since() -> str:
     ).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
-def load_state(path: str) -> dict:
-    if os.path.exists(path):
-        try:
-            with open(path) as f:
-                return json.load(f)
-        except (json.JSONDecodeError, OSError) as exc:
-            print(f"Warning: state file unreadable ({exc}); starting fresh")
+def _default_state() -> dict:
     return {
         "version": 1,
         "last_poll_timestamp": _default_since(),
@@ -258,12 +305,44 @@ def load_state(path: str) -> dict:
     }
 
 
-def save_state(path: str, state: dict) -> None:
+def load_state(path: str) -> dict:
+    # Local file first — it has the conversation's latest changes.
+    if os.path.exists(path):
+        try:
+            with open(path) as f:
+                return json.load(f)
+        except (json.JSONDecodeError, OSError) as exc:
+            print(f"Warning: state file unreadable ({exc}); trying KV")
+
+    # KV fallback — recovers state on a fresh pod where the local file is gone.
+    if _kv_available():
+        data = _kv_get(_STATE_KEY)
+        if data is not None:
+            print("State loaded from KV store")
+            # Write to local file so the conversation can read it.
+            _write_local_file(path, data)
+            return data
+
+    return _default_state()
+
+
+def _write_local_file(path: str, state: dict) -> None:
     """Atomic write - write to .tmp then rename to avoid partial reads."""
     tmp = path + ".tmp"
     with open(tmp, "w") as f:
         json.dump(state, f, indent=2)
     os.replace(tmp, path)
+
+
+def save_state(path: str, state: dict) -> None:
+    """Write to local file (always) and KV store (when available).
+
+    The local file is the working copy the conversation reads/writes; the KV
+    store is the durable backup that survives pod restarts.
+    """
+    _write_local_file(path, state)
+    if _kv_available():
+        _kv_set(_STATE_KEY, state)
 
 
 # ── Pattern archiving ──────────────────────────────────────────────────────────
@@ -273,9 +352,30 @@ def _archive_file_path(state_path: str) -> str:
     return str(p.parent / (p.stem + "_archive" + p.suffix))
 
 
+def _load_archive(archive_path: str) -> dict:
+    """Load the pattern archive from local file, falling back to KV."""
+    if os.path.exists(archive_path):
+        try:
+            with open(archive_path) as f:
+                return json.load(f)
+        except (json.JSONDecodeError, OSError):
+            pass
+    if _kv_available():
+        data = _kv_get(_ARCHIVE_KEY)
+        if data is not None:
+            return data
+    return {}
+
+
+def _save_archive(archive_path: str, archive: dict) -> None:
+    _write_local_file(archive_path, archive)
+    if _kv_available():
+        _kv_set(_ARCHIVE_KEY, archive)
+
+
 def archive_stale_patterns(state: dict, state_path: str) -> int:
     """Move patterns last seen more than PATTERN_ARCHIVE_DAYS ago to a separate
-    archive file.  Returns the number of patterns archived.
+    archive.  Returns the number of patterns archived.
 
     The archive is a flat JSON object keyed by pattern UUID.  Each entry gets
     an ``archived_at`` timestamp added so old investigations can be correlated
@@ -303,20 +403,13 @@ def archive_stale_patterns(state: dict, state_path: str) -> int:
         return 0
 
     archive_path = _archive_file_path(state_path)
-    try:
-        with open(archive_path) as f:
-            archive: dict = json.load(f)
-    except (FileNotFoundError, json.JSONDecodeError, OSError):
-        archive = {}
+    archive = _load_archive(archive_path)
 
     now_str = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     for pid, pattern in to_archive.items():
         archive[pid] = {**pattern, "archived_at": now_str}
 
-    tmp = archive_path + ".tmp"
-    with open(tmp, "w") as f:
-        json.dump(archive, f, indent=2)
-    os.replace(tmp, archive_path)
+    _save_archive(archive_path, archive)
 
     state["known_patterns"] = to_keep
     names = [p.get("name", pid) for pid, p in to_archive.items()]
