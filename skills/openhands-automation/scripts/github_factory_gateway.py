@@ -91,7 +91,7 @@ def permitted(role, method, path, body):
             re.fullmatch(r"/git/commits/[0-9a-f]{40}", route)
         )
     if re.fullmatch(r"/issues/\d+/comments", route) and method == "POST":
-        return set(body) == {"body"}
+        return role in ("triage", "developer", "reviewer") and set(body) == {"body"}
     if role == "triage":
         if method == "PATCH" and re.fullmatch(r"/issues/\d+", route):
             return set(body) <= {"body", "labels"}
