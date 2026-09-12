@@ -32,14 +32,16 @@ Use Agent Server Docker runtime with selected-credential handoff and runtime rel
 (SDK PRs #3403, #4998, #5005, #5008) and Automation Service Docker dispatch support
 (automation issue #448). Keep these development versions isolated from an existing
 Canvas installation. Run a single Automation Service process; its Docker admission
-limit is per service. Set `AUTOMATION_DOCKER_AGENT_PROFILE` to the saved profile UUID
-and `AUTOMATION_DOCKER_MAX_CONCURRENT_RUNS=2`. Start with 2.5 GiB memory, 1.5 CPUs,
-and 256 processes per sandbox, adjusting for host capacity. The image needs git,
-Node 22, Python, and Chromium. The developer/reviewer profiles need terminal and file editing. Triage needs only
+limit is per service. Set `AUTOMATION_AGENT_PROFILE` to the saved profile UUID
+and `AUTOMATION_CONVERSATION_MAX_CONCURRENT_RUNS=2`. Start with 2.5 GiB memory, 1.5 CPUs,
+and 256 processes per sandbox, adjusting for host capacity. The worker environment needs git, Node 22, Chromium, and a Python interpreter
+with `openhands-sdk` installed. Put that interpreter first on the worker PATH
+(for the Agent Server image, `/agent-server/.venv/bin`). Apply the same dependency
+setup to local workers; the entrypoint stays `python3 main.py` in both modes. The developer/reviewer profiles need terminal and file editing. Triage needs only
 file editing to produce its structured decision. Give the deterministic watchdog
 a profile with no model key, no MCP servers, and an empty tools list. Map automation
 UUIDs to these profile UUIDs using the host setting
-`AUTOMATION_DOCKER_AGENT_PROFILE_OVERRIDES` (a JSON object).
+`AUTOMATION_AGENT_PROFILE_OVERRIDES` (a JSON object).
 
 On the trusted control plane, authenticate `gh` using a credential restricted to
 the target repository (contents, issues, pull requests, and commit statuses; checks
