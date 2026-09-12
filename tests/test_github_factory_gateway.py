@@ -271,3 +271,43 @@ def test_archive_uses_calling_role_credential(broker, monkeypatch, tmp_path, rol
 
     monkeypatch.setattr(broker, "urlopen", upstream)
     assert broker.archive(role, "a" * 40)["tarball"] == "YXJjaGl2ZQ=="
+
+
+@pytest.mark.parametrize("force", [True, 1, "true", "false", None])
+def test_force_push_flag_must_be_boolean_false(broker, force):
+    assert not broker.permitted(
+        "developer",
+        "PATCH",
+        "/git/refs/heads/factory/issue-1",
+        {"sha": "a" * 40, "force": force},
+    )
+
+
+def test_status_pagination_keeps_latest_and_detects_later_failure(broker, monkeypatch):
+    calls = []
+
+    def github(role, method, path, body=None):
+        assert role == "watchdog"
+        calls.append(path)
+        if path.endswith("page=1"):
+            return [{"context": "newest", "state": "success"}] * 100
+        return [
+            {"context": "newest", "state": "failure"},
+            {"context": "other-ci", "state": "failure"},
+        ]
+
+    monkeypatch.setattr(broker, "github", github)
+    statuses = broker.latest_statuses("watchdog", "a" * 40)
+    assert len(calls) == 2
+    assert statuses["newest"]["state"] == "success"
+    assert statuses["other-ci"]["state"] == "failure"
+
+
+def test_incomplete_status_pagination_rejects_merge(broker, monkeypatch):
+    monkeypatch.setattr(
+        broker,
+        "github",
+        lambda *args: [{"context": "ci", "state": "success"}] * 100,
+    )
+    with pytest.raises(ValueError, match="pagination"):
+        broker.latest_statuses("watchdog", "a" * 40)

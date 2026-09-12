@@ -80,9 +80,15 @@ def archive(role, sha):
 
 def latest_statuses(role, sha):
     result = {}
-    for status in github(role, "GET", f"/commits/{sha}/statuses?per_page=100"):
-        result.setdefault(status["context"], status)
-    return result
+    for page in range(1, 11):
+        statuses = github(
+            role, "GET", f"/commits/{sha}/statuses?per_page=100&page={page}"
+        )
+        for status in statuses:
+            result.setdefault(status["context"], status)
+        if len(statuses) < 100:
+            return result
+    raise ValueError("Commit status pagination exceeds the safe scan limit")
 
 
 def permitted(role, method, path, body):
@@ -127,7 +133,7 @@ def permitted(role, method, path, body):
         if method == "PATCH" and re.fullmatch(
             r"/git/refs/heads/factory/issue-\d+", route
         ):
-            return body.get("force") is not True and set(body) <= {"sha", "force"}
+            return body.get("force", False) is False and set(body) <= {"sha", "force"}
         if method == "POST" and route == "/pulls":
             return body.get("base") == "main" and bool(
                 re.fullmatch(r"factory/issue-\d+", body.get("head", ""))
