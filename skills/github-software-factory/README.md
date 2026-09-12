@@ -1,8 +1,10 @@
-# Docker software factory
+# Software factory
 
 Four automations turn ready GitHub issues into independently tested and reviewed
 pull requests. A deterministic watchdog can merge accepted changes. Each scheduled
-run gets its own Docker conversation, workspace, and session credential. Conversation
+run gets its own conversation, workspace, and session credential. The same bundle
+and workflow sources run in local or Docker workspaces; provisioning and cleanup
+are responsibilities of the execution backend. Conversation
 history and acceptance reports survive runtime release.
 
 | Role | GitHub operations |
@@ -51,8 +53,7 @@ FACTORY_BIND=172.17.0.1 python3 ../openhands-automation/scripts/github_factory_g
 ```
 
 The bind address must be reachable from the Docker network and restricted to that
-network. Default port is 19102. For each role, build a gzip tarball with `main.py`
-and `config.json`:
+network. Default port is 19102. For each role, write a private `config.json`:
 
 ```json
 {
@@ -63,15 +64,32 @@ and `config.json`:
 }
 ```
 
+Build the bundle from the registry checkout with:
+
+```sh
+python3 scripts/build_bundle.py /private/config.json /private/factory.tar.gz
+```
+
+The builder includes the canonical issue-to-PR and PR-reviewer scripts, the
+QA Changes prompt and skills, and a source hash manifest. The recipe calls those
+existing workflow definitions rather than maintaining alternative implementation,
+review, or QA prompts. Only the repository transport and blocking execution
+interface are supplied by the recipe; neither depends on workspace kind. GitHub
+reviews use the existing native review format and inline findings. Full test
+logs stay in workspace evidence, with a compact command summary on GitHub.
+
 Upload using `POST /api/automation/v1/uploads`, then create a raw automation with
 `POST /api/automation/v1`, the returned `tarball_path`, entrypoint `python3 main.py`,
 `keep_alive: false`, and a cron trigger. Two-minute polls are useful while validating;
-use a longer interval for a quiet repository. Allow 3000 seconds for development and
-review and 600 seconds for triage/watchdog. Do not put control-plane credentials in
+use a longer interval for a quiet repository. Allow 3000 seconds for development, 9000 for sequential independent tests, code
+review and functional QA, and 600 seconds for triage/watchdog. Configure the service
+maximum run duration to accommodate that timeout. Do not put control-plane credentials in
 bundle configuration. The backend supplies the selected runtime's session key.
 
 Inspect run history and issue/PR comments to follow progress. Acceptance reports
-include the exact commit, review criteria, and independent npm command output.
+include the exact commit, links to the newly published canonical review and QA
+reports, and independent npm command output. Missing, stale, partial, or ambiguous
+review evidence cannot satisfy acceptance.
 Reports also live under the conversation workspace's `evidence` directory. The
 reviewer rejects modifications to tracked files during review.
 

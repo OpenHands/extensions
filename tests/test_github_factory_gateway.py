@@ -43,6 +43,10 @@ def test_writer_cannot_accept_and_reviewer_cannot_publish(broker):
         {"context": "software-factory/review"},
     )
     assert not broker.permitted("reviewer", "POST", "/git/blobs", {})
+    assert broker.permitted("reviewer", "GET", "/pulls/7/files", {})
+    assert broker.permitted("developer", "GET", "/pulls/7/files", {})
+    assert not broker.permitted("triage", "GET", "/pulls/7/files", {})
+    assert not broker.permitted("watchdog", "GET", "/pulls/7/files", {})
     assert not broker.permitted(
         "reviewer",
         "POST",

@@ -78,6 +78,10 @@ def permitted(role, method, path, body):
             return True
         if role == "triage" and route == "/labels":
             return True
+        if role in ("developer", "reviewer") and re.fullmatch(
+            r"/pulls/\d+/files", route
+        ):
+            return True
         if role in ("developer", "reviewer", "watchdog") and (
             re.fullmatch(r"/pulls(?:/\d+(?:/reviews|/comments)?)?", route)
             or re.fullmatch(r"/commits/[0-9a-f]{40}/(?:statuses|check-runs)", route)
