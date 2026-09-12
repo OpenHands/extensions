@@ -12,7 +12,7 @@ triggers:
 # GitHub software factory
 
 Use four scheduled bundles from `scripts/main.py`, with separate role credentials.
-The repository gateway in `scripts/broker.py` retains the GitHub credential in the
+The repository gateway in `../openhands-automation/scripts/github_factory_gateway.py` retains the GitHub credential in the
 trusted control plane. Workers receive only their role grant. This initial recipe
 supports repositories on `main`, with Node 22 applications and the commands
 `npm test`, `npm run build`, and `npm run test:e2e`.

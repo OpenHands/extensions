@@ -47,7 +47,7 @@ tokens keyed `triage`, `developer`, `reviewer`, and `watchdog`. Start:
 ```sh
 FACTORY_REPOSITORY=owner/repository \
 FACTORY_CONTROL_FILE=/private/factory-role-tokens.json \
-FACTORY_BIND=172.17.0.1 python3 scripts/broker.py
+FACTORY_BIND=172.17.0.1 python3 ../openhands-automation/scripts/github_factory_gateway.py
 ```
 
 The bind address must be reachable from the Docker network and restricted to that
