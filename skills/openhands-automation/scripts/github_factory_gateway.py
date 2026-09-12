@@ -29,20 +29,37 @@ def configure():
     if not re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", repo):
         raise ValueError("Expected owner/repository")
     control = json.loads(Path(os.environ["FACTORY_CONTROL_FILE"]).read_text())
+    watchdog_token_env = os.environ.get(
+        "FACTORY_GITHUB_WATCHDOG_TOKEN_ENV", "FACTORY_GITHUB_WATCHDOG_TOKEN"
+    )
+    if watchdog_token_env not in {
+        "FACTORY_GITHUB_WATCHDOG_TOKEN",
+        "FACTORY_GITHUB_DEVELOPER_TOKEN",
+    }:
+        raise ValueError("Watchdog credential must select its own or developer token")
     tokens = {}
     for role in ROLES:
-        name = f"FACTORY_GITHUB_{role.upper()}_TOKEN"
+        name = (
+            watchdog_token_env
+            if role == "watchdog"
+            else f"FACTORY_GITHUB_{role.upper()}_TOKEN"
+        )
         token = os.environ.get(name, "").strip()
         if not token:
             raise ValueError(
-                f"Missing {name}; no shared credential fallback is allowed"
+                f"Missing {name}; no implicit credential fallback is allowed"
             )
         tokens[role] = token
     grants = [control.get(role) for role in ROLES]
     if any(not isinstance(value, str) or not value.strip() for value in grants):
         raise ValueError("Every role needs a nonempty worker grant")
-    if len(set(grants)) != len(ROLES) or len(set(tokens.values())) != len(ROLES):
-        raise ValueError("Each role must use a distinct worker and GitHub credential")
+    if len(set(grants)) != len(ROLES):
+        raise ValueError("Each role must use a distinct worker grant")
+    expected_tokens = (
+        3 if watchdog_token_env == "FACTORY_GITHUB_DEVELOPER_TOKEN" else 4
+    )
+    if len(set(tokens.values())) != expected_tokens:
+        raise ValueError("Only explicit developer/watchdog credential sharing is allowed")
     if set(grants) & set(tokens.values()):
         raise ValueError("GitHub credentials must not be exposed as worker grants")
     CONTROL, TOKENS = control, tokens
