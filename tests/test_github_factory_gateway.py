@@ -81,7 +81,8 @@ def install_merge_fixture(monkeypatch, broker):
     }
     writes = []
 
-    def github(method, path, body=None):
+    def github(role, method, path, body=None):
+        assert role == "watchdog"
         if method == "PUT":
             writes.append((path, body))
             return {"merged": True}
@@ -170,3 +171,103 @@ def test_watchdog_cannot_post_comments(broker):
     assert not broker.permitted(
         "watchdog", "POST", "/issues/1/comments", {"body": "report"}
     )
+
+
+def configure_fixture(broker, monkeypatch, tmp_path):
+    import json
+
+    grants = {role: f"grant-{role}" for role in broker.ROLES}
+    control = tmp_path / "grants.json"
+    control.write_text(json.dumps(grants))
+    control.chmod(0o600)
+    monkeypatch.setenv("FACTORY_REPOSITORY", "owner/repository")
+    monkeypatch.setenv("FACTORY_CONTROL_FILE", str(control))
+    for role in broker.ROLES:
+        monkeypatch.setenv(f"FACTORY_GITHUB_{role.upper()}_TOKEN", f"github-{role}")
+    return grants
+
+
+@pytest.mark.parametrize("failure", ["missing", "empty", "shared", "exposed"])
+def test_configuration_rejects_missing_or_shared_credentials(
+    broker, monkeypatch, tmp_path, failure
+):
+    configure_fixture(broker, monkeypatch, tmp_path)
+    name = "FACTORY_GITHUB_REVIEWER_TOKEN"
+    if failure == "missing":
+        monkeypatch.delenv(name)
+    else:
+        monkeypatch.setenv(
+            name,
+            {"empty": " ", "shared": "github-developer", "exposed": "grant-reviewer"}[
+                failure
+            ],
+        )
+    with pytest.raises(ValueError) as error:
+        broker.configure()
+    assert "github-developer" not in str(error.value)
+    assert "grant-reviewer" not in str(error.value)
+    assert broker.TOKENS == {}
+
+
+def test_concurrent_requests_keep_role_credentials(broker, monkeypatch, tmp_path):
+    import io
+    import json
+    from concurrent.futures import ThreadPoolExecutor
+    from threading import Barrier, Thread
+    from urllib.request import Request, urlopen
+
+    grants = configure_fixture(broker, monkeypatch, tmp_path)
+    broker.configure()
+    barrier = Barrier(4)
+    seen = []
+
+    def upstream(request, timeout):
+        barrier.wait(timeout=5)
+        seen.append((request.full_url, request.get_header("Authorization")))
+        return io.BytesIO(b"{}")
+
+    monkeypatch.setattr(broker, "urlopen", upstream)
+    server = broker.ThreadingHTTPServer(("127.0.0.1", 0), broker.Handler)
+    thread = Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    paths = {
+        "triage": "/labels",
+        "developer": "/git/commits/" + "a" * 40,
+        "reviewer": "/git/ref/heads/main",
+        "watchdog": "/pulls/1",
+    }
+
+    def send(role):
+        request = Request(
+            f"http://127.0.0.1:{server.server_port}",
+            data=json.dumps({"method": "GET", "path": paths[role]}).encode(),
+            headers={"Authorization": "Bearer " + grants[role]},
+        )
+        with urlopen(request, timeout=10) as response:
+            assert response.status == 200
+
+    try:
+        with ThreadPoolExecutor(max_workers=4) as pool:
+            list(pool.map(send, broker.ROLES))
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=5)
+    assert sorted(seen) == sorted(
+        (broker.ROOT + paths[role], f"Bearer github-{role}") for role in broker.ROLES
+    )
+
+
+@pytest.mark.parametrize("role", ["developer", "reviewer"])
+def test_archive_uses_calling_role_credential(broker, monkeypatch, tmp_path, role):
+    import io
+
+    configure_fixture(broker, monkeypatch, tmp_path)
+    broker.configure()
+
+    def upstream(request, timeout):
+        assert request.get_header("Authorization") == f"Bearer github-{role}"
+        return io.BytesIO(b"archive")
+
+    monkeypatch.setattr(broker, "urlopen", upstream)
+    assert broker.archive(role, "a" * 40)["tarball"] == "YXJjaGl2ZQ=="
