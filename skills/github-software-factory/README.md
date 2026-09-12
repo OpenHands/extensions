@@ -120,3 +120,11 @@ the fixed developer bundle with `resume_issue` set to its issue number. It verif
 the checkpoint repository and reuses the existing checkout and local baseline;
 do not start a simultaneous fresh implementation. The failed original run remains
 in history, and the replay has its own bash-command evidence in the same conversation.
+
+### SDK Client Dependency
+
+Runtime control uses the public `openhands.sdk.client.AgentServerClient` from
+[software-agent-sdk #5010](https://github.com/OpenHands/software-agent-sdk/pull/5010).
+Use an SDK build containing that change until its release is available. The
+bundle owns workflow policy; the SDK owns Agent Server routes, authentication,
+and runtime scope. The same bundle executes in local and Docker workspaces.

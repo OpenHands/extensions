@@ -28,6 +28,25 @@ def worker(monkeypatch, tmp_path):
     return module
 
 
+def mock_server(monkeypatch, worker, request):
+    from types import SimpleNamespace
+
+    server = SimpleNamespace(
+        get_conversation=lambda cid: request("conversation"),
+        send_message=lambda cid, text: request(
+            "conversation/events",
+            "POST",
+            {
+                "content": [{"type": "text", "text": text}],
+                "run": True,
+            },
+        ),
+        get_errors=lambda cid, limit: request("conversation/events/search?"),
+        interrupt=lambda cid: request("conversation/interrupt", "POST", {}),
+    )
+    monkeypatch.setattr(worker, "SERVER", server)
+
+
 def snapshot(monkeypatch, worker, filename="README.md", symlink=False):
     import base64
     import io
@@ -103,7 +122,7 @@ def test_only_step_budget_errors_receive_bounded_continuation(
             return {"items": [{"code": code}]}
         return {"execution_status": next(states)}
 
-    monkeypatch.setattr(worker, "request", request)
+    mock_server(monkeypatch, worker, request)
     monkeypatch.setattr(worker.time, "sleep", lambda _: None)
     if code == "MaxIterationsReached":
         assert worker.agent("Implement issue")["execution_status"] == "finished"
@@ -124,7 +143,7 @@ def test_step_budget_continuations_have_a_hard_limit(monkeypatch, worker):
             return {"items": [{"code": "MaxIterationsReached"}]}
         return {"execution_status": "error"}
 
-    monkeypatch.setattr(worker, "request", request)
+    mock_server(monkeypatch, worker, request)
     monkeypatch.setattr(worker.time, "sleep", lambda _: None)
     with pytest.raises(RuntimeError):
         worker.agent("Implement issue")
@@ -137,7 +156,7 @@ def test_incomplete_work_is_checkpointed_only_after_agent_stops(monkeypatch, wor
 
     comments = []
     monkeypatch.setattr(worker, "agent", agent)
-    monkeypatch.setattr(worker, "request", lambda *args: {"execution_status": "error"})
+    mock_server(monkeypatch, worker, lambda *args: {"execution_status": "error"})
     monkeypatch.setattr(worker, "comment", lambda *args: comments.append(args))
     worker.implement("Implement issue", 42)
     assert (worker.EVIDENCE / "checkpoint.json").exists()
@@ -157,7 +176,7 @@ def test_timeout_interrupts_before_checkpoint_publication(monkeypatch, worker):
         return {} if method == "POST" else {"execution_status": next(states)}
 
     monkeypatch.setattr(worker, "agent", agent)
-    monkeypatch.setattr(worker, "request", request)
+    mock_server(monkeypatch, worker, request)
     monkeypatch.setattr(worker, "comment", lambda *args: None)
     worker.implement("Implement issue", 42)
     assert any(url.endswith("/interrupt") and method == "POST" for url, method in calls)

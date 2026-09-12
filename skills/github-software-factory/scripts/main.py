@@ -14,6 +14,8 @@ from pathlib import Path
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
+from openhands.sdk.client import AgentServerClient
+
 
 CONFIG = json.loads(Path("config.json").read_text())
 ROLE = CONFIG["role"]
@@ -25,32 +27,22 @@ WORKSPACE = Path(os.environ.get("WORKSPACE_BASE", "/workspace"))
 PROJECT = WORKSPACE / "project"
 EVIDENCE = WORKSPACE / "evidence"
 EVIDENCE.mkdir(exist_ok=True)
-
-
-def request(url, method="GET", body=None, token=None):
-    headers = {"Content-Type": "application/json"}
-    if token:
-        headers["Authorization"] = "Bearer " + token
-    else:
-        headers["X-Session-API-Key"] = KEY
-    req = Request(
-        url,
-        method=method,
-        headers=headers,
-        data=json.dumps(body).encode() if body is not None else None,
-    )
-    with urlopen(req, timeout=90) as response:
-        raw = response.read()
-        return json.loads(raw) if raw else {}
+SERVER = AgentServerClient(AGENT, KEY)
 
 
 def gh(method, path, body=None):
-    return request(
+    # This gateway is a GitHub integration, not an Agent Server transport.
+    req = Request(
         CONFIG["broker"],
-        "POST",
-        {"method": method, "path": path, "body": body},
-        CONFIG["token"],
+        method="POST",
+        headers={
+            "Content-Type": "application/json",
+            "Authorization": "Bearer " + CONFIG["token"],
+        },
+        data=json.dumps({"method": method, "path": path, "body": body}).encode(),
     )
+    with urlopen(req, timeout=90) as response:
+        return json.load(response)
 
 
 def shell(args, cwd=PROJECT, timeout=300):
@@ -82,44 +74,25 @@ class AgentStopped(RuntimeError):
 def agent(prompt, result_name=None):
     if result_name:
         prompt += f"\nWrite your machine-readable result to {EVIDENCE / result_name}."
-    request(
-        f"{AGENT}/api/conversations/{CID}/events",
-        "POST",
-        {
-            "content": [{"type": "text", "text": prompt}],
-            "run": True,
-        },
-    )
+    SERVER.send_message(CID, prompt)
     deadline = time.monotonic() + 2400
     continuations = 0
     time.sleep(3)
     while time.monotonic() < deadline:
-        state = request(f"{AGENT}/api/conversations/{CID}")
+        state = SERVER.get_conversation(CID)
         status = state.get("execution_status")
         if status in ("finished", "idle", "awaiting_user_input"):
             if result_name:
                 return json.loads((EVIDENCE / result_name).read_text())
             return state
         if status == "error" and continuations < 2:
-            errors = request(
-                f"{AGENT}/api/conversations/{CID}/events/search"
-                "?kind=ConversationErrorEvent&sort_order=TIMESTAMP_DESC&limit=1"
-            ).get("items", [])
+            errors = SERVER.get_errors(CID, limit=1).get("items", [])
             if errors and errors[0].get("code") == "MaxIterationsReached":
                 continuations += 1
-                request(
-                    f"{AGENT}/api/conversations/{CID}/events",
-                    "POST",
-                    {
-                        "content": [
-                            {
-                                "type": "text",
-                                "text": "The step budget was reached. Continue from the preserved work. "
-                                "Finish the remaining checks and the requested output; do not restart.",
-                            }
-                        ],
-                        "run": True,
-                    },
+                SERVER.send_message(
+                    CID,
+                    "The step budget was reached. Continue from the preserved work. "
+                    "Finish the remaining checks and requested output; do not restart.",
                 )
                 time.sleep(3)
                 continue
@@ -135,8 +108,7 @@ def implement(prompt, issue_number):
     except (AgentStopped, TimeoutError) as exc:
         # Publish preserved progress only after the agent can no longer write.
         # The independent reviewer still gates acceptance of this checkpoint.
-        state_url = f"{AGENT}/api/conversations/{CID}"
-        state = request(state_url)
+        state = SERVER.get_conversation(CID)
         stopped = (
             "error",
             "stuck",
@@ -146,10 +118,10 @@ def implement(prompt, issue_number):
             "awaiting_user_input",
         )
         if state.get("execution_status") not in stopped:
-            request(state_url + "/interrupt", "POST", {})
+            SERVER.interrupt(CID)
             deadline = time.monotonic() + 30
             while time.monotonic() < deadline:
-                state = request(state_url)
+                state = SERVER.get_conversation(CID)
                 if state.get("execution_status") in stopped:
                     break
                 time.sleep(2)
