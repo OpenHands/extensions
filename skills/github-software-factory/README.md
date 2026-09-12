@@ -33,7 +33,11 @@ Canvas installation. Run a single Automation Service process; its Docker admissi
 limit is per service. Set `AUTOMATION_DOCKER_AGENT_PROFILE` to the saved profile UUID
 and `AUTOMATION_DOCKER_MAX_CONCURRENT_RUNS=2`. Start with 2.5 GiB memory, 1.5 CPUs,
 and 256 processes per sandbox, adjusting for host capacity. The image needs git,
-Node 22, Python, and Chromium. The worker profile needs terminal and file editing.
+Node 22, Python, and Chromium. The developer/reviewer profiles need terminal and file editing. Triage needs only
+file editing to produce its structured decision. Give the deterministic watchdog
+a profile with no model key, no MCP servers, and an empty tools list. Map automation
+UUIDs to these profile UUIDs using the host setting
+`AUTOMATION_DOCKER_AGENT_PROFILE_OVERRIDES` (a JSON object).
 
 On the trusted control plane, authenticate `gh` using a credential restricted to
 the target repository (contents, issues, pull requests, and commit statuses; checks
