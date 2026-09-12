@@ -379,8 +379,15 @@ def developer():
         issue["number"],
         "Implementation automation started in an isolated Docker workspace.",
     )
+    revision_context = (
+        "This is a revision of an existing PR. Make focused fixes to the concrete "
+        "review findings, preserve working behavior, and rerun regression checks. "
+        if existing
+        else ""
+    )
     implement(
-        "You are the implementation automation for the target repository. "
+        revision_context
+        + "You are the implementation automation for the target repository. "
         "Work only in /workspace/project. Implement the issue completely, write meaningful API "
         "and browser tests, run them, and document how to start it. You have Node 22, Python, "
         "and Chromium available. Keep dependencies, memory, and subprocesses modest. "
@@ -388,6 +395,9 @@ def developer():
         "or other automation files. Publishing is handled after you finish. Keep runtime data, "
         "node_modules, secrets, and test output out of git via .gitignore. "
         "Your required commands are npm test, npm run build, npm run test:e2e. "
+        "Invoke these commands directly and check their actual exit status. Save "
+        "complete logs before inspecting them; shell pipelines can hide failures. "
+        "Rerun all three after your final source or test edit before finishing. "
         "Use an available system Chromium or Playwright browser; run browser tests with one worker. "
         "Make the app real and usable, and independently verify every acceptance criterion.\n"
         + json.dumps({"issue": issue, "review_feedback": feedback}),
