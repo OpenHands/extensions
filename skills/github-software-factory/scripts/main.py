@@ -73,6 +73,10 @@ def comment(number, text):
     )
 
 
+class AgentStopped(RuntimeError):
+    """The agent stopped without reporting a completed task."""
+
+
 def agent(prompt, result_name=None):
     if result_name:
         prompt += f"\nWrite your machine-readable result to /workspace/evidence/{result_name}."
@@ -118,9 +122,44 @@ def agent(prompt, result_name=None):
                 time.sleep(3)
                 continue
         if status in ("error", "stuck", "paused"):
-            raise RuntimeError(f"Agent stopped with {status}")
+            raise AgentStopped(f"Agent stopped with {status}")
         time.sleep(5)
     raise TimeoutError("Agent exceeded factory step deadline")
+
+
+def implement(prompt, issue_number):
+    try:
+        agent(prompt)
+    except (AgentStopped, TimeoutError) as exc:
+        # Publish preserved progress only after the agent can no longer write.
+        # The independent reviewer still gates acceptance of this checkpoint.
+        state_url = f"{AGENT}/api/conversations/{CID}"
+        state = request(state_url)
+        stopped = (
+            "error",
+            "stuck",
+            "paused",
+            "finished",
+            "idle",
+            "awaiting_user_input",
+        )
+        if state.get("execution_status") not in stopped:
+            request(state_url + "/interrupt", "POST", {})
+            deadline = time.monotonic() + 30
+            while time.monotonic() < deadline:
+                state = request(state_url)
+                if state.get("execution_status") in stopped:
+                    break
+                time.sleep(2)
+            else:
+                raise TimeoutError("Agent did not stop; checkpoint publication refused")
+        (EVIDENCE / "checkpoint.json").write_text(json.dumps({"reason": str(exc)}))
+        comment(
+            issue_number,
+            "Implementation stopped before declaring completion. "
+            "Preserved changes will be submitted as a checkpoint for independent "
+            "review and further development. Reason: " + str(exc),
+        )
 
 
 def open_issues():
@@ -276,7 +315,7 @@ def publish(issue, base, branch, existing, local_base):
                 "title": issue["title"],
                 "head": branch,
                 "base": "main",
-                "body": f"Closes #{issue['number']}\n\nImplemented entirely by the OpenHands software factory.\nImplementation conversation: `{CID}`.\n\nIndependent automated code review, test execution, and acceptance are required before merge.",
+                "body": f"Closes #{issue['number']}\n\nProduced entirely by the OpenHands software factory.\nImplementation conversation: `{CID}`.\n\nIndependent automated code review, test execution, and acceptance are required before merge.",
             },
         )
         comment(
@@ -340,7 +379,7 @@ def developer():
         issue["number"],
         "Implementation automation started in an isolated Docker workspace.",
     )
-    agent(
+    implement(
         "You are the implementation automation for the target repository. "
         "Work only in /workspace/project. Implement the issue completely, write meaningful API "
         "and browser tests, run them, and document how to start it. You have Node 22, Python, "
@@ -352,6 +391,7 @@ def developer():
         "Use an available system Chromium or Playwright browser; run browser tests with one worker. "
         "Make the app real and usable, and independently verify every acceptance criterion.\n"
         + json.dumps({"issue": issue, "review_feedback": feedback}),
+        issue["number"],
     )
     publish(issue, base, branch, existing, local_base)
 

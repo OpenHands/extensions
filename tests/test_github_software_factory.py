@@ -129,3 +129,36 @@ def test_step_budget_continuations_have_a_hard_limit(monkeypatch, worker):
     with pytest.raises(RuntimeError):
         worker.agent("Implement issue")
     assert len(posts) == 3
+
+
+def test_incomplete_work_is_checkpointed_only_after_agent_stops(monkeypatch, worker):
+    def agent(_):
+        raise worker.AgentStopped("Agent stopped with error")
+
+    comments = []
+    monkeypatch.setattr(worker, "agent", agent)
+    monkeypatch.setattr(worker, "request", lambda *args: {"execution_status": "error"})
+    monkeypatch.setattr(worker, "comment", lambda *args: comments.append(args))
+    worker.implement("Implement issue", 42)
+    assert (worker.EVIDENCE / "checkpoint.json").exists()
+    assert comments[0][0] == 42
+    assert "independent review" in comments[0][1]
+
+
+def test_timeout_interrupts_before_checkpoint_publication(monkeypatch, worker):
+    def agent(_):
+        raise TimeoutError("Step deadline")
+
+    calls = []
+    states = iter(["running", "paused"])
+
+    def request(url, method="GET", body=None):
+        calls.append((url, method))
+        return {} if method == "POST" else {"execution_status": next(states)}
+
+    monkeypatch.setattr(worker, "agent", agent)
+    monkeypatch.setattr(worker, "request", request)
+    monkeypatch.setattr(worker, "comment", lambda *args: None)
+    worker.implement("Implement issue", 42)
+    assert any(url.endswith("/interrupt") and method == "POST" for url, method in calls)
+    assert (worker.EVIDENCE / "checkpoint.json").exists()

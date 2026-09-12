@@ -93,7 +93,10 @@ CI workers if that threat model requires stronger credential separation.
 
 An agent that reaches its per-run step limit gets at most two automatic
 continuations within the original wall-clock deadline. Authentication and other
-errors fail without this retry. For operational replay after an older bundle has
+errors fail without this retry. If a developer exhausts the budget or stops early,
+the wrapper first ensures the agent has stopped, then publishes any preserved
+changes as a checkpoint PR. Independent review still gates acceptance, and rejected
+checkpoints return to a fresh development run instead of losing progress. For operational replay after an older bundle has
 already failed, reprovision that conversation's retained Docker runtime and rerun
 the fixed developer bundle with `resume_issue` set to its issue number. It verifies
 the checkpoint repository and reuses the existing checkout and local baseline;
