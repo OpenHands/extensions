@@ -897,3 +897,10 @@ See `references/security.md` — also covers narrowing triggers and sender-level
 - **`references/ab-testing.md`** — A/B testing for plugin automations: defining variants with weights, experiment configuration, variant selection logic, observability via conversation tags, and complete examples. Consult this when a user wants to compare plugin versions or configurations.
 - **`references/security.md`** — Trust boundaries: untrusted content vs. verified sender, least-privilege secrets, trigger scoping, sender authorization, pre-deploy verification. Consult whenever an automation handles external input or forwards secrets to a spawned conversation.
 - **`references/security.md`** — Trust boundaries for automations: untrusted event content vs. verified sender, least-privilege secret scoping for spawned conversations, narrowing triggers, sender-level authorization, and verifying a script actually runs before deploying it. Consult this whenever an automation handles external/untrusted input (GitHub issues/PRs, Slack messages, any public-facing webhook) or forwards secrets to a spawned conversation.
+
+## Repository-scoped GitHub roles
+
+For Docker workflows with separate triage, implementation, review, and merge roles,
+use the optional gateway in `scripts/github_factory_gateway.py`. It retains the
+GitHub credential in the control plane and exposes role-specific operations. Read
+`references/github-factory-gateway.md` for configuration and merge requirements.
