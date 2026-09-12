@@ -2,7 +2,7 @@
 
 Use `scripts/github_factory_gateway.py` on the trusted control plane when Docker
 automations need distinct GitHub grants. The gateway binds to one repository and
-keeps the GitHub credential out of worker environments. Each worker receives a
+keeps role-specific GitHub credentials out of worker environments. Each worker receives a
 separate random token for its role.
 
 | Role | Granted operations |
@@ -18,10 +18,36 @@ one empty `.gitkeep`, giving its first application PR a base.
 
 ## Configuration
 
-Authenticate `gh` on the control plane with a credential restricted to the target
-repository: contents, issues, pull requests, and commit statuses write access; checks
-read access. Write a mode-0600 JSON file with cryptographically random tokens keyed
-`triage`, `developer`, `reviewer`, and `watchdog`. Then run:
+Create four separate fine-grained GitHub tokens restricted to the target repository.
+The gateway requires these environment variables in its trusted host process:
+
+| Variable | Contents | Issues | Pull requests | Commit statuses | Checks |
+| --- | --- | --- | --- | --- | --- |
+| `FACTORY_GITHUB_TRIAGE_TOKEN` | None | Write | None | None | None |
+| `FACTORY_GITHUB_DEVELOPER_TOKEN` | Write | Write | Write | Read | Read |
+| `FACTORY_GITHUB_REVIEWER_TOKEN` | Read | Read | Write | Write | Read |
+| `FACTORY_GITHUB_WATCHDOG_TOKEN` | Write | None | Read | Read | Read |
+
+Metadata read is implicit. All other repository/account permissions should be absent.
+Pull requests write permits the reviewer's issue comments as well as native reviews;
+Issues read lets it read the issue backlog. GitHub's
+[merge endpoint](https://docs.github.com/en/rest/pulls/pulls#merge-a-pull-request)
+requires Contents write, so GitHub cannot express a merge-only token. The gateway
+additionally limits the watchdog to its guarded merge operation. The reviewer's
+Contents read token cannot push even if the gateway's operation filter regresses.
+See the [review](https://docs.github.com/en/rest/pulls/reviews#create-a-review-for-a-pull-request),
+[comment](https://docs.github.com/en/rest/issues/comments#create-an-issue-comment), and
+[status](https://docs.github.com/en/rest/commits/statuses#create-a-commit-status) permissions.
+
+Load the four tokens through the host's secret manager or a private environment file;
+never put values in shell arguments, worker bundles, profile instructions, or logs.
+There is no fallback to `gh auth token` or a shared GitHub token. Missing, empty,
+duplicate, or worker-exposed upstream credentials prevent startup. Tokens must also
+actually have the permissions above: configuration validation cannot inspect a PAT's
+full permission grant. Token issuance remains the operator's responsibility.
+
+Write a mode-0600 JSON file with separate cryptographically random worker grants keyed
+`triage`, `developer`, `reviewer`, and `watchdog`. With the upstream variables loaded, run:
 
 ```sh
 FACTORY_REPOSITORY=owner/repository \
@@ -34,7 +60,7 @@ The default port is 19102. Send POST requests with `Authorization: Bearer ROLE_T
 and JSON `{method, path, body}`. Paths are repository-relative REST paths, with
 additional `/factory/archive`, `/factory/bootstrap`, and `/factory/merge` operations.
 The gateway validates role grants before sending requests to GitHub. Never put the
-control-plane credential or another role's token in worker configuration.
+upstream GitHub credential or another role's grant in worker configuration.
 
 `/factory/archive` takes an exact commit SHA and returns a base64 tarball capped at
 25 MB, supporting private repositories without credential-bearing git remotes.
