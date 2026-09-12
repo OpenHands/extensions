@@ -1,0 +1,18 @@
+{
+  "name": "github-software-factory",
+  "version": "1.0.0",
+  "description": "Isolated issue triage, development, independent review, and guarded automatic merge.",
+  "author": {
+    "name": "OpenHands",
+    "email": "contact@all-hands.dev"
+  },
+  "homepage": "https://github.com/OpenHands/extensions",
+  "repository": "https://github.com/OpenHands/extensions",
+  "license": "MIT",
+  "keywords": [
+    "github",
+    "software-factory",
+    "automation",
+    "docker"
+  ]
+}
