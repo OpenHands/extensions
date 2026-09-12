@@ -11,7 +11,6 @@ import json
 import os
 import re
 import secrets
-import subprocess
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.error import HTTPError
@@ -19,27 +18,44 @@ from urllib.request import Request, urlopen
 
 
 CONTROL = {}
-TOKEN = ""
+TOKENS = {}
+ROLES = ("triage", "developer", "reviewer", "watchdog")
 ROOT = ""
 
 
 def configure():
-    global CONTROL, TOKEN, ROOT
+    global CONTROL, TOKENS, ROOT
     repo = os.environ["FACTORY_REPOSITORY"]
     if not re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", repo):
         raise ValueError("Expected owner/repository")
-    CONTROL = json.loads(Path(os.environ["FACTORY_CONTROL_FILE"]).read_text())
-    TOKEN = subprocess.check_output(["gh", "auth", "token"], text=True).strip()
+    control = json.loads(Path(os.environ["FACTORY_CONTROL_FILE"]).read_text())
+    tokens = {}
+    for role in ROLES:
+        name = f"FACTORY_GITHUB_{role.upper()}_TOKEN"
+        token = os.environ.get(name, "").strip()
+        if not token:
+            raise ValueError(
+                f"Missing {name}; no shared credential fallback is allowed"
+            )
+        tokens[role] = token
+    grants = [control.get(role) for role in ROLES]
+    if any(not isinstance(value, str) or not value.strip() for value in grants):
+        raise ValueError("Every role needs a nonempty worker grant")
+    if len(set(grants)) != len(ROLES) or len(set(tokens.values())) != len(ROLES):
+        raise ValueError("Each role must use a distinct worker and GitHub credential")
+    if set(grants) & set(tokens.values()):
+        raise ValueError("GitHub credentials must not be exposed as worker grants")
+    CONTROL, TOKENS = control, tokens
     ROOT = f"https://api.github.com/repos/{repo}"
 
 
-def github(method, path, body=None):
+def github(role, method, path, body=None):
     request = Request(
         ROOT + path,
         data=json.dumps(body).encode() if body is not None else None,
         method=method,
         headers={
-            "Authorization": "Bearer " + TOKEN,
+            "Authorization": "Bearer " + TOKENS[role],
             "Accept": "application/vnd.github+json",
             "Content-Type": "application/json",
         },
@@ -49,11 +65,11 @@ def github(method, path, body=None):
         return json.loads(data) if data else {}
 
 
-def archive(sha):
+def archive(role, sha):
     if not re.fullmatch(r"[0-9a-f]{40}", sha):
         raise ValueError("Archive requires an exact commit SHA")
     req = Request(
-        ROOT + "/tarball/" + sha, headers={"Authorization": "Bearer " + TOKEN}
+        ROOT + "/tarball/" + sha, headers={"Authorization": "Bearer " + TOKENS[role]}
     )
     with urlopen(req, timeout=90) as response:
         content = response.read(25_000_001)
@@ -62,11 +78,17 @@ def archive(sha):
     return {"sha": sha, "tarball": base64.b64encode(content).decode()}
 
 
-def latest_statuses(sha):
+def latest_statuses(role, sha):
     result = {}
-    for status in github("GET", f"/commits/{sha}/statuses?per_page=100"):
-        result.setdefault(status["context"], status)
-    return result
+    for page in range(1, 11):
+        statuses = github(
+            role, "GET", f"/commits/{sha}/statuses?per_page=100&page={page}"
+        )
+        for status in statuses:
+            result.setdefault(status["context"], status)
+        if len(statuses) < 100:
+            return result
+    raise ValueError("Commit status pagination exceeds the safe scan limit")
 
 
 def permitted(role, method, path, body):
@@ -115,7 +137,7 @@ def permitted(role, method, path, body):
         if method == "PATCH" and re.fullmatch(
             r"/git/refs/heads/factory/issue-\d+", route
         ):
-            return body.get("force") is not True and set(body) <= {"sha", "force"}
+            return body.get("force", False) is False and set(body) <= {"sha", "force"}
         if method == "POST" and route == "/pulls":
             return body.get("base") == "main" and bool(
                 re.fullmatch(r"factory/issue-\d+", body.get("head", ""))
@@ -134,13 +156,14 @@ def permitted(role, method, path, body):
 def merge(number, sha):
     if number < 1 or not re.fullmatch(r"[0-9a-f]{40}", sha):
         raise ValueError("Merge requires a PR number and exact commit SHA")
-    pr = github("GET", f"/pulls/{number}")
-    statuses = latest_statuses(sha)
+    role = "watchdog"
+    pr = github(role, "GET", f"/pulls/{number}")
+    statuses = latest_statuses(role, sha)
     contexts = ("software-factory/tests", "software-factory/review")
-    check_page = github("GET", f"/commits/{sha}/check-runs?per_page=100")
+    check_page = github(role, "GET", f"/commits/{sha}/check-runs?per_page=100")
     checks = check_page["check_runs"]
     # Refuse a stale base and incomplete pagination rather than overlooking CI.
-    comparison = github("GET", f"/compare/{pr['base']['sha']}...{sha}")
+    comparison = github(role, "GET", f"/compare/{pr['base']['sha']}...{sha}")
     eligible = (
         pr["state"] == "open"
         and not pr["draft"]
@@ -157,7 +180,7 @@ def merge(number, sha):
     if not eligible:
         raise ValueError("Current head lacks passing acceptance or current base")
     return github(
-        "PUT", f"/pulls/{number}/merge", {"sha": sha, "merge_method": "squash"}
+        role, "PUT", f"/pulls/{number}/merge", {"sha": sha, "merge_method": "squash"}
     )
 
 
@@ -168,11 +191,7 @@ class Handler(BaseHTTPRequestHandler):
     def do_POST(self):
         supplied = self.headers.get("Authorization", "").removeprefix("Bearer ")
         role = next(
-            (
-                r
-                for r in ("triage", "developer", "reviewer", "watchdog")
-                if secrets.compare_digest(supplied, CONTROL[r])
-            ),
+            (r for r in ROLES if secrets.compare_digest(supplied, CONTROL[r])),
             None,
         )
         if role is None:
@@ -186,10 +205,10 @@ class Handler(BaseHTTPRequestHandler):
             if "%" in path or ".." in path or "#" in path or "\\" in path:
                 return self.reply(403, {"error": "Invalid path"})
             if path == "/factory/archive" and role in ("developer", "reviewer"):
-                return self.reply(200, archive(body["sha"]))
+                return self.reply(200, archive(role, body["sha"]))
             if path == "/factory/bootstrap" and role == "developer":
                 try:
-                    return self.reply(200, github("GET", "/git/ref/heads/main"))
+                    return self.reply(200, github(role, "GET", "/git/ref/heads/main"))
                 except HTTPError as exc:
                     if exc.code not in (404, 409):
                         raise
@@ -198,6 +217,7 @@ class Handler(BaseHTTPRequestHandler):
                 return self.reply(
                     200,
                     github(
+                        role,
                         "PUT",
                         "/contents/.gitkeep",
                         {
@@ -215,7 +235,7 @@ class Handler(BaseHTTPRequestHandler):
                 return self.reply(200, result)
             if not permitted(role, method, path, body or {}):
                 return self.reply(403, {"error": "Operation outside role grant"})
-            result = github(method, path, body)
+            result = github(role, method, path, body)
             if method != "GET":
                 print(
                     json.dumps(
