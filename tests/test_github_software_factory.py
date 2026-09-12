@@ -199,3 +199,31 @@ def test_pagination_preserves_existing_query(monkeypatch, worker):
     monkeypatch.setattr(worker, "gh", lambda method, path: calls.append(path) or [])
     assert worker.gh_pages("/pulls?state=open") == []
     assert calls == ["/pulls?state=open&per_page=100&page=1"]
+
+
+@pytest.mark.parametrize(
+    "name", ["/outside/credential", "../credential", "linked/credential"]
+)
+def test_publish_rejects_paths_outside_project(monkeypatch, worker, name):
+    worker.PROJECT.mkdir()
+    (worker.WORKSPACE / "credential").write_text("private-canary")
+    (worker.PROJECT / "linked").symlink_to(worker.WORKSPACE, target_is_directory=True)
+    monkeypatch.setattr(worker, "shell", lambda args: name if "diff" in args else "")
+    calls = []
+    monkeypatch.setattr(worker, "gh", lambda *args: calls.append(args))
+    with pytest.raises(RuntimeError, match="outside the project"):
+        worker.publish({"number": 1}, "base", "branch", None, "local-base")
+    assert not calls
+
+
+def test_developer_skips_closed_source_issue(monkeypatch, worker):
+    monkeypatch.setattr(worker, "open_issues", lambda: [])
+    monkeypatch.setattr(
+        worker, "statuses", lambda sha: {"software-factory/review": "failure"}
+    )
+    monkeypatch.setattr(
+        worker,
+        "gh",
+        lambda *args: [{"number": 7, "head": {"sha": "a" * 40}, "body": "Closes #1"}],
+    )
+    worker.developer()

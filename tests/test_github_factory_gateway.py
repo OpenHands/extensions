@@ -315,3 +315,32 @@ def test_incomplete_status_pagination_rejects_merge(broker, monkeypatch):
     )
     with pytest.raises(ValueError, match="pagination"):
         broker.latest_statuses("watchdog", "a" * 40)
+
+
+def test_network_failure_returns_structured_gateway_error(
+    broker, monkeypatch, tmp_path
+):
+    import io
+    import json
+    from urllib.error import URLError
+
+    grants = configure_fixture(broker, monkeypatch, tmp_path)
+    broker.configure()
+    payload = json.dumps({"method": "GET", "path": "/pulls"}).encode()
+    handler = object.__new__(broker.Handler)
+    handler.headers = {
+        "Authorization": "Bearer " + grants["reviewer"],
+        "Content-Length": str(len(payload)),
+    }
+    handler.rfile = io.BytesIO(payload)
+    replies = []
+    handler.reply = lambda status, body: replies.append((status, body))
+
+    def unavailable(*args):
+        raise URLError("private diagnostic")
+
+    monkeypatch.setattr(broker, "github", unavailable)
+    handler.do_POST()
+    assert replies == [
+        (502, {"error": "GitHub upstream request failed; outcome may be unknown"})
+    ]
