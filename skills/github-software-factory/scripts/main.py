@@ -260,6 +260,10 @@ def publish(issue, base, branch, existing, local_base):
     tree = []
     for name in filter(None, changed.split("\0")):
         path = PROJECT / name
+        if Path(name).is_absolute() or not path.resolve().is_relative_to(
+            PROJECT.resolve()
+        ):
+            raise RuntimeError("Refusing to publish a path outside the project")
         if path.is_symlink() or not path.exists():
             if not path.exists():
                 tree.append(
@@ -343,7 +347,18 @@ def developer():
         match = re.search(r"Closes #(\d+)", existing["body"] or "")
         if not match:
             raise RuntimeError("PR is missing its source issue")
-        issue = next(i for i in issues if i["number"] == int(match[1]))
+        issue = next((i for i in issues if i["number"] == int(match[1])), None)
+        if issue is None:
+            print(
+                json.dumps(
+                    {
+                        "pr": existing["number"],
+                        "skipped": "Source issue is no longer open",
+                    }
+                ),
+                flush=True,
+            )
+            return
     else:
         ready = [
             i
