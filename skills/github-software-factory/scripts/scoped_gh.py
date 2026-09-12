@@ -8,12 +8,38 @@ the gateway. Credentials are never sent to a caller-selected URL.
 
 import argparse
 import json
+import os
+import re
 import subprocess
 import sys
 from pathlib import Path
 from urllib.error import HTTPError
 from urllib.parse import parse_qsl, urlencode, urlsplit
 from urllib.request import Request, urlopen
+
+
+def gateway_token(config, config_path):
+    name = config.get("token_env", "")
+    if not re.fullmatch(r"[A-Z_][A-Z0-9_]*", name):
+        raise ValueError("Gateway configuration requires a token_env secret reference")
+    token = os.environ.get(name)
+    path = Path(config_path).parent / ".factory-gateway-token"
+    if token:
+        # Materialize the one profile-selected grant for later agent tool calls.
+        # The artifact stays in this run's workspace, never in an uploaded bundle.
+        descriptor = os.open(
+            path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC | os.O_NOFOLLOW, 0o600
+        )
+        with os.fdopen(descriptor, "w") as output:
+            os.fchmod(output.fileno(), 0o600)
+            output.write(token)
+        return token
+    if path.is_symlink():
+        raise ValueError("Gateway credential must not be a symlink")
+    token = path.read_text().strip() if path.is_file() else ""
+    if not token:
+        raise ValueError("Selected gateway credential was not supplied by the profile")
+    return token
 
 
 def repository_path(endpoint, repository):
@@ -65,7 +91,7 @@ def main(argv=None, config_path=None):
             data=json.dumps({"method": method, "path": current, "body": body}).encode(),
             headers={
                 "Content-Type": "application/json",
-                "Authorization": "Bearer " + config["token"],
+                "Authorization": "Bearer " + gateway_token(config, config_path),
             },
         )
         with urlopen(request, timeout=90) as response:

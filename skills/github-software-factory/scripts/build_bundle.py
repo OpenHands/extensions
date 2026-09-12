@@ -21,7 +21,10 @@ def build(config_path, output):
             "scoped_gh.py",
         )
     }
-    files["config.json"] = Path(config_path).read_bytes()
+    config = json.loads(Path(config_path).read_text())
+    if "token" in config or not config.get("token_env"):
+        raise ValueError("Bundle config must reference a profile secret via token_env")
+    files["config.json"] = json.dumps(config).encode()
     provenance = {}
     for name in SOURCES:
         content = (root / name).read_bytes()

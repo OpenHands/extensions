@@ -112,3 +112,44 @@ def test_transport_keeps_repository_relative_path():
         )
         == "/pulls/7/files?per_page=100"
     )
+
+
+def test_gateway_grant_is_materialized_only_from_selected_environment(
+    tmp_path, monkeypatch
+):
+    script = load("scoped_gh")
+    config = {"token_env": "FACTORY_REVIEWER_GRANT"}
+    path = tmp_path / "config.json"
+    path.write_text('{"token_env":"FACTORY_REVIEWER_GRANT"}')
+    monkeypatch.setenv("FACTORY_REVIEWER_GRANT", "reviewer-fixture-grant")
+    monkeypatch.setenv("FACTORY_DEVELOPER_GRANT", "developer-fixture-grant")
+    assert script.gateway_token(config, path) == "reviewer-fixture-grant"
+    saved = tmp_path / ".factory-gateway-token"
+    assert saved.stat().st_mode & 0o777 == 0o600
+    monkeypatch.delenv("FACTORY_REVIEWER_GRANT")
+    assert script.gateway_token(config, path) == "reviewer-fixture-grant"
+    assert "developer-fixture-grant" not in saved.read_text()
+    assert "fixture-grant" not in path.read_text()
+
+
+def test_missing_profile_grant_cannot_fall_back_to_another_secret(
+    tmp_path, monkeypatch
+):
+    script = load("scoped_gh")
+    monkeypatch.delenv("FACTORY_REVIEWER_GRANT", raising=False)
+    monkeypatch.setenv("GITHUB_TOKEN", "broad-token")
+    with pytest.raises(ValueError, match="not supplied"):
+        script.gateway_token(
+            {"token_env": "FACTORY_REVIEWER_GRANT"}, tmp_path / "config.json"
+        )
+
+
+def test_bundler_rejects_embedded_credentials(tmp_path, monkeypatch):
+    import json
+
+    scripts = ROOT / "skills/github-software-factory/scripts"
+    monkeypatch.syspath_prepend(str(scripts))
+    config = tmp_path / "config.json"
+    config.write_text(json.dumps({"token": "inline-credential"}))
+    with pytest.raises(ValueError, match="profile secret"):
+        load("build_bundle").build(config, tmp_path / "bundle.tar.gz")

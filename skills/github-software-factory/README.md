@@ -132,3 +132,22 @@ Runtime control uses the public `openhands.sdk.client.AgentServerClient` from
 Use an SDK build containing that change until its release is available. The
 bundle owns workflow policy; the SDK owns Agent Server routes, authentication,
 and runtime scope. The same bundle executes in local and Docker workspaces.
+
+### Profile-selected gateway grants
+
+Bundle configuration contains `token_env`, the name of one saved profile secret,
+instead of a credential value. For example, the reviewer profile selects only
+`FACTORY_REVIEWER_GRANT`; its entrypoint is
+`env FACTORY_REVIEWER_GRANT="$FACTORY_REVIEWER_GRANT" python3 main.py`.
+The SDK scoped shell service injects the named secret from that conversation's
+registry. This requires the profile/shell delivery integration in SDK issue #5014.
+The entrypoint and bundle are identical in local and Docker workspaces.
+
+At first use, the gateway adapter materializes that one grant into a mode-0600
+`.factory-gateway-token` file in the run workspace so subsequent canonical agent
+tool calls can use it. The uploaded bundle contains only the name; missing grants
+fail instead of falling back to `GITHUB_TOKEN`. Repository code running in the
+same sandbox can access its role's grant, whose operations remain gateway-limited.
+The trusted gateway separately uses the role-specific upstream GitHub credential
+configured in the gateway reference. Do not place upstream GitHub tokens in
+profiles or worker bundles.

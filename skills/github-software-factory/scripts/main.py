@@ -15,6 +15,7 @@ from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
 from openhands.sdk.client import AgentServerClient
+from scoped_gh import gateway_token
 
 
 CONFIG = json.loads(Path("config.json").read_text())
@@ -37,7 +38,7 @@ def gh(method, path, body=None):
         method="POST",
         headers={
             "Content-Type": "application/json",
-            "Authorization": "Bearer " + CONFIG["token"],
+            "Authorization": "Bearer " + gateway_token(CONFIG, Path("config.json")),
         },
         data=json.dumps({"method": method, "path": path, "body": body}).encode(),
     )

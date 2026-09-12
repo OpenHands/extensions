@@ -12,6 +12,7 @@ SCRIPT = Path(__file__).parents[1] / "skills/github-software-factory/scripts/mai
 def worker(monkeypatch, tmp_path):
     import json
 
+    monkeypatch.syspath_prepend(str(SCRIPT.parent))
     monkeypatch.chdir(tmp_path)
     monkeypatch.setenv("WORKSPACE_BASE", str(tmp_path))
     monkeypatch.setenv("AUTOMATION_CONVERSATION_ID", "test-conversation")
