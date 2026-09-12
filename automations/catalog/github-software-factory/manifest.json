@@ -1,0 +1,38 @@
+{
+  "id": "github-software-factory",
+  "name": "GitHub software factory",
+  "category": "Software development",
+  "description": "Turn issues into independently tested and reviewed changes using isolated Docker roles and guarded automatic merge.",
+  "requires": {
+    "integrations": {
+      "github": {
+        "message": "Reads issues and code, publishes implementation branches and reviews, and merges accepted pull requests."
+      }
+    }
+  },
+  "popularityRank": 70,
+  "estimatedSetupMinutes": 15,
+  "exampleImplementation": "Four scheduled Docker bundles perform triage, implementation, independent acceptance review, and guarded merge. A repository gateway gives each role only its required GitHub operations. Review failures return to development; passing exact-commit evidence lets the watchdog merge.",
+  "setup": {
+    "version": "1.0",
+    "mode": "assisted",
+    "message": "Set up a Docker-isolated GitHub software factory. Establish the target repository, acceptance scope, and automatic merge authorization; configure four role grants and scheduled bundles using the github-software-factory skill. Target repository: {{form.repository}}. Acceptance scope: {{form.scope}}.",
+    "form": {
+      "args": {
+        "repository": {
+          "type": "repo-picker",
+          "provider": "github",
+          "label": "Repository",
+          "help": "The repository whose issues will be developed and reviewed.",
+          "required": true
+        },
+        "scope": {
+          "type": "textarea",
+          "label": "Acceptance scope",
+          "help": "The observable outcome the factory should deliver.",
+          "required": true
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,86 @@
+# Docker software factory
+
+Four automations turn ready GitHub issues into independently tested and reviewed
+pull requests. A deterministic watchdog can merge accepted changes. Each scheduled
+run gets its own Docker conversation, workspace, and session credential. Conversation
+history and acceptance reports survive runtime release.
+
+| Role | GitHub operations |
+| --- | --- |
+| Triage | Read backlog, comment, create readiness labels, update issue labels/body |
+| Developer | Read repository, comment, publish `factory/issue-N` branches, open PRs against `main` |
+| Reviewer | Read repository, comment on the exact commit, write the two factory status contexts |
+| Watchdog | Read repository and request a guarded merge |
+
+The gateway holds the GitHub credential; bundles hold separate random role tokens.
+No role can write arbitrary branches, force push, delete the repository, administer
+settings, or directly invoke GitHub's merge endpoint. An empty repository is
+initialized by the developer wrapper with one empty `.gitkeep`, giving the first
+application PR a base. GitHub disallows self-approval when roles share an installation
+identity, so independent review is a COMMENT review plus explicit acceptance status.
+
+The guarded merge checks the current PR head, current base ancestry, mergeability,
+two passing factory statuses, and other commit/check-run results. A changed head,
+stale base, missing evidence, pending check, or failure prevents merging. All merge
+requests include the reviewed SHA to prevent a head-update race.
+
+## Deploy
+
+Use Agent Server Docker runtime with selected-credential handoff and runtime release
+(SDK PRs #3403, #4998, #5005, #5008) and Automation Service Docker dispatch support
+(automation issue #448). Keep these development versions isolated from an existing
+Canvas installation. Run a single Automation Service process; its Docker admission
+limit is per service. Set `AUTOMATION_DOCKER_AGENT_PROFILE` to the saved profile UUID
+and `AUTOMATION_DOCKER_MAX_CONCURRENT_RUNS=2`. Start with 2.5 GiB memory, 1.5 CPUs,
+and 256 processes per sandbox, adjusting for host capacity. The image needs git,
+Node 22, Python, and Chromium. The worker profile needs terminal and file editing.
+
+On the trusted control plane, authenticate `gh` using a credential restricted to
+the target repository (contents, issues, pull requests, and commit statuses; checks
+read access). Write a private mode-0600 JSON file with four cryptographically random
+tokens keyed `triage`, `developer`, `reviewer`, and `watchdog`. Start:
+
+```sh
+FACTORY_REPOSITORY=owner/repository \
+FACTORY_CONTROL_FILE=/private/factory-role-tokens.json \
+FACTORY_BIND=172.17.0.1 python3 scripts/broker.py
+```
+
+The bind address must be reachable from the Docker network and restricted to that
+network. Default port is 19102. For each role, build a gzip tarball with `main.py`
+and `config.json`:
+
+```json
+{
+  "role": "triage",
+  "repository": "owner/repository",
+  "broker": "http://172.17.0.1:19102",
+  "token": "the-token-for-this-role"
+}
+```
+
+Upload using `POST /api/automation/v1/uploads`, then create a raw automation with
+`POST /api/automation/v1`, the returned `tarball_path`, entrypoint `python3 main.py`,
+`keep_alive: false`, and a cron trigger. Two-minute polls are useful while validating;
+use a longer interval for a quiet repository. Allow 3000 seconds for development and
+review and 600 seconds for triage/watchdog. Do not put control-plane credentials in
+bundle configuration. The backend supplies the selected runtime's session key.
+
+Inspect run history and issue/PR comments to follow progress. Acceptance reports
+include the exact commit, review criteria, and independent npm command output.
+Reports also live under the conversation workspace's `evidence` directory. The
+reviewer rejects modifications to tracked files during review.
+
+## Limits
+
+Private and public repositories use exact-commit archives through the scoped gateway;
+workers receive neither a GitHub token nor a credential-bearing git remote. Archives
+are limited to 25 MB and extracted with Python's data filter.
+
+This recipe currently serializes work to one open PR per repository, reads up to
+100 open issues/PRs, publishes files up to 4 MB, and rejects symlinks. It uses a `main` branch and npm test contracts. Arbitrary build systems, and multiple concurrent implementation branches need
+additional adapters. A PR with a stale base is blocked, requiring a development
+follow-up before merge. Issue and repository content is untrusted input; role grants
+limit damage if an agent follows injected instructions, but code executed by a role
+shares that role's sandbox and can access its role token. Deploy separate untrusted
+CI workers if that threat model requires stronger credential separation.

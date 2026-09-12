@@ -270,6 +270,15 @@ export const SKILLS_CATALOG = [
     "category": "automations"
   },
   {
+    "name": "github-software-factory",
+    "description": "Set up a Docker-isolated GitHub software factory with issue triage, implementation, independent acceptance review, and a watchdog that merges passing pull requests. Use for a repository whose changes should flow from issues through automated development, testing, review, and acceptance.",
+    "triggers": [
+      "/software-factory:setup"
+    ],
+    "content": "# GitHub software factory\n\nUse four scheduled bundles from `scripts/main.py`, with separate role credentials.\nThe repository gateway in `scripts/broker.py` retains the GitHub credential in the\ntrusted control plane. Workers receive only their role grant. This initial recipe\nsupports repositories on `main`, with Node 22 applications and the commands\n`npm test`, `npm run build`, and `npm run test:e2e`.\n\n## Setup\n\nEstablish the target repository, acceptance scope, and whether automatic merging\nis authorized. Reuse authorization already present in the conversation. Read\n`README.md` for deployment configuration and the role permission matrix.\n\nUse an isolated Agent Server with Docker conversation runtime, a saved agent\nprofile containing only the selected model and tools, and explicit container CPU,\nmemory, and process limits. The Automation Service must support Docker bundle\ndispatch, selected runtime credentials, and runtime release with retained history.\nDo not substitute a shared host workspace for these boundaries.\n\nRun the gateway with a repository-scoped GitHub credential and four random role\ntokens. Create four tarballs, each containing the unchanged `scripts/main.py` and a\n`config.json` selecting one role. Upload and schedule them through the Automation\nService. The LLM is invoked only when an issue needs triage, implementation, or\nreview; empty polls and merge checks are deterministic.\n\nOpen an issue defining observable behavior. Let triage add acceptance criteria and\nthe `ready-for-dev` label. Follow the implementation conversation, submitted PR,\nindependent review report, exact-commit statuses, and watchdog merge. Failed review\nroutes back to the developer on the next sweep. A passing review must include real\nexecution evidence; never post success on behalf of a failed automation.\n\nWatch available host memory and active sandboxes. Stop scheduling and recovery\nbefore stopping this factory's containers if resource limits threaten the host.\nRetain conversation history and reports for diagnosis. Follow-up work starts with\nanother issue, not a manual patch to the target application.",
+    "category": "automations"
+  },
+  {
     "name": "gitlab",
     "description": "Interact with GitLab repositories, merge requests, and APIs using the GITLAB_TOKEN environment variable. Use when working with code hosted on GitLab or managing GitLab resources.",
     "triggers": [

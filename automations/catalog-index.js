@@ -21,6 +21,7 @@ import entry15 from "./catalog/github-agents-md-maintainer/manifest.json" with {
 import entry16 from "./catalog/upstream-fork-sync/manifest.json" with { type: "json" };
 import entry17 from "./catalog/incident-retrospective-drafter/manifest.json" with { type: "json" };
 import entry18 from "./catalog/news-digest/manifest.json" with { type: "json" };
+import entry19 from "./catalog/github-software-factory/manifest.json" with { type: "json" };
 
 export const AUTOMATION_CATALOG_ENTRIES = [
   entry0,
@@ -42,4 +43,5 @@ export const AUTOMATION_CATALOG_ENTRIES = [
   entry16,
   entry17,
   entry18,
+  entry19,
 ];
