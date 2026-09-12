@@ -1,5 +1,6 @@
 """One scheduled software-factory role, executed in an isolated runtime."""
 
+import argparse
 import base64
 import io
 import importlib.util
@@ -579,6 +580,13 @@ def watchdog():
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--token-env",
+        choices=[CONFIG["token_env"]],
+        help="Name the selected profile secret for SDK command environment injection",
+    )
+    parser.parse_args()
     {
         "triage": triage,
         "developer": developer,

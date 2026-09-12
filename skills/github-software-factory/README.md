@@ -160,3 +160,8 @@ tests and the bundle together. The issue-to-PR builder supports coordinator-owne
 publication so factory prompts do not contain direct push/PR-creation commands.
 The dispatcher sets WORKSPACE_BASE to the unpack directory in both runtime modes;
 config.json and the gh adapter's parent directory therefore share that root.
+
+Use `python3 main.py --token-env FACTORY_ROLE_GRANT` as the entrypoint, with the
+actual name from `config.json` substituted. Naming the secret lets the SDK inject
+it from the selected profile without shell expansion; the CLI rejects a name that
+does not match the bundle. The same command works in local and Docker workspaces.
