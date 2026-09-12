@@ -21,10 +21,12 @@ CONTROL = {}
 TOKENS = {}
 ROLES = ("triage", "developer", "reviewer", "watchdog")
 ROOT = ""
+CI_BACKEND = "checks"
+REQUIRED_WORKFLOWS = set()
 
 
 def configure():
-    global CONTROL, TOKENS, ROOT
+    global CONTROL, TOKENS, ROOT, CI_BACKEND, REQUIRED_WORKFLOWS
     repo = os.environ["FACTORY_REPOSITORY"]
     if not re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", repo):
         raise ValueError("Expected owner/repository")
@@ -55,14 +57,25 @@ def configure():
         raise ValueError("Every role needs a nonempty worker grant")
     if len(set(grants)) != len(ROLES):
         raise ValueError("Each role must use a distinct worker grant")
-    expected_tokens = (
-        3 if watchdog_token_env == "FACTORY_GITHUB_DEVELOPER_TOKEN" else 4
-    )
+    expected_tokens = 3 if watchdog_token_env == "FACTORY_GITHUB_DEVELOPER_TOKEN" else 4
     if len(set(tokens.values())) != expected_tokens:
-        raise ValueError("Only explicit developer/watchdog credential sharing is allowed")
+        raise ValueError(
+            "Only explicit developer/watchdog credential sharing is allowed"
+        )
     if set(grants) & set(tokens.values()):
         raise ValueError("GitHub credentials must not be exposed as worker grants")
+    ci_backend = os.environ.get("FACTORY_CI_BACKEND", "checks")
+    if ci_backend not in {"checks", "actions"}:
+        raise ValueError("FACTORY_CI_BACKEND must be checks or actions")
+    required = json.loads(os.environ.get("FACTORY_REQUIRED_WORKFLOWS", "[]"))
+    if not isinstance(required, list) or any(
+        type(value) is not int or value < 1 for value in required
+    ):
+        raise ValueError(
+            "FACTORY_REQUIRED_WORKFLOWS must contain positive workflow IDs"
+        )
     CONTROL, TOKENS = control, tokens
+    CI_BACKEND, REQUIRED_WORKFLOWS = ci_backend, set(required)
     ROOT = f"https://api.github.com/repos/{repo}"
 
 
@@ -108,6 +121,36 @@ def latest_statuses(role, sha):
     raise ValueError("Commit status pagination exceeds the safe scan limit")
 
 
+def ci_passed(role, sha):
+    """Verify the explicitly configured CI source; never infer success from 403."""
+    if CI_BACKEND == "checks":
+        result = github(role, "GET", f"/commits/{sha}/check-runs?per_page=100")
+        checks = result["check_runs"]
+        return result.get("total_count", len(checks)) == len(checks) and all(
+            c["conclusion"] in ("success", "neutral", "skipped") for c in checks
+        )
+    runs = {}
+    for page in range(1, 11):
+        result = github(
+            role, "GET", f"/actions/runs?head_sha={sha}&per_page=100&page={page}"
+        )
+        for run in result["workflow_runs"]:
+            if run["head_sha"] != sha:
+                return False
+            runs[run["id"]] = run
+        if len(result["workflow_runs"]) < 100:
+            if result["total_count"] != len(runs):
+                return False
+            return REQUIRED_WORKFLOWS <= {
+                r["workflow_id"] for r in runs.values()
+            } and all(
+                r["status"] == "completed" and r["conclusion"] == "success"
+                for r in runs.values()
+            )
+    # GitHub caps filtered Actions searches at 1,000; refuse an incomplete scan.
+    return False
+
+
 def permitted(role, method, path, body):
     route = path.split("?", 1)[0]
     if method == "GET":
@@ -121,6 +164,8 @@ def permitted(role, method, path, body):
             re.fullmatch(r"/pulls(?:/\d+(?:/reviews|/comments)?)?", route)
             or re.fullmatch(r"/commits/[0-9a-f]{40}/(?:statuses|check-runs)", route)
         ):
+            return True
+        if role in ("developer", "reviewer", "watchdog") and route == "/actions/runs":
             return True
         if role in ("developer", "reviewer") and re.fullmatch(
             r"/git/ref/heads/(?:main|factory/issue-\d+)", route
@@ -173,8 +218,7 @@ def merge(number, sha):
     pr = github(role, "GET", f"/pulls/{number}")
     statuses = latest_statuses(role, sha)
     contexts = ("software-factory/tests", "software-factory/review")
-    check_page = github(role, "GET", f"/commits/{sha}/check-runs?per_page=100")
-    checks = check_page["check_runs"]
+    ci_ok = ci_passed(role, sha)
     # Refuse a stale base and incomplete pagination rather than overlooking CI.
     comparison = github(role, "GET", f"/compare/{pr['base']['sha']}...{sha}")
     eligible = (
@@ -187,8 +231,7 @@ def merge(number, sha):
         and comparison["status"] in ("ahead", "identical")
         and all(statuses.get(c, {}).get("state") == "success" for c in contexts)
         and all(s["state"] == "success" for s in statuses.values())
-        and check_page.get("total_count", len(checks)) == len(checks)
-        and all(c["conclusion"] in ("success", "neutral", "skipped") for c in checks)
+        and ci_ok
     )
     if not eligible:
         raise ValueError("Current head lacks passing acceptance or current base")

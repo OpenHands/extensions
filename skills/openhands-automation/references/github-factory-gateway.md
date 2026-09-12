@@ -16,12 +16,35 @@ No role can directly update main, force push, delete or administer the repositor
 or invoke an unguarded merge. The developer can initialize an empty repository with
 one empty `.gitkeep`, giving its first application PR a base.
 
+## CI evidence with fine-grained PATs
+
+The factory requires its independent `software-factory/tests` and
+`software-factory/review` commit statuses on the exact head. These use Commit
+statuses permissions and do not require the Checks API.
+
+`FACTORY_CI_BACKEND=actions` additionally reads workflow runs for that exact head
+using Actions read. All returned runs must be completed and successful; pending,
+failed, cancelled, skipped, wrong-head, and incompletely paginated results block
+merging. Configure `FACTORY_REQUIRED_WORKFLOWS` as a JSON array of positive workflow
+IDs to also reject missing expected workflows. An empty list permits repositories
+whose testing is performed entirely by the independent factory reviewer. A failed
+workflow can be rerun using GitHub; its latest attempt must succeed.
+
+This mode covers GitHub Actions and commit-status publishers. A third-party
+integration that only publishes Checks must also publish a commit status to be
+part of this gate. Do not deploy Actions mode claiming coverage of Checks-only
+integrations. The legacy `checks` backend remains the default for compatible
+credentials; the gateway never turns a 403 into success or silently changes backend.
+GitHub documents the [fine-grained PAT Checks limitation](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens#fine-grained-personal-access-tokens)
+and [Actions read permission](https://docs.github.com/en/rest/actions/workflow-runs#list-workflow-runs-for-a-repository).
+
 ## Configuration
 
 By default, create four separate fine-grained GitHub tokens restricted to the target repository.
-The gateway requires these environment variables in its trusted host process:
+For fine-grained PATs, set `FACTORY_CI_BACKEND=actions`. The gateway requires these
+environment variables in its trusted host process:
 
-| Variable | Contents | Issues | Pull requests | Commit statuses | Checks |
+| Variable | Contents | Issues | Pull requests | Commit statuses | Actions |
 | --- | --- | --- | --- | --- | --- |
 | `FACTORY_GITHUB_TRIAGE_TOKEN` | None | Write | None | None | None |
 | `FACTORY_GITHUB_DEVELOPER_TOKEN` | Write | Write | Write | Read | Read |
@@ -60,6 +83,7 @@ Write a mode-0600 JSON file with separate cryptographically random worker grants
 
 ```sh
 FACTORY_REPOSITORY=owner/repository \
+FACTORY_CI_BACKEND=actions \
 FACTORY_CONTROL_FILE=/private/factory-role-tokens.json \
 FACTORY_BIND=172.17.0.1 python3 scripts/github_factory_gateway.py
 ```
