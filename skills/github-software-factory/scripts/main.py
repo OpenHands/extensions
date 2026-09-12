@@ -334,10 +334,9 @@ def developer():
     if prs:
         for pr in prs:
             state = statuses(pr["head"]["sha"])
-            if any(
-                state.get(c) in ("failure", "error")
-                for c in ("software-factory/tests", "software-factory/review")
-            ):
+            # Wait for the independent review to publish its findings before
+            # revising, even if the earlier deterministic test phase failed.
+            if state.get("software-factory/review") in ("failure", "error"):
                 existing = pr
                 break
         if existing is None:
@@ -537,14 +536,22 @@ def reviewer():
                 indent=2,
             )
         )
-        status(
-            sha,
-            "review",
-            accepted,
-            "Code review and functional QA accepted"
-            if accepted
-            else "Code review or functional QA incomplete or needs changes",
+        # A transport/model failure with no complete report is retryable review
+        # work, not an instruction for the developer to change application code.
+        complete = (
+            reports.get("review", {}).get("passed") is False
+            or ("review" in reports and not tests_pass)
+            or "qa" in reports
         )
+        if complete:
+            status(
+                sha,
+                "review",
+                accepted,
+                "Code review and functional QA accepted"
+                if accepted
+                else "Code review or functional QA incomplete or needs changes",
+            )
 
 
 def watchdog():

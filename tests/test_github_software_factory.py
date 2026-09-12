@@ -162,3 +162,13 @@ def test_timeout_interrupts_before_checkpoint_publication(monkeypatch, worker):
     worker.implement("Implement issue", 42)
     assert any(url.endswith("/interrupt") and method == "POST" for url, method in calls)
     assert (worker.EVIDENCE / "checkpoint.json").exists()
+
+
+def test_developer_waits_for_review_findings_after_test_failure(monkeypatch, worker):
+    monkeypatch.setattr(worker, "gh", lambda *args: [{"head": {"sha": "a" * 40}}])
+    monkeypatch.setattr(worker, "open_issues", lambda: [])
+    monkeypatch.setattr(
+        worker, "statuses", lambda sha: {"software-factory/tests": "failure"}
+    )
+    # Starting a revision here would try to read this PR's missing issue/body.
+    worker.developer()
