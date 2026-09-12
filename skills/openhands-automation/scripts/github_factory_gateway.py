@@ -13,7 +13,7 @@ import re
 import secrets
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from urllib.error import HTTPError
+from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
 
@@ -249,6 +249,10 @@ class Handler(BaseHTTPRequestHandler):
             self.reply(200, result)
         except HTTPError as exc:
             self.reply(exc.code, {"error": exc.read().decode()[:1000]})
+        except (URLError, TimeoutError):
+            self.reply(
+                502, {"error": "GitHub upstream request failed; outcome may be unknown"}
+            )
         except (ValueError, KeyError, TypeError) as exc:
             self.reply(400, {"error": str(exc)})
 
