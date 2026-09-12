@@ -85,6 +85,7 @@ def agent(prompt, result_name=None):
         },
     )
     deadline = time.monotonic() + 2400
+    continuations = 0
     time.sleep(3)
     while time.monotonic() < deadline:
         state = request(f"{AGENT}/api/conversations/{CID}")
@@ -93,6 +94,29 @@ def agent(prompt, result_name=None):
             if result_name:
                 return json.loads((EVIDENCE / result_name).read_text())
             return state
+        if status == "error" and continuations < 2:
+            errors = request(
+                f"{AGENT}/api/conversations/{CID}/events/search"
+                "?kind=ConversationErrorEvent&sort_order=TIMESTAMP_DESC&limit=1"
+            ).get("items", [])
+            if errors and errors[0].get("code") == "MaxIterationsReached":
+                continuations += 1
+                request(
+                    f"{AGENT}/api/conversations/{CID}/events",
+                    "POST",
+                    {
+                        "content": [
+                            {
+                                "type": "text",
+                                "text": "The step budget was reached. Continue from the preserved work. "
+                                "Finish the remaining checks and the requested output; do not restart.",
+                            }
+                        ],
+                        "run": True,
+                    },
+                )
+                time.sleep(3)
+                continue
         if status in ("error", "stuck", "paused"):
             raise RuntimeError(f"Agent stopped with {status}")
         time.sleep(5)
@@ -298,7 +322,14 @@ def developer():
         )
     gh("POST", "/factory/bootstrap", {})
     branch = f"factory/issue-{issue['number']}"
-    base, local_base = clone(branch if existing else "main")
+    if CONFIG.get("resume_issue") == issue["number"]:
+        checkpoint = json.loads((EVIDENCE / "checkout.json").read_text())
+        if checkpoint["repository"] != REPO:
+            raise RuntimeError("Checkpoint belongs to a different repository")
+        base = checkpoint["sha"]
+        local_base = shell(["git", "rev-list", "--max-parents=0", "HEAD"])
+    else:
+        base, local_base = clone(branch if existing else "main")
     feedback = (
         gh("GET", f"/issues/{existing['number']}/comments?per_page=100")
         if existing

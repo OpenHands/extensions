@@ -216,3 +216,48 @@ def test_snapshot_rejects_links_and_traversal(monkeypatch, worker, symlink):
     with pytest.raises((RuntimeError, tarfile.FilterError)):
         worker.clone()
     assert not (worker.WORKSPACE / "escape").exists()
+
+
+@pytest.mark.parametrize(
+    "code,expected", [("MaxIterationsReached", 2), ("LLMAuthenticationError", 1)]
+)
+def test_only_step_budget_errors_receive_bounded_continuation(
+    monkeypatch, worker, code, expected
+):
+    states = iter(["error", "finished"])
+    posts = []
+
+    def request(url, method="GET", body=None, token=None):
+        if method == "POST":
+            posts.append(body)
+            return {}
+        if "/events/search?" in url:
+            return {"items": [{"code": code}]}
+        return {"execution_status": next(states)}
+
+    monkeypatch.setattr(worker, "request", request)
+    monkeypatch.setattr(worker.time, "sleep", lambda _: None)
+    if code == "MaxIterationsReached":
+        assert worker.agent("Implement issue")["execution_status"] == "finished"
+    else:
+        with pytest.raises(RuntimeError, match="error"):
+            worker.agent("Implement issue")
+    assert len(posts) == expected
+
+
+def test_step_budget_continuations_have_a_hard_limit(monkeypatch, worker):
+    posts = []
+
+    def request(url, method="GET", body=None, token=None):
+        if method == "POST":
+            posts.append(body)
+            return {}
+        if "/events/search?" in url:
+            return {"items": [{"code": "MaxIterationsReached"}]}
+        return {"execution_status": "error"}
+
+    monkeypatch.setattr(worker, "request", request)
+    monkeypatch.setattr(worker.time, "sleep", lambda _: None)
+    with pytest.raises(RuntimeError):
+        worker.agent("Implement issue")
+    assert len(posts) == 3

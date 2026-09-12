@@ -88,3 +88,14 @@ follow-up before merge. Issue and repository content is untrusted input; role gr
 limit damage if an agent follows injected instructions, but code executed by a role
 shares that role's sandbox and can access its role token. Deploy separate untrusted
 CI workers if that threat model requires stronger credential separation.
+
+## Recovery
+
+An agent that reaches its per-run step limit gets at most two automatic
+continuations within the original wall-clock deadline. Authentication and other
+errors fail without this retry. For operational replay after an older bundle has
+already failed, reprovision that conversation's retained Docker runtime and rerun
+the fixed developer bundle with `resume_issue` set to its issue number. It verifies
+the checkpoint repository and reuses the existing checkout and local baseline;
+do not start a simultaneous fresh implementation. The failed original run remains
+in history, and the replay has its own bash-command evidence in the same conversation.
