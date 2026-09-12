@@ -151,3 +151,14 @@ def test_merge_rejects_invalid_identity_before_network(broker, monkeypatch):
     for number, sha in [(0, "a" * 40), (1, "../other-repo"), (1, "main")]:
         with pytest.raises(ValueError):
             broker.merge(number, sha)
+
+
+def test_reads_are_limited_to_role_inputs(broker):
+    assert broker.permitted("triage", "GET", "/issues?state=open", {})
+    assert not broker.permitted("triage", "GET", "/git/ref/heads/main", {})
+    assert not broker.permitted("triage", "GET", "/pulls", {})
+    assert broker.permitted("watchdog", "GET", "/commits/" + "a" * 40 + "/statuses", {})
+    assert not broker.permitted("watchdog", "GET", "/git/blobs/" + "a" * 40, {})
+    assert not broker.permitted("watchdog", "GET", "/issues", {})
+    assert broker.permitted("reviewer", "GET", "/git/ref/heads/factory/issue-1", {})
+    assert not broker.permitted("reviewer", "GET", "/git/ref/heads/private-work", {})

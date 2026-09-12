@@ -72,14 +72,23 @@ def latest_statuses(sha):
 def permitted(role, method, path, body):
     route = path.split("?", 1)[0]
     if method == "GET":
-        return (
-            bool(
-                re.fullmatch(
-                    r"/(?:issues|pulls|commits|git|branches|labels)(?:/[A-Za-z0-9_./-]+)?",
-                    route,
-                )
-            )
-            or route == ""
+        if role in ("triage", "developer", "reviewer") and re.fullmatch(
+            r"/issues(?:/\d+(?:/comments)?)?", route
+        ):
+            return True
+        if role == "triage" and route == "/labels":
+            return True
+        if role in ("developer", "reviewer", "watchdog") and (
+            re.fullmatch(r"/pulls(?:/\d+(?:/reviews|/comments)?)?", route)
+            or re.fullmatch(r"/commits/[0-9a-f]{40}/(?:statuses|check-runs)", route)
+        ):
+            return True
+        if role in ("developer", "reviewer") and re.fullmatch(
+            r"/git/ref/heads/(?:main|factory/issue-\d+)", route
+        ):
+            return True
+        return role == "developer" and bool(
+            re.fullmatch(r"/git/commits/[0-9a-f]{40}", route)
         )
     if re.fullmatch(r"/issues/\d+/comments", route) and method == "POST":
         return set(body) == {"body"}
