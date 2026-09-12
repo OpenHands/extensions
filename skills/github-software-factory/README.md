@@ -151,3 +151,12 @@ same sandbox can access its role's grant, whose operations remain gateway-limite
 The trusted gateway separately uses the role-specific upstream GitHub credential
 configured in the gateway reference. Do not place upstream GitHub tokens in
 profiles or worker bundles.
+
+
+The factory composes the issue-to-PR and reviewer prompt builders shipped in the
+same extensions revision. These internal helpers are an explicit integration
+contract covered by the factory prompt tests; changes to them must update those
+tests and the bundle together. The issue-to-PR builder supports coordinator-owned
+publication so factory prompts do not contain direct push/PR-creation commands.
+The dispatcher sets WORKSPACE_BASE to the unpack directory in both runtime modes;
+config.json and the gh adapter's parent directory therefore share that root.

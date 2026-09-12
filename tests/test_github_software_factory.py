@@ -192,3 +192,10 @@ def test_developer_waits_for_review_findings_after_test_failure(monkeypatch, wor
     )
     # Starting a revision here would try to read this PR's missing issue/body.
     worker.developer()
+
+
+def test_pagination_preserves_existing_query(monkeypatch, worker):
+    calls = []
+    monkeypatch.setattr(worker, "gh", lambda method, path: calls.append(path) or [])
+    assert worker.gh_pages("/pulls?state=open") == []
+    assert calls == ["/pulls?state=open&per_page=100&page=1"]

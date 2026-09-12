@@ -153,3 +153,19 @@ def test_bundler_rejects_embedded_credentials(tmp_path, monkeypatch):
     config.write_text(json.dumps({"token": "inline-credential"}))
     with pytest.raises(ValueError, match="profile secret"):
         load("build_bundle").build(config, tmp_path / "bundle.tar.gz")
+
+
+def test_coordinator_implementation_prompt_has_no_direct_publication_commands(tmp_path):
+    prompt = load("extension_workflows").implementation_prompt(
+        "owner/repo",
+        {"number": 1, "title": "Task"},
+        "factory/issue-1",
+        "a" * 40,
+        tmp_path,
+        [],
+    )
+    assert "GITHUB_PERSONAL_ACCESS_TOKEN" not in prompt
+    assert "git push" not in prompt
+    assert "gh pr create" not in prompt
+    assert "coordinator publishes" in prompt
+    assert str(tmp_path / "bin/gh") in prompt

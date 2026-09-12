@@ -11,6 +11,7 @@ import subprocess
 import tarfile
 import time
 from pathlib import Path
+from urllib.parse import parse_qsl, urlencode, urlsplit
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
@@ -394,7 +395,10 @@ def prepare_transport():
 def gh_pages(endpoint):
     items = []
     for page in range(1, 101):
-        batch = gh("GET", f"{endpoint}?per_page=100&page={page}")
+        split = urlsplit(endpoint)
+        query = dict(parse_qsl(split.query))
+        query.update(per_page="100", page=str(page))
+        batch = gh("GET", split.path + "?" + urlencode(query))
         if not isinstance(batch, list):
             raise RuntimeError("Expected a paginated list")
         items.extend(batch)
@@ -458,6 +462,7 @@ def reviewer():
         )
     comment(pr["number"], f"Independent checks for `{sha}`:\n\n" + test_summary)
     reports = {}
+    failure = None
     try:
         for stage in ("review", "qa"):
             before = {r["id"] for r in gh_pages(f"/pulls/{pr['number']}/reviews")}
@@ -483,6 +488,13 @@ def reviewer():
             }
             if not reports[stage]["passed"]:
                 break
+    except Exception as exc:
+        failure = type(exc).__name__
+        comment(
+            pr["number"],
+            f"Independent review of `{sha}` could not finish ({failure}). The review automation will retry; this is not an acceptance decision.",
+        )
+        raise
     finally:
         clean = not shell(["git", "status", "--porcelain", "--untracked-files=no"])
         current = gh("GET", f"/pulls/{pr['number']}")["head"]["sha"] == sha
@@ -501,6 +513,7 @@ def reviewer():
                     "head_sha": sha,
                     "conversation_id": CID,
                     "reports": reports,
+                    "failure": failure,
                     "tests": test_results,
                     "tracked_files_unchanged": clean,
                     "current_head": current,

@@ -56,7 +56,18 @@ def transport_instructions(workspace, repository, run_id, stage):
 def implementation_prompt(repository, issue, branch, base_sha, workspace, feedback):
     workflow = module("skills/github-issue-to-pr/scripts/main.py")
     prompt = workflow._build_implementation_prompt(
-        repository, issue, {"id": "ready-for-dev"}, branch, "main", base_sha
+        repository,
+        issue,
+        {"id": "ready-for-dev"},
+        branch,
+        "main",
+        base_sha,
+        publish_pr=False,
+        github_access_instructions=(
+            f"Use `{workspace / 'bin/gh'} api` for repository REST requests. "
+            "The adapter supplies the profile-selected gateway grant; "
+            "do not look up a GitHub token or call api.github.com directly."
+        ),
     )
     # Publication is a capability of the coordinator, not a workspace-kind choice.
     return prompt + (
