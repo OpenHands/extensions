@@ -187,6 +187,8 @@ def configure_fixture(broker, monkeypatch, tmp_path):
     monkeypatch.setenv("FACTORY_REPOSITORY", "owner/repository")
     monkeypatch.setenv("FACTORY_CONTROL_FILE", str(control))
     monkeypatch.delenv("FACTORY_GITHUB_WATCHDOG_TOKEN_ENV", raising=False)
+    monkeypatch.delenv("FACTORY_CI_BACKEND", raising=False)
+    monkeypatch.delenv("FACTORY_REQUIRED_WORKFLOWS", raising=False)
     for role in broker.ROLES:
         monkeypatch.setenv(f"FACTORY_GITHUB_{role.upper()}_TOKEN", f"github-{role}")
     return grants
@@ -292,7 +294,9 @@ def test_watchdog_sharing_requires_explicit_developer_selection(
         broker.configure()
 
 
-def test_shared_watchdog_still_requires_separate_reviewer(broker, monkeypatch, tmp_path):
+def test_shared_watchdog_still_requires_separate_reviewer(
+    broker, monkeypatch, tmp_path
+):
     configure_fixture(broker, monkeypatch, tmp_path)
     monkeypatch.setenv(
         "FACTORY_GITHUB_WATCHDOG_TOKEN_ENV", "FACTORY_GITHUB_DEVELOPER_TOKEN"
@@ -384,3 +388,123 @@ def test_network_failure_returns_structured_gateway_error(
     assert replies == [
         (502, {"error": "GitHub upstream request failed; outcome may be unknown"})
     ]
+
+
+@pytest.mark.parametrize(
+    "state,conclusion,accepted",
+    [
+        ("completed", "success", True),
+        ("completed", "failure", False),
+        ("queued", None, False),
+        ("in_progress", None, False),
+        ("completed", "cancelled", False),
+        ("completed", "skipped", False),
+    ],
+)
+def test_actions_gate_uses_exact_head_and_fails_closed(
+    broker, monkeypatch, state, conclusion, accepted
+):
+    broker.CI_BACKEND = "actions"
+    broker.REQUIRED_WORKFLOWS = {42}
+    sha = "a" * 40
+
+    def upstream(role, method, path):
+        assert role == "watchdog" and method == "GET"
+        assert path == f"/actions/runs?head_sha={sha}&per_page=100&page=1"
+        return {
+            "total_count": 1,
+            "workflow_runs": [
+                {
+                    "id": 1,
+                    "workflow_id": 42,
+                    "head_sha": sha,
+                    "status": state,
+                    "conclusion": conclusion,
+                }
+            ],
+        }
+
+    monkeypatch.setattr(broker, "github", upstream)
+    assert broker.ci_passed("watchdog", sha) is accepted
+
+
+@pytest.mark.parametrize("problem", ["missing", "truncated", "wrong_head"])
+def test_actions_gate_rejects_missing_or_incomplete_evidence(
+    broker, monkeypatch, problem
+):
+    broker.CI_BACKEND = "actions"
+    broker.REQUIRED_WORKFLOWS = {42}
+    run = {
+        "id": 1,
+        "workflow_id": 42,
+        "head_sha": "a" * 40,
+        "status": "completed",
+        "conclusion": "success",
+    }
+    result = {"total_count": 1, "workflow_runs": [run]}
+    if problem == "missing":
+        result = {"total_count": 0, "workflow_runs": []}
+    elif problem == "truncated":
+        result["total_count"] = 2
+    else:
+        run["head_sha"] = "b" * 40
+    monkeypatch.setattr(broker, "github", lambda *args: result)
+    assert not broker.ci_passed("watchdog", "a" * 40)
+
+
+def test_actions_gate_checks_later_pages(broker, monkeypatch):
+    broker.CI_BACKEND = "actions"
+    sha = "a" * 40
+    runs = [
+        {
+            "id": n,
+            "workflow_id": 42,
+            "head_sha": sha,
+            "status": "completed",
+            "conclusion": "success",
+        }
+        for n in range(101)
+    ]
+    runs[-1]["conclusion"] = "failure"
+    paths = []
+
+    def upstream(role, method, path):
+        paths.append(path)
+        return {
+            "total_count": 101,
+            "workflow_runs": runs[:100] if len(paths) == 1 else runs[100:],
+        }
+
+    monkeypatch.setattr(broker, "github", upstream)
+    assert not broker.ci_passed("watchdog", sha)
+    assert len(paths) == 2
+
+
+def test_actions_empty_optional_ci_still_requires_factory_acceptance(
+    broker, monkeypatch
+):
+    broker.CI_BACKEND = "actions"
+    calls = []
+
+    def upstream(role, method, path, body=None):
+        calls.append((method, path))
+        if "/statuses?" in path:
+            return []
+        if path.startswith("/actions/runs?"):
+            return {"total_count": 0, "workflow_runs": []}
+        if path.startswith("/compare/"):
+            return {"status": "ahead"}
+        if path == "/pulls/1":
+            return {
+                "state": "open",
+                "draft": False,
+                "mergeable": True,
+                "head": {"sha": "a" * 40, "ref": "factory/issue-1"},
+                "base": {"sha": "b" * 40, "ref": "main"},
+            }
+        pytest.fail("Unexpected operation: " + path)
+
+    monkeypatch.setattr(broker, "github", upstream)
+    with pytest.raises(ValueError):
+        broker.merge(1, "a" * 40)
+    assert all(method == "GET" for method, _ in calls)
