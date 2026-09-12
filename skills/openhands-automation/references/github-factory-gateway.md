@@ -18,7 +18,7 @@ one empty `.gitkeep`, giving its first application PR a base.
 
 ## Configuration
 
-Create four separate fine-grained GitHub tokens restricted to the target repository.
+By default, create four separate fine-grained GitHub tokens restricted to the target repository.
 The gateway requires these environment variables in its trusted host process:
 
 | Variable | Contents | Issues | Pull requests | Commit statuses | Checks |
@@ -39,10 +39,19 @@ See the [review](https://docs.github.com/en/rest/pulls/reviews#create-a-review-f
 [comment](https://docs.github.com/en/rest/issues/comments#create-an-issue-comment), and
 [status](https://docs.github.com/en/rest/commits/statuses#create-a-commit-status) permissions.
 
-Load the four tokens through the host's secret manager or a private environment file;
+To explicitly reuse the developer token for the watchdog, set
+`FACTORY_GITHUB_WATCHDOG_TOKEN_ENV=FACTORY_GITHUB_DEVELOPER_TOKEN` in the trusted
+gateway process and omit `FACTORY_GITHUB_WATCHDOG_TOKEN`. This uses three upstream
+credentials. The watchdog still has its own worker grant and remains limited to
+its existing read/guarded-merge operations; it cannot publish branches or comments
+through the gateway. Its upstream token has the developer's broader permissions,
+so this configuration relies on the gateway for that additional restriction.
+Triage and reviewer credentials must remain separate.
+
+Load the selected tokens through the host's secret manager or a private environment file;
 never put values in shell arguments, worker bundles, profile instructions, or logs.
-There is no fallback to `gh auth token` or a shared GitHub token. Missing, empty,
-duplicate, or worker-exposed upstream credentials prevent startup. Tokens must also
+There is no fallback to `gh auth token` or implicit sharing. Missing, empty,
+unapproved duplicate, or worker-exposed upstream credentials prevent startup. Tokens must also
 actually have the permissions above: configuration validation cannot inspect a PAT's
 full permission grant. Token issuance remains the operator's responsibility.
 

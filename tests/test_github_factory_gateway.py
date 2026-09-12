@@ -186,6 +186,7 @@ def configure_fixture(broker, monkeypatch, tmp_path):
     control.chmod(0o600)
     monkeypatch.setenv("FACTORY_REPOSITORY", "owner/repository")
     monkeypatch.setenv("FACTORY_CONTROL_FILE", str(control))
+    monkeypatch.delenv("FACTORY_GITHUB_WATCHDOG_TOKEN_ENV", raising=False)
     for role in broker.ROLES:
         monkeypatch.setenv(f"FACTORY_GITHUB_{role.upper()}_TOKEN", f"github-{role}")
     return grants
@@ -213,7 +214,10 @@ def test_configuration_rejects_missing_or_shared_credentials(
     assert broker.TOKENS == {}
 
 
-def test_concurrent_requests_keep_role_credentials(broker, monkeypatch, tmp_path):
+@pytest.mark.parametrize("shared_watchdog", [False, True])
+def test_concurrent_requests_keep_role_credentials(
+    broker, monkeypatch, tmp_path, shared_watchdog
+):
     import io
     import json
     from concurrent.futures import ThreadPoolExecutor
@@ -221,7 +225,15 @@ def test_concurrent_requests_keep_role_credentials(broker, monkeypatch, tmp_path
     from urllib.request import Request, urlopen
 
     grants = configure_fixture(broker, monkeypatch, tmp_path)
+    if shared_watchdog:
+        monkeypatch.setenv(
+            "FACTORY_GITHUB_WATCHDOG_TOKEN_ENV", "FACTORY_GITHUB_DEVELOPER_TOKEN"
+        )
+        monkeypatch.delenv("FACTORY_GITHUB_WATCHDOG_TOKEN")
     broker.configure()
+    # Sharing an upstream credential must not share worker authorization.
+    assert not broker.permitted("watchdog", "POST", "/git/blobs", {})
+    assert not broker.permitted("watchdog", "POST", "/issues/1/comments", {"body": "x"})
     barrier = Barrier(4)
     seen = []
 
@@ -258,8 +270,36 @@ def test_concurrent_requests_keep_role_credentials(broker, monkeypatch, tmp_path
         server.server_close()
         thread.join(timeout=5)
     assert sorted(seen) == sorted(
-        (broker.ROOT + paths[role], f"Bearer github-{role}") for role in broker.ROLES
+        (
+            broker.ROOT + paths[role],
+            "Bearer github-developer"
+            if shared_watchdog and role == "watchdog"
+            else f"Bearer github-{role}",
+        )
+        for role in broker.ROLES
     )
+
+
+@pytest.mark.parametrize("selected", [None, "FACTORY_GITHUB_REVIEWER_TOKEN", ""])
+def test_watchdog_sharing_requires_explicit_developer_selection(
+    broker, monkeypatch, tmp_path, selected
+):
+    configure_fixture(broker, monkeypatch, tmp_path)
+    monkeypatch.delenv("FACTORY_GITHUB_WATCHDOG_TOKEN")
+    if selected is not None:
+        monkeypatch.setenv("FACTORY_GITHUB_WATCHDOG_TOKEN_ENV", selected)
+    with pytest.raises(ValueError):
+        broker.configure()
+
+
+def test_shared_watchdog_still_requires_separate_reviewer(broker, monkeypatch, tmp_path):
+    configure_fixture(broker, monkeypatch, tmp_path)
+    monkeypatch.setenv(
+        "FACTORY_GITHUB_WATCHDOG_TOKEN_ENV", "FACTORY_GITHUB_DEVELOPER_TOKEN"
+    )
+    monkeypatch.setenv("FACTORY_GITHUB_REVIEWER_TOKEN", "github-developer")
+    with pytest.raises(ValueError):
+        broker.configure()
 
 
 @pytest.mark.parametrize("role", ["developer", "reviewer"])
