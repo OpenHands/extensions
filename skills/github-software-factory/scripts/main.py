@@ -165,6 +165,7 @@ def triage():
         i
         for i in open_issues()
         if "ready-for-dev" not in {label["name"] for label in i["labels"]}
+        and dependencies_complete(i)
     ]
     if not issues:
         return
@@ -306,13 +307,49 @@ def publish(issue, base, branch, existing, local_base):
         )
 
 
+def dependencies_complete(issue):
+    """Honor explicit Depends on lines; unknown/incomplete issues remain blocked."""
+    for line in re.findall(
+        r"^Depends on:\s*(.+)$", issue.get("body") or "", re.M | re.I
+    ):
+        for number in re.findall(r"#(\d+)", line):
+            dependency = gh("GET", f"/issues/{number}")
+            if (
+                dependency["state"] != "closed"
+                or dependency.get("state_reason") != "completed"
+            ):
+                return False
+    return True
+
+
 def developer():
-    prs = gh("GET", "/pulls?state=open&per_page=100")
-    existing = None
+    lane = CONFIG.get("developer_lane", 0)
+    lanes = CONFIG.get("developer_lanes", 1)
+    if type(lane) is not int or type(lanes) is not int or not 0 <= lane < lanes:
+        raise ValueError("Developer lane must be an integer in [0, developer_lanes)")
     issues = open_issues()
+    owned = {i["number"] for i in issues if i["number"] % lanes == lane}
+    prs = [
+        p
+        for p in gh("GET", "/pulls?state=open&per_page=100")
+        if (match := re.fullmatch(r"factory/issue-(\d+)", p["head"]["ref"]))
+        and int(match[1]) % lanes == lane
+    ]
+    existing = None
     if prs:
         for pr in prs:
             state = statuses(pr["head"]["sha"])
+            if state.get("software-factory/review") == "success":
+                main_sha = gh("GET", "/git/ref/heads/main")["object"]["sha"]
+                comparison = gh("GET", f"/compare/{main_sha}...{pr['head']['sha']}")
+                if comparison["status"] not in ("ahead", "identical"):
+                    # GitHub merges the base; the new head gets independent review again.
+                    gh(
+                        "POST",
+                        "/factory/update-branch",
+                        {"number": pr["number"], "sha": pr["head"]["sha"]},
+                    )
+                    return
             # Wait for the independent review to publish its findings before
             # revising, even if the earlier deterministic test phase failed.
             if state.get("software-factory/review") in ("failure", "error"):
@@ -339,7 +376,9 @@ def developer():
         ready = [
             i
             for i in issues
-            if "ready-for-dev" in {label["name"] for label in i["labels"]}
+            if i["number"] in owned
+            and "ready-for-dev" in {label["name"] for label in i["labels"]}
+            and dependencies_complete(i)
         ]
         if not ready:
             return

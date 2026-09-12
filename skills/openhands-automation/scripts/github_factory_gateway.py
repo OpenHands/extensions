@@ -171,6 +171,10 @@ def permitted(role, method, path, body):
             return True
         if role in ("developer", "reviewer", "watchdog") and route == "/actions/runs":
             return True
+        if role == "developer" and re.fullmatch(
+            r"/compare/[0-9a-f]{40}\.\.\.[0-9a-f]{40}", route
+        ):
+            return True
         if role in ("developer", "reviewer") and re.fullmatch(
             r"/git/ref/heads/(?:main|factory/issue-\d+)", route
         ):
@@ -215,22 +219,37 @@ def permitted(role, method, path, body):
     return False
 
 
-def merge(number, sha):
+def factory_pr(role, number, sha):
     if number < 1 or not re.fullmatch(r"[0-9a-f]{40}", sha):
-        raise ValueError("Merge requires a PR number and exact commit SHA")
-    role = "watchdog"
+        raise ValueError("Operation requires a PR number and exact commit SHA")
     pr = github(role, "GET", f"/pulls/{number}")
+    if not (
+        pr["state"] == "open"
+        and pr["head"]["sha"] == sha
+        and pr["base"]["ref"] == "main"
+        and re.fullmatch(r"factory/issue-\d+", pr["head"]["ref"])
+    ):
+        raise ValueError("PR is not an open factory branch at the expected head")
+    return pr
+
+
+def update_branch(number, sha):
+    factory_pr("developer", number, sha)
+    return github(
+        "developer", "PUT", f"/pulls/{number}/update-branch", {"expected_head_sha": sha}
+    )
+
+
+def merge(number, sha):
+    role = "watchdog"
+    pr = factory_pr(role, number, sha)
     statuses = latest_statuses(role, sha)
     contexts = ("software-factory/tests", "software-factory/review")
     ci_ok = ci_passed(role, sha)
     # Refuse a stale base and incomplete pagination rather than overlooking CI.
     comparison = github(role, "GET", f"/compare/{pr['base']['sha']}...{sha}")
     eligible = (
-        pr["state"] == "open"
-        and not pr["draft"]
-        and pr["head"]["sha"] == sha
-        and pr["base"]["ref"] == "main"
-        and re.fullmatch(r"factory/issue-\d+", pr["head"]["ref"])
+        not pr["draft"]
         and pr["mergeable"] is True
         and comparison["status"] in ("ahead", "identical")
         and all(statuses.get(c, {}).get("state") == "success" for c in contexts)
@@ -287,9 +306,13 @@ class Handler(BaseHTTPRequestHandler):
                         },
                     ),
                 )
-            if path == "/factory/merge" and role == "watchdog":
+            operation = {
+                ("/factory/merge", "watchdog"): merge,
+                ("/factory/update-branch", "developer"): update_branch,
+            }.get((path, role))
+            if operation:
                 try:
-                    result = merge(int(body["number"]), body["sha"])
+                    result = operation(int(body["number"]), body["sha"])
                 except ValueError as exc:
                     return self.reply(409, {"error": str(exc)})
                 return self.reply(200, result)

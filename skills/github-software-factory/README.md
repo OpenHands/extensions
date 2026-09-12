@@ -165,3 +165,23 @@ Use `python3 main.py --token-env FACTORY_ROLE_GRANT` as the entrypoint, with the
 actual name from `config.json` substituted. Naming the secret lets the SDK inject
 it from the selected profile without shell expansion; the CLI rejects a name that
 does not match the bundle. The same command works in local and Docker workspaces.
+
+## Parallel developer lanes
+
+Install one developer automation per lane, using the existing dispatcher to keep
+at most one run active per automation. Set `developer_lanes` to the same positive
+count in every developer bundle and `developer_lane` to a distinct zero-based
+index. Lane ownership is `issue_number % developer_lanes`. Keep this assignment
+fixed while work is active. Each lane permits one outstanding implementation PR;
+other lanes can work while it awaits review. Local and Docker bundles are identical.
+
+Use `Depends on: #1, #2` on an issue to block triage/development until those issues
+are closed as completed. Dependency references are repository-local. Configure the
+existing service concurrency and Docker memory/CPU limits separately; no extra
+scheduler or distributed lock service is introduced.
+
+An accepted PR whose base has advanced is refreshed with GitHub's native
+update-branch endpoint. This produces a new head that must pass independent review
+again. GitHub rejects stale expected heads or merge conflicts; the automation
+reports that failure rather than overwriting either branch. Conflicting updates
+need resolution before that lane can continue.

@@ -508,3 +508,29 @@ def test_actions_empty_optional_ci_still_requires_factory_acceptance(
     with pytest.raises(ValueError):
         broker.merge(1, "a" * 40)
     assert all(method == "GET" for method, _ in calls)
+
+
+def test_native_branch_update_checks_identity_and_uses_developer(broker, monkeypatch):
+    calls = []
+
+    def github(role, method, path, body=None):
+        calls.append((role, method, path, body))
+        if method == "GET":
+            return {
+                "state": "open",
+                "head": {"sha": "a" * 40, "ref": "factory/issue-1"},
+                "base": {"ref": "main"},
+            }
+        return {"message": "Updating branch"}
+
+    monkeypatch.setattr(broker, "github", github)
+    broker.update_branch(3, "a" * 40)
+    assert calls[-1] == (
+        "developer",
+        "PUT",
+        "/pulls/3/update-branch",
+        {"expected_head_sha": "a" * 40},
+    )
+    with pytest.raises(ValueError):
+        broker.update_branch(3, "b" * 40)
+    assert calls[-1][1] == "GET"

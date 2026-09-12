@@ -185,7 +185,11 @@ def test_timeout_interrupts_before_checkpoint_publication(monkeypatch, worker):
 
 
 def test_developer_waits_for_review_findings_after_test_failure(monkeypatch, worker):
-    monkeypatch.setattr(worker, "gh", lambda *args: [{"head": {"sha": "a" * 40}}])
+    monkeypatch.setattr(
+        worker,
+        "gh",
+        lambda *args: [{"head": {"sha": "a" * 40, "ref": "factory/issue-1"}}],
+    )
     monkeypatch.setattr(worker, "open_issues", lambda: [])
     monkeypatch.setattr(
         worker, "statuses", lambda sha: {"software-factory/tests": "failure"}
@@ -224,6 +228,102 @@ def test_developer_skips_closed_source_issue(monkeypatch, worker):
     monkeypatch.setattr(
         worker,
         "gh",
-        lambda *args: [{"number": 7, "head": {"sha": "a" * 40}, "body": "Closes #1"}],
+        lambda *args: [
+            {
+                "number": 7,
+                "head": {"sha": "a" * 40, "ref": "factory/issue-1"},
+                "body": "Closes #1",
+            }
+        ],
     )
     worker.developer()
+
+
+@pytest.mark.parametrize(
+    "state,reason,ready",
+    [
+        ("open", None, False),
+        ("closed", "not_planned", False),
+        ("closed", "completed", True),
+    ],
+)
+def test_dependencies_require_completed_issues(
+    worker, monkeypatch, state, reason, ready
+):
+    def gh(method, path, body=None):
+        assert (method, path) == ("GET", "/issues/1")
+        return {"state": state, "state_reason": reason}
+
+    monkeypatch.setattr(worker, "gh", gh)
+    assert (
+        worker.dependencies_complete({"body": "Small feature\nDepends on: #1\n"})
+        is ready
+    )
+
+
+def test_developer_lanes_do_not_block_on_other_lane_pr(worker, monkeypatch):
+    worker.CONFIG.update(developer_lane=0, developer_lanes=2)
+    issues = [
+        {
+            "number": 1,
+            "title": "API",
+            "body": "",
+            "labels": [{"name": "ready-for-dev"}],
+        },
+        {"number": 2, "title": "UI", "body": "", "labels": [{"name": "ready-for-dev"}]},
+    ]
+    monkeypatch.setattr(worker, "open_issues", lambda: issues)
+
+    def gh(method, path, body=None):
+        if path.startswith("/pulls?"):
+            return [{"number": 9, "head": {"ref": "factory/issue-1", "sha": "a" * 40}}]
+        assert path == "/factory/bootstrap"
+        raise LookupError("selected own lane")
+
+    monkeypatch.setattr(worker, "gh", gh)
+    with pytest.raises(LookupError, match="selected own lane"):
+        worker.developer()
+
+
+def test_developer_lane_never_takes_another_lanes_issue(worker, monkeypatch):
+    worker.CONFIG.update(developer_lane=0, developer_lanes=2)
+    monkeypatch.setattr(
+        worker,
+        "open_issues",
+        lambda: [{"number": 1, "labels": [{"name": "ready-for-dev"}]}],
+    )
+
+    def gh(method, path, body=None):
+        assert path.startswith("/pulls?")
+        return []
+
+    monkeypatch.setattr(worker, "gh", gh)
+    worker.developer()
+
+
+def test_accepted_stale_pr_uses_native_branch_update(worker, monkeypatch):
+    issue = {"number": 2, "labels": [{"name": "ready-for-dev"}]}
+    monkeypatch.setattr(worker, "open_issues", lambda: [issue])
+    monkeypatch.setattr(
+        worker, "statuses", lambda sha: {"software-factory/review": "success"}
+    )
+    calls = []
+
+    def gh(method, path, body=None):
+        calls.append((method, path, body))
+        if path.startswith("/pulls?"):
+            return [{"number": 3, "head": {"sha": "a" * 40, "ref": "factory/issue-2"}}]
+        if path == "/git/ref/heads/main":
+            return {"object": {"sha": "b" * 40}}
+        if path.startswith("/compare/"):
+            return {"status": "diverged"}
+        assert path == "/factory/update-branch"
+        return {"message": "Updating branch"}
+
+    monkeypatch.setattr(worker, "gh", gh)
+    worker.developer()
+    assert calls[-1] == (
+        "POST",
+        "/factory/update-branch",
+        {"number": 3, "sha": "a" * 40},
+    )
