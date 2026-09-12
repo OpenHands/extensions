@@ -82,8 +82,10 @@ logs stay in workspace evidence, with a compact command summary on GitHub.
 
 Upload using `POST /api/automation/v1/uploads`, then create a raw automation with
 `POST /api/automation/v1`, the returned `tarball_path`, entrypoint `python3 main.py`,
-`keep_alive: false`, and a cron trigger. Two-minute polls are useful while validating;
-use a longer interval for a quiet repository. Allow 3000 seconds for development, 9000 for sequential independent tests, code
+`keep_alive: false`, and a cron trigger. Start with three-minute polls when sharing two worker slots: a long developer or
+reviewer occupies one slot while the other must start and retire the idle role
+polls. Watch queue age as well as container memory, and lengthen the interval
+if idle polls accumulate. Use a longer interval for a quiet repository. Allow 3000 seconds for development, 9000 for sequential independent tests, code
 review and functional QA, and 600 seconds for triage/watchdog. Configure the service
 maximum run duration to accommodate that timeout. Do not put control-plane credentials in
 bundle configuration. The backend supplies the selected runtime's session key.
