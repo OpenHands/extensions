@@ -162,3 +162,11 @@ def test_reads_are_limited_to_role_inputs(broker):
     assert not broker.permitted("watchdog", "GET", "/issues", {})
     assert broker.permitted("reviewer", "GET", "/git/ref/heads/factory/issue-1", {})
     assert not broker.permitted("reviewer", "GET", "/git/ref/heads/private-work", {})
+
+
+def test_watchdog_cannot_post_comments(broker):
+    for role in ("triage", "developer", "reviewer"):
+        assert broker.permitted(role, "POST", "/issues/1/comments", {"body": "report"})
+    assert not broker.permitted(
+        "watchdog", "POST", "/issues/1/comments", {"body": "report"}
+    )
