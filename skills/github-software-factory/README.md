@@ -182,6 +182,8 @@ scheduler or distributed lock service is introduced.
 
 An accepted PR whose base has advanced is refreshed with GitHub's native
 update-branch endpoint. This produces a new head that must pass independent review
-again. GitHub rejects stale expected heads or merge conflicts; the automation
-reports that failure rather than overwriting either branch. Conflicting updates
-need resolution before that lane can continue.
+again. Stale expected heads are re-read on the next sweep. Merge conflicts receive
+a visible PR comment and enter the existing canonical developer revision workflow
+with current-base context. The revised head must pass independent review before
+the next native update attempt. Missing dependency references block only their
+issue; dependency reads are cached within each sweep.
