@@ -68,6 +68,7 @@ jobs:
         run: npm pack --dry-run
 
       - name: Validate package version matches release tag
+        working-directory: ${{ runner.temp }}/extensions-package
         env:
           # Pass inputs.tag via env var to prevent script injection from
           # GitHub Actions expression interpolation inside run blocks.
