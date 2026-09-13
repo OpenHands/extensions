@@ -380,3 +380,58 @@ def test_conflicting_base_update_reuses_developer_revision(worker, monkeypatch):
     with pytest.raises(LookupError, match="entered existing developer revision"):
         worker.developer()
     assert comments and comments[0][0] == 3
+
+
+def test_publish_rejects_broken_symlink(monkeypatch, worker):
+    worker.PROJECT.mkdir()
+    (worker.PROJECT / "broken").symlink_to("missing")
+    monkeypatch.setattr(
+        worker, "shell", lambda args: "broken" if "diff" in args else ""
+    )
+    with pytest.raises(RuntimeError, match="Symlink"):
+        worker.publish({}, "a" * 40, "factory/issue-1", None, "local")
+
+
+def test_review_error_preserves_evidence_when_gateway_and_git_fail(monkeypatch, worker):
+    import json
+    from types import SimpleNamespace
+
+    pr = {"number": 3, "body": "", "head": {"ref": "factory/issue-1", "sha": "a" * 40}}
+    monkeypatch.setattr(
+        worker,
+        "gh",
+        lambda method, path, body=None: [pr] if path.startswith("/pulls?") else pr,
+    )
+    monkeypatch.setattr(worker, "statuses", lambda sha: {})
+    monkeypatch.setattr(worker, "clone", lambda *args, **kwargs: None)
+    monkeypatch.setattr(worker, "prepare_transport", lambda: None)
+    monkeypatch.setattr(worker, "independent_tests", lambda: ([], True))
+    statuses = []
+    monkeypatch.setattr(worker, "status", lambda *args: statuses.append(args))
+    monkeypatch.setattr(worker, "gh_pages", lambda *args: [])
+    monkeypatch.setattr(
+        worker,
+        "extension_workflows",
+        lambda: SimpleNamespace(review_prompt=lambda *args: "review"),
+    )
+
+    def agent(*args):
+        raise ValueError("original review failure")
+
+    def comment(number, body):
+        if "could not finish" in body:
+            raise OSError("gateway down")
+
+    def shell(*args):
+        raise RuntimeError("git unavailable")
+
+    monkeypatch.setattr(worker, "agent", agent)
+    monkeypatch.setattr(worker, "comment", comment)
+    monkeypatch.setattr(worker, "shell", shell)
+    with pytest.raises(ValueError, match="original review failure"):
+        worker.reviewer()
+    evidence = json.loads((worker.EVIDENCE / "acceptance.json").read_text())
+    assert evidence["failure"] == "ValueError"
+    assert not evidence["accepted"]
+    assert not evidence["current_head"]
+    assert all(item[1] != "review" for item in statuses)
