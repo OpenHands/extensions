@@ -504,3 +504,27 @@ def test_actions_empty_optional_ci_still_requires_factory_acceptance(
     with pytest.raises(ValueError):
         broker.merge(1, "a" * 40)
     assert all(method == "GET" for method, _ in calls)
+
+
+def test_review_rejection_explains_required_fields(broker, monkeypatch):
+    import io
+    import json
+    from types import SimpleNamespace
+
+    monkeypatch.setattr(broker, "CONTROL", {role: role for role in broker.ROLES})
+    payload = json.dumps(
+        {"method": "POST", "path": "/pulls/1/reviews", "body": {"body": "Review"}}
+    ).encode()
+    responses = []
+    request = SimpleNamespace(
+        headers={
+            "Authorization": "Bearer reviewer",
+            "Content-Length": str(len(payload)),
+        },
+        rfile=io.BytesIO(payload),
+        reply=lambda code, data: responses.append((code, data)),
+    )
+    broker.Handler.do_POST(request)
+    assert responses[0][0] == 403
+    assert "COMMENT" in responses[0][1]["error"]
+    assert "commit_id" in responses[0][1]["error"]
