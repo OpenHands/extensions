@@ -48,7 +48,9 @@ def repository_path(endpoint, repository):
     if not endpoint.startswith(prefix):
         raise ValueError("Endpoint must be inside the configured repository")
     path = "/" + endpoint[len(prefix) :]
-    if any(c in path for c in ("%", "..", "#", "\\")):
+    if any(c in path for c in ("%", "#", "\\")) or any(
+        part in (".", "..") for part in urlsplit(path).path.split("/")
+    ):
         raise ValueError("Invalid endpoint")
     return path
 

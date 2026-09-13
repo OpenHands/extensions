@@ -169,3 +169,11 @@ def test_coordinator_implementation_prompt_has_no_direct_publication_commands(tm
     assert "gh pr create" not in prompt
     assert "coordinator publishes" in prompt
     assert str(tmp_path / "bin/gh") in prompt
+
+
+def test_scoped_transport_accepts_commit_comparisons():
+    path = "/compare/" + "a" * 40 + "..." + "b" * 40
+    assert (
+        load("scoped_gh").repository_path("repos/owner/repo" + path, "owner/repo")
+        == path
+    )
