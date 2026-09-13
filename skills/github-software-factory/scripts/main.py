@@ -1,6 +1,7 @@
 """One scheduled software-factory role, executed in an isolated runtime."""
 
 import argparse
+from functools import cache
 import base64
 import io
 import importlib.util
@@ -307,17 +308,27 @@ def publish(issue, base, branch, existing, local_base):
         )
 
 
+@cache
+def completed_dependency(number):
+    try:
+        dependency = gh("GET", f"/issues/{number}")
+    except HTTPError as exc:
+        if exc.code == 404:
+            return False
+        raise
+    return (
+        dependency["state"] == "closed"
+        and dependency.get("state_reason") == "completed"
+    )
+
+
 def dependencies_complete(issue):
     """Honor explicit Depends on lines; unknown/incomplete issues remain blocked."""
     for line in re.findall(
         r"^Depends on:\s*(.+)$", issue.get("body") or "", re.M | re.I
     ):
         for number in re.findall(r"#(\d+)", line):
-            dependency = gh("GET", f"/issues/{number}")
-            if (
-                dependency["state"] != "closed"
-                or dependency.get("state_reason") != "completed"
-            ):
+            if not completed_dependency(number):
                 return False
     return True
 
@@ -336,6 +347,7 @@ def developer():
         and int(match[1]) % lanes == lane
     ]
     existing = None
+    update_conflict = None
     if prs:
         for pr in prs:
             state = statuses(pr["head"]["sha"])
@@ -344,11 +356,33 @@ def developer():
                 comparison = gh("GET", f"/compare/{main_sha}...{pr['head']['sha']}")
                 if comparison["status"] not in ("ahead", "identical"):
                     # GitHub merges the base; the new head gets independent review again.
-                    gh(
-                        "POST",
-                        "/factory/update-branch",
-                        {"number": pr["number"], "sha": pr["head"]["sha"]},
-                    )
+                    try:
+                        gh(
+                            "POST",
+                            "/factory/update-branch",
+                            {"number": pr["number"], "sha": pr["head"]["sha"]},
+                        )
+                    except HTTPError as exc:
+                        if exc.code == 409:
+                            return  # Head changed; re-read it on the next sweep.
+                        if exc.code != 422:
+                            raise
+                        update_conflict = {
+                            "base_sha": main_sha,
+                            "instruction": "The native base update found merge conflicts. "
+                            "Inspect the current main files and PR diff with gh api. "
+                            "Reconcile the conflicting changes in this branch while "
+                            "preserving both completed features and this issue's criteria. "
+                            "Run tests after the revision. The coordinator will publish "
+                            "and retry the base update after independent review.",
+                        }
+                        comment(
+                            pr["number"],
+                            "Automatic base update found conflicts; "
+                            "the canonical developer workflow is revising this PR.",
+                        )
+                        existing = pr
+                        break
                     return
             # Wait for the independent review to publish its findings before
             # revising, even if the earlier deterministic test phase failed.
@@ -399,7 +433,7 @@ def developer():
         local_base = shell(["git", "rev-list", "--max-parents=0", "HEAD"])
     else:
         base, local_base = clone(branch if existing else "main")
-    feedback = {}
+    feedback = {"base_update": update_conflict} if update_conflict else {}
     if existing:
         for name, endpoint in (
             ("discussion", f"/issues/{existing['number']}/comments"),

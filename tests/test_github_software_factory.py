@@ -327,3 +327,56 @@ def test_accepted_stale_pr_uses_native_branch_update(worker, monkeypatch):
         "/factory/update-branch",
         {"number": 3, "sha": "a" * 40},
     )
+
+
+@pytest.mark.parametrize("code", [404, 503])
+def test_dependency_lookup_error_isolated_to_missing_issue(worker, monkeypatch, code):
+    from urllib.error import HTTPError
+
+    def gh(*args):
+        raise HTTPError("http://gateway", code, "failure", {}, None)
+
+    monkeypatch.setattr(worker, "gh", gh)
+    if code == 404:
+        assert not worker.dependencies_complete({"body": "Depends on: #99999"})
+        assert worker.dependencies_complete({"body": "Independent issue"})
+    else:
+        with pytest.raises(HTTPError):
+            worker.dependencies_complete({"body": "Depends on: #1"})
+
+
+def test_conflicting_base_update_reuses_developer_revision(worker, monkeypatch):
+    from urllib.error import HTTPError
+
+    issue = {"number": 2, "labels": [{"name": "ready-for-dev"}]}
+    monkeypatch.setattr(worker, "open_issues", lambda: [issue])
+    monkeypatch.setattr(
+        worker, "statuses", lambda sha: {"software-factory/review": "success"}
+    )
+    comments = []
+    monkeypatch.setattr(
+        worker, "comment", lambda number, body: comments.append((number, body))
+    )
+
+    def gh(method, path, body=None):
+        if path.startswith("/pulls?"):
+            return [
+                {
+                    "number": 3,
+                    "body": "Closes #2",
+                    "head": {"sha": "a" * 40, "ref": "factory/issue-2"},
+                }
+            ]
+        if path == "/git/ref/heads/main":
+            return {"object": {"sha": "b" * 40}}
+        if path.startswith("/compare/"):
+            return {"status": "diverged"}
+        if path == "/factory/update-branch":
+            raise HTTPError("http://gateway", 422, "conflict", {}, None)
+        assert path == "/factory/bootstrap"
+        raise LookupError("entered existing developer revision")
+
+    monkeypatch.setattr(worker, "gh", gh)
+    with pytest.raises(LookupError, match="entered existing developer revision"):
+        worker.developer()
+    assert comments and comments[0][0] == 3
