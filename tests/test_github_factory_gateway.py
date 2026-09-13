@@ -534,3 +534,27 @@ def test_native_branch_update_checks_identity_and_uses_developer(broker, monkeyp
     with pytest.raises(ValueError):
         broker.update_branch(3, "b" * 40)
     assert calls[-1][1] == "GET"
+
+
+def test_review_rejection_explains_required_fields(broker, monkeypatch):
+    import io
+    import json
+    from types import SimpleNamespace
+
+    monkeypatch.setattr(broker, "CONTROL", {role: role for role in broker.ROLES})
+    payload = json.dumps(
+        {"method": "POST", "path": "/pulls/1/reviews", "body": {"body": "Review"}}
+    ).encode()
+    responses = []
+    request = SimpleNamespace(
+        headers={
+            "Authorization": "Bearer reviewer",
+            "Content-Length": str(len(payload)),
+        },
+        rfile=io.BytesIO(payload),
+        reply=lambda code, data: responses.append((code, data)),
+    )
+    broker.Handler.do_POST(request)
+    assert responses[0][0] == 403
+    assert "COMMENT" in responses[0][1]["error"]
+    assert "commit_id" in responses[0][1]["error"]
