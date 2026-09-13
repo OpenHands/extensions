@@ -252,10 +252,11 @@ class Handler(BaseHTTPRequestHandler):
         )
         if role is None:
             return self.reply(401, {"error": "Invalid role credential"})
-        if int(self.headers.get("Content-Length", "0")) > 12_000_000:
-            return self.reply(413, {"error": "Request too large"})
         try:
-            payload = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
+            length = int(self.headers.get("Content-Length", "0"))
+            if length < 0 or length > 12_000_000:
+                return self.reply(413, {"error": "Invalid request size"})
+            payload = json.loads(self.rfile.read(length))
             method, path = payload["method"], payload["path"]
             body = payload.get("body")
             if "%" in path or ".." in path or "#" in path or "\\" in path:
