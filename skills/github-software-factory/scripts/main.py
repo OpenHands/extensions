@@ -241,13 +241,11 @@ def publish(issue, base, branch, existing, local_base):
             PROJECT.resolve()
         ):
             raise RuntimeError("Refusing to publish a path outside the project")
-        if path.is_symlink() or not path.exists():
-            if not path.exists():
-                tree.append(
-                    {"path": name, "mode": "100644", "type": "blob", "sha": None}
-                )
-                continue
+        if path.is_symlink():
             raise RuntimeError("Symlink publishing is not supported")
+        if not path.exists():
+            tree.append({"path": name, "mode": "100644", "type": "blob", "sha": None})
+            continue
         if path.stat().st_size > 4_000_000:
             raise RuntimeError(f"Unexpected large tracked file: {name}")
         blob = gh(
@@ -506,14 +504,29 @@ def reviewer():
                 break
     except Exception as exc:
         failure = type(exc).__name__
-        comment(
-            pr["number"],
-            f"Independent review of `{sha}` could not finish ({failure}). The review automation will retry; this is not an acceptance decision.",
-        )
+        try:
+            comment(
+                pr["number"],
+                f"Independent review of `{sha}` could not finish ({failure}). "
+                "The review automation will retry; this is not an acceptance decision.",
+            )
+        except Exception as report_error:
+            print(
+                f"Could not publish retry notice: {type(report_error).__name__}",
+                flush=True,
+            )
         raise
     finally:
-        clean = not shell(["git", "status", "--porcelain", "--untracked-files=no"])
-        current = gh("GET", f"/pulls/{pr['number']}")["head"]["sha"] == sha
+        clean = current = False
+        try:
+            clean = not shell(["git", "status", "--porcelain", "--untracked-files=no"])
+            current = gh("GET", f"/pulls/{pr['number']}")["head"]["sha"] == sha
+        except Exception as verify_error:
+            failure = failure or type(verify_error).__name__
+            print(
+                f"Could not verify acceptance: {type(verify_error).__name__}",
+                flush=True,
+            )
         accepted = (
             tests_pass
             and clean
@@ -545,7 +558,7 @@ def reviewer():
             or ("review" in reports and not tests_pass)
             or "qa" in reports
         )
-        if complete:
+        if complete and failure is None:
             status(
                 sha,
                 "review",
