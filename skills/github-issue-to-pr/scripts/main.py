@@ -85,9 +85,7 @@ def _check_string_list(key: str, value: list, allow_empty: bool) -> None:
     if not allow_empty and not value:
         raise SystemExit(f"{CONFIG_FILENAME}: {key} must not be empty")
     if not all(isinstance(item, str) and item for item in value):
-        raise SystemExit(
-            f"{CONFIG_FILENAME}: {key} must be a list of non-empty strings"
-        )
+        raise SystemExit(f"{CONFIG_FILENAME}: {key} must be a list of non-empty strings")
 
 
 def load_config(directory: Path | None = None) -> dict:
@@ -114,9 +112,7 @@ def load_config(directory: Path | None = None) -> dict:
         value = raw[key]
         # bool is an int in Python, so an unguarded int check would accept
         # `"max_new_per_run": true` and then start `True` conversations.
-        if not isinstance(value, expected) or (
-            expected is int and isinstance(value, bool)
-        ):
+        if not isinstance(value, expected) or (expected is int and isinstance(value, bool)):
             raise SystemExit(
                 f"{CONFIG_FILENAME}: {key} must be {expected.__name__}, "
                 f"got {type(value).__name__}"
@@ -202,11 +198,7 @@ MAX_PR_BODY_CHARS = 50000
 
 
 def _get_env_key() -> str:
-    return (
-        os.environ.get("SESSION_API_KEY")
-        or os.environ.get("OH_SESSION_API_KEYS_0")
-        or ""
-    )
+    return os.environ.get("SESSION_API_KEY") or os.environ.get("OH_SESSION_API_KEYS_0") or ""
 
 
 def get_secret(name: str) -> str:
@@ -417,9 +409,7 @@ def _verify_token(token: str) -> None:
         user_data, _ = _github_request(token, "GET", "/user")
     except urllib.error.HTTPError as exc:
         if exc.code == 401:
-            raise RuntimeError(
-                "GITHUB_PERSONAL_ACCESS_TOKEN is invalid or expired."
-            ) from exc
+            raise RuntimeError("GITHUB_PERSONAL_ACCESS_TOKEN is invalid or expired.") from exc
         raise RuntimeError(f"GitHub /user check failed: {exc.code}") from exc
 
     print(f"Authenticated as GitHub user: {user_data.get('login') or '?'}")
@@ -430,9 +420,7 @@ def _get_repo(token: str, repo: str) -> dict:
         data, _ = _github_request(token, "GET", f"/repos/{repo}")
     except urllib.error.HTTPError as exc:
         if exc.code == 404:
-            raise RuntimeError(
-                f"Repository '{repo}' is not accessible with the current token."
-            ) from exc
+            raise RuntimeError(f"Repository '{repo}' is not accessible with the current token.") from exc
         raise RuntimeError(f"GitHub /repos/{repo} check failed: {exc.code}") from exc
     if not data.get("permissions", {}).get("push", True):
         raise RuntimeError(
@@ -452,12 +440,7 @@ def _list_labeled_issues(token: str, repo: str) -> list[dict]:
     items = _github_paginate(
         token,
         f"/repos/{repo}/issues",
-        {
-            "state": "open",
-            "labels": TRIGGER_LABEL,
-            "sort": "updated",
-            "direction": "desc",
-        },
+        {"state": "open", "labels": TRIGGER_LABEL, "sort": "updated", "direction": "desc"},
     )
     return [item for item in items if "pull_request" not in item]
 
@@ -470,18 +453,14 @@ def _get_issue(token: str, repo: str, number: int) -> dict:
 def _latest_trigger_label_event(token: str, repo: str, number: int) -> dict | None:
     events = _github_paginate(token, f"/repos/{repo}/issues/{number}/events")
     matching = [
-        event
-        for event in events
+        event for event in events
         if event.get("event") == "labeled"
         and (event.get("label") or {}).get("name", "").lower() == TRIGGER_LABEL.lower()
         and event.get("id") is not None
     ]
     if not matching:
         return None
-    return max(
-        matching,
-        key=lambda event: (event.get("created_at") or "", int(event.get("id") or 0)),
-    )
+    return max(matching, key=lambda event: (event.get("created_at") or "", int(event.get("id") or 0)))
 
 
 def _post_github_comment(token: str, repo: str, number: int, body: str) -> None:
@@ -533,9 +512,7 @@ def _existing_pull_request(token: str, repo: str, branch: str) -> dict | None:
     return results[0] if results else None
 
 
-def _open_pull_request(
-    token: str, repo: str, branch: str, base: str, title: str, body: str
-) -> dict:
+def _open_pull_request(token: str, repo: str, branch: str, base: str, title: str, body: str) -> dict:
     try:
         pr, _ = _github_request(
             token,
@@ -557,13 +534,9 @@ def _open_pull_request(
         # exists, which is the shape a retried finalization takes.
         existing = _existing_pull_request(token, repo, branch)
         if existing:
-            print(
-                f"  Pull request for {branch} already exists: {existing.get('html_url')}"
-            )
+            print(f"  Pull request for {branch} already exists: {existing.get('html_url')}")
             return existing
-        raise RuntimeError(
-            f"GitHub rejected the pull request: {exc.read().decode()[:500]}"
-        ) from exc
+        raise RuntimeError(f"GitHub rejected the pull request: {exc.read().decode()[:500]}") from exc
 
 
 # ── Git ───────────────────────────────────────────────────────────────────────
@@ -584,10 +557,9 @@ def _git(args: list[str], cwd: Path | None = None, token: str = "", check: bool 
     env["GIT_TERMINAL_PROMPT"] = "0"
     env["GIT_PAGER"] = "cat"
     if token:
-        header = (
-            "Authorization: Basic "
-            + base64.b64encode(f"x-access-token:{token}".encode()).decode()
-        )
+        header = "Authorization: Basic " + base64.b64encode(
+            f"x-access-token:{token}".encode()
+        ).decode()
         env["GIT_CONFIG_COUNT"] = "1"
         env["GIT_CONFIG_KEY_0"] = "http.extraHeader"
         env["GIT_CONFIG_VALUE_0"] = header
@@ -601,9 +573,7 @@ def _git(args: list[str], cwd: Path | None = None, token: str = "", check: bool 
     )
     if check and result.returncode != 0:
         detail = _redact((result.stderr or result.stdout).strip(), token)
-        raise RuntimeError(
-            f"git {' '.join(args)} failed ({result.returncode}): {detail[:500]}"
-        )
+        raise RuntimeError(f"git {' '.join(args)} failed ({result.returncode}): {detail[:500]}")
     return result
 
 
@@ -611,24 +581,18 @@ def _require_git() -> None:
     try:
         _git(["--version"])
     except (OSError, RuntimeError, subprocess.SubprocessError) as exc:
-        raise RuntimeError(
-            f"git is not available in the automation runtime: {exc}"
-        ) from exc
+        raise RuntimeError(f"git is not available in the automation runtime: {exc}") from exc
 
 
 def _checkouts_root() -> Path:
-    return (
-        Path(os.environ.get("WORKSPACE_BASE", "/workspace")).resolve() / "issue-to-pr"
-    )
+    return Path(os.environ.get("WORKSPACE_BASE", "/workspace")).resolve() / "issue-to-pr"
 
 
 def _checkout_path(repo: str, number: int, label_event_id: int | str) -> Path:
     return _checkouts_root() / _repo_slug(repo) / f"issue-{number}-{label_event_id}"
 
 
-def _prepare_repository(
-    token: str, repo: str, number: int, label_event_id, base_branch: str, branch: str
-) -> tuple:
+def _prepare_repository(token: str, repo: str, number: int, label_event_id, base_branch: str, branch: str) -> tuple:
     """Clone the default branch and open the working branch on it.
 
     The clone is shallow and single-branch: the agent needs the tree, not the
@@ -644,11 +608,9 @@ def _prepare_repository(
         _git(
             [
                 "clone",
-                "--depth",
-                "1",
+                "--depth", "1",
                 "--single-branch",
-                "--branch",
-                base_branch,
+                "--branch", base_branch,
                 f"https://github.com/{repo}.git",
                 str(checkout),
             ],
@@ -677,9 +639,7 @@ def _commit_agent_work(checkout: Path, number: int, title: str, base_sha: str) -
     if dirty:
         _git(["add", "-A"], cwd=checkout)
         _git(["commit", "-m", f"Address issue #{number}: {title}"[:72]], cwd=checkout)
-    counted = _git(
-        ["rev-list", "--count", f"{base_sha}..HEAD"], cwd=checkout, check=False
-    )
+    counted = _git(["rev-list", "--count", f"{base_sha}..HEAD"], cwd=checkout, check=False)
     if counted.returncode != 0:
         return 0
     try:
@@ -713,14 +673,10 @@ def _release_checkout(rec: dict, agent_url: str, api_key: str) -> bool:
         except Exception:
             status = None
         if status is None:
-            print(
-                f"  Could not confirm conversation {conversation_id} has stopped; keeping {workspace_dir}"
-            )
+            print(f"  Could not confirm conversation {conversation_id} has stopped; keeping {workspace_dir}")
             return False
         if status not in TERMINAL_STATUSES:
-            print(
-                f"  Conversation {conversation_id} is still '{status}'; keeping its clone"
-            )
+            print(f"  Conversation {conversation_id} is still '{status}'; keeping its clone")
             return False
 
     path = Path(workspace_dir)
@@ -745,9 +701,7 @@ def _release_checkout(rec: dict, agent_url: str, api_key: str) -> bool:
 # ── Agent server ──────────────────────────────────────────────────────────────
 
 
-def _oh_request(
-    agent_url: str, api_key: str, method: str, path: str, body: dict | None = None
-) -> dict:
+def _oh_request(agent_url: str, api_key: str, method: str, path: str, body: dict | None = None) -> dict:
     url = f"{agent_url}{path}"
     headers = {"X-Session-API-Key": api_key, "Content-Type": "application/json"}
     data = json.dumps(body).encode() if body is not None else None
@@ -758,9 +712,7 @@ def _oh_request(
             return json.loads(raw) if raw.strip() else {}
     except urllib.error.HTTPError as exc:
         body_text = exc.read().decode()
-        raise RuntimeError(
-            f"Agent API {method} {path} → {exc.code}: {body_text}"
-        ) from exc
+        raise RuntimeError(f"Agent API {method} {path} → {exc.code}: {body_text}") from exc
 
 
 def _fetch_settings(agent_url: str, api_key: str) -> dict:
@@ -804,15 +756,11 @@ def _build_secrets_payload(agent_url: str, api_key: str) -> dict:
         print("  Secrets forwarded to the conversation: none")
         return {}
 
-    available = {
-        secret.get("name", "") for secret in _list_secret_names(agent_url, api_key)
-    }
+    available = {secret.get("name", "") for secret in _list_secret_names(agent_url, api_key)}
     secrets: dict = {}
     for name in AGENT_SECRET_NAMES:
         if name not in available:
-            print(
-                f"  Warning: secret '{name}' is not set in this deployment; not forwarded"
-            )
+            print(f"  Warning: secret '{name}' is not set in this deployment; not forwarded")
             continue
         lookup: dict = {"kind": "LookupSecret", "url": f"/api/settings/secrets/{name}"}
         if api_key:
@@ -849,9 +797,7 @@ def conversation_status(agent_url: str, api_key: str, conv_id: str) -> str:
 
 
 def conversation_final_response(agent_url: str, api_key: str, conv_id: str) -> str:
-    result = _oh_request(
-        agent_url, api_key, "GET", f"/api/conversations/{conv_id}/agent_final_response"
-    )
+    result = _oh_request(agent_url, api_key, "GET", f"/api/conversations/{conv_id}/agent_final_response")
     return result.get("response", "")
 
 
@@ -996,9 +942,7 @@ def _start_task(
     key = _task_key(number, label_event_id)
     title = issue.get("title", "(no title)")
 
-    print(
-        f"  Queuing work for issue #{number} from `{TRIGGER_LABEL}` event {label_event_id}: {title}"
-    )
+    print(f"  Queuing work for issue #{number} from `{TRIGGER_LABEL}` event {label_event_id}: {title}")
 
     # Claim the label event and persist it *before* the slow work below. State
     # is otherwise only written when the repository finishes polling, so a poll
@@ -1036,9 +980,7 @@ def _start_task(
             shutil.rmtree(workspace_dir, ignore_errors=True)
         tasks.pop(key, None)
         persist()
-        print(
-            f"  Error starting work on issue #{number}: {_redact(str(exc), github_token)}"
-        )
+        print(f"  Error starting work on issue #{number}: {_redact(str(exc), github_token)}")
         return None
 
     tasks[key].update(
@@ -1097,9 +1039,7 @@ def _finalize_task(
         if age > MAX_ACTIVE_AGE:
             rec["status"] = "expired"
             rec["expired_after"] = age
-            print(
-                f"  Work on issue #{number} still '{status}' after {int(age)}s; abandoning it"
-            )
+            print(f"  Work on issue #{number} still '{status}' after {int(age)}s; abandoning it")
             _post_github_comment(
                 github_token,
                 repo,
@@ -1183,15 +1123,11 @@ def _finalize_task(
         return
 
     try:
-        commits = _commit_agent_work(
-            checkout, number, rec.get("issue_title", ""), rec["base_sha"]
-        )
+        commits = _commit_agent_work(checkout, number, rec.get("issue_title", ""), rec["base_sha"])
         if commits == 0:
             rec["status"] = "no-changes"
             rec["completed_at"] = time.time()
-            print(
-                f"  Issue #{number}: the agent produced no commits; not opening a pull request"
-            )
+            print(f"  Issue #{number}: the agent produced no commits; not opening a pull request")
             _post_github_comment(
                 github_token,
                 repo,
@@ -1292,10 +1228,8 @@ def _process_repo(
         number = issue["number"]
 
         if started >= MAX_NEW_PER_RUN:
-            print(
-                f"  Reached the cap of {MAX_NEW_PER_RUN} new conversation(s) this run; "
-                "the rest are picked up by the next poll"
-            )
+            print(f"  Reached the cap of {MAX_NEW_PER_RUN} new conversation(s) this run; "
+                  "the rest are picked up by the next poll")
             break
 
         # Refetch so a label removed since the listing does not start work.
@@ -1306,29 +1240,17 @@ def _process_repo(
 
         label_event = _latest_trigger_label_event(github_token, repo, number)
         if not label_event:
-            print(
-                f"  Issue #{number} has `{TRIGGER_LABEL}` but no matching labeled event; skipping"
-            )
+            print(f"  Issue #{number} has `{TRIGGER_LABEL}` but no matching labeled event; skipping")
             continue
 
         key = _task_key(number, label_event["id"])
         if key in tasks:
-            print(
-                f"  Issue #{number} label event {label_event['id']} already tracked ({tasks[key].get('status')})"
-            )
+            print(f"  Issue #{number} label event {label_event['id']} already tracked ({tasks[key].get('status')})")
             continue
 
         conv_id = _start_task(
-            github_token,
-            agent_url,
-            api_key,
-            openhands_url,
-            repo,
-            fresh_issue,
-            label_event,
-            base_branch,
-            tasks,
-            persist,
+            github_token, agent_url, api_key, openhands_url, repo,
+            fresh_issue, label_event, base_branch, tasks, persist,
         )
         if conv_id:
             last_conversation_id = conv_id
@@ -1376,9 +1298,7 @@ def main() -> str | None:
         # One repository failing must not stop the others from being polled.
         try:
             repo = normalize_repo(configured)
-            conv_id = _process_repo(
-                repo, github_token, agent_url, api_key, openhands_url
-            )
+            conv_id = _process_repo(repo, github_token, agent_url, api_key, openhands_url)
             if conv_id:
                 last_conversation_id = conv_id
         except Exception as exc:
