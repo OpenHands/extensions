@@ -295,7 +295,10 @@ class Handler(BaseHTTPRequestHandler):
                     return self.reply(409, {"error": str(exc)})
                 return self.reply(200, result)
             if not permitted(role, method, path, body or {}):
-                return self.reply(403, {"error": "Operation outside role grant"})
+                reason = "Operation outside role grant"
+                if role == "reviewer" and re.fullmatch(r"/pulls/\d+/reviews", path):
+                    reason = "Reviewer submissions require event: COMMENT and commit_id of the reviewed head"
+                return self.reply(403, {"error": reason})
             result = github(role, method, path, body)
             if method != "GET":
                 print(

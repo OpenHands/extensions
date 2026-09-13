@@ -8,13 +8,13 @@ separate random token for its role.
 | Role | Granted operations |
 | --- | --- |
 | Triage | Read backlog, comment, create readiness labels, update issue labels/body |
-| Developer | Read snapshots, comment, publish `factory/issue-N` branches, open PRs against `main` |
+| Developer | Read snapshots, comment, publish `factory/issue-N` branches, open PRs against `main`; bootstrap an empty repository with one empty `.gitkeep` |
 | Reviewer | Read snapshots, comment on a commit, publish the two factory acceptance statuses |
 | Watchdog | Read repository and request a guarded merge |
 
-No role can directly update main, force push, delete or administer the repository,
-or invoke an unguarded merge. The developer can initialize an empty repository with
-one empty `.gitkeep`, giving its first application PR a base.
+No role can arbitrarily update main, force push, delete or administer the repository,
+or invoke an unguarded merge. The fixed empty-repository bootstrap above is the
+only direct-main-write exception; its path and empty content are not caller-controlled.
 
 ## CI evidence with fine-grained PATs
 
