@@ -282,7 +282,17 @@ class Handler(BaseHTTPRequestHandler):
             payload = json.loads(self.rfile.read(length))
             method, path = payload["method"], payload["path"]
             body = payload.get("body")
-            if "%" in path or ".." in path or "#" in path or "\\" in path:
+            if (
+                "%" in path
+                or (
+                    ".." in path
+                    and not re.fullmatch(
+                        r"/compare/[0-9a-f]{40}\.\.\.[0-9a-f]{40}", path
+                    )
+                )
+                or "#" in path
+                or "\\" in path
+            ):
                 return self.reply(403, {"error": "Invalid path"})
             if path == "/factory/archive" and role in ("developer", "reviewer"):
                 return self.reply(200, archive(role, body["sha"]))

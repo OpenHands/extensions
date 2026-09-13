@@ -558,3 +558,37 @@ def test_review_rejection_explains_required_fields(broker, monkeypatch):
     assert responses[0][0] == 403
     assert "COMMENT" in responses[0][1]["error"]
     assert "commit_id" in responses[0][1]["error"]
+
+
+@pytest.mark.parametrize(
+    "path,expected",
+    [("/compare/" + "a" * 40 + "..." + "b" * 40, 200), ("/compare/../issues", 403)],
+)
+def test_handler_allows_exact_commit_comparison_without_path_traversal(
+    broker, monkeypatch, path, expected
+):
+    import io
+    import json
+    from types import SimpleNamespace
+
+    monkeypatch.setattr(broker, "CONTROL", {role: role for role in broker.ROLES})
+    upstream = []
+
+    def github(*args):
+        upstream.append(args)
+        return {"status": "ahead"}
+
+    monkeypatch.setattr(broker, "github", github)
+    payload = json.dumps({"method": "GET", "path": path}).encode()
+    replies = []
+    request = SimpleNamespace(
+        headers={
+            "Authorization": "Bearer developer",
+            "Content-Length": str(len(payload)),
+        },
+        rfile=io.BytesIO(payload),
+        reply=lambda code, body: replies.append((code, body)),
+    )
+    broker.Handler.do_POST(request)
+    assert replies[0][0] == expected
+    assert bool(upstream) == (expected == 200)
