@@ -661,7 +661,7 @@ def test_schema_rejects_content_a_setup_block_must_never_carry() -> None:
     build. These are the mutations that would turn it into code, an arbitrary
     request, or a credential leak.
     """
-    entry = _load(CATALOG_DIR / "github-pr-reviewer" / "manifest.json")
+    entry = _load(CATALOG_DIR / "github-issue-to-pr" / "manifest.json")
 
     rejected: list[tuple[str, dict]] = []
 

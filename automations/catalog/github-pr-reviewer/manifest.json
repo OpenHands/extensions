@@ -5,11 +5,7 @@
   "category": "Code review",
   "description": "Review labeled pull-request heads, publish readable findings, and record exact-head test and review decisions.",
   "requires": {
-    "integrations": {
-      "github": {
-        "message": "Used to choose repositories during setup; the selected profile supplies the runtime credential."
-      }
-    },
+    "integrations": {},
     "features": [
       "customTarball",
       "agentProfiles"
