@@ -27,9 +27,9 @@ The catalog bundle declares these exact files. Supply `config.json` with `repos`
 another secret name, pass that name instead. Naming a secret does not grant it:
 the Agent Server only supplies secrets allowed by the profile.
 
-The same bundle runs in local and Docker workspaces. The Automation Service
-provides the conversation, workspace, and scoped server connection; it owns
-scheduling, concurrency, cancellation, and cleanup.
+The watchdog is an ordinary Automation host command and creates no agent,
+conversation, or workspace. Its selected profile scopes the GitHub credential
+supplied to that command. Automation owns scheduling, cancellation, and cleanup.
 
 Set `branch_prefix` (default `openhands/issue`), `base_branch` (defaults to the repository's default branch),
 and `required_workflow_ids` when particular Actions workflows must run. The
