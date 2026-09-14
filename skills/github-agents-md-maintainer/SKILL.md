@@ -29,6 +29,10 @@ reviewing it would tell you nothing the first did not.
 
 ---
 
+The script imports shared GitHub transport from
+`scripts/github_client.py`, installed with this skill. Include it beside
+`main.py` when packaging manually, as shown below.
+
 ## Prerequisites
 
 ### Required secret
@@ -152,9 +156,11 @@ substitutions near the top of the file:
 Use a safe string writer such as `json.dumps(value)` when inserting user-provided
 repository names or prefixes into Python string literals.
 
-Write the customized script to a temporary build directory and validate it:
+Run these commands from this skill's directory, write the customized script
+to a temporary build directory, and validate it:
 ```bash
 mkdir -p /tmp/agents-md-build
+cp -L scripts/github_client.py /tmp/agents-md-build/github_client.py
 # write the customized main.py to /tmp/agents-md-build/main.py
 python3 -m py_compile /tmp/agents-md-build/main.py && echo "Syntax OK"
 ```
