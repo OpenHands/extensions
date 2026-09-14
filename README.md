@@ -96,7 +96,7 @@ The JS and Python versions are kept in lock-step by `release-please` and guarded
 ## Extensions Catalog
 
 <!-- BEGIN AUTO-GENERATED CATALOG -->
-This repository contains **2 marketplace(s)** with **71 extensions** (61 skills, 10 plugins).
+This repository contains **2 marketplace(s)** with **72 extensions** (62 skills, 10 plugins).
 
 ### large-codebase
 
@@ -115,7 +115,7 @@ OpenHands skills for interacting, improving, and refactoring large codebases
 
 Official skills and plugins for OpenHands — the open-source AI software engineer.
 
-**67 extensions** (59 skills, 8 plugins)
+**68 extensions** (60 skills, 8 plugins)
 
 | Name | Type | Description | Commands |
 |------|------|-------------|----------|
