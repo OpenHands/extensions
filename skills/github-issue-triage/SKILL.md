@@ -24,9 +24,10 @@ The catalog bundle declares these exact files. Supply `config.json` with `repos`
 another secret name, pass that name instead. Naming a secret does not grant it:
 the Agent Server only supplies secrets allowed by the profile.
 
-The same bundle runs in local and Docker workspaces. The Automation Service
-provides the conversation, workspace, and scoped server connection; it owns
-scheduling, concurrency, cancellation, and cleanup.
+The scanner is an ordinary Automation host command. It submits selected issues
+to Automation's subject-turn API; Automation starts or resumes the
+subject-specific agent conversation. Only that agent workspace is local or
+Docker. Automation owns scheduling, concurrency, cancellation, and cleanup.
 
 Honor `Depends on: #12, #13` lines. A dependency must be closed as completed.
 Post readable acceptance criteria and rationale. Add `ready-for-dev` only when
