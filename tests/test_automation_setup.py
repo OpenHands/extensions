@@ -676,9 +676,10 @@ def test_schema_rejects_content_a_setup_block_must_never_carry() -> None:
     rejected.append(("{{env.GITHUB_TOKEN}}", with_unknown_placeholder))
 
     with_secret_value = deepcopy(entry)
-    with_secret_value["requires"]["integrations"]["github"]["value"] = (
-        "ghp_notarealtokenvalue00"
-    )
+    with_secret_value["requires"]["integrations"]["github"] = {
+        "message": "Connect GitHub",
+        "value": "ghp_notarealtokenvalue00",
+    }
     rejected.append(("value", with_secret_value))
 
     with_repeated_identity = deepcopy(entry)

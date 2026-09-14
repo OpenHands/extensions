@@ -1,0 +1,1 @@
+../../github-pr-review/SKILL.md

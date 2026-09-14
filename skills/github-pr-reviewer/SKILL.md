@@ -29,10 +29,9 @@ checkout once the conversation has stopped. Nothing accumulates between runs.
 
 ---
 
-The script imports shared GitHub transport from
-`scripts/github_client.py`, installed with this skill. Include it beside
-`main.py` when packaging manually, as shown below; catalog bundles include it
-automatically.
+The installed `scripts/` directory includes shared GitHub support and QA resources.
+Package its files together; the installer materializes the shared sources, and
+catalog bundles include the same files automatically.
 
 ## Prerequisites
 
@@ -320,3 +319,53 @@ The completion callback fires once for the whole run.
 | Review arrives as a plain comment, not a review | Publishing failed, so the script posted the text as a fallback | Check that the token has Pull requests: Read and Write |
 | Agent reports it cannot clone the repo | Prompt asked it not to; the workspace is already the checkout | No action - the code is at the head SHA in its working directory |
 | Checkouts remain under `repositories/` | Their conversations had not stopped yet | They are removed by a later poll once the conversation is terminal |
+
+
+## Continuous delivery review
+
+The catalog bundle runs `worker.py` against the conversation provisioned by the
+Automation Service. Select its agent profile on the automation definition; the
+service and SDK resolve the model, tools, and allowed secrets. The workflow uses
+the normal SDK conversation API and does not select or load profiles. Local and
+Docker workspaces use the same bundle and entrypoint.
+
+Package every file listed in this automation's catalog `setup.bundle.files`.
+Set **GitHub token secret** to the name of the credential allowed by the profile
+(default: `GITHUB_PERSONAL_ACCESS_TOKEN`). The command-line option
+`--github-token-secret NAME` remains available for scripted deployments. This identifies a credential already
+authorized by the profile; it does not grant access to another secret.
+
+The review workflow reviews new heads carrying `trigger_label`. For continuous
+delivery, set **Delivery branch prefix** and **Independent test commands** in
+the setup form. Enter one command per line, including dependency installation;
+quoted arguments work, but shell operators and pipes do not. Scripted deployments
+can also supply `test_commands` as arrays of command arguments in `config.json`.
+It then executes those commands independently, runs the canonical code review
+and QA prompts, and publishes the readable reports as GitHub reviews. Only a
+current, unchanged head with successful tests and both passing reports receives
+a passing `software-factory/review` status. Permission errors and incomplete
+reports never count as acceptance. `software-factory/tests` records the actual
+command results; logs remain artifacts and comments contain a short summary.
+QA reads linked issues and current acceptance criteria through the canonical
+workflow instead of consuming a separately parsed issue snapshot.
+
+The integrity check snapshots the fresh GitHub source archive before tests or
+agent execution create build output. It protects all files shipped in that
+archive, including tracked files that match ignore rules. Generated, ignored output remains writable for setup
+and builds; this is not an immutable filesystem boundary. Independent test
+commands run before the review agent changes any workspace output.
+
+A new `trigger_label` requests review even when the commit has not changed, so
+developers can explain a disputed finding without manufacturing a code change.
+The reviewer removes the label after publishing its completed verdict. Pending
+PRs use GitHub’s oldest-update-first order, so repeated revisions cannot keep
+newer PRs waiting behind the same low-numbered PR. The
+canonical workflow may publish a summary and inline review separately; all
+reports from this run must agree before acceptance. An incomplete run retries
+the full review and QA sequence in a new conversation, which can publish another
+review on the same head. Earlier reports do not substitute for this run's
+independent acceptance evidence.
+
+Profile runs wait for review and QA to finish. The catalog allows 7200 seconds
+for both stages and independent test commands; shorter timeouts can terminate
+a review before it publishes its result.

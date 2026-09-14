@@ -732,7 +732,15 @@ def _load_repo_review_guide(workspace_dir: Path) -> str | None:
     return None
 
 
-def _build_review_prompt(repo: str, pr: dict, head_sha: str, label_event: dict, repo_review_guide: str | None = None) -> str:
+def _build_review_prompt(
+    repo: str,
+    pr: dict,
+    head_sha: str,
+    label_event: dict,
+    repo_review_guide: str | None = None,
+    *,
+    github_access_instructions: str | None = None,
+) -> str:
     number = pr.get("number", "?")
     title = pr.get("title", "(no title)")
     body = (pr.get("body") or "").strip() or "(no description)"
@@ -777,8 +785,13 @@ def _build_review_prompt(repo: str, pr: dict, head_sha: str, label_event: dict, 
         "guidance to your review.\n"
         "   Then inspect the PR discussion, existing review comments, changed files, and the diff, "
         "together with the surrounding code in the workspace.\n"
-        "   Use `gh` or GitHub REST API calls with `GITHUB_PERSONAL_ACCESS_TOKEN`; never print secret values.\n"
-        "3. Ground every finding in the workspace code. Before using an inline location, verify that "
+        + (
+            github_access_instructions
+            or "Use `gh` or GitHub REST API calls with "
+            "`GITHUB_PERSONAL_ACCESS_TOKEN`; never print secret values."
+        )
+        + "\n"
+        + "3. Ground every finding in the workspace code. Before using an inline location, verify that "
         "the path and line are part of this pull request's diff.\n"
         f"4. Publish one review with `POST /repos/{repo}/pulls/{number}/reviews`, using "
         "`commit_id` equal to the Head SHA above and `event: COMMENT`.\n"

@@ -44,3 +44,11 @@ request another review later, remove and re-apply the label.
 ## See Also
 
 - [SKILL.md](SKILL.md) - Full setup workflow reference
+
+## Continuous delivery
+
+The catalog bundle runs `worker.py` using the Automation Service's provisioned
+conversation and reuses the existing review prompt and checkout helpers. Select
+an agent profile on the definition. The bundle consumes the SDK conversation API
+identically in local and Docker workspaces. Configure `test_commands` and
+`branch_prefix` to require independent tests and canonical QA before acceptance.
