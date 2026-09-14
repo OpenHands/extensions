@@ -1,0 +1,167 @@
+{
+  "id": "datadog-error-monitor",
+  "version": "1.0.0",
+  "name": "Datadog error monitor",
+  "category": "Developer tools",
+  "icon": "circle-alert",
+  "description": "Poll Datadog logs for new or spiking errors on a schedule, investigate root causes in your codebase, and post a Slack summary with optional PR fixes.",
+  "requires": {
+    "integrations": {
+      "datadog": {
+        "message": "Used to query logs for errors and spikes."
+      },
+      "slack": {
+        "message": "Used to post investigation summaries to a configured channel."
+      }
+    },
+    "features": [
+      "customTarball"
+    ]
+  },
+  "popularityRank": 80,
+  "estimatedSetupMinutes": 10,
+  "skill": "datadog-error-monitor",
+  "exampleImplementation": "Trigger: cron, every 15 minutes by default\nRequired secrets: DD_API_KEY, DD_APP_KEY, SLACK_BOT_TOKEN\n\n1. Query Datadog logs using a configured filter (e.g. service:api status:error).\n2. Match log events against a regex-based error pattern library stored in the KV store.\n3. Track hit counts per pattern; detect spikes (count > 3x rolling baseline).\n4. When new or spiking errors are found, start an investigation conversation.\n5. The agent categorizes unknown errors into named patterns, investigates root causes in the configured codebases, creates a PR if confident, and posts a Slack summary.",
+  "impact": {
+    "basis": "completed-runs",
+    "one": "1 error poll completed",
+    "other": "{{count}} error polls completed"
+  },
+  "setup": {
+    "version": "1.0",
+    "mode": "direct",
+    "form": {
+      "triggers": {
+        "cron": {
+          "schedule": {
+            "type": "cron",
+            "label": "Check frequency",
+            "help": "How often to poll Datadog for new or spiking errors.",
+            "default": "*/15 * * * *",
+            "required": true
+          },
+          "timezone": {
+            "type": "timezone",
+            "label": "Timezone",
+            "help": "Timezone the schedule is interpreted in.",
+            "default": "UTC",
+            "required": true
+          }
+        }
+      },
+      "args": {
+        "datadogQuery": {
+          "type": "textarea",
+          "label": "Datadog log query",
+          "help": "The Datadog log filter that runs every poll. Develop and test it in the Datadog Logs Explorer first.",
+          "default": "service:(deploy OR runtime-api) status:error",
+          "required": true,
+          "constraints": {
+            "minLength": 3,
+            "maxLength": 2000
+          }
+        },
+        "datadogSite": {
+          "type": "select",
+          "label": "Datadog site",
+          "help": "Your Datadog site. Find it at Organization Settings -> Site in Datadog.",
+          "default": "datadoghq.com",
+          "required": true,
+          "options": [
+            {
+              "value": "datadoghq.com",
+              "label": "US1 (datadoghq.com)"
+            },
+            {
+              "value": "datadoghq.eu",
+              "label": "EU (datadoghq.eu)"
+            },
+            {
+              "value": "us3.datadoghq.com",
+              "label": "US3 (us3.datadoghq.com)"
+            },
+            {
+              "value": "us5.datadoghq.com",
+              "label": "US5 (us5.datadoghq.com)"
+            },
+            {
+              "value": "ap1.datadoghq.com",
+              "label": "AP1 (ap1.datadoghq.com)"
+            }
+          ]
+        },
+        "slackChannelId": {
+          "type": "text",
+          "label": "Slack channel ID",
+          "help": "The Slack channel ID (e.g. C0123456789) where investigation summaries are posted. The bot must be in the channel.",
+          "required": true,
+          "constraints": {
+            "minLength": 3,
+            "maxLength": 50
+          }
+        },
+        "repoConfigs": {
+          "type": "textarea",
+          "label": "Monitored repositories",
+          "help": "One repository per line as path|host|remote, where host is github, gitlab, or bitbucket. These must already be cloned on the machine running OpenHands. Leave empty to investigate without code access.",
+          "placeholder": "/home/user/projects/my-api|github|owner/my-api",
+          "required": false,
+          "constraints": {
+            "maxLength": 4000
+          }
+        },
+        "maxUnknownLogs": {
+          "type": "number",
+          "label": "Max unknown logs per run",
+          "help": "Maximum uncategorized log samples sent to the investigation agent per run.",
+          "default": 100,
+          "required": true,
+          "constraints": {
+            "min": 1,
+            "max": 500
+          }
+        },
+        "examplesPerPattern": {
+          "type": "number",
+          "label": "Examples per pattern",
+          "help": "How many example logs to keep per error pattern in the KV store.",
+          "default": 3,
+          "required": true,
+          "constraints": {
+            "min": 1,
+            "max": 20
+          }
+        },
+        "spikeMultiplier": {
+          "type": "number",
+          "label": "Spike threshold",
+          "help": "Alert when a pattern count exceeds this multiple of the rolling 3-run average.",
+          "default": 3,
+          "required": true,
+          "constraints": {
+            "min": 1,
+            "max": 20
+          }
+        }
+      }
+    },
+    "bundle": {
+      "version": "1.0.0",
+      "entrypoint": "python3 main.py",
+      "timeout": 120,
+      "files": {
+        "main.py": "skills/datadog-error-monitor/scripts/main.py"
+      },
+      "config": {
+        "dd_query": "{{form.datadogQuery}}",
+        "dd_site": "{{form.datadogSite}}",
+        "slack_channel_id": "{{form.slackChannelId}}",
+        "repo_configs": "{{form.repoConfigs}}",
+        "max_unknown_logs": "{{form.maxUnknownLogs}}",
+        "examples_per_pattern": "{{form.examplesPerPattern}}",
+        "spike_multiplier": "{{form.spikeMultiplier}}"
+      }
+    },
+    "message": "This deployment cannot run the scheduled error monitor directly. Set it up in this conversation instead: confirm the Datadog query, site, Slack channel, monitored repositories, and polling schedule, then create the automation."
+  }
+}
