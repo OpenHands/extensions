@@ -259,6 +259,9 @@ For each repository:
      `{WORKSPACE_BASE}/repositories/{owner}__{repo}/pr-{number}-{sha12}`. The
      archive is checked as it is unpacked: a single root, no absolute or `..`
      paths, and symlinks skipped rather than materialised.
+   - Resolves `AUTOMATION_MODEL` for the new conversation; if unset or missing
+     (404), uses the server's default LLM settings. Other profile errors abort
+     creation. See [README.md](README.md#prerequisites) for server requirements.
    - Starts an OpenHands conversation **whose working directory is that
      checkout**, with a review prompt carrying PR metadata, the exact head SHA,
      label event details, and the LLM profile/model footer required in the

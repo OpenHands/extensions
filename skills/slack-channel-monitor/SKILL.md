@@ -251,6 +251,9 @@ Each cron run executes `main.py`, which runs **10 polling iterations** (every
      ignored.
    - Contains trigger phrase outside a tracked conversation → 👀 reaction, create
      a new conversation, post link.
+     - Resolves `AUTOMATION_MODEL` for the new conversation; if unset or missing
+       (404), uses the server's default LLM settings. Other profile errors abort
+       creation. See [README.md](README.md#prerequisites) for server requirements.
      - Thread replies: agent receives full thread history for context.
      - Root messages: agent receives the trigger text only.
 6. **Checks conversation statuses**  -  for each active conversation where

@@ -1,6 +1,11 @@
 """Regression coverage for runtime profiles and deterministic review provenance."""
 
+import io
+import json
+import threading
 import types
+import urllib.error
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 import pytest
@@ -65,20 +70,155 @@ def test_active_settings_reach_conversation(
     )
 
     assert payloads[0]["agent"]["llm"] == settings["agent_settings"]["llm"]
-    assert (profile, model) == ("active-profile", "openai/active")
+    assert (profile, model) == ("default", "openai/active")
 
 
-def test_automation_model_does_not_mislabel_actual_settings(
+@pytest.mark.parametrize("linked_provider", [False, True])
+def test_selected_profile_reaches_conversation_over_http(
+    automation, settings, monkeypatch, tmp_path, linked_provider
+):
+    """Exercise the real profile GET and conversation POST with a different default."""
+    monkeypatch.setenv("AUTOMATION_MODEL", "gpt-latest-med")
+    selected = {
+        "model": "openai/selected-model",
+        "api_key": "synthetic-profile-key",
+        "base_url": "https://selected.example/v1",
+        "reasoning_effort": "medium",
+    }
+    if linked_provider:
+        # This is the runtime response supplied by Agent Server #4952.
+        selected["provider_connection_id"] = "selected-provider"
+    requests = []
+    payloads = []
+
+    class Handler(BaseHTTPRequestHandler):
+        def log_message(self, *_args):
+            pass
+
+        def respond(self, body):
+            content = json.dumps(body).encode()
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(content)))
+            self.end_headers()
+            self.wfile.write(content)
+
+        def do_GET(self):
+            requests.append(("GET", self.path))
+            if (
+                self.path != "/api/profiles/gpt-latest-med"
+                or self.headers.get("X-Session-API-Key") != "test-session"
+                or self.headers.get("X-Expose-Secrets") != "plaintext"
+            ):
+                self.send_error(400)
+                return
+            self.respond({"config": selected})
+
+        def do_POST(self):
+            requests.append(("POST", self.path))
+            if (
+                self.path != "/api/conversations"
+                or self.headers.get("X-Session-API-Key") != "test-session"
+            ):
+                self.send_error(400)
+                return
+            body = self.rfile.read(int(self.headers["Content-Length"]))
+            payloads.append(json.loads(body))
+            self.respond({"id": "test-conversation"})
+
+    monkeypatch.setattr(automation, "_build_secrets_payload", lambda *_: {})
+    monkeypatch.setattr(automation, "_get_mcp_config", lambda *_: None)
+    with ThreadingHTTPServer(("127.0.0.1", 0), Handler) as server:
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        try:
+            url = f"http://127.0.0.1:{server.server_port}"
+            agent, profile, model = automation._get_agent_and_llm_provenance(
+                url, "test-session"
+            )
+            kwargs = {"agent": agent}
+            if automation.__name__ == "github_pr_reviewer":
+                kwargs["workspace_dir"] = tmp_path
+            conversation_id = automation.create_conversation(
+                url, "test-session", "Review this", **kwargs
+            )
+        finally:
+            server.shutdown()
+            thread.join()
+
+    assert conversation_id == "test-conversation"
+    assert payloads[0]["agent"]["llm"] == selected
+    assert (profile, model) == ("gpt-latest-med", "openai/selected-model")
+    assert requests == [
+        ("GET", "/api/profiles/gpt-latest-med"),
+        ("POST", "/api/conversations"),
+    ]
+
+
+def test_deleted_profile_falls_back_to_concrete_default(
     automation, settings, monkeypatch
 ):
-    monkeypatch.setenv("AUTOMATION_MODEL", "stale-or-unresolved-profile")
+    monkeypatch.setenv("AUTOMATION_MODEL", "deleted-profile")
+
+    def fetch(_request):
+        raise urllib.error.HTTPError("http://agent", 404, "Not found", {}, None)
+
+    monkeypatch.setattr(automation.urllib.request, "urlopen", fetch)
 
     agent, profile, model = automation._get_agent_and_llm_provenance(
         "http://agent", "key"
     )
 
     assert agent["llm"] == settings["agent_settings"]["llm"]
-    assert (profile, model) == ("active-profile", "openai/active")
+    assert (profile, model) == ("default", "openai/active")
+
+
+@pytest.mark.parametrize("status", [401, 403, 422, 500])
+def test_profile_read_errors_do_not_fall_back(automation, monkeypatch, status):
+    monkeypatch.setenv("AUTOMATION_MODEL", "gpt-latest-med")
+
+    def fetch(_request):
+        raise urllib.error.HTTPError("http://agent", status, "Failure", {}, None)
+
+    def unexpected_default(*_args):
+        pytest.fail("Only a missing profile may fall back to default settings")
+
+    monkeypatch.setattr(automation.urllib.request, "urlopen", fetch)
+    monkeypatch.setattr(automation, "_fetch_settings", unexpected_default)
+    with pytest.raises(urllib.error.HTTPError) as caught:
+        automation._get_agent_and_llm_provenance("http://agent", "key")
+    assert caught.value.code == status
+
+
+@pytest.mark.parametrize("config", [None, {}, "invalid", {"model": "  "}])
+def test_invalid_profile_is_not_used(automation, settings, monkeypatch, config):
+    monkeypatch.setenv("AUTOMATION_MODEL", "gpt-latest-med")
+    monkeypatch.setattr(
+        automation.urllib.request,
+        "urlopen",
+        lambda _request: io.BytesIO(json.dumps({"config": config}).encode()),
+    )
+    with pytest.raises(RuntimeError, match="no valid model configuration"):
+        automation._get_agent_and_llm_provenance("http://agent", "key")
+
+
+def test_old_server_linked_profile_fails_with_actionable_error(
+    automation, settings, monkeypatch
+):
+    monkeypatch.setenv("AUTOMATION_MODEL", "gpt-latest-med")
+    config = {
+        "model": "openai/selected-model",
+        "provider_connection_id": "selected-provider",
+        "api_key": None,
+        "base_url": None,
+    }
+    monkeypatch.setattr(
+        automation.urllib.request,
+        "urlopen",
+        lambda _request: io.BytesIO(json.dumps({"config": config}).encode()),
+    )
+    with pytest.raises(RuntimeError, match="update Agent Server"):
+        automation._get_agent_and_llm_provenance("http://agent", "key")
 
 
 def test_unnamed_settings_use_default_profile_label(automation, settings):

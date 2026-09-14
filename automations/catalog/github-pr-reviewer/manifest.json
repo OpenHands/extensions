@@ -1,6 +1,6 @@
 {
   "id": "github-pr-reviewer",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "name": "GitHub code review",
   "category": "Code review",
   "description": "Watch for a configurable label on GitHub pull requests, inspect full PR and repository context, and post an AI review comment once per label event.",
@@ -88,7 +88,7 @@
       }
     },
     "bundle": {
-      "version": "1.0.2",
+      "version": "1.0.3",
       "entrypoint": "python3 main.py",
       "timeout": 600,
       "files": {

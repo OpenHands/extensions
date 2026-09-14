@@ -26,7 +26,7 @@ import urllib.error
 import urllib.request
 from collections.abc import Callable
 from pathlib import Path, PurePosixPath
-from urllib.parse import urlencode
+from urllib.parse import quote, urlencode
 
 # Configuration. Two setup paths write it, and both end up here:
 #
@@ -657,12 +657,50 @@ def _fetch_settings(agent_url: str, api_key: str) -> dict:
         return json.loads(r.read())
 
 
+def _fetch_llm_profile(agent_url: str, api_key: str, profile_name: str) -> dict:
+    """Read a runnable named profile through the authenticated runtime API."""
+    req = urllib.request.Request(
+        f"{agent_url}/api/profiles/{quote(profile_name, safe='')}",
+        headers={"X-Session-API-Key": api_key, "X-Expose-Secrets": "plaintext"},
+    )
+    with urllib.request.urlopen(req) as response:
+        data = json.loads(response.read())
+    config = data.get("config") if isinstance(data, dict) else None
+    if (
+        not isinstance(config, dict)
+        or not isinstance(config.get("model"), str)
+        or not config["model"].strip()
+    ):
+        raise RuntimeError(
+            f"LLM profile {profile_name!r} returned no valid model configuration"
+        )
+    if config.get("provider_connection_id") and not config.get("api_key"):
+        raise RuntimeError(
+            f"LLM profile {profile_name!r} returned unresolved provider credentials; "
+            "update Agent Server to support linked-profile runtime reads"
+        )
+    return config
+
+
 def _get_agent_and_llm_provenance(
     agent_url: str, api_key: str
 ) -> tuple[dict, str, str]:
-    data = _fetch_settings(agent_url, api_key)
-    llm = data.get("agent_settings", {}).get("llm", {})
-    profile_name = data.get("active_profile") or "default"
+    """Resolve the selected profile once for both the child agent and its footer."""
+    profile_name = os.environ.get("AUTOMATION_MODEL")
+    if profile_name:
+        try:
+            llm = _fetch_llm_profile(agent_url, api_key, profile_name)
+        except urllib.error.HTTPError as exc:
+            if exc.code != 404:
+                raise
+            print(f"LLM profile {profile_name!r} was not found; using default LLM settings")
+            profile_name = None
+    if not profile_name:
+        data = _fetch_settings(agent_url, api_key)
+        llm = data.get("agent_settings", {}).get("llm", {})
+        # The active-profile pointer can drift from these concrete settings.
+        # Do not claim that a named profile was loaded when it was not.
+        profile_name = "default"
     model = llm.get("model") or "unknown"
     return (
         {

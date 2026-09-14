@@ -37,12 +37,20 @@ This skill is activated by keywords:
   thread immediately on trigger detection
 - **Automatic summaries**: when the conversation reaches a terminal state the
   agent's final response is posted back to the thread; error/stuck states
-  receive a clear error notice, and every result shows the active LLM profile
-  and model
+  receive a clear error notice, and every result shows the selected LLM profile
+  and actual model
 - **Persistent state**: conversation tracking and poll timestamps are stored
   in `automation-state/slack_poller_{automation_id}.json` across runs
 
 ## Prerequisites
+
+The automation's selected profile (`AUTOMATION_MODEL`) is resolved for each new
+conversation. If it is unset or the profile was deleted, the script uses the
+server's concrete default LLM settings and labels the result `default`.
+Other profile errors stop creation instead of silently choosing another model.
+Provider-linked profiles require an Agent Server version that resolves provider
+credentials on authenticated plaintext profile reads; older servers produce an
+explicit upgrade error. The script never activates a profile globally.
 
 Set at least one of the following in **OpenHands Settings - Secrets**:
 

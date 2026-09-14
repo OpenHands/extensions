@@ -54,7 +54,8 @@ def test_post_message_sends_markdown_text(monkeypatch):
     assert "mrkdwn" not in posted["body"]
 
 
-def test_active_profile_matches_agent_and_display_metadata(monkeypatch):
+def test_default_settings_match_agent_and_display_metadata(monkeypatch):
+    monkeypatch.delenv("AUTOMATION_MODEL", raising=False)
     helpers = load_slack_monitor_helpers()
     llm = {"model": "anthropic/claude-sonnet-4-6", "api_key": "secret"}
     settings = {
@@ -68,7 +69,7 @@ def test_active_profile_matches_agent_and_display_metadata(monkeypatch):
     )
 
     assert agent["llm"] == llm
-    assert profile == "slack-profile"
+    assert profile == "default"
     assert model == "anthropic/claude-sonnet-4-6"
 
 
@@ -189,4 +190,3 @@ def test_expired_followup_watch_polls_once_before_closing(monkeypatch):
     )
     assert rec["next_reply_poll_at"] == 1006.0
     assert rec["watch_until"] == 1301.0
-
