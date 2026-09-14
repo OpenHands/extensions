@@ -1,0 +1,19 @@
+{
+  "name": "agent-guild-trust",
+  "version": "1.0.0",
+  "description": "Check evidence about an unfamiliar autonomous agent before delegating work or money, and verify Agent Guild passports. This skill is read-only and never authorizes a payment, delegation, or other side effect.",
+  "author": {
+    "name": "OpenHands",
+    "email": "contact@all-hands.dev"
+  },
+  "homepage": "https://github.com/OpenHands/extensions",
+  "repository": "https://github.com/OpenHands/extensions",
+  "license": "MIT",
+  "keywords": [
+    "agent-trust",
+    "agent-reputation",
+    "delegation",
+    "passport",
+    "counterparty"
+  ]
+}
