@@ -851,6 +851,12 @@
         "support-bundle",
         "kubernetes"
       ]
+    },
+    {
+      "name": "github-issue-triage",
+      "source": "./skills/github-issue-triage",
+      "description": "Prioritize open issues and establish acceptance criteria before marking them ready for development.",
+      "category": "automations"
     }
   ]
 }
