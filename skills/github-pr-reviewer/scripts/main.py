@@ -732,7 +732,16 @@ def _load_repo_review_guide(workspace_dir: Path) -> str | None:
     return None
 
 
-def _build_review_prompt(repo: str, pr: dict, head_sha: str, label_event: dict, repo_review_guide: str | None = None) -> str:
+def _build_review_prompt(
+    repo: str,
+    pr: dict,
+    head_sha: str,
+    label_event: dict,
+    repo_review_guide: str | None = None,
+    *,
+    workspace_instructions: str | None = None,
+    github_token_secret: str = "GITHUB_PERSONAL_ACCESS_TOKEN",
+) -> str:
     number = pr.get("number", "?")
     title = pr.get("title", "(no title)")
     body = (pr.get("body") or "").strip() or "(no description)"
@@ -752,6 +761,10 @@ def _build_review_prompt(repo: str, pr: dict, head_sha: str, label_event: dict, 
         f"\n\nRepo-specific review guide (from {REPO_REVIEW_GUIDE_PATH}):\n---\n{repo_review_guide}\n---\n"
         if repo_review_guide else ""
     )
+    workspace = workspace_instructions or (
+        "The workspace is already the repository root at the exact Head SHA above. "
+        "Do not clone, fetch, check out, or delete the repository."
+    )
 
     return (
         "You are an AI code reviewer. Review the GitHub pull request below and publish "
@@ -768,8 +781,7 @@ def _build_review_prompt(repo: str, pr: dict, head_sha: str, label_event: dict, 
         f"URL        : {html_url}\n"
         f"\nPR Description:\n---\n{body}\n---\n\n"
         "Required workflow:\n"
-        "1. The workspace is already the repository root at the exact Head SHA above. "
-        "Do not clone, fetch, check out, or delete the repository.\n"
+        f"1. {workspace}\n"
         "2. Before reviewing, you MUST read the repository's own guidance to understand the repo first.\n"
         "   Read `AGENTS.md` at the repository root (and any nested `AGENTS.md` covering the "
         "changed files), plus other relevant docs when present - e.g. `CONTRIBUTING.md`, "
@@ -777,7 +789,7 @@ def _build_review_prompt(repo: str, pr: dict, head_sha: str, label_event: dict, 
         "guidance to your review.\n"
         "   Then inspect the PR discussion, existing review comments, changed files, and the diff, "
         "together with the surrounding code in the workspace.\n"
-        "   Use `gh` or GitHub REST API calls with `GITHUB_PERSONAL_ACCESS_TOKEN`; never print secret values.\n"
+        f"   Use `gh` or GitHub REST API calls with `{github_token_secret}`; never print secret values.\n"
         "3. Ground every finding in the workspace code. Before using an inline location, verify that "
         "the path and line are part of this pull request's diff.\n"
         f"4. Publish one review with `POST /repos/{repo}/pulls/{number}/reviews`, using "
