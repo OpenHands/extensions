@@ -1,7 +1,24 @@
 """Contract tests for independent reviewer delivery."""
 
+import subprocess
+import sys
+
 import pytest
-from github_automation_helpers import worker
+from github_automation_helpers import ROOT, worker
+from openhands.sdk.skills import install_skill
+
+
+def test_installed_reviewer_skill_imports_worker(tmp_path):
+    name = "github-pr-reviewer"
+    install_skill(source=str(ROOT / "skills" / name), installed_dir=tmp_path)
+    result = subprocess.run(
+        [sys.executable, "-c", "import worker"],
+        cwd=tmp_path / name / "scripts",
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    assert result.returncode == 0, result.stderr
 
 
 @pytest.mark.parametrize(
