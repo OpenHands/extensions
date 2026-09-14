@@ -268,7 +268,7 @@ class TestMatchingReviewExists(unittest.TestCase):
             return main._matching_review_exists("token", "owner/repo", 7, "abc123")
 
     def test_true_for_our_review_at_this_commit(self):
-        self.assertTrue(self._exists([{"user": {"login": "Review-Bot"}, "commit_id": "abc123"}]))
+        self.assertTrue(self._exists([{"user": {"login": "Review-Bot"}, "commit_id": "abc123", "state": "COMMENTED"}]))
 
     def test_false_for_someone_elses_review(self):
         self.assertFalse(self._exists([{"user": {"login": "human"}, "commit_id": "abc123"}]))
@@ -276,9 +276,10 @@ class TestMatchingReviewExists(unittest.TestCase):
     def test_false_for_our_review_at_another_commit(self):
         self.assertFalse(self._exists([{"user": {"login": "review-bot"}, "commit_id": "older"}]))
 
-    def test_false_when_the_listing_fails(self):
+    def test_listing_failure_is_reported_to_the_caller(self):
         with patch.object(main, "_github_paginate", side_effect=RuntimeError("boom")):
-            self.assertFalse(main._matching_review_exists("token", "owner/repo", 7, "abc123"))
+            with self.assertRaises(RuntimeError):
+                main._matching_review_exists("token", "owner/repo", 7, "abc123")
 
 
 # ── Claiming a label event before the review starts ────────────────────────────
@@ -304,6 +305,11 @@ class TestClaimBeforeReview(_CheckoutTestCase):
         create = create or (lambda *a, **k: "conv-1")
         with (
             patch.object(main, "_prepare_repository", side_effect=prepare),
+            patch.object(
+                main,
+                "_get_agent_and_llm_provenance",
+                return_value=({"kind": "Agent"}, "review-profile", "review-model"),
+            ),
             patch.object(main, "create_conversation", side_effect=create),
             patch.object(main, "_post_github_comment"),
         ):
@@ -332,6 +338,8 @@ class TestClaimBeforeReview(_CheckoutTestCase):
         rec = self.reviews[main._review_key(7, 4242)]
         self.assertEqual(rec["status"], "active")
         self.assertEqual(rec["conversation_id"], "conv-1")
+        self.assertEqual(rec["llm_profile"], "review-profile")
+        self.assertEqual(rec["llm_model"], "review-model")
         self.assertEqual(self.snapshots[-1][main._review_key(7, 4242)]["status"], "active")
 
     def test_a_failed_start_releases_the_claim_so_the_next_poll_retries(self):
@@ -521,6 +529,77 @@ class TestRepoReviewGuide(unittest.TestCase):
         self.assertIn("AGENTS.md", prompt)
         self.assertIn("CONTRIBUTING.md", prompt)
         self.assertIn("nested `AGENTS.md`", prompt)
+
+
+class TestLlmProvenance(unittest.TestCase):
+    def test_default_settings_match_agent_and_display_metadata(self):
+        llm = {"model": "anthropic/claude-sonnet-4-6", "api_key": "secret"}
+        settings = {
+            "active_profile": "review-profile",
+            "agent_settings": {"llm": llm},
+        }
+
+        with (
+            patch.dict(main.os.environ, {"AUTOMATION_MODEL": ""}),
+            patch.object(main, "_fetch_settings", return_value=settings),
+        ):
+            agent, profile, model = main._get_agent_and_llm_provenance(
+                "http://agent", "key"
+            )
+
+        self.assertEqual(agent["llm"], llm)
+        self.assertEqual(profile, "default")
+        self.assertEqual(model, "anthropic/claude-sonnet-4-6")
+
+    def test_review_prompt_requires_the_shared_provenance_footer(self):
+        prompt = main._build_review_prompt(
+            "owner/repo",
+            TestRepoReviewGuide()._pr(),
+            "0123456789abcdef",
+            {"id": "1", "created_at": "t"},
+            llm_profile="review-profile",
+            llm_model="anthropic/claude-sonnet-4-6",
+        )
+
+        self.assertIn(
+            "LLM profile: `review-profile` · Model: `anthropic/claude-sonnet-4-6`",
+            prompt,
+        )
+
+    def test_fallback_comment_includes_llm_provenance(self):
+        rec = {
+            "conversation_id": "conv-1",
+            "pr_number": 42,
+            "head_sha": "0123456789abcdef",
+            "last_activity": 0.0,
+            "llm_profile": "review-profile",
+            "llm_model": "anthropic/claude-sonnet-4-6",
+        }
+        current_pr = {42: {"head": {"sha": "0123456789abcdef"}}}
+
+        with (
+            patch.object(main.time, "time", return_value=100.0),
+            patch.object(main, "conversation_status", return_value="finished"),
+            patch.object(main, "conversation_final_response", return_value="Review body"),
+            patch.object(main, "_matching_review_exists", return_value=False),
+            patch.object(main, "_post_github_comment") as post_comment,
+        ):
+            main._check_conversation_completion(
+                rec,
+                current_pr,
+                "token",
+                "http://agent",
+                "key",
+                "owner/repo",
+            )
+
+        body = post_comment.call_args.args[3]
+        self.assertIn("Review body", body)
+        self.assertIn(
+            "LLM profile: `review-profile` · Model: `anthropic/claude-sonnet-4-6`",
+            body,
+        )
+
 
 
 class TestNormalizeRepo(unittest.TestCase):

@@ -33,12 +33,13 @@ Optional secret:
 
 import json
 import os
+import re
 import sys
 import time
 import urllib.error
 import urllib.request
 from datetime import datetime, timezone
-from urllib.parse import urlencode
+from urllib.parse import quote, urlencode
 
 # ── Debug logging to a per-run file ───────────────────────────────────────────
 _DEBUG_LOG_PATH = os.path.join(
@@ -490,10 +491,10 @@ def _oh_request(
 
 
 def _fetch_settings(agent_url: str, api_key: str) -> dict:
-    """Fetch the full user settings from the agent server.
+    """Fetch the concrete LLM config used to serialize the child agent.
 
-    Uses X-Expose-Secrets: plaintext so the LLM api_key is a real string
-    rather than a masked placeholder.
+    Plaintext is returned only to this trusted script and sent straight back to
+    the same authenticated Agent Server in the conversation creation request.
     """
     url = f"{agent_url}/api/settings"
     headers = {"X-Session-API-Key": api_key, "X-Expose-Secrets": "plaintext"}
@@ -505,28 +506,60 @@ def _fetch_settings(agent_url: str, api_key: str) -> dict:
         raise RuntimeError(f"GET /api/settings failed: {exc.code}") from exc
 
 
-def _get_agent_dict(agent_url: str, api_key: str) -> dict:
-    """Fetch configured agent settings and return a serialised Agent dict.
+def _fetch_llm_profile(agent_url: str, api_key: str, profile_name: str) -> dict:
+    """Read a runnable named profile through the authenticated runtime API."""
+    req = urllib.request.Request(
+        f"{agent_url}/api/profiles/{quote(profile_name, safe='')}",
+        headers={"X-Session-API-Key": api_key, "X-Expose-Secrets": "plaintext"},
+    )
+    with urllib.request.urlopen(req) as response:
+        data = json.loads(response.read())
+    config = data.get("config") if isinstance(data, dict) else None
+    if (
+        not isinstance(config, dict)
+        or not isinstance(config.get("model"), str)
+        or not config["model"].strip()
+    ):
+        raise RuntimeError(
+            f"LLM profile {profile_name!r} returned no valid model configuration"
+        )
+    if config.get("provider_connection_id") and not config.get("api_key"):
+        raise RuntimeError(
+            f"LLM profile {profile_name!r} returned unresolved provider credentials; "
+            "update Agent Server to support linked-profile runtime reads"
+        )
+    return config
 
-    The result is passed as the 'agent' field (not 'agent_settings') to
-    avoid a double-registration bug: the agent_settings code path calls
-    create_agent() during request validation AND again during
-    StoredConversation construction, both of which try to register the
-    same usage_id in the LLM registry.
-    """
-    data = _fetch_settings(agent_url, api_key)
-    agent_settings = data.get("agent_settings", {})
-    llm = agent_settings.get("llm", {})
-    # settings["agent_settings"]["agent"] reflects the full-app agent registry
-    # (e.g. "CodeActAgent", "BrowsingAgent").  The automation SDK is a separate
-    # runtime whose only valid kind is "Agent" — never forward that value.
-    return {
-        "kind": "Agent",
-        "llm": llm,
-        # "terminal" and "file_editor" are the runtime-registered tool names.
-        # Without an explicit tools list the SDK Agent defaults to think+finish only.
-        "tools": [{"name": "terminal"}, {"name": "file_editor"}],
-    }
+
+def _get_agent_and_llm_provenance(
+    agent_url: str, api_key: str
+) -> tuple[dict, str, str]:
+    """Resolve the selected profile once for both the child agent and its footer."""
+    profile_name = os.environ.get("AUTOMATION_MODEL")
+    if profile_name:
+        try:
+            llm = _fetch_llm_profile(agent_url, api_key, profile_name)
+        except urllib.error.HTTPError as exc:
+            if exc.code != 404:
+                raise
+            print(f"LLM profile {profile_name!r} was not found; using default LLM settings")
+            profile_name = None
+    if not profile_name:
+        data = _fetch_settings(agent_url, api_key)
+        llm = data.get("agent_settings", {}).get("llm", {})
+        # The active-profile pointer can drift from these concrete settings.
+        # Do not claim that a named profile was loaded when it was not.
+        profile_name = "default"
+    model = llm.get("model") or "unknown"
+    return (
+        {
+            "kind": "Agent",
+            "llm": llm,
+            "tools": [{"name": "terminal"}, {"name": "file_editor"}],
+        },
+        profile_name,
+        model,
+    )
 
 
 def _get_mcp_config(agent_url: str, api_key: str) -> dict | None:
@@ -577,7 +610,12 @@ def _build_secrets_payload(agent_url: str, api_key: str) -> dict:
     return secrets
 
 
-def create_conversation(agent_url: str, api_key: str, initial_message: str) -> str:
+def create_conversation(
+    agent_url: str,
+    api_key: str,
+    initial_message: str,
+    agent: dict | None = None,
+) -> str:
     """Create a conversation and return its ID.
 
     The server auto-starts the agent when initial_message is provided
@@ -597,10 +635,9 @@ def create_conversation(agent_url: str, api_key: str, initial_message: str) -> s
     workspace_dir = os.path.join(root, "slack-monitor-conversations")
     os.makedirs(workspace_dir, exist_ok=True)
 
-    agent = _get_agent_dict(agent_url, api_key)
     payload: dict = {
         "workspace": {"working_dir": workspace_dir},
-        "agent": agent,
+        "agent": agent or _get_agent_and_llm_provenance(agent_url, api_key)[0],
         "initial_message": {"content": [{"text": initial_message}]},
     }
 
@@ -637,6 +674,20 @@ def conversation_final_response(agent_url: str, api_key: str, conv_id: str) -> s
         agent_url, api_key, "GET", f"/api/conversations/{conv_id}/agent_final_response"
     )
     return result.get("response", "")
+
+
+def _llm_provenance(profile: str, model: str) -> str:
+    return f"LLM profile: `{profile}` · Model: `{model}`"
+
+
+def _with_llm_provenance(body: str, profile: str, model: str) -> str:
+    provenance = _llm_provenance(profile, model)
+    body = "\n".join(
+        line
+        for line in (body or "").splitlines()
+        if not re.fullmatch(r"LLM profile: .* · Model: .*", line.strip())
+    ).strip()
+    return f"{body}\n\n{provenance}" if body else provenance
 
 
 # ── Message filtering ──────────────────────────────────────────────────────────
@@ -937,7 +988,12 @@ def _process_trigger_message(
     )
 
     try:
-        conv_id = create_conversation(agent_url, api_key, initial_prompt)
+        agent, llm_profile, llm_model = _get_agent_and_llm_provenance(
+            agent_url, api_key
+        )
+        conv_id = create_conversation(
+            agent_url, api_key, initial_prompt, agent=agent
+        )
         conv_url = f"{openhands_url}/conversations/{conv_id}"
 
         now = time.time()
@@ -946,6 +1002,8 @@ def _process_trigger_message(
             "channel_id": channel_id,
             "thread_ts": thread_root,
             "status": "active",
+            "llm_profile": llm_profile,
+            "llm_model": llm_model,
             "last_activity": now,
             "last_seen_reply_ts": msg_ts,
             "reply_poll_backoff_seconds": THREAD_REPLY_INITIAL_BACKOFF_SECONDS,
@@ -1003,6 +1061,11 @@ def _check_conversation_completion(
             )
         else:
             summary = final if final else "Success (no message available)."
+        summary = _with_llm_provenance(
+            summary,
+            rec.get("llm_profile", "default"),
+            rec.get("llm_model", "unknown"),
+        )
 
         ts_back = post_message(slack_token, channel_id, summary, thread_ts=thread_ts)
         if ts_back:

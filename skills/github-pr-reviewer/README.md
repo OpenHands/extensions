@@ -20,10 +20,22 @@ This skill is activated by:
   checkout when the review ends, so nothing accumulates between runs
 - Publishes a real pull request review, with inline comments where a finding
   maps to a changed line, and verifies on GitHub that it landed
+- Shows the selected LLM profile and actual model in every published review or fallback
+  result
+- Verifies and repairs the provenance footer on submitted reviews; publication
+  failures remain pending for retry
 - Posts acknowledgement comments with AI disclosure
 - Configurable review tone and polling schedule
 
 ## Prerequisites
+
+The automation's selected profile (`AUTOMATION_MODEL`) is resolved for each new
+conversation. If it is unset or the profile was deleted, the script uses the
+server's concrete default LLM settings and labels the result `default`.
+Other profile errors stop creation instead of silently choosing another model.
+Provider-linked profiles require an Agent Server version that resolves provider
+credentials on authenticated plaintext profile reads; older servers produce an
+explicit upgrade error. The script never activates a profile globally.
 
 Set `GITHUB_PERSONAL_ACCESS_TOKEN` in OpenHands Settings -> Secrets. The token
 must be able to read the repositories and their contents, read issue events,
