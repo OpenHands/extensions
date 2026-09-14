@@ -40,6 +40,11 @@ environment of a command that mentions it, and masks it in the output.
 
 ---
 
+The script imports shared GitHub transport from
+`scripts/github_client.py`, installed with this skill. Include it beside
+`main.py` when packaging manually, as shown below; catalog bundles include it
+automatically.
+
 ## Prerequisites
 
 ### Required secret
@@ -205,9 +210,11 @@ Use a safe string writer such as `json.dumps(value)` when inserting user-provide
 repository names, labels, or prefixes into Python string literals.
 `json.dumps(list_of_repos)` produces the whole `REPOS` list safely in one step.
 
-Write the customized script to a temporary build directory:
+Run these commands from this skill's directory and write the customized script
+to a temporary build directory:
 ```bash
 mkdir -p /tmp/issue-to-pr-build
+cp -L scripts/github_client.py /tmp/issue-to-pr-build/github_client.py
 # write the customized main.py to /tmp/issue-to-pr-build/main.py
 ```
 

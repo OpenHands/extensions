@@ -28,5 +28,5 @@ test = [
 ]
 
 [tool.pytest.ini_options]
-pythonpath = ["python"]
+pythonpath = ["python", "skills/github/scripts"]
 testpaths = ["tests"]
