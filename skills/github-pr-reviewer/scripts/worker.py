@@ -314,7 +314,6 @@ if __name__ == "__main__":
             RemoteConversation.attach(
                 workspace=workspace,
                 conversation_id=UUID(os.environ["AUTOMATION_CONVERSATION_ID"]),
-                visualizer=None,
             )
         ) as conversation,
     ):
