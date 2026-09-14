@@ -1,0 +1,229 @@
+{
+  "id": "custom-automation",
+  "name": "Custom automation",
+  "category": "Custom",
+  "icon": "sparkles",
+  "description": "Create a custom automation from a prompt, plugin-powered prompt, or uploaded script tarball.",
+  "requires": {
+    "integrations": {
+      "github": {
+        "message": "Optional. Used when you choose a GitHub repository to clone or trigger from GitHub events.",
+        "required": false
+      }
+    }
+  },
+  "popularityRank": 99,
+  "estimatedSetupMinutes": 5,
+  "skill": "openhands-automation",
+  "exampleImplementation": "Action: a user-selected prompt, plugin, or uploaded tarball creation path\nTrigger: a user-selected cron schedule or event source and event type\n\n1. Ask whether the automation should run a prompt, run a prompt with plugins, or upload a tarball.\n2. Render only the fields for the selected creation path.\n3. Create prompt automations through /v1/preset/prompt, plugin automations through /v1/preset/plugin, and uploaded tarball automations by uploading to /v1/uploads then creating through /v1.\n4. The selected trigger and common run settings are shared by all creation paths.",
+  "setup": {
+    "version": "1.0",
+    "mode": "direct",
+    "form": {
+      "note": "Choose whether this custom automation runs a plain prompt, a prompt with plugins, or your own uploaded tarball. Prompt and plugin runs use the LLM; uploaded tarballs are best for deterministic scripts.",
+      "triggers": {
+        "cron": {
+          "schedule": {
+            "type": "cron",
+            "label": "Schedule",
+            "help": "How often this automation should run.",
+            "default": "0 9 * * *",
+            "required": true
+          },
+          "timezone": {
+            "type": "timezone",
+            "label": "Timezone",
+            "help": "Timezone used to evaluate the schedule.",
+            "default": "UTC",
+            "required": true
+          }
+        },
+        "event": {
+          "source": {
+            "type": "event-source",
+            "label": "Event source",
+            "help": "Webhook source that starts the automation.",
+            "default": "github",
+            "required": true
+          },
+          "on": {
+            "type": "event-type",
+            "label": "Event type",
+            "help": "Event key or wildcard pattern that starts the automation.",
+            "placeholder": "issue_comment.created",
+            "required": true
+          },
+          "filter": {
+            "type": "textarea",
+            "label": "Event filter",
+            "help": "Optional JMESPath expression evaluated against the event payload.",
+            "placeholder": "glob(repository.full_name, 'OpenHands/*')",
+            "required": false,
+            "constraints": {
+              "maxLength": 2000
+            }
+          }
+        }
+      },
+      "args": {
+        "name": {
+          "type": "text",
+          "label": "Automation name",
+          "help": "Name shown in the automations list.",
+          "placeholder": "Daily repository summary",
+          "required": true,
+          "constraints": {
+            "minLength": 1,
+            "maxLength": 500
+          }
+        },
+        "model": {
+          "type": "llm-profile",
+          "label": "LLM profile",
+          "help": "Optional model profile used for automation runs. Leave blank to use the active profile.",
+          "required": false
+        },
+        "timeout": {
+          "type": "number",
+          "label": "Timeout (seconds)",
+          "help": "Maximum time a single run may take. Leave blank for the service default.",
+          "required": false,
+          "constraints": {
+            "min": 1,
+            "max": 1800
+          }
+        }
+      }
+    },
+    "actions": {
+      "prompt": {
+        "label": "Prompt",
+        "help": "Run a natural-language prompt with the default OpenHands agent.",
+        "features": [
+          "presetPrompt"
+        ],
+        "args": {
+          "prompt": {
+            "type": "textarea",
+            "label": "Prompt",
+            "help": "Instructions the agent follows every time the automation runs.",
+            "placeholder": "Summarize recent repository activity and post the result to Slack.",
+            "required": true,
+            "constraints": {
+              "minLength": 1,
+              "maxLength": 50000
+            }
+          },
+          "repository": {
+            "type": "repo-picker",
+            "label": "Repository",
+            "help": "Optional GitHub repository to clone before each run.",
+            "provider": "github",
+            "required": false
+          },
+          "ref": {
+            "type": "text",
+            "label": "Branch or ref",
+            "help": "Branch, tag, or commit to check out when a repository is selected.",
+            "placeholder": "main",
+            "required": false,
+            "constraints": {
+              "minLength": 1,
+              "maxLength": 255
+            }
+          }
+        },
+        "prompt": "{{form.prompt}}"
+      },
+      "plugin": {
+        "label": "Plugin",
+        "help": "Run a prompt with one or more OpenHands plugins loaded.",
+        "features": [
+          "presetPlugin"
+        ],
+        "args": {
+          "plugins": {
+            "type": "plugin-sources",
+            "label": "Plugins",
+            "help": "One or more plugin sources to load. Each source may include an optional ref and repository path.",
+            "required": true
+          },
+          "prompt": {
+            "type": "textarea",
+            "label": "Prompt",
+            "help": "Instructions the agent follows after loading the plugins.",
+            "placeholder": "Use the plugin commands to inspect the repository and summarize findings.",
+            "required": true,
+            "constraints": {
+              "minLength": 1,
+              "maxLength": 50000
+            }
+          },
+          "repository": {
+            "type": "repo-picker",
+            "label": "Repository",
+            "help": "Optional GitHub repository to clone before each run.",
+            "provider": "github",
+            "required": false
+          },
+          "ref": {
+            "type": "text",
+            "label": "Branch or ref",
+            "help": "Branch, tag, or commit to check out when a repository is selected.",
+            "placeholder": "main",
+            "required": false,
+            "constraints": {
+              "minLength": 1,
+              "maxLength": 255
+            }
+          }
+        },
+        "prompt": "{{form.prompt}}",
+        "plugins": "{{form.plugins}}"
+      },
+      "upload": {
+        "label": "Upload tarball",
+        "help": "Upload a .tar or .tar.gz containing the automation code to run.",
+        "features": [
+          "customTarball"
+        ],
+        "args": {
+          "tarball": {
+            "type": "tarball-upload",
+            "label": "Tarball",
+            "help": "A .tar or .tar.gz archive containing the automation code. Maximum size is enforced by the automation service.",
+            "required": true
+          },
+          "entrypoint": {
+            "type": "text",
+            "label": "Entrypoint",
+            "help": "Command to run after the tarball is extracted.",
+            "default": "python3 main.py",
+            "placeholder": "python3 main.py",
+            "required": true,
+            "constraints": {
+              "minLength": 1,
+              "maxLength": 500
+            }
+          },
+          "setupScript": {
+            "type": "text",
+            "label": "Setup script",
+            "help": "Optional path inside the tarball to run before the entrypoint.",
+            "placeholder": "setup.sh",
+            "required": false,
+            "constraints": {
+              "minLength": 1,
+              "maxLength": 255
+            }
+          }
+        },
+        "tarballPath": "{{form.tarball}}",
+        "entrypoint": "{{form.entrypoint}}",
+        "setupScript": "{{form.setupScript}}"
+      }
+    },
+    "filter": "{{form.filter}}",
+    "message": "This deployment cannot create custom automations directly. Set it up in this conversation instead: choose prompt, plugin, or uploaded tarball mode; confirm the selected trigger, model profile, timeout, and mode-specific fields; then create the automation."
+  }
+}

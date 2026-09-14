@@ -108,6 +108,10 @@
         "message": {
           "description": "Setup context handed to the agent conversation that finishes setup. Required for assisted mode. Optional for direct mode, where it seeds the fallback conversation the host offers when the deployment cannot run the direct path. The command that opens it comes from the skill, so it is not repeated here. Capped so this never becomes a channel for runtime instructions.",
           "allOf": [{ "$ref": "#/$defs/templateCopy" }, { "maxLength": 2000 }]
+        },
+        "actions": {
+          "description": "direct only, and the alternative to prompt or bundle. User-selectable creation paths for one setup card; the key maps to a known automation service endpoint.",
+          "$ref": "#/$defs/actions"
         }
       },
       "allOf": [
@@ -118,8 +122,9 @@
           },
           "then": {
             "oneOf": [
-              { "required": ["prompt"], "not": { "required": ["bundle"] } },
-              { "required": ["bundle"], "not": { "required": ["prompt"] } }
+              { "required": ["prompt"], "not": { "anyOf": [{ "required": ["bundle"] }, { "required": ["actions"] }] } },
+              { "required": ["bundle"], "not": { "anyOf": [{ "required": ["prompt"] }, { "required": ["actions"] }] } },
+              { "required": ["actions"], "not": { "anyOf": [{ "required": ["prompt"] }, { "required": ["bundle"] }] } }
             ]
           }
         },
@@ -133,7 +138,8 @@
             "allOf": [
               { "not": { "required": ["prompt"] } },
               { "not": { "required": ["bundle"] } },
-              { "not": { "required": ["filter"] } }
+              { "not": { "required": ["filter"] } },
+              { "not": { "required": ["actions"] } }
             ]
           }
         },
@@ -156,6 +162,63 @@
           "then": { "not": { "required": ["filter"] } }
         }
       ]
+    },
+    "actionFeatures": {
+      "description": "Deployment capabilities needed only for this selectable action variant.",
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "promptAction": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["label", "help", "features", "args", "prompt"],
+      "properties": {
+        "label": { "$ref": "#/$defs/copy" },
+        "help": { "$ref": "#/$defs/copy" },
+        "features": { "$ref": "#/$defs/actionFeatures" },
+        "args": { "$ref": "#/$defs/formFields" },
+        "prompt": { "$ref": "#/$defs/templateValue" }
+      }
+    },
+    "pluginAction": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["label", "help", "features", "args", "prompt", "plugins"],
+      "properties": {
+        "label": { "$ref": "#/$defs/copy" },
+        "help": { "$ref": "#/$defs/copy" },
+        "features": { "$ref": "#/$defs/actionFeatures" },
+        "args": { "$ref": "#/$defs/formFields" },
+        "prompt": { "$ref": "#/$defs/templateValue" },
+        "plugins": { "$ref": "#/$defs/templateValue" }
+      }
+    },
+    "uploadAction": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["label", "help", "features", "args", "tarballPath", "entrypoint"],
+      "properties": {
+        "label": { "$ref": "#/$defs/copy" },
+        "help": { "$ref": "#/$defs/copy" },
+        "features": { "$ref": "#/$defs/actionFeatures" },
+        "args": { "$ref": "#/$defs/formFields" },
+        "tarballPath": { "$ref": "#/$defs/templateValue" },
+        "entrypoint": { "$ref": "#/$defs/templateValue" },
+        "setupScript": { "$ref": "#/$defs/templateValue" }
+      }
+    },
+    "actions": {
+      "description": "Selectable direct-setup creation paths: prompt -> /v1/preset/prompt, plugin -> /v1/preset/plugin, upload -> /v1/uploads then /v1.",
+      "type": "object",
+      "additionalProperties": false,
+      "minProperties": 1,
+      "properties": {
+        "prompt": { "$ref": "#/$defs/promptAction" },
+        "plugin": { "$ref": "#/$defs/pluginAction" },
+        "upload": { "$ref": "#/$defs/uploadAction" }
+      }
     },
     "bundle": {
       "description": "What the host packs into a .tar.gz and uploads before creating the automation. It names files inside this repository and the command that runs them - never a host, a URL, or code to evaluate.",
@@ -303,7 +366,7 @@
       "properties": {
         "note": { "$ref": "#/$defs/copy" },
         "triggers": {
-          "description": "Inputs that decide when the automation runs, keyed by trigger kind. The key set is the trigger kinds the deployment must support, so it is not restated anywhere else.",
+          "description": "Inputs that decide when the automation runs, keyed by trigger kind. Multiple keys are selectable variants; a deployment can offer any variant whose trigger kind it supports.",
           "type": "object",
           "additionalProperties": false,
           "minProperties": 1,
@@ -331,20 +394,29 @@
       "required": ["type", "label", "help", "required"],
       "properties": {
         "type": {
-          "description": "Semantic field types. The host renders a cron field without knowing what cron means to an automation, and resolves the deployment's schedule limits and timezone list for the cron and timezone types, so an entry never restates them.",
+          "description": "Semantic field types. The host renders cron, timezone, llm-profile, event-source, and event-type fields from deployment capabilities or user settings rather than entry-owned option lists.",
           "enum": [
             "text",
             "textarea",
             "select",
+            "number",
             "cron",
             "timezone",
-            "repo-picker"
+            "repo-picker",
+            "llm-profile",
+            "event-source",
+            "event-type",
+            "plugin-sources",
+            "tarball-upload"
           ]
         },
         "label": { "$ref": "#/$defs/copy" },
         "help": { "$ref": "#/$defs/copy" },
         "placeholder": { "$ref": "#/$defs/copy" },
-        "default": { "type": "string" },
+        "default": {
+          "description": "Initial value for fields whose defaults are entry-owned. Semantic fields may ignore it.",
+          "type": ["string", "number", "boolean", "null"]
+        },
         "required": { "type": "boolean" },
         "provider": { "enum": ["github", "gitlab", "bitbucket"] },
         "multiple": {
@@ -371,6 +443,8 @@
           "properties": {
             "minLength": { "type": "integer", "minimum": 0 },
             "maxLength": { "type": "integer", "minimum": 1 },
+            "min": { "type": "integer", "minimum": 0 },
+            "max": { "type": "integer", "minimum": 1 },
             "format": {
               "description": "A host-implemented check, named from a closed set. Setup blocks cannot supply their own regex, so one cannot hand the host a pathological pattern. safeExpressionLiteral marks a value that is interpolated into a filter expression string literal, so quotes and backslashes must be rejected before they can break the expression.",
               "enum": ["safeExpressionLiteral"]

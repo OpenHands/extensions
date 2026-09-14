@@ -70,9 +70,15 @@ export type AutomationFieldType =
   | "text"
   | "textarea"
   | "select"
+  | "number"
   | "cron"
   | "timezone"
-  | "repo-picker";
+  | "repo-picker"
+  | "llm-profile"
+  | "event-source"
+  | "event-type"
+  | "plugin-sources"
+  | "tarball-upload";
 export type AutomationGitProvider = "github" | "gitlab" | "bitbucket";
 export type AutomationTriggerKind = "cron" | "event";
 
@@ -84,6 +90,8 @@ export interface AutomationFieldOption {
 export interface AutomationFieldConstraints {
   minLength?: number;
   maxLength?: number;
+  min?: number;
+  max?: number;
   /** Host-implemented check, named from a closed set. Entries supply no regex. */
   format?: "safeExpressionLiteral";
 }
@@ -93,7 +101,7 @@ export interface AutomationFormField {
   label: string;
   help: string;
   placeholder?: string;
-  default?: string;
+  default?: string | number | boolean | null;
   required: boolean;
   provider?: AutomationGitProvider;
   /**
@@ -160,6 +168,46 @@ export interface AutomationBundle {
   config: Record<string, AutomationBundleConfigValue>;
 }
 
+
+export interface AutomationPromptAction {
+  label: string;
+  help: string;
+  features: string[];
+  args: AutomationFormFields;
+  /** Prompt sent to /v1/preset/prompt. */
+  prompt: string;
+}
+
+export interface AutomationPluginAction {
+  label: string;
+  help: string;
+  features: string[];
+  args: AutomationFormFields;
+  /** Prompt sent to /v1/preset/plugin. */
+  prompt: string;
+  /** PluginSource list sent to /v1/preset/plugin, usually {{form.plugins}}. */
+  plugins: string;
+}
+
+export interface AutomationUploadAction {
+  label: string;
+  help: string;
+  features: string[];
+  args: AutomationFormFields;
+  /** tarball_path produced by uploading the selected tarball file. */
+  tarballPath: string;
+  /** Entrypoint command sent to /v1. */
+  entrypoint: string;
+  /** Optional setup_script_path sent to /v1. */
+  setupScript?: string;
+}
+
+export interface AutomationSetupActions {
+  prompt?: AutomationPromptAction;
+  plugin?: AutomationPluginAction;
+  upload?: AutomationUploadAction;
+}
+
 export interface AutomationSetup {
   version: "1.0";
   mode: AutomationSetupMode;
@@ -168,6 +216,8 @@ export interface AutomationSetup {
   prompt?: string;
   /** direct only, and the alternative to `prompt`. Exactly one is present. */
   bundle?: AutomationBundle;
+  /** direct only, and the alternative to `prompt` or `bundle`. */
+  actions?: AutomationSetupActions;
   /** direct only, event trigger only. Which delivered events belong to it. */
   filter?: string;
   /**
