@@ -19,10 +19,11 @@ import entry13 from "./catalog/jira-issue-to-gitlab-mr/manifest.json" with { typ
 import entry14 from "./catalog/research-brief-writer/manifest.json" with { type: "json" };
 import entry15 from "./catalog/jira-issue-to-bitbucket-pr/manifest.json" with { type: "json" };
 import entry16 from "./catalog/github-agents-md-maintainer/manifest.json" with { type: "json" };
-import entry17 from "./catalog/github-issue-triage/manifest.json" with { type: "json" };
-import entry18 from "./catalog/upstream-fork-sync/manifest.json" with { type: "json" };
-import entry19 from "./catalog/incident-retrospective-drafter/manifest.json" with { type: "json" };
-import entry20 from "./catalog/news-digest/manifest.json" with { type: "json" };
+import entry17 from "./catalog/github-delivery-watchdog/manifest.json" with { type: "json" };
+import entry18 from "./catalog/github-issue-triage/manifest.json" with { type: "json" };
+import entry19 from "./catalog/upstream-fork-sync/manifest.json" with { type: "json" };
+import entry20 from "./catalog/incident-retrospective-drafter/manifest.json" with { type: "json" };
+import entry21 from "./catalog/news-digest/manifest.json" with { type: "json" };
 
 export const AUTOMATION_CATALOG_ENTRIES = [
   entry0,
@@ -46,4 +47,5 @@ export const AUTOMATION_CATALOG_ENTRIES = [
   entry18,
   entry19,
   entry20,
+  entry21,
 ];
