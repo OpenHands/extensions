@@ -91,6 +91,43 @@ def test_developer_submits_failed_review_as_same_subject(tmp_path, monkeypatch):
     assert "do not open another pull request" in prompt
 
 
+def test_developer_continues_after_one_submission_fails(tmp_path, monkeypatch):
+    module, run = _developer(tmp_path, monkeypatch)
+    issues = [
+        {
+            "number": 1,
+            "title": "First",
+            "updated_at": "u1",
+            "labels": [{"name": "ready-for-dev"}],
+        },
+        {
+            "number": 2,
+            "title": "Second",
+            "updated_at": "u2",
+            "labels": [{"name": "ready-for-dev"}],
+        },
+    ]
+    run.open_issues = lambda: issues
+    run.gh_pages = lambda path: []
+    run.gh = Mock(
+        side_effect=[{"id": 55, "default_branch": "main"}, {"object": {"sha": "base"}}]
+    )
+    submit = Mock(
+        side_effect=[
+            RuntimeError("unavailable"),
+            {"disposition": "created", "conversation_id": "second"},
+        ]
+    )
+    monkeypatch.setattr(module, "submit_subject_turn", submit)
+
+    run.run()
+
+    assert [call.kwargs["subject_key"] for call in submit.call_args_list] == [
+        "55:issue:1",
+        "55:issue:2",
+    ]
+
+
 def test_developer_skips_open_pr_awaiting_review(tmp_path, monkeypatch):
     module, run = _developer(tmp_path, monkeypatch)
     issue = {"number": 4, "title": "Feature", "labels": [{"name": "ready-for-dev"}]}

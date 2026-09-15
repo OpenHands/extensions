@@ -111,6 +111,25 @@ class IssueToPR(GitHubRepository):
             flush=True,
         )
 
+    def _try_submit(
+        self, repository_id, issue, branch, base_branch, base_sha, *, revision=None
+    ):
+        try:
+            self._submit(
+                repository_id,
+                issue,
+                branch,
+                base_branch,
+                base_sha,
+                revision=revision,
+            )
+        except Exception as exc:
+            print(
+                f"Failed to submit {self.repository} issue "
+                f"#{issue.get('number', '?')}: {exc}",
+                flush=True,
+            )
+
     def run(self):
         trigger_label = self.config.get("trigger_label", workflow.TRIGGER_LABEL)
         review_label = self.config.get("review_label", "openhands-review")
@@ -139,7 +158,7 @@ class IssueToPR(GitHubRepository):
                 "error",
             }:
                 continue
-            self._submit(
+            self._try_submit(
                 repository_id,
                 issue,
                 pr["head"]["ref"],
@@ -163,7 +182,7 @@ class IssueToPR(GitHubRepository):
                 item["number"],
             ),
         ):
-            self._submit(
+            self._try_submit(
                 repository_id,
                 issue,
                 f"{branch_prefix}-{issue['number']}",
