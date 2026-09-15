@@ -64,6 +64,47 @@ class IssueTriage(GitHubRepository):
             )
         )
 
+    def _submit(self, repository_id, issue, issues):
+        comments = self.gh_pages(f"/issues/{issue['number']}/comments")
+        discussion = [
+            comment
+            for comment in comments
+            if "<!-- triage-source:" not in (comment.get("body") or "")
+        ]
+        digest = hashlib.sha256(
+            json.dumps(
+                [
+                    issue["title"],
+                    issue.get("body"),
+                    [
+                        (comment["id"], comment.get("updated_at"))
+                        for comment in discussion
+                    ],
+                ],
+                sort_keys=True,
+            ).encode()
+        ).hexdigest()
+        marker = f"<!-- triage-source:{digest} -->"
+        if any(marker in (comment.get("body") or "") for comment in comments):
+            return
+        result = submit_subject_turn(
+            source=self.name,
+            subject_key=f"{repository_id}:issue:{issue['number']}",
+            idempotency_key=digest,
+            turn=self._prompt(issue, discussion, issues, marker),
+        )
+        print(
+            json.dumps(
+                {
+                    "repository": self.repository,
+                    "issue": issue["number"],
+                    "disposition": result["disposition"],
+                    "conversation_id": result["conversation_id"],
+                }
+            ),
+            flush=True,
+        )
+
     def run(self):
         issues = [
             issue
@@ -74,45 +115,14 @@ class IssueTriage(GitHubRepository):
         ]
         repository_id = self.gh("GET", "")["id"]
         for issue in sorted(issues, key=lambda item: item["number"]):
-            comments = self.gh_pages(f"/issues/{issue['number']}/comments")
-            discussion = [
-                comment
-                for comment in comments
-                if "<!-- triage-source:" not in (comment.get("body") or "")
-            ]
-            digest = hashlib.sha256(
-                json.dumps(
-                    [
-                        issue["title"],
-                        issue.get("body"),
-                        [
-                            (comment["id"], comment.get("updated_at"))
-                            for comment in discussion
-                        ],
-                    ],
-                    sort_keys=True,
-                ).encode()
-            ).hexdigest()
-            marker = f"<!-- triage-source:{digest} -->"
-            if any(marker in (comment.get("body") or "") for comment in comments):
-                continue
-            result = submit_subject_turn(
-                source=self.name,
-                subject_key=f"{repository_id}:issue:{issue['number']}",
-                idempotency_key=digest,
-                turn=self._prompt(issue, discussion, issues, marker),
-            )
-            print(
-                json.dumps(
-                    {
-                        "repository": self.repository,
-                        "issue": issue["number"],
-                        "disposition": result["disposition"],
-                        "conversation_id": result["conversation_id"],
-                    }
-                ),
-                flush=True,
-            )
+            try:
+                self._submit(repository_id, issue, issues)
+            except Exception as exc:
+                print(
+                    f"Failed to submit {self.repository} issue "
+                    f"#{issue.get('number', '?')}: {exc}",
+                    flush=True,
+                )
 
 
 if __name__ == "__main__":

@@ -45,6 +45,28 @@ def test_triage_submits_each_changed_issue_as_agent_work(tmp_path, monkeypatch):
     assert "GITHUB_PERSONAL_ACCESS_TOKEN" in submit.call_args_list[0].kwargs["turn"]
 
 
+def test_triage_continues_after_one_submission_fails(tmp_path, monkeypatch):
+    issues = [
+        {"number": 1, "title": "First", "body": "A", "labels": []},
+        {"number": 2, "title": "Second", "body": "B", "labels": []},
+    ]
+    module, run = _triage(tmp_path, monkeypatch, issues)
+    submit = Mock(
+        side_effect=[
+            RuntimeError("unavailable"),
+            {"disposition": "created", "conversation_id": "second"},
+        ]
+    )
+    monkeypatch.setattr(module, "submit_subject_turn", submit)
+
+    run.run()
+
+    assert [call.kwargs["subject_key"] for call in submit.call_args_list] == [
+        "9876:issue:1",
+        "9876:issue:2",
+    ]
+
+
 def test_triage_skips_ready_blocked_and_unchanged_issues(tmp_path, monkeypatch):
     issues = [
         {

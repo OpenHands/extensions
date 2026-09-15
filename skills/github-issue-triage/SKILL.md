@@ -9,12 +9,9 @@ triggers:
 
 Prioritize open issues and establish acceptance criteria before marking them ready for development.
 
-Create this automation separately from implementation and review. Select an agent
-profile on its definition. The profile owns the model, tools, and `secret_refs`;
-this workflow does not choose a profile or discover credentials from host settings.
-Use a fine-grained GitHub PAT limited to the selected repositories with
-Issues: read and write. Store it in the Agent Server secret store and select its name in
-the profile. Never put the token value in the automation definition or prompt.
+Create this automation separately from implementation and review. Use a
+fine-grained GitHub PAT limited to the selected repositories with Issues: read and
+write. Never put the token value in the automation definition or prompt.
 
 Package the files in this skill’s `scripts/` directory together.
 `github_client.py` is installed alongside `worker.py` from the shared GitHub source.
@@ -34,5 +31,5 @@ Post readable acceptance criteria and rationale. Add `ready-for-dev` only when
 criteria are actionable; preserve existing issue labels. Unclear issues stay open
 for clarification. Do not implement code or accept pull requests.
 
-Each scheduled run triages at most one changed issue per repository. Choose the
-schedule frequency accordingly when processing an existing backlog.
+Each scheduled run submits every changed eligible issue. A failure on one issue is
+reported and does not prevent the remaining issues from being submitted.
