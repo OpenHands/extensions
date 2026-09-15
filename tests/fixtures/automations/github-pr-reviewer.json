@@ -61,7 +61,7 @@
               },
               "tarball_path": "oh-internal://uploads/00000000-0000-0000-0000-000000000000",
               "entrypoint": "python3 worker.py",
-              "timeout": 300,
+              "timeout": 1800,
               "template": {
                 "id": "github-pr-reviewer",
                 "version": "1.1.0",
@@ -98,7 +98,7 @@
             },
             "tarball_path": "oh-internal://uploads/2c1f9a70-77c4-4a1e-9a9d-6f1f2b0c1d34",
             "entrypoint": "python3 worker.py",
-            "timeout": 300,
+            "timeout": 1800,
             "template": {
               "id": "github-pr-reviewer",
               "version": "1.1.0",
@@ -130,7 +130,7 @@
             "tarball_path": "oh-internal://uploads/8d2c1f90-7e34-4a55-b0d1-6c9e3a2f4b88",
             "setup_script_path": "setup.sh",
             "entrypoint": "python3 worker.py",
-            "timeout": 300,
+            "timeout": 1800,
             "keep_alive": null,
             "enabled": true,
             "last_triggered_at": null,
@@ -195,7 +195,7 @@
               },
               "tarball_path": "oh-internal://uploads/00000000-0000-0000-0000-000000000000",
               "entrypoint": "python3 worker.py",
-              "timeout": 300,
+              "timeout": 1800,
               "template": {
                 "id": "github-pr-reviewer",
                 "version": "1.1.0",
@@ -233,7 +233,7 @@
             },
             "tarball_path": "oh-internal://uploads/2c1f9a70-77c4-4a1e-9a9d-6f1f2b0c1d34",
             "entrypoint": "python3 worker.py",
-            "timeout": 300,
+            "timeout": 1800,
             "template": {
               "id": "github-pr-reviewer",
               "version": "1.1.0",
@@ -266,7 +266,7 @@
             "tarball_path": "oh-internal://uploads/8d2c1f90-7e34-4a55-b0d1-6c9e3a2f4b88",
             "setup_script_path": "setup.sh",
             "entrypoint": "python3 worker.py",
-            "timeout": 300,
+            "timeout": 1800,
             "keep_alive": null,
             "enabled": true,
             "last_triggered_at": null,
@@ -320,7 +320,7 @@
               },
               "tarball_path": "oh-internal://uploads/00000000-0000-0000-0000-000000000000",
               "entrypoint": "python3 worker.py",
-              "timeout": 300,
+              "timeout": 1800,
               "template": {
                 "id": "github-pr-reviewer",
                 "version": "1.1.0",
@@ -405,7 +405,7 @@
             },
             "tarball_path": "oh-internal://uploads/2c1f9a70-77c4-4a1e-9a9d-6f1f2b0c1d34",
             "entrypoint": "python3 worker.py",
-            "timeout": 300,
+            "timeout": 1800,
             "template": {
               "id": "github-pr-reviewer",
               "version": "1.1.0",
@@ -493,7 +493,7 @@
             },
             "tarball_path": "oh-internal://uploads/2c1f9a70-77c4-4a1e-9a9d-6f1f2b0c1d34",
             "entrypoint": "python3 worker.py",
-            "timeout": 300,
+            "timeout": 1800,
             "template": {
               "id": "github-pr-reviewer",
               "version": "1.1.0",
