@@ -55,6 +55,7 @@ def print(*args, **kwargs):  # noqa: A001  – intentional override
 
 # ── Embedded configuration (filled in by the skill at creation time) ──────────
 TRIGGER_PHRASE = "@openhands"
+BOT_MENTION_ID = ""
 CHANNEL_IDS: list[str] = []          # e.g. ["C0123456789", "C9876543210"]
 DEFAULT_OPENHANDS_URL = "http://localhost:8000"
 
@@ -398,7 +399,7 @@ def thread_replies(token: str, channel: str, thread_ts: str, oldest: str) -> lis
     return [m for m in messages if m.get("ts") != thread_ts]
 
 
-def _trigger_index(text: str) -> int:
+def _phrase_index(text: str) -> int:
     """Return the start index of an exact trigger phrase match, or -1."""
     lowered = text.lower()
     trigger = TRIGGER_PHRASE.lower()
@@ -417,15 +418,50 @@ def _trigger_index(text: str) -> int:
         start = idx + 1
 
 
+def _mention_span(text: str) -> tuple[int, int]:
+    """Locate a Slack mention of the bot: `<@U123>` or `<@U123|name>`."""
+    if not BOT_MENTION_ID:
+        return -1, -1
+
+    needle = f"<@{BOT_MENTION_ID}"
+    idx = text.find(needle)
+
+    if idx < 0:
+        return -1, -1
+
+    end = text.find(">", idx + len(needle))
+
+    if end < 0:
+        return -1, -1
+
+    return idx, end + 1
+
+
+def _trigger_span(text: str) -> tuple[int, int]:
+    """Return the span of the earliest literal or Slack mention trigger."""
+    spans = []
+
+    idx = _phrase_index(text)
+    if idx >= 0:
+        spans.append((idx, idx + len(TRIGGER_PHRASE)))
+
+    mention = _mention_span(text)
+    if mention[0] >= 0:
+        spans.append(mention)
+
+    return min(spans) if spans else (-1, -1)
+
+
 def _has_trigger(text: str) -> bool:
-    return _trigger_index(text) >= 0
+    return _trigger_span(text)[0] >= 0
 
 
 def _request_after_trigger(text: str) -> str:
-    idx = _trigger_index(text)
-    if idx < 0:
+    start, end = _trigger_span(text)
+    if start < 0:
         return text
-    return text[idx + len(TRIGGER_PHRASE):].strip(" :–—")
+
+    return text[end:].strip(" :–—")
 
 
 def full_thread_history(
@@ -1024,6 +1060,7 @@ def _check_conversation_completion(
 
 def main() -> str | None:
     """Run one polling cycle. Returns the last conversation ID created, if any."""
+    global BOT_MENTION_ID
     state = load_state()
 
     agent_url = os.environ.get("AGENT_SERVER_URL", "").rstrip("/")
@@ -1036,8 +1073,8 @@ def main() -> str | None:
     # Raises RuntimeError immediately if the token is invalid - no point polling.
     bot_user_id_new, scopes = _slack_auth_test(slack_token)
     state["bot_user_id"] = bot_user_id_new
+    BOT_MENTION_ID = bot_user_id_new
     print(f"Bot user ID: {bot_user_id_new}")
-
     can_react = _verify_token_scopes(scopes)
 
     bot_user_id: str = state.get("bot_user_id") or ""
