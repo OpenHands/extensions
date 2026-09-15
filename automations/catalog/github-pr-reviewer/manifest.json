@@ -94,7 +94,7 @@
     "bundle": {
       "version": "1.1.0",
       "entrypoint": "python3 worker.py",
-      "timeout": 300,
+      "timeout": 1800,
       "files": {
         "main.py": "skills/github-pr-reviewer/scripts/main.py",
         "github_client.py": "skills/github/scripts/github_client.py",
