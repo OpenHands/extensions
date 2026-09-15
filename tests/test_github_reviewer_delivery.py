@@ -47,6 +47,8 @@ def test_reviewer_submits_each_labeled_exact_head(tmp_path, monkeypatch):
     assert "software-factory/review" in prompt
     assert "software-factory/tests" in prompt
     assert "FACTORY_GITHUB_REVIEWER_TOKEN" in prompt
+    assert "gh auth setup-git" in prompt
+    assert "GIT_TERMINAL_PROMPT=0" in prompt
     assert "Never paste JSON artifacts" in prompt
 
 

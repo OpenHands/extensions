@@ -38,10 +38,13 @@ class PullRequestReviewer(GitHubRepository):
         label = self.config.get("trigger_label", workflow.TRIGGER_LABEL)
         token = self.token_name
         workspace = (
-            "The workspace starts empty. Clone the repository with "
-            f"`GH_TOKEN=${{{token}}} gh repo clone {self.repository} .`, fetch PR "
-            f"#{number}, and check out exact head `{sha}` in detached-HEAD mode. "
-            "Keep the remote free of embedded credentials."
+            "The workspace contains an empty Git repository. Before fetching, run "
+            f"`GH_TOKEN=${{{token}}} gh auth setup-git` so Git uses the "
+            "profile-scoped credential without storing it in the remote URL. Set "
+            f"the plain HTTPS origin to `https://github.com/{self.repository}.git`, "
+            f"fetch PR #{number}, and check out exact head `{sha}` in detached-HEAD "
+            "mode. Set `GIT_TERMINAL_PROMPT=0` on Git network commands so a missing "
+            "permission fails immediately instead of waiting for input."
         )
         prompt = workflow._build_review_prompt(
             self.repository,
