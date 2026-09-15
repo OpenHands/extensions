@@ -56,7 +56,7 @@
     "bundle": {
       "version": "1.1.0",
       "entrypoint": "python3 worker.py",
-      "timeout": 3000,
+      "timeout": 300,
       "files": {
         "worker.py": "skills/github-issue-triage/scripts/worker.py",
         "github_client.py": "skills/github/scripts/github_client.py"
