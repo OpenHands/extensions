@@ -1,6 +1,6 @@
 {
   "id": "github-issue-triage",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "name": "GitHub issue triage",
   "category": "Project management",
   "description": "Prioritize open issues and establish acceptance criteria before marking them ready for development.",
@@ -12,7 +12,7 @@
     ]
   },
   "estimatedSetupMinutes": 3,
-  "exampleImplementation": "Select an agent profile with Issues: read and write. Run this workflow independently on a schedule.",
+  "exampleImplementation": "Run a lightweight GitHub scanner on a schedule. When an issue changes, the scanner delegates that issue to an agent with the selected profile; only the agent receives a conversation runtime.",
   "setup": {
     "version": "1.0",
     "mode": "direct",
@@ -54,9 +54,9 @@
       }
     },
     "bundle": {
-      "version": "1.0.0",
+      "version": "1.1.0",
       "entrypoint": "python3 worker.py",
-      "timeout": 3000,
+      "timeout": 300,
       "files": {
         "worker.py": "skills/github-issue-triage/scripts/worker.py",
         "github_client.py": "skills/github/scripts/github_client.py"
@@ -66,7 +66,7 @@
         "github_token_secret": "{{form.githubTokenSecret}}"
       }
     },
-    "message": "Select an agent profile and configure this scheduled automation in the conversation."
+    "message": "Configure the repositories, credential name, agent profile, and schedule."
   },
   "popularityRank": 80
 }
