@@ -38,6 +38,19 @@
       ]
     },
     {
+      "name": "rule-audit",
+      "source": "./skills/rule-audit",
+      "description": "Audit a named AI system-prompt file for contradictions, coverage gaps, priority ambiguities, meta-paradoxes and absoluteness issues using the local rule-audit static analyzer (offline, deterministic, no model call).",
+      "category": "code-quality",
+      "keywords": [
+        "system-prompt",
+        "audit",
+        "static-analysis",
+        "contradictions",
+        "prompt-engineering"
+      ]
+    },
+    {
       "name": "agent-memory",
       "source": "./skills/agent-memory",
       "description": "Persist and retrieve repository-specific knowledge using AGENTS.md files. Use when you want to save important information about a codebase (build commands, code style, workflows) for future sessions.",
