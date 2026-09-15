@@ -96,7 +96,7 @@ The JS and Python versions are kept in lock-step by `release-please` and guarded
 ## Extensions Catalog
 
 <!-- BEGIN AUTO-GENERATED CATALOG -->
-This repository contains **2 marketplace(s)** with **71 extensions** (61 skills, 10 plugins).
+This repository contains **2 marketplace(s)** with **72 extensions** (62 skills, 10 plugins).
 
 ### large-codebase
 
@@ -115,7 +115,7 @@ OpenHands skills for interacting, improving, and refactoring large codebases
 
 Official skills and plugins for OpenHands — the open-source AI software engineer.
 
-**67 extensions** (59 skills, 8 plugins)
+**68 extensions** (60 skills, 8 plugins)
 
 | Name | Type | Description | Commands |
 |------|------|-------------|----------|
@@ -141,6 +141,7 @@ Official skills and plugins for OpenHands — the open-source AI software engine
 | github | skill | Interact with GitHub repositories, pull requests, issues, and workflows using the GITHUB_TOKEN environment variable a... | — |
 | github-actions | skill | Create, debug, and test GitHub Actions workflows and custom actions. Use when building CI/CD pipelines, automating wo... | — |
 | github-agents-md-maintainer | skill | Create an automation that keeps AGENTS.md current in one or more GitHub repositories. On a schedule an agent reads th... | `/agents-md:setup` |
+| github-delivery-watchdog | skill | Periodically check pull requests and merge only current heads with independent review, tests, and passing CI. | `/github-delivery-watchdog` |
 | github-issue-to-pr | skill | Create an automation that implements GitHub issues when a configurable trigger label is applied. Clones the default b... | `/issue-to-pr:setup` |
 | github-issue-triage | skill | Prioritize open issues and establish acceptance criteria before marking them ready for development. | `/github-issue-triage` |
 | github-pr-review | skill | Post structured PR reviews to GitHub with inline comments/suggestions in a single API call. | `/github-pr-review` |
