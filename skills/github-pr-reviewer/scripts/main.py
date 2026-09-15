@@ -8,10 +8,10 @@ GitHub `labeled` event has not already been processed by this automation.
 Each repository is polled independently and keeps its own state document, so
 pull-request numbers never collide across repositories.
 
-The script owns the repository checkout: it downloads the pull request's head
-commit as a tarball, hands the agent that directory as its workspace, and
-removes it once the review has finished. The agent never clones, checks out, or
-deletes anything.
+This standalone script owns the repository checkout: it downloads the pull
+request's head commit as a tarball, hands the agent that directory as its
+workspace, and removes it once the review has finished. Catalog workers may
+instead reuse its prompt builder with their own workspace instructions.
 """
 
 import io

@@ -78,31 +78,38 @@ class PullRequestReviewer(GitHubRepository):
         for candidate in prs:
             if label not in {item["name"] for item in candidate.get("labels", [])}:
                 continue
-            pr = self.gh("GET", f"/pulls/{candidate['number']}")
-            event = workflow._latest_trigger_label_event(
-                self.token, self.repository, pr["number"]
-            )
-            if event is None:
-                continue
-            sha = pr["head"]["sha"]
-            result = submit_subject_turn(
-                source=self.name,
-                subject_key=f"{repository_id}:pr:{pr['number']}",
-                idempotency_key=f"{event['id']}:{sha}",
-                turn=self._prompt(pr, event),
-            )
-            print(
-                json.dumps(
-                    {
-                        "repository": self.repository,
-                        "pr": pr["number"],
-                        "head_sha": sha,
-                        "disposition": result["disposition"],
-                        "conversation_id": result["conversation_id"],
-                    }
-                ),
-                flush=True,
-            )
+            try:
+                pr = self.gh("GET", f"/pulls/{candidate['number']}")
+                event = workflow._latest_trigger_label_event(
+                    self.token, self.repository, pr["number"]
+                )
+                if event is None:
+                    continue
+                sha = pr["head"]["sha"]
+                result = submit_subject_turn(
+                    source=self.name,
+                    subject_key=f"{repository_id}:pr:{pr['number']}",
+                    idempotency_key=f"{event['id']}:{sha}",
+                    turn=self._prompt(pr, event),
+                )
+                print(
+                    json.dumps(
+                        {
+                            "repository": self.repository,
+                            "pr": pr["number"],
+                            "head_sha": sha,
+                            "disposition": result["disposition"],
+                            "conversation_id": result["conversation_id"],
+                        }
+                    ),
+                    flush=True,
+                )
+            except Exception as exc:
+                print(
+                    f"Failed to submit {self.repository} PR "
+                    f"#{candidate.get('number', '?')}: {exc}",
+                    flush=True,
+                )
 
 
 if __name__ == "__main__":

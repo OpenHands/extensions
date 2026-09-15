@@ -64,6 +64,36 @@ def test_reviewer_ignores_unlabeled_prs(tmp_path, monkeypatch):
     submit.assert_not_called()
 
 
+def test_reviewer_continues_after_one_submission_fails(tmp_path, monkeypatch):
+    module, run = _reviewer(tmp_path, monkeypatch)
+    prs = [
+        {
+            "number": number,
+            "labels": [{"name": "openhands-review"}],
+            "head": {"sha": f"head-{number}"},
+        }
+        for number in (1, 2)
+    ]
+    run.gh_pages = lambda path: prs
+    run.gh = Mock(side_effect=[{"id": 99}, *prs])
+    monkeypatch.setattr(
+        module.workflow,
+        "_latest_trigger_label_event",
+        lambda *args: {"id": 7, "created_at": "now"},
+    )
+    submit = Mock(
+        side_effect=[
+            RuntimeError("temporary failure"),
+            {"disposition": "created", "conversation_id": "conversation"},
+        ]
+    )
+    monkeypatch.setattr(module, "submit_subject_turn", submit)
+
+    run.run()
+
+    assert submit.call_count == 2
+
+
 def test_reviewer_scanner_has_no_conversation_or_runtime_code():
     source = (
         Path(__file__).resolve().parents[1]
