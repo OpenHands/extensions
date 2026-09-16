@@ -16,7 +16,7 @@ from openhands.sdk.conversation.state import ConversationExecutionStatus
 from openhands.sdk.llm.message import TextContent
 from openhands.sdk.workspace import LocalWorkspace, RemoteWorkspace
 
-_CONVERSATIONS_KEY = "agent-conversations"
+_CONVERSATION_KEY_PREFIX = "agent-conversation-"
 
 
 def _register_tools() -> None:
@@ -26,13 +26,13 @@ def _register_tools() -> None:
     register_default_tools()
 
 
-def _kv_request(method: str, value: dict | None = None) -> dict | None:
+def _kv_request(key: str, method: str, value: dict | None = None) -> dict | None:
     base_url = os.environ.get("AUTOMATION_API_URL", "").rstrip("/")
     token = os.environ.get("AUTOMATION_KV_TOKEN", "")
     if not base_url or not token:
         raise RuntimeError("Automation KV is required for agent conversation dispatch")
     request = Request(
-        f"{base_url}/v1/kv/{_CONVERSATIONS_KEY}",
+        f"{base_url}/v1/kv/{key}",
         data=json.dumps(value).encode() if value is not None else None,
         headers={
             "Authorization": f"Bearer {token}",
@@ -76,12 +76,9 @@ class AgentConversationDispatcher:
         return self._workspace.__exit__(*args)
 
     def deliver(self, subject: str, delivery: str, prompt: str) -> dict[str, str]:
-        state = _kv_request("GET") or {}
-        record = state.get(subject) or {}
-        conversation_id = UUID(
-            record.get("conversation_id")
-            or str(uuid5(NAMESPACE_URL, f"{self.automation_id}:{subject}"))
-        )
+        conversation_id = uuid5(NAMESPACE_URL, f"{self.automation_id}:{subject}")
+        state_key = f"{_CONVERSATION_KEY_PREFIX}{conversation_id}"
+        record = _kv_request(state_key, "GET") or {}
         if self._workspace is None:
             raise RuntimeError("AgentConversationDispatcher must be used as a context")
 
@@ -131,11 +128,15 @@ class AgentConversationDispatcher:
                 "conversation_id": str(conversation_id),
             }
 
-        state[subject] = {
-            "conversation_id": str(conversation_id),
-            "delivery": delivery,
-        }
-        _kv_request("PUT", state)
+        _kv_request(
+            state_key,
+            "PUT",
+            {
+                "subject": subject,
+                "conversation_id": str(conversation_id),
+                "delivery": delivery,
+            },
+        )
         return {
             "disposition": disposition,
             "conversation_id": str(conversation_id),
