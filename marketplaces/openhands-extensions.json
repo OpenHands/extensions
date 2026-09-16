@@ -111,6 +111,7 @@
       "source": "./skills/canvas-extension-api",
       "description": "Build and validate Apps for Agent Canvas using the supported Canvas Extensions API v1 routed-page contract.",
       "category": "agent-authoring",
+      "defaultEnabled": true,
       "keywords": [
         "agent-canvas",
         "canvas-app",
