@@ -11,6 +11,13 @@ triggers:
 
 # GitHub PR Reviewer Automation
 
+## Agent Canvas catalog
+
+For new Agent Canvas installations, use the **GitHub code review** catalog
+entry. Its deterministic `worker.py` scanner delegates each labeled exact head
+to a stable conversation using the selected agent profile. The manual upload
+flow below remains for existing deployments and is deprecated for new installations.
+
 Create a cron automation that watches one or more GitHub repositories for pull
 requests with a review trigger label, starts an OpenHands review conversation
 once per label event, and publishes the AI review to GitHub.
