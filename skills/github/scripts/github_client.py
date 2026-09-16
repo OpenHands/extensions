@@ -209,12 +209,14 @@ def run_repositories(automation_type, conversation=None, dispatcher=None):
     repositories = config.get("repos") or [config["repository"]]
     failures = []
     for repository in repositories:
-        automation = automation_type(
+        options = dict(
             github_token_secret=token_name,
             repository=repository,
             conversation=conversation,
-            dispatcher=dispatcher,
         )
+        if dispatcher is not None:
+            options["dispatcher"] = dispatcher
+        automation = automation_type(**options)
         try:
             automation.run()
         except Exception as exc:  # noqa: BLE001 - one repository must not block others
