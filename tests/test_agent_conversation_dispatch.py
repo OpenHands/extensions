@@ -2,6 +2,7 @@ import json
 from unittest.mock import MagicMock
 from uuid import UUID
 
+import agent_conversation
 import github_client
 
 
@@ -14,30 +15,51 @@ def _dispatcher(monkeypatch):
     monkeypatch.setenv(
         "AUTOMATION_EVENT_PAYLOAD", json.dumps({"automation_id": "automation-1"})
     )
-    return github_client.AgentConversationDispatcher()
+    return agent_conversation.AgentConversationDispatcher()
+
+
+def test_github_secret_falls_back_to_agent_server(monkeypatch):
+    monkeypatch.delenv("REVIEW_TOKEN", raising=False)
+    monkeypatch.setenv("AGENT_SERVER_URL", "http://agent")
+    monkeypatch.setenv("SESSION_API_KEY", "session")
+    secret = MagicMock()
+    secret.get_value.return_value = "saved-token"
+    workspace = MagicMock()
+    workspace.get_secrets.return_value = {"REVIEW_TOKEN": secret}
+    monkeypatch.setattr(
+        "openhands.sdk.workspace.RemoteWorkspace", lambda **kwargs: workspace
+    )
+
+    assert github_client._load_secret("REVIEW_TOKEN") == "saved-token"
+    workspace.get_secrets.assert_called_once_with(["REVIEW_TOKEN"])
+    workspace.reset_client.assert_called_once_with()
 
 
 def test_new_subject_uses_selected_profile_and_persists_mapping(monkeypatch):
     state = {}
     monkeypatch.setattr(
-        github_client,
+        agent_conversation,
         "_kv_request",
         lambda method, value=None: state.update(value or {}) if method == "PUT" else state,
     )
     monkeypatch.setattr("openhands.tools.register_default_tools", lambda: None)
     workspace = MagicMock()
     workspace.__enter__.return_value = workspace
-    monkeypatch.setattr(github_client, "RemoteWorkspace", lambda **kwargs: workspace)
-    missing = RuntimeError("missing")
-    missing.response = MagicMock(status_code=404)
+    monkeypatch.setattr(agent_conversation, "RemoteWorkspace", lambda **kwargs: workspace)
+    missing = agent_conversation.httpx.HTTPStatusError(
+        "missing",
+        request=MagicMock(),
+        response=MagicMock(status_code=404),
+    )
     monkeypatch.setattr(
-        github_client.RemoteConversation, "attach", MagicMock(side_effect=missing)
+        agent_conversation.RemoteConversation, "attach", MagicMock(side_effect=missing)
     )
     conversation = MagicMock()
     create = MagicMock(return_value=conversation)
-    monkeypatch.setattr(github_client.RemoteConversation, "create", create)
+    monkeypatch.setattr(agent_conversation.RemoteConversation, "create", create)
 
-    result = _dispatcher(monkeypatch).deliver("repo:issue:7", "revision-1", "work")
+    with _dispatcher(monkeypatch) as dispatcher:
+        result = dispatcher.deliver("repo:issue:7", "revision-1", "work")
 
     request = create.call_args.args[1]
     assert request.agent_profile_id == UUID(
@@ -56,21 +78,20 @@ def test_known_subject_resumes_once_per_delivery(monkeypatch):
         }
     }
     monkeypatch.setattr(
-        github_client,
+        agent_conversation,
         "_kv_request",
         lambda method, value=None: state.update(value or {}) if method == "PUT" else state,
     )
     monkeypatch.setattr("openhands.tools.register_default_tools", lambda: None)
     workspace = MagicMock()
     workspace.__enter__.return_value = workspace
-    monkeypatch.setattr(github_client, "RemoteWorkspace", lambda **kwargs: workspace)
+    monkeypatch.setattr(agent_conversation, "RemoteWorkspace", lambda **kwargs: workspace)
     conversation = MagicMock()
     attach = MagicMock(return_value=conversation)
-    monkeypatch.setattr(github_client.RemoteConversation, "attach", attach)
-    dispatcher = _dispatcher(monkeypatch)
-
-    duplicate = dispatcher.deliver("repo:pr:9", "head-1", "old")
-    resumed = dispatcher.deliver("repo:pr:9", "head-2", "new")
+    monkeypatch.setattr(agent_conversation.RemoteConversation, "attach", attach)
+    with _dispatcher(monkeypatch) as dispatcher:
+        duplicate = dispatcher.deliver("repo:pr:9", "head-1", "old")
+        resumed = dispatcher.deliver("repo:pr:9", "head-2", "new")
 
     assert duplicate["disposition"] == "deduplicated"
     assert resumed["disposition"] == "resumed"

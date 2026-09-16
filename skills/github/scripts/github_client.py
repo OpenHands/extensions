@@ -10,113 +10,29 @@ from pathlib import Path
 from urllib.error import HTTPError
 from urllib.parse import parse_qsl, urlencode, urlsplit
 from urllib.request import Request, urlopen
-from uuid import UUID, NAMESPACE_URL, uuid5
-
-from openhands.sdk import RemoteConversation
-from openhands.sdk.conversation.request import (
-    SendMessageRequest,
-    StartConversationRequest,
-)
-from openhands.sdk.llm.message import TextContent
-from openhands.sdk.workspace import LocalWorkspace, RemoteWorkspace
 
 
-_CONVERSATIONS_KEY = "agent-conversations"
+def _load_secret(name: str) -> str:
+    """Read one named secret from the environment or configured Agent Server."""
+    value = os.environ.get(name)
+    if value:
+        return value
 
+    from openhands.sdk.workspace import RemoteWorkspace
 
-def _kv_request(method: str, value: dict | None = None) -> dict | None:
-    base_url = os.environ.get("AUTOMATION_API_URL", "").rstrip("/")
-    token = os.environ.get("AUTOMATION_KV_TOKEN", "")
-    if not base_url or not token:
-        raise RuntimeError("Automation KV is required for agent conversation dispatch")
-    request = Request(
-        f"{base_url}/v1/kv/{_CONVERSATIONS_KEY}",
-        data=json.dumps(value).encode() if value is not None else None,
-        headers={
-            "Authorization": f"Bearer {token}",
-            "Content-Type": "application/json",
-        },
-        method=method,
+    workspace = RemoteWorkspace(
+        host=os.environ["AGENT_SERVER_URL"],
+        api_key=os.environ["SESSION_API_KEY"],
+        working_dir=os.environ.get("WORKSPACE_BASE", "/workspace"),
     )
     try:
-        with urlopen(request, timeout=90) as response:
-            body = json.load(response)
-    except HTTPError as exc:
-        if method == "GET" and exc.code == 404:
-            return None
-        raise
-    return body.get("value") if method == "GET" else body
-
-
-class AgentConversationDispatcher:
-    """Deliver idempotent work to one profile-backed conversation per subject."""
-
-    def __init__(self) -> None:
-        self.agent_url = os.environ["AGENT_SERVER_URL"]
-        self.api_key = os.environ["SESSION_API_KEY"]
-        self.profile_id = UUID(os.environ["AUTOMATION_AGENT_PROFILE_ID"])
-        payload = json.loads(os.environ["AUTOMATION_EVENT_PAYLOAD"])
-        self.automation_id = str(payload["automation_id"])
-
-    def deliver(self, subject: str, delivery: str, prompt: str) -> dict[str, str]:
-        state = _kv_request("GET") or {}
-        record = state.get(subject) or {}
-        conversation_id = UUID(
-            record.get("conversation_id")
-            or str(uuid5(NAMESPACE_URL, f"{self.automation_id}:{subject}"))
-        )
-        if record.get("delivery") == delivery:
-            return {
-                "disposition": "deduplicated",
-                "conversation_id": str(conversation_id),
-            }
-
-        from openhands.tools import register_default_tools
-
-        register_default_tools()
-        with RemoteWorkspace(
-            host=self.agent_url,
-            api_key=self.api_key,
-            working_dir=os.environ.get("WORKSPACE_BASE", "/workspace"),
-        ) as workspace:
-            try:
-                conversation = RemoteConversation.attach(
-                    workspace, conversation_id, visualizer=None
-                )
-                disposition = "resumed"
-            except Exception as exc:
-                response = getattr(exc, "response", None)
-                if getattr(response, "status_code", None) != 404:
-                    raise
-                conversation = RemoteConversation.create(
-                    workspace,
-                    StartConversationRequest(
-                        workspace=LocalWorkspace(working_dir="/workspace"),
-                        conversation_id=conversation_id,
-                        agent_profile_id=self.profile_id,
-                        initial_message=SendMessageRequest(
-                            content=[TextContent(text=prompt)], run=True
-                        ),
-                    ),
-                    visualizer=None,
-                )
-                disposition = "created"
-            try:
-                if disposition == "resumed":
-                    conversation.send_message(prompt)
-                    conversation.run(blocking=False)
-            finally:
-                conversation.close()
-
-        state[subject] = {
-            "conversation_id": str(conversation_id),
-            "delivery": delivery,
-        }
-        _kv_request("PUT", state)
-        return {
-            "disposition": disposition,
-            "conversation_id": str(conversation_id),
-        }
+        secret = workspace.get_secrets([name]).get(name)
+        value = secret.get_value() if secret else None
+    finally:
+        workspace.reset_client()
+    if not value:
+        raise ValueError(f"The GitHub credential {name} is unavailable")
+    return value
 
 
 def github_request(
@@ -168,6 +84,7 @@ class GitHubRepository:
         github_token_secret,
         repository=None,
         conversation=None,
+        dispatcher=None,
     ):
         self.config = json.loads(Path(config_path).read_text())
         self.repository = repository or self.config["repository"]
@@ -178,11 +95,10 @@ class GitHubRepository:
                 "Expected the environment variable containing the GitHub token"
             )
         self.token_name = github_token_secret
-        self.token = os.environ[github_token_secret]
-        if not self.token:
-            raise ValueError("The GitHub credential is empty")
+        self.token = _load_secret(github_token_secret)
         self.conversation = conversation
         self.conversation_id = str(conversation.id) if conversation else None
+        self.dispatcher = dispatcher
         self.workspace = Path(os.environ["WORKSPACE_BASE"])
         self.project = self.workspace
         self.evidence = self.workspace / "evidence"
@@ -282,7 +198,7 @@ class GitHubRepository:
         )
 
 
-def run_repositories(automation_type, conversation=None):
+def run_repositories(automation_type, conversation=None, dispatcher=None):
     parser = argparse.ArgumentParser(description=automation_type.__doc__)
     parser.add_argument("--github-token-secret")
     args = parser.parse_args()
@@ -297,6 +213,7 @@ def run_repositories(automation_type, conversation=None):
             github_token_secret=token_name,
             repository=repository,
             conversation=conversation,
+            dispatcher=dispatcher,
         )
         try:
             automation.run()
