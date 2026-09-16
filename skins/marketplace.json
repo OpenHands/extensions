@@ -1,0 +1,27 @@
+{
+  "name": "agent-canvas-skins",
+  "description": "Marketplace of Agent Canvas skins — git-backed packages that reconfigure an Agent Canvas instance and serve a purpose-built web app as its default tab. Consumed by the Agent Canvas Manager (OpenHands/app-acm). Skin repos may be private; readers authenticate with a GitHub token.",
+  "skins": [
+    {
+      "name": "Agent Canvas Manager",
+      "repo": "https://github.com/OpenHands/skin-acm",
+      "description": "Control plane for provisioning and governing a fleet of Agent Canvas instances in Kubernetes, plus this marketplace.",
+      "screenshot": "https://raw.githubusercontent.com/OpenHands/skin-acm/main/docs/screenshot.svg",
+      "canvas_version": ">=1.8.0"
+    },
+    {
+      "name": "Datadog Monitor",
+      "repo": "https://github.com/OpenHands/skin-datadog-monitor",
+      "description": "Datadog monitor dashboard with agent-assisted alert investigation. Needs DATADOG_TOKEN (+ optional DATADOG_APP_KEY).",
+      "screenshot": "https://raw.githubusercontent.com/OpenHands/skin-datadog-monitor/main/docs/screenshot.svg",
+      "canvas_version": ">=1.8.0"
+    },
+    {
+      "name": "Linear Admin",
+      "repo": "https://github.com/OpenHands/skin-linear-admin",
+      "description": "Linear triage/admin dashboard with agent-assisted issue handling. Needs LINEAR_API_KEY.",
+      "screenshot": "https://raw.githubusercontent.com/OpenHands/skin-linear-admin/main/docs/screenshot.svg",
+      "canvas_version": ">=1.8.0"
+    }
+  ]
+}
