@@ -42,7 +42,7 @@ def test_new_subject_uses_selected_profile_and_persists_mapping(monkeypatch):
         "_kv_request",
         lambda method, value=None: state.update(value or {}) if method == "PUT" else state,
     )
-    monkeypatch.setattr("openhands.tools.register_default_tools", lambda: None)
+    monkeypatch.setattr(agent_conversation, "_register_tools", lambda: None)
     workspace = MagicMock()
     workspace.__enter__.return_value = workspace
     monkeypatch.setattr(agent_conversation, "RemoteWorkspace", lambda **kwargs: workspace)
@@ -82,7 +82,7 @@ def test_known_subject_resumes_once_per_delivery(monkeypatch):
         "_kv_request",
         lambda method, value=None: state.update(value or {}) if method == "PUT" else state,
     )
-    monkeypatch.setattr("openhands.tools.register_default_tools", lambda: None)
+    monkeypatch.setattr(agent_conversation, "_register_tools", lambda: None)
     workspace = MagicMock()
     workspace.__enter__.return_value = workspace
     monkeypatch.setattr(agent_conversation, "RemoteWorkspace", lambda **kwargs: workspace)

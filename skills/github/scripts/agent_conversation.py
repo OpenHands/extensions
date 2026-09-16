@@ -19,6 +19,13 @@ from openhands.sdk.workspace import LocalWorkspace, RemoteWorkspace
 _CONVERSATIONS_KEY = "agent-conversations"
 
 
+def _register_tools() -> None:
+    """Register tool models needed to deserialize an attached agent."""
+    from openhands.tools import register_default_tools
+
+    register_default_tools()
+
+
 def _kv_request(method: str, value: dict | None = None) -> dict | None:
     base_url = os.environ.get("AUTOMATION_API_URL", "").rstrip("/")
     token = os.environ.get("AUTOMATION_KV_TOKEN", "")
@@ -55,9 +62,7 @@ class AgentConversationDispatcher:
         self._workspace: RemoteWorkspace | None = None
 
     def __enter__(self):
-        from openhands.tools import register_default_tools
-
-        register_default_tools()
+        _register_tools()
         self._workspace = RemoteWorkspace(
             host=self.agent_url,
             api_key=self.api_key,
