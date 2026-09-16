@@ -26,7 +26,9 @@ import urllib.error
 import urllib.request
 from collections.abc import Callable
 from pathlib import Path, PurePosixPath
-from urllib.parse import urlencode
+
+from github_client import github_request as _github_request
+from github_client import github_paginate as _github_paginate
 
 # Configuration. Two setup paths write it, and both end up here:
 #
@@ -335,46 +337,6 @@ def save_state(repo: str, state: dict) -> None:
     os.replace(tmp_path, path)
     print(f"  State saved to {path}")
 
-
-def _github_request(
-    token: str,
-    method: str,
-    path: str,
-    params: dict | None = None,
-    body: dict | None = None,
-    accept: str = "application/vnd.github+json",
-) -> tuple:
-    url = f"https://api.github.com{path}"
-    if params:
-        url = f"{url}?{urlencode(params)}"
-    headers = {
-        "Authorization": f"Bearer {token}",
-        "Accept": accept,
-        "X-GitHub-Api-Version": "2022-11-28",
-        "Content-Type": "application/json",
-    }
-    data = json.dumps(body).encode() if body is not None else None
-    req = urllib.request.Request(url, data=data, headers=headers, method=method)
-    with urllib.request.urlopen(req) as r:
-        raw = r.read()
-        return (json.loads(raw) if raw.strip() else {}), dict(r.headers)
-
-
-def _github_paginate(token: str, path: str, params: dict | None = None) -> list:
-    results = []
-    page = 1
-    base_params = dict(params or {})
-    base_params.setdefault("per_page", 100)
-    while True:
-        base_params["page"] = page
-        data, _ = _github_request(token, "GET", path, params=base_params)
-        if not isinstance(data, list):
-            break
-        results.extend(data)
-        if len(data) < base_params["per_page"]:
-            break
-        page += 1
-    return results
 
 
 def _resolve_github_token() -> str:

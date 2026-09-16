@@ -29,6 +29,11 @@ checkout once the conversation has stopped. Nothing accumulates between runs.
 
 ---
 
+The script imports shared GitHub transport from
+`scripts/github_client.py`, installed with this skill. Include it beside
+`main.py` when packaging manually, as shown below; catalog bundles include it
+automatically.
+
 ## Prerequisites
 
 ### Required secret
@@ -161,9 +166,11 @@ Use a safe string writer such as `json.dumps(value)` when inserting user-provide
 repository names, labels, or style instructions into Python string literals.
 `json.dumps(list_of_repos)` produces the whole `REPOS` list safely in one step.
 
-Write the customized script to a temporary build directory:
+Run these commands from this skill's directory and write the customized script
+to a temporary build directory:
 ```bash
 mkdir -p /tmp/pr-reviewer-build
+cp -L scripts/github_client.py /tmp/pr-reviewer-build/github_client.py
 # write the customized main.py to /tmp/pr-reviewer-build/main.py
 ```
 

@@ -92,7 +92,8 @@
       "entrypoint": "python3 main.py",
       "timeout": 600,
       "files": {
-        "main.py": "skills/github-pr-reviewer/scripts/main.py"
+        "main.py": "skills/github-pr-reviewer/scripts/main.py",
+        "github_client.py": "skills/github/scripts/github_client.py"
       },
       "config": {
         "repos": "{{form.repositories}}",

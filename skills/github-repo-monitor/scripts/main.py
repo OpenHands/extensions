@@ -34,7 +34,10 @@ import time
 import urllib.error
 import urllib.request
 from datetime import datetime, timedelta, timezone
-from urllib.parse import urlencode
+
+from github_client import github_request as _github_request
+from github_client import github_paginate as _github_paginate
+
 
 # ── Embedded configuration (filled in by the skill at creation time) ──────────
 REPO = "owner/repo"                     # e.g. "microsoft/vscode"
@@ -209,51 +212,6 @@ def save_state(state: dict) -> None:
 
 
 # ── GitHub API helpers ─────────────────────────────────────────────────────────
-
-def _github_request(
-    token: str,
-    method: str,
-    path: str,
-    params: dict | None = None,
-    body: dict | None = None,
-) -> tuple[dict | list, dict]:
-    """Low-level GitHub API call.  Returns (parsed_body, response_headers).
-    Raises urllib.error.HTTPError on non-2xx responses.
-    """
-    base = "https://api.github.com"
-    url = f"{base}{path}"
-    if params:
-        url = f"{url}?{urlencode(params)}"
-    headers = {
-        "Authorization": f"Bearer {token}",
-        "Accept": "application/vnd.github+json",
-        "X-GitHub-Api-Version": "2022-11-28",
-        "Content-Type": "application/json",
-    }
-    data = json.dumps(body).encode() if body is not None else None
-    req = urllib.request.Request(url, data=data, headers=headers, method=method)
-    with urllib.request.urlopen(req) as r:
-        resp_headers = dict(r.headers)
-        raw = r.read()
-        return (json.loads(raw) if raw.strip() else {}), resp_headers
-
-
-def _github_paginate(token: str, path: str, params: dict | None = None) -> list:
-    """Fetch all pages from a GitHub list endpoint."""
-    results = []
-    page = 1
-    base_params = dict(params or {})
-    base_params.setdefault("per_page", 100)
-    while True:
-        base_params["page"] = page
-        data, _ = _github_request(token, "GET", path, params=base_params)
-        if not isinstance(data, list):
-            break
-        results.extend(data)
-        if len(data) < base_params["per_page"]:
-            break
-        page += 1
-    return results
 
 
 def _resolve_github_token() -> str:
