@@ -4,7 +4,7 @@ import json
 import os
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
-from uuid import UUID, NAMESPACE_URL, uuid5
+from uuid import NAMESPACE_URL, UUID, uuid5
 
 import httpx
 from openhands.sdk import RemoteConversation
@@ -12,9 +12,9 @@ from openhands.sdk.conversation.request import (
     SendMessageRequest,
     StartConversationRequest,
 )
+from openhands.sdk.conversation.state import ConversationExecutionStatus
 from openhands.sdk.llm.message import TextContent
 from openhands.sdk.workspace import LocalWorkspace, RemoteWorkspace
-
 
 _CONVERSATIONS_KEY = "agent-conversations"
 
@@ -82,13 +82,10 @@ class AgentConversationDispatcher:
             record.get("conversation_id")
             or str(uuid5(NAMESPACE_URL, f"{self.automation_id}:{subject}"))
         )
-        if record.get("delivery") == delivery:
-            return {
-                "disposition": "deduplicated",
-                "conversation_id": str(conversation_id),
-            }
         if self._workspace is None:
             raise RuntimeError("AgentConversationDispatcher must be used as a context")
+
+        same_delivery = record.get("delivery") == delivery
 
         try:
             conversation = RemoteConversation.attach(
@@ -113,10 +110,26 @@ class AgentConversationDispatcher:
             disposition = "created"
         try:
             if disposition == "resumed":
-                conversation.send_message(prompt)
-                conversation.run(blocking=False)
+                if same_delivery:
+                    if conversation.state.execution_status in (
+                        ConversationExecutionStatus.IDLE,
+                        ConversationExecutionStatus.RUNNING,
+                        ConversationExecutionStatus.PAUSED,
+                    ):
+                        conversation.run(blocking=False)
+                    else:
+                        disposition = "deduplicated"
+                else:
+                    conversation.send_message(prompt)
+                    conversation.run(blocking=False)
         finally:
             conversation.close()
+
+        if disposition == "deduplicated":
+            return {
+                "disposition": disposition,
+                "conversation_id": str(conversation_id),
+            }
 
         state[subject] = {
             "conversation_id": str(conversation_id),

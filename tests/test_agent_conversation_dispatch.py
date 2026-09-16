@@ -4,6 +4,7 @@ from uuid import UUID
 
 import agent_conversation
 import github_client
+from openhands.sdk.conversation.state import ConversationExecutionStatus
 
 
 def _dispatcher(monkeypatch):
@@ -87,6 +88,7 @@ def test_known_subject_resumes_once_per_delivery(monkeypatch):
     workspace.__enter__.return_value = workspace
     monkeypatch.setattr(agent_conversation, "RemoteWorkspace", lambda **kwargs: workspace)
     conversation = MagicMock()
+    conversation.state.execution_status = ConversationExecutionStatus.FINISHED
     attach = MagicMock(return_value=conversation)
     monkeypatch.setattr(agent_conversation.RemoteConversation, "attach", attach)
     with _dispatcher(monkeypatch) as dispatcher:
@@ -96,4 +98,36 @@ def test_known_subject_resumes_once_per_delivery(monkeypatch):
     assert duplicate["disposition"] == "deduplicated"
     assert resumed["disposition"] == "resumed"
     conversation.send_message.assert_called_once_with("new")
+    conversation.run.assert_called_once_with(blocking=False)
+
+
+def test_same_delivery_resumes_paused_conversation(monkeypatch):
+    state = {
+        "repo:pr:9": {
+            "conversation_id": "22222222-2222-4222-8222-222222222222",
+            "delivery": "head-1",
+        }
+    }
+    monkeypatch.setattr(
+        agent_conversation,
+        "_kv_request",
+        lambda method, value=None: state.update(value or {}) if method == "PUT" else state,
+    )
+    monkeypatch.setattr(agent_conversation, "_register_tools", lambda: None)
+    workspace = MagicMock()
+    workspace.__enter__.return_value = workspace
+    monkeypatch.setattr(agent_conversation, "RemoteWorkspace", lambda **kwargs: workspace)
+    conversation = MagicMock()
+    conversation.state.execution_status = ConversationExecutionStatus.PAUSED
+    monkeypatch.setattr(
+        agent_conversation.RemoteConversation,
+        "attach",
+        MagicMock(return_value=conversation),
+    )
+
+    with _dispatcher(monkeypatch) as dispatcher:
+        result = dispatcher.deliver("repo:pr:9", "head-1", "old")
+
+    assert result["disposition"] == "resumed"
+    conversation.send_message.assert_not_called()
     conversation.run.assert_called_once_with(blocking=False)
