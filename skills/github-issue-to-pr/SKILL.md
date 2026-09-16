@@ -11,6 +11,13 @@ triggers:
 
 # GitHub Issue to PR Automation
 
+## Agent Canvas catalog
+
+For new Agent Canvas installations, use the **GitHub issue to PR** catalog
+entry. Its deterministic `worker.py` scanner delegates each eligible issue to a
+stable conversation using the selected agent profile. The manual upload flow
+below remains for existing deployments and is deprecated for new installations.
+
 Create a cron automation that watches one or more GitHub repositories for issues
 with a trigger label, starts an OpenHands conversation once per label event with
 the repository's default branch already checked out, and opens a pull request
