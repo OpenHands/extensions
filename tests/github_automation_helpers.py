@@ -16,7 +16,13 @@ def worker(name, tmp_path, monkeypatch):
     bundle.mkdir()
     for filename, source in manifest["setup"]["bundle"]["files"].items():
         (bundle / filename).write_text((ROOT / source).read_text())
-    for module in ("main", "github_client", "qa_prompt", "worker"):
+    for module in (
+        "agent_conversation",
+        "main",
+        "github_client",
+        "qa_prompt",
+        "worker",
+    ):
         monkeypatch.delitem(sys.modules, module, raising=False)
     monkeypatch.syspath_prepend(str(bundle))
     spec = importlib.util.spec_from_file_location("worker", bundle / "worker.py")
