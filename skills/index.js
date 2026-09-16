@@ -234,6 +234,15 @@ export const SKILLS_CATALOG = [
     "category": "automations"
   },
   {
+    "name": "github-delivery-watchdog",
+    "description": "Periodically check pull requests and merge only current heads with independent review, tests, and passing CI.",
+    "triggers": [
+      "/github-delivery-watchdog"
+    ],
+    "content": "# GitHub delivery watchdog\n\nThis is a deterministic scheduled host command. It creates no agent or\nconversation and needs no agent profile. Configure a repository-scoped\nfine-grained PAT with Contents and Issues read/write plus Pull requests, Actions,\nCommit statuses, and Metadata read. Contents write permits merge; Issues write\nretains the review label when the branch is updated. Never put the token value in\nthe automation definition.\n\nPackage `scripts/worker.py` as `worker.py` and the shared\n`scripts/github_client.py` as `github_client.py`.\nThe catalog bundle declares these exact files. Its `config.json` supplies\n`repos`, `branch_prefix`, and the saved secret name. The shared GitHub client\nresolves only that named secret. Automation owns scheduling and cancellation.\n\nSet `branch_prefix` (default `openhands/issue`), `base_branch` (defaults to the repository's default branch),\nand `required_workflow_ids` when particular Actions workflows must run. The\nwatchdog requires `software-factory/tests` and `software-factory/review` success\nstatuses on the exact head, all other statuses and Actions passing, a current\nbase, a non-draft PR, and GitHub reporting it mergeable. Missing, pending, failed,\nor inaccessible evidence does not permit merge. A changed head requires fresh\nreview and tests. When an accepted branch is behind the base, the watchdog asks\nGitHub to update it and retains the review trigger label; it considers the new\nhead only on a later run. The merge request includes the expected head SHA.\n\nActions are optional when `required_workflow_ids` is empty; the two acceptance\nstatuses remain mandatory. Configure workflow IDs when GitHub Actions must also\nsupply evidence. Branch protection remains GitHub's final merge gate.",
+    "category": "automations"
+  },
+  {
     "name": "github-issue-to-pr",
     "description": "Create an automation that implements GitHub issues when a configurable trigger label is applied. Polls one or more repositories deterministically, clones the default branch, starts one OpenHands conversation per label event, then commits, pushes, and opens the pull request itself.",
     "triggers": [
