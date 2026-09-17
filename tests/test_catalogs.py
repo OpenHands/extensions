@@ -85,7 +85,7 @@ def test_catalog_entries_have_required_fields():
 
 
 def test_remote_no_auth_mcp_entries_are_intentionally_public():
-    public_remote_mcp_ids = {"cloudflare-docs", "deepwiki", "huggingface"}
+    public_remote_mcp_ids = {"cloudflare-docs", "deepwiki", "huggingface", "youcom-search"}
 
     actual = set()
     for entry in load_catalog_entries("integrations/catalog"):
