@@ -47,7 +47,7 @@ jobs:
         timeout-minutes: 5
         steps:
             - name: Checkout trusted workflow scripts
-              uses: actions/checkout@v4
+              uses: actions/checkout@v7
 
             - name: Evaluate issue readiness
               id: readiness
@@ -134,7 +134,7 @@ jobs:
             actions: write
         steps:
             - name: Checkout trusted workflow scripts
-              uses: actions/checkout@v4
+              uses: actions/checkout@v7
 
             - name: Re-run PR description checks for linked open PRs
               env:
