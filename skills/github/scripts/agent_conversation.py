@@ -60,6 +60,7 @@ class AgentConversationDispatcher:
         payload = json.loads(os.environ["AUTOMATION_EVENT_PAYLOAD"])
         self.automation_id = str(payload["automation_id"])
         self._workspace: RemoteWorkspace | None = None
+        self._secrets = {}
 
     def __enter__(self):
         _register_tools()
@@ -69,6 +70,9 @@ class AgentConversationDispatcher:
             working_dir=os.environ.get("WORKSPACE_BASE", "/workspace"),
         )
         self._workspace.__enter__()
+        self._secrets = self._workspace.get_secrets(
+            agent_profile_id=str(self.profile_id)
+        )
         return self
 
     def __exit__(self, *args):
@@ -98,6 +102,7 @@ class AgentConversationDispatcher:
                     workspace=LocalWorkspace(working_dir="/workspace"),
                     conversation_id=conversation_id,
                     agent_profile_id=self.profile_id,
+                    secrets=self._secrets,
                     initial_message=SendMessageRequest(
                         content=[TextContent(text=prompt)], run=True
                     ),
@@ -113,10 +118,12 @@ class AgentConversationDispatcher:
                         ConversationExecutionStatus.RUNNING,
                         ConversationExecutionStatus.PAUSED,
                     ):
+                        conversation.update_secrets(self._secrets)
                         conversation.run(blocking=False)
                     else:
                         disposition = "deduplicated"
                 else:
+                    conversation.update_secrets(self._secrets)
                     conversation.send_message(prompt)
                     conversation.run(blocking=False)
         finally:
