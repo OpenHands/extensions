@@ -5,6 +5,7 @@ from uuid import NAMESPACE_URL, UUID, uuid5
 import agent_conversation
 import github_client
 from openhands.sdk.conversation.state import ConversationExecutionStatus
+from openhands.sdk.secret import LookupSecret
 
 
 def _dispatcher(monkeypatch):
@@ -57,6 +58,10 @@ def test_new_subject_uses_selected_profile_and_persists_mapping(monkeypatch):
     monkeypatch.setattr(agent_conversation, "_register_tools", lambda: None)
     workspace = MagicMock()
     workspace.__enter__.return_value = workspace
+    scoped_secrets = {
+        "GITHUB_TOKEN": LookupSecret(url="/api/settings/secrets/GITHUB_TOKEN")
+    }
+    workspace.get_secrets.return_value = scoped_secrets
     monkeypatch.setattr(
         agent_conversation, "RemoteWorkspace", lambda **kwargs: workspace
     )
@@ -77,6 +82,10 @@ def test_new_subject_uses_selected_profile_and_persists_mapping(monkeypatch):
 
     request = create.call_args.args[1]
     assert request.agent_profile_id == UUID("11111111-1111-4111-8111-111111111111")
+    assert request.secrets == scoped_secrets
+    workspace.get_secrets.assert_called_once_with(
+        agent_profile_id="11111111-1111-4111-8111-111111111111"
+    )
     assert request.initial_message.run is True
     assert result["disposition"] == "created"
     record = state[_state_key("repo:issue:7")]
@@ -99,6 +108,10 @@ def test_known_subject_resumes_once_per_delivery(monkeypatch):
     monkeypatch.setattr(agent_conversation, "_register_tools", lambda: None)
     workspace = MagicMock()
     workspace.__enter__.return_value = workspace
+    scoped_secrets = {
+        "GITHUB_TOKEN": LookupSecret(url="/api/settings/secrets/GITHUB_TOKEN")
+    }
+    workspace.get_secrets.return_value = scoped_secrets
     monkeypatch.setattr(
         agent_conversation, "RemoteWorkspace", lambda **kwargs: workspace
     )
@@ -112,6 +125,7 @@ def test_known_subject_resumes_once_per_delivery(monkeypatch):
 
     assert duplicate["disposition"] == "deduplicated"
     assert resumed["disposition"] == "resumed"
+    conversation.update_secrets.assert_called_once_with(scoped_secrets)
     conversation.send_message.assert_called_once_with("new")
     conversation.run.assert_called_once_with(blocking=False)
 
@@ -128,6 +142,7 @@ def test_same_delivery_resumes_paused_conversation(monkeypatch):
     monkeypatch.setattr(agent_conversation, "_register_tools", lambda: None)
     workspace = MagicMock()
     workspace.__enter__.return_value = workspace
+    workspace.get_secrets.return_value = {}
     monkeypatch.setattr(
         agent_conversation, "RemoteWorkspace", lambda **kwargs: workspace
     )
@@ -153,6 +168,7 @@ def test_subjects_use_independent_kv_records(monkeypatch):
     monkeypatch.setattr(agent_conversation, "_register_tools", lambda: None)
     workspace = MagicMock()
     workspace.__enter__.return_value = workspace
+    workspace.get_secrets.return_value = {}
     monkeypatch.setattr(
         agent_conversation, "RemoteWorkspace", lambda **kwargs: workspace
     )

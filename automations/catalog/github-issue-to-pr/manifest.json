@@ -98,7 +98,7 @@
       }
     },
     "bundle": {
-      "version": "1.2.0",
+      "version": "1.2.1",
       "entrypoint": "python3 worker.py",
       "timeout": 300,
       "files": {
@@ -117,5 +117,5 @@
     },
     "message": "Configure the repositories, labels, branch prefix, pull request mode, agent profile, and schedule."
   },
-  "version": "1.2.0"
+  "version": "1.2.1"
 }
