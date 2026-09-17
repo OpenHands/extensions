@@ -1,0 +1,39 @@
+{
+  "id": "baizhi-agent-toolkit",
+  "name": "Baizhi Agent Toolkit",
+  "description": "Hosted tools for web search, page scraping, and structured extraction. Requires a Baizhi account and API key; usage can consume credits.",
+  "categories": [
+    "Search",
+    "Web"
+  ],
+  "appUrl": "https://agent-toolkit.app.baizhi.cloud/",
+  "docsUrl": "https://github.com/chaitin/baizhi-agent-toolkit",
+  "notes": "Maintained by the Baizhi Cloud team. Tool inputs are sent to the hosted service. The server can expose additional capabilities; this catalog entry does not restrict the discovered tool set or grant automatic tool approval.",
+  "keywords": [
+    "baizhi",
+    "search",
+    "web",
+    "scraping",
+    "extraction",
+    "research"
+  ],
+  "installHint": "Create your own key in the Baizhi console, then enter the key without the Bearer prefix. Review the discovered tools and service costs before use. No local proxy is required.",
+  "connectionOptions": [
+    {
+      "id": "api-key",
+      "provider": "mcp",
+      "transport": {
+        "kind": "shttp",
+        "url": "https://agent-toolkit.app.baizhi.cloud/mcp",
+        "urlEditable": false
+      },
+      "auth": {
+        "strategy": "bearer",
+        "apiKeyOptional": false,
+        "credentialLabel": "Baizhi API key",
+        "credentialPlaceholder": "Paste your Baizhi API key",
+        "credentialHelp": "Get your own key from the [Baizhi console](https://agent-toolkit.app.baizhi.cloud/). Enter only the key; it is sent as a Bearer token in the Authorization header. Tool calls can consume service credits."
+      }
+    }
+  ]
+}

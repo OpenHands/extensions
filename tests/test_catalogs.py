@@ -202,6 +202,45 @@ def test_node_package_exports_catalogs():
     subprocess.run(["node", "--input-type=module", "-e", script], cwd=ROOT, check=True)
 
 
+def test_baizhi_agent_toolkit_uses_fixed_remote_bearer_connection():
+    baizhi = next(
+        entry
+        for entry in load_catalog_entries("integrations/catalog")
+        if entry["id"] == "baizhi-agent-toolkit"
+    )
+
+    assert baizhi["appUrl"] == "https://agent-toolkit.app.baizhi.cloud/"
+    assert baizhi["docsUrl"] == "https://github.com/chaitin/baizhi-agent-toolkit"
+    assert "credits" in baizhi["description"]
+    assert "does not restrict the discovered tool set" in baizhi["notes"]
+    assert "popularityRank" not in baizhi
+    assert len(baizhi["connectionOptions"]) == 1
+
+    option = baizhi["connectionOptions"][0]
+    assert option["id"] == "api-key"
+    assert option["provider"] == "mcp"
+    assert option["transport"] == {
+        "kind": "shttp",
+        "url": "https://agent-toolkit.app.baizhi.cloud/mcp",
+        "urlEditable": False,
+    }
+    auth = option["auth"]
+    assert auth["strategy"] == "bearer"
+    assert auth["apiKeyOptional"] is False
+    assert auth["credentialLabel"] == "Baizhi API key"
+    assert "https://agent-toolkit.app.baizhi.cloud/" in auth["credentialHelp"]
+    assert "Enter only the key" in auth["credentialHelp"]
+    # The host handles MCP credential persistence. Do not additionally copy
+    # this token into a named automation secret or add a credential value here.
+    assert set(auth) == {
+        "strategy",
+        "apiKeyOptional",
+        "credentialLabel",
+        "credentialPlaceholder",
+        "credentialHelp",
+    }
+
+
 def test_no_default_tool_in_catalog():
     """The defaultTool field was removed; tools now come from MCP tools/list or
     HTTP OpenAPI regeneration. No connection option may carry it."""
