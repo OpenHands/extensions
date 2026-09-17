@@ -27,6 +27,8 @@ Environment Variables:
     LLM_API_KEY: API key for the LLM (required for OpenHands agent kind)
     LLM_MODEL: Language model to use (default: anthropic/claude-sonnet-4-5-20250929)
     LLM_BASE_URL: Optional base URL for LLM API
+    LLM_EXTRA_BODY: Optional JSON object of extra request-body fields for the LLM
+    MAX_ITERATIONS: Optional cap on agent iterations per review run
     GITHUB_TOKEN: GitHub token for API access (required)
     PR_NUMBER: Pull request number (required)
     PR_TITLE: Pull request title (required)
@@ -893,6 +895,30 @@ def validate_environment() -> dict[str, Any]:
         sys.exit(1)
 
     api_key = os.getenv("LLM_API_KEY")
+
+    extra_body: dict[str, Any] = {}
+    raw_extra_body = os.getenv("LLM_EXTRA_BODY", "")
+    if raw_extra_body:
+        try:
+            extra_body = json.loads(raw_extra_body)
+        except json.JSONDecodeError as exc:
+            logger.error(f"LLM_EXTRA_BODY is not valid JSON: {exc}")
+            sys.exit(1)
+        if not isinstance(extra_body, dict):
+            logger.error("LLM_EXTRA_BODY must be a JSON object")
+            sys.exit(1)
+
+    max_iterations: int | None = None
+    raw_max_iterations = os.getenv("MAX_ITERATIONS", "")
+    if raw_max_iterations:
+        try:
+            max_iterations = int(raw_max_iterations)
+        except ValueError:
+            logger.error("MAX_ITERATIONS must be an integer")
+            sys.exit(1)
+        if max_iterations < 1:
+            logger.error("MAX_ITERATIONS must be at least 1")
+            sys.exit(1)
     if agent_kind == "openhands" and not api_key:
         logger.error(
             "LLM_API_KEY is required when AGENT_KIND is 'openhands'"
@@ -925,6 +951,8 @@ def validate_environment() -> dict[str, Any]:
         "github_token": os.getenv("GITHUB_TOKEN"),
         "model": os.getenv("LLM_MODEL", "anthropic/claude-sonnet-4-5-20250929"),
         "base_url": os.getenv("LLM_BASE_URL"),
+        "extra_body": extra_body,
+        "max_iterations": max_iterations,
         "require_evidence": _get_bool_env("REQUIRE_EVIDENCE"),
         "collect_feedback": _get_bool_env("COLLECT_FEEDBACK"),
         "review_run_url": os.getenv("REVIEW_RUN_URL", ""),
@@ -1076,6 +1104,8 @@ def create_conversation(
     }
     if config["base_url"]:
         llm_config["base_url"] = config["base_url"]
+    if config["extra_body"]:
+        llm_config["litellm_extra_body"] = config["extra_body"]
 
     llm = LLM(**llm_config)
 
@@ -1114,6 +1144,8 @@ def create_conversation(
         conversation_kwargs["visualizer"] = DelegationVisualizer(
             name="PR Review Coordinator"
         )
+    if config["max_iterations"]:
+        conversation_kwargs["max_iteration_per_run"] = config["max_iterations"]
 
     return Conversation(**conversation_kwargs)
 
