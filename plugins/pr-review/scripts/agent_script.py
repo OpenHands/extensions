@@ -452,7 +452,7 @@ def get_pr_issue_comments(
         max_items=max_comments,
         item_name="top-level PR comments",
     )
-    return [
+    comments = [
         {
             "id": node.get("id"),
             "user": {
@@ -465,6 +465,7 @@ def get_pr_issue_comments(
         }
         for node in nodes
     ]
+    return sorted(comments, key=lambda comment: comment.get("created_at") or "")
 
 
 def get_linked_issues(pr_number: str, max_issues: int = 5) -> list[dict[str, Any]]:
@@ -569,6 +570,7 @@ def format_review_context(
         comment
         for comment in issue_comments
         if ((comment.get("user") or {}).get("type") or "").lower() != "bot"
+        and ((comment.get("user") or {}).get("login") or "").lower() != "all-hands-bot"
     ]
     if human_comments:
         _add_section("### Top-level PR Discussion\n")
