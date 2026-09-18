@@ -2,9 +2,9 @@
 
 This skill helps OpenHands write **prose** in the style of ASD-STE100 Simplified
 Technical English: short active sentences, one idea each, plain and consistent
-words. The aim is text that is easy to read the first time - especially for
-readers whose first language is not English, and for instructions where a misread
-is costly.
+words. The aim is text that is easy to read the first time. This matters most
+for readers whose first language is not English, and for instructions where a
+misread is costly.
 
 Use it for:
 
@@ -12,7 +12,7 @@ Use it for:
 - ops, deploy, or security instructions where a misread is costly
 - briefing another agent to produce plain, scannable prose
 
-**Hard boundary - prose only.** The skill must never change code, identifiers,
+**The hard boundary is prose only.** The skill must never change code, identifiers,
 CLI flags, API fields, commit messages, or reference/API docs. A controlled
 English vocabulary must not bleed into code, where exact domain terms win.
 

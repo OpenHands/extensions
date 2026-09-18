@@ -3,7 +3,7 @@ name: simplified-technical-english
 description: >
   Write explanations and chat in the style of ASD-STE100 Simplified Technical
   English: short active sentences, one idea each, plain approved words. Use this
-  when the reader benefits from maximum clarity - non-native English readers,
+  when the reader benefits from maximum clarity: non-native English readers,
   safety- or ops-critical instructions, or any reply that should be easy to read
   the first time. Applies to PROSE ONLY; it must never change code, identifiers,
   APIs, or commit messages.
@@ -22,15 +22,15 @@ time, especially for people who read English as a second language. This skill
 adapts its spirit for agent prose.
 
 Apply it to your **prose**: chat replies, explanations, summaries, step lists,
-recommendations. The goal is easy reading, not dumbed-down thinking - open the
-text up, keep the substance.
+recommendations. The goal is easy reading, not dumbed-down thinking. Open the
+text up and keep the substance.
 
 ## Core rules
 
 - **Short sentences.** Aim for 20 words or fewer, and shorter for instructions.
 - **One idea per sentence, one topic per paragraph.** Split a sentence that carries two ideas.
 - **Active voice.** Write "Run the tests", not "The tests should be run".
-- **Plain, consistent words.** Prefer a common word over a fancy one. Use one word for one idea - do not switch synonyms for the same thing mid-text.
+- **Plain, consistent words.** Prefer a common word over a fancy one. Use one word for one idea. Do not switch synonyms for the same thing mid-text.
 - **Say the thing directly.** Lead with the answer. Give the number, name, or path. Cut filler like "in terms of", "a range of", "going forward".
 - **Positive instructions.** Tell the reader what to do, not only what to avoid.
 
@@ -56,7 +56,7 @@ and add a short plain-English gloss beside it.
 
 - Code, identifiers, commit messages, or API/reference docs (see the boundary above).
 - Creative or personal-voice writing, where rhythm and personality matter more than the controlled register.
-- Cases where a precise domain term must stay exact - keep the term.
+- Cases where a precise domain term must stay exact. Keep the term.
 
 ## Attribution
 
