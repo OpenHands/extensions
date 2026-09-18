@@ -803,6 +803,15 @@
       ]
     },
     {
+      "name": "simplified-technical-english",
+      "source": "./skills/simplified-technical-english",
+      "description": "Write explanations and chat in the style of ASD-STE100 Simplified Technical English: short active sentences, one idea each, plain consistent words. Applies to prose only, never to code.",
+      "category": "writing",
+      "keywords": [
+        "simplified-technical-english"
+      ]
+    },
+    {
       "name": "plain-english-content",
       "source": "./skills/plain-english-content",
       "description": "Write and edit clear, accessible prose in a plain English content style: active voice, front-loaded content, sentence case, and accessible formatting.",
