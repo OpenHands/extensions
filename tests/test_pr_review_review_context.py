@@ -244,18 +244,18 @@ def test_get_pr_issue_comments_fetches_latest_graphql_page(monkeypatch):
         calls.append(kwargs)
         return [
             {
-                "id": "old",
-                "author": {"login": "first", "__typename": "User"},
-                "authorAssociation": "MEMBER",
-                "body": "older concern",
-                "createdAt": "2026-01-01T00:00:00Z",
-            },
-            {
                 "id": "new",
                 "author": {"login": "last", "__typename": "User"},
                 "authorAssociation": "MEMBER",
                 "body": "latest concern",
                 "createdAt": "2026-01-02T00:00:00Z",
+            },
+            {
+                "id": "old",
+                "author": {"login": "first", "__typename": "User"},
+                "authorAssociation": "MEMBER",
+                "body": "older concern",
+                "createdAt": "2026-01-01T00:00:00Z",
             },
         ]
 
@@ -320,6 +320,10 @@ def test_review_context_omits_bot_status_comments():
                 "body": "Coverage report",
             },
             {
+                "user": {"login": "all-hands-bot", "type": "User"},
+                "body": "OpenHands gave up on this review",
+            },
+            {
                 "user": {"login": "maintainer", "type": "User"},
                 "author_association": "MEMBER",
                 "body": "Check the cancellation path.",
@@ -328,7 +332,28 @@ def test_review_context_omits_bot_status_comments():
     )
 
     assert "Coverage report" not in context
+    assert "OpenHands gave up" not in context
     assert "Check the cancellation path." in context
+
+
+def test_review_context_keeps_latest_twelve_human_comments():
+    module = _load_agent_script_module()
+    comments = [
+        {
+            "user": {"login": "maintainer", "type": "User"},
+            "author_association": "MEMBER",
+            "body": f"Concern-{index:02d}",
+            "created_at": f"2026-01-{index + 1:02d}T00:00:00Z",
+        }
+        for index in range(13)
+    ]
+
+    context = module.format_review_context([], [], issue_comments=comments)
+
+    assert "Concern-00" not in context
+    assert "Concern-01" in context
+    assert "Concern-12" in context
+    assert context.index("Concern-01") < context.index("Concern-12")
 
 
 def test_register_sub_agents_completes_without_error():
