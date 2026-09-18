@@ -26,9 +26,25 @@ agent workspace is local or Docker. Automation owns scheduling, cancellation,
 and cleanup.
 
 Honor `Depends on: #12, #13` lines. A dependency must be closed as completed.
-Post readable acceptance criteria and rationale. Add `ready-for-dev` only when
-criteria are actionable; preserve existing issue labels. Unclear issues stay open
-for clarification. Do not implement code or accept pull requests.
+Do not treat an existing `ready-for-dev` label as proof of readiness: inspect the
+issue discussion, repository instructions, and the closest relevant or adjacent
+implementation. Resolve reasonable ambiguity with a bounded scope and explicit
+non-goals. Ask for a maintainer decision only when it cannot be inferred safely.
+
+Acceptance criteria must be observable and sufficient for a reviewer to decide
+that the requested behavior is complete. Check the main behavior and every
+applicable boundary: failures and edge cases, compatibility or migration,
+lifecycle and cleanup, permissions and secrets, user-facing documentation, and
+realistic automated or live validation. Avoid subjective criteria and avoid
+prescribing an implementation unless repository policy requires one mechanism.
+
+Post one concise triage comment after the human discussion. Separate it with a
+Markdown horizontal rule and the sentence `The following comments and acceptance
+criteria were added by the OpenHands AI agent.` Preserve all human-authored text
+and replace stale automated triage output instead of accumulating comments. Add
+`ready-for-dev` only after the final criteria pass this standard; otherwise state
+the minimum decision needed and withhold the label. Preserve unrelated labels.
+Do not implement code or accept pull requests.
 
 Each scheduled run submits every changed eligible issue. A failure on one issue is
 reported and does not prevent the remaining issues from being submitted.
