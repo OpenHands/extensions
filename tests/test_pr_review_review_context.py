@@ -212,6 +212,87 @@ def test_format_thread_includes_rendered_suggestion_text_in_review_context():
     assert "```suggestion" not in formatted
 
 
+def test_get_linked_issues_uses_github_closing_issue_relation(monkeypatch):
+    module = _load_agent_script_module()
+    monkeypatch.setenv("REPO_NAME", "OpenHands/extensions")
+    calls = []
+
+    def fake_paginate(**kwargs):
+        calls.append(kwargs)
+        return [{"number": 12, "title": "criteria", "body": "- [ ] works"}]
+
+    monkeypatch.setattr(module, "_paginate_graphql", fake_paginate)
+
+    assert module.get_linked_issues("34") == [
+        {"number": 12, "title": "criteria", "body": "- [ ] works"}
+    ]
+    assert calls[0]["query"] == module.LINKED_ISSUES_QUERY
+    assert calls[0]["variables"] == {
+        "owner": "OpenHands",
+        "repo": "extensions",
+        "pr_number": 34,
+        "count": 5,
+    }
+
+
+def test_review_context_prioritizes_issue_and_top_level_discussion():
+    module = _load_agent_script_module()
+
+    context = module.format_review_context(
+        reviews=[
+            {
+                "user": {"login": "all-hands-bot"},
+                "state": "APPROVED",
+                "body": "Looks good",
+            }
+        ],
+        threads=[],
+        issue_comments=[
+            {
+                "user": {"login": "maintainer", "type": "User"},
+                "author_association": "MEMBER",
+                "body": "The credential must never be persisted in plaintext.",
+            }
+        ],
+        linked_issues=[
+            {
+                "number": 42,
+                "title": "Protect stored credentials",
+                "body": "Acceptance: encrypt credentials outside the user home.",
+            }
+        ],
+    )
+
+    assert "### Linked Issues and Acceptance Criteria" in context
+    assert "### Top-level PR Discussion" in context
+    assert "**maintainer** (MEMBER)" in context
+    assert "credential must never be persisted" in context
+    assert context.index("Linked Issues") < context.index("Previous Review Decisions")
+
+
+def test_review_context_omits_bot_status_comments():
+    module = _load_agent_script_module()
+
+    context = module.format_review_context(
+        reviews=[],
+        threads=[],
+        issue_comments=[
+            {
+                "user": {"login": "github-actions", "type": "Bot"},
+                "body": "Coverage report",
+            },
+            {
+                "user": {"login": "maintainer", "type": "User"},
+                "author_association": "MEMBER",
+                "body": "Check the cancellation path.",
+            },
+        ],
+    )
+
+    assert "Coverage report" not in context
+    assert "Check the cancellation path." in context
+
+
 def test_register_sub_agents_completes_without_error():
     """Smoke test: _register_sub_agents() runs without raising."""
     module = _load_agent_script_module()
