@@ -2,6 +2,7 @@
 
 import hashlib
 import json
+import os
 
 from agent_conversation import AgentConversationDispatcher
 from github_client import GitHubRepository, run_repositories
@@ -134,10 +135,34 @@ class IssueTriage(GitHubRepository):
             flush=True,
         )
 
+    def _event_target(self):
+        """Return the repository and issue selected by an Automation event."""
+        raw = os.environ.get("AUTOMATION_EVENT_PAYLOAD")
+        if not raw:
+            return None
+        try:
+            outer = json.loads(raw)
+        except json.JSONDecodeError:
+            return None
+        payload = (outer.get("event") or {}).get("payload")
+        if not isinstance(payload, dict):
+            return None
+        repository = (payload.get("repository") or {}).get("full_name")
+        number = (payload.get("issue") or {}).get("number")
+        if not isinstance(repository, str) or not isinstance(number, int):
+            return None
+        return repository, number
+
     def run(self):
-        issues = [
-            issue for issue in self.open_issues() if self.dependencies_complete(issue)
-        ]
+        event_target = self._event_target()
+        if event_target is not None:
+            repository, number = event_target
+            if repository.casefold() != self.repository.casefold():
+                return
+        issues = self.open_issues()
+        if event_target is not None:
+            issues = [issue for issue in issues if issue["number"] == number]
+        issues = [issue for issue in issues if self.dependencies_complete(issue)]
         repository_id = self.gh("GET", "")["id"]
         for issue in sorted(issues, key=lambda item: item["number"]):
             try:

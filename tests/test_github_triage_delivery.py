@@ -82,6 +82,41 @@ def test_triage_continues_after_one_submission_fails(tmp_path, monkeypatch):
     ]
 
 
+def test_triage_event_submits_only_the_named_issue(tmp_path, monkeypatch):
+    issues = [
+        {"number": 1, "title": "First", "body": "A", "labels": []},
+        {"number": 2, "title": "Second", "body": "B", "labels": []},
+    ]
+    _module, run = _triage(tmp_path, monkeypatch, issues)
+    monkeypatch.setenv(
+        "AUTOMATION_EVENT_PAYLOAD",
+        '{"event":{"payload":{"repository":{"full_name":"owner/repo"},'
+        '"issue":{"number":2}}}}',
+    )
+    run.dispatcher.deliver.return_value = {
+        "disposition": "created",
+        "conversation_id": "second",
+    }
+
+    run.run()
+
+    assert run.dispatcher.deliver.call_args.kwargs["subject"] == "9876:issue:2"
+
+
+def test_triage_event_skips_other_repositories(tmp_path, monkeypatch):
+    issues = [{"number": 1, "title": "First", "body": "A", "labels": []}]
+    _module, run = _triage(tmp_path, monkeypatch, issues)
+    monkeypatch.setenv(
+        "AUTOMATION_EVENT_PAYLOAD",
+        '{"event":{"payload":{"repository":{"full_name":"other/repo"},'
+        '"issue":{"number":1}}}}',
+    )
+
+    run.run()
+
+    run.dispatcher.deliver.assert_not_called()
+
+
 def test_triage_checks_ready_issue_but_skips_blocked_and_unchanged_issues(
     tmp_path, monkeypatch
 ):
