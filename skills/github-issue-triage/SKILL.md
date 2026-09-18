@@ -29,7 +29,9 @@ Honor `Depends on: #12, #13` lines. A dependency must be closed as completed.
 Do not treat an existing `ready-for-dev` label as proof of readiness: inspect the
 issue discussion, repository instructions, and the closest relevant or adjacent
 implementation. Resolve reasonable ambiguity with a bounded scope and explicit
-non-goals. Ask for a maintainer decision only when it cannot be inferred safely.
+non-goals. If a material product or design decision still cannot be inferred
+safely, ask only the focused follow-up questions needed to resolve it and withhold
+`ready-for-dev`; do not invent acceptance criteria around an arbitrary choice.
 
 Acceptance criteria must be observable and sufficient for a reviewer to decide
 that the requested behavior is complete. Check the main behavior and every
@@ -42,8 +44,9 @@ Post one concise triage comment after the human discussion. Separate it with a
 Markdown horizontal rule and the sentence `The following comments and acceptance
 criteria were added by the OpenHands AI agent.` Preserve all human-authored text
 and replace stale automated triage output instead of accumulating comments. Add
-`ready-for-dev` only after the final criteria pass this standard; otherwise state
-the minimum decision needed and withhold the label. Preserve unrelated labels.
+`ready-for-dev` only after the final criteria pass this standard. If the design is
+still unclear, replace the criteria with the minimum focused questions and
+withhold the label. Preserve unrelated labels.
 Do not implement code or accept pull requests.
 
 Each scheduled run submits every changed eligible issue. A failure on one issue is

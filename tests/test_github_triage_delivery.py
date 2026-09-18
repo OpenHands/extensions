@@ -50,6 +50,14 @@ def test_triage_submits_each_changed_issue_as_agent_work(tmp_path, monkeypatch):
         in submit.call_args_list[0].kwargs["prompt"]
     )
     assert "Add `ready-for-dev` only after" in submit.call_args_list[0].kwargs["prompt"]
+    assert (
+        "Do not invent acceptance criteria around an arbitrary choice"
+        in submit.call_args_list[0].kwargs["prompt"]
+    )
+    assert (
+        "ask only the focused follow-up questions needed to resolve it"
+        in submit.call_args_list[0].kwargs["prompt"]
+    )
 
 
 def test_triage_continues_after_one_submission_fails(tmp_path, monkeypatch):
