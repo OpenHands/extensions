@@ -235,6 +235,44 @@ def test_get_linked_issues_uses_github_closing_issue_relation(monkeypatch):
     }
 
 
+def test_get_pr_issue_comments_fetches_latest_graphql_page(monkeypatch):
+    module = _load_agent_script_module()
+    monkeypatch.setenv("REPO_NAME", "OpenHands/extensions")
+    calls = []
+
+    def fake_paginate(**kwargs):
+        calls.append(kwargs)
+        return [
+            {
+                "id": "old",
+                "author": {"login": "first", "__typename": "User"},
+                "authorAssociation": "MEMBER",
+                "body": "older concern",
+                "createdAt": "2026-01-01T00:00:00Z",
+            },
+            {
+                "id": "new",
+                "author": {"login": "last", "__typename": "User"},
+                "authorAssociation": "MEMBER",
+                "body": "latest concern",
+                "createdAt": "2026-01-02T00:00:00Z",
+            },
+        ]
+
+    monkeypatch.setattr(module, "_paginate_graphql", fake_paginate)
+
+    comments = module.get_pr_issue_comments("612", max_comments=25)
+
+    assert [comment["body"] for comment in comments] == [
+        "older concern",
+        "latest concern",
+    ]
+    assert calls[0]["query"] == module.ISSUE_COMMENTS_QUERY
+    assert calls[0]["variables"]["count"] == 25
+    assert calls[0]["path_to_nodes"] == ["pullRequest", "comments"]
+    assert calls[0]["max_items"] == 25
+
+
 def test_review_context_prioritizes_issue_and_top_level_discussion():
     module = _load_agent_script_module()
 

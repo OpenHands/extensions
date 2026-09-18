@@ -196,6 +196,34 @@ query(
 }
 """
 
+ISSUE_COMMENTS_QUERY = """
+query(
+    $owner: String!
+    $repo: String!
+    $pr_number: Int!
+    $count: Int!
+    $cursor: String
+) {
+    repository(owner: $owner, name: $repo) {
+        pullRequest(number: $pr_number) {
+            comments(last: $count, before: $cursor) {
+                pageInfo {
+                    hasPreviousPage
+                    startCursor
+                }
+                nodes {
+                    id
+                    author { login __typename }
+                    authorAssociation
+                    body
+                    createdAt
+                }
+            }
+        }
+    }
+}
+"""
+
 
 def _get_required_env(name: str) -> str:
     value = os.getenv(name)
@@ -409,21 +437,34 @@ def get_pr_reviews(pr_number: str, max_reviews: int = 100) -> list[dict[str, Any
 def get_pr_issue_comments(
     pr_number: str, max_comments: int = 100
 ) -> list[dict[str, Any]]:
-    """Fetch top-level PR discussion comments in chronological order."""
+    """Fetch the latest top-level PR comments in chronological order."""
     repo = _get_required_env("REPO_NAME")
-    comments: list[dict[str, Any]] = []
-    page = 1
-    while len(comments) < max_comments:
-        batch = _call_github_api(
-            f"/repos/{repo}/issues/{pr_number}/comments?per_page=100&page={page}"
-        )
-        if not isinstance(batch, list) or not batch:
-            break
-        comments.extend(batch)
-        if len(batch) < 100:
-            break
-        page += 1
-    return comments[-max_comments:]
+    owner, repo_name = repo.split("/")
+    nodes = _paginate_graphql(
+        query=ISSUE_COMMENTS_QUERY,
+        variables={
+            "owner": owner,
+            "repo": repo_name,
+            "pr_number": int(pr_number),
+            "count": max_comments,
+        },
+        path_to_nodes=["pullRequest", "comments"],
+        max_items=max_comments,
+        item_name="top-level PR comments",
+    )
+    return [
+        {
+            "id": node.get("id"),
+            "user": {
+                "login": (node.get("author") or {}).get("login", "unknown"),
+                "type": (node.get("author") or {}).get("__typename", "User"),
+            },
+            "author_association": node.get("authorAssociation", "UNKNOWN"),
+            "body": node.get("body", ""),
+            "created_at": node.get("createdAt"),
+        }
+        for node in nodes
+    ]
 
 
 def get_linked_issues(pr_number: str, max_issues: int = 5) -> list[dict[str, Any]]:
