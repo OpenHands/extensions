@@ -64,14 +64,14 @@ The agent server typically runs inside a **sandbox** (a Docker or Kubernetes con
 > 1. **For LLM-appropriate work, default to preset endpoints.** They handle all SDK boilerplate, tarball packaging, and upload automatically:
 >    - **Prompt preset** (`POST /v1/preset/prompt`) — for tasks expressed as a natural language prompt that benefit from agent reasoning
 >    - **Plugin preset** (`POST /v1/preset/plugin`) — when plugins with skills, MCP configs, or commands are needed
-> 2. **Do not silently create custom scripts.** Do not generate Python code, `setup.sh` files, or tarball uploads without user consent. But *do* proactively recommend the custom path (per rule 0) when the task is deterministic or high-frequency — surface the option and let the user choose.
-> 3. **If neither preset is the right fit**, do NOT silently fall back to custom automation. Instead, explain the available options to the user:
->    - **Prompt preset** — natural language prompt execution (LLM-driven)
->    - **Plugin preset** — load plugins with extended capabilities (skills, MCP, hooks, commands)
->    - **Custom script** — full control over code, with or without LLM; point them to `references/custom-automation.md`
->    - Let the user choose which approach to use.
-> 4. **Only create custom scripts after the user agrees to that path.** Refer to `references/custom-automation.md` for the full reference.
-> 5. **Before suggesting event-triggered (webhook) automations, check whether the deployment is publicly reachable.** Check `RUNTIME_URL`. Webhooks require an internet-accessible URL so that external services (GitHub, Slack, Linear, etc.) can deliver events to the automation service. If `RUNTIME_URL` is unset, empty, or resolves to a local or private address (`localhost`, `127.0.0.1`, `0.0.0.0`, or any RFC 1918 range: `10.x.x.x`, `192.168.x.x`, `172.16–31.x.x`), the service cannot receive inbound webhook traffic from the public internet. In that case:
+> 2. **Present the options, then build the one the user picks.** Whenever rule 0 applies, or neither preset is a clean fit (custom Python dependencies, a non-Python entrypoint, a multi-file project, direct SDK lifecycle control), lay the choices out side by side with a one-line note on cost and reliability for each, and let the user choose:
+>    - **Prompt preset** - natural language prompt execution (LLM-driven)
+>    - **Plugin preset** - load plugins with extended capabilities (skills, MCP, hooks, commands)
+>    - **Custom script** - full control over code, with or without an LLM; see `references/custom-automation.md`
+>
+>    Do not silently fall back to either side. The "ready to deploy?" confirmation in the creation process applies to every path equally; a custom script needs no extra permission beyond it, and a preset gets no pass on it.
+> 3. **Building a custom script:** follow `references/custom-automation.md` for tarball packaging, validation, and upload. The *Custom Script Example (No LLM)* below shows the whole flow end to end.
+> 4. **Before suggesting event-triggered (webhook) automations, check whether the deployment is publicly reachable.** Check `RUNTIME_URL`. Webhooks require an internet-accessible URL so that external services (GitHub, Slack, Linear, etc.) can deliver events to the automation service. If `RUNTIME_URL` is unset, empty, or resolves to a local or private address (`localhost`, `127.0.0.1`, `0.0.0.0`, or any RFC 1918 range: `10.x.x.x`, `192.168.x.x`, `172.16–31.x.x`), the service cannot receive inbound webhook traffic from the public internet. In that case:
 >    - **Recommend a cron-based polling automation instead.** Have the automation run on a schedule and call the external service's API (e.g., the GitHub REST API) to check for new events since the last run.
 >    - Explain the limitation clearly to the user: "Because this is a local deployment, external services can't reach the webhook endpoint. I'll set up a polling automation using a cron schedule instead."
 
@@ -250,8 +250,10 @@ curl -X POST "${OPENHANDS_HOST}/api/automation/v1/preset/prompt" \
 Write the prompt as an instruction to an AI agent. The prompt executes inside a sandbox with full tool access (bash, file editing, etc.), the user's configured LLM, stored secrets, and MCP server integrations. Examples:
 
 - `"Generate a weekly status report summarizing the team's GitHub activity and post it to Slack"`
-- `"Check the production API health endpoint every hour and alert if it returns non-200"`
-- `"Pull the latest data from our analytics API and update the dashboard spreadsheet"`
+- `"Read yesterday's new error reports in Sentry, group them by likely root cause, and open one GitHub issue per new failure pattern with a proposed fix"`
+- `"Go through support tickets tagged 'bug' since the last run, try to reproduce each against main, and comment on the ticket with what you found"`
+
+Each of these needs judgment: deciding what counts as a pattern, whether a reproduction succeeded, what is worth reporting. A task whose output could be written as a fixed template right now belongs in a custom script instead (see *Custom Script Example (No LLM)* below).
 
 #### Cron Schedule
 
@@ -291,18 +293,94 @@ curl -X POST "${OPENHANDS_HOST}/api/automation/v1/preset/prompt" \
   }'
 ```
 
-**Weekly cleanup:**
+**Weekly dependency review:**
 ```bash
 curl -X POST "${OPENHANDS_HOST}/api/automation/v1/preset/prompt" \
   -H "Authorization: Bearer ${OPENHANDS_API_KEY}" \
   -H "Content-Type: application/json" \
   -d '{
-    "name": "Weekly Cleanup",
-    "prompt": "Clean up temporary files older than 7 days and send a summary of what was removed",
+    "name": "Weekly Dependency Review",
+    "prompt": "Check the repository dependencies for new releases. Read each changelog, open one PR with the upgrades that look safe, and list any release with breaking changes in the PR description so a human can decide on it",
     "trigger": {"type": "cron", "schedule": "0 2 * * 0", "timezone": "UTC"},
-    "timeout": 300
+    "timeout": 1800
   }'
 ```
+
+### Custom Script Example (No LLM)
+
+The same shape as the prompt preset, for a task that needs no reasoning: check a URL on a schedule and post to Slack only when it fails. Every run takes a moment and costs no tokens. This is the complete flow; `get_secret` and `fire_callback` are the helpers from *No-LLM Script Helpers* above.
+
+```bash
+mkdir healthcheck && cd healthcheck
+
+cat > main.py << 'PYEOF'
+"""Hourly health check: alert Slack on a non-200 response. No LLM, no SDK."""
+import json, os, sys, urllib.request
+
+URL = "https://api.example.com/health"
+CHANNEL = "C12345678"
+
+def get_secret(name):
+    url = os.environ.get("AGENT_SERVER_URL", "").rstrip("/")
+    key = os.environ.get("SESSION_API_KEY") or os.environ.get("OH_SESSION_API_KEYS_0", "")
+    req = urllib.request.Request(f"{url}/api/settings/secrets/{name}",
+        headers={"X-Session-API-Key": key})
+    with urllib.request.urlopen(req) as r:
+        return r.read().decode().strip()
+
+def fire_callback(status="COMPLETED", error=None):
+    url = os.environ.get("AUTOMATION_CALLBACK_URL", "")
+    if not url: return
+    body = {"status": status, "run_id": os.environ.get("AUTOMATION_RUN_ID", "")}
+    if error: body["error"] = error
+    req = urllib.request.Request(url, data=json.dumps(body).encode(), headers={
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {os.environ.get('AUTOMATION_CALLBACK_API_KEY', '')}",
+    })
+    try: urllib.request.urlopen(req)
+    except Exception as e: print(f"Callback error: {e}")
+
+def slack(text):
+    token = get_secret("SLACK_BOT_TOKEN")
+    req = urllib.request.Request("https://slack.com/api/chat.postMessage",
+        data=json.dumps({"channel": CHANNEL, "text": text}).encode(),
+        headers={"Content-Type": "application/json", "Authorization": f"Bearer {token}"})
+    urllib.request.urlopen(req)
+
+try:
+    try:
+        status = urllib.request.urlopen(URL, timeout=10).status
+    except Exception as e:
+        status = f"error: {e}"
+    if status != 200:
+        slack(f":rotating_light: {URL} returned {status}")
+    print(f"{URL} -> {status}")
+    fire_callback("COMPLETED")
+except Exception as e:
+    print(f"ERROR: {e}", file=sys.stderr)
+    fire_callback("FAILED", str(e))
+    sys.exit(1)
+PYEOF
+
+tar -czf ../healthcheck.tar.gz .
+
+TARBALL_PATH=$(curl -s -X POST "${OPENHANDS_HOST}/api/automation/v1/uploads?name=healthcheck" \
+  -H "Authorization: Bearer ${OPENHANDS_API_KEY}" \
+  -H "Content-Type: application/gzip" \
+  --data-binary @../healthcheck.tar.gz | jq -r '.tarball_path')
+
+curl -X POST "${OPENHANDS_HOST}/api/automation/v1" \
+  -H "Authorization: Bearer ${OPENHANDS_API_KEY}" \
+  -H "Content-Type: application/json" \
+  -d "{
+    \"name\": \"Hourly Health Check\",
+    \"trigger\": {\"type\": \"cron\", \"schedule\": \"0 * * * *\", \"timezone\": \"UTC\"},
+    \"tarball_path\": \"$TARBALL_PATH\",
+    \"entrypoint\": \"python3 main.py\"
+  }"
+```
+
+For state between runs (last alert time, last seen event), use the KV store helpers in `references/custom-automation.md#state-persistence-kv-store`.
 
 ---
 
@@ -437,15 +515,15 @@ curl -X POST "${OPENHANDS_HOST}/api/automation/v1/preset/prompt" \
   }'
 ```
 
-#### GitHub: Run tests on push to main
+#### GitHub: Flag risky changes pushed to main
 
 ```bash
 curl -X POST "${OPENHANDS_HOST}/api/automation/v1/preset/prompt" \
   -H "Authorization: Bearer ${OPENHANDS_API_KEY}" \
   -H "Content-Type: application/json" \
   -d '{
-    "name": "Run Tests on Main",
-    "prompt": "Clone the repository and run the test suite. Report any failures.",
+    "name": "Risky Change Watch",
+    "prompt": "Review the diff of this push. If it touches authentication, billing, data migrations, or anything that changes behavior for existing users, open an issue that explains the risk in plain terms and mentions the code owners. Otherwise do nothing.",
     "trigger": {
       "type": "event",
       "source": "github",
@@ -880,7 +958,7 @@ The **prompt preset** is the right default for genuinely agent-shaped work — a
 
 **Watch for deterministic, high-frequency patterns.** Requests like "send a daily standup reminder", "ping a healthcheck URL every minute", "post a random quote every 5 minutes", or "rotate a fact-of-the-day message" do not need an LLM. Surface this to the user explicitly with a rough cost framing (e.g. "this schedule will invoke your LLM ~288 times/day") before defaulting to a preset. As a rule of thumb, any cron tighter than hourly deserves a deliberate "should this really be agent-driven?" check.
 
-**When neither preset is the right fit** (deterministic task, custom Python dependencies, non-Python entrypoint, multi-file project structure, direct SDK lifecycle control), explain the options to the user and let them decide. Do not attempt custom automation without explicit user agreement. If they choose the custom route, refer to `references/custom-automation.md`.
+**When neither preset is the right fit** (deterministic task, custom Python dependencies, non-Python entrypoint, multi-file project structure, direct SDK lifecycle control), explain the options and let the user decide, exactly as for any other automation. If they choose the custom route, follow `references/custom-automation.md` and the *Custom Script Example (No LLM)* above.
 
 ## Security Considerations
 
@@ -893,7 +971,6 @@ See `references/security.md` — also covers narrowing triggers and sender-level
 
 ## Reference Files
 
-- **`references/custom-automation.md`** — Detailed guide for custom automations: tarball uploads, code structure (SDK and no-LLM), state persistence via the KV store, environment variables, validation rules, and complete examples. Consult this whenever you need to evaluate or recommend the custom path (including for deterministic / cost-sensitive tasks per rule 0). Only *implement* a custom automation after the user agrees to that path.
+- **`references/custom-automation.md`** — Detailed guide for custom automations: tarball uploads, code structure (SDK and no-LLM), state persistence via the KV store, environment variables, validation rules, and complete examples. Consult this whenever you need to evaluate, recommend, or build the custom path (including for deterministic / cost-sensitive tasks per rule 0).
 - **`references/ab-testing.md`** — A/B testing for plugin automations: defining variants with weights, experiment configuration, variant selection logic, observability via conversation tags, and complete examples. Consult this when a user wants to compare plugin versions or configurations.
-- **`references/security.md`** — Trust boundaries: untrusted content vs. verified sender, least-privilege secrets, trigger scoping, sender authorization, pre-deploy verification. Consult whenever an automation handles external input or forwards secrets to a spawned conversation.
 - **`references/security.md`** — Trust boundaries for automations: untrusted event content vs. verified sender, least-privilege secret scoping for spawned conversations, narrowing triggers, sender-level authorization, and verifying a script actually runs before deploying it. Consult this whenever an automation handles external/untrusted input (GitHub issues/PRs, Slack messages, any public-facing webhook) or forwards secrets to a spawned conversation.

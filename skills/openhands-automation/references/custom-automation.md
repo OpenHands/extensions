@@ -1,13 +1,12 @@
 # Custom Automation Reference
 
-> **⚠️ Do NOT use this reference unless the user has explicitly requested a custom automation.** Always use the preset/prompt endpoint from the main SKILL.md first. If the preset approach cannot satisfy the requirement, explain the options to the user and let them decide.
-
 This file contains detailed documentation for creating custom automations with user-provided code, uploads, and entrypoints.
 
-**When to use custom automation (only if the user explicitly chooses this):**
+**When to use a custom automation:**
+- The task is deterministic and needs no LLM (fixed data, scheduled HTTP calls, templated messages), especially on a frequent schedule
 - Full control over the automation code structure is needed
 - Custom dependencies or a specific runtime are required
-- The user has confirmed that the prompt preset does not meet their requirements
+- The user picked this path after seeing the options side by side (see the agent behavior rules in `SKILL.md`)
 
 ## Table of Contents
 
