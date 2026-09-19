@@ -96,7 +96,7 @@ The JS and Python versions are kept in lock-step by `release-please` and guarded
 ## Extensions Catalog
 
 <!-- BEGIN AUTO-GENERATED CATALOG -->
-This repository contains **2 marketplace(s)** with **72 extensions** (62 skills, 10 plugins).
+This repository contains **2 marketplace(s)** with **73 extensions** (63 skills, 10 plugins).
 
 ### large-codebase
 
@@ -115,7 +115,7 @@ OpenHands skills for interacting, improving, and refactoring large codebases
 
 Official skills and plugins for OpenHands — the open-source AI software engineer.
 
-**68 extensions** (60 skills, 8 plugins)
+**69 extensions** (61 skills, 8 plugins)
 
 | Name | Type | Description | Commands |
 |------|------|-------------|----------|
@@ -183,6 +183,7 @@ Official skills and plugins for OpenHands — the open-source AI software engine
 | technical-writing | skill | Write and revise technical explanations in flowing, direct, conversational prose that stays concise without becoming ... | — |
 | theme-factory | skill | Toolkit for styling artifacts with a theme. These artifacts can be slides, docs, reportings, HTML landing pages, etc.... | — |
 | ticket-to-code-change | skill | Set up Jira or Linear ticket-to-code-change automations for GitHub, GitLab, and Bitbucket. | `/ticket-to-code-change:setup` |
+| typesafe-ai | skill | Build AI-powered software with TypeSafe System One models, which turn natural language and application state into typ... | — |
 | upstream-fork-sync | skill | Keep a long-lived fork in sync with its upstream. Creates a cron automation that fetches upstream changes, rebases lo... | `/upstream-fork-sync:setup` |
 | uv | skill | Common project, dependency, and environment operations using uv. | — |
 | vercel | skill | Deploy and manage applications on Vercel, including preview deployments and deployment protection. | — |
