@@ -1,0 +1,79 @@
+{
+  "id": "github-delivery-watchdog",
+  "version": "1.0.0",
+  "name": "GitHub delivery watchdog",
+  "category": "Project management",
+  "description": "Periodically check pull requests and merge only current heads with independent review, tests, and passing CI.",
+  "requires": {
+    "integrations": {},
+    "features": [
+      "customTarball"
+    ]
+  },
+  "estimatedSetupMinutes": 3,
+  "exampleImplementation": "Run a deterministic scheduled scanner using its configured GitHub credential. It creates no agent or conversation. For each managed PR, it rechecks the exact head, independent review and test statuses, GitHub Actions, base freshness, and mergeability before issuing a SHA-pinned squash merge.",
+  "setup": {
+    "version": "1.0",
+    "mode": "direct",
+    "form": {
+      "triggers": {
+        "cron": {
+          "schedule": {
+            "type": "cron",
+            "label": "Check frequency",
+            "help": "How often to check repository progress.",
+            "default": "*/5 * * * *",
+            "required": true
+          },
+          "timezone": {
+            "type": "timezone",
+            "label": "Timezone",
+            "help": "Timezone for the schedule.",
+            "default": "UTC",
+            "required": true
+          }
+        }
+      },
+      "args": {
+        "repositories": {
+          "type": "repo-picker",
+          "provider": "github",
+          "multiple": true,
+          "label": "Repositories",
+          "help": "Repositories this automation may work on.",
+          "required": true
+        },
+        "githubTokenSecret": {
+          "type": "text",
+          "label": "GitHub token secret",
+          "help": "Name of a saved Agent Server secret. Enter its name, not its value.",
+          "default": "GITHUB_PERSONAL_ACCESS_TOKEN",
+          "required": true
+        },
+        "branchPrefix": {
+          "type": "text",
+          "label": "Delivery branch prefix",
+          "help": "Only merge branches with this prefix and an issue number. Match the developer and reviewer settings.",
+          "default": "openhands/issue",
+          "required": true
+        }
+      }
+    },
+    "bundle": {
+      "version": "1.0.0",
+      "entrypoint": "python3 worker.py",
+      "timeout": 300,
+      "files": {
+        "worker.py": "skills/github-delivery-watchdog/scripts/worker.py",
+        "github_client.py": "skills/github/scripts/github_client.py"
+      },
+      "config": {
+        "repos": "{{form.repositories}}",
+        "github_token_secret": "{{form.githubTokenSecret}}",
+        "branch_prefix": "{{form.branchPrefix}}"
+      }
+    },
+    "message": "Configure the repositories, credential name, delivery branch prefix, and schedule."
+  },
+  "popularityRank": 80
+}

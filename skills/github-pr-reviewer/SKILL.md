@@ -11,6 +11,13 @@ triggers:
 
 # GitHub PR Reviewer Automation
 
+## Agent Canvas catalog
+
+For new Agent Canvas installations, use the **GitHub code review** catalog
+entry. Its deterministic `worker.py` scanner delegates each labeled exact head
+to a stable conversation using the selected agent profile. The manual upload
+flow below remains for existing deployments and is deprecated for new installations.
+
 Create a cron automation that watches one or more GitHub repositories for pull
 requests with a review trigger label, starts an OpenHands review conversation
 once per label event, and publishes the AI review to GitHub.
@@ -28,6 +35,11 @@ not to clone, fetch, check out, or delete anything, and the script removes the
 checkout once the conversation has stopped. Nothing accumulates between runs.
 
 ---
+
+The script imports shared GitHub transport from
+`scripts/github_client.py`, installed with this skill. Include it beside
+`main.py` when packaging manually, as shown below; catalog bundles include it
+automatically.
 
 ## Prerequisites
 
@@ -161,9 +173,11 @@ Use a safe string writer such as `json.dumps(value)` when inserting user-provide
 repository names, labels, or style instructions into Python string literals.
 `json.dumps(list_of_repos)` produces the whole `REPOS` list safely in one step.
 
-Write the customized script to a temporary build directory:
+Run these commands from this skill's directory and write the customized script
+to a temporary build directory:
 ```bash
 mkdir -p /tmp/pr-reviewer-build
+cp -L scripts/github_client.py /tmp/pr-reviewer-build/github_client.py
 # write the customized main.py to /tmp/pr-reviewer-build/main.py
 ```
 

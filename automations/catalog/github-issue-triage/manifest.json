@@ -1,0 +1,73 @@
+{
+  "id": "github-issue-triage",
+  "version": "1.1.1",
+  "name": "GitHub issue triage",
+  "category": "Project management",
+  "description": "Prioritize open issues and establish acceptance criteria before marking them ready for development.",
+  "requires": {
+    "integrations": {},
+    "features": [
+      "customTarball",
+      "agentProfiles"
+    ]
+  },
+  "estimatedSetupMinutes": 3,
+  "exampleImplementation": "Select an agent profile with Issues: read and write. Run this workflow independently on a schedule.",
+  "setup": {
+    "version": "1.0",
+    "mode": "direct",
+    "form": {
+      "triggers": {
+        "cron": {
+          "schedule": {
+            "type": "cron",
+            "label": "Check frequency",
+            "help": "How often to check repository progress.",
+            "default": "*/5 * * * *",
+            "required": true
+          },
+          "timezone": {
+            "type": "timezone",
+            "label": "Timezone",
+            "help": "Timezone for the schedule.",
+            "default": "UTC",
+            "required": true
+          }
+        }
+      },
+      "args": {
+        "repositories": {
+          "type": "repo-picker",
+          "provider": "github",
+          "multiple": true,
+          "label": "Repositories",
+          "help": "Repositories this automation may work on.",
+          "required": true
+        },
+        "githubTokenSecret": {
+          "type": "text",
+          "label": "GitHub token secret",
+          "help": "Name of a saved secret allowed by the selected agent profile. Enter its name, not its value.",
+          "default": "GITHUB_PERSONAL_ACCESS_TOKEN",
+          "required": true
+        }
+      }
+    },
+    "bundle": {
+      "version": "1.1.1",
+      "entrypoint": "python3 worker.py",
+      "timeout": 300,
+      "files": {
+        "worker.py": "skills/github-issue-triage/scripts/worker.py",
+        "agent_conversation.py": "skills/github/scripts/agent_conversation.py",
+        "github_client.py": "skills/github/scripts/github_client.py"
+      },
+      "config": {
+        "repos": "{{form.repositories}}",
+        "github_token_secret": "{{form.githubTokenSecret}}"
+      }
+    },
+    "message": "Select an agent profile and configure this scheduled automation in the conversation."
+  },
+  "popularityRank": 80
+}

@@ -559,12 +559,17 @@ class TestLlmProvenance(unittest.TestCase):
             {"id": "1", "created_at": "t"},
             llm_profile="review-profile",
             llm_model="anthropic/claude-sonnet-4-6",
+            workspace_instructions="Check out the exact PR head before reviewing.",
+            github_token_secret="FACTORY_GITHUB_REVIEWER_TOKEN",
         )
 
         self.assertIn(
             "LLM profile: `review-profile` · Model: `anthropic/claude-sonnet-4-6`",
             prompt,
         )
+        self.assertIn("Check out the exact PR head before reviewing.", prompt)
+        self.assertIn("FACTORY_GITHUB_REVIEWER_TOKEN", prompt)
+        self.assertNotIn("The workspace is already the repository root", prompt)
 
     def test_fallback_comment_includes_llm_provenance(self):
         rec = {

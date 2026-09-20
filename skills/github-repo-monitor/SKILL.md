@@ -37,6 +37,10 @@ On every subsequent run:
 
 ---
 
+The script imports shared GitHub transport from
+`scripts/github_client.py`, installed with this skill. Include it beside
+`main.py` when packaging manually, as shown below.
+
 ## Prerequisites
 
 ### Required secret
@@ -181,9 +185,11 @@ constant substitutions near the top of the file:
 | `ALLOWED_GITHUB_LOGINS = ["<TOKEN_OWNER>"]` | `ALLOWED_GITHUB_LOGINS = {allowed_logins_list}` |
 | `DEFAULT_OPENHANDS_URL = "http://localhost:8000"` | `DEFAULT_OPENHANDS_URL = "{url}"` (keep default if the user has no preference) |
 
-Write the customised script to a temporary build directory:
+Run these commands from this skill's directory and write the customised script
+to a temporary build directory:
 ```bash
 mkdir -p /tmp/github-monitor-build
+cp -L scripts/github_client.py /tmp/github-monitor-build/github_client.py
 # (write the customised main.py to /tmp/github-monitor-build/main.py)
 ```
 

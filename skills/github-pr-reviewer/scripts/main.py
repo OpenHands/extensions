@@ -8,10 +8,10 @@ GitHub `labeled` event has not already been processed by this automation.
 Each repository is polled independently and keeps its own state document, so
 pull-request numbers never collide across repositories.
 
-The script owns the repository checkout: it downloads the pull request's head
-commit as a tarball, hands the agent that directory as its workspace, and
-removes it once the review has finished. The agent never clones, checks out, or
-deletes anything.
+This standalone script owns the repository checkout: it downloads the pull
+request's head commit as a tarball, hands the agent that directory as its
+workspace, and removes it once the review has finished. Catalog workers may
+instead reuse its prompt builder with their own workspace instructions.
 """
 
 import io
@@ -26,7 +26,10 @@ import urllib.error
 import urllib.request
 from collections.abc import Callable
 from pathlib import Path, PurePosixPath
-from urllib.parse import quote, urlencode
+from urllib.parse import quote
+
+from github_client import github_request as _github_request
+from github_client import github_paginate as _github_paginate
 
 # Configuration. Two setup paths write it, and both end up here:
 #
@@ -335,46 +338,6 @@ def save_state(repo: str, state: dict) -> None:
     os.replace(tmp_path, path)
     print(f"  State saved to {path}")
 
-
-def _github_request(
-    token: str,
-    method: str,
-    path: str,
-    params: dict | None = None,
-    body: dict | None = None,
-    accept: str = "application/vnd.github+json",
-) -> tuple:
-    url = f"https://api.github.com{path}"
-    if params:
-        url = f"{url}?{urlencode(params)}"
-    headers = {
-        "Authorization": f"Bearer {token}",
-        "Accept": accept,
-        "X-GitHub-Api-Version": "2022-11-28",
-        "Content-Type": "application/json",
-    }
-    data = json.dumps(body).encode() if body is not None else None
-    req = urllib.request.Request(url, data=data, headers=headers, method=method)
-    with urllib.request.urlopen(req) as r:
-        raw = r.read()
-        return (json.loads(raw) if raw.strip() else {}), dict(r.headers)
-
-
-def _github_paginate(token: str, path: str, params: dict | None = None) -> list:
-    results = []
-    page = 1
-    base_params = dict(params or {})
-    base_params.setdefault("per_page", 100)
-    while True:
-        base_params["page"] = page
-        data, _ = _github_request(token, "GET", path, params=base_params)
-        if not isinstance(data, list):
-            break
-        results.extend(data)
-        if len(data) < base_params["per_page"]:
-            break
-        page += 1
-    return results
 
 
 def _resolve_github_token() -> str:
@@ -868,6 +831,9 @@ def _build_review_prompt(
     repo_review_guide: str | None = None,
     llm_profile: str = "default",
     llm_model: str = "unknown",
+    *,
+    workspace_instructions: str | None = None,
+    github_token_secret: str = "GITHUB_PERSONAL_ACCESS_TOKEN",
 ) -> str:
     number = pr.get("number", "?")
     title = pr.get("title", "(no title)")
@@ -888,6 +854,10 @@ def _build_review_prompt(
         f"\n\nRepo-specific review guide (from {REPO_REVIEW_GUIDE_PATH}):\n---\n{repo_review_guide}\n---\n"
         if repo_review_guide else ""
     )
+    workspace = workspace_instructions or (
+        "The workspace is already the repository root at the exact Head SHA above. "
+        "Do not clone, fetch, check out, or delete the repository."
+    )
 
     return (
         "You are an AI code reviewer. Review the GitHub pull request below and publish "
@@ -904,8 +874,7 @@ def _build_review_prompt(
         f"URL        : {html_url}\n"
         f"\nPR Description:\n---\n{body}\n---\n\n"
         "Required workflow:\n"
-        "1. The workspace is already the repository root at the exact Head SHA above. "
-        "Do not clone, fetch, check out, or delete the repository.\n"
+        f"1. {workspace}\n"
         "2. Before reviewing, you MUST read the repository's own guidance to understand the repo first.\n"
         "   Read `AGENTS.md` at the repository root (and any nested `AGENTS.md` covering the "
         "changed files), plus other relevant docs when present - e.g. `CONTRIBUTING.md`, "
@@ -913,7 +882,7 @@ def _build_review_prompt(
         "guidance to your review.\n"
         "   Then inspect the PR discussion, existing review comments, changed files, and the diff, "
         "together with the surrounding code in the workspace.\n"
-        "   Use `gh` or GitHub REST API calls with `GITHUB_PERSONAL_ACCESS_TOKEN`; never print secret values.\n"
+        f"   Use `gh` or GitHub REST API calls with `{github_token_secret}`; never print secret values.\n"
         "3. Ground every finding in the workspace code. Before using an inline location, verify that "
         "the path and line are part of this pull request's diff.\n"
         f"4. Publish one review with `POST /repos/{repo}/pulls/{number}/reviews`, using "

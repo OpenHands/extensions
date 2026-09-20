@@ -218,6 +218,8 @@ Source: [`examples/`](https://github.com/OpenHands/software-agent-sdk/tree/main/
 - [`14_client_defined_tools.py`](https://github.com/OpenHands/software-agent-sdk/blob/main/examples/02_remote_agent_server/14_client_defined_tools.py)
 - [`15_openai_compatible_gateway.py`](https://github.com/OpenHands/software-agent-sdk/blob/main/examples/02_remote_agent_server/15_openai_compatible_gateway.py)
 - [`16_deferred_init.py`](https://github.com/OpenHands/software-agent-sdk/blob/main/examples/02_remote_agent_server/16_deferred_init.py)
+- [`17_convo_with_agent_sandbox_server.py`](https://github.com/OpenHands/software-agent-sdk/blob/main/examples/02_remote_agent_server/17_convo_with_agent_sandbox_server.py)
+- [`agent_sandbox_deploy`](https://github.com/OpenHands/software-agent-sdk/tree/main/examples/02_remote_agent_server/agent_sandbox_deploy)
 - [`hook_scripts`](https://github.com/OpenHands/software-agent-sdk/tree/main/examples/02_remote_agent_server/hook_scripts)
 - [`scripts`](https://github.com/OpenHands/software-agent-sdk/tree/main/examples/02_remote_agent_server/scripts)
 

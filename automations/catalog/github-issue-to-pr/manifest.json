@@ -2,20 +2,17 @@
   "id": "github-issue-to-pr",
   "name": "GitHub issue to PR",
   "category": "Software development",
-  "description": "Watch for a configurable label on GitHub issues, implement the issue in a clone of the default branch, and open a pull request for each label event.",
+  "description": "Implement ready GitHub issues, address pull request feedback, and publish tested changes for review.",
   "requires": {
-    "integrations": {
-      "github": {
-        "message": "Used to read labelled issues, push the branch, and open the pull request."
-      }
-    },
+    "integrations": {},
     "features": [
-      "customTarball"
+      "customTarball",
+      "agentProfiles"
     ]
   },
   "popularityRank": 95,
   "estimatedSetupMinutes": 4,
-  "exampleImplementation": "Trigger: cron polling for open GitHub issues with a configured label such as openhands\nRequired secret: GITHUB_PERSONAL_ACCESS_TOKEN, with permission to write contents, issues, and pull requests\n\n1. Read the repositories, trigger label, branch prefix, draft mode, and polling schedule from setup.\n2. Poll each repository independently, with its own state, so issue numbers never collide.\n3. List open labelled issues, drop pull requests, and find the latest matching GitHub labeled issue event for each.\n4. Deduplicate on the label event ID so every label application queues exactly one attempt.\n5. Clone the default branch into a directory of its own, create the working branch, and start an OpenHands conversation with that directory as its workspace. The clone carries no credential and the agent is handed no secrets, because the prompt is built from an issue body that anyone can write.\n6. Comment on the issue with the branch and the conversation link.\n7. Once the conversation has stopped, commit whatever the agent left, push the branch, open a draft pull request titled after the issue, and comment the link on the issue. An agent that made no changes gets its answer posted instead.\n8. Remove the clone once the conversation has stopped, so nothing accumulates between runs.",
+  "exampleImplementation": "A scheduled scanner selects every ready issue and each pull request whose exact head failed review. It submits one idempotent subject turn for each item. The profile-backed agent then clones the repository in its own runtime, implements or revises the change, tests it, pushes it, and requests independent review.",
   "impact": {
     "basis": "completed-runs",
     "one": "1 issue sweep completed",
@@ -90,23 +87,35 @@
               "label": "Ready for review"
             }
           ]
+        },
+        "githubTokenSecret": {
+          "type": "text",
+          "label": "GitHub token secret",
+          "help": "Name of a saved Agent Server secret. Include it in the selected profile so the delegated agent can use GitHub.",
+          "default": "GITHUB_PERSONAL_ACCESS_TOKEN",
+          "required": true
         }
       }
     },
     "bundle": {
-      "version": "1.0.0",
-      "entrypoint": "python3 main.py",
-      "timeout": 900,
+      "version": "1.2.1",
+      "entrypoint": "python3 worker.py",
+      "timeout": 300,
       "files": {
-        "main.py": "skills/github-issue-to-pr/scripts/main.py"
+        "main.py": "skills/github-issue-to-pr/scripts/main.py",
+        "agent_conversation.py": "skills/github/scripts/agent_conversation.py",
+        "github_client.py": "skills/github/scripts/github_client.py",
+        "worker.py": "skills/github-issue-to-pr/scripts/worker.py"
       },
       "config": {
         "repos": "{{form.repositories}}",
         "trigger_label": "{{form.triggerLabel}}",
         "branch_prefix": "{{form.branchPrefix}}",
-        "pull_request_mode": "{{form.pullRequestMode}}"
+        "pull_request_mode": "{{form.pullRequestMode}}",
+        "github_token_secret": "{{form.githubTokenSecret}}"
       }
     },
-    "message": "This deployment cannot run the scheduled issue-to-PR automation directly. Set it up in this conversation instead: confirm the repositories to watch, the trigger label, the branch prefix, whether pull requests open as drafts, and the polling schedule, then create the automation."
-  }
+    "message": "Configure the repositories, labels, branch prefix, pull request mode, agent profile, and schedule."
+  },
+  "version": "1.2.1"
 }
