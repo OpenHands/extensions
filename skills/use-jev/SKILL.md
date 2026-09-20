@@ -33,13 +33,15 @@ documentation, then follow the pages relevant to the task:
 | [Score](https://docs.typesafe.ai/primitives/score.md) | Rate a bug's impact | Probability-weighted position on ordered levels, plus confidence |
 | [Noul](https://docs.typesafe.ai/primitives/noul.md) | Check whether a refund is requested | Probability of yes; 0.5 means uncertainty, not medium intensity |
 
-Install `typesafe-sdk` and set `TYPESAFE_API_KEY` in the environment.
+Install `typesafe-sdk` and set `JEV_API_KEY` in the environment.
 This Python example asks one question of each type in a single call:
 
 ```python
+import os
+
 from typesafe_sdk import Choice, Noul, Score, TypeSafeClient
 
-with TypeSafeClient() as client:  # Reads TYPESAFE_API_KEY.
+with TypeSafeClient(api_key=os.environ["JEV_API_KEY"]) as client:
     result = client.system_one(
         state={"ticket": "PDF export fails, but CSV works. Please refund this month."},
         questions={
