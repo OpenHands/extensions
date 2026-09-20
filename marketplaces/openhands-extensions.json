@@ -878,13 +878,12 @@
       "category": "automations"
     },
     {
-      "name": "typesafe-ai",
-      "source": "./skills/typesafe-ai",
-      "description": "Use Jev, TypeSafe's general classifier, for typed choices, scores, and yes/no probabilities in software.",
+      "name": "use-jev",
+      "source": "./skills/use-jev",
+      "description": "Use Jev, a general classifier, for typed choices, scores, and yes/no probabilities in software.",
       "category": "integrations",
       "keywords": [
         "jev",
-        "typesafe",
         "classification"
       ]
     }

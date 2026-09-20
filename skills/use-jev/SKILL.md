@@ -1,11 +1,11 @@
 ---
-name: typesafe-ai
-description: Use Jev, TypeSafe's general classifier, for typed choices, scores, and yes/no probabilities in software.
+name: use-jev
+description: Use Jev, a general classifier, for typed choices, scores, and yes/no probabilities in software.
 triggers:
 - jev
 ---
 
-Jev is a newly released general classifier from [TypeSafe](https://typesafe.ai).
+[Jev](https://typesafe.ai) is a newly released general classifier.
 Give it text or application state and typed questions; it returns decisions and
 probabilities your code can use for routing, ranking, extraction, or verification.
 
