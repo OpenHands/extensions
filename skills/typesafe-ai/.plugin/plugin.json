@@ -1,0 +1,8 @@
+{
+  "name": "typesafe-ai",
+  "version": "1.0.0",
+  "description": "Use Jev, TypeSafe's general classifier, for typed choices, scores, and yes/no probabilities in software.",
+  "author": {
+    "name": "OpenHands"
+  }
+}

@@ -876,6 +876,17 @@
       "source": "./skills/github-delivery-watchdog",
       "description": "Periodically check pull requests and merge only current heads with independent review, tests, and passing CI.",
       "category": "automations"
+    },
+    {
+      "name": "typesafe-ai",
+      "source": "./skills/typesafe-ai",
+      "description": "Use Jev, TypeSafe's general classifier, for typed choices, scores, and yes/no probabilities in software.",
+      "category": "integrations",
+      "keywords": [
+        "jev",
+        "typesafe",
+        "classification"
+      ]
     }
   ]
 }
