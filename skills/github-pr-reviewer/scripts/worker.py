@@ -1,6 +1,7 @@
-"""Select labeled PR heads and delegate each review to a sandboxed agent."""
+"""Select requested PR heads and delegate each review to a sandboxed agent."""
 
 import json
+import os
 import sys
 from functools import cached_property
 from urllib.parse import quote
@@ -22,10 +23,60 @@ class PullRequestReviewer(GitHubRepository):
     def github_login(self):
         return self.api("GET", "/user")["login"]
 
-    def _prompt(self, pr, label_event):
+    @cached_property
+    def trigger_reviewer(self):
+        return self.config.get("trigger_reviewer", "all-hands-bot").lower()
+
+    @staticmethod
+    def _event_payload():
+        """Return the GitHub webhook payload, or None for a scheduled run."""
+        raw = os.environ.get("AUTOMATION_EVENT_PAYLOAD")
+        if not raw:
+            return None
+        outer = json.loads(raw)
+        payload = (outer.get("event") or {}).get("payload")
+        return payload if isinstance(payload, dict) else None
+
+    def _latest_reviewer_request(self, number):
+        matching = [
+            event
+            for event in self.gh_pages(f"/issues/{number}/events")
+            if event.get("event") == "review_requested"
+            and ((event.get("requested_reviewer") or {}).get("login") or "").lower()
+            == self.trigger_reviewer
+            and event.get("id") is not None
+        ]
+        if not matching:
+            return None
+        return max(
+            matching,
+            key=lambda event: (
+                event.get("created_at") or "",
+                int(event.get("id") or 0),
+            ),
+        )
+
+    def _event_candidate(self, payload):
+        repository = ((payload.get("repository") or {}).get("full_name") or "")
+        if repository.lower() != self.repository.lower():
+            return None
+        pr = payload.get("pull_request")
+        if not isinstance(pr, dict) or pr.get("number") is None:
+            return None
+        action = payload.get("action")
+        if action == "review_requested":
+            requested = (
+                (payload.get("requested_reviewer") or {}).get("login") or ""
+            ).lower()
+            return pr if requested == self.trigger_reviewer else None
+        if action == "submitted":
+            author = ((payload.get("review") or {}).get("user") or {}).get("login")
+            return pr if (author or "").lower() == self.trigger_reviewer else None
+        return None
+
+    def _prompt(self, pr, trigger, label=None):
         number = pr["number"]
         sha = pr["head"]["sha"]
-        label = self.config.get("trigger_label", workflow.TRIGGER_LABEL)
         token = self.token_name
         workspace = (
             "The workspace contains an empty Git repository. Before fetching, run "
@@ -40,9 +91,31 @@ class PullRequestReviewer(GitHubRepository):
             self.repository,
             pr,
             sha,
-            label_event,
+            trigger,
             workspace_instructions=workspace,
             github_token_secret=token,
+            trigger_description=(
+                None
+                if label
+                else (
+                    f"latest review request for "
+                    f"`{self.trigger_reviewer}` "
+                    f"event {trigger.get('id', '?')} at "
+                    f"{trigger.get('created_at', '?')}"
+                )
+            ),
+        )
+        moved_head_instruction = (
+            f"leave `{label}` in place so the new head is reviewed"
+            if label
+            else "publish no review; the new head requires another reviewer request"
+        )
+        trigger_completion = (
+            f"Leave the `{label}` label in place after GitHub accepts the review. "
+            "The deterministic scanner removes it"
+            if label
+            else "Do not change review requests after GitHub accepts the review. "
+            "The deterministic event handler completes the request"
         )
         return (
             prompt + "\n\nAcceptance reporting:\n"
@@ -50,10 +123,8 @@ class PullRequestReviewer(GitHubRepository):
             "the repository's appropriate focused tests in the workspace. Do not "
             "modify tracked files.\n"
             f"- Re-read {self.repository} PR #{number} immediately before reporting. "
-            f"If its head is no longer `{sha}`, publish no review and leave `{label}` "
-            "in place so the new head is reviewed.\n"
-            f"- Leave the `{label}` label in place after GitHub accepts the review. "
-            "The deterministic scanner removes it after completing any configured "
+            f"If its head is no longer `{sha}`, {moved_head_instruction}.\n"
+            f"- {trigger_completion} after completing any configured "
             "human-review handoff. Never paste JSON artifacts or full command logs "
             "into comments.\n"
             "- Once GitHub accepts the native review, stop immediately. Do not "
@@ -61,10 +132,10 @@ class PullRequestReviewer(GitHubRepository):
             "second result."
         )
 
-    def _finish_completed_review(self, pr, label, label_event):
+    def _finish_completed_review(self, pr, trigger, label=None):
         """Complete an exact-head review, including an optional human handoff."""
         head_sha = pr["head"]["sha"]
-        triggered_at = label_event.get("created_at") or ""
+        triggered_at = trigger.get("created_at") or ""
         reviews = self.gh_pages(f"/pulls/{pr['number']}/reviews")
         completed = [
             review
@@ -102,7 +173,7 @@ class PullRequestReviewer(GitHubRepository):
                             "body": (
                                 "⚠️ **Automated maintainer handoff could not be "
                                 f"completed:** {exc}. Update the automation's "
-                                "maintainer roster, then add the review label again."
+                                "maintainer roster, then request another review."
                                 "\n\n_This is an automated configuration check; "
                                 "no AI was used to generate this comment._"
                             )
@@ -121,35 +192,56 @@ class PullRequestReviewer(GitHubRepository):
                 )
         current = self.gh("GET", f"/pulls/{pr['number']}")
         if current["head"]["sha"] != pr["head"]["sha"]:
-            # The label remains for the next scan, which will review the new
-            # head. Treat this scan as handled so it cannot redeliver the stale
-            # head after detecting the race.
+            # Treat this scan as handled so it cannot redeliver the stale head.
+            # Scheduled mode leaves its label in place; event mode requires a
+            # fresh review request for the new head.
             return True
-        self.gh("DELETE", f"/issues/{pr['number']}/labels/{quote(label, safe='')}")
+        if label:
+            self.gh(
+                "DELETE", f"/issues/{pr['number']}/labels/{quote(label, safe='')}"
+            )
         return True
 
     def run(self):
         repository_id = self.gh("GET", "")["id"]
         label = self.config.get("trigger_label", workflow.TRIGGER_LABEL)
-        prs = self.gh_pages("/pulls?state=open&sort=updated&direction=asc")
+        payload = self._event_payload()
+        if payload is None:
+            prs = self.gh_pages("/pulls?state=open&sort=updated&direction=asc")
+        else:
+            candidate = self._event_candidate(payload)
+            if candidate and self.github_login.lower() != self.trigger_reviewer:
+                raise RuntimeError(
+                    "The configured GitHub credential must authenticate as "
+                    f"{self.trigger_reviewer} for reviewer-request mode"
+                )
+            prs = [candidate] if candidate else []
         failures = []
         for candidate in prs:
-            if label not in {item["name"] for item in candidate.get("labels", [])}:
+            event_mode = payload is not None
+            if not event_mode and label not in {
+                item["name"] for item in candidate.get("labels", [])
+            }:
                 continue
             try:
                 pr = self.gh("GET", f"/pulls/{candidate['number']}")
-                event = workflow._latest_trigger_label_event(
-                    self.token, self.repository, pr["number"]
+                trigger = (
+                    self._latest_reviewer_request(pr["number"])
+                    if event_mode
+                    else workflow._latest_trigger_label_event(
+                        self.token, self.repository, pr["number"]
+                    )
                 )
-                if event is None:
+                if trigger is None:
                     continue
-                if self._finish_completed_review(pr, label, event):
+                trigger_label = None if event_mode else label
+                if self._finish_completed_review(pr, trigger, trigger_label):
                     continue
                 sha = pr["head"]["sha"]
                 result = self.dispatcher.deliver(
                     subject=f"{repository_id}:pr:{pr['number']}",
-                    delivery=f"{event['id']}:{sha}",
-                    prompt=self._prompt(pr, event),
+                    delivery=f"{trigger['id']}:{sha}",
+                    prompt=self._prompt(pr, trigger, trigger_label),
                 )
                 print(
                     json.dumps(
