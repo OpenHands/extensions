@@ -533,6 +533,8 @@ class TestRepoReviewGuide(unittest.TestCase):
         self.assertIn("`event: APPROVE`", prompt)
         self.assertIn("otherwise use `event: COMMENT`", prompt)
         self.assertIn("Never use `REQUEST_CHANGES`", prompt)
+        self.assertIn("native GitHub review is the only result channel", prompt)
+        self.assertIn("Do not create commit statuses or Checks", prompt)
         self.assertIn("forbids the configured bot from approving its own PR", prompt)
 
 
