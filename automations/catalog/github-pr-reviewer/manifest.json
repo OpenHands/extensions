@@ -85,7 +85,7 @@
         "maintainers": {
           "type": "text",
           "label": "Maintainers",
-          "help": "Optional comma-separated GitHub logins. After an exact-head approval, request one based on changed-path history and current review load.",
+          "help": "Optional comma-separated GitHub collaborator logins. Include at least two so a maintainer-authored PR still has an eligible reviewer. After an exact-head approval, request one based on changed-path history and current review load.",
           "default": "",
           "required": false
         },

@@ -24,7 +24,9 @@ This skill is activated by:
 - Configurable review tone and polling schedule
 - Optional human handoff after an exact-head approval. The scanner ranks the
   configured maintainers by recent commits to changed paths, then by their open
-  GitHub review-request count, and requests one without merging the PR.
+  GitHub review-request count, and requests one without merging the PR. Use at
+  least two repository collaborators so a maintainer can author a PR without
+  leaving the handoff roster empty.
 
 ## Prerequisites
 
