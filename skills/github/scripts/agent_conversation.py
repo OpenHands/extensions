@@ -113,9 +113,13 @@ class AgentConversationDispatcher:
         try:
             if disposition == "resumed":
                 if same_delivery:
-                    if conversation.state.execution_status in (
+                    if (
+                        conversation.state.execution_status
+                        == ConversationExecutionStatus.RUNNING
+                    ):
+                        disposition = "in_progress"
+                    elif conversation.state.execution_status in (
                         ConversationExecutionStatus.IDLE,
-                        ConversationExecutionStatus.RUNNING,
                         ConversationExecutionStatus.PAUSED,
                     ):
                         conversation.update_secrets(self._secrets)
@@ -129,7 +133,7 @@ class AgentConversationDispatcher:
         finally:
             conversation.close()
 
-        if disposition == "deduplicated":
+        if disposition in ("deduplicated", "in_progress"):
             return {
                 "disposition": disposition,
                 "conversation_id": str(conversation_id),
