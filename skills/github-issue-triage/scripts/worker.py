@@ -7,6 +7,21 @@ import os
 from agent_conversation import AgentConversationDispatcher
 from github_client import GitHubRepository, run_repositories
 
+TRIAGE_BODY_START = "<!-- openhands-ai-triage:start -->"
+TRIAGE_BODY_END = "<!-- openhands-ai-triage:end -->"
+
+
+def author_body(body):
+    """Return issue text outside the automation-owned body section."""
+    body = body or ""
+    start = body.find(TRIAGE_BODY_START)
+    if start < 0:
+        return body.rstrip()
+    end = body.find(TRIAGE_BODY_END, start + len(TRIAGE_BODY_START))
+    if end < 0:
+        return body.rstrip()
+    return (body[:start] + body[end + len(TRIAGE_BODY_END) :]).rstrip()
+
 
 class IssueTriage(GitHubRepository):
     name = "github-issue-triage"
@@ -39,26 +54,49 @@ class IssueTriage(GitHubRepository):
             "selected one. Add `ready-for-dev` only after the final scope and criteria meet "
             "the standard above; otherwise remove it if present. An issue with unresolved "
             "design questions is not ready for development.\n\n"
-            "Post one concise GitHub issue comment after the existing human discussion. "
-            "Delete prior comments listed as automated triage comments that the credential "
-            "is allowed to delete, then post the replacement so it remains below the human "
-            "discussion. Begin the agent-authored section with exactly these two lines:\n"
+            "Choose exactly one of the following outcomes.\n\n"
+            "READY: Fetch the current issue body immediately before updating it. Preserve "
+            "all text outside the exact managed markers below. Remove an existing complete "
+            "managed section, if present, and append exactly one replacement at the end of "
+            "the body. Do not post a triage comment. Delete prior comments listed as "
+            "automated triage comments when the credential is allowed to delete them. Use "
+            "this structure:\n"
+            f"{TRIAGE_BODY_START}\n"
             "---\n"
+            "## OpenHands AI triage\n"
             "**The following comments and acceptance criteria were added by the OpenHands AI agent.**\n\n"
-            "Follow with `Triage`, a short rationale and bounded scope, then `Acceptance "
-            "criteria` as Markdown checklist items. If the design remains unclear, replace "
-            "the checklist with `Decision needed` and the minimum focused questions; do "
-            "not provide provisional criteria. End the comment with the exact "
-            "marker below. Never edit or delete human-authored content.\n\n"
+            "### Triage\n"
+            "<short rationale, bounded scope, and explicit non-goals>\n\n"
+            "<any missing readiness sections required by repository guidance, such as "
+            "`### Actual Behavior`, `### Steps to Reproduce`, or `### Desired Behavior`>\n\n"
+            "### Acceptance Criteria\n"
+            "- [ ] <observable criterion>\n\n"
+            f"{marker}\n"
+            f"{TRIAGE_BODY_END}\n"
+            "Use repository-required heading names and include only applicable sections. "
+            "Then apply the priority and `ready-for-dev` labels.\n\n"
+            "DECISION NEEDED: Leave the human-owned issue body unchanged, removing only a "
+            "previous complete managed section if one exists. Delete prior automated "
+            "triage comments when allowed, remove `ready-for-dev`, and post one concise "
+            "replacement comment below the human discussion. Begin it with exactly:\n"
+            "---\n"
+            "**The following comments were added by the OpenHands AI agent.**\n\n"
+            "Follow with `### Decision needed` and only the minimum focused questions. Do "
+            "not include provisional acceptance criteria. End with the exact marker below.\n\n"
+            "Never edit or delete human-authored body text or comments. Confirm the final "
+            "body, comments, and labels from GitHub before finishing.\n\n"
             f"Use GitHub's API with the `{token_name}` environment variable, never print its "
-            f"value, and modify only {self.repository} issue #{issue['number']}. Confirm the "
-            "final comment and labels from GitHub before finishing.\n\n"
+            f"value, and modify only {self.repository} issue #{issue['number']}.\n\n"
             f"Marker: {marker}\n\n"
             + json.dumps(
                 {
                     "issue": {
-                        key: issue.get(key)
-                        for key in ("number", "title", "body", "labels")
+                        "number": issue.get("number"),
+                        "title": issue.get("title"),
+                        "author_body": author_body(issue.get("body")),
+                        "managed_triage_section_present": TRIAGE_BODY_START
+                        in (issue.get("body") or ""),
+                        "labels": issue.get("labels"),
                     },
                     "human_discussion": [
                         {
@@ -106,7 +144,7 @@ class IssueTriage(GitHubRepository):
             json.dumps(
                 [
                     issue["title"],
-                    issue.get("body"),
+                    author_body(issue.get("body")),
                     [
                         (comment["id"], comment.get("updated_at"))
                         for comment in discussion
@@ -116,7 +154,9 @@ class IssueTriage(GitHubRepository):
             ).encode()
         ).hexdigest()
         marker = f"<!-- triage-source:{digest} -->"
-        if any(marker in (comment.get("body") or "") for comment in comments):
+        if marker in (issue.get("body") or "") or any(
+            marker in (comment.get("body") or "") for comment in comments
+        ):
             return
         result = self.dispatcher.deliver(
             subject=f"{repository_id}:issue:{issue['number']}",

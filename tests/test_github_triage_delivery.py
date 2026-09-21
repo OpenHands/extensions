@@ -58,6 +58,12 @@ def test_triage_submits_each_changed_issue_as_agent_work(tmp_path, monkeypatch):
         "ask only the focused follow-up questions needed to resolve it"
         in submit.call_args_list[0].kwargs["prompt"]
     )
+    prompt = submit.call_args_list[0].kwargs["prompt"]
+    assert "<!-- openhands-ai-triage:start -->" in prompt
+    assert "<!-- openhands-ai-triage:end -->" in prompt
+    assert "Do not post a triage comment" in prompt
+    assert "DECISION NEEDED" in prompt
+    assert "Leave the human-owned issue body unchanged" in prompt
 
 
 def test_triage_continues_after_one_submission_fails(tmp_path, monkeypatch):
@@ -192,3 +198,63 @@ def test_triage_passes_human_discussion_and_stale_bot_comment(tmp_path, monkeypa
     assert '"id": 102' in prompt
     assert "Old triage" not in prompt
     assert "Delete prior comments listed as automated triage comments" in prompt
+
+
+def test_triage_ignores_managed_body_when_computing_delivery(tmp_path, monkeypatch):
+    original = "Human request\n\n### Desired Behavior\nKeep the API stable."
+    issue = {
+        "number": 7,
+        "title": "Improve behavior",
+        "body": original,
+        "labels": [{"name": "enhancement"}],
+    }
+    module, run = _triage(tmp_path, monkeypatch, [issue])
+    digest = module.hashlib.sha256(
+        module.json.dumps(["Improve behavior", original, []], sort_keys=True).encode()
+    ).hexdigest()
+    issue["body"] += (
+        "\n\n<!-- openhands-ai-triage:start -->\n"
+        "---\n## OpenHands AI triage\n"
+        "### Acceptance Criteria\n- [ ] Preserve behavior\n"
+        f"<!-- triage-source:{digest} -->\n"
+        "<!-- openhands-ai-triage:end -->"
+    )
+
+    run.run()
+
+    run.dispatcher.deliver.assert_not_called()
+    assert module.author_body(issue["body"]) == original
+
+
+def test_triage_passes_only_human_owned_body_to_agent(tmp_path, monkeypatch):
+    issue = {
+        "number": 8,
+        "title": "Clarify behavior",
+        "body": (
+            "Original description\n\n"
+            "<!-- openhands-ai-triage:start -->\n"
+            "Old generated criteria\n"
+            "<!-- triage-source:old -->\n"
+            "<!-- openhands-ai-triage:end -->"
+        ),
+        "labels": [{"name": "enhancement"}],
+    }
+    _module, run = _triage(tmp_path, monkeypatch, [issue])
+    run.dispatcher.deliver.return_value = {
+        "disposition": "resumed",
+        "conversation_id": "triage",
+    }
+
+    run.run()
+
+    prompt = run.dispatcher.deliver.call_args.kwargs["prompt"]
+    assert '"author_body": "Original description"' in prompt
+    assert '"managed_triage_section_present": true' in prompt
+    assert "Old generated criteria" not in prompt
+
+
+def test_incomplete_marker_pair_remains_human_owned(tmp_path, monkeypatch):
+    module, _run = _triage(tmp_path, monkeypatch, [])
+    body = "Human text\n<!-- openhands-ai-triage:start -->\nUnclosed text"
+
+    assert module.author_body(body) == body
