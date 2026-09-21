@@ -139,7 +139,9 @@ def test_triage_checks_ready_issue_but_skips_blocked_and_unchanged_issues(
     module, run = _triage(tmp_path, monkeypatch, issues)
     run.dependencies_complete = lambda issue: issue["number"] != 2
     unchanged_marker = module.hashlib.sha256(
-        module.json.dumps(["Unchanged", "", []], sort_keys=True).encode()
+        module.json.dumps(
+            [module.TRIAGE_FORMAT_VERSION, "Unchanged", "", []], sort_keys=True
+        ).encode()
     ).hexdigest()
     run.gh_pages = lambda path: (
         [
@@ -210,7 +212,10 @@ def test_triage_ignores_managed_body_when_computing_delivery(tmp_path, monkeypat
     }
     module, run = _triage(tmp_path, monkeypatch, [issue])
     digest = module.hashlib.sha256(
-        module.json.dumps(["Improve behavior", original, []], sort_keys=True).encode()
+        module.json.dumps(
+            [module.TRIAGE_FORMAT_VERSION, "Improve behavior", original, []],
+            sort_keys=True,
+        ).encode()
     ).hexdigest()
     issue["body"] += (
         "\n\n<!-- openhands-ai-triage:start -->\n"
@@ -224,6 +229,25 @@ def test_triage_ignores_managed_body_when_computing_delivery(tmp_path, monkeypat
 
     run.dispatcher.deliver.assert_not_called()
     assert module.author_body(issue["body"]) == original
+
+
+def test_triage_reprocesses_legacy_comment_digest(tmp_path, monkeypatch):
+    issue = {"number": 7, "title": "Improve behavior", "body": "Request", "labels": []}
+    module, run = _triage(tmp_path, monkeypatch, [issue])
+    legacy_digest = module.hashlib.sha256(
+        module.json.dumps(["Improve behavior", "Request", []], sort_keys=True).encode()
+    ).hexdigest()
+    run.gh_pages = lambda path: [
+        {"id": 10, "body": f"<!-- triage-source:{legacy_digest} -->"}
+    ]
+    run.dispatcher.deliver.return_value = {
+        "disposition": "created",
+        "conversation_id": "triage",
+    }
+
+    run.run()
+
+    run.dispatcher.deliver.assert_called_once()
 
 
 def test_triage_passes_only_human_owned_body_to_agent(tmp_path, monkeypatch):

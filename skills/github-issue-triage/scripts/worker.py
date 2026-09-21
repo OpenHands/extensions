@@ -9,6 +9,7 @@ from github_client import GitHubRepository, run_repositories
 
 TRIAGE_BODY_START = "<!-- openhands-ai-triage:start -->"
 TRIAGE_BODY_END = "<!-- openhands-ai-triage:end -->"
+TRIAGE_FORMAT_VERSION = 2
 
 
 def author_body(body):
@@ -143,6 +144,7 @@ class IssueTriage(GitHubRepository):
         digest = hashlib.sha256(
             json.dumps(
                 [
+                    TRIAGE_FORMAT_VERSION,
                     issue["title"],
                     author_body(issue.get("body")),
                     [
