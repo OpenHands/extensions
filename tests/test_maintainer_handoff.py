@@ -4,6 +4,7 @@ import importlib.util
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import Mock
+from urllib.error import HTTPError
 from urllib.parse import parse_qs, urlsplit
 
 _MODULE_PATH = (
@@ -20,7 +21,10 @@ def _pr(**overrides):
     result = {
         "number": 7,
         "head": {"sha": "head"},
-        "base": {"ref": "main"},
+        "base": {
+            "ref": "main",
+            "repo": {"owner": {"type": "Organization"}},
+        },
         "user": {"login": "author"},
         "requested_reviewers": [],
     }
@@ -89,6 +93,21 @@ def test_review_load_breaks_equal_proximity():
     assert selected == "VascoSch92"
 
 
+def test_review_load_uses_user_qualifier_for_user_owned_repo():
+    repo = _repository({"src/api.py": []}, loads={"VascoSch92": 1, "neubig": 4})
+    repo.repository = "neubig/project"
+    pr = _pr(base={"ref": "main", "repo": {"owner": {"type": "User"}}})
+
+    maintainer_handoff.request_maintainer_review(
+        repo, pr, ["neubig", "VascoSch92"]
+    )
+
+    assert all(
+        "user:neubig" in call.kwargs["params"]["q"]
+        for call in repo.api.call_args_list
+    )
+
+
 def test_existing_request_is_idempotent():
     repo = _repository()
     pr = _pr(requested_reviewers=[{"login": "VascoSch92"}])
@@ -113,3 +132,22 @@ def test_author_is_excluded_and_empty_roster_is_compatible():
 
     assert selected == "VascoSch92"
     assert maintainer_handoff.request_maintainer_review(repo, _pr(), "") is None
+
+
+def test_unassignable_maintainer_is_a_configuration_error():
+    repo = _repository({"src/api.py": []})
+    original_gh = repo.gh.side_effect
+
+    def fail_assignment(method, path, body=None):
+        if method == "POST":
+            raise HTTPError("url", 422, "invalid reviewer", {}, None)
+        return original_gh(method, path, body)
+
+    repo.gh.side_effect = fail_assignment
+
+    try:
+        maintainer_handoff.request_maintainer_review(repo, _pr(), ["neubig"])
+    except maintainer_handoff.HandoffConfigurationError as exc:
+        assert "@neubig" in str(exc)
+    else:
+        raise AssertionError("expected HandoffConfigurationError")

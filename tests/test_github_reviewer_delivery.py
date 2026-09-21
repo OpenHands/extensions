@@ -126,7 +126,7 @@ def test_reviewer_hands_positive_exact_head_to_maintainer(tmp_path, monkeypatch)
             "software-factory/tests": "success",
         }
     )
-    run.gh = Mock(side_effect=[{"id": 99}, pr, {}])
+    run.gh = Mock(side_effect=[{"id": 99}, pr, pr, {}])
     handoff = Mock(return_value="VascoSch92")
     monkeypatch.setattr(module, "request_maintainer_review", handoff)
 
@@ -167,6 +167,59 @@ def test_reviewer_retries_failed_handoff_without_clearing_label(tmp_path, monkey
     run.dispatcher.deliver.assert_not_called()
 
 
+def test_reviewer_reports_permanent_handoff_error_once(tmp_path, monkeypatch):
+    module, run = _reviewer(tmp_path, monkeypatch)
+    run.config["maintainers"] = "author"
+    pr = {
+        "number": 2,
+        "head": {"sha": "head-2"},
+        "labels": [{"name": "openhands-review"}],
+    }
+    run.gh_pages = lambda path: [pr]
+    run.statuses = lambda sha: {
+        "software-factory/review": "success",
+        "software-factory/tests": "success",
+    }
+    run.gh = Mock(side_effect=[{"id": 99}, pr, {}, pr, {}])
+    monkeypatch.setattr(
+        module,
+        "request_maintainer_review",
+        Mock(
+            side_effect=module.HandoffConfigurationError(
+                "No eligible maintainer remains"
+            )
+        ),
+    )
+
+    run.run()
+
+    assert "configuration check" in run.gh.call_args_list[2].args[2]["body"]
+    assert run.gh.call_args_list[-1].args == (
+        "DELETE",
+        "/issues/2/labels/openhands-review",
+    )
+
+
+def test_reviewer_keeps_label_when_head_moves_before_cleanup(tmp_path, monkeypatch):
+    module, run = _reviewer(tmp_path, monkeypatch)
+    pr = {
+        "number": 2,
+        "head": {"sha": "head-2"},
+        "labels": [{"name": "openhands-review"}],
+    }
+    moved = {**pr, "head": {"sha": "head-3"}}
+    run.gh_pages = lambda path: [pr]
+    run.statuses = lambda sha: {
+        "software-factory/review": "failure",
+        "software-factory/tests": "success",
+    }
+    run.gh = Mock(side_effect=[{"id": 99}, pr, moved])
+
+    run.run()
+
+    assert all(call.args[0] != "DELETE" for call in run.gh.call_args_list)
+
+
 def test_reviewer_does_not_handoff_failed_review(tmp_path, monkeypatch):
     module, run = _reviewer(tmp_path, monkeypatch)
     run.config["maintainers"] = "neubig"
@@ -180,7 +233,7 @@ def test_reviewer_does_not_handoff_failed_review(tmp_path, monkeypatch):
         "software-factory/review": "failure",
         "software-factory/tests": "success",
     }
-    run.gh = Mock(side_effect=[{"id": 99}, pr, {}])
+    run.gh = Mock(side_effect=[{"id": 99}, pr, pr, {}])
     handoff = Mock()
     monkeypatch.setattr(module, "request_maintainer_review", handoff)
 

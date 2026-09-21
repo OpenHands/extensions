@@ -6,7 +6,11 @@ from urllib.parse import quote
 import main as workflow
 from agent_conversation import AgentConversationDispatcher
 from github_client import GitHubRepository, run_repositories
-from maintainer_handoff import parse_maintainers, request_maintainer_review
+from maintainer_handoff import (
+    HandoffConfigurationError,
+    parse_maintainers,
+    request_maintainer_review,
+)
 
 
 class PullRequestReviewer(GitHubRepository):
@@ -63,7 +67,23 @@ class PullRequestReviewer(GitHubRepository):
         if review == "success" and tests == "success":
             maintainers = parse_maintainers(self.config.get("maintainers"))
             if maintainers:
-                selected = request_maintainer_review(self, pr, maintainers)
+                try:
+                    selected = request_maintainer_review(self, pr, maintainers)
+                except HandoffConfigurationError as exc:
+                    self.gh(
+                        "POST",
+                        f"/issues/{pr['number']}/comments",
+                        {
+                            "body": (
+                                "⚠️ **Automated maintainer handoff could not be "
+                                f"completed:** {exc}. Update the automation's "
+                                "maintainer roster, then add the review label again."
+                                "\n\n_This is an automated configuration check; "
+                                "no AI was used to generate this comment._"
+                            )
+                        },
+                    )
+                    selected = None
                 print(
                     json.dumps(
                         {
@@ -74,6 +94,9 @@ class PullRequestReviewer(GitHubRepository):
                     ),
                     flush=True,
                 )
+        current = self.gh("GET", f"/pulls/{pr['number']}")
+        if current["head"]["sha"] != pr["head"]["sha"]:
+            return False
         self.gh("DELETE", f"/issues/{pr['number']}/labels/{quote(label, safe='')}")
         return True
 

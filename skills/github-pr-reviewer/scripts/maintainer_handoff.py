@@ -1,10 +1,15 @@
 """Choose one code-aware, currently available maintainer for a reviewed PR."""
 
+from urllib.error import HTTPError
 from urllib.parse import urlencode
 
 _DECISIVE_REVIEW_STATES = {"APPROVED", "CHANGES_REQUESTED"}
 _MAX_PATHS = 8
 _COMMITS_PER_PATH = 10
+
+
+class HandoffConfigurationError(ValueError):
+    """The configured roster cannot produce a GitHub review request."""
 
 
 def parse_maintainers(value):
@@ -56,12 +61,16 @@ def _path_scores(repository, pr_number, base_ref, candidates):
     return scores
 
 
-def _open_review_load(repository, owner, login):
+def _open_review_load(repository, owner, owner_type, login):
+    owner_qualifier = "org" if owner_type.lower() == "organization" else "user"
     response = repository.api(
         "GET",
         "/search/issues",
         params={
-            "q": f"is:pr is:open org:{owner} review-requested:{login}",
+            "q": (
+                f"is:pr is:open {owner_qualifier}:{owner} "
+                f"review-requested:{login}"
+            ),
             "per_page": 1,
         },
     )
@@ -97,15 +106,19 @@ def request_maintainer_review(repository, pr, maintainers):
     author = ((pr.get("user") or {}).get("login") or "").lower()
     candidates = [key for key in by_key if key != author]
     if not candidates:
-        raise RuntimeError(
+        raise HandoffConfigurationError(
             "No eligible maintainer remains after excluding the PR author"
         )
 
     base_ref = (pr.get("base") or {}).get("ref") or "main"
     scores = _path_scores(repository, number, base_ref, candidates)
     owner = repository.repository.split("/", 1)[0]
+    owner_type = (
+        (((pr.get("base") or {}).get("repo") or {}).get("owner") or {}).get("type")
+        or "Organization"
+    )
     loads = {
-        login: _open_review_load(repository, owner, by_key[login])
+        login: _open_review_load(repository, owner, owner_type, by_key[login])
         for login in candidates
     }
     order = {login.lower(): index for index, login in enumerate(roster)}
@@ -114,9 +127,16 @@ def request_maintainer_review(repository, pr, maintainers):
         key=lambda login: (-scores[login], loads[login], order[login]),
     )
     selected = by_key[selected_key]
-    repository.gh(
-        "POST",
-        f"/pulls/{number}/requested_reviewers",
-        {"reviewers": [selected]},
-    )
+    try:
+        repository.gh(
+            "POST",
+            f"/pulls/{number}/requested_reviewers",
+            {"reviewers": [selected]},
+        )
+    except HTTPError as exc:
+        if exc.code == 422:
+            raise HandoffConfigurationError(
+                f"GitHub cannot assign configured maintainer @{selected}"
+            ) from exc
+        raise
     return selected
