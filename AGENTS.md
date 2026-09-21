@@ -170,12 +170,14 @@ Important notes:
 - The sync script uses PyYAML to parse SKILL.md frontmatter. If you add a skill with a slash trigger (e.g., `triggers: ["/mycommand"]`), the script auto-generates `commands/mycommand.md`. **Note:** Slash triggers in SKILL.md frontmatter are deprecated — prefer adding a `commands/command-name.md` file to the plugin's `commands/` directory instead. Keyword triggers (non-slash) remain the recommended way to activate skills by topic.
 
 - The GitHub issue-triage automation is the sole authority that grants
-  `ready-for-dev`. `.github/workflows/issue-readiness-check.yml` removes a newly
-  applied label unless `all-hands-bot` applied it; an `unlabeled` event then lets
-  triage reassess the issue. `.github/workflows/pr-description-check.yml` still
-  requires linked issues to be ready, and label transitions refresh that check
-  through `.github/scripts/refresh_linked_pr_checks.py`. Tests for the PR gates
-  live in `tests/test_check_pr_description.py` and
+  `ready-for-dev`. Repository writers may also grant readiness explicitly.
+  `.github/workflows/issue-readiness-check.yml` removes a newly applied label
+  unless a user with `write`, `maintain`, or `admin` permission applied it. An
+  `unlabeled` event then lets triage reassess the issue.
+  `.github/workflows/pr-description-check.yml` still requires linked issues to
+  be ready, and label transitions refresh that check through
+  `.github/scripts/refresh_linked_pr_checks.py`. Tests for the PR gates live in
+  `tests/test_check_pr_description.py` and
   `tests/test_refresh_linked_pr_checks.py`.
 
 ## OpenHands SDK documentation policy
