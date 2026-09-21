@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Which model does this automation actually run?</title>
+  <style>
+    :root { color-scheme: light dark; --paper: #faf9f5; --ink: #202b32; --muted: #53636c; --line: #d6dedb; --accent: #126853; --panel: #eef4f0; }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--paper); color: var(--ink); font: 17px/1.65 system-ui, sans-serif; }
+    main { max-width: 960px; margin: auto; padding: 44px 24px 72px; }
+    h1 { max-width: 760px; font-size: clamp(2rem, 5vw, 3.1rem); line-height: 1.12; letter-spacing: -.03em; margin: 12px 0 22px; }
+    h2 { margin-top: 42px; line-height: 1.3; font-size: 1.45rem; }
+    h3 { margin-top: 0; font-size: 1rem; }
+    p { max-width: 80ch; }
+    a { color: var(--accent); text-underline-offset: 3px; }
+    .eyebrow, .muted { color: var(--muted); }
+    .eyebrow { font-size: .82rem; letter-spacing: .09em; text-transform: uppercase; }
+    .decision { padding: 20px 24px; border-left: 4px solid var(--accent); background: var(--panel); }
+    .decision p { margin: 0; }
+    .flow { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+    .step { border: 1px solid var(--line); border-radius: 8px; padding: 18px; }
+    .step p { margin-bottom: 0; }
+    code { font: .88em ui-monospace, SFMono-Regular, Consolas, monospace; overflow-wrap: anywhere; }
+    pre { white-space: pre-wrap; overflow-wrap: anywhere; background: var(--panel); padding: 18px; border-radius: 8px; }
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: .95rem; }
+    th, td { text-align: left; vertical-align: top; padding: 12px; border-bottom: 1px solid var(--line); }
+    th { color: var(--muted); }
+    li { margin-bottom: 8px; }
+    footer { border-top: 1px solid var(--line); margin-top: 42px; padding-top: 18px; font-size: .88rem; color: var(--muted); }
+    @media (max-width: 650px) { .flow { grid-template-columns: 1fr; } main { padding: 28px 18px 48px; } }
+    @media (prefers-color-scheme: dark) { :root { --paper: #172126; --ink: #e8eeec; --muted: #a9bab9; --line: #42514f; --accent: #8ed9bc; --panel: #22342f; } }
+  </style>
+</head>
+<body>
+<main>
+  <div class="eyebrow">OpenHands extensions · PR #547 follow-up · 14 September 2026</div>
+  <h1>Which model does this automation actually run?</h1>
+  <p>The profile selected for an automation must determine the LLM used by its
+    child conversations. A footer should then describe that same configuration.</p>
+  <div class="decision"><p><strong>Decision:</strong> resolve <code>AUTOMATION_MODEL</code>
+    before creating each new conversation. Use default settings only when no
+    profile is supplied or the profile no longer exists. Pass the resolved
+    configuration unchanged and record its profile name and model together.</p></div>
+
+  <h2>What went wrong</h2>
+  <p>The automation service already passes the selected profile name in
+    <code>AUTOMATION_MODEL</code>. The revision of
+    <a href="https://github.com/OpenHands/extensions/pull/547">#547</a> at
+    <code>1b6a4a3</code> stopped reading that variable and used
+    <code>agent_settings.llm</code> instead. Consequently, choosing
+    <code>gpt-latest-med</code> could launch the user's unrelated default model.</p>
+  <p>The earlier footer verification and publication retry fixes remain intact.
+    This follow-up restores profile selection and replaces the test that
+    explicitly accepted ignoring the selected profile.</p>
+
+  <h2>One configuration, used twice</h2>
+  <div class="flow" aria-label="Profile selection and conversation creation sequence">
+    <section class="step"><h3>1. Read the choice</h3><p>
+      <code>AUTOMATION_MODEL=gpt-latest-med</code><br>
+      This is a saved profile name, not a provider model ID.</p></section>
+    <section class="step"><h3>2. Resolve the profile</h3><p>
+      Fetch its current model, credentials, base URL, and options through the
+      authenticated profile API.</p></section>
+    <section class="step"><h3>3. Create and describe</h3><p>
+      Send that complete LLM configuration in the child agent. Persist the
+      selected name and returned model for the eventual footer.</p></section>
+  </div>
+  <p>The script keeps options such as reasoning effort intact. A profile is
+    resolved for each new conversation; an existing Slack conversation keeps
+    its original model when someone follows up in its thread.</p>
+
+  <h2>Selection and failure rules</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th scope="col">Situation</th><th scope="col">Action</th><th scope="col">Reported profile</th></tr></thead>
+    <tbody>
+      <tr><td>Selected profile exists</td><td>Use its returned LLM configuration</td><td>The selected name, e.g. <code>gpt-latest-med</code></td></tr>
+      <tr><td>No selected profile, including an empty variable</td><td>Read the concrete default LLM settings</td><td><code>default</code></td></tr>
+      <tr><td>Selected profile returns HTTP 404</td><td>Log that it is missing and read default settings</td><td><code>default</code></td></tr>
+      <tr><td>Authentication, validation, server, or malformed-profile error</td><td>Stop this conversation's creation; keep the error visible</td><td>No replacement model is silently selected</td></tr>
+      <tr><td>Linked profile arrives without resolved credentials</td><td>Stop with an Agent Server upgrade error</td><td>No broken child conversation is launched</td></tr>
+    </tbody>
+  </table></div>
+  <p><strong>Why call a fallback “default”?</strong> The separate active-profile
+    pointer can drift from the concrete settings returned by the server. When
+    the script uses those settings, it reports their actual model and does not
+    claim to have loaded a named profile.</p>
+
+  <h2>Why the server fix is still needed</h2>
+  <p>A provider-linked profile stores a reference to a shared provider connection.
+    Its runnable configuration must include the current provider key and base
+    URL. <a href="https://github.com/OpenHands/software-agent-sdk/pull/4952">Agent Server #4952</a>
+    supplies those values through the existing authenticated plaintext profile
+    read. An older server can return a profile with both values missing.</p>
+  <p>This follows the existing client-resolved conversation API: the trusted
+    script reads credentials and sends them back to the same Agent Server inside
+    the concrete child agent. Credentials are not added to prompts, footers, or
+    automation state. No global profile activation is performed, so simultaneous
+    automations cannot change each other's default settings.</p>
+  <p>A server-side profile selector at conversation creation could keep
+    credentials inside the server. That is a separate API design change with
+    precedence and client-compatibility decisions; it is not introduced by this
+    focused extension fix.</p>
+
+  <h2>Why the small helper appears in both scripts</h2>
+  <p>Both automations are distributed as standalone <code>main.py</code> scripts.
+    Sharing a Python module would also require changing their upload and bundle
+    contracts. The existing packaging stays intact; one parametrized regression
+    suite exercises the same behavior in both implementations.</p>
+
+  <h2>Evidence and how to check</h2>
+  <p>Four HTTP regression cases cover both scripts with inline and provider-linked
+    profiles. All four fail on the original PR head because the conversation
+    receives the default LLM, and pass with this fix. The focused suite passes
+    <strong>99 tests</strong>; the full suite passes <strong>896 tests</strong>
+    with 24 skipped.</p>
+  <pre><code>uv sync --group test
+uv run pytest tests/test_automation_llm_provenance.py tests/test_slack_channel_monitor.py skills/github-pr-reviewer/tests/test_main.py -q
+uv run pytest tests skills/github-pr-reviewer/tests -q
+npm run build:automations
+npm run build:skills
+uv run python scripts/sync_extensions.py --check
+git diff --check</code></pre>
+  <p>The HTTP tests execute the scripts' actual profile GET and conversation POST
+    against a local server using synthetic credentials. They assert the selected
+    model, full configuration, authentication headers, and matching provenance.
+    Additional cases check default fallback, HTTP errors, malformed profiles, and
+    unresolved linked credentials. Provider-store resolution itself is covered
+    by #4952's server tests. These checks do not exercise a deployed service or
+    make external LLM calls.</p>
+
+  <h2>Rollout</h2>
+  <ol>
+    <li>For provider-linked profiles, land and deploy the Agent Server fix in
+      #4952, or an equivalent implementation of that runtime-read behavior.</li>
+    <li>Apply this follow-up to #547 and publish the updated reviewer bundle,
+      version <code>1.0.3</code>. Re-upload existing custom script deployments
+      so they receive the changed code.</li>
+    <li>Choose <code>gpt-latest-med</code> while the default is a different
+      profile. Confirm the new conversation's LLM settings and final footer
+      both correspond to the selected profile.</li>
+  </ol>
+  <footer>Prepared by an AI agent on behalf of Engel. This temporary review
+    document follows the repository's <code>.pr/</code> convention.</footer>
+</main>
+</body>
+</html>

@@ -81,6 +81,9 @@ Value: **ReviewRecord**
   "status": "active",
   "conversation_id": "550e8400-e29b-41d4-a716-446655440000",
   "workspace_dir": "/workspace/repositories/owner__repo/pr-42-0123456789ab",
+  "review_started_at": "2026-06-12T00:01:00Z",
+  "llm_profile": "review-profile",
+  "llm_model": "openai/review-model",
   "last_activity": 1717200000.0
 }
 ```
@@ -97,6 +100,12 @@ Value: **ReviewRecord**
 
 When a review becomes stale, `stale_reason` records the old and new head SHAs.
 When a review closes after posting, `completed_at` records the completion time.
+`llm_profile` and `llm_model` record the configuration used to start the
+conversation, including any fallback. `review_started_at` prevents an older
+review on the same commit from being attributed to that conversation when its
+provenance footer is verified or repaired. Legacy records without this timestamp
+use `trigger_label_event_created_at`; without either timestamp, collection posts
+a new fallback comment instead of modifying an existing review.
 When a review expires, `expired_after` records how many seconds it had been
 waiting.
 

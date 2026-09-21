@@ -273,9 +273,13 @@ For each repository:
      `{WORKSPACE_BASE}/repositories/{owner}__{repo}/pr-{number}-{sha12}`. The
      archive is checked as it is unpacked: a single root, no absolute or `..`
      paths, and symlinks skipped rather than materialised.
+   - Resolves `AUTOMATION_MODEL` for the new conversation; if unset or missing
+     (404), uses the server's default LLM settings. Other profile errors abort
+     creation. See [README.md](README.md#prerequisites) for server requirements.
    - Starts an OpenHands conversation **whose working directory is that
      checkout**, with a review prompt carrying PR metadata, the exact head SHA,
-     and label event details.
+     label event details, and the LLM profile/model footer required in the
+     published review.
    - Posts an acknowledgement comment with the label event, head SHA, and
      conversation link.
    - Records the review in state with `status: "active"` and the checkout path.
@@ -286,9 +290,12 @@ For each repository:
    - Suppresses stale results if the PR head SHA changed after the review was
      queued.
    - When the conversation reaches `idle`, `finished`, `error`, or `stuck`,
-     asks GitHub whether a review by the token's own user exists for that head
-     SHA. If it does, the review is complete. If it does not, the agent's final
-     response is posted as a comment so the work is not lost.
+     verifies a submitted review by the token's own user at that head SHA,
+     submitted since this conversation started, and repairs a missing or
+     incorrect LLM provenance footer before marking the review complete.
+     If no matching review exists, the agent's final response is posted as a
+     comment with provenance. Failed verification or publication is retried
+     on the next poll.
    - Abandons a conversation that has not reached a terminal status within two
      hours, so its checkout can be reclaimed.
 6. Removes the checkout of every finished review, but only after confirming the
