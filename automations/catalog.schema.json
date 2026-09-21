@@ -156,11 +156,7 @@
             "required": ["form"]
           },
           "then": { "not": { "required": ["filter"] } }
-        },
-        {
-          "if": { "required": ["bundle"] },
-          "then": { "not": { "required": ["filter"] } }
-        }
+      }
       ]
     },
     "actionFeatures": {
