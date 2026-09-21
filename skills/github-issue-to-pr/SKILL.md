@@ -11,6 +11,13 @@ triggers:
 
 # GitHub Issue to PR Automation
 
+## Agent Canvas catalog
+
+For new Agent Canvas installations, use the **GitHub issue to PR** catalog
+entry. Its deterministic `worker.py` scanner delegates each eligible issue to a
+stable conversation using the selected agent profile. The manual upload flow
+below remains for existing deployments and is deprecated for new installations.
+
 Create a cron automation that watches one or more GitHub repositories for issues
 with a trigger label, starts an OpenHands conversation once per label event with
 the repository's default branch already checked out, and opens a pull request
@@ -39,6 +46,11 @@ runs has to name `GITHUB_PERSONAL_ACCESS_TOKEN`; the SDK only puts a secret in t
 environment of a command that mentions it, and masks it in the output.
 
 ---
+
+The script imports shared GitHub transport from
+`scripts/github_client.py`, installed with this skill. Include it beside
+`main.py` when packaging manually, as shown below; catalog bundles include it
+automatically.
 
 ## Prerequisites
 
@@ -205,9 +217,11 @@ Use a safe string writer such as `json.dumps(value)` when inserting user-provide
 repository names, labels, or prefixes into Python string literals.
 `json.dumps(list_of_repos)` produces the whole `REPOS` list safely in one step.
 
-Write the customized script to a temporary build directory:
+Run these commands from this skill's directory and write the customized script
+to a temporary build directory:
 ```bash
 mkdir -p /tmp/issue-to-pr-build
+cp -L scripts/github_client.py /tmp/issue-to-pr-build/github_client.py
 # write the customized main.py to /tmp/issue-to-pr-build/main.py
 ```
 

@@ -56,14 +56,19 @@ jobs:
           fi
           echo "✓ npm $NPM_VERSION meets trusted publishing requirements"
 
-      # No install/test/build steps: @openhands/extensions ships source directly
-      # (plain ESM + hand-written .d.ts + JSON catalogs) with only peerDependencies,
-      # and has no build script, test suite, or lockfile.
+      # npm omits symlinks. Materialize shared resources in a release-only copy;
+      # retain the canonical linked source layout in the checkout.
+      - name: Stage package with linked resources
+        run: |
+          mkdir -p "$RUNNER_TEMP/extensions-package"
+          cp -RL . "$RUNNER_TEMP/extensions-package/"
 
       - name: Verify package contents
+        working-directory: ${{ runner.temp }}/extensions-package
         run: npm pack --dry-run
 
       - name: Validate package version matches release tag
+        working-directory: ${{ runner.temp }}/extensions-package
         env:
           # Pass inputs.tag via env var to prevent script injection from
           # GitHub Actions expression interpolation inside run blocks.
@@ -86,4 +91,5 @@ jobs:
           echo "✓ Version $PACKAGE_VERSION matches release tag"
 
       - name: Publish to npm with provenance
+        working-directory: ${{ runner.temp }}/extensions-package
         run: npm publish --access public --provenance

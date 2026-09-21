@@ -153,7 +153,8 @@
     "github-agents-md-maintainer",
     "news-digest",
     "github-issue-to-pr",
-    "slack-channel-monitor"
+    "slack-channel-monitor",
+    "custom-automation"
   ],
   "responderIntegrationIds": ["github", "slack"]
 }

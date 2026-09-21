@@ -33,7 +33,9 @@ import urllib.error
 import urllib.request
 from collections.abc import Callable
 from pathlib import Path
-from urllib.parse import urlencode
+
+from github_client import github_request as _github_request
+from github_client import github_paginate as _github_paginate
 
 # Configuration. Two setup paths write it, and both end up here:
 #
@@ -349,45 +351,6 @@ def save_state(repo: str, state: dict) -> None:
 
 # ── GitHub REST ───────────────────────────────────────────────────────────────
 
-
-def _github_request(
-    token: str,
-    method: str,
-    path: str,
-    params: dict | None = None,
-    body: dict | None = None,
-) -> tuple:
-    url = f"https://api.github.com{path}"
-    if params:
-        url = f"{url}?{urlencode(params)}"
-    headers = {
-        "Authorization": f"Bearer {token}",
-        "Accept": "application/vnd.github+json",
-        "X-GitHub-Api-Version": "2022-11-28",
-        "Content-Type": "application/json",
-    }
-    data = json.dumps(body).encode() if body is not None else None
-    req = urllib.request.Request(url, data=data, headers=headers, method=method)
-    with urllib.request.urlopen(req) as r:
-        raw = r.read()
-        return (json.loads(raw) if raw.strip() else {}), dict(r.headers)
-
-
-def _github_paginate(token: str, path: str, params: dict | None = None) -> list:
-    results = []
-    page = 1
-    base_params = dict(params or {})
-    base_params.setdefault("per_page", 100)
-    while True:
-        base_params["page"] = page
-        data, _ = _github_request(token, "GET", path, params=base_params)
-        if not isinstance(data, list):
-            break
-        results.extend(data)
-        if len(data) < base_params["per_page"]:
-            break
-        page += 1
-    return results
 
 
 def _resolve_github_token() -> str:
@@ -819,6 +782,9 @@ def _build_implementation_prompt(
     branch: str,
     base_branch: str,
     base_sha: str,
+    *,
+    workspace_instructions: str | None = None,
+    github_token_secret: str = "GITHUB_PERSONAL_ACCESS_TOKEN",
 ) -> str:
     """Name the issue and let the agent gather the rest.
 
@@ -831,28 +797,31 @@ def _build_implementation_prompt(
     title = issue.get("title", "(no title)").replace('"', "'")
     draft_words = " as a draft" if DRAFT_PULL_REQUEST else " ready for review"
     draft_flag = " --draft" if DRAFT_PULL_REQUEST else ""
+    secret_ref = f"${github_token_secret}"
+    workspace = workspace_instructions or (
+        f"It is a clone of `{base_branch}` at `{base_sha}`, already on branch "
+        f"`{branch}`. Do not clone or check out anything else: the code you need is "
+        "already here, and the branch is the one the pull request comes from."
+    )
 
     return (
-        "You are an autonomous software engineer. Implement the GitHub issue below in "
-        "the repository already checked out as your working directory.\n\n"
+        "You are an autonomous software engineer. Implement the GitHub issue below.\n\n"
         f"Repository : {repo}\n"
         f"Issue      : #{number} - \"{title}\"\n"
         f"URL        : {issue.get('html_url', '')}\n"
         f"Trigger    : latest `{TRIGGER_LABEL}` labeled event {label_event.get('id', '?')} "
         f"at {label_event.get('created_at', '?')}\n\n"
         "Your workspace:\n"
-        f"- It is a clone of `{base_branch}` at `{base_sha}`, already on branch "
-        f"`{branch}`. Do not clone or check out anything else: the code you need is "
-        "already here, and the branch is the one the pull request comes from.\n"
-        "- `origin` carries no credential. Every command that talks to GitHub must "
-        "name `GITHUB_PERSONAL_ACCESS_TOKEN`, because the value is only put in the "
+        f"- {workspace}\n"
+        "- Every command that talks to GitHub must explicitly name "
+        f"`{github_token_secret}`, because the value is only put in the "
         "environment of a command that mentions it. Never echo it.\n\n"
         "Required workflow:\n"
         "1. Read the issue first. Its title above is all you have been told; fetch the "
         "rest yourself:\n"
         f"   `gh issue view {number} --repo {repo} --comments`, or the REST API - "
         f"`/repos/{repo}/issues/{number}` and `/repos/{repo}/issues/{number}/comments` - "
-        "authenticated with `GITHUB_PERSONAL_ACCESS_TOKEN`. Never print the token.\n"
+        "using the GitHub credential named above. Never print the token.\n"
         "2. Follow what the issue points at as far as it matters: linked issues and pull "
         "requests, referenced files, failing runs, prior art in the history.\n"
         "3. Read enough of the codebase to place the change where it belongs and to "
@@ -864,10 +833,10 @@ def _build_implementation_prompt(
         "6. Delete scratch files, build output, and virtualenvs the repository does not "
         f"already ignore, then commit everything on `{branch}`.\n"
         "7. Push the branch:\n"
-        f"   `git push \"https://x-access-token:$GITHUB_PERSONAL_ACCESS_TOKEN@github.com/"
+        f"   `git push \"https://x-access-token:{secret_ref}@github.com/"
         f"{repo}.git\" HEAD:refs/heads/{branch}`\n"
         f"8. Open the pull request{draft_words}:\n"
-        f"   `GH_TOKEN=$GITHUB_PERSONAL_ACCESS_TOKEN gh pr create --repo {repo} "
+        f"   `GH_TOKEN={secret_ref} gh pr create --repo {repo} "
         f"--base {base_branch} --head {branch}{draft_flag} --title \"[#{number}] {title}\" "
         "--body-file <file>`\n"
         "   The body is your pull request description - what changed, why, and what a "

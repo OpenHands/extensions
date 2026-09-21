@@ -17,7 +17,9 @@
         "timezone": "UTC",
         "repositories": [
           "OpenHands/agent-server-gui"
-        ]
+        ],
+        "githubTokenSecret": "GITHUB_PERSONAL_ACCESS_TOKEN",
+        "maintainers": ""
       },
       "upload": {
         "request": {
@@ -29,7 +31,10 @@
           "contentType": "application/gzip",
           "packs": [
             "config.json",
-            "main.py"
+            "main.py",
+            "github_client.py",
+            "maintainer_handoff.py",
+            "worker.py"
           ]
         },
         "response": {
@@ -50,24 +55,26 @@
             "automationId": "github-pr-reviewer",
             "endpoint": "/v1",
             "draft": {
-              "name": "GitHub Code Review Agent - OpenHands/agent-server-gui",
+              "name": "GitHub code review - OpenHands/agent-server-gui",
               "trigger": {
                 "type": "cron",
                 "schedule": "*/15 * * * *",
                 "timezone": "UTC"
               },
               "tarball_path": "oh-internal://uploads/00000000-0000-0000-0000-000000000000",
-              "entrypoint": "python3 main.py",
-              "timeout": 600,
+              "entrypoint": "python3 worker.py",
+              "timeout": 300,
               "template": {
                 "id": "github-pr-reviewer",
-                "version": "1.0.0",
+                "version": "1.2.0",
                 "config": {
                   "repos": [
                     "OpenHands/agent-server-gui"
                   ],
                   "trigger_label": "openhands-review",
-                  "review_tone": "thorough"
+                  "review_tone": "thorough",
+                  "github_token_secret": "GITHUB_PERSONAL_ACCESS_TOKEN",
+                  "maintainers": ""
                 }
               }
             }
@@ -86,24 +93,26 @@
           "method": "POST",
           "path": "/v1",
           "body": {
-            "name": "GitHub Code Review Agent - OpenHands/agent-server-gui",
+            "name": "GitHub code review - OpenHands/agent-server-gui",
             "trigger": {
               "type": "cron",
               "schedule": "*/15 * * * *",
               "timezone": "UTC"
             },
             "tarball_path": "oh-internal://uploads/2c1f9a70-77c4-4a1e-9a9d-6f1f2b0c1d34",
-            "entrypoint": "python3 main.py",
-            "timeout": 600,
+            "entrypoint": "python3 worker.py",
+            "timeout": 300,
             "template": {
               "id": "github-pr-reviewer",
-              "version": "1.0.0",
+              "version": "1.2.0",
               "config": {
                 "repos": [
                   "OpenHands/agent-server-gui"
                 ],
                 "trigger_label": "openhands-review",
-                "review_tone": "thorough"
+                "review_tone": "thorough",
+                "github_token_secret": "GITHUB_PERSONAL_ACCESS_TOKEN",
+                "maintainers": ""
               }
             }
           }
@@ -115,7 +124,7 @@
             "user_id": "1a2b3c4d-0000-4000-8000-000000000001",
             "org_id": "1a2b3c4d-0000-4000-8000-000000000002",
             "model": null,
-            "name": "GitHub Code Review Agent - OpenHands/agent-server-gui",
+            "name": "GitHub code review - OpenHands/agent-server-gui",
             "prompt": "Review pull requests labeled 'openhands-review' in OpenHands/agent-server-gui. Review tone: thorough.",
             "trigger": {
               "type": "cron",
@@ -124,8 +133,8 @@
             },
             "tarball_path": "oh-internal://uploads/8d2c1f90-7e34-4a55-b0d1-6c9e3a2f4b88",
             "setup_script_path": "setup.sh",
-            "entrypoint": ".venv/bin/python main.py",
-            "timeout": 600,
+            "entrypoint": "python3 worker.py",
+            "timeout": 300,
             "keep_alive": null,
             "enabled": true,
             "last_triggered_at": null,
@@ -146,7 +155,9 @@
         "repositories": [
           "OpenHands/agent-server-gui",
           "OpenHands/automation"
-        ]
+        ],
+        "githubTokenSecret": "GITHUB_PERSONAL_ACCESS_TOKEN",
+        "maintainers": ""
       },
       "upload": {
         "request": {
@@ -158,7 +169,10 @@
           "contentType": "application/gzip",
           "packs": [
             "config.json",
-            "main.py"
+            "main.py",
+            "github_client.py",
+            "maintainer_handoff.py",
+            "worker.py"
           ]
         },
         "response": {
@@ -179,25 +193,27 @@
             "automationId": "github-pr-reviewer",
             "endpoint": "/v1",
             "draft": {
-              "name": "GitHub Code Review Agent - 2 repositories",
+              "name": "GitHub code review - 2 repositories",
               "trigger": {
                 "type": "cron",
                 "schedule": "*/15 * * * *",
                 "timezone": "UTC"
               },
               "tarball_path": "oh-internal://uploads/00000000-0000-0000-0000-000000000000",
-              "entrypoint": "python3 main.py",
-              "timeout": 600,
+              "entrypoint": "python3 worker.py",
+              "timeout": 300,
               "template": {
                 "id": "github-pr-reviewer",
-                "version": "1.0.0",
+                "version": "1.2.0",
                 "config": {
                   "repos": [
                     "OpenHands/agent-server-gui",
                     "OpenHands/automation"
                   ],
                   "trigger_label": "openhands-review",
-                  "review_tone": "thorough"
+                  "review_tone": "thorough",
+                  "github_token_secret": "GITHUB_PERSONAL_ACCESS_TOKEN",
+                  "maintainers": ""
                 }
               }
             }
@@ -216,25 +232,27 @@
           "method": "POST",
           "path": "/v1",
           "body": {
-            "name": "GitHub Code Review Agent - 2 repositories",
+            "name": "GitHub code review - 2 repositories",
             "trigger": {
               "type": "cron",
               "schedule": "*/15 * * * *",
               "timezone": "UTC"
             },
             "tarball_path": "oh-internal://uploads/2c1f9a70-77c4-4a1e-9a9d-6f1f2b0c1d34",
-            "entrypoint": "python3 main.py",
-            "timeout": 600,
+            "entrypoint": "python3 worker.py",
+            "timeout": 300,
             "template": {
               "id": "github-pr-reviewer",
-              "version": "1.0.0",
+              "version": "1.2.0",
               "config": {
                 "repos": [
                   "OpenHands/agent-server-gui",
                   "OpenHands/automation"
                 ],
                 "trigger_label": "openhands-review",
-                "review_tone": "thorough"
+                "review_tone": "thorough",
+                "github_token_secret": "GITHUB_PERSONAL_ACCESS_TOKEN",
+                "maintainers": ""
               }
             }
           }
@@ -246,7 +264,7 @@
             "user_id": "1a2b3c4d-0000-4000-8000-000000000001",
             "org_id": "1a2b3c4d-0000-4000-8000-000000000002",
             "model": null,
-            "name": "GitHub Code Review Agent - 2 repositories",
+            "name": "GitHub code review - 2 repositories",
             "prompt": "Review pull requests labeled 'openhands-review' in OpenHands/agent-server-gui. Review tone: thorough.",
             "trigger": {
               "type": "cron",
@@ -255,8 +273,8 @@
             },
             "tarball_path": "oh-internal://uploads/8d2c1f90-7e34-4a55-b0d1-6c9e3a2f4b88",
             "setup_script_path": "setup.sh",
-            "entrypoint": ".venv/bin/python main.py",
-            "timeout": 600,
+            "entrypoint": "python3 worker.py",
+            "timeout": 300,
             "keep_alive": null,
             "enabled": true,
             "last_triggered_at": null,
@@ -265,14 +283,16 @@
             "preset_metadata": {
               "template": {
                 "id": "github-pr-reviewer",
-                "version": "1.0.0",
+                "version": "1.2.0",
                 "config": {
                   "repos": [
                     "OpenHands/agent-server-gui",
                     "OpenHands/automation"
                   ],
                   "trigger_label": "openhands-review",
-                  "review_tone": "thorough"
+                  "review_tone": "thorough",
+                  "github_token_secret": "GITHUB_PERSONAL_ACCESS_TOKEN",
+                  "maintainers": ""
                 }
               }
             }
@@ -290,7 +310,9 @@
         "timezone": "UTC",
         "repositories": [
           "OpenHands/agent-server-gui"
-        ]
+        ],
+        "githubTokenSecret": "GITHUB_PERSONAL_ACCESS_TOKEN",
+        "maintainers": ""
       },
       "preflight": {
         "request": {
@@ -300,24 +322,26 @@
             "automationId": "github-pr-reviewer",
             "endpoint": "/v1",
             "draft": {
-              "name": "GitHub Code Review Agent - OpenHands/agent-server-gui",
+              "name": "GitHub code review - OpenHands/agent-server-gui",
               "trigger": {
                 "type": "cron",
                 "schedule": "*/1 * * * *",
                 "timezone": "UTC"
               },
               "tarball_path": "oh-internal://uploads/00000000-0000-0000-0000-000000000000",
-              "entrypoint": "python3 main.py",
-              "timeout": 600,
+              "entrypoint": "python3 worker.py",
+              "timeout": 300,
               "template": {
                 "id": "github-pr-reviewer",
-                "version": "1.0.0",
+                "version": "1.2.0",
                 "config": {
                   "repos": [
                     "OpenHands/agent-server-gui"
                   ],
                   "trigger_label": "openhands-review",
-                  "review_tone": "concise"
+                  "review_tone": "concise",
+                  "github_token_secret": "GITHUB_PERSONAL_ACCESS_TOKEN",
+                  "maintainers": ""
                 }
               }
             }
@@ -351,7 +375,9 @@
         "timezone": "UTC",
         "repositories": [
           "OpenHands/agent-server-gui"
-        ]
+        ],
+        "githubTokenSecret": "GITHUB_PERSONAL_ACCESS_TOKEN",
+        "maintainers": ""
       },
       "upload": {
         "request": {
@@ -363,7 +389,10 @@
           "contentType": "application/gzip",
           "packs": [
             "config.json",
-            "main.py"
+            "main.py",
+            "github_client.py",
+            "maintainer_handoff.py",
+            "worker.py"
           ]
         },
         "response": {
@@ -381,24 +410,26 @@
           "method": "POST",
           "path": "/v1",
           "body": {
-            "name": "GitHub Code Review Agent - OpenHands/agent-server-gui",
+            "name": "GitHub code review - OpenHands/agent-server-gui",
             "trigger": {
               "type": "cron",
               "schedule": "0 0 31 2 *",
               "timezone": "UTC"
             },
             "tarball_path": "oh-internal://uploads/2c1f9a70-77c4-4a1e-9a9d-6f1f2b0c1d34",
-            "entrypoint": "python3 main.py",
-            "timeout": 600,
+            "entrypoint": "python3 worker.py",
+            "timeout": 300,
             "template": {
               "id": "github-pr-reviewer",
-              "version": "1.0.0",
+              "version": "1.2.0",
               "config": {
                 "repos": [
                   "OpenHands/agent-server-gui"
                 ],
                 "trigger_label": "openhands-review",
-                "review_tone": "concise"
+                "review_tone": "concise",
+                "github_token_secret": "GITHUB_PERSONAL_ACCESS_TOKEN",
+                "maintainers": ""
               }
             }
           }
@@ -435,7 +466,9 @@
         "timezone": "UTC",
         "repositories": [
           "OpenHands/agent-server-gui"
-        ]
+        ],
+        "githubTokenSecret": "GITHUB_PERSONAL_ACCESS_TOKEN",
+        "maintainers": ""
       },
       "upload": {
         "request": {
@@ -447,7 +480,10 @@
           "contentType": "application/gzip",
           "packs": [
             "config.json",
-            "main.py"
+            "main.py",
+            "github_client.py",
+            "maintainer_handoff.py",
+            "worker.py"
           ]
         },
         "response": {
@@ -465,24 +501,26 @@
           "method": "POST",
           "path": "/v1",
           "body": {
-            "name": "GitHub Code Review Agent - OpenHands/agent-server-gui",
+            "name": "GitHub code review - OpenHands/agent-server-gui",
             "trigger": {
               "type": "cron",
               "schedule": "*/15 * * * *",
               "timezone": "UTC"
             },
             "tarball_path": "oh-internal://uploads/2c1f9a70-77c4-4a1e-9a9d-6f1f2b0c1d34",
-            "entrypoint": "python3 main.py",
-            "timeout": 600,
+            "entrypoint": "python3 worker.py",
+            "timeout": 300,
             "template": {
               "id": "github-pr-reviewer",
-              "version": "1.0.0",
+              "version": "1.2.0",
               "config": {
                 "repos": [
                   "OpenHands/agent-server-gui"
                 ],
                 "trigger_label": "openhands-review",
-                "review_tone": "concise"
+                "review_tone": "concise",
+                "github_token_secret": "GITHUB_PERSONAL_ACCESS_TOKEN",
+                "maintainers": ""
               }
             },
             "repos": [

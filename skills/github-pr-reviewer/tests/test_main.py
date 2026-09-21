@@ -522,6 +522,22 @@ class TestRepoReviewGuide(unittest.TestCase):
         self.assertIn("CONTRIBUTING.md", prompt)
         self.assertIn("nested `AGENTS.md`", prompt)
 
+    def test_prompt_uses_native_approval_for_a_clean_review(self):
+        prompt = main._build_review_prompt(
+            "owner/repo",
+            self._pr(),
+            "0123456789abcdef",
+            {"id": "1", "created_at": "t"},
+        )
+
+        self.assertIn("`event: APPROVE`", prompt)
+        self.assertIn("otherwise use `event: COMMENT`", prompt)
+        self.assertIn("Never use `REQUEST_CHANGES`", prompt)
+        self.assertIn("native GitHub review is the only result channel", prompt)
+        self.assertIn("Do not create commit statuses or Checks", prompt)
+        self.assertIn("Do not add speculative or out-of-scope notes", prompt)
+        self.assertIn("forbids the configured bot from approving its own PR", prompt)
+
 
 class TestNormalizeRepo(unittest.TestCase):
     """A repository is written down in more than one way, and every API path in

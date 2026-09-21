@@ -22,14 +22,19 @@ This skill is activated by:
   maps to a changed line, and verifies on GitHub that it landed
 - Posts acknowledgement comments with AI disclosure
 - Configurable review tone and polling schedule
+- Optional human handoff after an exact-head approval. The scanner ranks the
+  configured maintainers by recent commits to changed paths, then by their open
+  GitHub review-request count, and requests one without merging the PR. Use at
+  least two repository collaborators so a maintainer can author a PR without
+  leaving the handoff roster empty.
 
 ## Prerequisites
 
 Set `GITHUB_PERSONAL_ACCESS_TOKEN` in OpenHands Settings -> Secrets. The token
 must be able to read the repositories and their contents, read issue events,
 write issue comments, and **write pull request reviews** — the review is
-published through the pull request reviews API, so read-only pull request access
-is not enough.
+published and the optional human reviewer is requested through the pull request
+API, so read-only pull request access is not enough.
 
 ## Quick Start
 

@@ -9,7 +9,7 @@ It contains reusable, shareable skills and plugins that customize agent behavior
 
 ## Repository boundaries
 
-`OpenHands/extensions` is the public registry for reusable skills, plugins, automations, and integrations. [`OpenHands/software-agent-sdk`](https://github.com/OpenHands/software-agent-sdk) owns Agent Server execution and the canonical API, [`OpenHands/typescript-client`](https://github.com/OpenHands/typescript-client) owns typed browser access to that API, [`OpenHands/OpenHands`](https://github.com/OpenHands/OpenHands) owns Agent Canvas UI, and [`OpenHands/automation`](https://github.com/OpenHands/automation) owns scheduling, webhooks, run history, dispatch, and sandbox lifecycle orchestration.
+`OpenHands/extensions` is the public registry for reusable skills, plugins, automations, and integrations. [`OpenHands/software-agent-sdk`](https://github.com/OpenHands/software-agent-sdk) owns Agent Server execution, the canonical API, and typed browser access to it under `clients/typescript/`, [`OpenHands/OpenHands`](https://github.com/OpenHands/OpenHands) owns Agent Canvas UI, and [`OpenHands/automation`](https://github.com/OpenHands/automation) owns scheduling, webhooks, run history, dispatch, and sandbox lifecycle orchestration.
 
 Put reusable extension artifacts here rather than in application repositories. If a PR is opened in the wrong repository, close and move it to the repository that owns the change.
 
@@ -96,7 +96,7 @@ The JS and Python versions are kept in lock-step by `release-please` and guarded
 ## Extensions Catalog
 
 <!-- BEGIN AUTO-GENERATED CATALOG -->
-This repository contains **2 marketplace(s)** with **68 extensions** (58 skills, 10 plugins).
+This repository contains **2 marketplace(s)** with **72 extensions** (62 skills, 10 plugins).
 
 ### large-codebase
 
@@ -115,7 +115,7 @@ OpenHands skills for interacting, improving, and refactoring large codebases
 
 Official skills and plugins for OpenHands — the open-source AI software engineer.
 
-**64 extensions** (56 skills, 8 plugins)
+**68 extensions** (60 skills, 8 plugins)
 
 | Name | Type | Description | Commands |
 |------|------|-------------|----------|
@@ -141,11 +141,14 @@ Official skills and plugins for OpenHands — the open-source AI software engine
 | github | skill | Interact with GitHub repositories, pull requests, issues, and workflows using the GITHUB_TOKEN environment variable a... | — |
 | github-actions | skill | Create, debug, and test GitHub Actions workflows and custom actions. Use when building CI/CD pipelines, automating wo... | — |
 | github-agents-md-maintainer | skill | Create an automation that keeps AGENTS.md current in one or more GitHub repositories. On a schedule an agent reads th... | `/agents-md:setup` |
+| github-delivery-watchdog | skill | Periodically check pull requests and merge only current heads with independent review, tests, and passing CI. | `/github-delivery-watchdog` |
 | github-issue-to-pr | skill | Create an automation that implements GitHub issues when a configurable trigger label is applied. Clones the default b... | `/issue-to-pr:setup` |
+| github-issue-triage | skill | Prioritize open issues and establish acceptance criteria before marking them ready for development. | `/github-issue-triage` |
 | github-pr-review | skill | Post structured PR reviews to GitHub with inline comments/suggestions in a single API call. | `/github-pr-review` |
 | github-pr-reviewer | skill | Create an automation that reviews GitHub pull requests when they are opened or updated. Inspects the diff, changed fi... | `/pr-reviewer:setup` |
 | github-repo-monitor | skill | Create a cron automation that polls a GitHub repository for issue and PR comments containing a configurable trigger p... | `/github-monitor:poll` |
 | gitlab | skill | Interact with GitLab repositories, merge requests, and APIs using the GITLAB_TOKEN environment variable. Use when wor... | — |
+| gitlab-issue-to-mr | skill | Create an automation that implements GitLab issues when a configurable trigger label is applied. Clones the default b... | `/issue-to-mr:setup` |
 | incident-retrospective | skill | Create an automation that drafts incident retrospectives by gathering incident-channel messages from Slack, collectin... | `/incident-retro:setup` |
 | iterate | skill | Iterate on a GitHub pull request — drive it through CI, code review, and QA until merge-ready. Monitors state, fixes ... | `/iterate`, `/verify`, `/babysit` |
 | jira-issue-to-pr | skill | Deploy a cron-based OpenHands automation that watches a Jira Cloud project for issues labeled with a configurable lab... | — |
@@ -162,6 +165,7 @@ Official skills and plugins for OpenHands — the open-source AI software engine
 | openhands | plugin | Unified OpenHands plugin — bundles Cloud CLI, REST API (openhands-api), and Automations (openhands-automation) into a... | `/openhands-cloud` |
 | openhands-api | skill | Use the OpenHands Cloud REST API (V1) and agent-server APIs to create and manage Cloud or local backend conversations... | — |
 | openhands-automation | skill | Create and manage OpenHands automations - scheduled tasks that run in sandboxes. Use the prompt preset to create auto... | `/automation:create` |
+| openhands-enterprise-troubleshooting | skill | Diagnose and resolve common issues on OpenHands Enterprise self-hosted installations. Covers sandbox startup failures... | — |
 | openhands-sdk | skill | Reference skill for the OpenHands Software Agent SDK - build AI agents with custom tools, LLM configuration, conversa... | `/sdk` |
 | pdflatex | skill | Install and use pdflatex to compile LaTeX documents into PDFs on Linux. Use when generating academic papers, research... | — |
 | plain-english-content | skill | Write and edit clear, accessible prose in a plain English content style: active voice, front-loaded content, sentence... | — |

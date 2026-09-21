@@ -58,6 +58,8 @@ jobs:
         run: python scripts/sync_extensions.py --check
 
   sync-sdk-skill:
+    permissions:
+      contents: read
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -69,4 +71,6 @@ jobs:
           python-version: "3.12"
 
       - name: Check SDK skill is up to date
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
         run: python scripts/sync_openhands_sdk_skill.py --check
