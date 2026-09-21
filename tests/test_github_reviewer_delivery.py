@@ -3,6 +3,8 @@
 from pathlib import Path
 from unittest.mock import Mock
 
+import pytest
+
 from github_automation_helpers import worker
 
 
@@ -72,6 +74,7 @@ def test_reviewer_submits_each_labeled_exact_head(tmp_path, monkeypatch):
     assert "gh auth setup-git" in prompt
     assert "GIT_TERMINAL_PROMPT=0" in prompt
     assert "Never paste JSON artifacts" in prompt
+    assert "stop immediately" in prompt
 
 
 def test_reviewer_redelivers_when_review_predates_latest_label(tmp_path, monkeypatch):
@@ -131,7 +134,9 @@ def test_reviewer_ignores_unlabeled_prs(tmp_path, monkeypatch):
     submit.assert_not_called()
 
 
-def test_reviewer_continues_after_one_submission_fails(tmp_path, monkeypatch):
+def test_reviewer_continues_after_one_submission_fails_then_reports_run_failure(
+    tmp_path, monkeypatch
+):
     module, run = _reviewer(tmp_path, monkeypatch)
     prs = [
         {
@@ -156,7 +161,8 @@ def test_reviewer_continues_after_one_submission_fails(tmp_path, monkeypatch):
     )
     run.dispatcher.deliver = submit
 
-    run.run()
+    with pytest.raises(RuntimeError, match="Reviewer scan failed for PRs: #1"):
+        run.run()
 
     assert submit.call_count == 2
 
@@ -215,7 +221,8 @@ def test_reviewer_retries_failed_handoff_without_clearing_label(tmp_path, monkey
         Mock(side_effect=RuntimeError("temporary GitHub failure")),
     )
 
-    run.run()
+    with pytest.raises(RuntimeError, match="Reviewer scan failed for PRs: #2"):
+        run.run()
 
     assert all(call.args[0] != "DELETE" for call in run.gh.call_args_list)
     run.dispatcher.deliver.assert_not_called()
@@ -266,6 +273,7 @@ def test_reviewer_keeps_label_when_head_moves_before_cleanup(tmp_path, monkeypat
     run.run()
 
     assert all(call.args[0] != "DELETE" for call in run.gh.call_args_list)
+    run.dispatcher.deliver.assert_not_called()
 
 
 def test_reviewer_does_not_handoff_failed_review(tmp_path, monkeypatch):

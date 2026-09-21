@@ -1,6 +1,7 @@
 """Select labeled PR heads and delegate each review to a sandboxed agent."""
 
 import json
+import sys
 from functools import cached_property
 from urllib.parse import quote
 
@@ -54,7 +55,10 @@ class PullRequestReviewer(GitHubRepository):
             f"- Leave the `{label}` label in place after GitHub accepts the review. "
             "The deterministic scanner removes it after completing any configured "
             "human-review handoff. Never paste JSON artifacts or full command logs "
-            "into comments."
+            "into comments.\n"
+            "- Once GitHub accepts the native review, stop immediately. Do not "
+            "continue inspecting the repository, run more commands, or publish a "
+            "second result."
         )
 
     def _finish_completed_review(self, pr, label, label_event):
@@ -117,7 +121,10 @@ class PullRequestReviewer(GitHubRepository):
                 )
         current = self.gh("GET", f"/pulls/{pr['number']}")
         if current["head"]["sha"] != pr["head"]["sha"]:
-            return False
+            # The label remains for the next scan, which will review the new
+            # head. Treat this scan as handled so it cannot redeliver the stale
+            # head after detecting the race.
+            return True
         self.gh("DELETE", f"/issues/{pr['number']}/labels/{quote(label, safe='')}")
         return True
 
@@ -125,6 +132,7 @@ class PullRequestReviewer(GitHubRepository):
         repository_id = self.gh("GET", "")["id"]
         label = self.config.get("trigger_label", workflow.TRIGGER_LABEL)
         prs = self.gh_pages("/pulls?state=open&sort=updated&direction=asc")
+        failures = []
         for candidate in prs:
             if label not in {item["name"] for item in candidate.get("labels", [])}:
                 continue
@@ -156,11 +164,19 @@ class PullRequestReviewer(GitHubRepository):
                     flush=True,
                 )
             except Exception as exc:  # noqa: BLE001 - one PR must not block the scan
+                failures.append(candidate.get("number", "?"))
                 print(
                     f"Failed to submit {self.repository} PR "
-                    f"#{candidate.get('number', '?')}: {exc}",
+                    f"#{candidate.get('number', '?')}: "
+                    f"{type(exc).__name__}: {exc}",
+                    file=sys.stderr,
                     flush=True,
                 )
+        if failures:
+            raise RuntimeError(
+                "Reviewer scan failed for PRs: "
+                + ", ".join(f"#{number}" for number in failures)
+            )
 
 
 if __name__ == "__main__":
