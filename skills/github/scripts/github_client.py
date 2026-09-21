@@ -123,6 +123,10 @@ class GitHubRepository:
             self.token, method, f"/repos/{self.repository}" + path, body=body
         )[0]
 
+    def api(self, method, path, params=None, body=None):
+        """Call a GitHub endpoint that is not scoped to one repository."""
+        return github_request(self.token, method, path, params=params, body=body)[0]
+
     def shell(self, args, cwd=None, timeout=300):
         result = subprocess.run(
             args,

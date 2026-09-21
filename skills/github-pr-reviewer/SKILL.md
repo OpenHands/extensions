@@ -53,8 +53,10 @@ Verify that the following secret is set in **OpenHands Settings -> Secrets**:
 | `GITHUB_PERSONAL_ACCESS_TOKEN` | Fine-grained PAT | Contents: Read, Metadata: Read, Pull requests: **Read and Write**, Issues: Read and Write |
 
 Pull-request **write** access is required because the agent publishes a pull
-request review, not just an issue comment. A token with only Pull requests: Read
-will poll happily and then fail at the point of publishing.
+request review, not just an issue comment. The Agent Canvas catalog worker may
+also request a configured human reviewer after approval. A token with only Pull
+requests: Read will poll happily and then fail at the point of publishing or
+requesting the handoff.
 
 When several repositories are monitored, the token must cover all of them.
 

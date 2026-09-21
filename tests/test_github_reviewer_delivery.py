@@ -14,6 +14,7 @@ def _reviewer(tmp_path, monkeypatch):
     run.token = "token"
     run.token_name = "FACTORY_GITHUB_REVIEWER_TOKEN"
     run.dispatcher = Mock()
+    run.statuses = lambda sha: {}
     return module, run
 
 
@@ -108,3 +109,82 @@ def test_reviewer_scanner_has_no_conversation_or_runtime_code():
         "AUTOMATION_CONVERSATION_ID",
     ):
         assert forbidden not in source
+
+
+def test_reviewer_hands_positive_exact_head_to_maintainer(tmp_path, monkeypatch):
+    module, run = _reviewer(tmp_path, monkeypatch)
+    run.config["maintainers"] = "neubig, VascoSch92"
+    pr = {
+        "number": 2,
+        "head": {"sha": "head-2"},
+        "labels": [{"name": "openhands-review"}],
+    }
+    run.gh_pages = lambda path: [pr]
+    run.statuses = Mock(
+        return_value={
+            "software-factory/review": "success",
+            "software-factory/tests": "success",
+        }
+    )
+    run.gh = Mock(side_effect=[{"id": 99}, pr, {}])
+    handoff = Mock(return_value="VascoSch92")
+    monkeypatch.setattr(module, "request_maintainer_review", handoff)
+
+    run.run()
+
+    handoff.assert_called_once_with(run, pr, ["neubig", "VascoSch92"])
+    run.statuses.assert_called_once_with("head-2")
+    assert run.gh.call_args_list[-1].args == (
+        "DELETE",
+        "/issues/2/labels/openhands-review",
+    )
+    run.dispatcher.deliver.assert_not_called()
+
+
+def test_reviewer_retries_failed_handoff_without_clearing_label(tmp_path, monkeypatch):
+    module, run = _reviewer(tmp_path, monkeypatch)
+    run.config["maintainers"] = "neubig"
+    pr = {
+        "number": 2,
+        "head": {"sha": "head-2"},
+        "labels": [{"name": "openhands-review"}],
+    }
+    run.gh_pages = lambda path: [pr]
+    run.statuses = lambda sha: {
+        "software-factory/review": "success",
+        "software-factory/tests": "success",
+    }
+    run.gh = Mock(side_effect=[{"id": 99}, pr])
+    monkeypatch.setattr(
+        module,
+        "request_maintainer_review",
+        Mock(side_effect=RuntimeError("temporary GitHub failure")),
+    )
+
+    run.run()
+
+    assert all(call.args[0] != "DELETE" for call in run.gh.call_args_list)
+    run.dispatcher.deliver.assert_not_called()
+
+
+def test_reviewer_does_not_handoff_failed_review(tmp_path, monkeypatch):
+    module, run = _reviewer(tmp_path, monkeypatch)
+    run.config["maintainers"] = "neubig"
+    pr = {
+        "number": 2,
+        "head": {"sha": "head-2"},
+        "labels": [{"name": "openhands-review"}],
+    }
+    run.gh_pages = lambda path: [pr]
+    run.statuses = lambda sha: {
+        "software-factory/review": "failure",
+        "software-factory/tests": "success",
+    }
+    run.gh = Mock(side_effect=[{"id": 99}, pr, {}])
+    handoff = Mock()
+    monkeypatch.setattr(module, "request_maintainer_review", handoff)
+
+    run.run()
+
+    handoff.assert_not_called()
+    run.dispatcher.deliver.assert_not_called()

@@ -1,10 +1,12 @@
 """Select labeled PR heads and delegate each review to a sandboxed agent."""
 
 import json
+from urllib.parse import quote
 
 import main as workflow
 from agent_conversation import AgentConversationDispatcher
 from github_client import GitHubRepository, run_repositories
+from maintainer_handoff import parse_maintainers, request_maintainer_review
 
 
 class PullRequestReviewer(GitHubRepository):
@@ -45,9 +47,35 @@ class PullRequestReviewer(GitHubRepository):
             "verdict, otherwise failure. Set `software-factory/tests` to success only "
             "when the relevant checks and tests pass, otherwise failure. Use the exact "
             f"head `{sha}` for both statuses.\n"
-            f"- After both statuses are visible on that head, remove the `{label}` "
-            "label. Never paste JSON artifacts or full command logs into comments."
+            f"- Leave the `{label}` label in place after both statuses are visible. "
+            "The deterministic scanner removes it after completing any configured "
+            "human-review handoff. Never paste JSON artifacts or full command logs "
+            "into comments."
         )
+
+    def _finish_completed_review(self, pr, label):
+        """Complete an exact-head review, including an optional human handoff."""
+        statuses = self.statuses(pr["head"]["sha"])
+        review = statuses.get("software-factory/review")
+        tests = statuses.get("software-factory/tests")
+        if review is None or tests is None:
+            return False
+        if review == "success" and tests == "success":
+            maintainers = parse_maintainers(self.config.get("maintainers"))
+            if maintainers:
+                selected = request_maintainer_review(self, pr, maintainers)
+                print(
+                    json.dumps(
+                        {
+                            "repository": self.repository,
+                            "pr": pr["number"],
+                            "human_reviewer": selected,
+                        }
+                    ),
+                    flush=True,
+                )
+        self.gh("DELETE", f"/issues/{pr['number']}/labels/{quote(label, safe='')}")
+        return True
 
     def run(self):
         repository_id = self.gh("GET", "")["id"]
@@ -58,6 +86,8 @@ class PullRequestReviewer(GitHubRepository):
                 continue
             try:
                 pr = self.gh("GET", f"/pulls/{candidate['number']}")
+                if self._finish_completed_review(pr, label):
+                    continue
                 event = workflow._latest_trigger_label_event(
                     self.token, self.repository, pr["number"]
                 )
