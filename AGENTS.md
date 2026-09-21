@@ -16,6 +16,27 @@ Related repositories have distinct responsibilities:
 
 Put reusable skills, plugins, automations, and integrations here; put backend execution behavior and typed API access in the SDK, application UI in Agent Canvas, and scheduling/dispatch lifecycle code in `automation`. If a PR is opened in the wrong repository, explicitly recommend closing and moving it to the owning repository. PRs must follow this repository's applicable contribution and code-review guidance.
 
+## Review-Facing Extension Checklist
+
+Before opening a PR:
+
+- Keep a content change focused on one skill, plugin, automation bundle, or
+  integration. Put shared product runtime behavior in the repository that owns
+  it instead of copying machinery into extension content.
+- Treat every command, import, environment variable, endpoint, setup step, and
+  package name as an executable contract. Test the documented entrypoint with
+  released packages in each local or cloud environment the extension claims to
+  support; do not rely on developer-only variables or private paths.
+- For event-, comment-, or message-triggered work, define who may trigger it,
+  whose identity executes it, what scope it may mutate, and which minimal secrets
+  it receives. A trigger phrase is not authorization.
+- Edit the hand-authored source once and regenerate derived catalogs, commands,
+  indexes, and package assets with the existing sync/build command. Document the
+  true generation direction and do not introduce a parallel source of truth.
+- Verify copy-paste commands and factual documentation claims against the actual
+  tool or authoritative source. Extension instructions are executed by agents,
+  so incorrect setup or data-flow documentation is a functional defect.
+
 ## What this repo contains
 
 - `skills/` — a catalog of skills, **one directory per skill**.
