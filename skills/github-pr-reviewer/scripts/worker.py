@@ -57,14 +57,20 @@ class PullRequestReviewer(GitHubRepository):
             "into comments."
         )
 
-    def _finish_completed_review(self, pr, label):
+    def _finish_completed_review(self, pr, label, label_event):
         """Complete an exact-head review, including an optional human handoff."""
-        statuses = self.statuses(pr["head"]["sha"])
+        statuses = self.status_records(pr["head"]["sha"])
         review = statuses.get("software-factory/review")
         tests = statuses.get("software-factory/tests")
         if review is None or tests is None:
             return False
-        if review == "success" and tests == "success":
+        triggered_at = label_event.get("created_at") or ""
+        if any(
+            (status.get("created_at") or "") <= triggered_at
+            for status in (review, tests)
+        ):
+            return False
+        if review["state"] == "success" and tests["state"] == "success":
             maintainers = parse_maintainers(self.config.get("maintainers"))
             if maintainers:
                 try:
@@ -109,12 +115,12 @@ class PullRequestReviewer(GitHubRepository):
                 continue
             try:
                 pr = self.gh("GET", f"/pulls/{candidate['number']}")
-                if self._finish_completed_review(pr, label):
-                    continue
                 event = workflow._latest_trigger_label_event(
                     self.token, self.repository, pr["number"]
                 )
                 if event is None:
+                    continue
+                if self._finish_completed_review(pr, label, event):
                     continue
                 sha = pr["head"]["sha"]
                 result = self.dispatcher.deliver(

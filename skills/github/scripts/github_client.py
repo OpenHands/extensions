@@ -159,11 +159,17 @@ class GitHubRepository:
             i for i in self.gh_pages("/issues?state=open") if "pull_request" not in i
         ]
 
-    def statuses(self, sha):
+    def status_records(self, sha):
         result = {}
         for item in self.gh_pages(f"/commits/{sha}/statuses"):
-            result.setdefault(item["context"], item["state"])
+            result.setdefault(item["context"], item)
         return result
+
+    def statuses(self, sha):
+        return {
+            context: item["state"]
+            for context, item in self.status_records(sha).items()
+        }
 
     def completed_dependency(self, number):
         if number in self._completed_dependencies:

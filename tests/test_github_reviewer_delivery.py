@@ -6,6 +6,13 @@ from unittest.mock import Mock
 from github_automation_helpers import worker
 
 
+def _statuses(review="success", tests="success", created_at="2026-01-02T00:00:00Z"):
+    return {
+        "software-factory/review": {"state": review, "created_at": created_at},
+        "software-factory/tests": {"state": tests, "created_at": created_at},
+    }
+
+
 def _reviewer(tmp_path, monkeypatch):
     module = worker("github-pr-reviewer", tmp_path, monkeypatch)
     run = object.__new__(module.PullRequestReviewer)
@@ -14,7 +21,12 @@ def _reviewer(tmp_path, monkeypatch):
     run.token = "token"
     run.token_name = "FACTORY_GITHUB_REVIEWER_TOKEN"
     run.dispatcher = Mock()
-    run.statuses = lambda sha: {}
+    run.status_records = lambda sha: {}
+    monkeypatch.setattr(
+        module.workflow,
+        "_latest_trigger_label_event",
+        lambda *args: {"id": 7, "created_at": "2026-01-01T00:00:00Z"},
+    )
     return module, run
 
 
@@ -52,6 +64,27 @@ def test_reviewer_submits_each_labeled_exact_head(tmp_path, monkeypatch):
     assert "gh auth setup-git" in prompt
     assert "GIT_TERMINAL_PROMPT=0" in prompt
     assert "Never paste JSON artifacts" in prompt
+
+
+def test_reviewer_redelivers_when_statuses_predate_latest_label(tmp_path, monkeypatch):
+    _module, run = _reviewer(tmp_path, monkeypatch)
+    pr = {
+        "number": 2,
+        "head": {"sha": "head-2"},
+        "labels": [{"name": "openhands-review"}],
+    }
+    run.gh_pages = lambda path: [pr]
+    run.status_records = lambda sha: _statuses(created_at="2025-12-31T00:00:00Z")
+    run.gh = Mock(side_effect=[{"id": 99}, pr])
+    run.dispatcher.deliver.return_value = {
+        "disposition": "continued",
+        "conversation_id": "conversation",
+    }
+
+    run.run()
+
+    run.dispatcher.deliver.assert_called_once()
+    assert run.dispatcher.deliver.call_args.kwargs["delivery"] == "7:head-2"
 
 
 def test_reviewer_ignores_unlabeled_prs(tmp_path, monkeypatch):
@@ -120,12 +153,7 @@ def test_reviewer_hands_positive_exact_head_to_maintainer(tmp_path, monkeypatch)
         "labels": [{"name": "openhands-review"}],
     }
     run.gh_pages = lambda path: [pr]
-    run.statuses = Mock(
-        return_value={
-            "software-factory/review": "success",
-            "software-factory/tests": "success",
-        }
-    )
+    run.status_records = Mock(return_value=_statuses())
     run.gh = Mock(side_effect=[{"id": 99}, pr, pr, {}])
     handoff = Mock(return_value="VascoSch92")
     monkeypatch.setattr(module, "request_maintainer_review", handoff)
@@ -133,7 +161,7 @@ def test_reviewer_hands_positive_exact_head_to_maintainer(tmp_path, monkeypatch)
     run.run()
 
     handoff.assert_called_once_with(run, pr, ["neubig", "VascoSch92"])
-    run.statuses.assert_called_once_with("head-2")
+    run.status_records.assert_called_once_with("head-2")
     assert run.gh.call_args_list[-1].args == (
         "DELETE",
         "/issues/2/labels/openhands-review",
@@ -150,10 +178,7 @@ def test_reviewer_retries_failed_handoff_without_clearing_label(tmp_path, monkey
         "labels": [{"name": "openhands-review"}],
     }
     run.gh_pages = lambda path: [pr]
-    run.statuses = lambda sha: {
-        "software-factory/review": "success",
-        "software-factory/tests": "success",
-    }
+    run.status_records = lambda sha: _statuses()
     run.gh = Mock(side_effect=[{"id": 99}, pr])
     monkeypatch.setattr(
         module,
@@ -176,10 +201,7 @@ def test_reviewer_reports_permanent_handoff_error_once(tmp_path, monkeypatch):
         "labels": [{"name": "openhands-review"}],
     }
     run.gh_pages = lambda path: [pr]
-    run.statuses = lambda sha: {
-        "software-factory/review": "success",
-        "software-factory/tests": "success",
-    }
+    run.status_records = lambda sha: _statuses()
     run.gh = Mock(side_effect=[{"id": 99}, pr, {}, pr, {}])
     monkeypatch.setattr(
         module,
@@ -209,10 +231,7 @@ def test_reviewer_keeps_label_when_head_moves_before_cleanup(tmp_path, monkeypat
     }
     moved = {**pr, "head": {"sha": "head-3"}}
     run.gh_pages = lambda path: [pr]
-    run.statuses = lambda sha: {
-        "software-factory/review": "failure",
-        "software-factory/tests": "success",
-    }
+    run.status_records = lambda sha: _statuses(review="failure")
     run.gh = Mock(side_effect=[{"id": 99}, pr, moved])
 
     run.run()
@@ -229,10 +248,7 @@ def test_reviewer_does_not_handoff_failed_review(tmp_path, monkeypatch):
         "labels": [{"name": "openhands-review"}],
     }
     run.gh_pages = lambda path: [pr]
-    run.statuses = lambda sha: {
-        "software-factory/review": "failure",
-        "software-factory/tests": "success",
-    }
+    run.status_records = lambda sha: _statuses(review="failure")
     run.gh = Mock(side_effect=[{"id": 99}, pr, pr, {}])
     handoff = Mock()
     monkeypatch.setattr(module, "request_maintainer_review", handoff)
