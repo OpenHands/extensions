@@ -121,6 +121,51 @@ def test_existing_request_is_idempotent():
     repo.gh.assert_not_called()
 
 
+def test_prior_head_approval_satisfies_handoff():
+    repo = _repository(
+        reviews=[
+            {
+                "commit_id": "prior-head",
+                "state": "APPROVED",
+                "user": {"login": "VascoSch92"},
+            }
+        ]
+    )
+
+    selected = maintainer_handoff.request_maintainer_review(
+        repo, _pr(), ["neubig", "VascoSch92"]
+    )
+
+    assert selected == "VascoSch92"
+    repo.api.assert_not_called()
+    assert not any(call.args[0] == "POST" for call in repo.gh.call_args_list)
+
+
+def test_later_changes_request_supersedes_prior_approval():
+    repo = _repository(
+        {"src/api.py": []},
+        reviews=[
+            {
+                "commit_id": "prior-head",
+                "state": "APPROVED",
+                "user": {"login": "VascoSch92"},
+            },
+            {
+                "commit_id": "head",
+                "state": "CHANGES_REQUESTED",
+                "user": {"login": "VascoSch92"},
+            },
+        ],
+    )
+
+    selected = maintainer_handoff.request_maintainer_review(
+        repo, _pr(), ["neubig", "VascoSch92"]
+    )
+
+    assert selected == "VascoSch92"
+    assert not any(call.args[0] == "POST" for call in repo.gh.call_args_list)
+
+
 def test_author_is_excluded_and_empty_roster_is_compatible():
     repo = _repository({"src/api.py": ["neubig"]})
 

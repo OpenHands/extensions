@@ -27,10 +27,10 @@ def parse_maintainers(value):
     return result
 
 
-def _standing_reviewers(reviews, head_sha):
+def _reviewer_states(reviews, head_sha=None):
     standing = {}
     for review in reviews:
-        if review.get("commit_id") != head_sha:
+        if head_sha is not None and review.get("commit_id") != head_sha:
             continue
         state = (review.get("state") or "").upper()
         login = (review.get("user") or {}).get("login", "").lower()
@@ -98,7 +98,16 @@ def request_maintainer_review(repository, pr, maintainers):
     number = pr["number"]
     head_sha = pr["head"]["sha"]
     reviews = repository.gh_pages(f"/pulls/{number}/reviews")
-    standing = _standing_reviewers(reviews, head_sha)
+    # A human approval remains useful after a later push unless GitHub dismisses
+    # it or the reviewer subsequently requests changes. Do not ask that person
+    # to review the same PR again merely because the automated review targets a
+    # newer commit.
+    review_states = _reviewer_states(reviews)
+    for login in roster:
+        if review_states.get(login.lower()) == "APPROVED":
+            return login
+
+    standing = _reviewer_states(reviews, head_sha)
     for login in roster:
         if login.lower() in standing:
             return login
