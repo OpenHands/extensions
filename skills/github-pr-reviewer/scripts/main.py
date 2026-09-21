@@ -741,6 +741,7 @@ def _build_review_prompt(
     *,
     workspace_instructions: str | None = None,
     github_token_secret: str = "GITHUB_PERSONAL_ACCESS_TOKEN",
+    trigger_description: str | None = None,
 ) -> str:
     number = pr.get("number", "?")
     title = pr.get("title", "(no title)")
@@ -752,6 +753,10 @@ def _build_review_prompt(
     label_str = ", ".join(_labels(pr)) or "(none)"
     label_event_id = label_event.get("id", "?")
     label_event_created_at = label_event.get("created_at", "?")
+    trigger = trigger_description or (
+        f"latest `{TRIGGER_LABEL}` labeled event {label_event_id} "
+        f"at {label_event_created_at}"
+    )
     changed_files = pr.get("changed_files", "?")
     additions = pr.get("additions", "?")
     deletions = pr.get("deletions", "?")
@@ -775,7 +780,7 @@ def _build_review_prompt(
         f"Author     : @{author}\n"
         f"Base → Head: {base_branch} ← {head_branch}\n"
         f"Head SHA   : {head_sha}\n"
-        f"Trigger    : latest `{TRIGGER_LABEL}` labeled event {label_event_id} at {label_event_created_at}\n"
+        f"Trigger    : {trigger}\n"
         f"Labels     : {label_str}\n"
         f"Changes    : +{additions} -{deletions} across {changed_files} file(s)\n"
         f"URL        : {html_url}\n"
@@ -803,8 +808,8 @@ def _build_review_prompt(
         "`REQUEST_CHANGES`.\n"
         "   The native GitHub review is the only result channel. Do not create commit "
         "statuses or Checks, post a separate issue comment, change labels, request "
-        "reviewers, or merge. The deterministic scanner owns label removal and any "
-        "human-review handoff.\n"
+        "reviewers, or merge. The deterministic automation owns trigger completion "
+        "and any human-review handoff.\n"
         "   Put the overall assessment in `body`, and each line-specific finding in the `comments` "
         "array with `path`, `line`, `side: RIGHT`, and `body`.\n"
         "   Only create inline comments for actionable findings; do not open praise or nitpick threads.\n"

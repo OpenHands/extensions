@@ -1,10 +1,10 @@
 ---
 name: github-pr-reviewer
 description: >
-  Create an automation that reviews GitHub pull requests when a configurable
-  trigger label is applied. Polls one or more repositories deterministically,
-  starts one OpenHands review conversation per label event with the pull
-  request's head commit already checked out, and publishes the review to GitHub.
+  Create an automation that reviews GitHub pull requests when a configured
+  reviewer is requested or a trigger label is applied. Starts one OpenHands
+  review conversation per request with the pull request's exact head checked
+  out, and publishes the review to GitHub.
 triggers:
   - /pr-reviewer:setup
 ---
@@ -14,9 +14,10 @@ triggers:
 ## Agent Canvas catalog
 
 For new Agent Canvas installations, use the **GitHub code review** catalog
-entry. Its deterministic `worker.py` scanner delegates each labeled exact head
-to a stable conversation using the selected agent profile. The manual upload
-flow below remains for existing deployments and is deprecated for new installations.
+entry. Its deterministic `worker.py` delegates each requested exact head to a
+stable conversation using the selected agent profile. It supports GitHub
+reviewer-request events and scheduled label scans. The manual upload flow below
+remains for existing deployments and is deprecated for new installations.
 
 Create a cron automation that watches one or more GitHub repositories for pull
 requests with a review trigger label, starts an OpenHands review conversation
