@@ -170,10 +170,10 @@ def test_same_delivery_resumes_only_inactive_conversation(
 
     assert result["disposition"] == disposition
     conversation.send_message.assert_not_called()
+    conversation.update_secrets.assert_called_once_with(dispatcher._secrets)
     if should_run:
         conversation.run.assert_called_once_with(blocking=False)
     else:
-        conversation.update_secrets.assert_not_called()
         conversation.run.assert_not_called()
 
 

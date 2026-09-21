@@ -117,6 +117,7 @@ class AgentConversationDispatcher:
                         conversation.state.execution_status
                         == ConversationExecutionStatus.RUNNING
                     ):
+                        conversation.update_secrets(self._secrets)
                         disposition = "in_progress"
                     elif conversation.state.execution_status in (
                         ConversationExecutionStatus.IDLE,
