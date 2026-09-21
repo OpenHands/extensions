@@ -1,5 +1,6 @@
 """Contract tests for delegated GitHub PR review."""
 
+import json
 from pathlib import Path
 from unittest.mock import Mock
 
@@ -33,12 +34,29 @@ def _reviewer(tmp_path, monkeypatch):
     run.token_name = "FACTORY_GITHUB_REVIEWER_TOKEN"
     run.github_login = "all-hands-bot"
     run.dispatcher = Mock()
+    monkeypatch.delenv("AUTOMATION_EVENT_PAYLOAD", raising=False)
     monkeypatch.setattr(
         module.workflow,
         "_latest_trigger_label_event",
         lambda *args: {"id": 7, "created_at": "2026-01-01T00:00:00Z"},
     )
     return module, run
+
+
+def _event(monkeypatch, *, action="review_requested", login="all-hands-bot"):
+    payload = {
+        "action": action,
+        "repository": {"full_name": "owner/repo"},
+        "pull_request": {"number": 2},
+    }
+    if action == "review_requested":
+        payload["requested_reviewer"] = {"login": login}
+    else:
+        payload["review"] = {"user": {"login": login}}
+    monkeypatch.setenv(
+        "AUTOMATION_EVENT_PAYLOAD",
+        json.dumps({"automation_id": "automation", "event": {"payload": payload}}),
+    )
 
 
 def test_reviewer_submits_each_labeled_exact_head(tmp_path, monkeypatch):
@@ -75,6 +93,117 @@ def test_reviewer_submits_each_labeled_exact_head(tmp_path, monkeypatch):
     assert "GIT_TERMINAL_PROMPT=0" in prompt
     assert "Never paste JSON artifacts" in prompt
     assert "stop immediately" in prompt
+
+
+def test_reviewer_submits_requested_exact_head(tmp_path, monkeypatch):
+    _module, run = _reviewer(tmp_path, monkeypatch)
+    _event(monkeypatch)
+    pr = {"number": 2, "head": {"sha": "head-2"}, "labels": []}
+    request = {
+        "id": 42,
+        "event": "review_requested",
+        "created_at": "2026-01-01T00:00:00Z",
+        "requested_reviewer": {"login": "all-hands-bot"},
+    }
+    run.gh = Mock(side_effect=[{"id": 99}, pr])
+    run.gh_pages = lambda path: [request] if path.endswith("/events") else []
+    run.dispatcher.deliver.return_value = {
+        "disposition": "created",
+        "conversation_id": "conversation",
+    }
+
+    run.run()
+
+    call = run.dispatcher.deliver.call_args.kwargs
+    assert call["subject"] == "99:pr:2"
+    assert call["delivery"] == "42:head-2"
+    assert "latest review request for `all-hands-bot` event 42" in call["prompt"]
+    assert "new head requires another reviewer request" in call["prompt"]
+
+
+def test_reviewer_ignores_request_for_another_reviewer(tmp_path, monkeypatch):
+    _module, run = _reviewer(tmp_path, monkeypatch)
+    _event(monkeypatch, login="human")
+    run.gh = Mock(return_value={"id": 99})
+
+    run.run()
+
+    run.dispatcher.deliver.assert_not_called()
+
+
+def test_reviewer_event_hands_positive_review_to_maintainer(tmp_path, monkeypatch):
+    module, run = _reviewer(tmp_path, monkeypatch)
+    _event(monkeypatch, action="submitted")
+    run.config["maintainers"] = "neubig, VascoSch92"
+    pr = {"number": 2, "head": {"sha": "head-2"}, "labels": []}
+    request = {
+        "id": 42,
+        "event": "review_requested",
+        "created_at": "2026-01-01T00:00:00Z",
+        "requested_reviewer": {"login": "all-hands-bot"},
+    }
+    run.gh = Mock(side_effect=[{"id": 99}, pr, pr])
+    run.gh_pages = lambda path: [request] if path.endswith("/events") else _reviews()
+    handoff = Mock(return_value="VascoSch92")
+    monkeypatch.setattr(module, "request_maintainer_review", handoff)
+
+    run.run()
+
+    handoff.assert_called_once_with(run, pr, ["neubig", "VascoSch92"])
+    assert all(call.args[0] != "DELETE" for call in run.gh.call_args_list)
+    run.dispatcher.deliver.assert_not_called()
+
+
+def test_reviewer_submitted_non_decisive_review_does_not_dispatch(
+    tmp_path, monkeypatch
+):
+    module, run = _reviewer(tmp_path, monkeypatch)
+    _event(monkeypatch, action="submitted")
+    run.config["maintainers"] = "neubig"
+    pr = {"number": 2, "head": {"sha": "head-2"}, "labels": []}
+    request = {
+        "id": 42,
+        "event": "review_requested",
+        "created_at": "2026-01-01T00:00:00Z",
+        "requested_reviewer": {"login": "all-hands-bot"},
+    }
+    run.gh = Mock(side_effect=[{"id": 99}, pr])
+    run.gh_pages = lambda path: (
+        [request] if path.endswith("/events") else _reviews(verdict="LGTM")
+    )
+    handoff = Mock()
+    monkeypatch.setattr(module, "request_maintainer_review", handoff)
+
+    run.run()
+
+    run.dispatcher.deliver.assert_not_called()
+    handoff.assert_not_called()
+
+
+def test_reviewer_submitted_review_on_superseded_head_does_not_dispatch(
+    tmp_path, monkeypatch
+):
+    module, run = _reviewer(tmp_path, monkeypatch)
+    _event(monkeypatch, action="submitted")
+    run.config["maintainers"] = "neubig"
+    pr = {"number": 2, "head": {"sha": "head-3"}, "labels": []}
+    request = {
+        "id": 42,
+        "event": "review_requested",
+        "created_at": "2026-01-01T00:00:00Z",
+        "requested_reviewer": {"login": "all-hands-bot"},
+    }
+    run.gh = Mock(side_effect=[{"id": 99}, pr])
+    run.gh_pages = lambda path: (
+        [request] if path.endswith("/events") else _reviews(sha="head-2")
+    )
+    handoff = Mock()
+    monkeypatch.setattr(module, "request_maintainer_review", handoff)
+
+    run.run()
+
+    run.dispatcher.deliver.assert_not_called()
+    handoff.assert_not_called()
 
 
 def test_reviewer_redelivers_when_review_predates_latest_label(tmp_path, monkeypatch):
