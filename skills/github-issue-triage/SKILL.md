@@ -40,13 +40,17 @@ lifecycle and cleanup, permissions and secrets, user-facing documentation, and
 realistic automated or live validation. Avoid subjective criteria and avoid
 prescribing an implementation unless repository policy requires one mechanism.
 
-Post one concise triage comment after the human discussion. Separate it with a
-Markdown horizontal rule and the sentence `The following comments and acceptance
-criteria were added by the OpenHands AI agent.` Preserve all human-authored text
-and replace stale automated triage output instead of accumulating comments. Add
-`ready-for-dev` only after the final criteria pass this standard. If the design is
-still unclear, replace the criteria with the minimum focused questions and
-withhold the label. Preserve unrelated labels.
+For an issue that is ready, preserve the author's description and maintain one
+clearly marked OpenHands AI section at the end of the issue body. Put the triage
+scope, any missing repository-required readiness sections, and testable
+acceptance criteria there. Replace only that marked section on later runs and do
+not also post a triage comment. Add `ready-for-dev` only after the final criteria
+pass this standard.
+
+If the design is still unclear, remove any stale managed body section, leave the
+human-owned body unchanged, and post the minimum focused questions in one marked
+comment below the human discussion. Withhold `ready-for-dev`. Preserve unrelated
+labels and never edit or delete human-authored text.
 Do not implement code or accept pull requests.
 
 Each scheduled run submits every changed eligible issue. A failure on one issue is
