@@ -33,7 +33,8 @@ documentation, then follow the pages relevant to the task:
 | [Score](https://docs.typesafe.ai/primitives/score.md) | Rate a bug's impact | Probability-weighted position on ordered levels, plus confidence |
 | [Noul](https://docs.typesafe.ai/primitives/noul.md) | Check whether a refund is requested | Probability of yes; 0.5 means uncertainty, not medium intensity |
 
-Install `typesafe-sdk` and set `JEV_API_KEY` in the environment.
+Install `typesafe-sdk` and check that `JEV_API_KEY` is set in the environment,
+otherwise ask the user to provide it.
 This Python example asks one question of each type in a single call:
 
 ```python
