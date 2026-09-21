@@ -18,7 +18,8 @@
         "repositories": [
           "OpenHands/agent-server-gui"
         ],
-        "githubTokenSecret": "GITHUB_PERSONAL_ACCESS_TOKEN"
+        "githubTokenSecret": "GITHUB_PERSONAL_ACCESS_TOKEN",
+        "maintainers": ""
       },
       "upload": {
         "request": {
@@ -32,6 +33,7 @@
             "config.json",
             "main.py",
             "github_client.py",
+            "maintainer_handoff.py",
             "worker.py"
           ]
         },
@@ -64,14 +66,15 @@
               "timeout": 300,
               "template": {
                 "id": "github-pr-reviewer",
-                "version": "1.1.1",
+                "version": "1.2.0",
                 "config": {
                   "repos": [
                     "OpenHands/agent-server-gui"
                   ],
                   "trigger_label": "openhands-review",
                   "review_tone": "thorough",
-                  "github_token_secret": "GITHUB_PERSONAL_ACCESS_TOKEN"
+                  "github_token_secret": "GITHUB_PERSONAL_ACCESS_TOKEN",
+                  "maintainers": ""
                 }
               }
             }
@@ -101,14 +104,15 @@
             "timeout": 300,
             "template": {
               "id": "github-pr-reviewer",
-              "version": "1.1.1",
+              "version": "1.2.0",
               "config": {
                 "repos": [
                   "OpenHands/agent-server-gui"
                 ],
                 "trigger_label": "openhands-review",
                 "review_tone": "thorough",
-                "github_token_secret": "GITHUB_PERSONAL_ACCESS_TOKEN"
+                "github_token_secret": "GITHUB_PERSONAL_ACCESS_TOKEN",
+                "maintainers": ""
               }
             }
           }
@@ -152,7 +156,8 @@
           "OpenHands/agent-server-gui",
           "OpenHands/automation"
         ],
-        "githubTokenSecret": "GITHUB_PERSONAL_ACCESS_TOKEN"
+        "githubTokenSecret": "GITHUB_PERSONAL_ACCESS_TOKEN",
+        "maintainers": ""
       },
       "upload": {
         "request": {
@@ -166,6 +171,7 @@
             "config.json",
             "main.py",
             "github_client.py",
+            "maintainer_handoff.py",
             "worker.py"
           ]
         },
@@ -198,7 +204,7 @@
               "timeout": 300,
               "template": {
                 "id": "github-pr-reviewer",
-                "version": "1.1.1",
+                "version": "1.2.0",
                 "config": {
                   "repos": [
                     "OpenHands/agent-server-gui",
@@ -206,7 +212,8 @@
                   ],
                   "trigger_label": "openhands-review",
                   "review_tone": "thorough",
-                  "github_token_secret": "GITHUB_PERSONAL_ACCESS_TOKEN"
+                  "github_token_secret": "GITHUB_PERSONAL_ACCESS_TOKEN",
+                  "maintainers": ""
                 }
               }
             }
@@ -236,7 +243,7 @@
             "timeout": 300,
             "template": {
               "id": "github-pr-reviewer",
-              "version": "1.1.1",
+              "version": "1.2.0",
               "config": {
                 "repos": [
                   "OpenHands/agent-server-gui",
@@ -244,7 +251,8 @@
                 ],
                 "trigger_label": "openhands-review",
                 "review_tone": "thorough",
-                "github_token_secret": "GITHUB_PERSONAL_ACCESS_TOKEN"
+                "github_token_secret": "GITHUB_PERSONAL_ACCESS_TOKEN",
+                "maintainers": ""
               }
             }
           }
@@ -275,7 +283,7 @@
             "preset_metadata": {
               "template": {
                 "id": "github-pr-reviewer",
-                "version": "1.1.1",
+                "version": "1.2.0",
                 "config": {
                   "repos": [
                     "OpenHands/agent-server-gui",
@@ -283,7 +291,8 @@
                   ],
                   "trigger_label": "openhands-review",
                   "review_tone": "thorough",
-                  "github_token_secret": "GITHUB_PERSONAL_ACCESS_TOKEN"
+                  "github_token_secret": "GITHUB_PERSONAL_ACCESS_TOKEN",
+                  "maintainers": ""
                 }
               }
             }
@@ -302,7 +311,8 @@
         "repositories": [
           "OpenHands/agent-server-gui"
         ],
-        "githubTokenSecret": "GITHUB_PERSONAL_ACCESS_TOKEN"
+        "githubTokenSecret": "GITHUB_PERSONAL_ACCESS_TOKEN",
+        "maintainers": ""
       },
       "preflight": {
         "request": {
@@ -323,14 +333,15 @@
               "timeout": 300,
               "template": {
                 "id": "github-pr-reviewer",
-                "version": "1.1.1",
+                "version": "1.2.0",
                 "config": {
                   "repos": [
                     "OpenHands/agent-server-gui"
                   ],
                   "trigger_label": "openhands-review",
                   "review_tone": "concise",
-                  "github_token_secret": "GITHUB_PERSONAL_ACCESS_TOKEN"
+                  "github_token_secret": "GITHUB_PERSONAL_ACCESS_TOKEN",
+                  "maintainers": ""
                 }
               }
             }
@@ -365,7 +376,8 @@
         "repositories": [
           "OpenHands/agent-server-gui"
         ],
-        "githubTokenSecret": "GITHUB_PERSONAL_ACCESS_TOKEN"
+        "githubTokenSecret": "GITHUB_PERSONAL_ACCESS_TOKEN",
+        "maintainers": ""
       },
       "upload": {
         "request": {
@@ -379,6 +391,7 @@
             "config.json",
             "main.py",
             "github_client.py",
+            "maintainer_handoff.py",
             "worker.py"
           ]
         },
@@ -408,14 +421,15 @@
             "timeout": 300,
             "template": {
               "id": "github-pr-reviewer",
-              "version": "1.1.1",
+              "version": "1.2.0",
               "config": {
                 "repos": [
                   "OpenHands/agent-server-gui"
                 ],
                 "trigger_label": "openhands-review",
                 "review_tone": "concise",
-                "github_token_secret": "GITHUB_PERSONAL_ACCESS_TOKEN"
+                "github_token_secret": "GITHUB_PERSONAL_ACCESS_TOKEN",
+                "maintainers": ""
               }
             }
           }
@@ -453,7 +467,8 @@
         "repositories": [
           "OpenHands/agent-server-gui"
         ],
-        "githubTokenSecret": "GITHUB_PERSONAL_ACCESS_TOKEN"
+        "githubTokenSecret": "GITHUB_PERSONAL_ACCESS_TOKEN",
+        "maintainers": ""
       },
       "upload": {
         "request": {
@@ -467,6 +482,7 @@
             "config.json",
             "main.py",
             "github_client.py",
+            "maintainer_handoff.py",
             "worker.py"
           ]
         },
@@ -496,14 +512,15 @@
             "timeout": 300,
             "template": {
               "id": "github-pr-reviewer",
-              "version": "1.1.1",
+              "version": "1.2.0",
               "config": {
                 "repos": [
                   "OpenHands/agent-server-gui"
                 ],
                 "trigger_label": "openhands-review",
                 "review_tone": "concise",
-                "github_token_secret": "GITHUB_PERSONAL_ACCESS_TOKEN"
+                "github_token_secret": "GITHUB_PERSONAL_ACCESS_TOKEN",
+                "maintainers": ""
               }
             },
             "repos": [

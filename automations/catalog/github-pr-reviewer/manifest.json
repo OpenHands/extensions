@@ -1,9 +1,9 @@
 {
   "id": "github-pr-reviewer",
-  "version": "1.1.1",
+  "version": "1.2.0",
   "name": "GitHub code review",
   "category": "Code review",
-  "description": "Review labeled pull-request heads, publish readable findings, and record exact-head test and review decisions.",
+  "description": "Review labeled pull-request heads, record exact-head decisions, and optionally request a code-aware human maintainer after approval.",
   "requires": {
     "integrations": {},
     "features": [
@@ -82,6 +82,13 @@
             }
           ]
         },
+        "maintainers": {
+          "type": "text",
+          "label": "Maintainers",
+          "help": "Optional comma-separated GitHub collaborator logins. Include at least two so a maintainer-authored PR still has an eligible reviewer. After an exact-head approval, request one based on changed-path history and current review load.",
+          "default": "",
+          "required": false
+        },
         "githubTokenSecret": {
           "type": "text",
           "label": "GitHub token secret",
@@ -92,22 +99,24 @@
       }
     },
     "bundle": {
-      "version": "1.1.1",
+      "version": "1.2.0",
       "entrypoint": "python3 worker.py",
       "timeout": 300,
       "files": {
         "main.py": "skills/github-pr-reviewer/scripts/main.py",
         "agent_conversation.py": "skills/github/scripts/agent_conversation.py",
         "github_client.py": "skills/github/scripts/github_client.py",
+        "maintainer_handoff.py": "skills/github-pr-reviewer/scripts/maintainer_handoff.py",
         "worker.py": "skills/github-pr-reviewer/scripts/worker.py"
       },
       "config": {
         "repos": "{{form.repositories}}",
         "trigger_label": "{{form.triggerLabel}}",
         "review_tone": "{{form.reviewTone}}",
+        "maintainers": "{{form.maintainers}}",
         "github_token_secret": "{{form.githubTokenSecret}}"
       }
     },
-    "message": "Configure the repositories, review label, tone, credential name, agent profile, and schedule."
+    "message": "Configure the repositories, review label, tone, optional maintainer roster, credential name, agent profile, and schedule."
   }
 }
