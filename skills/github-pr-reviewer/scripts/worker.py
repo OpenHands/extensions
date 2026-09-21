@@ -1,6 +1,7 @@
 """Select labeled PR heads and delegate each review to a sandboxed agent."""
 
 import json
+from functools import cached_property
 from urllib.parse import quote
 
 import main as workflow
@@ -15,6 +16,10 @@ from maintainer_handoff import (
 
 class PullRequestReviewer(GitHubRepository):
     name = "github-pr-reviewer"
+
+    @cached_property
+    def github_login(self):
+        return self.api("GET", "/user")["login"]
 
     def _prompt(self, pr, label_event):
         number = pr["number"]
@@ -44,14 +49,9 @@ class PullRequestReviewer(GitHubRepository):
             "the repository's appropriate focused tests in the workspace. Do not "
             "modify tracked files.\n"
             f"- Re-read {self.repository} PR #{number} immediately before reporting. "
-            f"If its head is no longer `{sha}`, publish no status and leave `{label}` "
+            f"If its head is no longer `{sha}`, publish no review and leave `{label}` "
             "in place so the new head is reviewed.\n"
-            "- After the readable native review is accepted by GitHub, set commit "
-            "status `software-factory/review` to success only for an `✅ APPROVED` "
-            "verdict, otherwise failure. Set `software-factory/tests` to success only "
-            "when the relevant checks and tests pass, otherwise failure. Use the exact "
-            f"head `{sha}` for both statuses.\n"
-            f"- Leave the `{label}` label in place after both statuses are visible. "
+            f"- Leave the `{label}` label in place after GitHub accepts the review. "
             "The deterministic scanner removes it after completing any configured "
             "human-review handoff. Never paste JSON artifacts or full command logs "
             "into comments."
@@ -59,18 +59,33 @@ class PullRequestReviewer(GitHubRepository):
 
     def _finish_completed_review(self, pr, label, label_event):
         """Complete an exact-head review, including an optional human handoff."""
-        statuses = self.status_records(pr["head"]["sha"])
-        review = statuses.get("software-factory/review")
-        tests = statuses.get("software-factory/tests")
-        if review is None or tests is None:
-            return False
+        head_sha = pr["head"]["sha"]
         triggered_at = label_event.get("created_at") or ""
-        if any(
-            (status.get("created_at") or "") <= triggered_at
-            for status in (review, tests)
-        ):
+        reviews = self.gh_pages(f"/pulls/{pr['number']}/reviews")
+        completed = [
+            review
+            for review in reviews
+            if review.get("commit_id") == head_sha
+            and ((review.get("user") or {}).get("login") or "").lower()
+            == self.github_login.lower()
+            and (review.get("submitted_at") or "") > triggered_at
+        ]
+        if not completed:
             return False
-        if review["state"] == "success" and tests["state"] == "success":
+        approved = None
+        for review in sorted(
+            completed, key=lambda item: item["submitted_at"], reverse=True
+        ):
+            body = (review.get("body") or "").rstrip()
+            if body.endswith("✅ APPROVED"):
+                approved = True
+                break
+            if body.endswith("🔄 CHANGES REQUESTED"):
+                approved = False
+                break
+        if approved is None:
+            return False
+        if approved:
             maintainers = parse_maintainers(self.config.get("maintainers"))
             if maintainers:
                 try:
