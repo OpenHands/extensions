@@ -154,6 +154,58 @@ def test_reviewer_event_hands_positive_review_to_maintainer(tmp_path, monkeypatc
     run.dispatcher.deliver.assert_not_called()
 
 
+def test_reviewer_submitted_non_decisive_review_does_not_dispatch(
+    tmp_path, monkeypatch
+):
+    module, run = _reviewer(tmp_path, monkeypatch)
+    _event(monkeypatch, action="submitted")
+    run.config["maintainers"] = "neubig"
+    pr = {"number": 2, "head": {"sha": "head-2"}, "labels": []}
+    request = {
+        "id": 42,
+        "event": "review_requested",
+        "created_at": "2026-01-01T00:00:00Z",
+        "requested_reviewer": {"login": "all-hands-bot"},
+    }
+    run.gh = Mock(side_effect=[{"id": 99}, pr])
+    run.gh_pages = lambda path: (
+        [request] if path.endswith("/events") else _reviews(verdict="LGTM")
+    )
+    handoff = Mock()
+    monkeypatch.setattr(module, "request_maintainer_review", handoff)
+
+    run.run()
+
+    run.dispatcher.deliver.assert_not_called()
+    handoff.assert_not_called()
+
+
+def test_reviewer_submitted_review_on_superseded_head_does_not_dispatch(
+    tmp_path, monkeypatch
+):
+    module, run = _reviewer(tmp_path, monkeypatch)
+    _event(monkeypatch, action="submitted")
+    run.config["maintainers"] = "neubig"
+    pr = {"number": 2, "head": {"sha": "head-3"}, "labels": []}
+    request = {
+        "id": 42,
+        "event": "review_requested",
+        "created_at": "2026-01-01T00:00:00Z",
+        "requested_reviewer": {"login": "all-hands-bot"},
+    }
+    run.gh = Mock(side_effect=[{"id": 99}, pr])
+    run.gh_pages = lambda path: (
+        [request] if path.endswith("/events") else _reviews(sha="head-2")
+    )
+    handoff = Mock()
+    monkeypatch.setattr(module, "request_maintainer_review", handoff)
+
+    run.run()
+
+    run.dispatcher.deliver.assert_not_called()
+    handoff.assert_not_called()
+
+
 def test_reviewer_redelivers_when_review_predates_latest_label(tmp_path, monkeypatch):
     _module, run = _reviewer(tmp_path, monkeypatch)
     pr = {

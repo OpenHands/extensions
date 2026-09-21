@@ -237,6 +237,12 @@ class PullRequestReviewer(GitHubRepository):
                 trigger_label = None if event_mode else label
                 if self._finish_completed_review(pr, trigger, trigger_label):
                     continue
+                if event_mode and payload.get("action") == "submitted":
+                    # A submitted review is a completion signal, never a fresh
+                    # trigger. A non-decisive review, or one superseded by a new
+                    # head, must wait for another reviewer request instead of
+                    # dispatching a review the caller never asked for.
+                    continue
                 sha = pr["head"]["sha"]
                 result = self.dispatcher.deliver(
                     subject=f"{repository_id}:pr:{pr['number']}",
