@@ -67,7 +67,7 @@ def test_reviewer_submits_each_labeled_exact_head(tmp_path, monkeypatch):
     assert submit.call_args.kwargs["delivery"] == "7:head-2"
     prompt = submit.call_args.kwargs["prompt"]
     assert "publish the review directly to GitHub" in prompt
-    assert "commit status" not in prompt
+    assert "Do not create commit statuses or Checks" in prompt
     assert "FACTORY_GITHUB_REVIEWER_TOKEN" in prompt
     assert "gh auth setup-git" in prompt
     assert "GIT_TERMINAL_PROMPT=0" in prompt
