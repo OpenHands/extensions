@@ -4,6 +4,7 @@ from uuid import NAMESPACE_URL, UUID, uuid5
 
 import agent_conversation
 import github_client
+import pytest
 from openhands.sdk.conversation.state import ConversationExecutionStatus
 from openhands.sdk.secret import LookupSecret
 
@@ -130,7 +131,17 @@ def test_known_subject_resumes_once_per_delivery(monkeypatch):
     conversation.run.assert_called_once_with(blocking=False)
 
 
-def test_same_delivery_resumes_paused_conversation(monkeypatch):
+@pytest.mark.parametrize(
+    ("status", "disposition", "should_run"),
+    [
+        (ConversationExecutionStatus.IDLE, "resumed", True),
+        (ConversationExecutionStatus.PAUSED, "resumed", True),
+        (ConversationExecutionStatus.RUNNING, "in_progress", False),
+    ],
+)
+def test_same_delivery_resumes_only_inactive_conversation(
+    monkeypatch, status, disposition, should_run
+):
     state = {
         _state_key("repo:pr:9"): {
             "subject": "repo:pr:9",
@@ -147,7 +158,7 @@ def test_same_delivery_resumes_paused_conversation(monkeypatch):
         agent_conversation, "RemoteWorkspace", lambda **kwargs: workspace
     )
     conversation = MagicMock()
-    conversation.state.execution_status = ConversationExecutionStatus.PAUSED
+    conversation.state.execution_status = status
     monkeypatch.setattr(
         agent_conversation.RemoteConversation,
         "attach",
@@ -157,9 +168,13 @@ def test_same_delivery_resumes_paused_conversation(monkeypatch):
     with _dispatcher(monkeypatch) as dispatcher:
         result = dispatcher.deliver("repo:pr:9", "head-1", "old")
 
-    assert result["disposition"] == "resumed"
+    assert result["disposition"] == disposition
     conversation.send_message.assert_not_called()
-    conversation.run.assert_called_once_with(blocking=False)
+    conversation.update_secrets.assert_called_once_with(dispatcher._secrets)
+    if should_run:
+        conversation.run.assert_called_once_with(blocking=False)
+    else:
+        conversation.run.assert_not_called()
 
 
 def test_subjects_use_independent_kv_records(monkeypatch):
