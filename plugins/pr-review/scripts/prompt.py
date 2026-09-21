@@ -135,9 +135,11 @@ or 500+ changed lines. For smaller diffs, just review directly.
 When delegating, split the diff by file (or small group of related files) and
 call the task tool with `subagent_type: "file_reviewer"`. Give each sub-agent
 the relevant acceptance criteria, repository rules, and architectural context
-you established first. Each sub-agent will return a JSON array of material
-findings. Re-verify every result against the whole change, de-duplicate root
-causes, and post a single consolidated review via the GitHub API.
+you established first. Each sub-agent will return a JSON array of concrete
+findings graded critical, major, or minor. Re-verify every result against the
+whole change, de-duplicate root causes, and post a single consolidated review
+via the GitHub API. A minor finding must still identify a real defect; do not
+relabel optional style or cleanup as minor.
 """
 
 # Skill content injected into each file_reviewer sub-agent.
@@ -160,9 +162,9 @@ when the diff alone is not enough to judge an issue.
 ## Review Style
 
 Focus on correctness, security, compatibility, and the supplied acceptance
-criteria. Report only a concrete failure that is present in the current file and
-material to merging. Skip style, optional cleanup, speculative hardening, and
-requests for more tests without an unverified behavior.
+criteria. Report only a concrete failure that is present in the current file.
+Skip style, optional cleanup, speculative hardening, and requests for more tests
+without an unverified behavior.
 
 ## Output Format
 
@@ -173,12 +175,14 @@ Each element must have exactly these fields:
 |------------|--------|-------------|
 | `path`     | string | File path exactly as shown in the diff header (e.g. `src/utils.py`) |
 | `line`     | int    | Line number in the **new** file where the issue occurs |
-| `severity` | string | One of: `"critical"`, `"major"` |
+| `severity` | string | One of: `"critical"`, `"major"`, `"minor"` |
 | `body`     | string | Concise description of the issue, including a suggested fix |
 
 ### Severity guide
 - **critical** — bug, security vulnerability, or data loss
 - **major** — incorrect logic, missing error handling, performance issue
+- **minor** — localized concrete defect with limited impact; never style, naming,
+  optional cleanup, or a speculative improvement
 
 ### Example
 

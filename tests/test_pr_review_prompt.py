@@ -131,15 +131,15 @@ def test_file_reviewer_skill_content():
     content = module.FILE_REVIEWER_SKILL
 
     assert "file-level code reviewer" in content
-    # Material findings only
-    assert "material" in content
+    # Concrete findings only, while retaining limited-impact defects.
+    assert "concrete failure" in content
     # JSON schema documented
     assert "path" in content
     assert "line" in content
     assert "severity" in content
     assert "body" in content
     assert "critical" in content
-    assert '`"minor"`' not in content
+    assert '`"minor"`' in content
     assert '`"nit"`' not in content
     # Tool access documented
     assert "terminal" in content
