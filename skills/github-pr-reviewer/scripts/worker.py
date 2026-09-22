@@ -119,12 +119,9 @@ class PullRequestReviewer(GitHubRepository):
         )
         return (
             prompt + "\n\nAcceptance reporting:\n"
-            "- If the scope gate did not stop the review, inspect the current "
-            "GitHub Actions results for the exact head and run the repository's "
-            "appropriate focused tests in the workspace. A scope-stopped review "
-            "skips this: publish the maintainer-decision review from the PR "
-            "metadata and discussion without running tests. Do not modify tracked "
-            "files.\n"
+            "- Inspect the current GitHub Actions results for the exact head and run "
+            "the repository's appropriate focused tests in the workspace. Do not "
+            "modify tracked files.\n"
             f"- Re-read {self.repository} PR #{number} immediately before reporting. "
             f"If its head is no longer `{sha}`, {moved_head_instruction}.\n"
             f"- {trigger_completion} after completing any configured "
@@ -134,28 +131,6 @@ class PullRequestReviewer(GitHubRepository):
             "continue inspecting the repository, run more commands, or publish a "
             "second result."
         )
-
-    @staticmethod
-    def _completed_review_verdict(completed):
-        """Classify the newest decisive verdict among our exact-head reviews.
-
-        Returns ``"approved"``, ``"changes_requested"``,
-        ``"maintainer_decision"``, or ``None`` when no review carries a verdict
-        this automation recognizes.
-        """
-        markers = (
-            (workflow.APPROVED_VERDICT, "approved"),
-            (workflow.CHANGES_REQUESTED_VERDICT, "changes_requested"),
-            (workflow.MAINTAINER_DECISION_VERDICT, "maintainer_decision"),
-        )
-        for review in sorted(
-            completed, key=lambda item: item["submitted_at"], reverse=True
-        ):
-            body = (review.get("body") or "").rstrip()
-            for marker, verdict in markers:
-                if body.endswith(marker):
-                    return verdict
-        return None
 
     def _finish_completed_review(self, pr, trigger, label=None):
         """Complete an exact-head review, including an optional human handoff."""
@@ -172,14 +147,26 @@ class PullRequestReviewer(GitHubRepository):
         ]
         if not completed:
             return False
-        verdict = self._completed_review_verdict(completed)
-        if verdict is None:
+        approved = None
+        maintainer_decision = False
+        for review in sorted(
+            completed, key=lambda item: item["submitted_at"], reverse=True
+        ):
+            body = (review.get("body") or "").rstrip()
+            if body.endswith("✅ APPROVED"):
+                approved = True
+                break
+            if body.endswith("🔄 CHANGES REQUESTED"):
+                approved = False
+                break
+            if body.endswith(workflow.MAINTAINER_DECISION_VERDICT):
+                maintainer_decision = True
+                break
+        if approved is None and not maintainer_decision:
             return False
-        # An approval requests a maintainer to finish the merge decision. A
-        # scope stop requests a maintainer to make the product/architecture
-        # decision instead. Neither path approves or merges the PR here;
-        # changes-requested never hands off.
-        if verdict in {"approved", "maintainer_decision"}:
+        # A scope stop is not an approval: it requests the maintainer decision
+        # the change is missing, through the same handoff as an approval.
+        if approved or maintainer_decision:
             maintainers = parse_maintainers(self.config.get("maintainers"))
             if maintainers:
                 try:
@@ -204,7 +191,6 @@ class PullRequestReviewer(GitHubRepository):
                         {
                             "repository": self.repository,
                             "pr": pr["number"],
-                            "verdict": verdict,
                             "human_reviewer": selected,
                         }
                     ),

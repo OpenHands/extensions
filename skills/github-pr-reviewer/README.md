@@ -27,14 +27,6 @@ This skill is activated by:
   GitHub review-request count, and requests one without merging the PR. Use at
   least two repository collaborators so a maintainer can author a PR without
   leaving the handoff roster empty.
-- An early scope gate before any detailed code inspection or tests. When a
-  change is owned by another repository, needs an unresolved
-  product/architecture decision, is obsolete/duplicated or conflicts with the
-  current direction, or hits another repo-defined scope reason, the review stops
-  with a `🛑 MAINTAINER DECISION REQUIRED` verdict. That outcome is neither an
-  approval nor a change request: it does not approve or merge the PR, and the
-  automation requests one configured maintainer through the same
-  code-aware/load-balanced handoff described above.
 
 ## Prerequisites
 

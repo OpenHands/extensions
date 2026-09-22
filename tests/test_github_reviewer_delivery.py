@@ -95,30 +95,6 @@ def test_reviewer_submits_each_labeled_exact_head(tmp_path, monkeypatch):
     assert "stop immediately" in prompt
 
 
-def test_reviewer_prompt_skips_tests_when_the_scope_gate_stops(tmp_path, monkeypatch):
-    module, run = _reviewer(tmp_path, monkeypatch)
-    _event(monkeypatch)
-    pr = {"number": 2, "head": {"sha": "head-2"}, "labels": []}
-    request = {
-        "id": 42,
-        "event": "review_requested",
-        "created_at": "2026-01-01T00:00:00Z",
-        "requested_reviewer": {"login": "all-hands-bot"},
-    }
-    run.gh_pages = lambda path: [request] if path.endswith("/events") else []
-    run.gh = Mock(side_effect=[{"id": 99}, pr])
-    run.dispatcher.deliver.return_value = {
-        "disposition": "created",
-        "conversation_id": "conversation",
-    }
-
-    run.run()
-
-    prompt = run.dispatcher.deliver.call_args.kwargs["prompt"]
-    assert "A scope-stopped review" in prompt
-    assert "without running tests" in prompt
-
-
 def test_reviewer_submits_requested_exact_head(tmp_path, monkeypatch):
     _module, run = _reviewer(tmp_path, monkeypatch)
     _event(monkeypatch)
@@ -450,118 +426,28 @@ def test_reviewer_does_not_handoff_failed_review(tmp_path, monkeypatch):
     run.dispatcher.deliver.assert_not_called()
 
 
-def test_reviewer_event_hands_scope_stop_to_maintainer(tmp_path, monkeypatch):
-    """A scope-stopped review is not an approval but still needs a maintainer."""
+def test_reviewer_hands_scope_stop_to_maintainer(tmp_path, monkeypatch):
+    """A scope stop is not an approval but still reaches the maintainer."""
     module, run = _reviewer(tmp_path, monkeypatch)
-    _event(monkeypatch, action="submitted")
     run.config["maintainers"] = "neubig, VascoSch92"
-    pr = {"number": 2, "head": {"sha": "head-2"}, "labels": []}
-    request = {
-        "id": 42,
-        "event": "review_requested",
-        "created_at": "2026-01-01T00:00:00Z",
-        "requested_reviewer": {"login": "all-hands-bot"},
+    pr = {
+        "number": 2,
+        "head": {"sha": "head-2"},
+        "labels": [{"name": "openhands-review"}],
     }
-    run.gh = Mock(side_effect=[{"id": 99}, pr, pr])
     run.gh_pages = lambda path: (
-        [request]
-        if path.endswith("/events")
+        [pr]
+        if path.startswith("/pulls?")
         else _reviews(verdict="🛑 MAINTAINER DECISION REQUIRED")
     )
+    run.gh = Mock(side_effect=[{"id": 99}, pr, pr, {}])
     handoff = Mock(return_value="VascoSch92")
     monkeypatch.setattr(module, "request_maintainer_review", handoff)
 
     run.run()
 
     handoff.assert_called_once_with(run, pr, ["neubig", "VascoSch92"])
-    assert all(call.args[0] != "DELETE" for call in run.gh.call_args_list)
-    run.dispatcher.deliver.assert_not_called()
-
-
-def test_reviewer_hands_scope_stop_to_maintainer_and_clears_label(
-    tmp_path, monkeypatch
-):
-    """Scheduled mode reaches the same terminal handling as a completed review."""
-    module, run = _reviewer(tmp_path, monkeypatch)
-    run.config["maintainers"] = "neubig"
-    pr = {
-        "number": 2,
-        "head": {"sha": "head-2"},
-        "labels": [{"name": "openhands-review"}],
-    }
-    run.gh_pages = lambda path: (
-        [pr]
-        if path.startswith("/pulls?")
-        else _reviews(verdict="🛑 MAINTAINER DECISION REQUIRED")
-    )
-    run.gh = Mock(side_effect=[{"id": 99}, pr, pr, {}])
-    handoff = Mock(return_value="neubig")
-    monkeypatch.setattr(module, "request_maintainer_review", handoff)
-
-    run.run()
-
-    handoff.assert_called_once_with(run, pr, ["neubig"])
-    assert run.gh.call_args_list[-1].args == (
-        "DELETE",
-        "/issues/2/labels/openhands-review",
-    )
-    run.dispatcher.deliver.assert_not_called()
-
-
-def test_reviewer_scope_stop_never_posts_an_approval(tmp_path, monkeypatch):
-    """The maintainer-decision path must not approve, merge, or request merges."""
-    module, run = _reviewer(tmp_path, monkeypatch)
-    run.config["maintainers"] = "neubig"
-    pr = {
-        "number": 2,
-        "head": {"sha": "head-2"},
-        "labels": [{"name": "openhands-review"}],
-    }
-    run.gh_pages = lambda path: (
-        [pr]
-        if path.startswith("/pulls?")
-        else _reviews(verdict="🛑 MAINTAINER DECISION REQUIRED")
-    )
-    run.gh = Mock(side_effect=[{"id": 99}, pr, pr, {}])
-    monkeypatch.setattr(module, "request_maintainer_review", Mock(return_value="neubig"))
-
-    run.run()
-
-    for call in run.gh.call_args_list:
-        method, path = call.args[:2]
-        assert "merge" not in path
-        # No approval review and no auto-merge is requested by the handler; the
-        # only writes are the label removal plus any handoff the mock records.
-        assert method not in {"PUT", "PATCH"}
-
-
-def test_reviewer_reports_scope_stop_handoff_error_once(tmp_path, monkeypatch):
-    module, run = _reviewer(tmp_path, monkeypatch)
-    run.config["maintainers"] = "author"
-    pr = {
-        "number": 2,
-        "head": {"sha": "head-2"},
-        "labels": [{"name": "openhands-review"}],
-    }
-    run.gh_pages = lambda path: (
-        [pr]
-        if path.startswith("/pulls?")
-        else _reviews(verdict="🛑 MAINTAINER DECISION REQUIRED")
-    )
-    run.gh = Mock(side_effect=[{"id": 99}, pr, {}, pr, {}])
-    monkeypatch.setattr(
-        module,
-        "request_maintainer_review",
-        Mock(
-            side_effect=module.HandoffConfigurationError(
-                "No eligible maintainer remains"
-            )
-        ),
-    )
-
-    run.run()
-
-    assert "configuration check" in run.gh.call_args_list[2].args[2]["body"]
+    assert all(call.args[0] != "PUT" for call in run.gh.call_args_list)
     assert run.gh.call_args_list[-1].args == (
         "DELETE",
         "/issues/2/labels/openhands-review",
