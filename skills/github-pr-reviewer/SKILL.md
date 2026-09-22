@@ -1,15 +1,23 @@
 ---
 name: github-pr-reviewer
 description: >
-  Create an automation that reviews GitHub pull requests when a configurable
-  trigger label is applied. Polls one or more repositories deterministically,
-  starts one OpenHands review conversation per label event with the pull
-  request's head commit already checked out, and publishes the review to GitHub.
+  Create an automation that reviews GitHub pull requests when a configured
+  reviewer is requested or a trigger label is applied. Starts one OpenHands
+  review conversation per request with the pull request's exact head checked
+  out, and publishes the review to GitHub.
 triggers:
   - /pr-reviewer:setup
 ---
 
 # GitHub PR Reviewer Automation
+
+## Agent Canvas catalog
+
+For new Agent Canvas installations, use the **GitHub code review** catalog
+entry. Its deterministic `worker.py` delegates each requested exact head to a
+stable conversation using the selected agent profile. It supports GitHub
+reviewer-request events and scheduled label scans. The manual upload flow below
+remains for existing deployments and is deprecated for new installations.
 
 Create a cron automation that watches one or more GitHub repositories for pull
 requests with a review trigger label, starts an OpenHands review conversation
@@ -20,6 +28,18 @@ The automation script is deterministic: PR discovery, label-event tracking,
 state persistence, stale-result suppression, the repository checkout, and its
 removal are all handled in Python. The LLM is invoked only for the review
 itself.
+
+The review prompt starts with a scope gate: using the repository's own guidance
+(its scope categories and ownership boundaries, not a list of individual PR
+numbers), the reviewer decides whether the change belongs in this repository
+and has the product/architecture direction it needs. When it does not, the review
+stops with a single `event: COMMENT` review that says whether the change should
+move repositories, close, or receive a maintainer decision, and ends with the
+`🛑 MAINTAINER DECISION REQUIRED` verdict. That outcome is **neither an approval
+nor a change request**: it does not approve or merge the PR. The completion
+handler recognizes the verdict and requests one configured maintainer through the
+same handoff used after an approval. An in-scope change continues the existing
+review unchanged.
 
 The script prepares each review's workspace before the agent starts: the pull
 request's head commit is downloaded as a tarball and extracted to a directory of
@@ -46,8 +66,10 @@ Verify that the following secret is set in **OpenHands Settings -> Secrets**:
 | `GITHUB_PERSONAL_ACCESS_TOKEN` | Fine-grained PAT | Contents: Read, Metadata: Read, Pull requests: **Read and Write**, Issues: Read and Write |
 
 Pull-request **write** access is required because the agent publishes a pull
-request review, not just an issue comment. A token with only Pull requests: Read
-will poll happily and then fail at the point of publishing.
+request review, not just an issue comment. The Agent Canvas catalog worker may
+also request a configured human reviewer after approval. A token with only Pull
+requests: Read will poll happily and then fail at the point of publishing or
+requesting the handoff.
 
 When several repositories are monitored, the token must cover all of them.
 

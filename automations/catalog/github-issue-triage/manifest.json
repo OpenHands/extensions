@@ -1,6 +1,6 @@
 {
   "id": "github-issue-triage",
-  "version": "1.0.0",
+  "version": "1.3.0",
   "name": "GitHub issue triage",
   "category": "Project management",
   "description": "Prioritize open issues and establish acceptance criteria before marking them ready for development.",
@@ -54,11 +54,12 @@
       }
     },
     "bundle": {
-      "version": "1.0.0",
+      "version": "1.3.0",
       "entrypoint": "python3 worker.py",
-      "timeout": 3000,
+      "timeout": 300,
       "files": {
         "worker.py": "skills/github-issue-triage/scripts/worker.py",
+        "agent_conversation.py": "skills/github/scripts/agent_conversation.py",
         "github_client.py": "skills/github/scripts/github_client.py"
       },
       "config": {

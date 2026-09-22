@@ -1,7 +1,7 @@
 # GitHub PR Reviewer
 
 Create an automation that reviews GitHub pull requests when a configurable
-trigger label is applied.
+reviewer is requested or a trigger label is applied.
 
 ## Trigger
 
@@ -11,10 +11,10 @@ This skill is activated by:
 
 ## Features
 
-- Reviews PRs on demand by watching for a GitHub label event
+- Reviews PRs on demand from a GitHub reviewer request or label event
 - Watches several repositories from a single automation, each with its own state
-- Processes each label application exactly once, with persistent state
-- Re-review support by removing and re-applying the label
+- Processes each review request or label application idempotently
+- Supports re-review by requesting the bot again or re-applying the label
 - Suppresses stale reviews when the PR head commit changes mid-review
 - Hands the agent the reviewed commit already checked out, and removes that
   checkout when the review ends, so nothing accumulates between runs
@@ -22,24 +22,30 @@ This skill is activated by:
   maps to a changed line, and verifies on GitHub that it landed
 - Posts acknowledgement comments with AI disclosure
 - Configurable review tone and polling schedule
+- Optional human handoff after an exact-head approval. The scanner ranks the
+  configured maintainers by recent commits to changed paths, then by their open
+  GitHub review-request count, and requests one without merging the PR. Use at
+  least two repository collaborators so a maintainer can author a PR without
+  leaving the handoff roster empty.
 
 ## Prerequisites
 
 Set `GITHUB_PERSONAL_ACCESS_TOKEN` in OpenHands Settings -> Secrets. The token
 must be able to read the repositories and their contents, read issue events,
 write issue comments, and **write pull request reviews** — the review is
-published through the pull request reviews API, so read-only pull request access
-is not enough.
+published and the optional human reviewer is requested through the pull request
+API, so read-only pull request access is not enough.
 
 ## Quick Start
 
-Ask OpenHands:
+Ask OpenHands for either trigger mode:
 
 > "Set up a PR review automation for my `myorg/backend` and `myorg/frontend`
-> repos using the `openhands-review` label and concise reviews."
+> repos when `all-hands-bot` is requested, using concise reviews."
 
-After setup, apply the configured label to a pull request to queue a review. To
-request another review later, remove and re-apply the label.
+After setup, request the configured bot on a pull request to queue a review. To
+request another review later, request the bot again. Scheduled installations
+can instead use a configured label and re-apply it for another review.
 
 ## See Also
 

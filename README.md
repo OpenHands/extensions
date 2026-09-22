@@ -9,7 +9,7 @@ It contains reusable, shareable skills and plugins that customize agent behavior
 
 ## Repository boundaries
 
-`OpenHands/extensions` is the public registry for reusable skills, plugins, automations, and integrations. [`OpenHands/software-agent-sdk`](https://github.com/OpenHands/software-agent-sdk) owns Agent Server execution and the canonical API, [`OpenHands/typescript-client`](https://github.com/OpenHands/typescript-client) owns typed browser access to that API, [`OpenHands/OpenHands`](https://github.com/OpenHands/OpenHands) owns Agent Canvas UI, and [`OpenHands/automation`](https://github.com/OpenHands/automation) owns scheduling, webhooks, run history, dispatch, and sandbox lifecycle orchestration.
+`OpenHands/extensions` is the public registry for reusable skills, plugins, automations, and integrations. [`OpenHands/software-agent-sdk`](https://github.com/OpenHands/software-agent-sdk) owns Agent Server execution, the canonical API, and typed browser access to it under `clients/typescript/`, [`OpenHands/OpenHands`](https://github.com/OpenHands/OpenHands) owns Agent Canvas UI, and [`OpenHands/automation`](https://github.com/OpenHands/automation) owns scheduling, webhooks, run history, dispatch, and sandbox lifecycle orchestration.
 
 Put reusable extension artifacts here rather than in application repositories. If a PR is opened in the wrong repository, close and move it to the repository that owns the change.
 
@@ -142,6 +142,7 @@ Official skills and plugins for OpenHands — the open-source AI software engine
 | github | skill | Interact with GitHub repositories, pull requests, issues, and workflows using the GITHUB_TOKEN environment variable a... | — |
 | github-actions | skill | Create, debug, and test GitHub Actions workflows and custom actions. Use when building CI/CD pipelines, automating wo... | — |
 | github-agents-md-maintainer | skill | Create an automation that keeps AGENTS.md current in one or more GitHub repositories. On a schedule an agent reads th... | `/agents-md:setup` |
+| github-delivery-watchdog | skill | Periodically check pull requests and merge only current heads with independent review, tests, and passing CI. | `/github-delivery-watchdog` |
 | github-issue-to-pr | skill | Create an automation that implements GitHub issues when a configurable trigger label is applied. Clones the default b... | `/issue-to-pr:setup` |
 | github-issue-triage | skill | Prioritize open issues and establish acceptance criteria before marking them ready for development. | `/github-issue-triage` |
 | github-pr-review | skill | Post structured PR reviews to GitHub with inline comments/suggestions in a single API call. | `/github-pr-review` |

@@ -884,6 +884,12 @@
       "source": "./skills/github-issue-triage",
       "description": "Prioritize open issues and establish acceptance criteria before marking them ready for development.",
       "category": "automations"
+    },
+    {
+      "name": "github-delivery-watchdog",
+      "source": "./skills/github-delivery-watchdog",
+      "description": "Periodically check pull requests and merge only current heads with independent review, tests, and passing CI.",
+      "category": "automations"
     }
   ]
 }

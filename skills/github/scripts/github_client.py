@@ -12,6 +12,29 @@ from urllib.parse import parse_qsl, urlencode, urlsplit
 from urllib.request import Request, urlopen
 
 
+def _load_secret(name: str) -> str:
+    """Read one named secret from the environment or configured Agent Server."""
+    value = os.environ.get(name)
+    if value:
+        return value
+
+    from openhands.sdk.workspace import RemoteWorkspace
+
+    workspace = RemoteWorkspace(
+        host=os.environ["AGENT_SERVER_URL"],
+        api_key=os.environ["SESSION_API_KEY"],
+        working_dir=os.environ.get("WORKSPACE_BASE", "/workspace"),
+    )
+    try:
+        secret = workspace.get_secrets([name]).get(name)
+        value = secret.get_value() if secret else None
+    finally:
+        workspace.reset_client()
+    if not value:
+        raise ValueError(f"The GitHub credential {name} is unavailable")
+    return value
+
+
 def github_request(
     token: str,
     method: str,
@@ -61,6 +84,7 @@ class GitHubRepository:
         github_token_secret,
         repository=None,
         conversation=None,
+        dispatcher=None,
     ):
         self.config = json.loads(Path(config_path).read_text())
         self.repository = repository or self.config["repository"]
@@ -71,11 +95,10 @@ class GitHubRepository:
                 "Expected the environment variable containing the GitHub token"
             )
         self.token_name = github_token_secret
-        self.token = os.environ[github_token_secret]
-        if not self.token:
-            raise ValueError("The GitHub credential is empty")
+        self.token = _load_secret(github_token_secret)
         self.conversation = conversation
         self.conversation_id = str(conversation.id) if conversation else None
+        self.dispatcher = dispatcher
         self.workspace = Path(os.environ["WORKSPACE_BASE"])
         self.project = self.workspace
         self.evidence = self.workspace / "evidence"
@@ -99,6 +122,10 @@ class GitHubRepository:
         return github_request(
             self.token, method, f"/repos/{self.repository}" + path, body=body
         )[0]
+
+    def api(self, method, path, params=None, body=None):
+        """Call a GitHub endpoint that is not scoped to one repository."""
+        return github_request(self.token, method, path, params=params, body=body)[0]
 
     def shell(self, args, cwd=None, timeout=300):
         result = subprocess.run(
@@ -175,7 +202,7 @@ class GitHubRepository:
         )
 
 
-def run_repositories(automation_type, conversation=None):
+def run_repositories(automation_type, conversation=None, dispatcher=None):
     parser = argparse.ArgumentParser(description=automation_type.__doc__)
     parser.add_argument("--github-token-secret")
     args = parser.parse_args()
@@ -186,11 +213,14 @@ def run_repositories(automation_type, conversation=None):
     repositories = config.get("repos") or [config["repository"]]
     failures = []
     for repository in repositories:
-        automation = automation_type(
+        options = dict(
             github_token_secret=token_name,
             repository=repository,
             conversation=conversation,
         )
+        if dispatcher is not None:
+            options["dispatcher"] = dispatcher
+        automation = automation_type(**options)
         try:
             automation.run()
         except Exception as exc:  # noqa: BLE001 - one repository must not block others
