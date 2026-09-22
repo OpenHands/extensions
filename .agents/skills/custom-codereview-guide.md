@@ -12,18 +12,20 @@ current head when it has no material correctness, security, compatibility, or
 acceptance-criterion defect. Comment only on concrete failures; do not withhold
 approval for optional refactors, tone, style, or speculative improvements.
 
-## Repository ownership and scope
+## Repository scope
 
-This repository owns reusable skills, plugins, automation bundles, and integration
-catalogs. Agent Server behavior, endpoints, and browser client code belong in
-`OpenHands/software-agent-sdk`; Canvas UI belongs in `OpenHands/OpenHands`; and
-scheduling, dispatch, run history, and sandbox lifecycle belong in
-`OpenHands/automation`.
+This repository owns reusable extensions: skills, plugins, and automation
+bundles that use existing public host and runtime interfaces. Out of scope here,
+because another repository owns the contract or machinery:
 
-A content PR should remain focused on one extension or one shared mechanism that
-multiple extensions actually use. Flag unrelated edits to another skill, plugin,
-or automation. Shared runtime machinery belongs in the owning product repository,
-not copied into extension content.
+- SDK, agent-server, and client contracts — `OpenHands/software-agent-sdk`;
+- generic automation scheduling, state, dispatch, and profile machinery —
+  `OpenHands/automation`;
+- Canvas product and UI integration — `OpenHands/OpenHands`.
+
+Cross-repository work is acceptable when this PR contains only the
+extensions-owned portion and relies on public interfaces from the owning
+repository.
 
 ## Blocking checkpoints
 
