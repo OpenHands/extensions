@@ -1,9 +1,9 @@
 {
   "id": "github-pr-reviewer",
-  "version": "1.5.0",
+  "version": "1.6.0",
   "name": "GitHub code review",
   "category": "Code review",
-  "description": "Review requested pull-request heads, record exact-head decisions, stop early on out-of-scope changes, and optionally request a code-aware human maintainer after approval or a maintainer-decision scope stop.",
+  "description": "Review requested pull-request heads, resuming an outstanding reviewer request on a schedule once its checks are green, record exact-head decisions, stop early on out-of-scope changes, and optionally request a code-aware human maintainer after approval or a maintainer-decision scope stop.",
   "requires": {
     "integrations": {},
     "features": [
@@ -13,7 +13,7 @@
   },
   "popularityRank": 100,
   "estimatedSetupMinutes": 4,
-  "exampleImplementation": "A scheduled label scan or GitHub reviewer-request event selects a PR head and submits an idempotent subject turn. The profile-backed agent clones that exact head in its runtime, applies an early repository-ownership and product/architecture scope gate, then reuses the established review workflow, runs appropriate tests, and publishes a readable native review. A native approval, or a maintainer-decision scope stop, can then be handed to a code-aware human maintainer.",
+  "exampleImplementation": "A scheduled scan of the trigger label and of open non-draft PRs holding an outstanding reviewer request, or a GitHub reviewer-request event, selects a PR head and submits an idempotent subject turn. The profile-backed agent clones that exact head in its runtime, applies an early repository-ownership and product/architecture scope gate, then reuses the established review workflow, runs appropriate tests, and publishes a readable native review. A native approval, or a maintainer-decision scope stop, can then be handed to a code-aware human maintainer.",
   "impact": {
     "basis": "completed-runs",
     "one": "1 PR review sweep completed",
@@ -28,8 +28,8 @@
           "schedule": {
             "type": "cron",
             "label": "Check frequency",
-            "help": "How often to look for newly labelled pull requests.",
-            "default": "*/15 * * * *",
+            "help": "How often to look for newly labelled pull requests and for outstanding reviewer requests whose checks have not yet finished.",
+            "default": "*/5 * * * *",
             "required": true
           },
           "timezone": {
@@ -125,7 +125,7 @@
       }
     },
     "bundle": {
-      "version": "1.5.0",
+      "version": "1.6.0",
       "entrypoint": "python3 worker.py",
       "timeout": 300,
       "files": {
