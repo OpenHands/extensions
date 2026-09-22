@@ -1176,11 +1176,10 @@ def test_reviewer_fails_closed_on_an_unknown_conclusion(tmp_path, monkeypatch):
 def test_reviewer_does_not_duplicate_the_gate_comment_for_the_same_head(
     tmp_path, monkeypatch
 ):
+    """An identical explanation already on the PR is left untouched."""
     _module, run = _reviewer(tmp_path, monkeypatch)
     pr = _labeled_pr()
-    existing = _comment(
-        "already explained\n\n<!-- openhands-review-gate:blocked:head-2 -->"
-    )
+    existing = _comment(run._gate_body("head-2", "blocked", ["ci"], scheduled=True))
     run.gh_pages = _gate_pages(pr, [existing])
     run.gh = Mock(side_effect=[{"id": 99}, pr])
     run.check_runs = lambda sha: _checks(("ci", "completed", "failure"), sha=sha)
@@ -1189,6 +1188,31 @@ def test_reviewer_does_not_duplicate_the_gate_comment_for_the_same_head(
 
     run.dispatcher.deliver.assert_not_called()
     assert _gate_comment_calls(run) == []
+    assert [call for call in run.gh.call_args_list if call.args[0] == "PATCH"] == []
+
+
+def test_reviewer_rewrites_a_stale_gate_comment_body_for_the_same_head(
+    tmp_path, monkeypatch
+):
+    """Same head, changed wording: the managed comment is rewritten, not stacked."""
+    _module, run = _reviewer(tmp_path, monkeypatch)
+    pr = _labeled_pr()
+    stale = _comment(
+        "old wording\n\n<!-- openhands-review-gate:blocked:head-2 -->"
+    )
+    run.gh_pages = _gate_pages(pr, [stale])
+    run.gh = Mock(side_effect=[{"id": 99}, pr, {}])
+    run.check_runs = lambda sha: _checks(("ci", "completed", "failure"), sha=sha)
+
+    run.run()
+
+    assert [call for call in _gate_comment_calls(run) if call.args[0] == "POST"] == []
+    patched = [call for call in run.gh.call_args_list if call.args[0] == "PATCH"]
+    assert len(patched) == 1
+    assert patched[0].args[1] == "/issues/comments/900"
+    body = patched[0].args[2]["body"]
+    assert "<!-- openhands-review-gate:blocked:head-2 -->" in body
+    assert "old wording" not in body
 
 
 def test_reviewer_updates_its_gate_comment_when_the_head_moves(
@@ -1637,45 +1661,65 @@ def test_reviewer_scheduled_scan_keeps_the_label_path_unchanged(
     assert run.dispatcher.deliver.call_args.kwargs["delivery"] == "7:head-2"
 
 
-def test_reviewer_event_gate_comment_does_not_promise_a_scan(
+def test_reviewer_event_body_names_the_request_retry_not_a_scan(
     tmp_path, monkeypatch
 ):
-    """An event-only deployment names the retry it actually honors."""
+    """The event-only body names the retry it actually honors.
+
+    Explicit `all-hands-bot` requests bypass the CI gate, so this body is not
+    reached through `run()`; assert the wording contract directly.
+    """
     _module, run = _reviewer(tmp_path, monkeypatch)
-    _event(monkeypatch)
-    pr = {"number": 2, "head": {"sha": "head-2"}, "labels": []}
+    body = run._gate_body("head-2", "waiting", ["slow-e2e"], scheduled=False)
+
+    assert "remove the outstanding `all-hands-bot` request and request " in body
+    assert "GitHub will not accept a second request" in body
+    assert "scheduled" not in body.lower()
+
+
+def test_reviewer_event_blocked_body_names_the_request_retry_not_a_scan(
+    tmp_path, monkeypatch
+):
+    _module, run = _reviewer(tmp_path, monkeypatch)
+    body = run._gate_body("head-2", "blocked", ["ci"], scheduled=False)
+
+    assert "remove the outstanding `all-hands-bot` request and request " in body
+    assert "GitHub will not accept a second request" in body
+    assert "scheduled" not in body.lower()
+
+
+def test_reviewer_rewords_the_managed_comment_when_an_event_deployment_becomes_scheduled(
+    tmp_path, monkeypatch
+):
+    """An event-only gate comment is reworded once a cron scan exists.
+
+    A PR first gated by the event-only deployment keeps a "remove and re-request"
+    comment on the same head. When the automation is switched to a scheduled scan
+    the comment must name the retry that is now actually deployed, in place,
+    without creating a second comment.
+    """
+    _module, run = _reviewer(tmp_path, monkeypatch)
+    pr = _requested_pr()
     request = _review_request_event()
-    run.gh = Mock(side_effect=[{"id": 99}, pr, {"id": 1234}])
-    run.gh_pages = lambda path: [request] if path.endswith("/events") else []
     run.check_runs = lambda sha: _checks(("slow-e2e", "in_progress", None), sha=sha)
 
+    # The comment an event-only deployment would have left on this head.
+    event_body = run._gate_body("head-2", "waiting", ["slow-e2e"], scheduled=False)
+    assert "remove the outstanding `all-hands-bot` request" in event_body
+    managed = _comment(event_body)
+
+    run.gh_pages = _request_pages(pr, request, [managed])
+    run.gh = Mock(side_effect=[{"id": 99}, pr, {}])
     run.run()
 
-    run.dispatcher.deliver.assert_not_called()
-    posted = [call for call in _gate_comment_calls(run) if call.args[0] == "POST"]
-    assert len(posted) == 1
-    body = posted[0].args[2]["body"]
-    assert "a new `all-hands-bot` review request starts the review" in body
-    assert "scheduled" not in body.lower()
-
-
-def test_reviewer_event_blocked_gate_comment_does_not_promise_a_scan(
-    tmp_path, monkeypatch
-):
-    _module, run = _reviewer(tmp_path, monkeypatch)
-    _event(monkeypatch)
-    pr = {"number": 2, "head": {"sha": "head-2"}, "labels": []}
-    request = _review_request_event()
-    run.gh = Mock(side_effect=[{"id": 99}, pr, {"id": 1234}])
-    run.gh_pages = lambda path: [request] if path.endswith("/events") else []
-    run.check_runs = lambda sha: _checks(("ci", "completed", "failure"), sha=sha)
-
-    run.run()
-
-    posted = [call for call in _gate_comment_calls(run) if call.args[0] == "POST"]
-    body = posted[0].args[2]["body"]
-    assert "request `all-hands-bot` again" in body
-    assert "scheduled" not in body.lower()
+    assert [call for call in _gate_comment_calls(run) if call.args[0] == "POST"] == []
+    patched = [call for call in run.gh.call_args_list if call.args[0] == "PATCH"]
+    assert len(patched) == 1
+    assert patched[0].args[1] == "/issues/comments/900"
+    scheduled_body = patched[0].args[2]["body"]
+    assert "<!-- openhands-review-gate:waiting:head-2 -->" in scheduled_body
+    assert "The scheduled scan retries" in scheduled_body
+    assert "remove the outstanding" not in scheduled_body
 
 
 def test_reviewer_scheduled_scan_blocked_comment_names_the_scan(

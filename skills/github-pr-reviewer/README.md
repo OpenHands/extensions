@@ -28,8 +28,11 @@ This skill is activated by:
   requested head's checks are green, so a request that arrives during CI is not
   lost; the explicit-request event path is kept for event-only deployments
 - Names the retry the deployment actually has in the waiting comment: a
-  scheduled scan where a cron trigger exists, and another review request where
-  only the event trigger does
+  scheduled scan where a cron trigger exists, and removing and re-requesting the
+  bot where only the event trigger does
+- Rewrites its own managed gate comment in place when the retry wording changes,
+  so switching a deployment from the event trigger to a cron scan updates the
+  outstanding-request explanation instead of leaving the old instruction
 - Watches several repositories from a single automation, each with its own state
 - Processes each review request or label application idempotently
 - Supports re-review by requesting the bot again or re-applying the label. Each

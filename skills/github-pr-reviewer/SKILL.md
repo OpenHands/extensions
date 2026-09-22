@@ -107,8 +107,16 @@ useful and is not repeated.
 
 The waiting and blocked explanations name the retry the deployment actually has.
 A scheduled run proves a scan is configured, so it says the next scan will
-retry. An event-only run does not, so it asks for another `all-hands-bot`
-review request instead of promising a scan that does not exist.
+retry. An event-only run does not, so it tells the reader to remove the
+outstanding `all-hands-bot` request and request `all-hands-bot` again instead of
+promising a scan that does not exist: GitHub will not accept a second request
+while the first is still outstanding.
+
+The gate leaves only one explanation per head. When the same head keeps the same
+hidden marker but the retry wording changes -- an event-only comment on a head
+whose automation is later switched to a cron scan -- the scheduled run rewrites
+that managed comment in place, so the comment always names the retry that is
+actually deployed, and an unchanged body is left untouched.
 
 The review prompt starts with a scope gate: using the repository's own guidance
 (its scope categories and ownership boundaries, not a list of individual PR
