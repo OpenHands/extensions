@@ -6,7 +6,7 @@ Use this reference for manifest schema 1 and host API 1 as implemented by the in
 
 Upstream repository: <https://github.com/OpenHands/OpenHands>
 
-Initial frontend landing: commit `89dc8bd` / PR `#16895`, `feat: land the Canvas Extensions frontend (load pages, sidebar, customize)`.
+Initial frontend landing: [PR #16895](https://github.com/OpenHands/OpenHands/pull/16895), `feat: land the Canvas Extensions frontend (load pages, sidebar, customize)`.
 
 Inspect these files when targeting a newer OpenHands revision:
 
@@ -18,8 +18,6 @@ Inspect these files when targeting a newer OpenHands revision:
 - `src/api/canvas-extensions-service.ts` - management endpoints and authenticated Agent Server request behavior.
 - `src/fixtures/canvas-extensions/demo-page/` - minimal dependency-free fixture.
 - `docs/CANVAS_EXTENSIONS_TESTING.md` - mock frontend workflow.
-
-The local demo `/Users/devinvinson/Desktop/canvas-pulse` demonstrates a richer host API 1 page with authenticated `/server_info` requests, nested routing, polling, accessibility, responsive CSS, and cleanup.
 
 ## Product and trust model
 
@@ -206,13 +204,12 @@ Build app code to tolerate repeated activation and mounting. Guard asynchronous 
 
 ## Management API
 
-The current frontend contract uses:
+The current Canvas frontend service calls:
 
 | Method | Path | Purpose |
 | --- | --- | --- |
 | `GET` | `/api/canvas-extensions/installed` | List installed apps |
 | `POST` | `/api/canvas-extensions/install` | Install disabled from Git or backend-local path |
-| `GET` | `/api/canvas-extensions/installed/{name}` | Read one installation |
 | `PATCH` | `/api/canvas-extensions/installed/{name}` | Set enabled state |
 | `DELETE` | `/api/canvas-extensions/installed/{name}` | Uninstall |
 | `GET` | `/api/canvas-extensions/installed/{name}/bundle` | Fetch entrypoint JavaScript text |
@@ -228,9 +225,9 @@ Install request:
 }
 ```
 
-Interpret backend-local paths on the Agent Server machine, not in the frontend process. A repository may hold multiple apps under different `repo_path` values.
+Interpret backend-local paths on the Agent Server machine, not in the frontend process. For a backend-local source, the current Canvas frontend joins a supplied `repo_path` into `source` before sending the install request and sends `repo_path: null`; select the app package directory as seen by the Agent Server. A repository may hold multiple apps under different `repo_path` values.
 
-Each install request resolves exactly one canvas extension package root. The directory selected by `repo_path`, or the repository root when `repo_path` is omitted, must contain that app's `canvas-extension.json`. The current Add app form submits one install request and does not recursively discover or bulk-install nested app manifests. Install every app separately with the same `source` and `ref` when appropriate and a distinct `repo_path`.
+Each install request resolves exactly one canvas extension package root. For a remote repository, the directory selected by `repo_path`, or the repository root when `repo_path` is omitted, must contain that app's `canvas-extension.json`. For a backend-local source, the `source` path is already the selected app package directory. The current Add app form submits one install request and does not recursively discover or bulk-install nested app manifests. Install every remote app separately with the same `source` and `ref` when appropriate and a distinct `repo_path`; submit every local app package directory separately.
 
 Treat co-located apps as independent installations: each app has its own manifest name, version, resolved revision record, enabled state, bundle, registrations, and cleanup lifecycle. Shared repository source or build tooling does not combine their runtime identities.
 

@@ -42,3 +42,19 @@ test("--dist uses the manifest entrypoint name", async () => {
     await rm(root, { recursive: true, force: true });
   }
 });
+
+test("--dist rejects sibling output chunks", async () => {
+  const root = await createApp("extension.js");
+  try {
+    await writeFile(path.join(root, "dist", "lazy.js"), "export {};");
+    const result = spawnSync(
+      process.execPath,
+      [validator.pathname, root, "--dist"],
+      { encoding: "utf8" },
+    );
+    assert.notEqual(result.status, 0);
+    assert.match(result.stderr, /Expected exactly dist\/extension\.js/);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});

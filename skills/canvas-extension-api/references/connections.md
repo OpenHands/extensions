@@ -88,7 +88,9 @@ events.start();
 // Call events.stop() during disposal.
 ```
 
-Verify the installed client version's browser authentication behavior before shipping. When implementing a raw browser socket against current Agent Server behavior, prefer first-message authentication after opening `/sockets/events/{conversationId}`:
+The current `WebSocketCallbackClient` appends `session_api_key` to the socket URL when `apiKey` is set. That query-string authentication path remains supported for compatibility, but Agent Server deprecates it because URLs can leak through browser, proxy, or load-balancer logs; the client does not use first-message authentication. For browser sockets against an Agent Server that supports first-message authentication, prefer a raw `WebSocket` until the TypeScript client exposes a first-message-auth option. Use the client only when query-string compatibility is an explicit, acceptable requirement.
+
+Use first-message authentication after opening `/sockets/events/{conversationId}`:
 
 ```js
 const socket = new WebSocket(eventsUrl);

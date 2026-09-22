@@ -56,7 +56,7 @@ Default to one app with one routed page when requirements are otherwise clear. K
 
 When creating multiple Apps in one repository, give every App an independent package root containing its own `canvas-extension.json`, entrypoint, version, tests, README, and build tooling. Do not introduce a monorepo, shared runtime, or common build foundation unless the target repository explicitly requires one. Keep app manifest names globally distinct within the Agent Server installation.
 
-Treat installation as one app per request. The current Customize -> Apps flow accepts one `source`, optional `ref`, and optional `repo_path`; it does not recursively discover or bulk-install every manifest in a repository. Add each app separately using the same source/ref and its own `repo_path`.
+Treat installation as one app per request. The current Customize -> Apps flow accepts one `source`, optional `ref`, and optional `repo_path`; it does not recursively discover or bulk-install every manifest in a repository. For a remote repository, add each app separately using the same source/ref and its own `repo_path`. For a backend-local source, select each app package directory as the source path.
 
 Read `references/v1-contract.md` before implementing unfamiliar Canvas Extensions API behavior. Read `references/connections.md` before connecting to Agent Server, the Automation service, or WebSocket endpoints. Read `references/sidecar-pattern.md` before proposing a Sidecar bridge, onboarding, or operator action. Read `references/testing-and-installation.md` before installing or testing inside Agent Canvas, especially for a multi-app repository.
 
@@ -136,6 +136,7 @@ Use the host contract deliberately:
 - Read immutable metadata from `host.extension` and `host.backend`.
 - Call `host.registerPage(id, mount)` during activation.
 - Use the mount callback's `path` as the route remainder below the declared page path.
+- Treat every nested-route navigation as a fresh mount: Canvas disposes the previous mount, clears the container, and invokes the mount callback with the new remainder. DOM and framework state do not persist across route changes; keep intentional cross-route state in the URL, backend, or activation-scoped state and clean it up on deactivation.
 - Use `navigate(absoluteCanvasPath)` for Canvas-aware routing.
 - Use `host.agentServer.request({ path, method, body, headers })` for authenticated calls to the owning Agent Server.
 - Pass only root-relative request paths beginning with one `/`; never pass absolute URLs or `//` paths.
@@ -165,7 +166,7 @@ Render within the supplied `container`; do not replace unrelated Canvas DOM. Sco
 
 Provide:
 
-- semantic structure and an accessible page label;
+- semantic structure and headings inside the supplied container. Canvas already owns the outer `<main aria-label={page title}>`, so do not add a nested `main` or duplicate page landmark label;
 - keyboard-operable controls and visible focus;
 - responsive behavior for narrow layouts;
 - loading, empty, stale, and error states;
@@ -182,7 +183,7 @@ Test real app code with a DOM environment and a small Canvas Extensions API host
 1. `activate` registers every declared page exactly once.
 2. The mount renders its initial state.
 3. Agent Server requests use the expected root-relative path and method.
-4. Nested route remainders render correctly or navigate correctly.
+4. Nested navigation disposes the prior mount and remounts with the correct route remainder; test any intentionally preserved state explicitly.
 5. The mount disposer removes DOM and stops effects.
 6. The activation disposer unregisters contributions.
 7. Unsupported host API versions fail clearly when compatibility is checked.
@@ -214,7 +215,7 @@ Install only when requested. Installation and enablement are separate product ac
 
 For a backend-local app, install the path as interpreted on the Agent Server machine. For a Git-hosted app, provide `source`, optional `ref`, and optional `repo_path`. Never assume a frontend-local path exists inside a remote or containerized backend.
 
-For multiple apps in one repository, produce an install matrix listing app name, manifest directory, source, ref, and `repo_path`. Submit one Add app operation per row. Omit `repo_path` only when the selected app lives at the repository root. Do not claim that selecting the repository root installs nested apps.
+For multiple apps in one repository, produce an install matrix listing app name, manifest directory, source, ref, and `repo_path`. Submit one Add app operation per row. For remote repositories, omit `repo_path` only when the selected app lives at the repository root. For backend-local sources, make `source` the selected app package directory. Do not claim that selecting a repository root installs nested apps.
 
 Validate and test every app package independently, then run shared repository checks once. Report partial failures by app name rather than treating one passing app package as validation of the entire repository.
 

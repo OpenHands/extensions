@@ -1,6 +1,8 @@
 # Packaging recipes
 
-The observable requirement is exactly one Blob-importable `extension.js`, not a particular framework or starter. When using Vite, configure library mode with one ES input, `assetsInlineLimit: Number.MAX_SAFE_INTEGER`, `cssCodeSplit: false`, code splitting disabled, and source maps disabled. Check the installed Vite major before changing compatibility option names.
+The observable requirement is exactly one Blob-importable `extension.js`, not a particular framework or starter. When using Vite, configure library mode with one ES input, `assetsInlineLimit: Number.MAX_SAFE_INTEGER`, `cssCodeSplit: false`, code splitting disabled, and source maps disabled.
+
+For Vite versions that use Rollup, set `output.inlineDynamicImports: true`. Do not pass `codeSplitting` to Rollup; it is not a Rollup output option. Vite 8 uses Rolldown instead: use `build.rolldownOptions.output.codeSplitting: false` there. Both forms require exactly one input and inline dynamic imports, which can change a dynamically imported module's execution timing.
 
 ```ts
 import { resolve } from "node:path";
@@ -17,13 +19,19 @@ export default defineConfig({
       fileName: () => "extension.js",
     },
     outDir: "dist",
-    rollupOptions: { output: { codeSplitting: false } },
+    rollupOptions: { output: { inlineDynamicImports: true } },
     sourcemap: false,
   },
 });
 ```
 
-Add the framework's Vite plugin when applicable. Vite 8 also exposes `build.rolldownOptions`; retain or choose the option name supported by the installed version. The required outcome remains one output file.
+Add the framework's Vite plugin when applicable. For Vite 8, replace the `rollupOptions` block above with:
+
+```ts
+rolldownOptions: { output: { codeSplitting: false } },
+```
+
+The required outcome remains one output file.
 
 - CSS: import `./styles.css?inline`, inject one App-marked `<style>` node per mount, and remove it during cleanup. `cssCodeSplit: false` alone can emit a sibling stylesheet.
 - Text fixtures, SQL, templates, helper source: import with `?raw`.
