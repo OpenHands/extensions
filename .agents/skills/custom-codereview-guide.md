@@ -12,18 +12,60 @@ current head when it has no material correctness, security, compatibility, or
 acceptance-criterion defect. Comment only on concrete failures; do not withhold
 approval for optional refactors, tone, style, or speculative improvements.
 
-## Repository ownership and scope
+## Ownership and scope gate
 
-This repository owns reusable skills, plugins, automation bundles, and integration
-catalogs. Agent Server behavior, endpoints, and browser client code belong in
-`OpenHands/software-agent-sdk`; Canvas UI belongs in `OpenHands/OpenHands`; and
-scheduling, dispatch, run history, and sandbox lifecycle belong in
-`OpenHands/automation`.
+Decide ownership before a detailed technical audit. A clearly in-scope change
+proceeds unchanged through the existing packaging, installation, portability,
+permissions, prompt-quality, and test checkpoints below.
 
-A content PR should remain focused on one extension or one shared mechanism that
-multiple extensions actually use. Flag unrelated edits to another skill, plugin,
-or automation. Shared runtime machinery belongs in the owning product repository,
-not copied into extension content.
+### Extensions-owned work
+
+This repository owns reusable extension content:
+
+- reusable skills and plugins, including their hooks and scripts;
+- automation bundles and integration catalogs;
+- extension content built only on public host and runtime capabilities.
+
+### Work owned elsewhere
+
+Route these categories to the repository that owns the contract or machinery:
+
+| Category | Owning repository |
+| --- | --- |
+| Runtime, agent-server, and client contracts | `OpenHands/software-agent-sdk` |
+| Generic automation scheduling, state, dispatch, and profile selection | `OpenHands/automation` |
+| Canvas product UI and app integration | `OpenHands/OpenHands` |
+
+Shared runtime machinery belongs in the owning product repository, not copied
+into extension content. A content PR should also stay focused on one extension
+or one shared mechanism that multiple extensions actually use.
+
+### Coordinated cross-repository stacks
+
+A coordinated cross-repository stack is legitimate, and a cross-repository
+reference is not automatically out of scope. Judge this PR's own diff: the stack
+is in scope when that diff contains only reusable extension content that depends
+on the other repository through a public contract or an explicitly coordinated
+release. If the diff carries the host, runtime, scheduling, dispatch,
+profile-selection, or Canvas machinery itself, treat it as out of scope here.
+
+### Stop outcomes requiring a maintainer decision
+
+Stop before exhaustive code review and request a maintainer decision when the PR
+is in the wrong repository, depends on an unresolved product or architecture
+decision, is obsolete or duplicates existing work, or runs contrary to the
+current product direction. Name the stable category:
+
+- **Wrong repository**: name the likely owning repository when the changed files
+  and contracts support it, and omit the name when the evidence does not.
+- **Unresolved product or architecture decision**: name the open decision.
+- **Obsolete or duplicate**: name the existing implementation or artifact.
+- **Contrary to current direction**: name the guidance or decision it conflicts
+  with.
+
+These are maintainer-decision outcomes. They do not approve the PR and do not
+enable auto-merge. State the category and its evidence, then leave the ownership
+or direction decision to a maintainer.
 
 ## Blocking checkpoints
 
