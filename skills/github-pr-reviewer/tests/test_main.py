@@ -538,6 +538,22 @@ class TestRepoReviewGuide(unittest.TestCase):
         self.assertIn("Do not add speculative or out-of-scope notes", prompt)
         self.assertIn("forbids the configured bot from approving its own PR", prompt)
 
+    def test_prompt_scope_gate_stops_before_the_technical_review(self):
+        prompt = main._build_review_prompt(
+            "owner/repo",
+            self._pr(),
+            "0123456789abcdef",
+            {"id": "1", "created_at": "t"},
+        )
+
+        gate = prompt.index("SCOPE GATE")
+        self.assertLess(gate, prompt.index("Inspect the PR discussion"))
+        self.assertLess(gate, prompt.index("Ground every finding"))
+        self.assertIn("before inspecting changed files, reading the diff, or running", prompt)
+        self.assertIn("scope categories and ownership boundaries", prompt)
+        self.assertIn("continue the technical review unchanged", prompt)
+        self.assertIn("move repositories, close, or receive a maintainer decision", prompt)
+
 
 class TestNormalizeRepo(unittest.TestCase):
     """A repository is written down in more than one way, and every API path in

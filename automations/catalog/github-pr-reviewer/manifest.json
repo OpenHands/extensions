@@ -1,9 +1,9 @@
 {
   "id": "github-pr-reviewer",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "name": "GitHub code review",
   "category": "Code review",
-  "description": "Review requested pull-request heads, record exact-head decisions, and optionally request a code-aware human maintainer after approval.",
+  "description": "Review requested pull-request heads, record exact-head decisions, stop early on out-of-scope changes, and optionally request a code-aware human maintainer after approval or a maintainer-decision scope stop.",
   "requires": {
     "integrations": {},
     "features": [
@@ -13,7 +13,7 @@
   },
   "popularityRank": 100,
   "estimatedSetupMinutes": 4,
-  "exampleImplementation": "A scheduled label scan or GitHub reviewer-request event selects a PR head and submits an idempotent subject turn. The profile-backed agent clones that exact head in its runtime, reuses the established review workflow, runs appropriate tests, and publishes a readable native review. A native approval can then be handed to a code-aware human maintainer.",
+  "exampleImplementation": "A scheduled label scan or GitHub reviewer-request event selects a PR head and submits an idempotent subject turn. The profile-backed agent clones that exact head in its runtime, applies an early repository-ownership and product/architecture scope gate, then reuses the established review workflow, runs appropriate tests, and publishes a readable native review. A native approval, or a maintainer-decision scope stop, can then be handed to a code-aware human maintainer.",
   "impact": {
     "basis": "completed-runs",
     "one": "1 PR review sweep completed",
@@ -125,7 +125,7 @@
       }
     },
     "bundle": {
-      "version": "1.3.0",
+      "version": "1.4.0",
       "entrypoint": "python3 worker.py",
       "timeout": 300,
       "files": {

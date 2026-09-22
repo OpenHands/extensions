@@ -424,3 +424,32 @@ def test_reviewer_does_not_handoff_failed_review(tmp_path, monkeypatch):
 
     handoff.assert_not_called()
     run.dispatcher.deliver.assert_not_called()
+
+
+def test_reviewer_hands_scope_stop_to_maintainer(tmp_path, monkeypatch):
+    """A scope stop is not an approval but still reaches the maintainer."""
+    module, run = _reviewer(tmp_path, monkeypatch)
+    run.config["maintainers"] = "neubig, VascoSch92"
+    pr = {
+        "number": 2,
+        "head": {"sha": "head-2"},
+        "labels": [{"name": "openhands-review"}],
+    }
+    run.gh_pages = lambda path: (
+        [pr]
+        if path.startswith("/pulls?")
+        else _reviews(verdict="🛑 MAINTAINER DECISION REQUIRED")
+    )
+    run.gh = Mock(side_effect=[{"id": 99}, pr, pr, {}])
+    handoff = Mock(return_value="VascoSch92")
+    monkeypatch.setattr(module, "request_maintainer_review", handoff)
+
+    run.run()
+
+    handoff.assert_called_once_with(run, pr, ["neubig", "VascoSch92"])
+    assert all(call.args[0] != "PUT" for call in run.gh.call_args_list)
+    assert run.gh.call_args_list[-1].args == (
+        "DELETE",
+        "/issues/2/labels/openhands-review",
+    )
+    run.dispatcher.deliver.assert_not_called()

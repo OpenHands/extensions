@@ -148,6 +148,7 @@ class PullRequestReviewer(GitHubRepository):
         if not completed:
             return False
         approved = None
+        maintainer_decision = False
         for review in sorted(
             completed, key=lambda item: item["submitted_at"], reverse=True
         ):
@@ -158,9 +159,14 @@ class PullRequestReviewer(GitHubRepository):
             if body.endswith("🔄 CHANGES REQUESTED"):
                 approved = False
                 break
-        if approved is None:
+            if body.endswith(workflow.MAINTAINER_DECISION_VERDICT):
+                maintainer_decision = True
+                break
+        if approved is None and not maintainer_decision:
             return False
-        if approved:
+        # A scope stop is not an approval: it requests the maintainer decision
+        # the change is missing, through the same handoff as an approval.
+        if approved or maintainer_decision:
             maintainers = parse_maintainers(self.config.get("maintainers"))
             if maintainers:
                 try:

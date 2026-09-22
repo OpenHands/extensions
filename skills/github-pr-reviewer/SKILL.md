@@ -29,6 +29,18 @@ state persistence, stale-result suppression, the repository checkout, and its
 removal are all handled in Python. The LLM is invoked only for the review
 itself.
 
+The review prompt starts with a scope gate: using the repository's own guidance
+(its scope categories and ownership boundaries, not a list of individual PR
+numbers), the reviewer decides whether the change belongs in this repository
+and has the product/architecture direction it needs. When it does not, the review
+stops with a single `event: COMMENT` review that says whether the change should
+move repositories, close, or receive a maintainer decision, and ends with the
+`🛑 MAINTAINER DECISION REQUIRED` verdict. That outcome is **neither an approval
+nor a change request**: it does not approve or merge the PR. The completion
+handler recognizes the verdict and requests one configured maintainer through the
+same handoff used after an approval. An in-scope change continues the existing
+review unchanged.
+
 The script prepares each review's workspace before the agent starts: the pull
 request's head commit is downloaded as a tarball and extracted to a directory of
 its own, which becomes the conversation's working directory. The agent is told
