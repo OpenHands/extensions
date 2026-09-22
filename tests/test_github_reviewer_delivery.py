@@ -649,17 +649,65 @@ def test_reviewer_defers_to_an_equivalent_workflow_remediation_comment(
     _module, run = _reviewer(tmp_path, monkeypatch)
     pr = _labeled_pr()
     workflow = _comment(
-        "This PR needs a couple of things fixed before OpenHands can review it.\n\n"
+        "The `Validate PR description` check still fails: the PR description's "
+        "`HUMAN:` section needs at least 20 characters of what you tested.\n\n"
         "_This is an automated check - no AI was used to generate this comment._"
     )
     run.gh_pages = _gate_pages(pr, [workflow])
     run.gh = Mock(side_effect=[{"id": 99}, pr])
-    run.check_runs = lambda sha: _checks(("ci", "completed", "failure"), sha=sha)
+    run.check_runs = lambda sha: _checks(
+        ("Validate PR description", "completed", "failure"), sha=sha
+    )
 
     run.run()
 
     run.dispatcher.deliver.assert_not_called()
     assert _gate_comment_calls(run) == []
+
+
+def test_reviewer_ignores_a_marked_comment_a_pr_author_wrote(
+    tmp_path, monkeypatch
+):
+    """A forged marker is untrusted: it neither suppresses nor gets PATCHed."""
+    _module, run = _reviewer(tmp_path, monkeypatch)
+    pr = _labeled_pr()
+    forged = _comment(
+        "I already handled this\n\n<!-- openhands-review-gate:blocked:head-2 -->",
+        login="neubig",
+    )
+    run.gh_pages = _gate_pages(pr, [forged])
+    run.gh = Mock(side_effect=[{"id": 99}, pr, {"id": 1234}])
+    run.check_runs = lambda sha: _checks(("ci", "completed", "failure"), sha=sha)
+
+    run.run()
+
+    run.dispatcher.deliver.assert_not_called()
+    assert [call for call in run.gh.call_args_list if call.args[0] == "PATCH"] == []
+    posted = [call for call in _gate_comment_calls(run) if call.args[0] == "POST"]
+    assert len(posted) == 1
+    assert "<!-- openhands-review-gate:blocked:head-2 -->" in posted[0].args[2]["body"]
+
+
+def test_reviewer_does_not_defer_to_a_workflow_comment_about_another_check(
+    tmp_path, monkeypatch
+):
+    """A disclosure for a different check must not suppress this head's gate."""
+    _module, run = _reviewer(tmp_path, monkeypatch)
+    pr = _labeled_pr()
+    unrelated = _comment(
+        "The `Validate PR description` check still fails.\n\n"
+        "_This is an automated check - no AI was used to generate this comment._"
+    )
+    run.gh_pages = _gate_pages(pr, [unrelated])
+    run.gh = Mock(side_effect=[{"id": 99}, pr, {"id": 1234}])
+    run.check_runs = lambda sha: _checks(("lint", "completed", "failure"), sha=sha)
+
+    run.run()
+
+    posted = [call for call in _gate_comment_calls(run) if call.args[0] == "POST"]
+    assert len(posted) == 1
+    assert "`lint`" in posted[0].args[2]["body"]
+    assert "<!-- openhands-review-gate:blocked:head-2 -->" in posted[0].args[2]["body"]
 
 
 def test_reviewer_event_path_also_respects_the_gate(tmp_path, monkeypatch):

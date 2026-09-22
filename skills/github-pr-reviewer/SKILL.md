@@ -50,10 +50,13 @@ access:
 The gate needs no configured list of check names. When it stops a review it
 leaves one concise explanation on the PR, identified by a hidden marker carrying
 the head SHA and gate category, so a later run for a different head updates that
-comment instead of posting another. If the repository's own workflow already
-posted a deterministic remediation comment for the PR, the gate adds nothing.
-The gate applies identically to reviewer-request events and scheduled label
-scans.
+comment instead of posting another. Only a marker this reviewer account authored
+counts as its own comment; every other PR comment is untrusted and can neither
+suppress the explanation nor be edited. If the repository's own workflow already
+posted a deterministic remediation comment that names the same current-head
+checks, the gate adds nothing; a disclosure about some other check does not
+suppress it. The gate applies identically to reviewer-request events and
+scheduled label scans.
 
 The review prompt starts with a scope gate: using the repository's own guidance
 (its scope categories and ownership boundaries, not a list of individual PR

@@ -244,21 +244,34 @@ class PullRequestReviewer(GitHubRepository):
             return "waiting", sorted(set(pending))
         return "green", []
 
-    def _gate_comment(self, number, marker, body):
+    def _owns_comment(self, comment):
+        login = ((comment.get("user") or {}).get("login") or "").lower()
+        return login == self.github_login.lower()
+
+    @staticmethod
+    def _explains_checks(body, names):
+        """Whether a deterministic comment names every check the gate reports."""
+        lowered = body.lower()
+        return all(name.lower() in lowered for name in names)
+
+    def _gate_comment(self, number, marker, body, names):
         """Post one gate explanation, upserting the automation's own comment.
 
         The marker carries the head SHA and gate category, so a later run for a
         different head updates the comment it owns instead of stacking another
-        one. An unmarked deterministic comment an existing repository workflow
-        already posted for this PR is treated as the equivalent explanation and
-        left alone, because that workflow refreshes its own comment on every
-        push.
+        one. Every PR comment is untrusted input: only a marker this account
+        authored is "managed", so a marker someone else placed can neither
+        suppress the explanation nor be edited. An unmarked deterministic comment
+        an existing repository workflow already posted is treated as the
+        equivalent explanation only when it names the same reported checks; a
+        comment about some other check is left alone and the gate posts its own.
         """
         comments = self.gh_pages(f"/issues/{number}/comments")
         managed = [
             comment
             for comment in comments
             if CHECK_GATE_MARKER in (comment.get("body") or "")
+            and self._owns_comment(comment)
         ]
         if any(marker in (comment.get("body") or "") for comment in managed):
             return None
@@ -268,6 +281,7 @@ class PullRequestReviewer(GitHubRepository):
             return target["id"]
         if any(
             WORKFLOW_DISCLOSURE.lower() in (comment.get("body") or "").lower()
+            and self._explains_checks(comment.get("body") or "", names)
             for comment in comments
             if CHECK_GATE_MARKER not in (comment.get("body") or "")
         ):
@@ -279,7 +293,7 @@ class PullRequestReviewer(GitHubRepository):
         short = sha[:12]
         listed = "\n".join(f"- `{name}`" for name in names)
         if state == "blocked":
-            heading = "### ⚠️ Review paused: required checks failed"
+            heading = "### ⚠️ Review paused: current-head checks failed"
             lead = (
                 f"The current head `{short}` has failing checks, so no review "
                 "conversation was started:"
@@ -312,7 +326,7 @@ class PullRequestReviewer(GitHubRepository):
         if state in ("blocked", "waiting"):
             marker = f"{CHECK_GATE_MARKER}{state}:{sha} -->"
             self._gate_comment(
-                pr["number"], marker, self._gate_body(sha, state, names)
+                pr["number"], marker, self._gate_body(sha, state, names), names
             )
         return state, sha
 
