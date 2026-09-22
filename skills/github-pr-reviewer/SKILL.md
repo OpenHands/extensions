@@ -29,6 +29,20 @@ state persistence, stale-result suppression, the repository checkout, and its
 removal are all handled in Python. The LLM is invoked only for the review
 itself.
 
+Before detailed code inspection or test execution, the review prompt runs a
+**scope gate**: using the repository's own guidance — its out-of-scope
+categories and ownership boundaries, not a list of individual PR numbers — the
+reviewer decides whether the change belongs in this repository and has the
+product/architecture direction it needs. When it does not, the review stops
+early and ends with the `🛑 MAINTAINER DECISION REQUIRED` verdict, naming the
+scope reason (wrong repository, unresolved product/architecture decision,
+obsolete/duplicate or current-direction conflict, or another repo-defined
+reason) and, for a wrong repository, the likely owning repository when the
+evidence supports it. That verdict is **neither an approval nor a change
+request**: it does not approve or merge the PR. The deterministic completion
+handler then requests one configured maintainer through the same
+code-aware/load-balanced mechanism used after an approval.
+
 The script prepares each review's workspace before the agent starts: the pull
 request's head commit is downloaded as a tarball and extracted to a directory of
 its own, which becomes the conversation's working directory. The agent is told
@@ -55,9 +69,9 @@ Verify that the following secret is set in **OpenHands Settings -> Secrets**:
 
 Pull-request **write** access is required because the agent publishes a pull
 request review, not just an issue comment. The Agent Canvas catalog worker may
-also request a configured human reviewer after approval. A token with only Pull
-requests: Read will poll happily and then fail at the point of publishing or
-requesting the handoff.
+also request a configured human reviewer after an approval or a
+maintainer-decision scope stop. A token with only Pull requests: Read will poll
+happily and then fail at the point of publishing or requesting the handoff.
 
 When several repositories are monitored, the token must cover all of them.
 
@@ -329,4 +343,5 @@ The completion callback fires once for the whole run.
 | Stale review suppressed | PR head SHA changed while the agent was reviewing | Re-apply the trigger label after the latest commit |
 | Review arrives as a plain comment, not a review | Publishing failed, so the script posted the text as a fallback | Check that the token has Pull requests: Read and Write |
 | Agent reports it cannot clone the repo | Prompt asked it not to; the workspace is already the checkout | No action - the code is at the head SHA in its working directory |
+| Review stops with `🛑 MAINTAINER DECISION REQUIRED` | The scope gate found the change out of scope or missing a product/architecture decision | Expected - the change needs a maintainer decision; the automation requests one and does not approve or merge |
 | Checkouts remain under `repositories/` | Their conversations had not stopped yet | They are removed by a later poll once the conversation is terminal |

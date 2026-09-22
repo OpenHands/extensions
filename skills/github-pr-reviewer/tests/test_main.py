@@ -538,6 +538,50 @@ class TestRepoReviewGuide(unittest.TestCase):
         self.assertIn("Do not add speculative or out-of-scope notes", prompt)
         self.assertIn("forbids the configured bot from approving its own PR", prompt)
 
+    def test_prompt_puts_the_scope_gate_before_inspection_and_tests(self):
+        prompt = main._build_review_prompt(
+            "owner/repo",
+            self._pr(),
+            "0123456789abcdef",
+            {"id": "1", "created_at": "t"},
+        )
+
+        gate = prompt.index("SCOPE GATE")
+        self.assertLess(gate, prompt.index("Inspect the PR discussion"))
+        self.assertLess(gate, prompt.index("Ground every finding"))
+        # The gate states it runs before diff inspection or test execution.
+        self.assertIn("before inspecting changed files, reading the diff, or running", prompt)
+        # The gate consumes repo-defined categories and ownership boundaries.
+        self.assertIn("scope categories and ownership boundaries", prompt)
+
+    def test_prompt_defines_the_maintainer_decision_verdict(self):
+        prompt = main._build_review_prompt(
+            "owner/repo",
+            self._pr(),
+            "0123456789abcdef",
+            {"id": "1", "created_at": "t"},
+        )
+
+        self.assertIn("🛑 MAINTAINER DECISION REQUIRED", prompt)
+        self.assertIn("not an approval", prompt)
+        self.assertIn("wrong repository", prompt)
+        self.assertIn("unresolved product/architecture decision", prompt)
+        self.assertIn("obsolete/duplicate", prompt)
+        self.assertIn("name the likely owning repository", prompt)
+        self.assertIn("event: COMMENT", prompt)
+
+    def test_prompt_does_not_list_individual_pr_numbers(self):
+        """Scope guidance is categories, not a maintained list of PR numbers."""
+        prompt = main._build_review_prompt(
+            "owner/repo",
+            self._pr(),
+            "0123456789abcdef",
+            {"id": "1", "created_at": "t"},
+        )
+
+        self.assertNotIn("PR number", prompt)
+        self.assertNotIn("list of pull requests", prompt)
+
 
 class TestNormalizeRepo(unittest.TestCase):
     """A repository is written down in more than one way, and every API path in
