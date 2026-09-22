@@ -228,17 +228,19 @@ class PullRequestReviewer(GitHubRepository):
 
     @staticmethod
     def _check_run_order(run):
-        """Deterministic ordering: start time first, then the run ID.
+        """Deterministic ordering by run ID, then start time as a tie-break.
 
-        A queued or requested run can predate its `started_at`, which GitHub
-        reports as null, so a missing start time must not sort before a real
-        timestamp and let a stale earlier run win. The run ID is a monotonically
-        increasing per-repository counter, so it is the fallback whenever a
-        start time is absent.
+        The check-run ID is a monotonically increasing per-repository counter,
+        so it tracks creation order even when `started_at` is absent, and it is
+        the primary key. Ordering by start time first broke in both directions:
+        a missing start time sorted before every real timestamp (an older queued
+        run lost to an earlier success), and the earlier `~{run_id}` fallback
+        sorted after every real timestamp (an older queued run outranked a newer
+        success). The start time only breaks a tie when two runs share an ID or
+        have none.
         """
         run_id = int(run.get("id") or 0)
-        started_at = run.get("started_at")
-        return (started_at or f"~{run_id:020d}", run_id)
+        return (run_id, run.get("started_at") or "")
 
     def _latest_check_runs(self, sha):
         """Return only the latest run of each logical check on the exact head.
@@ -247,10 +249,11 @@ class PullRequestReviewer(GitHubRepository):
         fix would otherwise contribute its superseded failure forever. A logical
         check is its name plus the reporting app identity, so two apps that use
         the same name stay independent. Within a group the latest run wins,
-        ordered by start time and then run ID so a timestamp tie stays
-        deterministic, with the run ID also standing in for a queued run whose
-        start time is still absent; a newer queued or in-progress re-run
-        therefore supersedes an earlier success and makes the head wait.
+        ordered by the run ID (the reliable creation sequence) with the start
+        time as a tie-break, so a newer queued or in-progress re-run supersedes
+        an earlier success and makes the head wait even when its start time is
+        still absent, while an older run without a start time cannot outrank a
+        newer success.
         """
         latest = {}
         for run in self.check_runs(sha):

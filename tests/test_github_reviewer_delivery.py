@@ -945,3 +945,39 @@ def test_reviewer_waits_for_a_newer_queued_run_without_a_start_time(
     assert "<!-- openhands-review-gate:waiting:head-2 -->" in body
     assert "`ci`" in body
 
+
+def test_reviewer_launches_when_a_success_supersedes_an_older_null_start_run(
+    tmp_path, monkeypatch
+):
+    """The reverse of the null-start case: the older run is the one without one.
+
+    An older queued or cancelled run with `started_at: null` must not outrank a
+    newer successful run on the same check. The run ID is the primary order, so
+    the later success wins and the head is green; keying on start time, or on a
+    fallback that sorts past every timestamp, would keep the head blocked or
+    waiting after the successful rerun.
+    """
+    _module, run = _reviewer(tmp_path, monkeypatch)
+    pr = _labeled_pr()
+    run.gh_pages = _gate_pages(pr, [])
+    run.gh = Mock(side_effect=[{"id": 99}, pr])
+    run.check_runs = lambda sha: [
+        _run("ci", "queued", None, started_at=None, run_id=1),
+        _run(
+            "ci",
+            "completed",
+            "success",
+            started_at="2026-09-22T13:10:00Z",
+            run_id=2,
+        ),
+    ]
+    run.dispatcher.deliver.return_value = {
+        "disposition": "created",
+        "conversation_id": "conversation",
+    }
+
+    run.run()
+
+    run.dispatcher.deliver.assert_called_once()
+    assert _gate_comment_calls(run) == []
+
