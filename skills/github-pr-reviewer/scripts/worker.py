@@ -374,12 +374,16 @@ class PullRequestReviewer(GitHubRepository):
 
         The marker carries the head SHA and gate category, so a later run for a
         different head updates the comment it owns instead of stacking another
-        one. Every PR comment is untrusted input: only a marker this account
-        authored is "managed", so a marker someone else placed can neither
-        suppress the explanation nor be edited. An unmarked deterministic comment
-        an existing repository workflow already posted is treated as the
-        equivalent explanation only when it names the same reported checks; a
-        comment about some other check is left alone and the gate posts its own.
+        one. A run that finds the same marker still compares the full body, so a
+        comment written for one deployment is reworded in place when the retry it
+        names changes -- an event-only gate comment becomes the scheduled one when
+        the automation is switched to cron -- and an unchanged body is a no-op.
+        Every PR comment is untrusted input: only a marker this account authored
+        is "managed", so a marker someone else placed can neither suppress the
+        explanation nor be edited. An unmarked deterministic comment an existing
+        repository workflow already posted is treated as the equivalent
+        explanation only when it names the same reported checks; a comment about
+        some other check is left alone and the gate posts its own.
         """
         comments = self.gh_pages(f"/issues/{number}/comments")
         managed = [
@@ -388,8 +392,15 @@ class PullRequestReviewer(GitHubRepository):
             if CHECK_GATE_MARKER in (comment.get("body") or "")
             and self._owns_comment(comment)
         ]
-        if any(marker in (comment.get("body") or "") for comment in managed):
-            return None
+        matching = [
+            comment for comment in managed if marker in (comment.get("body") or "")
+        ]
+        if matching:
+            target = max(matching, key=lambda comment: int(comment["id"]))
+            if (target.get("body") or "").strip() == body.strip():
+                return None
+            self.gh("PATCH", f"/issues/comments/{target['id']}", {"body": body})
+            return target["id"]
         if managed:
             target = max(managed, key=lambda comment: int(comment["id"]))
             self.gh("PATCH", f"/issues/comments/{target['id']}", {"body": body})
@@ -409,7 +420,10 @@ class PullRequestReviewer(GitHubRepository):
 
         A scheduled run proves a scan is configured, so it may promise the next
         scan. An event run does not, so it names the one mechanism this
-        deployment is guaranteed to honor: another native review request.
+        deployment is guaranteed to honor: another native review request. GitHub
+        refuses to request a reviewer who is already requested, so an event-only
+        deployment must say that the outstanding request has to be removed and
+        re-requested before the review can start.
         """
         short = sha[:12]
         listed = "\n".join(f"- `{name}`" for name in names)
@@ -423,9 +437,11 @@ class PullRequestReviewer(GitHubRepository):
                 "Fix the checks above and push. The scheduled scan then starts "
                 "the review on the updated head."
                 if scheduled
-                else "Fix the checks above and push, then request "
-                f"`{self.trigger_reviewer}` again. The review starts on the "
-                "updated head."
+                else "Fix the checks above and push. Then remove the outstanding "
+                f"`{self.trigger_reviewer}` request and request "
+                f"`{self.trigger_reviewer}` again: GitHub will not accept a "
+                "second request while the first is still outstanding. The review "
+                "starts on the updated head."
             )
         else:
             heading = "### ⏳ Review waiting on checks"
@@ -437,8 +453,11 @@ class PullRequestReviewer(GitHubRepository):
                 "No action is needed. The scheduled scan retries once every "
                 "check on the head reports a conclusion."
                 if scheduled
-                else "Once every check on the head reports a conclusion, a new "
-                f"`{self.trigger_reviewer}` review request starts the review."
+                else "Once every check on the head reports a conclusion, remove "
+                f"the outstanding `{self.trigger_reviewer}` request and request "
+                f"`{self.trigger_reviewer}` again: GitHub will not accept a "
+                "second request while the first is still outstanding. That "
+                "starts the review."
             )
         return (
             f"{heading}\n\n{lead}\n\n{listed}\n\n{action}\n\n"
