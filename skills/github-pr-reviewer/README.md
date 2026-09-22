@@ -24,6 +24,12 @@ This skill is activated by:
   red or pending; the CI gate applies to scheduled discovery
 - Ignores checks and workflow runs recorded for an obsolete head, so a stale
   failure cannot block the push that fixed it
+- Resumes an outstanding reviewer request on the next scheduled scan once the
+  requested head's checks are green, so a request that arrives during CI is not
+  lost; the explicit-request event path is kept for event-only deployments
+- Names the retry the deployment actually has in the waiting comment: a
+  scheduled scan where a cron trigger exists, and another review request where
+  only the event trigger does
 - Watches several repositories from a single automation, each with its own state
 - Processes each review request or label application idempotently
 - Supports re-review by requesting the bot again or re-applying the label. Each
