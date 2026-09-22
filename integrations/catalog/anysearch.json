@@ -1,0 +1,41 @@
+{
+  "id": "anysearch",
+  "name": "AnySearch",
+  "description": "Unified real-time AI search engine supporting web search, 17 vertical domains, parallel batch queries, and full-page Markdown content extraction. Free anonymous access available.",
+  "categories": [
+    "Search",
+    "Research",
+    "Engineering"
+  ],
+  "appUrl": "https://www.anysearch.com",
+  "docsUrl": "https://github.com/anysearch-ai/anysearch-mcp-server",
+  "notes": "Native Streamable HTTP MCP endpoint. Supports zero-config anonymous access or higher rate limits via API key.",
+  "iconBg": "#1E293B",
+  "keywords": [
+    "search",
+    "web",
+    "research",
+    "vertical",
+    "extract",
+    "batch"
+  ],
+  "installHint": "Leave API key blank to start immediately with free anonymous access, or provide your AnySearch API key for increased quotas.",
+  "connectionOptions": [
+    {
+      "id": "shttp",
+      "provider": "mcp",
+      "transport": {
+        "kind": "shttp",
+        "url": "https://api.anysearch.com/mcp",
+        "apiKeyOptional": true
+      },
+      "auth": {
+        "strategy": "bearer",
+        "apiKeyOptional": true,
+        "credentialLabel": "AnySearch API Key",
+        "credentialPlaceholder": "as_sk_...",
+        "credentialHelp": "Optional. Leave blank for free anonymous access, or paste your API key from https://anysearch.com/console/api-keys for higher quotas."
+      }
+    }
+  ]
+}
