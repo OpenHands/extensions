@@ -107,6 +107,20 @@
       ]
     },
     {
+      "name": "canvas-extension-api",
+      "source": "./skills/canvas-extension-api",
+      "description": "Build and validate Apps for Agent Canvas using the supported Canvas Extensions API v1 routed-page contract.",
+      "category": "agent-authoring",
+      "defaultEnabled": true,
+      "keywords": [
+        "agent-canvas",
+        "canvas-app",
+        "canvas-extension",
+        "register-page",
+        "app-development"
+      ]
+    },
+    {
       "name": "openhands-sdk",
       "source": "./skills/openhands-sdk",
       "description": "Reference skill for the OpenHands Software Agent SDK - build AI agents with custom tools, LLM configuration, conversations, sub-agent delegation, MCP integration, security, and persistence.",
