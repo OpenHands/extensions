@@ -24,6 +24,11 @@ Preconditions:
 
 Evidence lines are printed as ``[OSS-5193] ...`` and contain only tool names,
 counts, and provider error codes — never credentials or message content.
+
+The anonymous You.com search smoke test needs no credentials and runs only
+when explicitly enabled:
+
+    RUN_YOUCOM_MCP_LIVE=1 uv run pytest tests/test_live_integration_smoke.py -k youcom -s
 """
 
 import json
@@ -364,3 +369,39 @@ def test_slack_invalid_token_yields_in_band_error():
             f"slack: invalid token -> in-band ok=false error={payload.get('error')} "
             f"(is_error={is_error})"
         )
+
+
+@pytest.mark.skipif(
+    os.environ.get("RUN_YOUCOM_MCP_LIVE") != "1",
+    reason="set RUN_YOUCOM_MCP_LIVE=1 to run the anonymous You.com MCP smoke test",
+)
+def test_youcom_anonymous_search():
+    option = _installable_option("youcom-search")
+    assert option.auth.strategy == "none"
+    assert option.transport.kind == "shttp"
+    server = MCPServer.model_validate(
+        {"url": option.transport.url, "transport": "http"}
+    )
+
+    with create_mcp_tools({"youcom-search": server}, timeout=HTTP_TIMEOUT) as client:
+        assert "you-search" in {tool.name for tool in client.tools}
+        result = client.call_async_from_sync(
+            client.call_tool_mcp,
+            name="you-search",
+            arguments={
+                "query": "OpenHands AI agent platform GitHub repository",
+                "count": 5,
+            },
+            timeout=HTTP_TIMEOUT,
+        )
+        assert not result.is_error
+        text = "\n".join(
+            block.text
+            for block in result.content
+            if isinstance(block, mcp.types.TextContent)
+        )
+        payload = json.loads(text)
+        results = payload["results"]["web"]
+        assert results, "you-search returned no web results"
+        assert all("url" in r for r in results)
+        _evidence(f"youcom: anonymous you-search -> {len(results)} web results")
