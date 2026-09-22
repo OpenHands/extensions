@@ -132,7 +132,24 @@ class PullRequestReviewer(GitHubRepository):
             "second result."
         )
 
-    def _finish_completed_review(self, pr, trigger, label=None):
+    @staticmethod
+    def _review_completes_request(review, triggered_at, submitted_review):
+        """Whether *review* closes the request the current run was triggered by.
+
+        A ``pull_request_review.submitted`` delivery names the review it reports
+        and is created after that review's ``submitted_at``. Comparing it to the
+        earlier ``review_requested`` timestamp would reject the very review the
+        event announced, so the reported review is accepted regardless of timing.
+        """
+        if submitted_review and submitted_review.get("id") is not None:
+            return review.get("id") == submitted_review["id"]
+        if not triggered_at:
+            # With no selected trigger there is no window to compare against, so
+            # only the review a submitted event names can complete the run.
+            return False
+        return (review.get("submitted_at") or "") > triggered_at
+
+    def _finish_completed_review(self, pr, trigger, label=None, submitted_review=None):
         """Complete an exact-head review, including an optional human handoff."""
         head_sha = pr["head"]["sha"]
         triggered_at = trigger.get("created_at") or ""
@@ -143,7 +160,7 @@ class PullRequestReviewer(GitHubRepository):
             if review.get("commit_id") == head_sha
             and ((review.get("user") or {}).get("login") or "").lower()
             == self.github_login.lower()
-            and (review.get("submitted_at") or "") > triggered_at
+            and self._review_completes_request(review, triggered_at, submitted_review)
         ]
         if not completed:
             return False
@@ -231,6 +248,11 @@ class PullRequestReviewer(GitHubRepository):
                 continue
             try:
                 pr = self.gh("GET", f"/pulls/{candidate['number']}")
+                submitted_review = (
+                    payload.get("review")
+                    if event_mode and payload.get("action") == "submitted"
+                    else None
+                )
                 trigger = (
                     self._latest_reviewer_request(pr["number"])
                     if event_mode
@@ -239,9 +261,16 @@ class PullRequestReviewer(GitHubRepository):
                     )
                 )
                 if trigger is None:
-                    continue
+                    # A submitted review is its own completion signal: the bot
+                    # may have published a review whose request predates the
+                    # issue-event window, and that review must still complete.
+                    if submitted_review is None:
+                        continue
+                    trigger = {}
                 trigger_label = None if event_mode else label
-                if self._finish_completed_review(pr, trigger, trigger_label):
+                if self._finish_completed_review(
+                    pr, trigger, trigger_label, submitted_review
+                ):
                     continue
                 if event_mode and payload.get("action") == "submitted":
                     # A submitted review is a completion signal, never a fresh
