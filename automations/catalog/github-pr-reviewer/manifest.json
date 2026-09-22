@@ -1,6 +1,6 @@
 {
   "id": "github-pr-reviewer",
-  "version": "1.4.0",
+  "version": "1.5.0",
   "name": "GitHub code review",
   "category": "Code review",
   "description": "Review requested pull-request heads, record exact-head decisions, stop early on out-of-scope changes, and optionally request a code-aware human maintainer after approval or a maintainer-decision scope stop.",
@@ -125,7 +125,7 @@
       }
     },
     "bundle": {
-      "version": "1.4.0",
+      "version": "1.5.0",
       "entrypoint": "python3 worker.py",
       "timeout": 300,
       "files": {

@@ -14,7 +14,12 @@ This skill is activated by:
 - Reviews PRs on demand from a GitHub reviewer request or label event
 - Watches several repositories from a single automation, each with its own state
 - Processes each review request or label application idempotently
-- Supports re-review by requesting the bot again or re-applying the label
+- Supports re-review by requesting the bot again or re-applying the label. Each
+  explicit request refreshes mutable GitHub state (head, PR body, reviews,
+  comments, review requests, linked issues, and current-head checks) instead of
+  trusting what an earlier turn observed, so a same-head re-review sees a linked
+  issue that has since gained or lost readiness, or a check that has since moved.
+  Repository analysis already done, such as reading `AGENTS.md`, is retained
 - Suppresses stale reviews when the PR head commit changes mid-review
 - Hands the agent the reviewed commit already checked out, and removes that
   checkout when the review ends, so nothing accumulates between runs
