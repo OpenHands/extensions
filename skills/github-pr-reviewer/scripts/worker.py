@@ -404,7 +404,13 @@ class PullRequestReviewer(GitHubRepository):
         created = self.gh("POST", f"/issues/{number}/comments", {"body": body})
         return created.get("id")
 
-    def _gate_body(self, sha, state, names):
+    def _gate_body(self, sha, state, names, scheduled):
+        """Explain a stop, naming the retry this deployment actually has.
+
+        A scheduled run proves a scan is configured, so it may promise the next
+        scan. An event run does not, so it names the one mechanism this
+        deployment is guaranteed to honor: another native review request.
+        """
         short = sha[:12]
         listed = "\n".join(f"- `{name}`" for name in names)
         if state == "blocked":
@@ -414,8 +420,12 @@ class PullRequestReviewer(GitHubRepository):
                 "conversation was started:"
             )
             action = (
-                "Fix the checks above and push. The scheduled scan, or a new "
-                "review request, then starts the review on the updated head."
+                "Fix the checks above and push. The scheduled scan then starts "
+                "the review on the updated head."
+                if scheduled
+                else "Fix the checks above and push, then request "
+                f"`{self.trigger_reviewer}` again. The review starts on the "
+                "updated head."
             )
         else:
             heading = "### ⏳ Review waiting on checks"
@@ -424,9 +434,11 @@ class PullRequestReviewer(GitHubRepository):
                 "finished, so no review conversation was started:"
             )
             action = (
-                "No action is needed. The scheduled scan, or a new review "
-                "request, retries once every check on the head reports a "
-                "conclusion."
+                "No action is needed. The scheduled scan retries once every "
+                "check on the head reports a conclusion."
+                if scheduled
+                else "Once every check on the head reports a conclusion, a new "
+                f"`{self.trigger_reviewer}` review request starts the review."
             )
         return (
             f"{heading}\n\n{lead}\n\n{listed}\n\n{action}\n\n"
@@ -434,16 +446,33 @@ class PullRequestReviewer(GitHubRepository):
             f"_This is an automated check - {WORKFLOW_DISCLOSURE}._"
         )
 
-    def _gate_head(self, pr):
+    def _gate_head(self, pr, scheduled):
         """Return the head's eligibility, explaining any stop on the PR."""
         sha = pr["head"]["sha"]
         state, names = self._classify_check_runs(sha)
         if state in ("blocked", "waiting"):
             marker = f"{CHECK_GATE_MARKER}{state}:{sha} -->"
             self._gate_comment(
-                pr["number"], marker, self._gate_body(sha, state, names), names
+                pr["number"],
+                marker,
+                self._gate_body(sha, state, names, scheduled),
+                names,
             )
         return state, sha
+
+    def _outstanding_review_request(self, pr):
+        """Whether an open, non-draft PR still holds a request for the reviewer.
+
+        The list endpoint already answers this: `requested_reviewers` is the live
+        set, so a review that was submitted, or a request that was withdrawn, is
+        simply absent. Drafts are excluded because a draft is not reviewable.
+        """
+        if pr.get("draft"):
+            return False
+        return any(
+            (item.get("login") or "").lower() == self.trigger_reviewer
+            for item in pr.get("requested_reviewers") or []
+        )
 
     def run(self):
         repository_id = self.gh("GET", "")["id"]
@@ -464,20 +493,31 @@ class PullRequestReviewer(GitHubRepository):
             event_mode = payload is not None
             if not event_mode and label not in {
                 item["name"] for item in candidate.get("labels", [])
-            }:
+            } and not self._outstanding_review_request(candidate):
+                # A scheduled scan covers the trigger label and any PR that still
+                # holds a review request the CI gate deferred. Everything else is
+                # not ours to review.
                 continue
             try:
                 pr = self.gh("GET", f"/pulls/{candidate['number']}")
-                trigger = (
-                    self._latest_reviewer_request(pr["number"])
-                    if event_mode
-                    else workflow._latest_trigger_label_event(
-                        self.token, self.repository, pr["number"]
+                has_label = label in {
+                    item["name"] for item in pr.get("labels", [])
+                }
+                if event_mode or has_label:
+                    trigger = (
+                        self._latest_reviewer_request(pr["number"])
+                        if event_mode
+                        else workflow._latest_trigger_label_event(
+                            self.token, self.repository, pr["number"]
+                        )
                     )
-                )
+                else:
+                    # The outstanding request is the trigger, so its own event
+                    # keys the delivery and dedupes repeated scans.
+                    trigger = self._latest_reviewer_request(pr["number"])
                 if trigger is None:
                     continue
-                trigger_label = None if event_mode else label
+                trigger_label = label if (not event_mode and has_label) else None
                 if self._finish_completed_review(pr, trigger, trigger_label):
                     continue
                 if event_mode and payload.get("action") == "submitted":
@@ -487,7 +527,7 @@ class PullRequestReviewer(GitHubRepository):
                     # dispatching a review the caller never asked for.
                     continue
                 sha = pr["head"]["sha"]
-                gate_state, sha = self._gate_head(pr)
+                gate_state, sha = self._gate_head(pr, scheduled=not event_mode)
                 if gate_state != "green":
                     # A deterministic blocker stops the run without spending a
                     # worker slot on an agent. The trigger is not consumed: the

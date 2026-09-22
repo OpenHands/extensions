@@ -1278,31 +1278,129 @@ def test_reviewer_waits_for_a_newer_queued_run_without_a_start_time(
     assert "`ci`" in body
 
 
-def test_reviewer_launches_when_a_success_supersedes_an_older_null_start_run(
+# Scheduled retry: a five-minute scan resumes an outstanding review request.
+# --------------------------------------------------------------------------- #
+
+
+def _requested_pr(number=2, sha="head-2", draft=False):
+    return {
+        "number": number,
+        "head": {"sha": sha},
+        "labels": [],
+        "draft": draft,
+        "requested_reviewers": [{"login": "all-hands-bot"}],
+    }
+
+
+def _review_request_event(request_id=42):
+    return {
+        "id": request_id,
+        "event": "review_requested",
+        "created_at": "2026-01-01T00:00:00Z",
+        "requested_reviewer": {"login": "all-hands-bot"},
+    }
+
+
+def _request_pages(pr, request, comments):
+    return lambda path: (
+        [pr]
+        if path.startswith("/pulls?")
+        else ([request] if path.endswith("/events") else comments)
+    )
+
+
+def test_reviewer_scheduled_scan_reviews_an_outstanding_request(tmp_path, monkeypatch):
+    """A request made before CI finished is reviewed once the head is green."""
+    _module, run = _reviewer(tmp_path, monkeypatch)
+    pr = _requested_pr()
+    state = {"runs": _checks(("slow-e2e", "queued", None), sha="head-2")}
+    run.check_runs = lambda sha: state["runs"]
+    run.gh_pages = _request_pages(pr, _review_request_event(), [])
+    run.gh = Mock(side_effect=[{"id": 99}, pr, {"id": 1234}, pr])
+    run.dispatcher.deliver.return_value = {
+        "disposition": "created",
+        "conversation_id": "conversation",
+    }
+
+    run.run()
+    assert run.dispatcher.deliver.call_count == 0
+    posted = [call for call in _gate_comment_calls(run) if call.args[0] == "POST"]
+    assert len(posted) == 1
+    waiting = posted[0].args[2]["body"]
+    assert "<!-- openhands-review-gate:waiting:head-2 -->" in waiting
+    assert "The scheduled scan retries" in waiting
+
+    run.gh_pages = _request_pages(pr, _review_request_event(), [])
+    run.gh = Mock(side_effect=[{"id": 99}, pr])
+    state["runs"] = _checks(("slow-e2e", "completed", "success"), sha="head-2")
+    run.run()
+
+    run.dispatcher.deliver.assert_called_once()
+    call = run.dispatcher.deliver.call_args.kwargs
+    assert call["delivery"] == "42:head-2"
+    assert "latest review request for `all-hands-bot` event 42" in call["prompt"]
+
+
+def test_reviewer_repeated_scans_do_not_duplicate_a_requested_review(
     tmp_path, monkeypatch
 ):
-    """The reverse of the null-start case: the older run is the one without one.
+    """Two scans over one outstanding request produce one stable delivery key."""
+    _module, run = _reviewer(tmp_path, monkeypatch)
+    pr = _requested_pr()
+    run.check_runs = lambda sha: _checks(("ci", "completed", "success"), sha=sha)
+    run.dispatcher.deliver.return_value = {
+        "disposition": "created",
+        "conversation_id": "conversation",
+    }
 
-    An older queued or cancelled run with `started_at: null` must not outrank a
-    newer successful run on the same check. The run ID is the primary order, so
-    the later success wins and the head is green; keying on start time, or on a
-    fallback that sorts past every timestamp, would keep the head blocked or
-    waiting after the successful rerun.
-    """
+    for _ in range(2):
+        run.gh_pages = _request_pages(pr, _review_request_event(), [])
+        run.gh = Mock(side_effect=[{"id": 99}, pr])
+        run.run()
+
+    assert run.dispatcher.deliver.call_count == 2
+    deliveries = {
+        call.kwargs["delivery"] for call in run.dispatcher.deliver.call_args_list
+    }
+    assert deliveries == {"42:head-2"}
+
+
+def test_reviewer_scheduled_scan_ignores_a_draft_with_a_request(
+    tmp_path, monkeypatch
+):
+    _module, run = _reviewer(tmp_path, monkeypatch)
+    pr = _requested_pr(draft=True)
+    run.gh_pages = lambda path: [pr]
+    run.gh = Mock(return_value={"id": 99})
+
+    run.run()
+
+    run.dispatcher.deliver.assert_not_called()
+
+
+def test_reviewer_scheduled_scan_ignores_an_unlabeled_unrequested_pr(
+    tmp_path, monkeypatch
+):
+    _module, run = _reviewer(tmp_path, monkeypatch)
+    pr = {"number": 3, "head": {"sha": "head-3"}, "labels": [], "draft": False}
+    run.gh_pages = lambda path: [pr]
+    run.gh = Mock(return_value={"id": 99})
+
+    run.run()
+
+    run.dispatcher.deliver.assert_not_called()
+    assert run.gh.call_count == 1
+
+
+def test_reviewer_scheduled_scan_keeps_the_label_path_unchanged(
+    tmp_path, monkeypatch
+):
+    """A labeled PR is still driven by its label event, not by a request."""
     _module, run = _reviewer(tmp_path, monkeypatch)
     pr = _labeled_pr()
     run.gh_pages = _gate_pages(pr, [])
     run.gh = Mock(side_effect=[{"id": 99}, pr])
-    run.check_runs = lambda sha: [
-        _run("ci", "queued", None, started_at=None, run_id=1),
-        _run(
-            "ci",
-            "completed",
-            "success",
-            started_at="2026-09-22T13:10:00Z",
-            run_id=2,
-        ),
-    ]
+    run.check_runs = lambda sha: _checks(("ci", "completed", "success"), sha=sha)
     run.dispatcher.deliver.return_value = {
         "disposition": "created",
         "conversation_id": "conversation",
@@ -1311,5 +1409,62 @@ def test_reviewer_launches_when_a_success_supersedes_an_older_null_start_run(
     run.run()
 
     run.dispatcher.deliver.assert_called_once()
-    assert _gate_comment_calls(run) == []
+    assert run.dispatcher.deliver.call_args.kwargs["delivery"] == "7:head-2"
+
+
+def test_reviewer_event_gate_comment_does_not_promise_a_scan(
+    tmp_path, monkeypatch
+):
+    """An event-only deployment names the retry it actually honors."""
+    _module, run = _reviewer(tmp_path, monkeypatch)
+    _event(monkeypatch)
+    pr = {"number": 2, "head": {"sha": "head-2"}, "labels": []}
+    request = _review_request_event()
+    run.gh = Mock(side_effect=[{"id": 99}, pr, {"id": 1234}])
+    run.gh_pages = lambda path: [request] if path.endswith("/events") else []
+    run.check_runs = lambda sha: _checks(("slow-e2e", "in_progress", None), sha=sha)
+
+    run.run()
+
+    run.dispatcher.deliver.assert_not_called()
+    posted = [call for call in _gate_comment_calls(run) if call.args[0] == "POST"]
+    assert len(posted) == 1
+    body = posted[0].args[2]["body"]
+    assert "a new `all-hands-bot` review request starts the review" in body
+    assert "scheduled" not in body.lower()
+
+
+def test_reviewer_event_blocked_gate_comment_does_not_promise_a_scan(
+    tmp_path, monkeypatch
+):
+    _module, run = _reviewer(tmp_path, monkeypatch)
+    _event(monkeypatch)
+    pr = {"number": 2, "head": {"sha": "head-2"}, "labels": []}
+    request = _review_request_event()
+    run.gh = Mock(side_effect=[{"id": 99}, pr, {"id": 1234}])
+    run.gh_pages = lambda path: [request] if path.endswith("/events") else []
+    run.check_runs = lambda sha: _checks(("ci", "completed", "failure"), sha=sha)
+
+    run.run()
+
+    posted = [call for call in _gate_comment_calls(run) if call.args[0] == "POST"]
+    body = posted[0].args[2]["body"]
+    assert "request `all-hands-bot` again" in body
+    assert "scheduled" not in body.lower()
+
+
+def test_reviewer_scheduled_scan_blocked_comment_names_the_scan(
+    tmp_path, monkeypatch
+):
+    _module, run = _reviewer(tmp_path, monkeypatch)
+    pr = _requested_pr()
+    run.gh_pages = _request_pages(pr, _review_request_event(), [])
+    run.gh = Mock(side_effect=[{"id": 99}, pr, {"id": 1234}])
+    run.check_runs = lambda sha: _checks(("ci", "completed", "failure"), sha=sha)
+
+    run.run()
+
+    posted = [call for call in _gate_comment_calls(run) if call.args[0] == "POST"]
+    body = posted[0].args[2]["body"]
+    assert "The scheduled scan then starts the review" in body
 

@@ -51,6 +51,12 @@ branch-protection or ruleset access:
   report success and only the workflow run reveals the red CI. A workflow run
   whose check suite already reported check runs is left to those runs, so a
   workflow is never counted twice.
+- A scheduled scan considers the trigger label **and** every open, non-draft PR
+  that still holds an outstanding `all-hands-bot` review request. That is what
+  resumes a request made while CI was running: the request is keyed by its own
+  `review_requested` event, so repeated scans reuse one conversation and one
+  review instead of creating duplicates, and a PR whose request was answered or
+  withdrawn simply drops out of `requested_reviewers`.
 - Runs attributed to any other (obsolete) head SHA are ignored, so a stale
   failure cannot block the push that fixed it. This applies to workflow runs
   too.
@@ -83,6 +89,11 @@ labels, and the current-head Actions results) and ignores any earlier finding,
 verdict, or label/priority claim that state no longer supports. Repository
 analysis the conversation already did, such as reading `AGENTS.md`, stays
 useful and is not repeated.
+
+The waiting and blocked explanations name the retry the deployment actually has.
+A scheduled run proves a scan is configured, so it says the next scan will
+retry. An event-only run does not, so it asks for another `all-hands-bot`
+review request instead of promising a scan that does not exist.
 
 The review prompt starts with a scope gate: using the repository's own guidance
 (its scope categories and ownership boundaries, not a list of individual PR
