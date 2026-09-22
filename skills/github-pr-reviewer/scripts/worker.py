@@ -218,18 +218,54 @@ class PullRequestReviewer(GitHubRepository):
             )
         return True
 
+    @staticmethod
+    def _check_app_identity(run):
+        """The app that reported a check run, as a stable grouping key."""
+        app = run.get("app") or {}
+        if isinstance(app, dict):
+            return str(app.get("slug") or app.get("id") or app.get("name") or "")
+        return str(app)
+
+    @staticmethod
+    def _check_run_order(run):
+        """Deterministic ordering: start time first, then the run ID."""
+        return (run.get("started_at") or "", int(run.get("id") or 0))
+
+    def _latest_check_runs(self, sha):
+        """Return only the latest run of each logical check on the exact head.
+
+        GitHub lists every run for a commit, so a check that was re-run after a
+        fix would otherwise contribute its superseded failure forever. A logical
+        check is its name plus the reporting app identity, so two apps that use
+        the same name stay independent. Within a group the latest run wins,
+        ordered by start time and then run ID so a timestamp tie stays
+        deterministic; a newer queued or in-progress re-run therefore supersedes
+        an earlier success and makes the head wait.
+        """
+        latest = {}
+        for run in self.check_runs(sha):
+            if run.get("head_sha") != sha:
+                continue
+            key = (run.get("name") or "unnamed check", self._check_app_identity(run))
+            current = latest.get(key)
+            if current is None or self._check_run_order(run) > self._check_run_order(
+                current
+            ):
+                latest[key] = run
+        return list(latest.values())
+
     def _classify_check_runs(self, sha):
         """Split current-head check runs into blocking, pending, and green.
 
         Only runs GitHub attributes to the exact head count: a run left behind on
-        an obsolete head must not block the push that fixed it. A completed run
-        whose conclusion is neither blocking nor explicitly non-blocking fails
-        closed, so an unknown conclusion cannot silently approve a PR.
+        an obsolete head must not block the push that fixed it. Only the latest
+        run of each logical check counts, so a re-run that fixed a check
+        supersedes its earlier failure. A completed run whose conclusion is
+        neither blocking nor explicitly non-blocking fails closed, so an unknown
+        conclusion cannot silently approve a PR.
         """
         blocking, pending = [], []
-        for run in self.check_runs(sha):
-            if run.get("head_sha") != sha:
-                continue
+        for run in self._latest_check_runs(sha):
             name = run.get("name") or "unnamed check"
             status = (run.get("status") or "").lower()
             if status != "completed":

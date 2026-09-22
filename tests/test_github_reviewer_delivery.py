@@ -52,6 +52,28 @@ def _checks(*runs, sha="head-2"):
             for name, status, conclusion in runs]
 
 
+def _run(
+    name,
+    status,
+    conclusion,
+    *,
+    app="github-actions",
+    started_at="",
+    run_id=0,
+    sha="head-2",
+):
+    """One check run with the app identity and ordering fields the API sends."""
+    return {
+        "name": name,
+        "status": status,
+        "conclusion": conclusion,
+        "head_sha": sha,
+        "app": {"slug": app},
+        "started_at": started_at,
+        "id": run_id,
+    }
+
+
 def _event(monkeypatch, *, action="review_requested", login="all-hands-bot"):
     payload = {
         "action": action,
@@ -757,4 +779,135 @@ def test_reviewer_waiting_head_does_not_consume_a_later_green_request(
     state["runs"] = _checks(("slow-e2e", "completed", "success"), sha="head-2")
     run.run()
     assert run.dispatcher.deliver.call_count == 1
+
+
+
+def test_reviewer_ignores_a_superseded_failure_for_the_same_check(
+    tmp_path, monkeypatch
+):
+    """The live #647/#649 case: an early failure and a later success, one SHA.
+
+    GitHub lists both `Validate PR description` runs on a single commit when the
+    PR body is fixed without a code push, so only the latest run may count.
+    """
+    _module, run = _reviewer(tmp_path, monkeypatch)
+    pr = _labeled_pr()
+    run.gh_pages = _gate_pages(pr, [])
+    run.gh = Mock(side_effect=[{"id": 99}, pr])
+    run.check_runs = lambda sha: [
+        _run(
+            "Validate PR description",
+            "completed",
+            "success",
+            started_at="2026-09-22T13:18:41Z",
+            run_id=106761769135,
+        ),
+        _run(
+            "Validate PR description",
+            "completed",
+            "failure",
+            started_at="2026-09-22T13:04:07Z",
+            run_id=106756418507,
+        ),
+    ]
+    run.dispatcher.deliver.return_value = {
+        "disposition": "created",
+        "conversation_id": "conversation",
+    }
+
+    run.run()
+
+    run.dispatcher.deliver.assert_called_once()
+    assert _gate_comment_calls(run) == []
+
+
+def test_reviewer_prefers_run_id_to_break_a_start_time_tie(tmp_path, monkeypatch):
+    """Two runs sharing a start time are ordered by run ID, not list order."""
+    _module, run = _reviewer(tmp_path, monkeypatch)
+    pr = _labeled_pr()
+    run.gh_pages = _gate_pages(pr, [])
+    run.gh = Mock(side_effect=[{"id": 99}, pr])
+    run.check_runs = lambda sha: [
+        _run(
+            "ci",
+            "completed",
+            "failure",
+            started_at="2026-09-22T13:04:07Z",
+            run_id=106756418507,
+        ),
+        _run(
+            "ci",
+            "completed",
+            "success",
+            started_at="2026-09-22T13:04:07Z",
+            run_id=106761769135,
+        ),
+    ]
+    run.dispatcher.deliver.return_value = {
+        "disposition": "created",
+        "conversation_id": "conversation",
+    }
+
+    run.run()
+
+    run.dispatcher.deliver.assert_called_once()
+    assert _gate_comment_calls(run) == []
+
+
+def test_reviewer_waits_for_a_newer_rerun_that_superseded_a_success(
+    tmp_path, monkeypatch
+):
+    """A later queued re-run of the same check makes the head wait, not pass."""
+    _module, run = _reviewer(tmp_path, monkeypatch)
+    pr = _labeled_pr()
+    run.gh_pages = _gate_pages(pr, [])
+    run.gh = Mock(side_effect=[{"id": 99}, pr, {"id": 1234}])
+    run.check_runs = lambda sha: [
+        _run("ci", "completed", "success", started_at="2026-09-22T13:00:00Z", run_id=1),
+        _run("ci", "queued", None, started_at="2026-09-22T13:10:00Z", run_id=2),
+    ]
+
+    run.run()
+
+    run.dispatcher.deliver.assert_not_called()
+    posted = [call for call in _gate_comment_calls(run) if call.args[0] == "POST"]
+    assert len(posted) == 1
+    body = posted[0].args[2]["body"]
+    assert "<!-- openhands-review-gate:waiting:head-2 -->" in body
+    assert "`ci`" in body
+
+
+def test_reviewer_treats_same_name_from_different_apps_as_distinct_checks(
+    tmp_path, monkeypatch
+):
+    """Grouping by name and app identity keeps two apps' checks independent."""
+    _module, run = _reviewer(tmp_path, monkeypatch)
+    pr = _labeled_pr()
+    run.gh_pages = _gate_pages(pr, [])
+    run.gh = Mock(side_effect=[{"id": 99}, pr, {"id": 1234}])
+    run.check_runs = lambda sha: [
+        _run(
+            "ci",
+            "completed",
+            "success",
+            app="github-actions",
+            started_at="2026-09-22T13:10:00Z",
+            run_id=2,
+        ),
+        _run(
+            "ci",
+            "completed",
+            "failure",
+            app="custom-ci",
+            started_at="2026-09-22T13:00:00Z",
+            run_id=1,
+        ),
+    ]
+
+    run.run()
+
+    run.dispatcher.deliver.assert_not_called()
+    posted = [call for call in _gate_comment_calls(run) if call.args[0] == "POST"]
+    assert len(posted) == 1
+    assert "<!-- openhands-review-gate:blocked:head-2 -->" in posted[0].args[2]["body"]
 
