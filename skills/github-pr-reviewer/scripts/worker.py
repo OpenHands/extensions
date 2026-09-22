@@ -228,8 +228,17 @@ class PullRequestReviewer(GitHubRepository):
 
     @staticmethod
     def _check_run_order(run):
-        """Deterministic ordering: start time first, then the run ID."""
-        return (run.get("started_at") or "", int(run.get("id") or 0))
+        """Deterministic ordering: start time first, then the run ID.
+
+        A queued or requested run can predate its `started_at`, which GitHub
+        reports as null, so a missing start time must not sort before a real
+        timestamp and let a stale earlier run win. The run ID is a monotonically
+        increasing per-repository counter, so it is the fallback whenever a
+        start time is absent.
+        """
+        run_id = int(run.get("id") or 0)
+        started_at = run.get("started_at")
+        return (started_at or f"~{run_id:020d}", run_id)
 
     def _latest_check_runs(self, sha):
         """Return only the latest run of each logical check on the exact head.
@@ -239,8 +248,9 @@ class PullRequestReviewer(GitHubRepository):
         check is its name plus the reporting app identity, so two apps that use
         the same name stay independent. Within a group the latest run wins,
         ordered by start time and then run ID so a timestamp tie stays
-        deterministic; a newer queued or in-progress re-run therefore supersedes
-        an earlier success and makes the head wait.
+        deterministic, with the run ID also standing in for a queued run whose
+        start time is still absent; a newer queued or in-progress re-run
+        therefore supersedes an earlier success and makes the head wait.
         """
         latest = {}
         for run in self.check_runs(sha):

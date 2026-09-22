@@ -911,3 +911,37 @@ def test_reviewer_treats_same_name_from_different_apps_as_distinct_checks(
     assert len(posted) == 1
     assert "<!-- openhands-review-gate:blocked:head-2 -->" in posted[0].args[2]["body"]
 
+
+def test_reviewer_waits_for_a_newer_queued_run_without_a_start_time(
+    tmp_path, monkeypatch
+):
+    """A queued re-run with `started_at: null` still supersedes an earlier run.
+
+    GitHub allows a queued or requested check run before it has a start
+    timestamp, so ordering must not treat the absent start time as earlier than
+    a completed run's timestamp and let the stale success launch the review.
+    """
+    _module, run = _reviewer(tmp_path, monkeypatch)
+    pr = _labeled_pr()
+    run.gh_pages = _gate_pages(pr, [])
+    run.gh = Mock(side_effect=[{"id": 99}, pr, {"id": 1234}])
+    run.check_runs = lambda sha: [
+        _run(
+            "ci",
+            "completed",
+            "success",
+            started_at="2026-09-22T13:00:00Z",
+            run_id=1,
+        ),
+        _run("ci", "queued", None, started_at=None, run_id=2),
+    ]
+
+    run.run()
+
+    run.dispatcher.deliver.assert_not_called()
+    posted = [call for call in _gate_comment_calls(run) if call.args[0] == "POST"]
+    assert len(posted) == 1
+    body = posted[0].args[2]["body"]
+    assert "<!-- openhands-review-gate:waiting:head-2 -->" in body
+    assert "`ci`" in body
+

@@ -48,9 +48,10 @@ access:
   failure cannot block the push that fixed it.
 - Only the latest run of each logical check counts. A logical check is its name
   plus the reporting app identity, and the latest is chosen by start time and
-  then run ID, so a re-run that fixed a check supersedes its earlier failure on
-  the same SHA while a newer queued or in-progress re-run supersedes an earlier
-  success and makes the head wait.
+  then run ID, with the run ID also standing in for a queued run whose start
+  time is still absent, so a re-run that fixed a check supersedes its earlier
+  failure on the same SHA while a newer queued or in-progress re-run supersedes
+  an earlier success and makes the head wait.
 
 The gate needs no configured list of check names. When it stops a review it
 leaves one concise explanation on the PR, identified by a hidden marker carrying
