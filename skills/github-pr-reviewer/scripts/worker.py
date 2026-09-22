@@ -15,6 +15,16 @@ from maintainer_handoff import (
     request_maintainer_review,
 )
 
+# The head-eligibility gate. It reads the check runs GitHub already reports for
+# the exact head, so it needs no branch-protection or ruleset access and no
+# maintained list of check names. A completed run blocks unless its conclusion is
+# explicitly non-blocking, so an unrecognized conclusion fails closed rather than
+# approving silently. A run that has not completed means waiting, never approval.
+CHECK_GATE_MARKER = "<!-- openhands-review-gate:"
+NON_BLOCKING_CHECK_CONCLUSIONS = frozenset({"success", "neutral", "skipped"})
+# The gate is deterministic; this disclosure is what tells a reader no model ran.
+WORKFLOW_DISCLOSURE = "no AI was used to generate this comment"
+
 
 class PullRequestReviewer(GitHubRepository):
     name = "github-pr-reviewer"
@@ -208,6 +218,104 @@ class PullRequestReviewer(GitHubRepository):
             )
         return True
 
+    def _classify_check_runs(self, sha):
+        """Split current-head check runs into blocking, pending, and green.
+
+        Only runs GitHub attributes to the exact head count: a run left behind on
+        an obsolete head must not block the push that fixed it. A completed run
+        whose conclusion is neither blocking nor explicitly non-blocking fails
+        closed, so an unknown conclusion cannot silently approve a PR.
+        """
+        blocking, pending = [], []
+        for run in self.check_runs(sha):
+            if run.get("head_sha") != sha:
+                continue
+            name = run.get("name") or "unnamed check"
+            status = (run.get("status") or "").lower()
+            if status != "completed":
+                pending.append(name)
+            elif (run.get("conclusion") or "").lower() in NON_BLOCKING_CHECK_CONCLUSIONS:
+                continue
+            else:
+                blocking.append(name)
+        if blocking:
+            return "blocked", sorted(set(blocking))
+        if pending:
+            return "waiting", sorted(set(pending))
+        return "green", []
+
+    def _gate_comment(self, number, marker, body):
+        """Post one gate explanation, upserting the automation's own comment.
+
+        The marker carries the head SHA and gate category, so a later run for a
+        different head updates the comment it owns instead of stacking another
+        one. An unmarked deterministic comment an existing repository workflow
+        already posted for this PR is treated as the equivalent explanation and
+        left alone, because that workflow refreshes its own comment on every
+        push.
+        """
+        comments = self.gh_pages(f"/issues/{number}/comments")
+        managed = [
+            comment
+            for comment in comments
+            if CHECK_GATE_MARKER in (comment.get("body") or "")
+        ]
+        if any(marker in (comment.get("body") or "") for comment in managed):
+            return None
+        if managed:
+            target = max(managed, key=lambda comment: int(comment["id"]))
+            self.gh("PATCH", f"/issues/comments/{target['id']}", {"body": body})
+            return target["id"]
+        if any(
+            WORKFLOW_DISCLOSURE.lower() in (comment.get("body") or "").lower()
+            for comment in comments
+            if CHECK_GATE_MARKER not in (comment.get("body") or "")
+        ):
+            return None
+        created = self.gh("POST", f"/issues/{number}/comments", {"body": body})
+        return created.get("id")
+
+    def _gate_body(self, sha, state, names):
+        short = sha[:12]
+        listed = "\n".join(f"- `{name}`" for name in names)
+        if state == "blocked":
+            heading = "### ⚠️ Review paused: required checks failed"
+            lead = (
+                f"The current head `{short}` has failing checks, so no review "
+                "conversation was started:"
+            )
+            action = (
+                "Fix the checks above and push. The scheduled scan, or a new "
+                "review request, then starts the review on the updated head."
+            )
+        else:
+            heading = "### ⏳ Review waiting on checks"
+            lead = (
+                f"The current head `{short}` still has checks that have not "
+                "finished, so no review conversation was started:"
+            )
+            action = (
+                "No action is needed. The scheduled scan, or a new review "
+                "request, retries once every check on the head reports a "
+                "conclusion."
+            )
+        return (
+            f"{heading}\n\n{lead}\n\n{listed}\n\n{action}\n\n"
+            f"{CHECK_GATE_MARKER}{state}:{sha} -->\n\n"
+            f"_This is an automated check - {WORKFLOW_DISCLOSURE}._"
+        )
+
+    def _gate_head(self, pr):
+        """Return the head's eligibility, explaining any stop on the PR."""
+        sha = pr["head"]["sha"]
+        state, names = self._classify_check_runs(sha)
+        if state in ("blocked", "waiting"):
+            marker = f"{CHECK_GATE_MARKER}{state}:{sha} -->"
+            self._gate_comment(
+                pr["number"], marker, self._gate_body(sha, state, names)
+            )
+        return state, sha
+
     def run(self):
         repository_id = self.gh("GET", "")["id"]
         label = self.config.get("trigger_label", workflow.TRIGGER_LABEL)
@@ -250,6 +358,24 @@ class PullRequestReviewer(GitHubRepository):
                     # dispatching a review the caller never asked for.
                     continue
                 sha = pr["head"]["sha"]
+                gate_state, sha = self._gate_head(pr)
+                if gate_state != "green":
+                    # A deterministic blocker stops the run without spending a
+                    # worker slot on an agent. The trigger is not consumed: the
+                    # next scheduled scan or explicit request re-evaluates the
+                    # head once its checks are non-blocking.
+                    print(
+                        json.dumps(
+                            {
+                                "repository": self.repository,
+                                "pr": pr["number"],
+                                "head_sha": sha,
+                                "disposition": f"review-{gate_state}",
+                            }
+                        ),
+                        flush=True,
+                    )
+                    continue
                 result = self.dispatcher.deliver(
                     subject=f"{repository_id}:pr:{pr['number']}",
                     delivery=f"{trigger['id']}:{sha}",

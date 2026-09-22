@@ -165,6 +165,25 @@ class GitHubRepository:
             result.setdefault(item["context"], item["state"])
         return result
 
+    def check_runs(self, sha):
+        """Return every check run GitHub reported for one commit SHA.
+
+        Reading check runs needs no branch-protection or ruleset access, so this
+        is the head-eligibility signal the automation's own token can always
+        see. The endpoint answers with an object rather than a list, so it
+        paginates through ``gh`` instead of ``gh_pages``.
+        """
+        runs = []
+        for page in range(1, 101):
+            data = self.gh(
+                "GET", f"/commits/{sha}/check-runs?per_page=100&page={page}"
+            )
+            batch = data.get("check_runs") or []
+            runs.extend(batch)
+            if len(runs) >= int(data.get("total_count") or 0) or not batch:
+                return runs
+        raise RuntimeError("GitHub check-run pagination exceeded limit")
+
     def completed_dependency(self, number):
         if number in self._completed_dependencies:
             return self._completed_dependencies[number]

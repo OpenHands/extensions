@@ -25,9 +25,35 @@ once per label event, and publishes the AI review to GitHub.
 Windows PowerShell equivalents for the setup, packaging, upload, and API-check shell snippets are in `references/windows.md`.
 
 The automation script is deterministic: PR discovery, label-event tracking,
-state persistence, stale-result suppression, the repository checkout, and its
-removal are all handled in Python. The LLM is invoked only for the review
-itself.
+head eligibility, state persistence, stale-result suppression, the repository
+checkout, and its removal are all handled in Python. The LLM is invoked only for
+the review itself.
+
+Before any review conversation is created, the worker evaluates the current
+head's check runs, which GitHub reports without any branch-protection or ruleset
+access:
+
+- A completed check run on the exact head whose conclusion is `failure`,
+  `cancelled`, or `timed_out` blocks the review. Any other unrecognized
+  conclusion fails closed as a block rather than silently approving.
+- A completed run whose conclusion is `success`, `neutral`, or `skipped` does
+  not block.
+- A `queued` or `in_progress` run on the exact head makes the run exit with a
+  **waiting on checks** outcome. The worker does not hold a slot polling; the
+  next scheduled scan or explicit review request retries.
+- A blocked or waiting stop consumes no trigger: once the head's checks are
+  non-blocking, the scheduled scan, or a new `all-hands-bot` review request,
+  starts the normal review.
+- Runs attributed to any other (obsolete) head SHA are ignored, so a stale
+  failure cannot block the push that fixed it.
+
+The gate needs no configured list of check names. When it stops a review it
+leaves one concise explanation on the PR, identified by a hidden marker carrying
+the head SHA and gate category, so a later run for a different head updates that
+comment instead of posting another. If the repository's own workflow already
+posted a deterministic remediation comment for the PR, the gate adds nothing.
+The gate applies identically to reviewer-request events and scheduled label
+scans.
 
 The review prompt starts with a scope gate: using the repository's own guidance
 (its scope categories and ownership boundaries, not a list of individual PR
@@ -337,6 +363,8 @@ The completion callback fires once for the whole run.
 | 404 on repo access | Repo name wrong or no access | Re-check the entry in `REPOS` and the token's permissions |
 | One repository is skipped, others work | That repository failed its access check | Read the `=== owner/repo ===` block in the run log |
 | Same PR not reviewed after new commits | Label event was already processed | Remove and re-apply the trigger label |
+| Review paused with a failing-check comment | A current-head check reported `failure`, `cancelled`, or `timed_out` | Fix the named checks and push; the review starts on the new head |
+| Review reported waiting on checks | A current-head check is `queued` or `in_progress` | No action; a later scan or a new review request retries |
 | Review result never posts | Conversation still running or stuck | Open the conversation link from the acknowledgement comment |
 | Stale review suppressed | PR head SHA changed while the agent was reviewing | Re-apply the trigger label after the latest commit |
 | Review arrives as a plain comment, not a review | Publishing failed, so the script posted the text as a fallback | Check that the token has Pull requests: Read and Write |

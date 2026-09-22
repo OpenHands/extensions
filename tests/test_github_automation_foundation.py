@@ -71,3 +71,31 @@ def test_dependency_permission_errors_fail_closed():
     repository.gh = denied
     with pytest.raises(HTTPError):
         repository.dependencies_complete({"body": "Depends on: #12"})
+
+
+def test_check_runs_reads_every_page_of_the_object_response():
+    """The endpoint answers with an object, not a list, so paging is manual."""
+    repository = object.__new__(github_client.GitHubRepository)
+    pages = {
+        1: {"total_count": 3, "check_runs": [{"name": "a"}, {"name": "b"}]},
+        2: {"total_count": 3, "check_runs": [{"name": "c"}]},
+    }
+    requests = []
+
+    def gh(method, path, body=None):
+        assert method == "GET"
+        page = int(path.rsplit("page=", 1)[1])
+        requests.append(page)
+        return pages[page]
+
+    repository.gh = gh
+
+    assert [run["name"] for run in repository.check_runs("abc")] == ["a", "b", "c"]
+    assert requests == [1, 2]
+
+
+def test_check_runs_stops_on_an_empty_first_page():
+    repository = object.__new__(github_client.GitHubRepository)
+    repository.gh = lambda *args, **kwargs: {"total_count": 0, "check_runs": []}
+
+    assert repository.check_runs("abc") == []

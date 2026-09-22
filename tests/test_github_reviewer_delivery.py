@@ -34,6 +34,9 @@ def _reviewer(tmp_path, monkeypatch):
     run.token_name = "FACTORY_GITHUB_REVIEWER_TOKEN"
     run.github_login = "all-hands-bot"
     run.dispatcher = Mock()
+    # Default to a head with no reported check runs, which the gate reads as
+    # green. Gate-specific tests override this.
+    run.check_runs = lambda sha: []
     monkeypatch.delenv("AUTOMATION_EVENT_PAYLOAD", raising=False)
     monkeypatch.setattr(
         module.workflow,
@@ -41,6 +44,12 @@ def _reviewer(tmp_path, monkeypatch):
         lambda *args: {"id": 7, "created_at": "2026-01-01T00:00:00Z"},
     )
     return module, run
+
+
+def _checks(*runs, sha="head-2"):
+    """Check runs as the API reports them: name, status, and conclusion."""
+    return [{"name": name, "status": status, "conclusion": conclusion, "head_sha": sha}
+            for name, status, conclusion in runs]
 
 
 def _event(monkeypatch, *, action="review_requested", login="all-hands-bot"):
@@ -453,3 +462,251 @@ def test_reviewer_hands_scope_stop_to_maintainer(tmp_path, monkeypatch):
         "/issues/2/labels/openhands-review",
     )
     run.dispatcher.deliver.assert_not_called()
+
+
+# --------------------------------------------------------------------------- #
+# Head-eligibility gate: a deterministically blocked head spends no agent work.
+# --------------------------------------------------------------------------- #
+
+
+def _labeled_pr(number=2, sha="head-2"):
+    return {
+        "number": number,
+        "head": {"sha": sha},
+        "labels": [{"name": "openhands-review"}],
+    }
+
+
+def _comment(body, login="all-hands-bot", comment_id=900):
+    return {
+        "id": comment_id,
+        "body": body,
+        "user": {"login": login},
+    }
+
+
+def _gate_pages(pr, comments):
+    return lambda path: (
+        [pr] if path.startswith("/pulls?") else comments
+    )
+
+
+def _gate_comment_calls(run, number=2):
+    return [
+        call
+        for call in run.gh.call_args_list
+        if call.args[1] == f"/issues/{number}/comments"
+    ]
+
+
+def test_reviewer_blocking_current_head_check_creates_no_conversation(
+    tmp_path, monkeypatch
+):
+    _module, run = _reviewer(tmp_path, monkeypatch)
+    pr = _labeled_pr()
+    run.gh_pages = _gate_pages(pr, [])
+    run.gh = Mock(side_effect=[{"id": 99}, pr, {"id": 1234}])
+    run.check_runs = lambda sha: _checks(
+        ("Validate PR description", "completed", "failure"), sha=sha
+    )
+
+    run.run()
+
+    run.dispatcher.deliver.assert_not_called()
+    posted = [call for call in _gate_comment_calls(run) if call.args[0] == "POST"]
+    assert len(posted) == 1
+    body = posted[0].args[2]["body"]
+    assert "<!-- openhands-review-gate:blocked:head-2 -->" in body
+    assert "`Validate PR description`" in body
+    assert "no AI was used to generate this comment" in body
+
+
+def test_reviewer_green_current_head_creates_exactly_one_conversation(
+    tmp_path, monkeypatch
+):
+    _module, run = _reviewer(tmp_path, monkeypatch)
+    pr = _labeled_pr()
+    run.gh_pages = _gate_pages(pr, [])
+    run.gh = Mock(side_effect=[{"id": 99}, pr])
+    run.check_runs = lambda sha: _checks(
+        ("Validate PR description", "completed", "success"),
+        ("lint", "completed", "skipped"),
+        ("optional", "completed", "neutral"),
+        sha=sha,
+    )
+    run.dispatcher.deliver.return_value = {
+        "disposition": "created",
+        "conversation_id": "conversation",
+    }
+
+    run.run()
+
+    run.dispatcher.deliver.assert_called_once()
+    assert run.dispatcher.deliver.call_args.kwargs["delivery"] == "7:head-2"
+
+
+def test_reviewer_pending_current_head_check_waits_without_a_conversation(
+    tmp_path, monkeypatch
+):
+    _module, run = _reviewer(tmp_path, monkeypatch)
+    pr = _labeled_pr()
+    run.gh_pages = _gate_pages(pr, [])
+    run.gh = Mock(side_effect=[{"id": 99}, pr, {"id": 1234}])
+    run.check_runs = lambda sha: _checks(
+        ("ci", "completed", "success"),
+        ("slow-e2e", "in_progress", None),
+        sha=sha,
+    )
+
+    run.run()
+
+    run.dispatcher.deliver.assert_not_called()
+    posted = [call for call in _gate_comment_calls(run) if call.args[0] == "POST"]
+    assert len(posted) == 1
+    body = posted[0].args[2]["body"]
+    assert "<!-- openhands-review-gate:waiting:head-2 -->" in body
+    assert "`slow-e2e`" in body
+    assert "waiting on checks" in body
+
+
+def test_reviewer_ignores_checks_from_an_obsolete_head(tmp_path, monkeypatch):
+    _module, run = _reviewer(tmp_path, monkeypatch)
+    pr = _labeled_pr()
+    run.gh_pages = _gate_pages(pr, [])
+    run.gh = Mock(side_effect=[{"id": 99}, pr])
+    run.check_runs = lambda sha: _checks(
+        ("Validate PR description", "completed", "failure"), sha="head-1"
+    )
+    run.dispatcher.deliver.return_value = {
+        "disposition": "created",
+        "conversation_id": "conversation",
+    }
+
+    run.run()
+
+    run.dispatcher.deliver.assert_called_once()
+    assert _gate_comment_calls(run) == []
+
+
+def test_reviewer_fails_closed_on_an_unknown_conclusion(tmp_path, monkeypatch):
+    _module, run = _reviewer(tmp_path, monkeypatch)
+    pr = _labeled_pr()
+    run.gh_pages = _gate_pages(pr, [])
+    run.gh = Mock(side_effect=[{"id": 99}, pr, {"id": 1234}])
+    run.check_runs = lambda sha: _checks(("mystery", "completed", "action_required"), sha=sha)
+
+    run.run()
+
+    run.dispatcher.deliver.assert_not_called()
+    body = [
+        call.args[2]["body"]
+        for call in _gate_comment_calls(run)
+        if call.args[0] == "POST"
+    ][0]
+    assert "<!-- openhands-review-gate:blocked:head-2 -->" in body
+
+
+def test_reviewer_does_not_duplicate_the_gate_comment_for_the_same_head(
+    tmp_path, monkeypatch
+):
+    _module, run = _reviewer(tmp_path, monkeypatch)
+    pr = _labeled_pr()
+    existing = _comment(
+        "already explained\n\n<!-- openhands-review-gate:blocked:head-2 -->"
+    )
+    run.gh_pages = _gate_pages(pr, [existing])
+    run.gh = Mock(side_effect=[{"id": 99}, pr])
+    run.check_runs = lambda sha: _checks(("ci", "completed", "failure"), sha=sha)
+
+    run.run()
+
+    run.dispatcher.deliver.assert_not_called()
+    assert _gate_comment_calls(run) == []
+
+
+def test_reviewer_updates_its_gate_comment_when_the_head_moves(
+    tmp_path, monkeypatch
+):
+    _module, run = _reviewer(tmp_path, monkeypatch)
+    pr = _labeled_pr()
+    stale = _comment("stale head\n\n<!-- openhands-review-gate:blocked:head-1 -->")
+    run.gh_pages = _gate_pages(pr, [stale])
+    run.gh = Mock(side_effect=[{"id": 99}, pr, {}])
+    run.check_runs = lambda sha: _checks(("ci", "completed", "failure"), sha=sha)
+
+    run.run()
+
+    patched = [call for call in run.gh.call_args_list if call.args[0] == "PATCH"]
+    assert len(patched) == 1
+    assert patched[0].args[1] == "/issues/comments/900"
+    assert "<!-- openhands-review-gate:blocked:head-2 -->" in patched[0].args[2]["body"]
+    assert run.dispatcher.deliver.call_count == 0
+
+
+def test_reviewer_defers_to_an_equivalent_workflow_remediation_comment(
+    tmp_path, monkeypatch
+):
+    _module, run = _reviewer(tmp_path, monkeypatch)
+    pr = _labeled_pr()
+    workflow = _comment(
+        "This PR needs a couple of things fixed before OpenHands can review it.\n\n"
+        "_This is an automated check - no AI was used to generate this comment._"
+    )
+    run.gh_pages = _gate_pages(pr, [workflow])
+    run.gh = Mock(side_effect=[{"id": 99}, pr])
+    run.check_runs = lambda sha: _checks(("ci", "completed", "failure"), sha=sha)
+
+    run.run()
+
+    run.dispatcher.deliver.assert_not_called()
+    assert _gate_comment_calls(run) == []
+
+
+def test_reviewer_event_path_also_respects_the_gate(tmp_path, monkeypatch):
+    _module, run = _reviewer(tmp_path, monkeypatch)
+    _event(monkeypatch)
+    pr = {"number": 2, "head": {"sha": "head-2"}, "labels": []}
+    request = {
+        "id": 42,
+        "event": "review_requested",
+        "created_at": "2026-01-01T00:00:00Z",
+        "requested_reviewer": {"login": "all-hands-bot"},
+    }
+    run.gh = Mock(side_effect=[{"id": 99}, pr, {"id": 1234}])
+    run.gh_pages = lambda path: [request] if path.endswith("/events") else []
+    run.check_runs = lambda sha: _checks(
+        ("Validate PR description", "completed", "failure"), sha=sha
+    )
+
+    run.run()
+
+    run.dispatcher.deliver.assert_not_called()
+    posted = [call for call in _gate_comment_calls(run) if call.args[0] == "POST"]
+    assert len(posted) == 1
+
+
+def test_reviewer_waiting_head_does_not_consume_a_later_green_request(
+    tmp_path, monkeypatch
+):
+    """The trigger survives a waiting run, so the head is reviewed once green."""
+    _module, run = _reviewer(tmp_path, monkeypatch)
+    pr = _labeled_pr()
+    pending = _checks(("slow-e2e", "queued", None), sha="head-2")
+    state = {"runs": pending}
+    run.gh_pages = _gate_pages(pr, [])
+    run.gh = Mock(side_effect=[{"id": 99}, pr, {"id": 1234}, pr])
+    run.check_runs = lambda sha: state["runs"]
+    run.dispatcher.deliver.return_value = {
+        "disposition": "created",
+        "conversation_id": "conversation",
+    }
+
+    run.run()
+    assert run.dispatcher.deliver.call_count == 0
+
+    run.gh_pages = _gate_pages(pr, [])
+    run.gh = Mock(side_effect=[{"id": 99}, pr])
+    state["runs"] = _checks(("slow-e2e", "completed", "success"), sha="head-2")
+    run.run()
+    assert run.dispatcher.deliver.call_count == 1
+
