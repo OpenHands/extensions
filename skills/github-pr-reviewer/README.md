@@ -20,6 +20,11 @@ This skill is activated by:
   checkout when the review ends, so nothing accumulates between runs
 - Publishes a real pull request review, with inline comments where a finding
   maps to a changed line, and verifies on GitHub that it landed
+- Requires live evidence from the real app before approving a user-visible UI
+  change when the repository's guidance demands it: unit tests, CSS-token
+  assertions, generated mockups, and reconstructed captures cannot substitute.
+  Missing evidence yields a COMMENT review that names the gap, so no approval
+  and no maintainer handoff
 - Posts acknowledgement comments with AI disclosure
 - Configurable review tone and polling schedule
 - Optional human handoff after an exact-head approval. The scanner ranks the
