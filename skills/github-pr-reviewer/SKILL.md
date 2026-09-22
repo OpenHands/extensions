@@ -41,6 +41,18 @@ handler recognizes the verdict and requests one configured maintainer through th
 same handoff used after an approval. An in-scope change continues the existing
 review unchanged.
 
+Before approving a change to user-visible UI behavior, the prompt requires live
+evidence from a real running application when the repository's guidance demands
+it: a screenshot, screen recording, or equivalent capture of the running app
+that exercises the production-facing path. Unit tests, CSS-token or contract
+assertions, generated mockups, and reconstructed captures may support the review
+but cannot substitute for that evidence. When the required evidence is missing,
+the reviewer publishes one `event: COMMENT` review naming exactly what is
+missing and ends with `🔄 CHANGES REQUESTED`, so approval is withheld and the
+deterministic maintainer handoff does not fire. Non-UI changes keep the existing
+requirement of the real command and its observed output, with tests insufficient
+as sole proof.
+
 The script prepares each review's workspace before the agent starts: the pull
 request's head commit is downloaded as a tarball and extracted to a directory of
 its own, which becomes the conversation's working directory. The agent is told

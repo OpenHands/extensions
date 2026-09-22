@@ -538,6 +538,29 @@ class TestRepoReviewGuide(unittest.TestCase):
         self.assertIn("Do not add speculative or out-of-scope notes", prompt)
         self.assertIn("forbids the configured bot from approving its own PR", prompt)
 
+    def test_prompt_requires_live_ui_evidence_before_approval(self):
+        prompt = main._build_review_prompt(
+            "owner/repo",
+            self._pr(),
+            "0123456789abcdef",
+            {"id": "1", "created_at": "t"},
+        )
+
+        # The gate sits after the finding-quality rules and before the review is
+        # published, so a missing capture is a blocking finding, not a note.
+        gate = prompt.index("LIVE EVIDENCE GATE")
+        self.assertLess(prompt.index("Ground every finding"), gate)
+        self.assertLess(gate, prompt.index("Publish one review"))
+        self.assertIn("user-visible UI behavior", prompt)
+        self.assertIn("real running application", prompt)
+        self.assertIn("production-facing path", prompt)
+        self.assertIn("CSS-token", prompt)
+        self.assertIn("generated mockups", prompt)
+        self.assertIn("reconstructed", prompt)
+        self.assertIn("never substitute for the required live evidence", prompt)
+        self.assertIn("names exactly which live evidence is missing", prompt)
+        self.assertIn("`🔄 CHANGES REQUESTED`", prompt)
+
     def test_prompt_scope_gate_stops_before_the_technical_review(self):
         prompt = main._build_review_prompt(
             "owner/repo",
