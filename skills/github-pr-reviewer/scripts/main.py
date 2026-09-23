@@ -51,6 +51,12 @@ REVIEW_STYLE_INSTRUCTIONS = ""
 # than relying on the spawned agent's skill activation. Set to "" to disable.
 REPO_REVIEW_GUIDE_PATH = ".agents/skills/custom-codereview-guide.md"
 DEFAULT_OPENHANDS_URL = "http://localhost:8000"
+# The most new review conversations one scheduled scan may start, counted across
+# every configured repository rather than per repository. The scheduled scan
+# drains outstanding reviewer requests in oldest-request order, so a small bound
+# keeps a first scan over a large backlog from starting an agent for every
+# eligible pull request at once.
+MAX_NEW_PER_RUN = 2
 
 # A review that ends with this marker is a scope stop: the reviewer found the
 # change out of scope, or needing a product/architecture decision, before the
@@ -69,6 +75,7 @@ _CONFIG_TYPES: dict[str, type] = {
     "review_tone": str,
     "review_style_instructions": str,
     "repo_review_guide_path": str,
+    "max_new_per_run": int,
     "openhands_url": str,
 }
 
@@ -95,7 +102,11 @@ def load_config(directory: Path | None = None) -> dict:
         if key not in raw:
             continue
         value = raw[key]
-        if not isinstance(value, expected):
+        # bool is an int in Python, so an unguarded int check would accept
+        # `"max_new_per_run": true` and then start `True` conversations.
+        if not isinstance(value, expected) or (
+            expected is int and isinstance(value, bool)
+        ):
             raise SystemExit(
                 f"{CONFIG_FILENAME}: {key} must be {expected.__name__}, "
                 f"got {type(value).__name__}"
@@ -105,6 +116,10 @@ def load_config(directory: Path | None = None) -> dict:
         ):
             raise SystemExit(
                 f'{CONFIG_FILENAME}: repos must be a non-empty list of "owner/repo" strings'
+            )
+        if key == "max_new_per_run" and value < 1:
+            raise SystemExit(
+                f"{CONFIG_FILENAME}: max_new_per_run must be at least 1"
             )
         config[key] = value
     return config
@@ -150,6 +165,7 @@ TRIGGER_LABEL = _CONFIG.get("trigger_label", TRIGGER_LABEL)
 REVIEW_TONE = _CONFIG.get("review_tone", REVIEW_TONE)
 REVIEW_STYLE_INSTRUCTIONS = _CONFIG.get("review_style_instructions", REVIEW_STYLE_INSTRUCTIONS)
 REPO_REVIEW_GUIDE_PATH = _CONFIG.get("repo_review_guide_path", REPO_REVIEW_GUIDE_PATH)
+MAX_NEW_PER_RUN = _CONFIG.get("max_new_per_run", MAX_NEW_PER_RUN)
 DEFAULT_OPENHANDS_URL = _CONFIG.get("openhands_url", DEFAULT_OPENHANDS_URL)
 
 DONE_DEBOUNCE = 15
