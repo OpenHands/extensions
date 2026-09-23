@@ -381,12 +381,13 @@ class TestVendorManifests:
         skill = _make_plugin_skill(tmp_path)
         _point_sync_at(tmp_path, monkeypatch)
         try:
-            assert sync_symlinks(check=False) == []
+            sync_symlinks(check=False)
         except OSError:
             pytest.skip("symlinks need privileges on this platform")
 
         assert (skill / ".codex-plugin").is_symlink()
         assert (skill / ".claude-plugin").is_symlink()
+        assert sync_symlinks(check=True) == []
 
 
 # ── marketplace source paths ─────────────────────────────────────────
