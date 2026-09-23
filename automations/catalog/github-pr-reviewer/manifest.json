@@ -1,9 +1,9 @@
 {
   "id": "github-pr-reviewer",
-  "version": "1.1.1",
+  "version": "1.5.0",
   "name": "GitHub code review",
   "category": "Code review",
-  "description": "Review labeled pull-request heads, publish readable findings, and record exact-head test and review decisions.",
+  "description": "Review requested pull-request heads, record exact-head decisions, stop early on out-of-scope changes, and optionally request a code-aware human maintainer after approval or a maintainer-decision scope stop.",
   "requires": {
     "integrations": {},
     "features": [
@@ -13,7 +13,7 @@
   },
   "popularityRank": 100,
   "estimatedSetupMinutes": 4,
-  "exampleImplementation": "A scheduled scanner selects every labeled PR head and submits an idempotent subject turn. The profile-backed agent clones that exact head in its runtime, reuses the established review workflow, runs appropriate tests, publishes a readable native review, and records exact-head review and test statuses.",
+  "exampleImplementation": "A scheduled label scan or GitHub reviewer-request event selects a PR head and submits an idempotent subject turn. The profile-backed agent clones that exact head in its runtime, applies an early repository-ownership and product/architecture scope gate, then reuses the established review workflow, runs appropriate tests, and publishes a readable native review. A native approval, or a maintainer-decision scope stop, can then be handed to a code-aware human maintainer.",
   "impact": {
     "basis": "completed-runs",
     "one": "1 PR review sweep completed",
@@ -39,6 +39,21 @@
             "default": "UTC",
             "required": true
           }
+        },
+        "event": {
+          "on": {
+            "type": "select",
+            "label": "GitHub events",
+            "help": "Handle requests for the configured bot and its resulting native reviews.",
+            "default": "*",
+            "required": true,
+            "options": [
+              {
+                "value": "*",
+                "label": "Reviewer request and completion"
+              }
+            ]
+          }
         }
       },
       "args": {
@@ -59,6 +74,17 @@
           "constraints": {
             "minLength": 1,
             "maxLength": 50
+          }
+        },
+        "triggerReviewer": {
+          "type": "text",
+          "label": "Requested reviewer",
+          "help": "GitHub login whose review request starts an event-driven review.",
+          "default": "all-hands-bot",
+          "required": true,
+          "constraints": {
+            "minLength": 1,
+            "maxLength": 39
           }
         },
         "reviewTone": {
@@ -82,6 +108,13 @@
             }
           ]
         },
+        "maintainers": {
+          "type": "text",
+          "label": "Maintainers",
+          "help": "Optional comma-separated GitHub collaborator logins. Include at least two so a maintainer-authored PR still has an eligible reviewer. After an exact-head approval, request one based on changed-path history and current review load.",
+          "default": "",
+          "required": false
+        },
         "githubTokenSecret": {
           "type": "text",
           "label": "GitHub token secret",
@@ -92,22 +125,26 @@
       }
     },
     "bundle": {
-      "version": "1.1.1",
+      "version": "1.5.0",
       "entrypoint": "python3 worker.py",
       "timeout": 300,
       "files": {
         "main.py": "skills/github-pr-reviewer/scripts/main.py",
         "agent_conversation.py": "skills/github/scripts/agent_conversation.py",
         "github_client.py": "skills/github/scripts/github_client.py",
+        "maintainer_handoff.py": "skills/github-pr-reviewer/scripts/maintainer_handoff.py",
         "worker.py": "skills/github-pr-reviewer/scripts/worker.py"
       },
       "config": {
         "repos": "{{form.repositories}}",
         "trigger_label": "{{form.triggerLabel}}",
+        "trigger_reviewer": "{{form.triggerReviewer}}",
         "review_tone": "{{form.reviewTone}}",
+        "maintainers": "{{form.maintainers}}",
         "github_token_secret": "{{form.githubTokenSecret}}"
       }
     },
-    "message": "Configure the repositories, review label, tone, credential name, agent profile, and schedule."
+    "filter": "contains({{form.repositories}}, repository.full_name) && contains(keys(@), 'pull_request') && ((action == 'review_requested' && requested_reviewer.login == '{{form.triggerReviewer}}') || (action == 'submitted' && contains(keys(@), 'review') && review.user.login == '{{form.triggerReviewer}}'))",
+    "message": "Configure the repositories, trigger, review tone, optional maintainer roster, credential name, and agent profile."
   }
 }

@@ -1,0 +1,19 @@
+{
+  "name": "canvas-extension-api",
+  "version": "1.0.0",
+  "description": "Build and validate Apps for Agent Canvas using the supported Canvas Extensions API v1 routed-page contract.",
+  "author": {
+    "name": "OpenHands",
+    "email": "contact@all-hands.dev"
+  },
+  "homepage": "https://github.com/OpenHands/extensions",
+  "repository": "https://github.com/OpenHands/extensions",
+  "license": "MIT",
+  "keywords": [
+    "agent-canvas",
+    "canvas-app",
+    "canvas-extension",
+    "register-page",
+    "app-development"
+  ]
+}
