@@ -185,6 +185,7 @@ Official skills and plugins for OpenHands — the open-source AI software engine
 | theme-factory | skill | Toolkit for styling artifacts with a theme. These artifacts can be slides, docs, reportings, HTML landing pages, etc.... | — |
 | ticket-to-code-change | skill | Set up Jira or Linear ticket-to-code-change automations for GitHub, GitLab, and Bitbucket. | `/ticket-to-code-change:setup` |
 | upstream-fork-sync | skill | Keep a long-lived fork in sync with its upstream. Creates a cron automation that fetches upstream changes, rebases lo... | `/upstream-fork-sync:setup` |
+| use-jev | skill | Use Jev, a general classifier, for typed choices, scores, and yes/no probabilities in software. | — |
 | uv | skill | Common project, dependency, and environment operations using uv. | — |
 | vercel | skill | Deploy and manage applications on Vercel, including preview deployments and deployment protection. | — |
 | vulnerability-remediation | plugin | Automated security vulnerability scanning and AI-powered remediation. Scans repositories, skips when no issues found,... | — |

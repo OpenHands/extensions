@@ -1,0 +1,8 @@
+{
+  "name": "use-jev",
+  "version": "1.0.0",
+  "description": "Use Jev, a general classifier, for typed choices, scores, and yes/no probabilities in software.",
+  "author": {
+    "name": "OpenHands"
+  }
+}

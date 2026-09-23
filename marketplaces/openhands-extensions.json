@@ -890,6 +890,16 @@
       "source": "./skills/github-delivery-watchdog",
       "description": "Periodically check pull requests and merge only current heads with independent review, tests, and passing CI.",
       "category": "automations"
+    },
+    {
+      "name": "use-jev",
+      "source": "./skills/use-jev",
+      "description": "Use Jev, a general classifier, for typed choices, scores, and yes/no probabilities in software.",
+      "category": "integrations",
+      "keywords": [
+        "jev",
+        "classification"
+      ]
     }
   ]
 }
