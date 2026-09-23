@@ -74,6 +74,16 @@ checks, the gate adds nothing; a disclosure about some other check does not
 suppress it. The gate applies identically to reviewer-request events and
 scheduled label scans.
 
+Each explicit review request - a re-applied trigger label, or a new reviewer
+request in event mode - is a fresh review. The conversation for a PR is reused,
+but its earlier turns must not be trusted as current: before deciding a verdict
+the reviewer re-fetches the mutable GitHub state (the exact head, the PR body,
+review comments and threads, review requests, the linked issues' bodies and
+labels, and the current-head Actions results) and ignores any earlier finding,
+verdict, or label/priority claim that state no longer supports. Repository
+analysis the conversation already did, such as reading `AGENTS.md`, stays
+useful and is not repeated.
+
 The review prompt starts with a scope gate: using the repository's own guidance
 (its scope categories and ownership boundaries, not a list of individual PR
 numbers), the reviewer decides whether the change belongs in this repository
@@ -335,7 +345,8 @@ For each repository:
      paths, and symlinks skipped rather than materialised.
    - Starts an OpenHands conversation **whose working directory is that
      checkout**, with a review prompt carrying PR metadata, the exact head SHA,
-     and label event details.
+     label event details, and the requirement to re-fetch the current mutable
+     GitHub state before deciding a verdict.
    - Posts an acknowledgement comment with the label event, head SHA, and
      conversation link.
    - Records the review in state with `status: "active"` and the checkout path.

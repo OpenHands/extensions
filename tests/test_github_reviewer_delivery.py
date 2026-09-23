@@ -1,10 +1,13 @@
 """Contract tests for delegated GitHub PR review."""
 
 import json
+import sys
 from pathlib import Path
-from unittest.mock import Mock
+from unittest.mock import MagicMock, Mock
+from uuid import NAMESPACE_URL, uuid5
 
 import pytest
+from openhands.sdk.conversation.state import ConversationExecutionStatus
 
 from github_automation_helpers import worker
 
@@ -182,6 +185,101 @@ def test_reviewer_submits_requested_exact_head(tmp_path, monkeypatch):
     assert call["delivery"] == "42:head-2"
     assert "latest review request for `all-hands-bot` event 42" in call["prompt"]
     assert "new head requires another reviewer request" in call["prompt"]
+
+
+def _real_dispatcher(dispatcher_class, monkeypatch, conversation):
+    """The shipped dispatcher with its SDK and KV boundaries stubbed."""
+    state: dict = {}
+    module = sys.modules[dispatcher_class.__module__]
+
+    def kv(key, method, value=None):
+        if method == "GET":
+            return state.get(key)
+        state[key] = value
+        return {"key": key, "value": value}
+
+    monkeypatch.setattr(module, "_kv_request", kv)
+    monkeypatch.setattr(module, "_register_tools", lambda: None)
+    monkeypatch.setenv("AGENT_SERVER_URL", "http://agent")
+    monkeypatch.setenv("SESSION_API_KEY", "session")
+    monkeypatch.setenv(
+        "AUTOMATION_AGENT_PROFILE_ID", "11111111-1111-4111-8111-111111111111"
+    )
+    monkeypatch.setenv(
+        "AUTOMATION_EVENT_PAYLOAD", json.dumps({"automation_id": "automation"})
+    )
+    workspace = MagicMock()
+    workspace.__enter__.return_value = workspace
+    workspace.get_secrets.return_value = {}
+    monkeypatch.setattr(module, "RemoteWorkspace", lambda **_: workspace)
+    attach = MagicMock(return_value=conversation)
+    monkeypatch.setattr(module.RemoteConversation, "attach", attach)
+    monkeypatch.setattr(
+        module.RemoteConversation, "create", MagicMock(return_value=conversation)
+    )
+    return dispatcher_class(), attach
+
+
+def test_same_head_re_review_resumes_keyed_conversation_with_refreshed_state(
+    tmp_path, monkeypatch
+):
+    """A first review completes, the linked issue and head checks then change,
+    and an explicit re-review at the same head must resume the same conversation
+    with a prompt that re-establishes current GitHub state."""
+    module, run = _reviewer(tmp_path, monkeypatch)
+    conversation = MagicMock()
+    conversation.state.execution_status = ConversationExecutionStatus.IDLE
+    dispatcher, attach = _real_dispatcher(
+        module.AgentConversationDispatcher, monkeypatch, conversation
+    )
+    run.dispatcher = dispatcher
+
+    first_pr = {
+        "number": 2,
+        "title": "Add widget",
+        "body": "First body",
+        "head": {"sha": "head-2"},
+        "labels": [{"name": "openhands-review"}],
+    }
+    # The linked issue was not ready and the head's checks were pending when the
+    # first review ran; both moved before the re-review, at the same head.
+    refreshed_pr = {
+        **first_pr,
+        "body": "First body\n\nNow links #5038, which is ready-for-dev.",
+        "labels": [{"name": "openhands-review"}, {"name": "reviewed"}],
+    }
+
+    def review(label_event_id, pr):
+        monkeypatch.setattr(
+            module.workflow,
+            "_latest_trigger_label_event",
+            lambda *args: {"id": label_event_id, "created_at": "now"},
+        )
+        run.gh_pages = lambda path: [pr]
+        run.gh = Mock(side_effect=[{"id": 99}, pr])
+        run.run()
+
+    with dispatcher:
+        review(7, first_pr)
+        review(8, refreshed_pr)
+
+    keyed_id = str(uuid5(NAMESPACE_URL, "automation:99:pr:2"))
+    # Both deliveries attach the same keyed conversation and send exactly one
+    # new turn each, so reuse and context retention are intact.
+    assert str(attach.call_args.args[1]) == keyed_id
+    assert {str(call.args[1]) for call in attach.call_args_list} == {keyed_id}
+    assert conversation.send_message.call_count == 2
+    first, second = (call.args[0] for call in conversation.send_message.call_args_list)
+
+    assert "event 7" in first and "event 8" in second
+    # The refreshed PR state reaches the resumed turn, and that turn requires a
+    # live re-read of every mutable surface rather than an earlier observation.
+    assert "First body" in first
+    assert "ready-for-dev" in second
+    assert "CURRENT STATE" in second
+    assert "body and labels of every linked issue" in second
+    assert "GitHub Actions check results" in second
+    assert "never repeat an earlier finding" in second
 
 
 def test_reviewer_ignores_request_for_another_reviewer(tmp_path, monkeypatch):
