@@ -64,6 +64,41 @@ symbolic base branch carries no branch rules of its own:
   `review_requested` event, so repeated scans reuse one conversation and one
   review instead of creating duplicates, and a PR whose request was answered or
   withdrawn simply drops out of `requested_reviewers`.
+- The scheduled scan also reviews open, non-draft PRs that **nobody requested**
+  and that carry no trigger label, once their current head has no completed
+  review by this account. That is what keeps reviewing PRs after the outstanding
+  requests are exhausted. The delivery key is the stable
+  `scan:{repository}:{number}:{head}`, so repeated scans reuse one conversation
+  and one native review, and a changed head becomes eligible again under its new
+  SHA.
+- The unrequested part of a scan is a **bounded, rotating window**, not the whole
+  backlog. Classifying one unrequested head costs a review read plus the
+  exact-head check and workflow reads, so examining every open PR in one scan
+  spent the run's API budget in the largest repository and announced every red or
+  pending head. A scan examines at most `SCAN_WINDOW` (10) unrequested PRs per
+  repository and stores where the window ended in the automation service's own
+  KV store, under a per-repository `review-scan:{owner}__{repo}` key, so the next
+  scan resumes past that point and the backlog is covered fairly over several
+  scans. The window wraps at the end of the backlog. When the KV store is not
+  available (a local run) the position is kept in memory, so the scan still
+  rotates within the run.
+- An explicit `all-hands-bot` review request or a trigger label is **never**
+  subject to the window: every explicit candidate is examined on every scan,
+  whatever the stored position is, so a request is not delayed behind the
+  rotation.
+- A gate stop on an **unrequested** head posts no managed comment. A PR nobody
+  asked about that is merely red or pending is simply skipped without starting an
+  agent, which is what keeps a scan over a large backlog from posting a gate
+  comment on every PR. The managed comment is the answer to an explicit request,
+  so a requested or labeled head that is red or pending still gets its
+  explanation.
+- Workflow runs are read as well as check runs, because a workflow can fail
+  before creating any check run - a workflow-level error, or a `pull_request`
+  run whose jobs never start. Such a run leaves a failed check suite with no
+  check runs under it, so the commit's check-run rollup and `gh pr checks` both
+  report success and only the workflow run reveals the red CI. A workflow run
+  whose check suite already reported check runs is left to those runs, so a
+  workflow is never counted twice.
 - Runs attributed to any other (obsolete) head SHA are ignored, so a stale
   failure cannot block the push that fixed it. This applies to workflow runs
   too.
@@ -128,18 +163,23 @@ is `2`, and the rendered `config.json` overrides it through the
 `max_new_per_run` key that `github-issue-to-pr` and `gitlab-issue-to-mr` already
 use.
 
-- Eligible candidates are ordered by the oldest outstanding `all-hands-bot`
-  `review_requested` event, then by repository, then by pull-request number, so
-  the oldest requests drain first and a later scan reaches the remainder.
+- Eligible candidates are ordered deterministically: an explicit `all-hands-bot`
+  request (or a trigger label) is ordered before an unrequested PR, then by the
+  oldest `all-hands-bot` `review_requested` event for a requested PR or the PR's
+  own creation time (oldest first) for an unrequested one, then by repository,
+  then by pull-request number, so the oldest work drains first and a later scan
+  reaches the remainder.
 - The bound counts the conversations a scan **starts**. A delivery that only
   deduplicates or reports an already-running conversation reuses a runtime and
   consumes no slot, so repeated scans make progress on the backlog instead of
   re-spending the bound on work already in flight.
 - Reaching the bound never cuts the scan short. The scan still evaluates the
-  exact-head checks of the remaining candidates, posts its waiting or blocked
-  gate comments, reconciles completed reviews, and runs the maintainer handoff.
-  A candidate whose checks are pending or failing starts no conversation and
-  consumes no slot, so it cannot block a later green candidate.
+  exact-head checks of the remaining candidates, reconciles completed reviews,
+  and runs the maintainer handoff. A candidate whose checks are pending or
+  failing starts no conversation and consumes no slot, so it cannot block a later
+  green candidate. Only an explicit request or a trigger label gets a waiting or
+  blocked gate comment; an unrequested head that is merely red or pending is
+  skipped silently.
 - A dispatch that raises is reported and does not consume a slot or abort the
   scan, so the candidates behind it are still considered.
 - The explicit `review_requested` event path and the trigger-label scan are
@@ -459,7 +499,7 @@ The completion callback fires once for the whole run.
 | Review paused with a failing-check comment | A current-head required check reported `failure`, `cancelled`, or `timed_out` | Fix the named checks and push; the review starts on the new head, or request `all-hands-bot` to review immediately |
 | Review reported waiting on checks | A current-head required check is `queued` or `in_progress`, or has not reported yet | No action; a later scan or a new review request retries |
 | Optional workflow failed but no review was paused | The failed workflow is not required, so the required-only scheduled gate ignored it | No action; only GitHub-required checks gate scheduled discovery |
-| Only a few reviews start on a large backlog | The per-scan `max_new_per_run` bound (default 2) reached | No action; later scans drain the remaining oldest requests, or raise `max_new_per_run` if the deployment can hold more agents |
+| Only a few reviews start on a large backlog | The per-scan `max_new_per_run` bound (default 2) reached | No action; later scans drain the remaining oldest requests and the bounded rotating window of unrequested PRs, or raise `max_new_per_run` if the deployment can hold more agents |
 | Review result never posts | Conversation still running or stuck | Open the conversation link from the acknowledgement comment |
 | Stale review suppressed | PR head SHA changed while the agent was reviewing | Re-apply the trigger label after the latest commit |
 | Review arrives as a plain comment, not a review | Publishing failed, so the script posted the text as a fallback | Check that the token has Pull requests: Read and Write |

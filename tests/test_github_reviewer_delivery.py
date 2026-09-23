@@ -138,7 +138,9 @@ def test_reviewer_submits_each_labeled_exact_head(tmp_path, monkeypatch):
             "head": {"sha": "head-2"},
             "labels": [{"name": "openhands-review"}],
         },
-        {"number": 1, "head": {"sha": "head-1"}, "labels": []},
+        # A draft is not eligible for the unrequested scan, so it is skipped
+        # without a full read and only the labeled head is submitted.
+        {"number": 1, "head": {"sha": "head-1"}, "labels": [], "draft": True},
     ]
     run.gh_pages = lambda path: prs
     run.gh = Mock(side_effect=[{"id": 99}, prs[0]])
@@ -417,9 +419,12 @@ def test_reviewer_does_not_trust_another_reviewers_verdict(tmp_path, monkeypatch
     run.dispatcher.deliver.assert_called_once()
 
 
-def test_reviewer_ignores_unlabeled_prs(tmp_path, monkeypatch):
+def test_reviewer_ignores_a_draft_unlabeled_unrequested_pr(tmp_path, monkeypatch):
+    """The unrequested scan skips a draft: it is not reviewable yet."""
     _module, run = _reviewer(tmp_path, monkeypatch)
-    run.gh_pages = lambda path: [{"number": 1, "labels": [], "head": {"sha": "head"}}]
+    run.gh_pages = lambda path: [
+        {"number": 1, "labels": [], "head": {"sha": "head"}, "draft": True}
+    ]
     run.gh = Mock(return_value={"id": 99})
     submit = Mock()
     run.dispatcher.deliver = submit
@@ -427,6 +432,8 @@ def test_reviewer_ignores_unlabeled_prs(tmp_path, monkeypatch):
     run.run()
 
     submit.assert_not_called()
+    # Skipped before the full PR read, so only the repository-id lookup ran.
+    assert run.gh.call_count == 1
 
 
 def test_reviewer_continues_after_one_submission_fails_then_reports_run_failure(
@@ -1627,18 +1634,48 @@ def test_reviewer_scheduled_scan_ignores_a_draft_with_a_request(
     run.dispatcher.deliver.assert_not_called()
 
 
-def test_reviewer_scheduled_scan_ignores_an_unlabeled_unrequested_pr(
+def test_reviewer_scheduled_scan_reviews_an_unrequested_green_pr(
     tmp_path, monkeypatch
 ):
+    """A green PR with no request and no label is still reviewed on a scan."""
     _module, run = _reviewer(tmp_path, monkeypatch)
     pr = {"number": 3, "head": {"sha": "head-3"}, "labels": [], "draft": False}
-    run.gh_pages = lambda path: [pr]
-    run.gh = Mock(return_value={"id": 99})
+    run.gh_pages = lambda path: (
+        [] if path.endswith("/reviews") else [pr]
+    )
+    run.gh = Mock(side_effect=[{"id": 99}, pr])
+    run.check_runs = lambda sha: _checks(("ci", "completed", "success"), sha=sha)
+    run.dispatcher.deliver.return_value = {
+        "disposition": "created",
+        "conversation_id": "conversation",
+    }
+
+    run.run()
+
+    run.dispatcher.deliver.assert_called_once()
+    call = run.dispatcher.deliver.call_args.kwargs
+    assert call["subject"] == "99:pr:3"
+    assert call["delivery"] == "scan:owner/repo:3:head-3"
+    assert "scheduled scan of open, non-draft pull requests" in call["prompt"]
+
+
+def test_reviewer_scheduled_scan_skips_a_pr_with_a_current_head_review(
+    tmp_path, monkeypatch
+):
+    """An already-reviewed head is not re-reviewed by the unrequested scan."""
+    _module, run = _reviewer(tmp_path, monkeypatch)
+    pr = {"number": 3, "head": {"sha": "head-3"}, "labels": [], "draft": False}
+    run.gh_pages = lambda path: (
+        _reviews(sha="head-3") if path.endswith("/reviews") else [pr]
+    )
+    # The repository-id lookup, the full PR read, and the head re-read that the
+    # completion path performs to confirm the reviewed head has not moved.
+    run.gh = Mock(side_effect=[{"id": 99}, pr, pr])
+    run.check_runs = lambda sha: _checks(("ci", "completed", "success"), sha=sha)
 
     run.run()
 
     run.dispatcher.deliver.assert_not_called()
-    assert run.gh.call_count == 1
 
 
 def test_reviewer_scheduled_scan_keeps_the_label_path_unchanged(
@@ -1758,9 +1795,11 @@ class _DedupeDispatcher:
     def __init__(self):
         self.seen = {}
         self.calls = []
+        self.prompts = []
 
     def deliver(self, *, subject, delivery, prompt):
         self.calls.append((subject, delivery))
+        self.prompts.append(prompt)
         if self.seen.get(subject) == delivery:
             return {"disposition": "deduplicated", "conversation_id": subject}
         self.seen[subject] = delivery
@@ -1838,8 +1877,33 @@ def _eligible_pr(number, sha, request_id, created_at, *, checks=()):
     }
 
 
+def _unrequested_pr(
+    number,
+    sha,
+    *,
+    created_at="2026-01-01T00:00:00Z",
+    checks=(),
+    workflows=(),
+    reviews=(),
+    author="someone",
+):
+    """An open non-draft PR nobody requested, as the unrequested scan sees it."""
+    return {
+        "number": number,
+        "head": {"sha": sha},
+        "labels": [],
+        "draft": False,
+        "created_at": created_at,
+        "user": {"login": author},
+        "requested_reviewers": [],
+        "_checks": list(checks),
+        "_workflows": list(workflows),
+        "_reviews": list(reviews),
+    }
+
+
 def _wire_scan(run, prs, repository_id):
-    """Point one reviewer at its PRs, request events, and check runs."""
+    """Point one reviewer at its PRs, requests, reviews, and runs."""
     by_number = {pr["number"]: pr for pr in prs}
 
     def gh(method, path, body=None):
@@ -1854,8 +1918,11 @@ def _wire_scan(run, prs, repository_id):
     def gh_pages(path):
         if path.startswith("/pulls?"):
             return list(prs)
+        if path.endswith("/reviews"):
+            return list(by_number[int(path.split("/")[2])].get("_reviews", []))
         if path.endswith("/events"):
-            return [by_number[int(path.split("/")[2])]["_request"]]
+            request = by_number[int(path.split("/")[2])].get("_request")
+            return [request] if request else []
         return []
 
     def check_runs(sha):
@@ -1868,13 +1935,35 @@ def _wire_scan(run, prs, repository_id):
                         "conclusion": conclusion,
                         "head_sha": sha,
                     }
-                    for name, status, conclusion in pr["_checks"]
+                    for name, status, conclusion in pr.get("_checks", [])
+                ]
+        return []
+
+    def workflow_runs(sha):
+        for pr in by_number.values():
+            if pr["head"]["sha"] == sha:
+                return [
+                    {
+                        "name": name,
+                        "status": status,
+                        "conclusion": conclusion,
+                        "head_sha": sha,
+                        "id": run_id,
+                        "check_suite_id": suite_id,
+                        "workflow_id": workflow_id,
+                        "run_started_at": "",
+                        "created_at": "",
+                    }
+                    for name, status, conclusion, run_id, suite_id, workflow_id in pr.get(
+                        "_workflows", []
+                    )
                 ]
         return []
 
     run.gh = gh
     run.gh_pages = gh_pages
     run.check_runs = check_runs
+    run.workflow_runs = workflow_runs
 
 
 def test_one_scan_starts_at_most_the_maximum_and_a_later_scan_reaches_the_rest(
@@ -2070,6 +2159,7 @@ def test_the_explicit_request_event_path_is_not_bounded(tmp_path, monkeypatch):
         if path.endswith("/events")
         else []
     )
+    one.workflow_runs = lambda sha: []
 
     one.run()
 
@@ -2108,3 +2198,461 @@ def test_the_rendered_config_rejects_a_misbehaving_max_new_per_run(
 
     with pytest.raises(SystemExit):
         module.workflow.load_config(tmp_path / "github-pr-reviewer")
+
+# --------------------------------------------------------------------------- #
+# Unrequested scheduled scan: an open, non-draft PR with a green current head and
+# no all-hands-bot review is reviewed without any request or trigger label.
+# --------------------------------------------------------------------------- #
+
+
+def test_unrequested_scan_reviews_a_green_pr_with_no_request_or_label(
+    tmp_path, monkeypatch
+):
+    """The core new behavior: a green PR nobody requested starts a review."""
+    module, (one,) = _scan_reviewers(tmp_path, monkeypatch, ["owner/one"])
+    _wire_scan(one, [_unrequested_pr(5, "head-5")], 101)
+
+    _run_scan(module, [one])
+
+    assert one.dispatcher.seen == {"101:pr:5": "scan:owner/one:5:head-5"}
+
+
+def test_unrequested_scan_blocks_a_failed_zero_job_workflow(tmp_path, monkeypatch):
+    """A green check-run rollup with a failed zero-job workflow still blocks.
+
+    The workflow failed before creating any check run, so the commit's rollup is
+    green while the Actions run is `completed`/`failure`. The gate must read the
+    workflow run and start nothing - and, because nobody requested this PR, it
+    must do so without posting a managed gate comment.
+    """
+    module, (one,) = _scan_reviewers(tmp_path, monkeypatch, ["owner/one"])
+    _wire_scan(
+        one,
+        [
+            _unrequested_pr(
+                5,
+                "head-5",
+                checks=(("pr-title", "completed", "success"),),
+                workflows=(("Tests", "completed", "failure", 3, 3003, 236324519),),
+            )
+        ],
+        101,
+    )
+    one.gh = Mock(side_effect=one.gh)
+
+    _run_scan(module, [one])
+
+    assert one.dispatcher.seen == {}
+    assert [call for call in one.gh.call_args_list if call.args[0] == "POST"] == []
+
+
+def test_unrequested_scan_waits_on_a_pending_workflow(tmp_path, monkeypatch):
+    """A current-head workflow still in progress makes the unrequested head wait.
+
+    The unrequested head starts no conversation and, being unrequested, gets no
+    managed gate comment either.
+    """
+    module, (one,) = _scan_reviewers(tmp_path, monkeypatch, ["owner/one"])
+    _wire_scan(
+        one,
+        [
+            _unrequested_pr(
+                5,
+                "head-5",
+                workflows=(("Tests", "in_progress", None, 4, 4004, 236324519),),
+            )
+        ],
+        101,
+    )
+    one.gh = Mock(side_effect=one.gh)
+
+    _run_scan(module, [one])
+
+    assert one.dispatcher.seen == {}
+    assert [call for call in one.gh.call_args_list if call.args[0] == "POST"] == []
+
+
+def test_unrequested_scan_does_not_duplicate_across_repeated_scans(
+    tmp_path, monkeypatch
+):
+    """The stable repository/PR/head key makes a repeat scan a no-op."""
+    module, (one,) = _scan_reviewers(tmp_path, monkeypatch, ["owner/one"])
+    _wire_scan(one, [_unrequested_pr(5, "head-5")], 101)
+
+    _run_scan(module, [one])
+    _run_scan(module, [one])
+
+    assert one.dispatcher.calls == [
+        ("101:pr:5", "scan:owner/one:5:head-5"),
+        ("101:pr:5", "scan:owner/one:5:head-5"),
+    ]
+    assert one.dispatcher.seen == {"101:pr:5": "scan:owner/one:5:head-5"}
+
+
+def test_unrequested_scan_reviews_a_changed_head_again_under_a_new_key(
+    tmp_path, monkeypatch
+):
+    """A new head is eligible again and reviewed once under its own key."""
+    module, (one,) = _scan_reviewers(tmp_path, monkeypatch, ["owner/one"])
+    _wire_scan(one, [_unrequested_pr(5, "head-5")], 101)
+    _run_scan(module, [one])
+
+    # The PR is pushed to a new head, so the old key no longer matches.
+    _wire_scan(one, [_unrequested_pr(5, "head-6")], 101)
+    _run_scan(module, [one])
+
+    assert one.dispatcher.seen == {"101:pr:5": "scan:owner/one:5:head-6"}
+    assert one.dispatcher.calls[-1] == ("101:pr:5", "scan:owner/one:5:head-6")
+
+
+def test_unrequested_scan_bound_spans_repositories_with_explicit_priority(
+    tmp_path, monkeypatch
+):
+    """The cap is global; an explicit request outranks unrequested candidates.
+
+    Repository `owner/one` holds an unrequested PR older than `owner/two`'s
+    explicit request. The request must win the single slot even though it is
+    younger, because explicit requests are ordered first.
+    """
+    module, (one, two) = _scan_reviewers(
+        tmp_path, monkeypatch, ["owner/one", "owner/two"], max_new=1
+    )
+    _wire_scan(
+        one, [_unrequested_pr(5, "head-5", created_at="2026-01-01T00:00:00Z")], 101
+    )
+    _wire_scan(two, [_eligible_pr(2, "head-2", 200, "2026-01-05T00:00:00Z")], 102)
+
+    _run_scan(module, [one, two])
+
+    assert one.dispatcher.seen == {}
+    assert two.dispatcher.seen == {"102:pr:2": "200:head-2"}
+
+
+def test_unrequested_scan_reviews_the_oldest_eligible_prs_under_the_cap(
+    tmp_path, monkeypatch
+):
+    """With no requests, the cap starts the oldest unrequested PRs first."""
+    module, (one,) = _scan_reviewers(tmp_path, monkeypatch, ["owner/one"])
+    _wire_scan(
+        one,
+        [
+            _unrequested_pr(9, "head-9", created_at="2026-01-03T00:00:00Z"),
+            _unrequested_pr(5, "head-5", created_at="2026-01-01T00:00:00Z"),
+            _unrequested_pr(7, "head-7", created_at="2026-01-02T00:00:00Z"),
+        ],
+        101,
+    )
+
+    _run_scan(module, [one])
+
+    assert one.dispatcher.seen == {
+        "101:pr:5": "scan:owner/one:5:head-5",
+        "101:pr:7": "scan:owner/one:7:head-7",
+    }
+
+
+def test_unrequested_scan_reconciles_a_completed_review_and_hands_off(
+    tmp_path, monkeypatch
+):
+    """A head that already carries a completed review is not re-dispatched.
+
+    The review is found on the current head, so the scan reconciles it and runs
+    the existing maintainer handoff instead of starting a second conversation.
+    """
+    module, (one,) = _scan_reviewers(tmp_path, monkeypatch, ["owner/one"])
+    _wire_scan(
+        one,
+        [
+            _unrequested_pr(
+                5,
+                "head-5",
+                reviews=[
+                    {
+                        "body": "Review body\n\n✅ APPROVED",
+                        "commit_id": "head-5",
+                        "submitted_at": "2026-01-02T00:00:00Z",
+                        "user": {"login": "all-hands-bot"},
+                    }
+                ],
+            )
+        ],
+        101,
+    )
+    one.config["maintainers"] = "neubig"
+    handoff = Mock(return_value="neubig")
+    monkeypatch.setattr(module, "request_maintainer_review", handoff)
+
+    _run_scan(module, [one])
+
+    assert one.dispatcher.seen == {}
+    handoff.assert_called_once()
+
+
+def test_unrequested_scan_still_gates_a_blocked_pr_past_the_cap(
+    tmp_path, monkeypatch
+):
+    """An ineligible unrequested PR past the cap consumes no slot and stays silent.
+
+    Two green unrequested PRs fill the cap, and a third blocked one - older than
+    them - is skipped without consuming a slot, without aborting the scan, and
+    without a managed gate comment, because nobody requested it.
+    """
+    module, (one,) = _scan_reviewers(tmp_path, monkeypatch, ["owner/one"])
+    _wire_scan(
+        one,
+        [
+            _unrequested_pr(
+                5,
+                "head-5",
+                created_at="2026-01-01T00:00:00Z",
+                checks=(("ci", "completed", "failure"),),
+            ),
+            _unrequested_pr(6, "head-6", created_at="2026-01-02T00:00:00Z"),
+            _unrequested_pr(7, "head-7", created_at="2026-01-03T00:00:00Z"),
+        ],
+        101,
+    )
+    one.gh = Mock(side_effect=one.gh)
+
+    _run_scan(module, [one])
+
+    assert set(one.dispatcher.seen) == {"101:pr:6", "101:pr:7"}
+    assert [call for call in one.gh.call_args_list if call.args[0] == "POST"] == []
+
+
+def test_an_explicit_request_still_gets_its_managed_gate_comment(
+    tmp_path, monkeypatch
+):
+    """The managed comment answers an explicit request, red or pending.
+
+    Suppressing the unrequested comment must not silence the explanation for the
+    request a caller actually made: an outstanding request whose head is failing
+    still gets its blocked gate comment.
+    """
+    module, (one,) = _scan_reviewers(tmp_path, monkeypatch, ["owner/one"])
+    _wire_scan(
+        one,
+        [
+            _eligible_pr(
+                5,
+                "head-5",
+                500,
+                "2026-01-01T00:00:00Z",
+                checks=(("ci", "completed", "failure"),),
+            )
+        ],
+        101,
+    )
+    one.gh = Mock(side_effect=one.gh)
+
+    _run_scan(module, [one])
+
+    assert one.dispatcher.seen == {}
+    posted = [call for call in one.gh.call_args_list if call.args[0] == "POST"]
+    assert len(posted) == 1
+    assert "<!-- openhands-review-gate:blocked:head-5 -->" in posted[0].args[2]["body"]
+
+
+def test_unrequested_scan_marks_a_self_authored_pr_for_the_comment_verdict(
+    tmp_path, monkeypatch
+):
+    """A bot-authored PR is told to use the non-approval verdict path.
+
+    GitHub ignores a self-review request, so the reviewer must publish the clean
+    review as a `COMMENT` event that keeps the approved verdict instead of being
+    skipped.
+    """
+    module, (one,) = _scan_reviewers(tmp_path, monkeypatch, ["owner/one"])
+    _wire_scan(one, [_unrequested_pr(5, "head-5", author="all-hands-bot")], 101)
+
+    _run_scan(module, [one])
+
+    assert one.dispatcher.seen == {"101:pr:5": "scan:owner/one:5:head-5"}
+    prompt = one.dispatcher.prompts[-1]
+    assert "authored by the configured reviewer account" in prompt
+    assert "keep the approved verdict" in prompt
+
+
+# --------------------------------------------------------------------------- #
+# Bounded rotating scan window: each scheduled scan examines a bounded slice of
+# the unrequested backlog, remembers its position in the Automation KV store, and
+# resumes there on the next scan. Explicit requests are never subject to it.
+# --------------------------------------------------------------------------- #
+
+
+def _kv_store(module, monkeypatch):
+    """Back the scan cursor with an in-memory stand-in for the Automation KV store.
+
+    The real store is an HTTP service; this reproduces the contract the cursor
+    relies on - a per-key `GET` that misses with None and a `PUT` that replaces
+    the value - so the shipped `ScanCursor` persists and reloads through it.
+    """
+    values = {}
+    monkeypatch.setattr(module.workflow, "_kv_available", lambda: True)
+    monkeypatch.setattr(
+        module.workflow, "_kv_get", lambda key: values.get(key)
+    )
+
+    def put(key, value):
+        values[key] = value
+
+    monkeypatch.setattr(module.workflow, "_kv_set", put)
+    return values
+
+
+def _many_unrequested(count, *, checks=()):
+    """`count` open, non-draft PRs nobody requested, numbered 1..count."""
+    return [
+        _unrequested_pr(
+            number,
+            f"head-{number}",
+            created_at=f"2026-01-{number:02d}T00:00:00Z",
+            checks=checks,
+        )
+        for number in range(1, count + 1)
+    ]
+
+
+def _examined(run):
+    """The PR numbers a scan actually dispatched, in call order."""
+    return [int(subject.split(":")[-1]) for subject, _ in run.dispatcher.calls]
+
+
+def test_scan_examines_a_bounded_rotating_window_of_unrequested_prs(
+    tmp_path, monkeypatch
+):
+    """Each scan covers the next slice, so the whole backlog is reached in turn."""
+    module, (one,) = _scan_reviewers(tmp_path, monkeypatch, ["owner/one"], max_new=5)
+    monkeypatch.setattr(module, "SCAN_WINDOW", 2)
+    _kv_store(module, monkeypatch)
+    _wire_scan(one, _many_unrequested(5), 101)
+
+    _run_scan(module, [one])
+    assert _examined(one) == [1, 2]
+
+    _run_scan(module, [one])
+    assert _examined(one)[-2:] == [3, 4]
+
+    _run_scan(module, [one])
+    assert _examined(one)[-1:] == [5]
+
+    # Past the end the window wraps, so the backlog keeps rotating.
+    _run_scan(module, [one])
+    assert _examined(one)[-2:] == [1, 2]
+
+
+def test_the_scan_position_is_persisted_per_repository_in_the_kv_store(
+    tmp_path, monkeypatch
+):
+    """The cursor is written under a per-repository key, so a later run resumes.
+
+    A cron run is a fresh process, so the only way the window survives is the
+    Automation KV store; this pins the key and the value the next scan reads.
+    """
+    module, (one,) = _scan_reviewers(tmp_path, monkeypatch, ["owner/one"], max_new=5)
+    monkeypatch.setattr(module, "SCAN_WINDOW", 2)
+    values = _kv_store(module, monkeypatch)
+    _wire_scan(one, _many_unrequested(5), 101)
+
+    _run_scan(module, [one])
+
+    assert values == {"review-scan:owner__one": {"cursor": 2}}
+
+
+def test_explicit_requests_are_examined_regardless_of_the_rotation_window(
+    tmp_path, monkeypatch
+):
+    """An explicit request is never skipped because the window sits elsewhere.
+
+    The cursor points at the last unrequested PR, but the explicit request on
+    PR #1 is still examined and dispatched, because a caller asked for it.
+    """
+    module, (one,) = _scan_reviewers(tmp_path, monkeypatch, ["owner/one"], max_new=5)
+    monkeypatch.setattr(module, "SCAN_WINDOW", 1)
+    values = _kv_store(module, monkeypatch)
+    # Only PR #1 holds a request; the rest are unrequested and the window sits on
+    # the last of them, so the request must still be examined.
+    _wire_scan(
+        one,
+        [_eligible_pr(1, "head-1", 100, "2026-01-01T00:00:00Z")]
+        + _many_unrequested(4)[1:],
+        101,
+    )
+    values["review-scan:owner__one"] = {"cursor": 2}
+
+    _run_scan(module, [one])
+
+    assert one.dispatcher.seen == {
+        "101:pr:1": "100:head-1",
+        "101:pr:4": "scan:owner/one:4:head-4",
+    }
+
+
+def test_unrequested_red_and_pending_prs_post_no_gate_comments(
+    tmp_path, monkeypatch
+):
+    """A scan over a large unrequested backlog posts no managed gate comments.
+
+    This is the storm the canary exposed: every red or pending head used to get a
+    comment. Unrequested heads now stay silent; only an explicit request gets the
+    managed explanation.
+    """
+    module, (one,) = _scan_reviewers(tmp_path, monkeypatch, ["owner/one"], max_new=5)
+    monkeypatch.setattr(module, "SCAN_WINDOW", 20)
+    _wire_scan(
+        one,
+        [
+            _unrequested_pr(
+                5, "head-5", checks=(("ci", "completed", "failure"),)
+            ),
+            _unrequested_pr(
+                6, "head-6", checks=(("slow-e2e", "in_progress", None),)
+            ),
+            _unrequested_pr(
+                7, "head-7", checks=(("ci", "completed", "success"),)
+            ),
+        ],
+        101,
+    )
+    one.gh = Mock(side_effect=one.gh)
+
+    _run_scan(module, [one])
+
+    assert [call for call in one.gh.call_args_list if call.args[0] == "POST"] == []
+    # The green unrequested head still reaches the bounded dispatch queue.
+    assert one.dispatcher.seen == {"101:pr:7": "scan:owner/one:7:head-7"}
+
+
+def test_scan_reads_a_bounded_number_of_pull_requests_per_repository(
+    tmp_path, monkeypatch
+):
+    """A scan reads one list page plus at most one head per examined candidate.
+
+    A full scan would issue one full pull read per open PR - the API cost that
+    made the canary time out. With a window of 10 over 40 PRs, only the 10 in the
+    window are read.
+    """
+    module, (one,) = _scan_reviewers(tmp_path, monkeypatch, ["owner/one"], max_new=5)
+    monkeypatch.setattr(module, "SCAN_WINDOW", 10)
+    _kv_store(module, monkeypatch)
+    _wire_scan(one, _many_unrequested(40), 101)
+
+    list_reads = []
+    original_pages = one.gh_pages
+
+    def counting_pages(path):
+        if path.startswith("/pulls?"):
+            list_reads.append(path)
+        return original_pages(path)
+
+    one.gh_pages = counting_pages
+    one.gh = Mock(side_effect=one.gh)
+
+    _run_scan(module, [one])
+
+    full_reads = [
+        call for call in one.gh.call_args_list
+        if call.args[0] == "GET" and str(call.args[1]).startswith("/pulls/")
+    ]
+    assert len(list_reads) == 1
+    assert len(full_reads) == 10

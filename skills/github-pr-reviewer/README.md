@@ -27,6 +27,17 @@ This skill is activated by:
 - Resumes an outstanding reviewer request on the next scheduled scan once the
   requested head's checks are green, so a request that arrives during CI is not
   lost; the explicit-request event path is kept for event-only deployments
+- Reviews open, non-draft PRs that nobody requested on a scheduled scan once
+  their current head is green and carries no review yet, keyed by
+  repository/PR/head so a repeat scan never duplicates a conversation or review
+  and a changed head becomes eligible again
+- Examines a bounded, rotating window of that unrequested backlog per scan
+  (10 PRs per repository), remembering its position in the Automation KV store so
+  the next scan resumes past it; explicit requests and trigger labels are always
+  examined, never skipped behind the window
+- Posts no managed gate comment for an unrequested PR that is merely red or
+  pending - the comment answers an explicit request, so a scan over a large
+  backlog cannot storm the PRs with comments
 - Names the retry the deployment actually has in the waiting comment: a
   scheduled scan where a cron trigger exists, and removing and re-requesting the
   bot where only the event trigger does
