@@ -34,9 +34,10 @@ def _reviewer(tmp_path, monkeypatch):
     run.token_name = "FACTORY_GITHUB_REVIEWER_TOKEN"
     run.github_login = "all-hands-bot"
     run.dispatcher = Mock()
-    # Default to a head with no reported check runs, which the gate reads as
-    # green. Gate-specific tests override this.
+    # Default to a head with no reported check runs or workflow runs, which the
+    # gate reads as green. Gate-specific tests override these.
     run.check_runs = lambda sha: []
+    run.workflow_runs = lambda sha: []
     monkeypatch.delenv("AUTOMATION_EVENT_PAYLOAD", raising=False)
     monkeypatch.setattr(
         module.workflow,
@@ -61,6 +62,7 @@ def _run(
     started_at="",
     run_id=0,
     sha="head-2",
+    suite_id=0,
 ):
     """One check run with the app identity and ordering fields the API sends."""
     return {
@@ -71,6 +73,36 @@ def _run(
         "app": {"slug": app},
         "started_at": started_at,
         "id": run_id,
+        "check_suite": {"id": suite_id},
+    }
+
+
+def _workflow_run(
+    name,
+    status,
+    conclusion,
+    *,
+    run_id=0,
+    suite_id=0,
+    workflow_id=0,
+    sha="head-2",
+    started_at="",
+):
+    """One Actions workflow run, as the runs endpoint reports it.
+
+    `check_suite_id` links the run to its check runs; a suite whose workflows
+    failed before any job reported has no check runs under it.
+    """
+    return {
+        "name": name,
+        "status": status,
+        "conclusion": conclusion,
+        "head_sha": sha,
+        "id": run_id,
+        "check_suite_id": suite_id,
+        "workflow_id": workflow_id,
+        "run_started_at": started_at,
+        "created_at": started_at,
     }
 
 
@@ -599,6 +631,208 @@ def test_reviewer_ignores_checks_from_an_obsolete_head(tmp_path, monkeypatch):
     run.check_runs = lambda sha: _checks(
         ("Validate PR description", "completed", "failure"), sha="head-1"
     )
+    run.dispatcher.deliver.return_value = {
+        "disposition": "created",
+        "conversation_id": "conversation",
+    }
+
+    run.run()
+
+    run.dispatcher.deliver.assert_called_once()
+    assert _gate_comment_calls(run) == []
+
+
+def test_reviewer_blocks_a_workflow_that_failed_with_no_check_runs(
+    tmp_path, monkeypatch
+):
+    """The #426 case: green check-run rollup, but a workflow failed before jobs.
+
+    `Tests`, `Check Extensions`, and `Deprecation deadlines` failed with zero
+    jobs, so they contributed no check runs and the commit's rollup was a green
+    `pr-title`. Reading only check runs launched the reviewer for red CI.
+    """
+    _module, run = _reviewer(tmp_path, monkeypatch)
+    pr = _labeled_pr()
+    run.gh_pages = _gate_pages(pr, [])
+    run.gh = Mock(side_effect=[{"id": 99}, pr, {"id": 1234}])
+    run.check_runs = lambda sha: _checks(
+        ("pr-title / Lint PR title (conventional)", "completed", "success"), sha=sha
+    )
+    run.workflow_runs = lambda sha: [
+        _workflow_run(
+            "Tests",
+            "completed",
+            "failure",
+            run_id=3,
+            suite_id=3003,
+            workflow_id=236324519,
+            sha=sha,
+        ),
+        _workflow_run(
+            "Check Extensions",
+            "completed",
+            "failure",
+            run_id=2,
+            suite_id=3002,
+            workflow_id=260888338,
+            sha=sha,
+        ),
+        _workflow_run(
+            "Deprecation deadlines",
+            "completed",
+            "failure",
+            run_id=1,
+            suite_id=3001,
+            workflow_id=311570275,
+            sha=sha,
+        ),
+    ]
+
+    run.run()
+
+    run.dispatcher.deliver.assert_not_called()
+    posted = [call for call in _gate_comment_calls(run) if call.args[0] == "POST"]
+    assert len(posted) == 1
+    body = posted[0].args[2]["body"]
+    assert "<!-- openhands-review-gate:blocked:head-2 -->" in body
+    assert "`Tests`" in body
+    assert "`Check Extensions`" in body
+    assert "`Deprecation deadlines`" in body
+
+
+def test_reviewer_does_not_double_report_a_workflow_that_has_check_runs(
+    tmp_path, monkeypatch
+):
+    """A workflow whose suite already has check runs is not reported twice."""
+    _module, run = _reviewer(tmp_path, monkeypatch)
+    pr = _labeled_pr()
+    run.gh_pages = _gate_pages(pr, [])
+    run.gh = Mock(side_effect=[{"id": 99}, pr])
+    # The suite the workflow run points at is the one that reported the check,
+    # so the workflow run is redundant and must not be reported a second time.
+    run.check_runs = lambda sha: [
+        _run(
+            "Validate PR description",
+            "completed",
+            "success",
+            started_at="2026-09-22T13:00:00Z",
+            run_id=1,
+            sha=sha,
+            suite_id=900,
+        )
+    ]
+    run.workflow_runs = lambda sha: [
+        _workflow_run(
+            "PR Description Check",
+            "completed",
+            "success",
+            run_id=5,
+            suite_id=900,
+            workflow_id=341671185,
+            sha=sha,
+        )
+    ]
+    run.dispatcher.deliver.return_value = {
+        "disposition": "created",
+        "conversation_id": "conversation",
+    }
+
+    run.run()
+
+    run.dispatcher.deliver.assert_called_once()
+    assert _gate_comment_calls(run) == []
+
+
+def test_reviewer_waits_for_a_workflow_run_that_has_not_finished(
+    tmp_path, monkeypatch
+):
+    """A current-head workflow run still in progress makes the head wait."""
+    _module, run = _reviewer(tmp_path, monkeypatch)
+    pr = _labeled_pr()
+    run.gh_pages = _gate_pages(pr, [])
+    run.gh = Mock(side_effect=[{"id": 99}, pr, {"id": 1234}])
+    run.workflow_runs = lambda sha: [
+        _workflow_run(
+            "Tests",
+            "in_progress",
+            None,
+            run_id=4,
+            suite_id=4004,
+            workflow_id=236324519,
+            sha=sha,
+        )
+    ]
+
+    run.run()
+
+    run.dispatcher.deliver.assert_not_called()
+    posted = [call for call in _gate_comment_calls(run) if call.args[0] == "POST"]
+    assert len(posted) == 1
+    body = posted[0].args[2]["body"]
+    assert "<!-- openhands-review-gate:waiting:head-2 -->" in body
+    assert "`Tests`" in body
+
+
+def test_reviewer_ignores_workflow_runs_from_an_obsolete_head(
+    tmp_path, monkeypatch
+):
+    """A failed workflow on an earlier head must not block the push that fixed it."""
+    _module, run = _reviewer(tmp_path, monkeypatch)
+    pr = _labeled_pr()
+    run.gh_pages = _gate_pages(pr, [])
+    run.gh = Mock(side_effect=[{"id": 99}, pr])
+    run.workflow_runs = lambda sha: [
+        _workflow_run(
+            "Tests",
+            "completed",
+            "failure",
+            run_id=1,
+            suite_id=3001,
+            workflow_id=236324519,
+            sha="head-1",
+        )
+    ]
+    run.dispatcher.deliver.return_value = {
+        "disposition": "created",
+        "conversation_id": "conversation",
+    }
+
+    run.run()
+
+    run.dispatcher.deliver.assert_called_once()
+    assert _gate_comment_calls(run) == []
+
+
+def test_reviewer_lets_a_green_workflow_rerun_supersede_a_failed_one(
+    tmp_path, monkeypatch
+):
+    """The latest run of a workflow decides, so a successful re-run clears it."""
+    _module, run = _reviewer(tmp_path, monkeypatch)
+    pr = _labeled_pr()
+    run.gh_pages = _gate_pages(pr, [])
+    run.gh = Mock(side_effect=[{"id": 99}, pr])
+    run.workflow_runs = lambda sha: [
+        _workflow_run(
+            "Tests",
+            "completed",
+            "failure",
+            run_id=1,
+            suite_id=3001,
+            workflow_id=236324519,
+            sha=sha,
+            started_at="2026-09-22T13:00:00Z",
+        ),
+        _workflow_run(
+            "Tests",
+            "completed",
+            "success",
+            run_id=2,
+            suite_id=3002,
+            workflow_id=236324519,
+            sha=sha,
+            started_at="2026-09-22T13:10:00Z",
+        ),
+    ]
     run.dispatcher.deliver.return_value = {
         "disposition": "created",
         "conversation_id": "conversation",

@@ -99,3 +99,29 @@ def test_check_runs_stops_on_an_empty_first_page():
     repository.gh = lambda *args, **kwargs: {"total_count": 0, "check_runs": []}
 
     assert repository.check_runs("abc") == []
+
+
+def test_workflow_runs_reads_every_page_of_the_object_response():
+    """The runs endpoint answers with an object too, so paging is manual."""
+    repository = object.__new__(github_client.GitHubRepository)
+    pages = {
+        1: {"total_count": 3, "workflow_runs": [{"name": "a"}, {"name": "b"}]},
+        2: {"total_count": 3, "workflow_runs": [{"name": "c"}]},
+    }
+    requests = []
+
+    def gh(method, path, body=None):
+        assert method == "GET"
+        assert "head_sha=abc" in path
+        page = int(path.rsplit("page=", 1)[1])
+        requests.append(page)
+        return pages[page]
+
+    repository.gh = gh
+
+    assert [run["name"] for run in repository.workflow_runs("abc")] == [
+        "a",
+        "b",
+        "c",
+    ]
+    assert requests == [1, 2]

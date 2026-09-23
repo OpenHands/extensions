@@ -12,12 +12,13 @@ This skill is activated by:
 ## Features
 
 - Reviews PRs on demand from a GitHub reviewer request or label event
-- Gates each review on the current head's check runs before starting an agent:
-  a completed `failure`, `cancelled`, or `timed_out` check blocks the review,
-  and a `queued` or `in_progress` check exits with a clear waiting-on-checks
-  outcome instead of holding a slot
-- Ignores checks recorded for an obsolete head, so a stale failure cannot block
-  the push that fixed it
+- Gates each review on the current head's check runs and Actions workflow runs
+  before starting an agent: a completed `failure`, `cancelled`, or `timed_out`
+  check blocks the review, and a `queued` or `in_progress` check exits with a
+  clear waiting-on-checks outcome instead of holding a slot. Workflow runs are
+  read too, so a workflow that fails before creating any check run still blocks
+- Ignores checks and workflow runs recorded for an obsolete head, so a stale
+  failure cannot block the push that fixed it
 - Watches several repositories from a single automation, each with its own state
 - Processes each review request or label application idempotently
 - Supports re-review by requesting the bot again or re-applying the label

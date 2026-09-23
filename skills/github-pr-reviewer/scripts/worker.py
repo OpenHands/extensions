@@ -15,11 +15,13 @@ from maintainer_handoff import (
     request_maintainer_review,
 )
 
-# The head-eligibility gate. It reads the check runs GitHub already reports for
-# the exact head, so it needs no branch-protection or ruleset access and no
-# maintained list of check names. A completed run blocks unless its conclusion is
-# explicitly non-blocking, so an unrecognized conclusion fails closed rather than
-# approving silently. A run that has not completed means waiting, never approval.
+# The head-eligibility gate. It reads the check runs and workflow runs GitHub
+# already reports for the exact head, so it needs no branch-protection or ruleset
+# access and no maintained list of check names. A completed run blocks unless its
+# conclusion is explicitly non-blocking, so an unrecognized conclusion fails
+# closed rather than approving silently. A run that has not completed means
+# waiting, never approval. Workflow runs are read too because a workflow can fail
+# before creating any check run, leaving the check-run rollup green.
 CHECK_GATE_MARKER = "<!-- openhands-review-gate:"
 NON_BLOCKING_CHECK_CONCLUSIONS = frozenset({"success", "neutral", "skipped"})
 # The gate is deterministic; this disclosure is what tells a reader no model ran.
@@ -242,43 +244,104 @@ class PullRequestReviewer(GitHubRepository):
         run_id = int(run.get("id") or 0)
         return (run_id, run.get("started_at") or "")
 
-    def _latest_check_runs(self, sha):
-        """Return only the latest run of each logical check on the exact head.
+    @staticmethod
+    def _workflow_run_order(run):
+        """Deterministic ordering for workflow runs, keyed by run ID first.
+
+        Workflow-run IDs are the same monotonic per-repository counter as
+        check-run IDs, so the ID is again the primary key. The start time lives
+        in `run_started_at` (`created_at` before the run starts) and only breaks
+        a tie.
+        """
+        run_id = int(run.get("id") or 0)
+        return (run_id, run.get("run_started_at") or run.get("created_at") or "")
+
+    @staticmethod
+    def _latest_by_group(runs, sha, order, group):
+        """Keep the latest run per group, ignoring any other head's runs.
 
         GitHub lists every run for a commit, so a check that was re-run after a
-        fix would otherwise contribute its superseded failure forever. A logical
-        check is its name plus the reporting app identity, so two apps that use
-        the same name stay independent. Within a group the latest run wins,
-        ordered by the run ID (the reliable creation sequence) with the start
-        time as a tie-break, so a newer queued or in-progress re-run supersedes
-        an earlier success and makes the head wait even when its start time is
-        still absent, while an older run without a start time cannot outrank a
-        newer success.
+        fix would otherwise contribute its superseded failure forever. Only runs
+        attributed to the exact head count: a run left behind on an obsolete head
+        must not block the push that fixed it. Within a group the latest run
+        wins, ordered by the run ID (the reliable creation sequence) with the
+        start time as a tie-break, so a newer queued or in-progress re-run
+        supersedes an earlier success and makes the head wait even when its start
+        time is still absent, while an older run without a start time cannot
+        outrank a newer success.
         """
         latest = {}
-        for run in self.check_runs(sha):
+        for run in runs:
             if run.get("head_sha") != sha:
                 continue
-            key = (run.get("name") or "unnamed check", self._check_app_identity(run))
+            key = group(run)
             current = latest.get(key)
-            if current is None or self._check_run_order(run) > self._check_run_order(
-                current
-            ):
+            if current is None or order(run) > order(current):
                 latest[key] = run
         return list(latest.values())
 
-    def _classify_check_runs(self, sha):
-        """Split current-head check runs into blocking, pending, and green.
+    def _latest_check_runs(self, sha, check_runs):
+        """Return only the latest run of each logical check on the exact head.
 
-        Only runs GitHub attributes to the exact head count: a run left behind on
-        an obsolete head must not block the push that fixed it. Only the latest
-        run of each logical check counts, so a re-run that fixed a check
-        supersedes its earlier failure. A completed run whose conclusion is
-        neither blocking nor explicitly non-blocking fails closed, so an unknown
-        conclusion cannot silently approve a PR.
+        A logical check is its name plus the reporting app identity, so two apps
+        that use the same name stay independent.
         """
+        return self._latest_by_group(
+            check_runs,
+            sha,
+            self._check_run_order,
+            lambda run: (
+                run.get("name") or "unnamed check",
+                self._check_app_identity(run),
+            ),
+        )
+
+    def _latest_workflow_runs(self, sha, check_runs):
+        """Return the current-head workflow runs that created no check runs.
+
+        A workflow run's check suite is the link to its check runs. When that
+        suite already reported check runs, those runs carry the conclusion and
+        re-reporting the workflow run would only duplicate them. A suite with no
+        check runs is a workflow that failed before any job reported - a
+        workflow-level error, or a `pull_request` run whose jobs never started -
+        which the commit's check-run rollup and `gh pr check`s cannot see. Group
+        by workflow identity so a re-run supersedes its earlier attempt.
+        """
+        reported_suites = {
+            (run.get("check_suite") or {}).get("id")
+            for run in check_runs
+            if run.get("head_sha") == sha
+        }
+        return self._latest_by_group(
+            [
+                run
+                for run in self.workflow_runs(sha)
+                if run.get("check_suite_id") not in reported_suites
+            ],
+            sha,
+            self._workflow_run_order,
+            lambda run: (
+                run.get("name") or "unnamed workflow",
+                run.get("workflow_id"),
+            ),
+        )
+
+    def _classify_check_runs(self, sha):
+        """Split current-head check and workflow runs into blocking/pending/green.
+
+        Check runs are the primary signal, but a workflow can fail before
+        creating any check run, so workflow runs whose suites reported no check
+        runs are considered too. A completed run whose conclusion is neither
+        blocking nor explicitly non-blocking fails closed, so an unknown
+        conclusion cannot silently approve a PR. A run that has not completed
+        means waiting, never approval.
+        """
+        check_runs = self.check_runs(sha)
+        reporters = self._latest_check_runs(sha, check_runs) + self._latest_workflow_runs(
+            sha, check_runs
+        )
         blocking, pending = [], []
-        for run in self._latest_check_runs(sha):
+        for run in reporters:
             name = run.get("name") or "unnamed check"
             status = (run.get("status") or "").lower()
             if status != "completed":

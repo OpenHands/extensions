@@ -184,6 +184,28 @@ class GitHubRepository:
                 return runs
         raise RuntimeError("GitHub check-run pagination exceeded limit")
 
+    def workflow_runs(self, sha):
+        """Return every Actions workflow run GitHub reported for one commit SHA.
+
+        A workflow that fails before any job starts - a workflow-level error, or
+        a `pull_request` run whose jobs never materialize - still records a
+        failed check suite, but it contributes no check runs, so the commit's
+        check-run rollup and `gh pr checks` both report success. Reading the
+        workflow runs directly is the only way the gate can see that failure.
+        Like the check-run endpoint this answers with an object, so it paginates
+        manually.
+        """
+        runs = []
+        for page in range(1, 101):
+            data = self.gh(
+                "GET", f"/actions/runs?head_sha={sha}&per_page=100&page={page}"
+            )
+            batch = data.get("workflow_runs") or []
+            runs.extend(batch)
+            if len(runs) >= int(data.get("total_count") or 0) or not batch:
+                return runs
+        raise RuntimeError("GitHub workflow-run pagination exceeded limit")
+
     def completed_dependency(self, number):
         if number in self._completed_dependencies:
             return self._completed_dependencies[number]
