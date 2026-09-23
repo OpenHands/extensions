@@ -1,0 +1,19 @@
+{
+  "name": "typesafe-ai",
+  "version": "1.0.0",
+  "description": "Build AI-powered software with TypeSafe System One models, which turn natural language and application state into typed judgments and probabilities that code can combine.",
+  "author": {
+    "name": "OpenHands",
+    "email": "contact@all-hands.dev"
+  },
+  "homepage": "https://github.com/OpenHands/extensions",
+  "repository": "https://github.com/OpenHands/extensions",
+  "license": "MIT",
+  "keywords": [
+    "typesafe",
+    "system-one",
+    "jev",
+    "structured-decisions",
+    "classification"
+  ]
+}

@@ -617,6 +617,19 @@
       ]
     },
     {
+      "name": "typesafe-ai",
+      "source": "./skills/typesafe-ai",
+      "description": "Build AI-powered software with TypeSafe System One models, which turn natural language and application state into typed judgments and probabilities that code can combine.",
+      "category": "integrations",
+      "keywords": [
+        "typesafe",
+        "system-one",
+        "jev",
+        "structured-decisions",
+        "classification"
+      ]
+    },
+    {
       "name": "uv",
       "source": "./skills/uv",
       "description": "Common project, dependency, and environment operations using uv.",
