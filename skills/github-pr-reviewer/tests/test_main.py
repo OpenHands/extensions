@@ -10,6 +10,7 @@ untrusted archive, removing it again, and keeping one repository's state apart
 from another's.
 """
 
+import contextlib
 import io
 import json
 import os
@@ -374,6 +375,290 @@ class TestStalledClaims(_CheckoutTestCase):
     def test_a_claim_without_a_timestamp_is_released(self):
         reviews, _ = self._poll({"7:label:1": {"status": "starting"}})
         self.assertNotIn("7:label:1", reviews)
+
+
+# ── Stale required-CI reconciliation ───────────────────────────────────────────
+
+
+DAY = 24 * 60 * 60
+HEAD = "0123456789abcdef0123456789abcdef01234567"
+OTHER_HEAD = "fedcba9876543210fedcba9876543210fedcba98"
+
+
+def _check_run(name, conclusion, *, status="completed", completed_at=None, run_id=1):
+    return {
+        "id": run_id,
+        "name": name,
+        "status": status,
+        "conclusion": conclusion,
+        "started_at": completed_at,
+        "completed_at": completed_at,
+    }
+
+
+def _state(status="completed", conclusion="failure", completed_at=None):
+    return {
+        "status": status,
+        "conclusion": conclusion,
+        "started_at": completed_at,
+        "completed_at": completed_at,
+    }
+
+
+class TestClassifyRequiredCi(unittest.TestCase):
+    def test_no_required_checks_is_passing(self):
+        self.assertEqual(main.classify_required_ci(set(), {"test": _state()}), ("passing", None))
+
+    def test_success_is_passing(self):
+        state, since = main.classify_required_ci(
+            {"test"}, {"test": _state(conclusion="success")}
+        )
+        self.assertEqual(state, "passing")
+        self.assertIsNone(since)
+
+    def test_optional_failures_are_ignored(self):
+        # "lint" failed but is not required; only "test" is.
+        states = {"test": _state(conclusion="success"), "lint": _state(conclusion="failure")}
+        self.assertEqual(main.classify_required_ci({"test"}, states), ("passing", None))
+
+    def test_failure_reports_the_streak_start(self):
+        completed = "2026-01-01T00:00:00Z"
+        states = {"test": _state(conclusion="failure", completed_at=completed)}
+        state, since = main.classify_required_ci({"test"}, states)
+        self.assertEqual(state, "failing")
+        self.assertIsNotNone(since)
+
+    def test_failure_since_is_the_earliest_failing_check(self):
+        early = "2026-01-01T00:00:00Z"
+        late = "2026-01-03T00:00:00Z"
+        states = {
+            "a": _state(conclusion="failure", completed_at=late),
+            "b": _state(conclusion="failure", completed_at=early),
+        }
+        _, since = main.classify_required_ci({"a", "b"}, states)
+        self.assertEqual(since, main._parse_github_time(early))
+
+    def test_missing_required_check_is_pending(self):
+        self.assertEqual(main.classify_required_ci({"test"}, {}), ("pending", None))
+
+    def test_in_progress_run_is_pending(self):
+        states = {"test": _state(status="in_progress", conclusion=None)}
+        self.assertEqual(main.classify_required_ci({"test"}, states), ("pending", None))
+
+    def test_skipped_and_neutral_do_not_fail(self):
+        for conclusion in ("skipped", "neutral"):
+            self.assertEqual(
+                main.classify_required_ci({"test"}, {"test": _state(conclusion=conclusion)}),
+                ("passing", None),
+            )
+
+    def test_a_failing_and_a_pending_check_is_pending(self):
+        # A recovered/pending required check gates the close even if another fails.
+        states = {
+            "a": _state(conclusion="failure"),
+            "b": _state(status="queued", conclusion=None),
+        }
+        self.assertEqual(main.classify_required_ci({"a", "b"}, states), ("pending", None))
+
+
+class TestStaleCiLifecycle(unittest.TestCase):
+    """End-to-end reconcile_stale_ci decisions over the mocked GitHub boundary."""
+
+    def setUp(self):
+        self.comments: list[dict] = []
+        self.posted: list[str] = []
+        self.closed: list[int] = []
+        self.rules = [{"type": "required_status_checks", "parameters": {"required_status_checks": [{"context": "test"}]}}]
+        self.runs = [_check_run("test", "failure", completed_at="2026-01-01T00:00:00Z")]
+        self.statuses: list[dict] = []
+
+    def _pr(self, *, number=7, head=HEAD, draft=False, author="alice", base="main"):
+        return {
+            "number": number,
+            "draft": draft,
+            "user": {"login": author},
+            "base": {"ref": base},
+            "head": {"sha": head},
+        }
+
+    def _post(self, body):
+        comment = {
+            "id": len(self.comments) + 1,
+            "body": body,
+            "user": {"login": "review-bot"},
+            "created_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(self.now)),
+        }
+        self.comments.append(comment)
+        self.posted.append(body)
+        return comment
+
+    def _patch(self):
+        return [
+            patch.object(main, "_github_paginate", side_effect=self._paginate),
+            patch.object(main, "_list_check_runs", side_effect=lambda *a, **k: self.runs),
+            patch.object(main, "_github_request", side_effect=self._request),
+        ]
+
+    def _paginate(self, token, path, params=None):
+        if "/rules/branches/" in path:
+            return self.rules
+        if path.endswith("/statuses"):
+            return self.statuses
+        if path.endswith("/comments"):
+            return list(self.comments)
+        raise AssertionError(f"unexpected pagination {path}")
+
+    def _request(self, token, method, path, params=None, body=None):
+        if "/protection" in path:
+            return {}, {}
+        if method == "POST" and path.endswith("/comments"):
+            return self._post(body["body"]), {}
+        if method == "PATCH" and "/pulls/" in path:
+            self.closed.append(int(path.rsplit("/", 1)[1]))
+            return {}, {}
+        raise AssertionError(f"unexpected request {method} {path}")
+
+    def _reconcile(self, now, pr=None):
+        self.now = now
+        with contextlib.ExitStack() as stack:
+            for p in self._patch():
+                stack.enter_context(p)
+            return main.reconcile_stale_ci("token", "owner/repo", pr or self._pr(), now=now)
+
+    def test_no_required_checks_skips(self):
+        self.rules = []
+        result = self._reconcile(main._parse_github_time("2026-02-01T00:00:00Z") + 30 * DAY)
+        self.assertEqual(result["action"], "skipped")
+        self.assertEqual(self.posted, [])
+
+    def test_pending_required_ci_skips(self):
+        self.runs = [_check_run("test", None, status="in_progress", completed_at=None)]
+        result = self._reconcile(main._parse_github_time("2026-03-01T00:00:00Z"))
+        self.assertEqual(result["action"], "skipped")
+        self.assertIn("pending", result["reason"])
+
+    def test_passing_required_ci_skips(self):
+        self.runs = [_check_run("test", "success", completed_at="2026-01-01T00:00:00Z")]
+        result = self._reconcile(main._parse_github_time("2026-03-01T00:00:00Z"))
+        self.assertEqual(result["action"], "skipped")
+        self.assertIn("passing", result["reason"])
+
+    def test_failure_newer_than_grace_does_not_warn(self):
+        now = main._parse_github_time("2026-01-05T00:00:00Z")
+        result = self._reconcile(now)
+        self.assertEqual(result["action"], "waiting")
+        self.assertEqual(self.posted, [])
+
+    def test_failure_older_than_grace_warns_once(self):
+        now = main._parse_github_time("2026-01-01T00:00:00Z") + 8 * DAY
+        result = self._reconcile(now)
+        self.assertEqual(result["action"], "warned")
+        self.assertEqual(len(self.posted), 1)
+        self.assertIn(main._stale_ci_marker("warning", HEAD), self.posted[0])
+        self.assertIn("AI agent", self.posted[0])
+
+    def test_rescan_does_not_duplicate_the_warning(self):
+        now = main._parse_github_time("2026-01-01T00:00:00Z") + 8 * DAY
+        self._reconcile(now)
+        self._reconcile(now + 60)
+        self.assertEqual(len(self.posted), 1, "the same window must warn exactly once")
+
+    def test_close_after_response_window_without_follow_up(self):
+        start = main._parse_github_time("2026-01-01T00:00:00Z")
+        self._reconcile(start + 8 * DAY)  # warn
+        result = self._reconcile(start + 8 * DAY + main.STALE_CI_RESPONSE_SECONDS + 60)
+        self.assertEqual(result["action"], "closed")
+        self.assertEqual(self.closed, [7])
+        self.assertIn(main._stale_ci_marker("closed", HEAD), self.posted[-1])
+
+    def test_close_is_idempotent_on_rescan(self):
+        start = main._parse_github_time("2026-01-01T00:00:00Z")
+        self._reconcile(start + 8 * DAY)
+        close_at = start + 8 * DAY + main.STALE_CI_RESPONSE_SECONDS + 60
+        self._reconcile(close_at)
+        result = self._reconcile(close_at + DAY)
+        self.assertEqual(result["action"], "closed")
+        self.assertEqual(len(self.closed), 2, "the close PATCH is re-applied, not just logged")
+        self.assertEqual(len(self.posted), 2, "no second closure comment")
+
+    def test_author_comment_after_warning_prevents_close(self):
+        start = main._parse_github_time("2026-01-01T00:00:00Z")
+        self._reconcile(start + 8 * DAY)
+        self.comments.append(
+            {
+                "id": 99,
+                "body": "Working on the fix",
+                "user": {"login": "alice"},
+                "created_at": time.strftime(
+                    "%Y-%m-%dT%H:%M:%SZ", time.gmtime(start + 8 * DAY + 60)
+                ),
+            }
+        )
+        result = self._reconcile(start + 8 * DAY + main.STALE_CI_RESPONSE_SECONDS + 60)
+        self.assertEqual(result["action"], "warned", "follow-up starts a fresh window")
+        self.assertEqual(self.closed, [])
+
+    def test_author_commit_after_warning_prevents_close(self):
+        start = main._parse_github_time("2026-01-01T00:00:00Z")
+        self._reconcile(start + 8 * DAY)
+        # A new head is a follow-up: the warning names the old head.
+        result = self._reconcile(start + 8 * DAY + main.STALE_CI_RESPONSE_SECONDS + 60, pr=self._pr(head=OTHER_HEAD))
+        self.assertEqual(result["action"], "warned")
+        self.assertEqual(self.closed, [])
+        self.assertIn(main._stale_ci_marker("warning", OTHER_HEAD), self.posted[-1])
+
+    def test_ci_recovery_prevents_close(self):
+        start = main._parse_github_time("2026-01-01T00:00:00Z")
+        self._reconcile(start + 8 * DAY)
+        self.runs = [_check_run("test", "success", completed_at="2026-01-09T00:00:00Z")]
+        result = self._reconcile(start + 8 * DAY + main.STALE_CI_RESPONSE_SECONDS + 60)
+        self.assertEqual(result["action"], "skipped")
+        self.assertEqual(self.closed, [])
+
+    def test_optional_failed_check_does_not_warn(self):
+        self.runs = [
+            _check_run("test", "success", completed_at="2026-01-01T00:00:00Z"),
+            _check_run("optional-lint", "failure", completed_at="2026-01-01T00:00:00Z", run_id=2),
+        ]
+        now = main._parse_github_time("2026-01-01T00:00:00Z") + 8 * DAY
+        result = self._reconcile(now)
+        self.assertEqual(result["action"], "skipped")
+        self.assertEqual(self.posted, [])
+
+    def test_missing_head_or_base_skips(self):
+        result = self._reconcile(time.time(), pr={"number": 7, "draft": False, "base": {}, "head": {}})
+        self.assertEqual(result["action"], "skipped")
+        self.assertEqual(self.posted, [])
+
+
+class TestStaleCiRepoPass(_CheckoutTestCase):
+    """The scheduled pass covers every open non-draft PR, not just labelled ones."""
+
+    def test_draft_prs_are_skipped(self):
+        seen = []
+
+        def fake(token, repo, pr, **kwargs):
+            seen.append(pr["number"])
+            return {"pr": pr["number"], "action": "waiting", "reason": ""}
+
+        prs = [{"number": 1, "draft": False}, {"number": 2, "draft": True}, {"number": 3, "draft": False}]
+        with patch.object(main, "reconcile_stale_ci", side_effect=fake):
+            main._reconcile_repo_stale_ci("token", "owner/repo", prs)
+        self.assertEqual(seen, [1, 3])
+
+    def test_one_pr_failure_does_not_stop_the_pass(self):
+        seen = []
+
+        def fake(token, repo, pr, **kwargs):
+            seen.append(pr["number"])
+            if pr["number"] == 1:
+                raise RuntimeError("boom")
+            return {"pr": pr["number"], "action": "waiting", "reason": ""}
+
+        prs = [{"number": 1, "draft": False}, {"number": 2, "draft": False}]
+        with patch.object(main, "reconcile_stale_ci", side_effect=fake):
+            main._reconcile_repo_stale_ci("token", "owner/repo", prs)
+        self.assertEqual(seen, [1, 2])
 
 
 class TestLoadConfig(unittest.TestCase):

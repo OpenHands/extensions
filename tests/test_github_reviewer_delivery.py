@@ -551,3 +551,67 @@ def test_reviewer_hands_scope_stop_to_maintainer(tmp_path, monkeypatch):
         "/issues/2/labels/openhands-review",
     )
     run.dispatcher.deliver.assert_not_called()
+
+
+def _stale_pr(number=1, draft=False, head="head-1"):
+    return {
+        "number": number,
+        "draft": draft,
+        "head": {"sha": head},
+        "base": {"ref": "main"},
+        "labels": [],
+        "user": {"login": "alice"},
+    }
+
+
+def test_scheduled_scan_reconciles_stale_ci_for_unlabelled_prs(tmp_path, monkeypatch):
+    """The deterministic pass covers every open non-draft PR, labelled or not."""
+    module, run = _reviewer(tmp_path, monkeypatch)
+    prs = [_stale_pr(1), _stale_pr(2, draft=True)]
+    run.gh_pages = lambda path: prs if path.startswith("/pulls?") else []
+    run.gh = Mock(return_value={"id": 99})
+    calls = []
+
+    def reconcile(token, repo, pr, **kwargs):
+        calls.append((token, repo, pr["number"]))
+        return {"pr": pr["number"], "action": "warned", "reason": "failing"}
+
+    monkeypatch.setattr(module.workflow, "reconcile_stale_ci", reconcile)
+
+    run.run()
+
+    assert calls == [("token", "owner/repo", 1)]
+    run.dispatcher.deliver.assert_not_called()
+
+
+def test_scheduled_scan_survives_a_failing_reconciliation(tmp_path, monkeypatch):
+    module, run = _reviewer(tmp_path, monkeypatch)
+    run.gh_pages = lambda path: [_stale_pr(1), _stale_pr(2)]
+    run.gh = Mock(return_value={"id": 99})
+    seen = []
+
+    def reconcile(token, repo, pr, **kwargs):
+        seen.append(pr["number"])
+        if pr["number"] == 1:
+            raise RuntimeError("boom")
+        return {"pr": pr["number"], "action": "closed", "reason": "stale"}
+
+    monkeypatch.setattr(module.workflow, "reconcile_stale_ci", reconcile)
+
+    run.run()
+
+    assert seen == [1, 2]
+
+
+def test_event_scan_does_not_run_stale_ci(tmp_path, monkeypatch):
+    module, run = _reviewer(tmp_path, monkeypatch)
+    _event(monkeypatch)
+    pr = {"number": 2, "head": {"sha": "head-2"}, "labels": []}
+    run.gh = Mock(side_effect=[{"id": 99}, pr])
+    run.gh_pages = lambda path: [] if path.endswith("/events") else []
+    reconcile = Mock()
+    monkeypatch.setattr(module.workflow, "reconcile_stale_ci", reconcile)
+
+    run.run()
+
+    reconcile.assert_not_called()

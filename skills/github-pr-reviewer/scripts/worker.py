@@ -211,12 +211,52 @@ class PullRequestReviewer(GitHubRepository):
             )
         return True
 
+    def _reconcile_stale_ci(self, prs):
+        """Warn or close PRs whose required base-branch CI has stayed failing.
+
+        The whole scan for this repository is best-effort: one PR's failure must
+        not stop the deterministic maintenance pass or the review scan that
+        follows it. Reuses the reviewer's token, pagination, and repository
+        configuration through the shared workflow module.
+        """
+        for pr in prs:
+            if pr.get("draft"):
+                continue
+            number = pr.get("number")
+            try:
+                result = workflow.reconcile_stale_ci(self.token, self.repository, pr)
+            except Exception as exc:  # noqa: BLE001 - one PR must not block the pass
+                print(
+                    f"Stale-CI reconciliation failed for {self.repository} PR "
+                    f"#{number}: {type(exc).__name__}: {exc}",
+                    file=sys.stderr,
+                    flush=True,
+                )
+                continue
+            if result.get("action") in {"warned", "closed", "error"}:
+                print(
+                    json.dumps(
+                        {
+                            "repository": self.repository,
+                            "pr": number,
+                            "stale_ci": result["action"],
+                            "reason": result["reason"],
+                        }
+                    ),
+                    flush=True,
+                )
+
     def run(self):
         repository_id = self.gh("GET", "")["id"]
         label = self.config.get("trigger_label", workflow.TRIGGER_LABEL)
         payload = self._event_payload()
         if payload is None:
             prs = self.gh_pages("/pulls?state=open&sort=updated&direction=asc")
+            # The scheduled pass also reconciles stale required CI for every open,
+            # non-draft PR, independent of the review trigger. This is
+            # deterministic: it posts a marked warning or closes an abandoned PR
+            # and never consumes a review slot.
+            self._reconcile_stale_ci(prs)
         else:
             candidate = self._event_candidate(payload)
             if candidate and self.github_login.lower() != self.trigger_reviewer:

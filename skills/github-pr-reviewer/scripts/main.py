@@ -25,7 +25,9 @@ import time
 import urllib.error
 import urllib.request
 from collections.abc import Callable
+from datetime import datetime
 from pathlib import Path, PurePosixPath
+from urllib.parse import quote
 
 from github_client import github_request as _github_request
 from github_client import github_paginate as _github_paginate
@@ -163,6 +165,17 @@ MAX_ACTIVE_AGE = 2 * 60 * 60
 # fetching an archive and opening a conversation, short enough that a crash does
 # not park the review until someone notices.
 STALLED_CLAIM_SECONDS = 15 * 60
+
+# Stale-CI reconciliation. A PR whose GitHub-required checks for its base branch
+# have failed continuously for STALE_CI_GRACE_SECONDS is warned once; if they are
+# still failing STALE_CI_RESPONSE_SECONDS after that warning and the author has
+# neither pushed nor commented since, it is closed. Optional checks are ignored.
+STALE_CI_GRACE_SECONDS = 7 * 24 * 60 * 60
+STALE_CI_RESPONSE_SECONDS = 7 * 24 * 60 * 60
+# Marks the automation's own warning/closure comments so a rescan recognizes them
+# instead of posting a duplicate. The kind and head SHA in the marker make each
+# lifecycle stage distinct, so a fresh warning for a new head gets its own marker.
+STALE_CI_MARKER_PREFIX = "<!-- openhands-stale-ci:"
 
 # Login of the token owner, filled in by _verify_token. Reviews are matched
 # against it to answer "did we already publish a review for this commit", which
@@ -443,6 +456,335 @@ def _matching_review_exists(token: str, repo: str, pr_number: int, head_sha: str
         if review.get("commit_id") == head_sha:
             return True
     return False
+
+
+# ── Stale required-CI reconciliation ───────────────────────────────────────────
+#
+# Every open, non-draft PR in a configured repository is checked deterministically
+# on each scheduled pass, whether or not it carries a review trigger. Required
+# checks come from GitHub's rules/branch-protection for the PR's base branch, so
+# an optional failed check never starts this lifecycle. Warning and closure are
+# driven entirely by markers on the automation's own comments, which makes the
+# pass idempotent and identical in local and Docker-backed deployments without
+# depending on a state file.
+
+# A required check is failing for this lifecycle when its latest run on the head
+# concluded in one of these; queued/in-progress runs are pending, not failing.
+_FAILING_CONCLUSIONS = {"failure", "timed_out", "cancelled", "action_required", "stale"}
+_FAILING_STATUS_STATES = {"failure", "error"}
+
+
+def _parse_github_time(value: str | None) -> float | None:
+    if not value:
+        return None
+    try:
+        return datetime.fromisoformat(value.replace("Z", "+00:00")).timestamp()
+    except ValueError:
+        return None
+
+
+def _required_check_contexts(token: str, repo: str, base_ref: str) -> set[str]:
+    """Return the required status-check contexts for a base branch.
+
+    Reads the active repository rules first, which a read-only token can see, and
+    falls back to classic branch protection. An empty set means the branch
+    requires no checks, so nothing here is ever treated as failing.
+    """
+    contexts: set[str] = set()
+    try:
+        rules = _github_paginate(token, f"/repos/{repo}/rules/branches/{quote(base_ref, safe='')}")
+    except Exception:
+        rules = []
+    for rule in rules:
+        if rule.get("type") != "required_status_checks":
+            continue
+        params = rule.get("parameters") or {}
+        for check in params.get("required_status_checks") or []:
+            context = check.get("context")
+            if context:
+                contexts.add(context)
+    if contexts:
+        return contexts
+
+    try:
+        protection, _ = _github_request(
+            token, "GET", f"/repos/{repo}/branches/{quote(base_ref, safe='')}/protection"
+        )
+    except Exception:
+        return set()
+    required = (protection or {}).get("required_status_checks") or {}
+    return {
+        check.get("context")
+        for check in required.get("contexts") or []
+        if isinstance(check, str) and check
+    } or {
+        check.get("context")
+        for check in required.get("checks") or []
+        if check.get("context")
+    }
+
+
+def _list_check_runs(token: str, repo: str, head_sha: str) -> list[dict]:
+    runs: list[dict] = []
+    for page in range(1, 101):
+        data, _ = _github_request(
+            token,
+            "GET",
+            f"/repos/{repo}/commits/{head_sha}/check-runs",
+            params={"per_page": 100, "page": page},
+        )
+        batch = data.get("check_runs") or []
+        runs.extend(batch)
+        if len(batch) < 100:
+            return runs
+    raise RuntimeError("check-runs pagination exceeded limit")
+
+
+def _latest_check_states(token: str, repo: str, head_sha: str) -> dict[str, dict]:
+    """Latest state per context across check runs and commit statuses.
+
+    A context can be reported by either mechanism, and both are allowed to have
+    produced more than one entry for the same head (re-runs). Keep the newest one
+    per context, which is what a human would look at on the PR.
+    """
+    states: dict[str, dict] = {}
+
+    def record(context: str, entry: dict, sort_key: tuple) -> None:
+        if not context:
+            return
+        current = states.get(context)
+        if current is None or sort_key >= current["_sort"]:
+            states[context] = {**entry, "_sort": sort_key}
+
+    for run in _list_check_runs(token, repo, head_sha):
+        record(
+            run.get("name", ""),
+            {
+                "status": run.get("status"),
+                "conclusion": run.get("conclusion"),
+                "started_at": run.get("started_at"),
+                "completed_at": run.get("completed_at"),
+            },
+            (run.get("started_at") or "", int(run.get("id") or 0)),
+        )
+    for status in _github_paginate(token, f"/repos/{repo}/commits/{head_sha}/statuses"):
+        record(
+            status.get("context", ""),
+            {
+                "status": "completed",
+                "conclusion": status.get("state"),
+                "started_at": status.get("created_at"),
+                "completed_at": status.get("updated_at") or status.get("created_at"),
+            },
+            (status.get("created_at") or "", int(status.get("id") or 0)),
+        )
+    for entry in states.values():
+        entry.pop("_sort", None)
+    return states
+
+
+def classify_required_ci(required: set[str], states: dict[str, dict]) -> tuple[str, float | None]:
+    """Reduce the required contexts to ("passing"|"pending"|"failing", failure_since).
+
+    ``failure_since`` is the earliest completion/start time of the currently
+    failing required checks: the point at which this failure streak began. It is
+    None unless the state is failing.
+    """
+    if not required:
+        return "passing", None
+
+    failing: list[dict] = []
+    pending = False
+    for context in required:
+        state = states.get(context)
+        if state is None:
+            pending = True
+            continue
+        if state.get("status") not in (None, "completed"):
+            pending = True
+            continue
+        conclusion = (state.get("conclusion") or "").lower()
+        if conclusion in _FAILING_CONCLUSIONS or conclusion in _FAILING_STATUS_STATES:
+            failing.append(state)
+        elif conclusion in {"success", "neutral", "skipped"}:
+            continue
+        else:
+            pending = True
+
+    if pending:
+        return "pending", None
+    if not failing:
+        return "passing", None
+
+    starts = [
+        timestamp
+        for state in failing
+        if (timestamp := _parse_github_time(state.get("completed_at") or state.get("started_at")))
+        is not None
+    ]
+    return "failing", (min(starts) if starts else None)
+
+
+def _list_issue_comments(token: str, repo: str, pr_number: int) -> list[dict]:
+    return _github_paginate(token, f"/repos/{repo}/issues/{pr_number}/comments")
+
+
+def _stale_ci_marker(kind: str, head_sha: str) -> str:
+    return f"{STALE_CI_MARKER_PREFIX}{kind}:{head_sha} -->"
+
+
+def _stale_ci_comments(comments: list[dict], kind: str) -> list[dict]:
+    """Automation comments of one kind, oldest first, with the head they name."""
+    matched = []
+    for comment in comments:
+        body = comment.get("body") or ""
+        start = body.find(f"{STALE_CI_MARKER_PREFIX}{kind}:")
+        if start < 0:
+            continue
+        end = body.find(" -->", start)
+        if end < 0:
+            continue
+        head = body[start + len(f"{STALE_CI_MARKER_PREFIX}{kind}:"):end].strip()
+        matched.append({**comment, "_head": head})
+    return sorted(matched, key=lambda item: (item.get("created_at") or "", int(item.get("id") or 0)))
+
+
+def _author_followed_up(comments: list[dict], author: str, after: float) -> bool:
+    """Did the PR author comment after the warning? A commit is a head change."""
+    author = (author or "").lower()
+    if not author:
+        return False
+    for comment in comments:
+        if (comment.get("user") or {}).get("login", "").lower() != author:
+            continue
+        if (STALE_CI_MARKER_PREFIX in (comment.get("body") or "")):
+            continue
+        created = _parse_github_time(comment.get("created_at"))
+        if created is not None and created > after:
+            return True
+    return False
+
+
+def _post_stale_ci_comment(token: str, repo: str, pr_number: int, body: str) -> bool:
+    try:
+        _github_request(
+            token,
+            "POST",
+            f"/repos/{repo}/issues/{pr_number}/comments",
+            body={"body": _with_ai_disclosure(body)},
+        )
+        return True
+    except Exception as exc:
+        print(f"  Warning: failed to post stale-CI comment on PR #{pr_number}: {exc}")
+        return False
+
+
+def _close_pull_request(token: str, repo: str, pr_number: int) -> bool:
+    try:
+        _github_request(
+            token, "PATCH", f"/repos/{repo}/pulls/{pr_number}", body={"state": "closed"}
+        )
+        return True
+    except Exception as exc:
+        print(f"  Warning: failed to close PR #{pr_number}: {exc}")
+        return False
+
+
+def reconcile_stale_ci(
+    token: str,
+    repo: str,
+    pr: dict,
+    *,
+    now: float | None = None,
+) -> dict:
+    """Run the deterministic stale-required-CI lifecycle for one open PR.
+
+    Returns a small result dict describing what happened, for logging and tests.
+    It posts at most one warning per response window and closes only when a
+    valid warning has gone unanswered past the response period.
+    """
+    now = time.time() if now is None else now
+    number = pr.get("number")
+    head_sha = _head_sha(pr)
+    base_ref = ((pr.get("base") or {}).get("ref") or "").strip()
+    author = (pr.get("user") or {}).get("login", "")
+
+    if not head_sha or not base_ref:
+        return {"pr": number, "action": "skipped", "reason": "missing head or base"}
+
+    required = _required_check_contexts(token, repo, base_ref)
+    if not required:
+        return {"pr": number, "action": "skipped", "reason": "no required checks"}
+
+    states = _latest_check_states(token, repo, head_sha)
+    ci_state, failure_since = classify_required_ci(required, states)
+    if ci_state != "failing":
+        return {"pr": number, "action": "skipped", "reason": f"required CI {ci_state}"}
+
+    comments = _list_issue_comments(token, repo, number)
+
+    # A close already recorded for this exact head is re-applied (the PATCH is
+    # idempotent) so a comment that posted before a failed close still closes.
+    # An author follow-up after that closure, e.g. a reopen with a comment, is
+    # respected instead of re-closing immediately.
+    closed = _stale_ci_comments(comments, "closed")
+    if closed:
+        latest_close = closed[-1]
+        closed_at = _parse_github_time(latest_close.get("created_at"))
+        if (
+            latest_close["_head"] == head_sha
+            and not _author_followed_up(
+                comments, author, closed_at if closed_at is not None else 0.0
+            )
+            and _close_pull_request(token, repo, number)
+        ):
+            return {"pr": number, "action": "closed", "reason": "already marked closed"}
+
+    warnings = _stale_ci_comments(comments, "warning")
+    active_warning = None
+    if warnings:
+        latest = warnings[-1]
+        warned_at = _parse_github_time(latest.get("created_at"))
+        if latest["_head"] == head_sha and warned_at is not None:
+            if not _author_followed_up(comments, author, warned_at):
+                active_warning = (latest, warned_at)
+
+    if active_warning is not None:
+        latest, warned_at = active_warning
+        if now - warned_at < STALE_CI_RESPONSE_SECONDS:
+            return {"pr": number, "action": "waiting", "reason": "response window open"}
+        body = (
+            "🚫 **Closing this pull request: required CI has failed for over "
+            f"{STALE_CI_RESPONSE_SECONDS // 86400} days after a repair warning.**\n\n"
+            f"Required checks for `{base_ref}` were still failing at commit `{head_sha[:12]}` "
+            "with no author commit or comment since the warning.\n\n"
+            "Reopen or push a fix and the required checks will be re-evaluated.\n\n"
+            f"{_stale_ci_marker('closed', head_sha)}"
+        )
+        commented = _post_stale_ci_comment(token, repo, number, body)
+        if commented and _close_pull_request(token, repo, number):
+            print(f"  PR #{number}: required CI stale past warning; closed")
+            return {"pr": number, "action": "closed", "reason": "response window elapsed"}
+        return {"pr": number, "action": "error", "reason": "close failed"}
+
+    # No valid warning for this head. Warn once the failure streak has lasted the
+    # grace period; a follow-up removed the earlier warning, so this starts a new
+    # response window rather than closing.
+    if failure_since is None or now - failure_since < STALE_CI_GRACE_SECONDS:
+        return {"pr": number, "action": "waiting", "reason": "grace period not elapsed"}
+
+    days = STALE_CI_GRACE_SECONDS // 86400
+    body = (
+        f"⚠️ **Required CI has been failing on this pull request for at least {days} days.**\n\n"
+        f"Required checks for `{base_ref}` are still failing at commit `{head_sha[:12]}`. "
+        "Please push a fix. If the checks are still failing seven days from now with no new "
+        "commit or comment from the author, this pull request will be closed automatically.\n\n"
+        f"{_stale_ci_marker('warning', head_sha)}"
+    )
+    if _post_stale_ci_comment(token, repo, number, body):
+        print(f"  PR #{number}: warned that required CI has been failing for {days}+ days")
+        return {"pr": number, "action": "warned", "reason": f"failing for {days}+ days"}
+    return {"pr": number, "action": "error", "reason": "warning failed"}
 
 
 # ── Repository checkout ───────────────────────────────────────────────────────
@@ -1024,6 +1366,25 @@ def _check_conversation_completion(
     _release_checkout(rec, agent_url, api_key)
 
 
+def _reconcile_repo_stale_ci(github_token: str, repo: str, open_prs: list[dict]) -> None:
+    """Deterministic stale-CI pass over every open, non-draft PR in a repository.
+
+    Runs regardless of review-trigger state, skipping drafts. One PR's failure
+    never stops the others; a PR whose required checks the token cannot read
+    reports a skipped result rather than aborting the pass.
+    """
+    for pr in open_prs:
+        number = pr.get("number")
+        if pr.get("draft"):
+            continue
+        try:
+            result = reconcile_stale_ci(github_token, repo, pr)
+            if result.get("action") in {"warned", "closed", "error"}:
+                print(f"  Stale-CI PR #{number}: {result['action']} ({result['reason']})")
+        except Exception as exc:
+            print(f"  Warning: stale-CI check failed for PR #{number}: {exc}")
+
+
 def _process_repo(
     repo: str,
     github_token: str,
@@ -1050,6 +1411,10 @@ def _process_repo(
     open_prs = _list_open_prs(github_token, repo)
     latest_open_prs = {pr["number"]: pr for pr in open_prs}
     print(f"  Found {len(open_prs)} open PR(s)")
+
+    # The deterministic stale-CI reconciliation is not review-triggered: it covers
+    # every open, non-draft PR whose required base-branch checks are failing.
+    _reconcile_repo_stale_ci(github_token, repo, open_prs)
 
     last_conversation_id = None
 

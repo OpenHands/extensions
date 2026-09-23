@@ -12,6 +12,10 @@ This skill is activated by:
 ## Features
 
 - Reviews PRs on demand from a GitHub reviewer request or label event
+- On its scheduled pass, warns an author when a PR's **required base-branch**
+  CI has been failing for seven days, and closes the PR after seven more days
+  with no author commit or comment. Optional failed checks do not count, and the
+  decision is deterministic, so it never consumes an LLM review slot
 - Watches several repositories from a single automation, each with its own state
 - Processes each review request or label application idempotently
 - Supports re-review by requesting the bot again or re-applying the label. Each

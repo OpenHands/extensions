@@ -4,7 +4,9 @@ description: >
   Create an automation that reviews GitHub pull requests when a configured
   reviewer is requested or a trigger label is applied. Starts one OpenHands
   review conversation per request with the pull request's exact head checked
-  out, and publishes the review to GitHub.
+  out, publishes the review to GitHub, and on its scheduled pass warns then
+  closes abandoned pull requests whose required base-branch CI has stayed
+  failing.
 triggers:
   - /pr-reviewer:setup
 ---
@@ -290,7 +292,27 @@ For each repository:
 1. Loads that repository's state (see `references/state-schema.md`).
 2. Verifies repository access.
 3. Lists open PRs, newest-updated first.
-4. For each open PR carrying `TRIGGER_LABEL`:
+4. Reconciles stale required CI for every open, non-draft PR, whether or not it
+   carries `TRIGGER_LABEL` or a review request. This pass is deterministic and
+   does not consume an LLM review slot:
+   - Reads GitHub's required status checks for the PR's **base branch** (the
+     active repository rules first, then classic branch protection). Optional
+     failed checks do not count.
+   - Reduces the head's check runs and commit statuses to the latest state per
+     required context. A required check that has not reported, or is queued or in
+     progress, is *pending*, not failing.
+   - If required CI is passing or pending, does nothing.
+   - If required CI has been failing for at least seven days, posts exactly one
+     comment marked `<!-- openhands-stale-ci:warning:<head> -->` asking the
+     author to repair CI. A rescan that still sees that marker posts nothing.
+   - If required CI is still failing seven days after a valid warning and the
+     author has neither pushed a commit nor commented since, closes the PR with a
+     marked explanation and re-applies the close idempotently on later scans.
+   - A new commit (head change), an author comment, a passing or pending
+     required check, draft conversion, a merge, or a prior close prevents the
+     stale close. After author follow-up, a later warning starts a fresh
+     seven-day response window instead of closing immediately.
+5. For each open PR carrying `TRIGGER_LABEL`:
    - Refetches current PR metadata to avoid acting on stale list data.
    - Finds the latest matching GitHub `labeled` issue event.
    - Skips the event if it has already been tracked.
@@ -307,7 +329,7 @@ For each repository:
    - Records the review in state with `status: "active"` and the checkout path.
    - If the checkout or the conversation cannot be created, the checkout is
      removed and nothing is recorded, so the next poll retries the label event.
-5. For each active review conversation:
+6. For each active review conversation:
    - Marks it closed without posting if the PR has closed or merged.
    - Suppresses stale results if the PR head SHA changed after the review was
      queued.
@@ -317,11 +339,15 @@ For each repository:
      response is posted as a comment so the work is not lost.
    - Abandons a conversation that has not reached a terminal status within two
      hours, so its checkout can be reclaimed.
-6. Removes the checkout of every finished review, but only after confirming the
+7. Removes the checkout of every finished review, but only after confirming the
    conversation has stopped - deleting it under a running agent would remove its
    working directory. When that cannot be confirmed the directory is left alone
    and the next poll tries again.
-7. Saves that repository's state atomically.
+8. Saves that repository's state atomically.
+
+The stale-CI lifecycle is driven by the markers on the automation's own comments,
+not by the state document, so it behaves identically in local and Docker-backed
+Canvas deployments and is idempotent across rescans.
 
 The completion callback fires once for the whole run.
 
