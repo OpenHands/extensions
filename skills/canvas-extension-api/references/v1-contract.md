@@ -71,7 +71,7 @@ interface CanvasExtensionPageContribution {
 
 Required manifest fields are `schema_version`, `name`, `version`, and `entrypoint`. A useful page package also supplies `display_name`, `description`, and at least one `contributes.pages` entry. `backend` is optional: omitting it preserves a browser-only App or a manual/deployment-owned Sidecar.
 
-The managed-backend contract requires the stacked, unreleased Agent Server changes in [software-agent-sdk PR #5270](https://github.com/OpenHands/software-agent-sdk/pull/5270) at `ac7b322ddf7d2e0e90a3643c5e26d848236af9a3` and [PR #5272](https://github.com/OpenHands/software-agent-sdk/pull/5272) at `4c81fa22ef959fca04496f496ee6163324855696`. Until a release containing both lands, those exact revisions are the minimum Agent Server implementation. Feature-detect `canvas_app_backend_bridge_v1` in `GET /server_info`; the same response must provide `app_backend_ingress_url`. Use the host view helper only at the minimum host version stated below.
+The managed-backend contract requires the stacked, unreleased Agent Server changes in [software-agent-sdk PR #5270](https://github.com/OpenHands/software-agent-sdk/pull/5270) at `ac7b322ddf7d2e0e90a3643c5e26d848236af9a3` and [PR #5272](https://github.com/OpenHands/software-agent-sdk/pull/5272) at `6d9c82973e765cce4843d6a2fb52f634efa64293`. Until a release containing both lands, those exact revisions are the minimum Agent Server implementation. Feature-detect `canvas_app_backend_bridge_v1` in `GET /server_info`; the same response must provide `app_backend_ingress_url`. Use the host view helper only at the minimum host version stated below.
 
 For a managed backend:
 
