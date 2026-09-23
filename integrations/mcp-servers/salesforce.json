@@ -1,0 +1,57 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "dev.openhands/salesforce",
+  "description": "CRM records, accounts, opportunities, and sales operations.",
+  "title": "Salesforce",
+  "websiteUrl": "https://developer.salesforce.com/docs/platform/hosted-mcp-servers",
+  "version": "1.0.0",
+  "remotes": [
+    {
+      "type": "streamable-http",
+      "url": "https://api.salesforce.com/platform/mcp/v1/platform/sobject-reads"
+    }
+  ],
+  "_meta": {
+    "dev.openhands": {
+      "catalogId": "salesforce",
+      "descriptorVersion": "1.0.0",
+      "schemaDate": "2025-12-11",
+      "defaultMcpConnectionOptionId": "oauth",
+      "connectionOptions": [
+        {
+          "id": "oauth",
+          "provider": "mcp",
+          "auth": {
+            "strategy": "oauth2",
+            "oauth": {
+              "authorizationUrl": "https://login.salesforce.com/services/oauth2/authorize",
+              "tokenUrl": "https://login.salesforce.com/services/oauth2/token",
+              "scopes": [
+                "refresh_token"
+              ],
+              "pkce": true
+            }
+          },
+          "transport": {
+            "kind": "shttp",
+            "url": "https://api.salesforce.com/platform/mcp/v1/platform/sobject-reads",
+            "urlEditable": true
+          }
+        }
+      ],
+      "installHint": "Activate an MCP server in Salesforce Setup (API Catalog → MCP Servers), create an External Client App, then connect. Edit the URL to match your server and org (e.g. /sandbox/ for sandboxes).",
+      "keywords": [
+        "crm",
+        "sales",
+        "records",
+        "enterprise"
+      ],
+      "categories": [
+        "CRM",
+        "Sales"
+      ],
+      "popularityRank": 24,
+      "notes": "Very common enterprise CRM and agent-assist target."
+    }
+  }
+}

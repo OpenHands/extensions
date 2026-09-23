@@ -1,0 +1,68 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "dev.openhands/stripe",
+  "description": "Query customers, payments, subscriptions, and invoices via Stripe's hosted MCP server.",
+  "title": "Stripe",
+  "websiteUrl": "https://stripe.com/docs/mcp",
+  "version": "1.0.0",
+  "remotes": [
+    {
+      "type": "streamable-http",
+      "url": "https://mcp.stripe.com/"
+    }
+  ],
+  "_meta": {
+    "dev.openhands": {
+      "catalogId": "stripe",
+      "descriptorVersion": "1.0.0",
+      "schemaDate": "2025-12-11",
+      "defaultMcpConnectionOptionId": "api",
+      "connectionOptions": [
+        {
+          "id": "api",
+          "provider": "mcp",
+          "transport": {
+            "kind": "shttp",
+            "url": "https://mcp.stripe.com/"
+          },
+          "auth": {
+            "strategy": "bearer",
+            "credentialLabel": "Stripe restricted key",
+            "credentialPlaceholder": "rk_live_...",
+            "credentialHelp": "Create a Stripe restricted key for MCP access and paste it here."
+          }
+        },
+        {
+          "id": "oauth",
+          "provider": "http",
+          "auth": {
+            "strategy": "oauth2",
+            "oauth": {
+              "authorizationUrl": "https://connect.stripe.com/oauth/authorize",
+              "tokenUrl": "https://connect.stripe.com/oauth/token",
+              "scopes": [
+                "read_only"
+              ]
+            }
+          },
+          "http": {
+            "apiBaseUrl": "https://api.stripe.com/v1",
+            "openApiUrl": "https://raw.githubusercontent.com/stripe/openapi/master/openapi/spec3.json"
+          }
+        }
+      ],
+      "keywords": [
+        "payments",
+        "billing",
+        "subscriptions",
+        "finance"
+      ],
+      "categories": [
+        "Payments",
+        "Finance"
+      ],
+      "popularityRank": 28,
+      "notes": "High-value fintech automation target with mature OAuth patterns."
+    }
+  }
+}

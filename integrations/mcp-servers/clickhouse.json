@@ -1,0 +1,98 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "dev.openhands/clickhouse",
+  "description": "Run analytical SQL queries against a ClickHouse cluster.",
+  "title": "ClickHouse",
+  "websiteUrl": "https://github.com/ClickHouse/mcp-clickhouse",
+  "repository": {
+    "url": "https://github.com/ClickHouse/mcp-clickhouse",
+    "source": "github"
+  },
+  "version": "1.0.0",
+  "packages": [
+    {
+      "registryType": "pypi",
+      "registryBaseUrl": "https://pypi.org",
+      "identifier": "mcp-clickhouse",
+      "runtimeHint": "uvx",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "CLICKHOUSE_HOST",
+          "description": "Host",
+          "isRequired": true,
+          "isSecret": false,
+          "placeholder": "clickhouse.example.com"
+        },
+        {
+          "name": "CLICKHOUSE_USER",
+          "description": "Username",
+          "isRequired": true,
+          "isSecret": false
+        },
+        {
+          "name": "CLICKHOUSE_PASSWORD",
+          "description": "Password for your ClickHouse user.",
+          "isRequired": true,
+          "isSecret": true
+        }
+      ]
+    }
+  ],
+  "_meta": {
+    "dev.openhands": {
+      "catalogId": "clickhouse",
+      "descriptorVersion": "1.0.0",
+      "schemaDate": "2025-12-11",
+      "defaultMcpConnectionOptionId": "api",
+      "connectionOptions": [
+        {
+          "id": "api",
+          "provider": "mcp",
+          "transport": {
+            "kind": "stdio",
+            "serverName": "clickhouse",
+            "command": "uvx",
+            "args": [
+              "mcp-clickhouse"
+            ],
+            "envFields": [
+              {
+                "key": "CLICKHOUSE_HOST",
+                "label": "Host",
+                "type": "text",
+                "placeholder": "clickhouse.example.com",
+                "required": true
+              },
+              {
+                "key": "CLICKHOUSE_USER",
+                "label": "Username",
+                "type": "text",
+                "required": true
+              },
+              {
+                "key": "CLICKHOUSE_PASSWORD",
+                "label": "Password",
+                "type": "password",
+                "required": true,
+                "helperText": "Password for your ClickHouse user.",
+                "helperLink": "https://clickhouse.com/docs/operations/access-rights"
+              }
+            ]
+          },
+          "auth": {
+            "strategy": "api_key"
+          }
+        }
+      ],
+      "keywords": [
+        "analytics",
+        "olap",
+        "database",
+        "sql"
+      ]
+    }
+  }
+}

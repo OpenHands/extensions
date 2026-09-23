@@ -1,0 +1,55 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "dev.openhands/miro",
+  "description": "Whiteboards, diagrams, notes, and workshop collaboration.",
+  "title": "Miro",
+  "websiteUrl": "https://developers.miro.com/docs/mcp-intro",
+  "version": "1.0.0",
+  "remotes": [
+    {
+      "type": "streamable-http",
+      "url": "https://mcp.miro.com/"
+    }
+  ],
+  "_meta": {
+    "dev.openhands": {
+      "catalogId": "miro",
+      "descriptorVersion": "1.0.0",
+      "schemaDate": "2025-12-11",
+      "defaultMcpConnectionOptionId": "oauth",
+      "connectionOptions": [
+        {
+          "id": "oauth",
+          "provider": "mcp",
+          "auth": {
+            "strategy": "oauth2",
+            "oauth": {
+              "authorizationUrl": "https://miro.com/oauth/authorize",
+              "tokenUrl": "https://api.miro.com/v1/oauth/token",
+              "scopes": [
+                "boards:read"
+              ]
+            }
+          },
+          "transport": {
+            "kind": "shttp",
+            "url": "https://mcp.miro.com/"
+          }
+        }
+      ],
+      "installHint": "Connect Miro's hosted MCP server with OAuth.",
+      "keywords": [
+        "whiteboard",
+        "collaboration",
+        "diagrams",
+        "visual"
+      ],
+      "categories": [
+        "Whiteboard",
+        "Collaboration"
+      ],
+      "popularityRank": 33,
+      "notes": "Strong visual collaboration target for design and product teams."
+    }
+  }
+}

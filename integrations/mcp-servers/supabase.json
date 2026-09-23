@@ -1,0 +1,91 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "dev.openhands/supabase",
+  "description": "Query and manage your Supabase project, including database, auth, and storage.",
+  "title": "Supabase",
+  "websiteUrl": "https://supabase.com/docs/guides/getting-started/mcp",
+  "version": "1.0.0",
+  "packages": [
+    {
+      "registryType": "npm",
+      "registryBaseUrl": "https://registry.npmjs.org",
+      "identifier": "@supabase/mcp-server-supabase",
+      "runtimeHint": "npx",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "SUPABASE_ACCESS_TOKEN",
+          "description": "Personal access token from your Supabase dashboard.",
+          "isRequired": true,
+          "isSecret": true
+        }
+      ]
+    }
+  ],
+  "_meta": {
+    "dev.openhands": {
+      "catalogId": "supabase",
+      "descriptorVersion": "1.0.0",
+      "schemaDate": "2025-12-11",
+      "defaultMcpConnectionOptionId": "api",
+      "connectionOptions": [
+        {
+          "id": "api",
+          "provider": "mcp",
+          "transport": {
+            "kind": "stdio",
+            "serverName": "supabase",
+            "command": "npx",
+            "args": [
+              "-y",
+              "@supabase/mcp-server-supabase@latest"
+            ],
+            "envFields": [
+              {
+                "key": "SUPABASE_ACCESS_TOKEN",
+                "label": "Supabase access token",
+                "type": "password",
+                "required": true,
+                "helperText": "Personal access token from your Supabase dashboard.",
+                "helperLink": "https://supabase.com/dashboard/account/tokens"
+              }
+            ]
+          },
+          "auth": {
+            "strategy": "api_key"
+          }
+        },
+        {
+          "id": "oauth",
+          "provider": "http",
+          "auth": {
+            "strategy": "oauth2",
+            "oauth": {
+              "authorizationUrl": "https://api.supabase.com/v1/oauth/authorize",
+              "tokenUrl": "https://api.supabase.com/v1/oauth/token",
+              "scopes": []
+            }
+          },
+          "http": {
+            "apiBaseUrl": "https://api.supabase.com/v1",
+            "openApiUrl": "https://raw.githubusercontent.com/supabase/supabase/master/apps/docs/spec/api_v1_openapi.json"
+          }
+        }
+      ],
+      "keywords": [
+        "database",
+        "auth",
+        "storage",
+        "postgres"
+      ],
+      "categories": [
+        "Database",
+        "Developer tools"
+      ],
+      "popularityRank": 38,
+      "notes": "Popular developer platform with broad automation value and a documented management-API OAuth integration flow."
+    }
+  }
+}

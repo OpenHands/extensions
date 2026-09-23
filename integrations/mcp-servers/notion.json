@@ -1,0 +1,105 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "dev.openhands/notion",
+  "description": "Read and edit Notion pages, databases, and blocks via Notion's MCP server.",
+  "title": "Notion",
+  "websiteUrl": "https://developers.notion.com/docs/mcp",
+  "version": "1.0.0",
+  "packages": [
+    {
+      "registryType": "npm",
+      "registryBaseUrl": "https://registry.npmjs.org",
+      "identifier": "@notionhq/notion-mcp-server",
+      "runtimeHint": "npx",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "NOTION_TOKEN",
+          "description": "Internal integration token from your Notion integrations page.",
+          "isRequired": true,
+          "isSecret": true,
+          "placeholder": "ntn_..."
+        }
+      ]
+    }
+  ],
+  "_meta": {
+    "dev.openhands": {
+      "catalogId": "notion",
+      "descriptorVersion": "1.0.0",
+      "schemaDate": "2025-12-11",
+      "defaultMcpConnectionOptionId": "api",
+      "connectionOptions": [
+        {
+          "id": "oauth",
+          "provider": "http",
+          "connectionModel": {
+            "principalType": "user",
+            "credentialScope": "resource",
+            "resourceType": "workspace",
+            "resourceCardinality": "one",
+            "selectionMode": "automatic",
+            "identityMapping": {
+              "source": "oauth_token_response",
+              "externalPrincipalIdPath": "owner.user.id",
+              "externalResourceIdPath": "workspace_id",
+              "resourceNamePath": "workspace_name"
+            }
+          },
+          "auth": {
+            "strategy": "oauth2",
+            "oauth": {
+              "authorizationUrl": "https://api.notion.com/v1/oauth/authorize",
+              "tokenUrl": "https://api.notion.com/v1/oauth/token",
+              "scopes": []
+            }
+          },
+          "http": {
+            "apiBaseUrl": "https://api.notion.com",
+            "openApiUrl": "https://developers.notion.com/openapi.json"
+          }
+        },
+        {
+          "id": "api",
+          "provider": "mcp",
+          "transport": {
+            "kind": "stdio",
+            "serverName": "notion",
+            "command": "npx",
+            "args": [
+              "-y",
+              "@notionhq/notion-mcp-server"
+            ],
+            "envFields": [
+              {
+                "key": "NOTION_TOKEN",
+                "label": "Internal integration token",
+                "type": "password",
+                "placeholder": "ntn_...",
+                "required": true,
+                "helperText": "Internal integration token from your Notion integrations page.",
+                "helperLink": "https://www.notion.so/profile/integrations"
+              }
+            ]
+          },
+          "auth": {
+            "strategy": "api_key"
+          }
+        }
+      ],
+      "keywords": [
+        "docs",
+        "notes",
+        "wiki",
+        "knowledge base"
+      ],
+      "categories": [
+        "Knowledge base",
+        "Documentation"
+      ],
+      "popularityRank": 82
+    }
+  }
+}

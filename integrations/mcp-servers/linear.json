@@ -1,0 +1,85 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "dev.openhands/linear",
+  "description": "Browse and update Linear issues, cycles, and projects from the agent.",
+  "title": "Linear",
+  "websiteUrl": "https://linear.app/docs/mcp",
+  "version": "1.0.0",
+  "remotes": [
+    {
+      "type": "streamable-http",
+      "url": "https://mcp.linear.app/mcp"
+    },
+    {
+      "type": "streamable-http",
+      "url": "https://mcp.linear.app/mcp"
+    }
+  ],
+  "_meta": {
+    "dev.openhands": {
+      "catalogId": "linear",
+      "descriptorVersion": "1.0.0",
+      "schemaDate": "2025-12-11",
+      "defaultMcpConnectionOptionId": "oauth",
+      "connectionOptions": [
+        {
+          "id": "oauth",
+          "provider": "mcp",
+          "auth": {
+            "strategy": "oauth2",
+            "oauth": {
+              "authorizationUrl": "https://mcp.linear.app/authorize",
+              "tokenUrl": "https://mcp.linear.app/token",
+              "registrationUrl": "https://mcp.linear.app/register",
+              "scopes": [
+                "read",
+                "write"
+              ],
+              "pkce": true,
+              "clientAuthentication": "none",
+              "additionalAuthorizationParams": {
+                "resource": "https://mcp.linear.app/mcp"
+              },
+              "additionalTokenParams": {
+                "resource": "https://mcp.linear.app/mcp"
+              }
+            }
+          },
+          "transport": {
+            "kind": "shttp",
+            "url": "https://mcp.linear.app/mcp"
+          }
+        },
+        {
+          "id": "api-key",
+          "provider": "mcp",
+          "transport": {
+            "kind": "shttp",
+            "url": "https://mcp.linear.app/mcp",
+            "apiKeyOptional": true
+          },
+          "auth": {
+            "strategy": "bearer",
+            "apiKeyOptional": true,
+            "credentialLabel": "Linear API key",
+            "credentialPlaceholder": "Paste your Linear API key",
+            "credentialHelp": "Create a personal API key (grant at least read access) under Security & access in [Linear settings](https://linear.app/settings/account/security). Sent as Authorization: Bearer <token>; optional when the endpoint accepts your OAuth session."
+          }
+        }
+      ],
+      "installHint": "Prefer the OAuth MCP connection for Linear. The MCP server supports OAuth 2.1 with dynamic client registration at mcp.linear.app; a bearer-token MCP option remains available for API-key or existing OAuth-token workflows.",
+      "keywords": [
+        "issues",
+        "project management",
+        "tasks",
+        "tickets"
+      ],
+      "categories": [
+        "Project management",
+        "Engineering"
+      ],
+      "popularityRank": 86,
+      "notes": "Popular among modern product engineering teams and already useful to this repo's users."
+    }
+  }
+}

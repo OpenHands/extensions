@@ -9,6 +9,10 @@ integrations so clients can consume one source of truth.
 - `catalog-index.js` is generated from `catalog/*.json` so the JavaScript
   package can statically import every individual JSON file without an aggregate
   catalog JSON asset.
+- `mcp-servers/<id>.json` is the generated MCP `server.json` export for
+  catalog entries that describe MCP servers (see below). Regenerate with
+  `npm run build:mcp-servers`,and verify with
+  `node scripts/build-mcp-servers.mjs --check`.
 - The Python package includes the same individual `catalog/*.json` files and
   reads them directly.
 - `index.js` derives the `supportsMcp`/`supportsOauth` filters from the
@@ -78,3 +82,74 @@ The `mcps` API was intentionally broken because it was pre-release and had not
 been adopted as a stable public surface.
 
 The catalog intentionally stores only serializable data, including language-agnostic logo URLs and optional presentation colors. Client applications can render those fields directly while keeping any purely UI-specific styling local.
+
+## Generated MCP server.json artifacts
+
+For catalog entries that describe MCP servers, the package also ships a
+generated MCP ``server.json`` export in ``integrations/mcp-servers/<id>.json``. These
+files conform to the official MCP ``server.schema.json`` format so they can be
+consumed alongside, compared with, or published to the wider MCP ecosystem. They
+are one-way build output; ``integrations/catalog/*.json`` remains the only
+hand-authored source of truth. Do not edit them by hand..
+
+Regenerate after any catalog change:
+
+```sh
+npm run build:mcp-servers
+```
+
+and verify the checked-in output is in sync in CI with:
+
+```sh
+node scripts/build-mcp-servers.mjs --check
+```
+
+The generator reads every catalog entry with at least one MCP connection option and
+emits exactly one ``server.json`` per catalog id (folding an entry's multiple MCP
+options into ``remotes``/``packages`` in catalog order):
+
+- Remote transports map one-to-one: ``shttp`` -> ``type: "streamable-http"``
+  and ``sse`` -> ``type: "sse"``; ``headerFields`` become ``headers``..
+- ``stdio`` entries witha clean package mapping infer the registry:
+  - ``npx -y <pkg>`` -> ``registryType: "npm"`` with ``runtimeHint: "npx"``..
+  - ``uvx <pkg>`` (also ``--from <pkg>@<version>``) -> ``registryType:
+    "pypi"`` with ``runtimeHint: "uvx"``..
+  - ``docker run ... <image>`` -> ``registryType: "oci"`` with
+    ``identifier: "docker.io/<image>:latest"`` and ``runtimeHint: "docker"``..
+  - ``envFields`` become ``environmentVariables``; fixed args become positional
+    or named ``packageArguments``/``runtimeArguments``,and ``argFields`` become
+    positional arguments with ``valueHint`` (client-supplied values)..
+- stdio entries with no clean npm/pypi/oci mapping (e.g. an ``npx github:...``
+  shorthand) are omitted from ``remotes``/``packages`` but preserved (with their
+  reason) under ``_meta["dev.openhands"].skippedConnectionOptions`` and in the verbatim
+  ``connectionOptions`` list.. HTTP/OpenAPI-only integrationsare not generated at all..
+- The reverse-DNS namespace is ``dev.openhands``: ``name`` becomes
+  ``dev.openhands/<catalog-id>``,,and OpenHands-specific metadata (install
+  hints, keywords,,the default MCP connection option,,and the full original
+  ``connectionOptions`` array,,preserving credential labels,,placeholders,,and
+  UX hints) lives under ``_meta["dev.openhands"]``....
+- ``version`` is a deterministic placeholder (``"1.0.0"``) representing the
+  generated descriptor format,,not the upstream server's release;;the catalog
+  does not track server versions,,and unpinned packages (``@latest``,,raw
+  ``uvx``/``docker`` invocations) omit the standard ``package.version`` rather
+  than inventing pins.... When a catalog arg explicitly pins a semver version,,it
+  is preserved in the generated package....
+- Descriptions over 100 characters are truncated to fit the schema,,with the
+  original preserved under ``_meta["dev.openhands"].originalDescription``....
+- Where negotiable,,``repository`` metadata is inferred from GitHub/GitLab/Bitbucket..
+  ``docsUrl`` values (including ``subfolder`` for monorepo tree links)....
+
+Consumers can read the artifacts from either package:
+
+```js
+import {
+  listMcpServerArtifacts,
+  getMcpServerArtifact,
+} from "@openhands/extensions/integrations";
+
+const servers = listMcpServerArtifacts();
+const entry = getMcpServerArtifact("dev.openhands/filesystem");
+```
+
+Python equivalently exposes ``list_mcp_server_artifacts()`` and
+``get_mcp_server_artifact(name)`` from ``openhands_extensions``.

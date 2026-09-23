@@ -1,0 +1,56 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "dev.openhands/playwright",
+  "description": "Headless-browser automation backed by Microsoft Playwright.",
+  "title": "Playwright",
+  "websiteUrl": "https://github.com/microsoft/playwright-mcp",
+  "repository": {
+    "url": "https://github.com/microsoft/playwright-mcp",
+    "source": "github"
+  },
+  "version": "1.0.0",
+  "packages": [
+    {
+      "registryType": "npm",
+      "registryBaseUrl": "https://registry.npmjs.org",
+      "identifier": "@playwright/mcp",
+      "runtimeHint": "npx",
+      "transport": {
+        "type": "stdio"
+      }
+    }
+  ],
+  "_meta": {
+    "dev.openhands": {
+      "catalogId": "playwright",
+      "descriptorVersion": "1.0.0",
+      "schemaDate": "2025-12-11",
+      "defaultMcpConnectionOptionId": "none",
+      "connectionOptions": [
+        {
+          "id": "none",
+          "provider": "mcp",
+          "transport": {
+            "kind": "stdio",
+            "serverName": "playwright",
+            "command": "npx",
+            "args": [
+              "-y",
+              "@playwright/mcp"
+            ]
+          },
+          "auth": {
+            "strategy": "none"
+          }
+        }
+      ],
+      "keywords": [
+        "browser",
+        "automation",
+        "e2e",
+        "testing",
+        "scrape"
+      ]
+    }
+  }
+}

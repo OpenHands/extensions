@@ -1,0 +1,53 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "dev.openhands/superhuman-mail",
+  "description": "Search, read, draft, and send email via Superhuman's hosted MCP server.",
+  "title": "Superhuman Mail",
+  "websiteUrl": "https://github.com/superhuman/mcp-mail",
+  "repository": {
+    "url": "https://github.com/superhuman/mcp-mail",
+    "source": "github"
+  },
+  "version": "1.0.0",
+  "remotes": [
+    {
+      "type": "streamable-http",
+      "url": "https://mcp.mail.superhuman.com/mcp"
+    }
+  ],
+  "_meta": {
+    "dev.openhands": {
+      "catalogId": "superhuman-mail",
+      "descriptorVersion": "1.0.0",
+      "schemaDate": "2025-12-11",
+      "defaultMcpConnectionOptionId": "oauth",
+      "connectionOptions": [
+        {
+          "id": "oauth",
+          "provider": "mcp",
+          "transport": {
+            "kind": "shttp",
+            "url": "https://mcp.mail.superhuman.com/mcp"
+          },
+          "auth": {
+            "strategy": "oauth2",
+            "oauth": {
+              "clientAuthentication": "none"
+            }
+          }
+        }
+      ],
+      "keywords": [
+        "email",
+        "mail",
+        "superhuman",
+        "inbox"
+      ],
+      "categories": [
+        "Communication",
+        "Email"
+      ],
+      "notes": "OAuth is handled by the Superhuman MCP server itself (mcp-remote). No client credentials required."
+    }
+  }
+}

@@ -1,0 +1,70 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "dev.openhands/mongodb",
+  "description": "Query MongoDB collections, inspect schemas, and run aggregation pipelines.",
+  "title": "MongoDB",
+  "websiteUrl": "https://www.mongodb.com/docs/mcp-server/",
+  "version": "1.0.0",
+  "packages": [
+    {
+      "registryType": "npm",
+      "registryBaseUrl": "https://registry.npmjs.org",
+      "identifier": "mongodb-mcp-server",
+      "runtimeHint": "npx",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "MDB_MCP_CONNECTION_STRING",
+          "description": "Connection string from your MongoDB Atlas cluster.",
+          "isRequired": true,
+          "isSecret": true,
+          "placeholder": "mongodb+srv://user:pass@cluster.mongodb.net"
+        }
+      ]
+    }
+  ],
+  "_meta": {
+    "dev.openhands": {
+      "catalogId": "mongodb",
+      "descriptorVersion": "1.0.0",
+      "schemaDate": "2025-12-11",
+      "defaultMcpConnectionOptionId": "api",
+      "connectionOptions": [
+        {
+          "id": "api",
+          "provider": "mcp",
+          "transport": {
+            "kind": "stdio",
+            "serverName": "mongodb",
+            "command": "npx",
+            "args": [
+              "-y",
+              "mongodb-mcp-server"
+            ],
+            "envFields": [
+              {
+                "key": "MDB_MCP_CONNECTION_STRING",
+                "label": "MongoDB connection string",
+                "type": "password",
+                "placeholder": "mongodb+srv://user:pass@cluster.mongodb.net",
+                "required": true,
+                "helperText": "Connection string from your MongoDB Atlas cluster.",
+                "helperLink": "https://www.mongodb.com/docs/atlas/connect-to-database-deployment/#connect-with-a-connection-string"
+              }
+            ]
+          },
+          "auth": {
+            "strategy": "api_key"
+          }
+        }
+      ],
+      "keywords": [
+        "database",
+        "nosql",
+        "atlas"
+      ]
+    }
+  }
+}
