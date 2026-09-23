@@ -184,6 +184,81 @@ class GitHubRepository:
                 return runs
         raise RuntimeError("GitHub check-run pagination exceeded limit")
 
+    def required_check_contexts(self, number):
+        """Return the status contexts GitHub marks required on one pull request.
+
+        `isRequired` is the merge-policy source of truth and is PR-scoped, so it
+        is correct for a stacked PR whose symbolic base branch carries no branch
+        rules of its own. It is a field on each context in the head's status
+        check rollup and takes the pull request number, so a single GraphQL query
+        answers with the required check runs and any required commit statuses,
+        each already attributed to the exact head. Only contexts GitHub itself
+        reports as required are returned, so an optional workflow that fails
+        before creating any check run is not present.
+        """
+        owner, name = self.repository.split("/", 1)
+        query = (
+            "query($owner:String!,$name:String!,$number:Int!){"
+            "repository(owner:$owner,name:$name){"
+            "pullRequest(number:$number){"
+            "commits(last:1){"
+            "nodes{"
+            "commit{"
+            "statusCheckRollup{"
+            "contexts(first:100){"
+            "pageInfo{hasNextPage}"
+            "nodes{"
+            "__typename"
+            " ... on CheckRun{name isRequired(pullRequestNumber:$number)}"
+            " ... on StatusContext{context isRequired(pullRequestNumber:$number)}"
+            "}"
+            "}"
+            "}"
+            "}"
+            "}"
+            "}"
+            "}"
+            "}"
+            "}"
+        )
+        data = self.api(
+            "POST",
+            "/graphql",
+            body={
+                "query": query,
+                "variables": {"owner": owner, "name": name, "number": number},
+            },
+        )
+        if data.get("errors"):
+            raise RuntimeError(
+                f"GitHub required-check query failed: {data['errors'][0].get('message')}"
+            )
+        nodes = (
+            (((data.get("data") or {}).get("repository") or {}).get("pullRequest") or {})
+            .get("commits", {})
+            .get("nodes")
+        ) or []
+        contexts = (
+            ((nodes[0].get("commit") or {}).get("statusCheckRollup") or {}).get(
+                "contexts", {}
+            )
+            if nodes
+            else {}
+        )
+        if (contexts.get("pageInfo") or {}).get("hasNextPage"):
+            raise RuntimeError(
+                "GitHub required-check rollup exceeds one page; the required "
+                "set may be incomplete"
+            )
+        return [
+            {
+                "name": node.get("name") or node.get("context"),
+                "kind": node.get("__typename"),
+            }
+            for node in (contexts.get("nodes") or [])
+            if node.get("isRequired") and (node.get("name") or node.get("context"))
+        ]
+
     def workflow_runs(self, sha):
         """Return every Actions workflow run GitHub reported for one commit SHA.
 

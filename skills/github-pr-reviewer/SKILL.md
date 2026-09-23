@@ -29,28 +29,35 @@ head eligibility, state persistence, stale-result suppression, the repository
 checkout, and its removal are all handled in Python. The LLM is invoked only for
 the review itself.
 
-Before any review conversation is created, the worker evaluates the current
-head's check runs and Actions workflow runs, which GitHub reports without any
-branch-protection or ruleset access:
+Before any review conversation is created, a scheduled scan evaluates the
+current head's GitHub-required checks, read through the GraphQL `isRequired`
+signal for the pull request. That signal is the merge policy's own source of
+truth and is pull-request-scoped, so it stays correct for a stacked PR whose
+symbolic base branch carries no branch rules of its own:
 
-- A completed run on the exact head whose conclusion is `failure`, `cancelled`,
-  or `timed_out` blocks the review. Any other unrecognized conclusion fails
-  closed as a block rather than silently approving.
-- A completed run whose conclusion is `success`, `neutral`, or `skipped` does
-  not block.
-- A `queued` or `in_progress` run on the exact head makes the run exit with a
-  **waiting on checks** outcome. The worker does not hold a slot polling; the
-  next scheduled scan or explicit review request retries.
-- A blocked or waiting stop consumes no trigger: once the head's checks are
-  non-blocking, the scheduled scan, or a new `all-hands-bot` review request,
-  starts the normal review.
-- Workflow runs are read as well as check runs, because a workflow can fail
-  before creating any check run - a workflow-level error, or a `pull_request`
-  run whose jobs never start. Such a run leaves a failed check suite with no
-  check runs under it, so the commit's check-run rollup and `gh pr checks` both
-  report success and only the workflow run reveals the red CI. A workflow run
-  whose check suite already reported check runs is left to those runs, so a
-  workflow is never counted twice.
+- Only checks GitHub reports as required decide the scheduled gate. An optional
+  workflow that fails - including one that fails before creating any check run -
+  does not block a head whose required checks pass.
+- A completed required run on the exact head whose conclusion is `failure`,
+  `cancelled`, or `timed_out` blocks the review. Any other unrecognized
+  conclusion fails closed as a block rather than silently approving.
+- A completed required run whose conclusion is `success`, `neutral`, or
+  `skipped` does not block. A required `commit status` context is classified
+  alongside required check runs.
+- A `queued` or `in_progress` required run on the exact head, and a required
+  context that has not reported a current-head check run at all, make the run
+  exit with a **waiting on checks** outcome. Unfulfilled is never approval. The
+  worker does not hold a slot polling; the next scheduled scan or explicit
+  review request retries.
+- When the required-check signal cannot be read or is empty, the gate falls back
+  to every current-head check run and workflow run, so a red head still blocks.
+  In that fallback, workflow runs are read as well as check runs, because a
+  workflow can fail before creating any check run - a workflow-level error, or a
+  `pull_request` run whose jobs never start. Such a run leaves a failed check
+  suite with no check runs under it, so the commit's check-run rollup and
+  `gh pr checks` both report success and only the workflow run reveals the red
+  CI. A workflow run whose check suite already reported check runs is left to
+  those runs, so a workflow is never counted twice.
 - Runs attributed to any other (obsolete) head SHA are ignored, so a stale
   failure cannot block the push that fixed it. This applies to workflow runs
   too.
@@ -63,6 +70,14 @@ branch-protection or ruleset access:
   Ordering by the run ID keeps a run whose start time is still absent in its
   true creation position in both directions.
 
+An explicit `all-hands-bot` review request is the intake-policy exception: the
+caller asked for that head by name, so the request dispatches even when required
+CI is red or pending, and the gate leaves no explanatory comment. Draft, scope,
+exact-head, and delivery-deduplication safeguards still apply. A blocked or
+waiting scheduled stop consumes no trigger: once the head's required checks are
+non-blocking, the scheduled scan, or a new `all-hands-bot` review request,
+starts the normal review.
+
 The gate needs no configured list of check names. When it stops a review it
 leaves one concise explanation on the PR, identified by a hidden marker carrying
 the head SHA and gate category, so a later run for a different head updates that
@@ -71,8 +86,8 @@ counts as its own comment; every other PR comment is untrusted and can neither
 suppress the explanation nor be edited. If the repository's own workflow already
 posted a deterministic remediation comment that names the same current-head
 checks, the gate adds nothing; a disclosure about some other check does not
-suppress it. The gate applies identically to reviewer-request events and
-scheduled label scans.
+suppress it. The gate applies to scheduled label scans; an explicit
+`all-hands-bot` review request bypasses it by design.
 
 Each explicit review request - a re-applied trigger label, or a new reviewer
 request in event mode - is a fresh review. The conversation for a PR is reused,
@@ -393,8 +408,9 @@ The completion callback fires once for the whole run.
 | 404 on repo access | Repo name wrong or no access | Re-check the entry in `REPOS` and the token's permissions |
 | One repository is skipped, others work | That repository failed its access check | Read the `=== owner/repo ===` block in the run log |
 | Same PR not reviewed after new commits | Label event was already processed | Remove and re-apply the trigger label |
-| Review paused with a failing-check comment | A current-head check or workflow run reported `failure`, `cancelled`, or `timed_out` | Fix the named checks and push; the review starts on the new head |
-| Review reported waiting on checks | A current-head check or workflow run is `queued` or `in_progress` | No action; a later scan or a new review request retries |
+| Review paused with a failing-check comment | A current-head required check reported `failure`, `cancelled`, or `timed_out` | Fix the named checks and push; the review starts on the new head, or request `all-hands-bot` to review immediately |
+| Review reported waiting on checks | A current-head required check is `queued` or `in_progress`, or has not reported yet | No action; a later scan or a new review request retries |
+| Optional workflow failed but no review was paused | The failed workflow is not required, so the required-only scheduled gate ignored it | No action; only GitHub-required checks gate scheduled discovery |
 | Review result never posts | Conversation still running or stuck | Open the conversation link from the acknowledgement comment |
 | Stale review suppressed | PR head SHA changed while the agent was reviewing | Re-apply the trigger label after the latest commit |
 | Review arrives as a plain comment, not a review | Publishing failed, so the script posted the text as a fallback | Check that the token has Pull requests: Read and Write |
