@@ -22,6 +22,17 @@ This skill is activated by:
 - Resumes an outstanding reviewer request on the next scheduled scan once the
   requested head's checks are green, so a request that arrives during CI is not
   lost; the explicit-request event path is kept for event-only deployments
+- Reviews open, non-draft PRs that nobody requested on a scheduled scan once
+  their current head is green and carries no review yet, keyed by
+  repository/PR/head so a repeat scan never duplicates a conversation or review
+  and a changed head becomes eligible again
+- Examines a bounded, rotating window of that unrequested backlog per scan
+  (10 PRs per repository), remembering its position in the Automation KV store so
+  the next scan resumes past it; explicit requests and trigger labels are always
+  examined, never skipped behind the window
+- Posts no managed gate comment for an unrequested PR that is merely red or
+  pending - the comment answers an explicit request, so a scan over a large
+  backlog cannot storm the PRs with comments
 - Names the retry the deployment actually has in the waiting comment: a
   scheduled scan where a cron trigger exists, and removing and re-requesting the
   bot where only the event trigger does
@@ -32,6 +43,9 @@ This skill is activated by:
 - Bounds a scheduled scan to a small, configurable number of new review
   conversations across all repositories (default 2), draining the oldest
   outstanding reviewer requests first and reaching the rest on later scans
+- Examines a bounded, rotating window of unrequested PRs per repository (10),
+  resuming from a position kept in the Automation KV store, so a scan reads a
+  bounded number of pull requests and the backlog is still covered over time
 - Processes each review request or label application idempotently
 - Supports re-review by requesting the bot again or re-applying the label. Each
   explicit request refreshes mutable GitHub state (head, PR body, reviews,

@@ -68,7 +68,7 @@
               "timeout": 300,
               "template": {
                 "id": "github-pr-reviewer",
-                "version": "1.7.0",
+                "version": "1.9.0",
                 "config": {
                   "repos": [
                     "OpenHands/agent-server-gui"
@@ -108,7 +108,7 @@
             "timeout": 300,
             "template": {
               "id": "github-pr-reviewer",
-              "version": "1.7.0",
+              "version": "1.9.0",
               "config": {
                 "repos": [
                   "OpenHands/agent-server-gui"
@@ -213,7 +213,7 @@
               "timeout": 300,
               "template": {
                 "id": "github-pr-reviewer",
-                "version": "1.7.0",
+                "version": "1.9.0",
                 "config": {
                   "repos": [
                     "OpenHands/agent-server-gui",
@@ -254,7 +254,7 @@
             "timeout": 300,
             "template": {
               "id": "github-pr-reviewer",
-              "version": "1.7.0",
+              "version": "1.9.0",
               "config": {
                 "repos": [
                   "OpenHands/agent-server-gui",
@@ -296,7 +296,7 @@
             "preset_metadata": {
               "template": {
                 "id": "github-pr-reviewer",
-                "version": "1.7.0",
+                "version": "1.9.0",
                 "config": {
                   "repos": [
                     "OpenHands/agent-server-gui",
@@ -351,7 +351,7 @@
               "timeout": 300,
               "template": {
                 "id": "github-pr-reviewer",
-                "version": "1.7.0",
+                "version": "1.9.0",
                 "config": {
                   "repos": [
                     "OpenHands/agent-server-gui"
@@ -444,7 +444,7 @@
             "timeout": 300,
             "template": {
               "id": "github-pr-reviewer",
-              "version": "1.7.0",
+              "version": "1.9.0",
               "config": {
                 "repos": [
                   "OpenHands/agent-server-gui"
@@ -540,7 +540,7 @@
             "timeout": 300,
             "template": {
               "id": "github-pr-reviewer",
-              "version": "1.7.0",
+              "version": "1.9.0",
               "config": {
                 "repos": [
                   "OpenHands/agent-server-gui"
@@ -616,7 +616,7 @@
               "timeout": 300,
               "template": {
                 "id": "github-pr-reviewer",
-                "version": "1.7.0",
+                "version": "1.9.0",
                 "config": {
                   "repos": [
                     "OpenHands/automation"

@@ -24,6 +24,11 @@ from maintainer_handoff import (
 # before creating any check run, leaving the check-run rollup green.
 CHECK_GATE_MARKER = "<!-- openhands-review-gate:"
 NON_BLOCKING_CHECK_CONCLUSIONS = frozenset({"success", "neutral", "skipped"})
+# How many unrequested heads one scheduled scan examines, per repository. Each
+# one costs a review read plus the exact-head check/workflow reads, so an
+# unbounded scan spends the whole run's API budget in the largest repository.
+# The window rotates by this many PRs per scan, so the backlog is still covered.
+SCAN_WINDOW = 10
 # The gate is deterministic; this disclosure is what tells a reader no model ran.
 WORKFLOW_DISCLOSURE = "no AI was used to generate this comment"
 
@@ -50,7 +55,11 @@ class ReviewIntake:
         self._started = 0
 
     def register(self, record):
-        """Queue one eligible candidate for this scan's bounded drain."""
+        """Queue one eligible candidate for this scan's bounded drain.
+
+        `record["priority"]` is 0 for an explicit `all-hands-bot` request and 1
+        for an unrequested eligible PR, so explicit requests drain first.
+        """
         self._pending.append(record)
 
     def drain(self):
@@ -72,6 +81,7 @@ class ReviewIntake:
         for record in sorted(
             pending,
             key=lambda item: (
+                item["priority"],
                 item["created_at"],
                 item["repository"],
                 item["number"],
@@ -97,6 +107,57 @@ class ReviewIntake:
                 "Reviewer scan failed for PRs: "
                 + ", ".join(f"#{number}" for number in failures)
             )
+
+
+class ScanCursor:
+    """The per-repository position of the rotating unrequested-PR window.
+
+    Classifying one unrequested head costs a review read, a check-run read, and
+    a workflow-run read, so a scan that examined every open PR spent the API
+    budget on the largest repository alone. The scan instead examines a bounded
+    slice of the unrequested backlog and remembers where the slice ended, in the
+    automation service's own KV store - the same facility `main.py` already uses
+    for review state, reached with the same `AUTOMATION_KV_TOKEN` and
+    `AUTOMATION_API_URL`, so no new secret or store is introduced. The next scan
+    resumes past that point, so the whole backlog is covered fairly over several
+    scans.
+
+    When the KV store is unavailable (a local run, or the tests) the position is
+    kept in memory, so the scan still rotates within the run and nothing else
+    about it changes. A KV read or write failure is not fatal: a scan position is
+    not worth aborting reviews over, so the in-memory position is used instead.
+    """
+
+    def __init__(self, repository):
+        self._key = f"review-scan:{workflow._repo_slug(repository)}"
+        self._memory = 0
+
+    def position(self, total):
+        """The stored cursor, reduced to a valid offset into `total` items."""
+        return self._read() % total if total else 0
+
+    def advance(self, cursor):
+        """Record where the next scan's window starts."""
+        self._memory = cursor
+        if not workflow._kv_available():
+            return
+        try:
+            workflow._kv_set(self._key, {"cursor": cursor})
+        except Exception as exc:  # noqa: BLE001 - a cursor is not worth failing a scan
+            print(f"  Warning: scan cursor write failed ({exc})")
+
+    def _read(self):
+        if not workflow._kv_available():
+            return self._memory
+        try:
+            data = workflow._kv_get(self._key) or {}
+        except Exception as exc:  # noqa: BLE001 - fall back to the in-memory cursor
+            print(f"  Warning: scan cursor read failed ({exc})")
+            return self._memory
+        try:
+            return int(data.get("cursor") or 0)
+        except (TypeError, ValueError):
+            return self._memory
 
 
 class PullRequestReviewer(GitHubRepository):
@@ -178,7 +239,7 @@ class PullRequestReviewer(GitHubRepository):
             return pr if (author or "").lower() == self.trigger_reviewer else None
         return None
 
-    def _prompt(self, pr, trigger, label=None):
+    def _prompt(self, pr, trigger, label=None, delivery_key=None):
         number = pr["number"]
         sha = pr["head"]["sha"]
         token = self.token_name
@@ -191,35 +252,60 @@ class PullRequestReviewer(GitHubRepository):
             "mode. Set `GIT_TERMINAL_PROMPT=0` on Git network commands so a missing "
             "permission fails immediately instead of waiting for input."
         )
+        if label:
+            trigger_description = None
+        elif delivery_key is not None:
+            trigger_description = (
+                f"scheduled scan of open, non-draft pull requests on head `{sha}`"
+            )
+        else:
+            trigger_description = (
+                f"latest review request for `{self.trigger_reviewer}` "
+                f"event {trigger.get('id', '?')} at {trigger.get('created_at', '?')}"
+            )
         prompt = workflow._build_review_prompt(
             self.repository,
             pr,
             sha,
-            trigger,
+            trigger or {},
             workspace_instructions=workspace,
             github_token_secret=token,
-            trigger_description=(
-                None
-                if label
-                else (
-                    f"latest review request for "
-                    f"`{self.trigger_reviewer}` "
-                    f"event {trigger.get('id', '?')} at "
-                    f"{trigger.get('created_at', '?')}"
-                )
-            ),
+            trigger_description=trigger_description,
         )
-        moved_head_instruction = (
-            f"leave `{label}` in place so the new head is reviewed"
-            if label
-            else "publish no review; the new head requires another reviewer request"
-        )
-        trigger_completion = (
-            f"Leave the `{label}` label in place after GitHub accepts the review. "
-            "The deterministic scanner removes it"
-            if label
-            else "Do not change review requests after GitHub accepts the review. "
-            "The deterministic event handler completes the request"
+        if label:
+            moved_head_instruction = (
+                f"leave `{label}` in place so the new head is reviewed"
+            )
+            trigger_completion = (
+                f"Leave the `{label}` label in place after GitHub accepts the review. "
+                "The deterministic scanner removes it"
+            )
+        elif delivery_key is not None:
+            # A scheduled scan reviews a new head again on its own, so there is
+            # no request to preserve and no label to leave behind.
+            moved_head_instruction = (
+                "publish no review; a later scheduled scan reviews the new head"
+            )
+            trigger_completion = (
+                "Do not change review requests after GitHub accepts the review. "
+                "The deterministic scan records the completed review"
+            )
+        else:
+            moved_head_instruction = (
+                "publish no review; the new head requires another reviewer request"
+            )
+            trigger_completion = (
+                "Do not change review requests after GitHub accepts the review. "
+                "The deterministic event handler completes the request"
+            )
+        author = ((pr.get("user") or {}).get("login") or "").lower()
+        self_review_note = (
+            "\n- This pull request is authored by the configured reviewer account, "
+            "so GitHub ignores a review request from it. Publish the clean review "
+            "with `event: COMMENT` and keep the approved verdict instead of "
+            "attempting `event: APPROVE`."
+            if author == self.trigger_reviewer
+            else ""
         )
         return (
             prompt + "\n\nAcceptance reporting:\n"
@@ -236,13 +322,24 @@ class PullRequestReviewer(GitHubRepository):
             "into comments.\n"
             "- Once GitHub accepts the native review, stop immediately. Do not "
             "continue inspecting the repository, run more commands, or publish a "
-            "second result."
+            f"second result.{self_review_note}"
         )
 
     def _finish_completed_review(self, pr, trigger, label=None):
-        """Complete an exact-head review, including an optional human handoff."""
+        """Complete an exact-head review, including an optional human handoff.
+
+        `trigger` is the event the current work is keyed on. It is None for an
+        unrequested scheduled-scan PR, which has no trigger event: the head SHA
+        is the whole key, so any submitted review by this account on the current
+        head is the completion of that work. That is what lets an unrequested
+        review the scan started be reconciled and handed off on a later scan
+        instead of being restarted.
+        """
         head_sha = pr["head"]["sha"]
-        triggered_at = trigger.get("created_at") or ""
+        if trigger is not None:
+            triggered_at = trigger.get("created_at") or ""
+        else:
+            triggered_at = ""
         reviews = self.gh_pages(f"/pulls/{pr['number']}/reviews")
         completed = [
             review
@@ -557,11 +654,19 @@ class PullRequestReviewer(GitHubRepository):
             f"_This is an automated check - {WORKFLOW_DISCLOSURE}._"
         )
 
-    def _gate_head(self, pr, scheduled):
-        """Return the head's eligibility, explaining any stop on the PR."""
+    def _gate_head(self, pr, scheduled, explain=True):
+        """Return the head's eligibility, explaining any stop on the PR.
+
+        `explain` is False for an unrequested candidate: a PR nobody asked about
+        that is merely red or pending gets no managed comment. Announcing a
+        blocked or waiting head for every open PR is what produced the comment
+        storm this scan is bounded against, and the managed comment is the
+        answer to an explicit request. The gate still classifies the head, so a
+        red or pending unrequested head is skipped without starting an agent.
+        """
         sha = pr["head"]["sha"]
         state, names = self._classify_check_runs(sha)
-        if state in ("blocked", "waiting"):
+        if explain and state in ("blocked", "waiting"):
             marker = f"{CHECK_GATE_MARKER}{state}:{sha} -->"
             self._gate_comment(
                 pr["number"],
@@ -585,12 +690,92 @@ class PullRequestReviewer(GitHubRepository):
             for item in pr.get("requested_reviewers") or []
         )
 
+    def _has_current_head_review(self, number, sha):
+        """Whether the reviewer account already published a review on this head.
+
+        This is the candidate filter's negative: an open, non-draft PR without a
+        current-head review by the configured reviewer is eligible for a
+        scheduled scan even when nobody requested the bot. The same predicate is
+        what the completion handler reconciles, so a review this scan starts and
+        a review it finds already present are the same set.
+        """
+        return any(
+            review.get("commit_id") == sha
+            and ((review.get("user") or {}).get("login") or "").lower()
+            == self.github_login.lower()
+            for review in self.gh_pages(f"/pulls/{number}/reviews")
+        )
+
+    def _unrequested_head(self, pr):
+        """The current-head delivery key for an unrequested PR, or None.
+
+        The key is the repository/PR identity plus the head SHA, so repeated
+        scheduled scans over one head reuse one conversation and one native
+        review, while a changed head becomes eligible again under its new SHA.
+        """
+        sha = pr["head"]["sha"]
+        return f"scan:{self.repository}:{pr['number']}:{sha}"
+
+    @property
+    def _scan_cursor(self):
+        """This repository's scan position, created lazily like the intake."""
+        cursor = self.__dict__.get("_cursor")
+        if cursor is None:
+            cursor = self.__dict__["_cursor"] = ScanCursor(self.repository)
+        return cursor
+
+    def _explicit_candidate(self, pr, label):
+        """Whether a PR was explicitly requested by a caller.
+
+        An explicit `all-hands-bot` review request or a trigger label is a
+        caller's decision, so it is never subject to the rotating window: every
+        explicit candidate is examined on every scan, whatever the stored scan
+        position is.
+        """
+        if label in {item["name"] for item in pr.get("labels", [])}:
+            return True
+        return self._outstanding_review_request(pr)
+
+    def _rotating_window(self, prs, label):
+        """The explicit candidates plus a bounded slice of the unrequested ones.
+
+        Classifying an unrequested head costs a review read and the exact-head
+        check/workflow reads, so examining every open PR in one scan is what let
+        a single run exhaust the API budget and post a managed gate comment for
+        every red or pending head. The unrequested backlog is therefore examined
+        a bounded `SCAN_WINDOW` at a time, starting where the previous scan
+        stopped (the per-repository position in the Automation KV store), so
+        successive scans rotate through the whole backlog. Explicit candidates
+        are always included, so a request is never delayed behind the window.
+        """
+        explicit, unrequested = [], []
+        for pr in prs:
+            if pr.get("draft") and label not in {
+                item["name"] for item in pr.get("labels", [])
+            } and not self._outstanding_review_request(pr):
+                # A draft that is neither labeled nor requested is not reviewable
+                # by the unrequested path either, so drop it before the full read.
+                continue
+            if self._explicit_candidate(pr, label):
+                explicit.append(pr)
+            else:
+                unrequested.append(pr)
+        if not unrequested:
+            return explicit
+        start = self._scan_cursor.position(len(unrequested))
+        window = unrequested[start : start + SCAN_WINDOW]
+        self._scan_cursor.advance(start + len(window))
+        return explicit + window
+
     def run(self):
         repository_id = self.gh("GET", "")["id"]
         label = self.config.get("trigger_label", workflow.TRIGGER_LABEL)
         payload = self._event_payload()
-        if payload is None:
-            prs = self.gh_pages("/pulls?state=open&sort=updated&direction=asc")
+        event_mode = payload is not None
+        if not event_mode:
+            prs = self._rotating_window(
+                self.gh_pages("/pulls?state=open&sort=updated&direction=asc"), label
+            )
         else:
             candidate = self._event_candidate(payload)
             if candidate and self.github_login.lower() != self.trigger_reviewer:
@@ -601,19 +786,14 @@ class PullRequestReviewer(GitHubRepository):
             prs = [candidate] if candidate else []
         failures = []
         for candidate in prs:
-            event_mode = payload is not None
-            if not event_mode and label not in {
-                item["name"] for item in candidate.get("labels", [])
-            } and not self._outstanding_review_request(candidate):
-                # A scheduled scan covers the trigger label and any PR that still
-                # holds a review request the CI gate deferred. Everything else is
-                # not ours to review.
-                continue
             try:
                 pr = self.gh("GET", f"/pulls/{candidate['number']}")
                 has_label = label in {
                     item["name"] for item in pr.get("labels", [])
                 }
+                requested = self._outstanding_review_request(pr)
+                trigger_label = label if (not event_mode and has_label) else None
+                unrequested_candidate = False
                 if event_mode or has_label:
                     trigger = (
                         self._latest_reviewer_request(pr["number"])
@@ -622,14 +802,32 @@ class PullRequestReviewer(GitHubRepository):
                             self.token, self.repository, pr["number"]
                         )
                     )
-                else:
+                    delivery_key = None
+                elif requested:
                     # The outstanding request is the trigger, so its own event
                     # keys the delivery and dedupes repeated scans.
                     trigger = self._latest_reviewer_request(pr["number"])
-                if trigger is None:
+                    delivery_key = None
+                else:
+                    # No label and no outstanding request: an unrequested PR the
+                    # scheduled scan reviews on its own, keyed by repository/PR/
+                    # head. A draft is not reviewable, and a head this account
+                    # already reviewed is done - reconcile that review's verdict
+                    # and maintainer handoff, then skip it so no second
+                    # conversation or review is created.
+                    if pr.get("draft"):
+                        continue
+                    if self._has_current_head_review(pr["number"], pr["head"]["sha"]):
+                        self._finish_completed_review(pr, None)
+                        continue
+                    trigger = None
+                    delivery_key = self._unrequested_head(pr)
+                    unrequested_candidate = True
+                if trigger is None and delivery_key is None:
                     continue
-                trigger_label = label if (not event_mode and has_label) else None
-                if self._finish_completed_review(pr, trigger, trigger_label):
+                if delivery_key is None and self._finish_completed_review(
+                    pr, trigger, trigger_label
+                ):
                     continue
                 if event_mode and payload.get("action") == "submitted":
                     # A submitted review is a completion signal, never a fresh
@@ -638,12 +836,19 @@ class PullRequestReviewer(GitHubRepository):
                     # dispatching a review the caller never asked for.
                     continue
                 sha = pr["head"]["sha"]
-                gate_state, sha = self._gate_head(pr, scheduled=not event_mode)
+                gate_state, sha = self._gate_head(
+                    pr,
+                    scheduled=not event_mode,
+                    explain=not unrequested_candidate,
+                )
                 if gate_state != "green":
                     # A deterministic blocker stops the run without spending a
                     # worker slot on an agent. The trigger is not consumed: the
                     # next scheduled scan or explicit request re-evaluates the
-                    # head once its checks are non-blocking.
+                    # head once its checks are non-blocking. An unrequested head
+                    # that is merely red or pending gets no managed comment, so a
+                    # scan over a large backlog cannot storm the PRs with gate
+                    # comments; the managed comment answers an explicit request.
                     print(
                         json.dumps(
                             {
@@ -659,13 +864,23 @@ class PullRequestReviewer(GitHubRepository):
                 record = {
                     "repository": self.repository,
                     "number": pr["number"],
-                    # The oldest outstanding request drains first; repository and
-                    # number break a tie so the order is deterministic.
-                    "created_at": trigger.get("created_at") or "",
+                    # An explicit request is ordered before an unrequested
+                    # candidate; within a priority the oldest candidate drains
+                    # first - the request time for a requested PR, the PR's own
+                    # creation time (oldest first) for an unrequested one - and
+                    # repository and number break a tie so the order is
+                    # deterministic.
+                    "priority": 0 if (has_label or requested) else 1,
+                    "created_at": (
+                        trigger.get("created_at") or ""
+                        if trigger
+                        else pr.get("created_at") or ""
+                    ),
                     "config": self.config,
                     "start": lambda pr=pr, trigger=trigger, sha=sha,
-                    trigger_label=trigger_label: self._start_review(
-                        repository_id, pr, trigger, sha, trigger_label
+                    trigger_label=trigger_label,
+                    delivery_key=delivery_key: self._start_review(
+                        repository_id, pr, trigger, sha, trigger_label, delivery_key
                     ),
                 }
                 if event_mode:
@@ -674,7 +889,7 @@ class PullRequestReviewer(GitHubRepository):
                     # dispatches immediately and is never bounded by the
                     # scheduled scan's per-run maximum.
                     self._start_review(
-                        repository_id, pr, trigger, sha, trigger_label
+                        repository_id, pr, trigger, sha, trigger_label, delivery_key
                     )
                 else:
                     self.intake.register(record)
@@ -697,11 +912,13 @@ class PullRequestReviewer(GitHubRepository):
                 + ", ".join(f"#{number}" for number in failures)
             )
 
-    def _start_review(self, repository_id, pr, trigger, sha, trigger_label):
+    def _start_review(
+        self, repository_id, pr, trigger, sha, trigger_label, delivery_key=None
+    ):
         result = self.dispatcher.deliver(
             subject=f"{repository_id}:pr:{pr['number']}",
-            delivery=f"{trigger['id']}:{sha}",
-            prompt=self._prompt(pr, trigger, trigger_label),
+            delivery=delivery_key or f"{trigger['id']}:{sha}",
+            prompt=self._prompt(pr, trigger, trigger_label, delivery_key),
         )
         print(
             json.dumps(
