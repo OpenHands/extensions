@@ -48,6 +48,30 @@ Supply the actual Agent Server origin, including any reverse-proxy path prefix. 
 
 If typed high-level clients cover the operation, prefer those over the generic `HttpClient`. Use the generic client for uncovered Agent Server endpoints, not as a reason to duplicate authentication and error handling with `fetch`.
 
+## Managed App backend views
+
+The managed-backend bridge requires the stacked, unreleased Agent Server changes in [software-agent-sdk PR #5270](https://github.com/OpenHands/software-agent-sdk/pull/5270) at `ac7b322ddf7d2e0e90a3643c5e26d848236af9a3` and [PR #5272](https://github.com/OpenHands/software-agent-sdk/pull/5272) at `4c81fa22ef959fca04496f496ee6163324855696`. Until a release containing both lands, those exact revisions are the minimum Agent Server implementation. Read `GET /server_info`: support is present only when `capabilities` contains `canvas_app_backend_bridge_v1` and `app_backend_ingress_url` supplies the separately configured browser origin. If either is absent, render an actionable unsupported state. Never guess localhost, derive an origin from `window.location`, or read Canvas credentials.
+
+The typed `CanvasExtensionsClient`, constructed with the normal Agent Server host and API key plus `appBackendIngressUrl`, exposes `createAppBackendSession(name)` and `revokeAppBackendSession(name)`. Session creation returns `ingress_url`, `expires_at`, and `iframe_sandbox`. The app-scoped credential is an HttpOnly, Secure, SameSite=None, Partitioned cookie; it is not returned to browser JavaScript or placed in a URL.
+
+Control calls go to the configured ingress origin:
+
+- `POST /app-backends/{name}/session` creates a short-lived session for a ready owned backend.
+- `DELETE /app-backends/{name}/session` revokes it and active sockets.
+
+Both calls require normal `X-Session-API-Key` control authentication and an allowed Canvas `Origin`. Use the credential-free returned `ingress_url`, rooted at `/app-backends/{name}/`, for iframe assets, streaming, ranges, and relative WebSocket URLs. Apply the returned sandbox exactly; the v1 bridge returns `allow-forms allow-modals allow-popups allow-same-origin allow-scripts`. The configured ingress must be a separate browser origin from Canvas and is the isolation boundary. Do not remove `allow-same-origin`: real Chromium sends `Origin: null` for mutating fetches and WebSockets, drops the partitioned session cookie, and rejects same-site Worker creation with `SecurityError` when the frame has an opaque sandbox origin. HTTPS, or a loopback secure context, and browser partitioned-cookie support are required for third-party iframe operation.
+
+Apps consume this flow through optional `host.appBackendView`, not by calling the control API or constructing an iframe URL. Feature-detect it before rendering a managed view:
+
+```js
+const disposeView = host.appBackendView?.mount({ container });
+if (!disposeView) {
+  container.textContent = "This Canvas host cannot open the App backend view.";
+}
+```
+
+`mount({ container })` returns a disposer. Call it on page unmount; Canvas also disposes views on backend switch and extension deactivation. The helper owns session creation, URL and sandbox validation, loading, retry, safe new-tab fallback, and revocation. Mounting or remounting never starts or stops the service. Use the helper only at the minimum host version documented in [v1-contract.md](v1-contract.md).
+
 ## Automation backend
 
 Treat the Automation service as a separate backend. Its API is normally mounted under `/api/automation/v1`, but the origin, path prefix, and authentication mode are deployment-provided values rather than Agent Server defaults.

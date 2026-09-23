@@ -22,7 +22,7 @@ Treat apps as trusted, same-realm browser code owned by the active Agent Server.
 
 ## Prefer the proven App authoring loop
 
-Treat an App as one authenticated browser dependency graph that Canvas imports from a Blob URL. Do not build a hosted SPA: the production result must be exactly one self-contained browser ESM entrypoint that exports `activate(host)`. Always ship this UI package even when it uses a separately installed Sidecar; make the App page the guided UI for Sidecar setup after the App is opened. Never treat a Sidecar as another browser chunk or an automatic extension install hook.
+Treat an App as one authenticated browser dependency graph that Canvas imports from a Blob URL. Do not build a hosted SPA: the production result must be exactly one self-contained browser ESM entrypoint that exports `activate(host)`. Always ship this UI package even when it uses an optional package-owned managed backend or a manual/deployment-owned Sidecar. Make the App page the guided UI for service setup after the App is opened. Never treat a service as another browser chunk or an automatic extension install hook.
 
 For a new App, create an independent package in the target repository and implement its own UI, tests, and build tooling. Follow the Vite library-build reference in `references/packaging-recipes.md`; do not copy a shared starter or introduce a repository-wide runtime/workspace unless the target repository explicitly requires it.
 
@@ -41,7 +41,9 @@ Treat the static validator as a gate, not a replacement for the browser Blob smo
 
 Start by locating the target directory instead of assuming the current workspace. Inspect repository instructions, existing package management, build tooling, tests, and git status before editing.
 
-Make an early architecture decision: browser-only App, Agent Server-integrated App, Sidecar-backed App, or explicitly deployment-specific App. Keep the portable host API 1 surface separate from deployment-owned capabilities.
+Make an early architecture decision: browser-only App, Agent Server-integrated App, package-owned managed-backend App, manual/deployment-owned Sidecar App, or explicitly deployment-specific App. Keep the portable host API 1 surface separate from optional Agent Server/host capabilities and deployment-owned behavior.
+
+Use the package-owned managed-backend path only when the target stack includes the lifecycle contract from [software-agent-sdk PR #5270](https://github.com/OpenHands/software-agent-sdk/pull/5270) at `ac7b322ddf7d2e0e90a3643c5e26d848236af9a3`, the bridge contract from [PR #5272](https://github.com/OpenHands/software-agent-sdk/pull/5272) at `4c81fa22ef959fca04496f496ee6163324855696`, and the host version named in `references/v1-contract.md`. Until a release containing both SDK PRs lands, those exact revisions are the minimum Agent Server implementation. Feature-detect `canvas_app_backend_bridge_v1` and `app_backend_ingress_url` through `GET /server_info`; absence is an actionable unsupported state. Do not convert manual Sidecars into managed backends unless the App owns checksum-pinned artifacts for every supported platform.
 
 Clarify only choices that materially affect implementation:
 
@@ -99,6 +101,33 @@ Use this minimal manifest shape:
 }
 ```
 
+For an optional package-owned managed backend, add this top-level sibling of `contributes`:
+
+```json
+"backend": {
+  "schema_version": 1,
+  "artifacts": {
+    "linux-amd64": {
+      "path": "backend/linux-amd64.tar.gz",
+      "sha256": "<64 lowercase hex characters>"
+    },
+    "linux-arm64": {
+      "path": "backend/linux-arm64.tar.gz",
+      "sha256": "<64 lowercase hex characters>"
+    }
+  },
+  "argv": [
+    "{artifact_dir}/bin/server",
+    "--host=127.0.0.1",
+    "--port={port}",
+    "--data-dir={data_dir}"
+  ],
+  "health": { "path": "/health" }
+}
+```
+
+This declaration is optional. Omit it for browser-only Apps and manual/deployment-owned Sidecars. It never authorizes automatic preparation or startup. The server supports Linux amd64 and arm64 initially, verifies package-contained `.tar.gz` artifacts by SHA-256, and executes the structured argv without a shell. `argv[0]` must remain inside `{artifact_dir}`; allowed placeholders are `{artifact_dir}`, `{data_dir}`, and `{port}`.
+
 Follow these invariants:
 
 - Use lowercase letters, digits, and hyphens for app names and page IDs.
@@ -146,6 +175,8 @@ Prefer [`@openhands/typescript-client`](https://github.com/OpenHands/software-ag
 Respect the host API 1 connection boundary:
 
 - Treat `host.agentServer.request` as the portable Agent Server HTTP path; Canvas selects the active backend and supplies authentication.
+- For a managed-backend view, require the feature-detected host helper documented in `references/v1-contract.md`. The helper owns session creation, validated iframe isolation, retry/new-tab behavior, and revocation; the App never reads the app-scoped cookie or constructs the ingress URL. The ingress must be a separate browser origin from Canvas, and the host must preserve the server-returned sandbox including `allow-same-origin`.
+- Installing, enabling, activating, or mounting an App never prepares or starts a managed backend. Show the resolved revision and declaration, obtain explicit lifecycle consent, and call prepare then start with that exact revision. An update invalidates approval.
 - Do not derive an Agent Server URL from `window.location` or extract session keys from Canvas internals.
 - Do not send Automation service requests through `host.agentServer.request` unless the backend explicitly documents an Agent Server proxy for them. Automation is a separate service with deployment-provided base URL and authentication.
 - Do not open a direct Agent Server WebSocket from a portable v1 app. The host currently exposes neither the owning server origin nor a WebSocket/auth capability. Poll through `host.agentServer.request`, add a backend-owned bridge, or feature-detect a future host subscription API.
@@ -211,7 +242,7 @@ Treat validator warnings as prompts for inspection, not proof of invalidity. The
 
 ## Install and verify safely
 
-Install only when requested. Installation and enablement are separate product actions: installation must leave the app disabled, and enabling executes trusted same-realm code.
+Install only when requested. Installation and enablement are separate product actions: installation must leave the app disabled, and enabling executes trusted same-realm code. Managed-backend preparation and startup are additional explicit actions tied to the resolved revision; installation, enablement, activation, and ordinary page mounts never execute backend code.
 
 For a backend-local app, install the path as interpreted on the Agent Server machine. For a Git-hosted app, provide `source`, optional `ref`, and optional `repo_path`. Never assume a frontend-local path exists inside a remote or containerized backend.
 
