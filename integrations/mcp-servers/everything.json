@@ -1,0 +1,55 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "dev.openhands/everything",
+  "description": "Reference server exercising every MCP capability — useful for testing.",
+  "title": "Everything (demo)",
+  "websiteUrl": "https://github.com/modelcontextprotocol/servers/tree/main/src/everything",
+  "repository": {
+    "url": "https://github.com/modelcontextprotocol/servers",
+    "source": "github",
+    "subfolder": "src/everything"
+  },
+  "version": "1.0.0",
+  "packages": [
+    {
+      "registryType": "npm",
+      "registryBaseUrl": "https://registry.npmjs.org",
+      "identifier": "@modelcontextprotocol/server-everything",
+      "runtimeHint": "npx",
+      "transport": {
+        "type": "stdio"
+      }
+    }
+  ],
+  "_meta": {
+    "dev.openhands": {
+      "catalogId": "everything",
+      "descriptorVersion": "1.0.0",
+      "schemaDate": "2025-12-11",
+      "defaultMcpConnectionOptionId": "none",
+      "connectionOptions": [
+        {
+          "id": "none",
+          "provider": "mcp",
+          "transport": {
+            "kind": "stdio",
+            "serverName": "everything",
+            "command": "npx",
+            "args": [
+              "-y",
+              "@modelcontextprotocol/server-everything"
+            ]
+          },
+          "auth": {
+            "strategy": "none"
+          }
+        }
+      ],
+      "keywords": [
+        "demo",
+        "test",
+        "reference"
+      ]
+    }
+  }
+}

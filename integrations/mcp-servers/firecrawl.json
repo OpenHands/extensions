@@ -1,0 +1,69 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "dev.openhands/firecrawl",
+  "description": "Crawl any site and return clean markdown, structured data, or screenshots.",
+  "title": "Firecrawl",
+  "websiteUrl": "https://docs.firecrawl.dev/mcp",
+  "version": "1.0.0",
+  "packages": [
+    {
+      "registryType": "npm",
+      "registryBaseUrl": "https://registry.npmjs.org",
+      "identifier": "firecrawl-mcp",
+      "runtimeHint": "npx",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "FIRECRAWL_API_KEY",
+          "description": "API key from your Firecrawl dashboard.",
+          "isRequired": true,
+          "isSecret": true
+        }
+      ]
+    }
+  ],
+  "_meta": {
+    "dev.openhands": {
+      "catalogId": "firecrawl",
+      "descriptorVersion": "1.0.0",
+      "schemaDate": "2025-12-11",
+      "defaultMcpConnectionOptionId": "api",
+      "connectionOptions": [
+        {
+          "id": "api",
+          "provider": "mcp",
+          "transport": {
+            "kind": "stdio",
+            "serverName": "firecrawl",
+            "command": "npx",
+            "args": [
+              "-y",
+              "firecrawl-mcp"
+            ],
+            "envFields": [
+              {
+                "key": "FIRECRAWL_API_KEY",
+                "label": "Firecrawl API key",
+                "type": "password",
+                "required": true,
+                "helperText": "API key from your Firecrawl dashboard.",
+                "helperLink": "https://www.firecrawl.dev/app/api-keys"
+              }
+            ]
+          },
+          "auth": {
+            "strategy": "api_key"
+          }
+        }
+      ],
+      "keywords": [
+        "scraping",
+        "crawl",
+        "web",
+        "markdown"
+      ]
+    }
+  }
+}

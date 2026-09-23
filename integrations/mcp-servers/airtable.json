@@ -1,0 +1,79 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "dev.openhands/airtable",
+  "description": "List bases, query records, and update fields across your Airtable workspace.",
+  "title": "Airtable",
+  "websiteUrl": "https://github.com/domdomegg/airtable-mcp-server",
+  "repository": {
+    "url": "https://github.com/domdomegg/airtable-mcp-server",
+    "source": "github"
+  },
+  "version": "1.0.0",
+  "packages": [
+    {
+      "registryType": "npm",
+      "registryBaseUrl": "https://registry.npmjs.org",
+      "identifier": "airtable-mcp-server",
+      "runtimeHint": "npx",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "AIRTABLE_API_KEY",
+          "description": "Personal access token from your Airtable account.",
+          "isRequired": true,
+          "isSecret": true
+        }
+      ]
+    }
+  ],
+  "_meta": {
+    "dev.openhands": {
+      "catalogId": "airtable",
+      "descriptorVersion": "1.0.0",
+      "schemaDate": "2025-12-11",
+      "defaultMcpConnectionOptionId": "api",
+      "connectionOptions": [
+        {
+          "id": "api",
+          "provider": "mcp",
+          "transport": {
+            "kind": "stdio",
+            "serverName": "airtable",
+            "command": "npx",
+            "args": [
+              "-y",
+              "airtable-mcp-server"
+            ],
+            "envFields": [
+              {
+                "key": "AIRTABLE_API_KEY",
+                "label": "Airtable personal access token",
+                "type": "password",
+                "required": true,
+                "helperText": "Personal access token from your Airtable account.",
+                "helperLink": "https://airtable.com/create/tokens"
+              }
+            ]
+          },
+          "auth": {
+            "strategy": "api_key"
+          }
+        }
+      ],
+      "keywords": [
+        "spreadsheet",
+        "database",
+        "records",
+        "bases"
+      ],
+      "categories": [
+        "Database",
+        "Operations"
+      ],
+      "popularityRank": 17,
+      "notes": "Very common internal-tools and operations automation surface."
+    }
+  }
+}

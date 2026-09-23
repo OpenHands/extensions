@@ -1,0 +1,165 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "dev.openhands/sonarqube",
+  "description": "Inspect code quality and security findings, quality gates, and analyze code snippets from SonarQu...",
+  "title": "SonarQube",
+  "websiteUrl": "https://github.com/SonarSource/sonarqube-mcp-server",
+  "repository": {
+    "url": "https://github.com/SonarSource/sonarqube-mcp-server",
+    "source": "github"
+  },
+  "version": "1.0.0",
+  "packages": [
+    {
+      "registryType": "oci",
+      "identifier": "docker.io/sonarsource/sonarqube-mcp:latest",
+      "runtimeHint": "docker",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "SONARQUBE_TOKEN",
+          "description": "User token generated in your SonarQube Server or Cloud account settings.",
+          "isRequired": true,
+          "isSecret": true
+        },
+        {
+          "name": "SONARQUBE_ORG",
+          "description": "Required for SonarQube Cloud. Your organization key, found in SonarQube Cloud.",
+          "isRequired": false,
+          "isSecret": false,
+          "placeholder": "my-org"
+        },
+        {
+          "name": "SONARQUBE_URL",
+          "description": "Required for a self-managed SonarQube Server. For SonarQube Cloud US, use https://sonarqube.us.",
+          "isRequired": false,
+          "isSecret": false,
+          "placeholder": "https://sonarqube.example.com"
+        }
+      ],
+      "runtimeArguments": [
+        {
+          "type": "named",
+          "name": "--init"
+        },
+        {
+          "type": "named",
+          "name": "--pull",
+          "value": "always"
+        },
+        {
+          "type": "named",
+          "name": "-i"
+        },
+        {
+          "type": "named",
+          "name": "--rm"
+        },
+        {
+          "type": "named",
+          "name": "-e"
+        },
+        {
+          "type": "positional",
+          "value": "SONARQUBE_TOKEN"
+        },
+        {
+          "type": "named",
+          "name": "-e"
+        },
+        {
+          "type": "positional",
+          "value": "SONARQUBE_ORG"
+        },
+        {
+          "type": "named",
+          "name": "-e"
+        },
+        {
+          "type": "positional",
+          "value": "SONARQUBE_URL"
+        }
+      ]
+    }
+  ],
+  "_meta": {
+    "dev.openhands": {
+      "catalogId": "sonarqube",
+      "descriptorVersion": "1.0.0",
+      "schemaDate": "2025-12-11",
+      "defaultMcpConnectionOptionId": "api",
+      "connectionOptions": [
+        {
+          "id": "api",
+          "provider": "mcp",
+          "transport": {
+            "kind": "stdio",
+            "serverName": "sonarqube",
+            "command": "docker",
+            "args": [
+              "run",
+              "--init",
+              "--pull=always",
+              "-i",
+              "--rm",
+              "-e",
+              "SONARQUBE_TOKEN",
+              "-e",
+              "SONARQUBE_ORG",
+              "-e",
+              "SONARQUBE_URL",
+              "sonarsource/sonarqube-mcp"
+            ],
+            "envFields": [
+              {
+                "key": "SONARQUBE_TOKEN",
+                "label": "SonarQube token",
+                "type": "password",
+                "required": true,
+                "helperText": "User token generated in your SonarQube Server or Cloud account settings.",
+                "helperLink": "https://docs.sonarsource.com/sonarqube-cloud/managing-your-account/managing-tokens/"
+              },
+              {
+                "key": "SONARQUBE_ORG",
+                "label": "Organization key (SonarQube Cloud)",
+                "type": "text",
+                "required": false,
+                "placeholder": "my-org",
+                "helperText": "Required for SonarQube Cloud. Your organization key, found in SonarQube Cloud."
+              },
+              {
+                "key": "SONARQUBE_URL",
+                "label": "Server URL (SonarQube Server)",
+                "type": "text",
+                "required": false,
+                "placeholder": "https://sonarqube.example.com",
+                "helperText": "Required for a self-managed SonarQube Server. For SonarQube Cloud US, use https://sonarqube.us."
+              }
+            ]
+          },
+          "auth": {
+            "strategy": "api_key"
+          }
+        }
+      ],
+      "installHint": "SONARQUBE_TOKEN is always required. For SonarQube Cloud, set your organization key in SONARQUBE_ORG. For a self-managed SonarQube Server, set SONARQUBE_URL to your server URL; for SonarQube Cloud US, set SONARQUBE_URL to https://sonarqube.us. Requires a container runtime such as Docker.",
+      "keywords": [
+        "code quality",
+        "static analysis",
+        "security",
+        "sast",
+        "quality gate",
+        "sonarcloud"
+      ],
+      "categories": [
+        "Engineering",
+        "Security"
+      ],
+      "popularityRank": 43,
+      "notes": "Uses SonarSource's official SonarQube MCP Server, run locally as a Docker container. Provide a SonarQube user token. Set SONARQUBE_ORG for SonarQube Cloud, or SONARQUBE_URL for a self-managed SonarQube Server (or https://sonarqube.us for SonarQube Cloud US).",
+      "originalDescription": "Inspect code quality and security findings, quality gates, and analyze code snippets from SonarQube Server or Cloud."
+    }
+  }
+}

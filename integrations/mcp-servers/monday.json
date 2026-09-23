@@ -1,0 +1,55 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "dev.openhands/monday",
+  "description": "Boards, automations, and work management across teams.",
+  "title": "Monday.com",
+  "websiteUrl": "https://monday.com/w/mcp",
+  "version": "1.0.0",
+  "remotes": [
+    {
+      "type": "streamable-http",
+      "url": "https://mcp.monday.com/mcp"
+    }
+  ],
+  "_meta": {
+    "dev.openhands": {
+      "catalogId": "monday",
+      "descriptorVersion": "1.0.0",
+      "schemaDate": "2025-12-11",
+      "defaultMcpConnectionOptionId": "oauth",
+      "connectionOptions": [
+        {
+          "id": "oauth",
+          "provider": "mcp",
+          "auth": {
+            "strategy": "oauth2",
+            "oauth": {
+              "authorizationUrl": "https://auth.monday.com/oauth2/authorize",
+              "tokenUrl": "https://auth.monday.com/oauth2/token",
+              "scopes": [
+                "boards:read"
+              ]
+            }
+          },
+          "transport": {
+            "kind": "shttp",
+            "url": "https://mcp.monday.com/mcp"
+          }
+        }
+      ],
+      "installHint": "Connect monday.com's hosted MCP server with OAuth.",
+      "keywords": [
+        "project management",
+        "boards",
+        "work",
+        "operations"
+      ],
+      "categories": [
+        "Project management",
+        "Operations"
+      ],
+      "popularityRank": 16,
+      "notes": "High-demand operations platform with rich board APIs."
+    }
+  }
+}

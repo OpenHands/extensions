@@ -11,8 +11,9 @@
   "scripts": {
     "build:skills": "node scripts/build-skills-catalog.mjs",
     "build:integrations": "node scripts/build-integration-catalog.mjs",
+    "build:mcp-servers": "node scripts/build-mcp-servers.mjs",
     "build:automations": "node scripts/build-automation-catalog.mjs",
-    "build": "npm run build:skills && npm run build:integrations && npm run build:automations"
+    "build": "npm run build:skills && npm run build:integrations && npm run build:mcp-servers && npm run build:automations"
   },
   "engines": {
     "node": ">=18.20.0"
@@ -46,6 +47,7 @@
       "default": "./integrations/index.js"
     },
     "./integrations/catalog/*.json": "./integrations/catalog/*.json",
+    "./integrations/mcp-servers/*.json": "./integrations/mcp-servers/*.json",
     "./skills": {
       "types": "./skills/index.d.ts",
       "import": "./skills/index.js",

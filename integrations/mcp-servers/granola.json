@@ -1,0 +1,51 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "dev.openhands/granola",
+  "description": "Search and query your Granola meeting notes, transcripts, folders, and action items.",
+  "title": "Granola",
+  "websiteUrl": "https://docs.granola.ai/help-center/sharing/integrations/mcp",
+  "version": "1.0.0",
+  "remotes": [
+    {
+      "type": "streamable-http",
+      "url": "https://mcp.granola.ai/mcp"
+    }
+  ],
+  "_meta": {
+    "dev.openhands": {
+      "catalogId": "granola",
+      "descriptorVersion": "1.0.0",
+      "schemaDate": "2025-12-11",
+      "defaultMcpConnectionOptionId": "oauth",
+      "connectionOptions": [
+        {
+          "id": "oauth",
+          "provider": "mcp",
+          "transport": {
+            "kind": "shttp",
+            "url": "https://mcp.granola.ai/mcp"
+          },
+          "auth": {
+            "strategy": "oauth2",
+            "oauth": {
+              "clientAuthentication": "none"
+            }
+          }
+        }
+      ],
+      "installHint": "Sign in to Granola through the browser OAuth flow when prompted; no client credentials or API key are needed. MCP follows the active workspace selected in your Granola app, so switch workspaces there before querying if you belong to more than one. Some folder, search, and transcript tools require a paid Granola plan.",
+      "keywords": [
+        "meeting notes",
+        "transcripts",
+        "meetings",
+        "notes",
+        "action items"
+      ],
+      "categories": [
+        "Meetings",
+        "Knowledge base"
+      ],
+      "notes": "Uses Granola's hosted MCP server. OAuth is handled by the server itself via browser sign-in with Dynamic Client Registration, so no client ID or client secret is required. MCP connects as an individual user and follows the active workspace selected in the Granola app; there is no API key access for MCP."
+    }
+  }
+}

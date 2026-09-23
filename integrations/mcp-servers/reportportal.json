@@ -1,0 +1,160 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "dev.openhands/reportportal",
+  "description": "Query test launches, test items, history, and analysis from your ReportPortal test automation das...",
+  "title": "ReportPortal",
+  "websiteUrl": "https://reportportal.io/docs/external-integrations/MCPServer/",
+  "version": "1.0.0",
+  "packages": [
+    {
+      "registryType": "oci",
+      "identifier": "docker.io/reportportal/mcp-server:latest",
+      "runtimeHint": "docker",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "RP_API_TOKEN",
+          "description": "API token generated on your ReportPortal Profile page.",
+          "isRequired": true,
+          "isSecret": true
+        },
+        {
+          "name": "RP_HOST",
+          "description": "The base URL of your ReportPortal instance.",
+          "isRequired": true,
+          "isSecret": false,
+          "placeholder": "https://your-reportportal-instance.com"
+        },
+        {
+          "name": "RP_PROJECT",
+          "description": "Optional default ReportPortal project name to use for requests.",
+          "isRequired": false,
+          "isSecret": false,
+          "placeholder": "my-project"
+        }
+      ],
+      "runtimeArguments": [
+        {
+          "type": "named",
+          "name": "--init"
+        },
+        {
+          "type": "named",
+          "name": "--pull",
+          "value": "always"
+        },
+        {
+          "type": "named",
+          "name": "-i"
+        },
+        {
+          "type": "named",
+          "name": "--rm"
+        },
+        {
+          "type": "named",
+          "name": "-e"
+        },
+        {
+          "type": "positional",
+          "value": "RP_API_TOKEN"
+        },
+        {
+          "type": "named",
+          "name": "-e"
+        },
+        {
+          "type": "positional",
+          "value": "RP_HOST"
+        },
+        {
+          "type": "named",
+          "name": "-e"
+        },
+        {
+          "type": "positional",
+          "value": "RP_PROJECT"
+        }
+      ]
+    }
+  ],
+  "_meta": {
+    "dev.openhands": {
+      "catalogId": "reportportal",
+      "descriptorVersion": "1.0.0",
+      "schemaDate": "2025-12-11",
+      "defaultMcpConnectionOptionId": "api",
+      "connectionOptions": [
+        {
+          "id": "api",
+          "provider": "mcp",
+          "transport": {
+            "kind": "stdio",
+            "serverName": "reportportal",
+            "command": "docker",
+            "args": [
+              "run",
+              "--init",
+              "--pull=always",
+              "-i",
+              "--rm",
+              "-e",
+              "RP_API_TOKEN",
+              "-e",
+              "RP_HOST",
+              "-e",
+              "RP_PROJECT",
+              "reportportal/mcp-server"
+            ],
+            "envFields": [
+              {
+                "key": "RP_API_TOKEN",
+                "label": "ReportPortal API token",
+                "type": "password",
+                "required": true,
+                "helperText": "API token generated on your ReportPortal Profile page.",
+                "helperLink": "https://reportportal.io/docs/external-integrations/MCPServer/"
+              },
+              {
+                "key": "RP_HOST",
+                "label": "ReportPortal host URL",
+                "type": "text",
+                "required": true,
+                "placeholder": "https://your-reportportal-instance.com",
+                "helperText": "The base URL of your ReportPortal instance."
+              },
+              {
+                "key": "RP_PROJECT",
+                "label": "Default project name",
+                "type": "text",
+                "required": false,
+                "placeholder": "my-project",
+                "helperText": "Optional default ReportPortal project name to use for requests."
+              }
+            ]
+          },
+          "auth": {
+            "strategy": "api_key"
+          }
+        }
+      ],
+      "installHint": "RP_HOST (the URL of your ReportPortal instance) and RP_API_TOKEN (from your ReportPortal Profile page) are required. RP_PROJECT (a default project name) is optional. Requires a container runtime such as Docker.",
+      "keywords": [
+        "test reporting",
+        "test automation",
+        "qa",
+        "launches",
+        "test analytics",
+        "quality gate"
+      ],
+      "categories": [
+        "Engineering",
+        "Analytics"
+      ],
+      "notes": "Uses ReportPortal's official MCP Server, run locally as a Docker container in the default stdio mode. ReportPortal is self-hosted, so there is no public MCP endpoint; the container connects to your own instance. Provide your ReportPortal host URL and an API token from your ReportPortal Profile page.",
+      "originalDescription": "Query test launches, test items, history, and analysis from your ReportPortal test automation dashboard."
+    }
+  }
+}

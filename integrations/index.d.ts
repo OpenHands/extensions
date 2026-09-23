@@ -192,4 +192,19 @@ export function listIntegrationCatalog(
 export function getIntegrationCatalogEntry(
   id: string,
 ): IntegrationCatalogEntry | undefined;
+
+/**
+ * Generated MCP `server.json` artifacts derived from
+ * `integrations/catalog/<id>.json` via `scripts/build-mcp-servers.mjs`.
+ * The catalog stays the hand-authored source of truth; these are one-way
+ * build outputs conforming to the MCP `server.schema.json` format.
+ */
+export type McpServerArtifact = Record<string, unknown>;
+export const MCP_SERVER_ARTIFACT_INDEX: McpServerArtifact[];
+/** Return every generated MCP server artifact as an independent copy. */
+export function listMcpServerArtifacts(): McpServerArtifact[];
+/** Return one generated MCP server artifact by reverse-DNS `name`, or undefined. */
+export function getMcpServerArtifact(
+  name: string,
+): McpServerArtifact | undefined;
 export default INTEGRATION_CATALOG;

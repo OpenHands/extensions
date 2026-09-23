@@ -1,0 +1,184 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "dev.openhands/atlassian",
+  "description": "Search Jira issues, manage tickets, and read Confluence pages from your agent.",
+  "title": "Atlassian (Jira & Confluence)",
+  "websiteUrl": "https://mcp-atlassian.soomiles.com/docs/installation",
+  "version": "1.0.0",
+  "remotes": [
+    {
+      "type": "streamable-http",
+      "url": "https://mcp.atlassian.com/v1/mcp"
+    }
+  ],
+  "packages": [
+    {
+      "registryType": "pypi",
+      "registryBaseUrl": "https://pypi.org",
+      "identifier": "mcp-atlassian",
+      "runtimeHint": "uvx",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "JIRA_URL",
+          "description": "Your Atlassian Jira base URL. Omit if using Confluence only.",
+          "isRequired": false,
+          "isSecret": false,
+          "placeholder": "https://your-company.atlassian.net"
+        },
+        {
+          "name": "JIRA_USERNAME",
+          "description": "Email address linked to your Atlassian account.",
+          "isRequired": false,
+          "isSecret": false,
+          "placeholder": "your.email@company.com"
+        },
+        {
+          "name": "JIRA_API_TOKEN",
+          "description": "Atlassian API token for Jira. Required when JIRA_URL is set.",
+          "isRequired": false,
+          "isSecret": true,
+          "placeholder": "ATATT..."
+        },
+        {
+          "name": "CONFLUENCE_URL",
+          "description": "Your Atlassian Confluence base URL. Omit if using Jira only.",
+          "isRequired": false,
+          "isSecret": false,
+          "placeholder": "https://your-company.atlassian.net/wiki"
+        },
+        {
+          "name": "CONFLUENCE_USERNAME",
+          "description": "Email address linked to your Atlassian account.",
+          "isRequired": false,
+          "isSecret": false,
+          "placeholder": "your.email@company.com"
+        },
+        {
+          "name": "CONFLUENCE_API_TOKEN",
+          "description": "Atlassian API token for Confluence. Required when CONFLUENCE_URL is set.",
+          "isRequired": false,
+          "isSecret": true,
+          "placeholder": "ATATT..."
+        }
+      ]
+    }
+  ],
+  "_meta": {
+    "dev.openhands": {
+      "catalogId": "atlassian",
+      "descriptorVersion": "1.0.0",
+      "schemaDate": "2025-12-11",
+      "defaultMcpConnectionOptionId": "oauth",
+      "connectionOptions": [
+        {
+          "id": "oauth",
+          "provider": "mcp",
+          "connectionModel": {
+            "principalType": "user",
+            "credentialScope": "account",
+            "resourceType": "site",
+            "resourceCardinality": "many",
+            "selectionMode": "post_auth",
+            "resourceDiscovery": {
+              "endpoint": "https://api.atlassian.com/oauth/token/accessible-resources",
+              "externalResourceIdPath": "id",
+              "resourceNamePath": "name",
+              "resourceUrlPath": "url"
+            }
+          },
+          "transport": {
+            "kind": "shttp",
+            "url": "https://mcp.atlassian.com/v1/mcp"
+          },
+          "auth": {
+            "strategy": "oauth2"
+          }
+        },
+        {
+          "id": "api",
+          "provider": "mcp",
+          "transport": {
+            "kind": "stdio",
+            "serverName": "mcp-atlassian",
+            "command": "uvx",
+            "args": [
+              "mcp-atlassian"
+            ],
+            "envFields": [
+              {
+                "key": "JIRA_URL",
+                "label": "Jira URL",
+                "type": "text",
+                "placeholder": "https://your-company.atlassian.net",
+                "required": false,
+                "helperText": "Your Atlassian Jira base URL. Omit if using Confluence only."
+              },
+              {
+                "key": "JIRA_USERNAME",
+                "label": "Jira username (email)",
+                "type": "text",
+                "placeholder": "your.email@company.com",
+                "required": false,
+                "helperText": "Email address linked to your Atlassian account."
+              },
+              {
+                "key": "JIRA_API_TOKEN",
+                "label": "Jira API token",
+                "type": "password",
+                "placeholder": "ATATT...",
+                "required": false,
+                "helperText": "Atlassian API token for Jira. Required when JIRA_URL is set.",
+                "helperLink": "https://id.atlassian.com/manage-profile/security/api-tokens"
+              },
+              {
+                "key": "CONFLUENCE_URL",
+                "label": "Confluence URL",
+                "type": "text",
+                "placeholder": "https://your-company.atlassian.net/wiki",
+                "required": false,
+                "helperText": "Your Atlassian Confluence base URL. Omit if using Jira only."
+              },
+              {
+                "key": "CONFLUENCE_USERNAME",
+                "label": "Confluence username (email)",
+                "type": "text",
+                "placeholder": "your.email@company.com",
+                "required": false,
+                "helperText": "Email address linked to your Atlassian account."
+              },
+              {
+                "key": "CONFLUENCE_API_TOKEN",
+                "label": "Confluence API token",
+                "type": "password",
+                "placeholder": "ATATT...",
+                "required": false,
+                "helperText": "Atlassian API token for Confluence. Required when CONFLUENCE_URL is set.",
+                "helperLink": "https://id.atlassian.com/manage-profile/security/api-tokens"
+              }
+            ]
+          },
+          "auth": {
+            "strategy": "api_key"
+          }
+        }
+      ],
+      "installHint": "Paste your Jira and/or Confluence URL and API token. The mcp-atlassian package runs via uvx - no install needed.",
+      "keywords": [
+        "jira",
+        "confluence",
+        "tickets",
+        "wiki",
+        "issues",
+        "sprint"
+      ],
+      "categories": [
+        "Project management",
+        "Documentation"
+      ],
+      "popularityRank": 88
+    }
+  }
+}

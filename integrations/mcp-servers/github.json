@@ -1,0 +1,100 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "dev.openhands/github",
+  "description": "Search code, manage issues and pull requests, and inspect repos via the GitHub API.",
+  "title": "GitHub",
+  "websiteUrl": "https://github.com/github/github-mcp-server",
+  "repository": {
+    "url": "https://github.com/github/github-mcp-server",
+    "source": "github"
+  },
+  "version": "1.0.0",
+  "remotes": [
+    {
+      "type": "streamable-http",
+      "url": "https://api.githubcopilot.com/mcp/"
+    },
+    {
+      "type": "streamable-http",
+      "url": "https://api.githubcopilot.com/mcp/"
+    }
+  ],
+  "_meta": {
+    "dev.openhands": {
+      "catalogId": "github",
+      "descriptorVersion": "1.0.0",
+      "schemaDate": "2025-12-11",
+      "defaultMcpConnectionOptionId": "oauth",
+      "connectionOptions": [
+        {
+          "id": "oauth",
+          "provider": "mcp",
+          "connectionModel": {
+            "principalType": "user",
+            "credentialScope": "account",
+            "resourceType": "organization",
+            "resourceCardinality": "many",
+            "selectionMode": "post_auth",
+            "identityMapping": {
+              "source": "identity_api",
+              "endpoint": "https://api.github.com/user",
+              "externalPrincipalIdPath": "id",
+              "resourceNamePath": "login",
+              "resourceUrlPath": "html_url"
+            },
+            "resourceDiscovery": {
+              "endpoint": "https://api.github.com/user/orgs",
+              "externalResourceIdPath": "id",
+              "resourceNamePath": "login",
+              "resourceUrlPath": "html_url"
+            }
+          },
+          "auth": {
+            "strategy": "oauth2",
+            "oauth": {
+              "authorizationUrl": "https://github.com/login/oauth/authorize",
+              "tokenUrl": "https://github.com/login/oauth/access_token",
+              "scopes": [
+                "read:user",
+                "repo"
+              ]
+            }
+          },
+          "transport": {
+            "kind": "shttp",
+            "url": "https://api.githubcopilot.com/mcp/"
+          }
+        },
+        {
+          "id": "api",
+          "provider": "mcp",
+          "transport": {
+            "kind": "shttp",
+            "url": "https://api.githubcopilot.com/mcp/"
+          },
+          "auth": {
+            "strategy": "api_key",
+            "credentialLabel": "Personal access token",
+            "credentialPlaceholder": "github_pat_...",
+            "credentialHelp": "Create a token in [GitHub settings](https://github.com/settings/personal-access-tokens): classic tokens need the repo and read:user scopes; fine-grained tokens need read access to Contents, Issues, and Pull requests for the repositories you use.",
+            "credentialSecretName": "GITHUB_PERSONAL_ACCESS_TOKEN",
+            "saveCredentialAsSecretByDefault": true
+          }
+        }
+      ],
+      "keywords": [
+        "git",
+        "pr",
+        "repo",
+        "issues",
+        "code"
+      ],
+      "categories": [
+        "Engineering",
+        "Source control"
+      ],
+      "popularityRank": 100,
+      "notes": "Current managed connector works with bearer tokens today; GitHub OAuth is a strong candidate for a future one-click connect flow."
+    }
+  }
+}
