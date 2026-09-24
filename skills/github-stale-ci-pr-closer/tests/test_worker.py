@@ -2,8 +2,8 @@ import sys
 import unittest
 from os import environ
 from pathlib import Path
-from urllib.error import HTTPError
 from unittest.mock import Mock, patch
+from urllib.error import HTTPError
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "scripts"))
 sys.path.insert(0, str(Path(__file__).parents[2] / "github" / "scripts"))
