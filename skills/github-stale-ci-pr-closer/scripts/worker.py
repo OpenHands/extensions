@@ -273,8 +273,9 @@ class StaleCIPullRequestCloser(GitHubRepository):
         """Read every open PR and its latest check rollup with explicit pagination."""
         owner, name = self.repository.split("/", 1)
         cursor = None
+        seen_cursors = set()
         pull_requests = []
-        for _ in range(100):
+        while True:
             result = self.api(
                 "POST",
                 "/graphql",
@@ -318,9 +319,9 @@ class StaleCIPullRequestCloser(GitHubRepository):
             if not page["hasNextPage"]:
                 return pull_requests
             cursor = page["endCursor"]
-            if not cursor:
-                raise RuntimeError("GitHub omitted the next pull request cursor")
-        raise RuntimeError("GitHub pull request pagination exceeded 10,000 results")
+            if not cursor or cursor in seen_cursors:
+                raise RuntimeError("GitHub returned an invalid pull request cursor")
+            seen_cursors.add(cursor)
 
     def comments(self, number):
         return self.gh_pages(f"/issues/{number}/comments")
