@@ -1,6 +1,6 @@
 {
   "id": "github-stale-ci-pr-closer",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "name": "GitHub stale CI cleanup",
   "category": "Code review",
   "description": "Warn and close abandoned pull requests whose required CI remains failing.",
@@ -11,7 +11,7 @@
     ]
   },
   "estimatedSetupMinutes": 3,
-  "exampleImplementation": "A deterministic scheduled scan reads the required checks that apply to each pull request's base branch. It warns after seven days of observed failure and closes after seven more days only when the author has neither pushed nor commented.",
+  "exampleImplementation": "A deterministic scheduled scan reads the required checks that apply to each pull request's base branch. It warns seven days after the newest required-check failure and closes seven days later only when the author has neither pushed nor commented.",
   "setup": {
     "version": "1.0",
     "mode": "direct",
@@ -53,7 +53,7 @@
       }
     },
     "bundle": {
-      "version": "1.0.0",
+      "version": "1.0.1",
       "entrypoint": "python3 worker.py",
       "timeout": 300,
       "files": {

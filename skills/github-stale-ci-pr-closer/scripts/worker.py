@@ -3,7 +3,7 @@
 import json
 import os
 import time
-from datetime import UTC, datetime, timedelta
+from datetime import datetime
 from pathlib import Path
 from urllib.error import HTTPError
 from urllib.parse import quote
@@ -16,6 +16,38 @@ CLOSE_AFTER_SECONDS = 7 * 24 * 60 * 60
 WARNING_MARKER = "<!-- openhands-stale-ci-warning -->"
 CLOSE_MARKER = "<!-- openhands-stale-ci-close -->"
 PASSING_CONCLUSIONS = {"success", "neutral", "skipped"}
+PULL_REQUESTS_QUERY = """
+query($owner: String!, $name: String!, $cursor: String) {
+  repository(owner: $owner, name: $name) {
+    pullRequests(first: 40, after: $cursor, states: OPEN) {
+      pageInfo { hasNextPage endCursor }
+      nodes {
+        number isDraft baseRefName headRefOid
+        author { login }
+        commits(last: 1) {
+          nodes {
+            commit {
+              statusCheckRollup {
+                contexts(first: 100) {
+                  totalCount
+                  nodes {
+                    __typename
+                    ... on CheckRun {
+                      databaseId name status conclusion startedAt completedAt
+                      checkSuite { app { databaseId } }
+                    }
+                    ... on StatusContext { context state createdAt }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+"""
 KV_TOKEN = os.environ.get("AUTOMATION_KV_TOKEN", "")
 KV_BASE = os.environ.get("AUTOMATION_API_URL", "").rstrip("/")
 
@@ -132,30 +164,25 @@ class StaleCIPullRequestCloser(GitHubRepository):
         self._required_checks = cached
         return required
 
-    def required_ci_state(self, sha, required):
+    @staticmethod
+    def _required_ci_result(runs, statuses, required):
         if not required:
-            return "unconfigured"
-        runs = []
-        for page in range(1, 11):
-            batch = self.gh(
-                "GET", f"/commits/{sha}/check-runs?per_page=100&page={page}"
-            )
-            page_runs = batch.get("check_runs", [])
-            runs.extend(page_runs)
-            if len(page_runs) < 100:
-                break
-        else:
-            raise RuntimeError(f"More than 1,000 check runs found for {sha}")
+            return "unconfigured", None
         latest_runs = {}
         for run in sorted(runs, key=lambda item: item.get("id", 0), reverse=True):
             latest_runs.setdefault(
                 (run.get("name"), (run.get("app") or {}).get("id")), run
             )
-        statuses = {}
-        for status in self.gh_pages(f"/commits/{sha}/statuses"):
-            statuses.setdefault(status.get("context"), status)
+        latest_statuses = {}
+        for status in sorted(
+            statuses,
+            key=lambda item: item.get("updated_at") or item.get("created_at") or "",
+            reverse=True,
+        ):
+            latest_statuses.setdefault(status.get("context"), status)
 
         states = []
+        failures = []
         for item in required:
             context = item["context"]
             integration = item.get("integration_id") or None
@@ -172,43 +199,143 @@ class StaleCIPullRequestCloser(GitHubRepository):
                     states.append("passing")
                 else:
                     states.append("failing")
+                    completed = run.get("completed_at") or run.get("started_at")
+                    if completed:
+                        failures.append(_timestamp(completed))
                 continue
-            status = statuses.get(context) if integration is None else None
+            status = latest_statuses.get(context) if integration is None else None
             if status is None or status.get("state") in {"pending", "expected"}:
                 states.append("pending")
             elif status.get("state") == "success":
                 states.append("passing")
             else:
                 states.append("failing")
+                completed = status.get("updated_at") or status.get("created_at")
+                if completed:
+                    failures.append(_timestamp(completed))
         if "pending" in states:
-            return "pending"
+            return "pending", None
         if "failing" in states:
-            return "failing"
-        return "passing"
+            return "failing", max(failures) if failures else None
+        return "passing", None
+
+    def required_ci_result(self, sha, required):
+        if not required:
+            return "unconfigured", None
+        runs = []
+        for page in range(1, 11):
+            batch = self.gh(
+                "GET", f"/commits/{sha}/check-runs?per_page=100&page={page}"
+            )
+            page_runs = batch.get("check_runs", [])
+            runs.extend(page_runs)
+            if len(page_runs) < 100:
+                break
+        else:
+            raise RuntimeError(f"More than 1,000 check runs found for {sha}")
+        statuses = self.gh_pages(f"/commits/{sha}/statuses")
+        return self._required_ci_result(runs, statuses, required)
+
+    def required_ci_state(self, sha, required):
+        return self.required_ci_result(sha, required)[0]
+
+    @staticmethod
+    def _graphql_ci_result(contexts, required):
+        runs = []
+        statuses = []
+        for context in contexts:
+            if context.get("__typename") == "CheckRun":
+                app = ((context.get("checkSuite") or {}).get("app") or {}).get(
+                    "databaseId"
+                )
+                runs.append(
+                    {
+                        "id": context.get("databaseId"),
+                        "name": context.get("name"),
+                        "app": {"id": app},
+                        "status": (context.get("status") or "").lower(),
+                        "conclusion": (context.get("conclusion") or "").lower() or None,
+                        "started_at": context.get("startedAt"),
+                        "completed_at": context.get("completedAt"),
+                    }
+                )
+            elif context.get("__typename") == "StatusContext":
+                statuses.append(
+                    {
+                        "context": context.get("context"),
+                        "state": (context.get("state") or "").lower(),
+                        "created_at": context.get("createdAt"),
+                    }
+                )
+        return StaleCIPullRequestCloser._required_ci_result(runs, statuses, required)
+
+    def open_pull_requests(self):
+        """Read every open PR and its latest check rollup with explicit pagination."""
+        owner, name = self.repository.split("/", 1)
+        cursor = None
+        seen_cursors = set()
+        pull_requests = []
+        while True:
+            for attempt in range(4):
+                try:
+                    result = self.api(
+                        "POST",
+                        "/graphql",
+                        body={
+                            "query": PULL_REQUESTS_QUERY,
+                            "variables": {
+                                "owner": owner,
+                                "name": name,
+                                "cursor": cursor,
+                            },
+                        },
+                    )
+                    break
+                except HTTPError as exc:
+                    if exc.code < 500 or attempt == 3:
+                        raise
+                    time.sleep(2**attempt)
+            if result.get("errors"):
+                raise RuntimeError("GitHub GraphQL pull request query failed")
+            connection = result["data"]["repository"]["pullRequests"]
+            for node in connection["nodes"]:
+                commits = node.get("commits", {}).get("nodes", [])
+                rollup = (
+                    ((commits[-1].get("commit") or {}).get("statusCheckRollup") or {})
+                    if commits
+                    else {}
+                )
+                contexts = rollup.get("contexts") or {"nodes": [], "totalCount": 0}
+                required = self.required_checks(node["baseRefName"])
+                if contexts.get("totalCount", 0) > len(contexts.get("nodes", [])):
+                    state, failed_at = self.required_ci_result(
+                        node["headRefOid"], required
+                    )
+                else:
+                    state, failed_at = self._graphql_ci_result(
+                        contexts.get("nodes", []), required
+                    )
+                pull_requests.append(
+                    {
+                        "number": node["number"],
+                        "draft": node["isDraft"],
+                        "head": {"sha": node["headRefOid"]},
+                        "base": {"ref": node["baseRefName"]},
+                        "user": {"login": (node.get("author") or {}).get("login", "")},
+                        "_ci_state": state,
+                        "_failed_at": failed_at,
+                    }
+                )
+            page = connection["pageInfo"]
+            if not page["hasNextPage"]:
+                return pull_requests
+            cursor = page["endCursor"]
+            if not cursor or cursor in seen_cursors:
+                raise RuntimeError("GitHub returned an invalid pull request cursor")
+            seen_cursors.add(cursor)
 
     def comments(self, number):
         return self.gh_pages(f"/issues/{number}/comments")
-
-    def stale_failure_numbers(self, now):
-        cutoff = (datetime.fromtimestamp(now, UTC) - timedelta(days=7)).date()
-        query = (
-            f"repo:{self.repository} is:pr is:open draft:false status:failure "
-            f"updated:<{cutoff.isoformat()}"
-        )
-        numbers = set()
-        for page in range(1, 11):
-            result = self.api(
-                "GET",
-                "/search/issues",
-                params={"q": query, "per_page": 100, "page": page},
-            )
-            if result.get("incomplete_results"):
-                raise RuntimeError("GitHub returned incomplete stale CI search results")
-            items = result.get("items", [])
-            numbers.update(item["number"] for item in items)
-            if len(items) < 100:
-                return numbers
-        raise RuntimeError("GitHub stale CI search exceeded 1,000 pull requests")
 
     def post_comment(self, number, body):
         return self.gh("POST", f"/issues/{number}/comments", {"body": body})
@@ -229,16 +356,29 @@ class StaleCIPullRequestCloser(GitHubRepository):
             records.pop(key, None)
             return "draft"
         head = pr["head"]["sha"]
-        required = self.required_checks(pr["base"]["ref"])
-        ci_state = self.required_ci_state(head, required)
+        ci_state = pr.get("_ci_state")
+        if ci_state is None:
+            required = self.required_checks(pr["base"]["ref"])
+            ci_state = self.required_ci_state(head, required)
         if ci_state != "failing":
             records.pop(key, None)
             return ci_state
 
         record = records.get(key)
         if not record or record.get("head_sha") != head:
-            record = {"head_sha": head, "first_failed_at": now}
+            failed_at = pr.get("_failed_at")
+            record = {
+                "head_sha": head,
+                "first_failed_at": now if failed_at is None else failed_at,
+            }
             records[key] = record
+        elif (
+            not record.get("warning")
+            and not record.get("reset_at")
+            and pr.get("_failed_at") is not None
+        ):
+            # Backfill records created by versions that used first observation time.
+            record["first_failed_at"] = min(record["first_failed_at"], pr["_failed_at"])
         warning = record.get("warning")
         if not warning:
             if now - record["first_failed_at"] < WARN_AFTER_SECONDS:
@@ -281,7 +421,11 @@ class StaleCIPullRequestCloser(GitHubRepository):
 
         comments = self.comments(number)
         if self.author_followed_up(pr, comments, warning["at"]):
-            records[key] = {"head_sha": head, "first_failed_at": now}
+            records[key] = {
+                "head_sha": head,
+                "first_failed_at": now,
+                "reset_at": now,
+            }
             return "followed-up"
         if now - warning["at"] < CLOSE_AFTER_SECONDS:
             return "waiting"
@@ -300,13 +444,20 @@ class StaleCIPullRequestCloser(GitHubRepository):
     def run(self):
         state = load_state(self.repository)
         records = state.setdefault("prs", {})
-        open_prs = self.gh_pages("/pulls?state=open")
+        open_prs = self.open_pull_requests()
         open_by_number = {pr["number"]: pr for pr in open_prs}
         open_numbers = {str(number) for number in open_by_number}
         for key in set(records) - open_numbers:
             records.pop(key, None)
         now = time.time()
-        candidates = self.stale_failure_numbers(now)
+        candidates = {
+            pr["number"]
+            for pr in open_prs
+            if not pr["draft"]
+            and pr["_ci_state"] == "failing"
+            and pr["_failed_at"] is not None
+            and now - pr["_failed_at"] >= WARN_AFTER_SECONDS
+        }
         candidates.update(int(number) for number in records)
         for number in sorted(candidates, reverse=True):
             pr = open_by_number.get(number)
