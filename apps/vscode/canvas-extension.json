@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "name": "vscode",
+  "display_name": "VS Code",
+  "version": "0.1.0",
+  "description": "A managed OpenVSCode editor for the selected Agent Canvas workspace.",
+  "entrypoint": "extension.js",
+  "contributes": {"pages": [{"id": "editor", "title": "VS Code", "path": "/editor"}]},
+  "backend": {
+    "schema_version": 1,
+    "artifacts": {
+      "linux-amd64": {"path": "backend/openvscode-linux-amd64.tar.gz", "sha256": "1c6cd7fe65d072ae029bd89d62dca4f0780b354c14106a5a15aae0a79603ebe6"},
+      "linux-arm64": {"path": "backend/openvscode-linux-arm64.tar.gz", "sha256": "efd63c94cbc37f0d477f8e413b4b1018ab320e795331e530a3fff352d74ec0ee"}
+    },
+    "argv": ["{artifact_dir}/bin/openvscode-bootstrap", "--host", "127.0.0.1", "--port", "{port}", "--without-connection-token", "--accept-server-license-terms", "--telemetry-level", "off", "--user-data-dir", "{data_dir}/user", "--extensions-dir", "{data_dir}/extensions", "--server-base-path", "/app-backends/vscode", "{data_dir}"],
+    "health": {"path": "/", "timeout_seconds": 90, "interval_seconds": 0.5},
+    "inherit_environment": ["PATH", "LANG", "LC_ALL", "TMPDIR"]
+  }
+}
