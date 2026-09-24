@@ -1,7 +1,7 @@
 # OpenHands Extensions
 
 This repository is the **public extensions registry** for [OpenHands](https://github.com/OpenHands/OpenHands).
-It contains reusable, shareable skills and plugins that customize agent behavior.
+It contains reusable, shareable skills, plugins, and Agent Canvas Apps that customize agent behavior and interfaces.
 
 - Skills overview docs: https://docs.openhands.dev/overview/skills
 - SDK skill guide: https://docs.openhands.dev/sdk/guides/skill
@@ -35,6 +35,10 @@ They live under `plugins/`, **one directory per plugin**:
 - `plugins/<plugin-name>/scripts/` — utility scripts
 
 Browse available plugins in [`plugins/`](plugins/).
+
+### Apps
+
+Apps are installable interfaces that bring dashboards, internal tools, and workflows directly into Agent Canvas without requiring a fork. They are powered by the beta Canvas Extensions API. Browse [`apps/`](apps/) and read its package conventions before contributing. Enabling an App executes trusted JavaScript in the Agent Canvas browser context and permits authenticated requests to the active Agent Server, so review its source and resolved revision first. Apps are distinct from skills and plugins: they provide Canvas interfaces rather than agent instructions or capabilities.
 
 ### NPM Package
 
