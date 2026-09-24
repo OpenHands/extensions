@@ -25,7 +25,9 @@ def _timestamp(value):
 
 
 def _state_key(repo):
-    return "github-stale-ci-pr-closer:" + repo.replace("/", "__")
+    payload = json.loads(os.environ.get("AUTOMATION_EVENT_PAYLOAD", "{}"))
+    automation_id = payload.get("automation_id", "default")
+    return f"github-stale-ci-pr-closer:{automation_id}:{repo.replace('/', '__')}"
 
 
 def _state_path(repo):

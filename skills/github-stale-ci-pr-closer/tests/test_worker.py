@@ -1,13 +1,24 @@
 import sys
 import unittest
+from os import environ
 from pathlib import Path
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "scripts"))
 sys.path.insert(0, str(Path(__file__).parents[2] / "github" / "scripts"))
 import worker
 
 DAY = 24 * 60 * 60
+
+
+class TestStateKey(unittest.TestCase):
+    def test_is_scoped_to_the_automation(self):
+        payload = '{"automation_id":"automation-123"}'
+        with patch.dict(environ, {"AUTOMATION_EVENT_PAYLOAD": payload}):
+            self.assertEqual(
+                worker._state_key("OpenHands/extensions"),
+                "github-stale-ci-pr-closer:automation-123:OpenHands__extensions",
+            )
 
 
 class TestReconcile(unittest.TestCase):
