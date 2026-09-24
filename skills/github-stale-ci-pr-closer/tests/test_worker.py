@@ -156,5 +156,28 @@ class TestRequiredCI(unittest.TestCase):
         self.assertEqual(self.state(runs, required), "pending")
 
 
+class TestCandidateSearch(unittest.TestCase):
+    def setUp(self):
+        self.closer = object.__new__(worker.StaleCIPullRequestCloser)
+        self.closer.repository = "OpenHands/OpenHands"
+
+    def test_searches_only_inactive_failing_pull_requests(self):
+        self.closer.api = Mock(
+            return_value={
+                "incomplete_results": False,
+                "items": [{"number": 2}, {"number": 3}],
+            }
+        )
+        self.assertEqual(self.closer.stale_failure_numbers(14 * DAY), {2, 3})
+        params = self.closer.api.call_args.kwargs["params"]
+        self.assertIn("is:pr is:open draft:false status:failure", params["q"])
+        self.assertIn("updated:<1970-01-08", params["q"])
+
+    def test_rejects_incomplete_search_results(self):
+        self.closer.api = Mock(return_value={"incomplete_results": True, "items": []})
+        with self.assertRaisesRegex(RuntimeError, "incomplete"):
+            self.closer.stale_failure_numbers(14 * DAY)
+
+
 if __name__ == "__main__":
     unittest.main()

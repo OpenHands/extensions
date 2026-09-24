@@ -3,7 +3,7 @@
 import json
 import os
 import time
-from datetime import datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from urllib.error import HTTPError
 from urllib.parse import quote
@@ -187,6 +187,27 @@ class StaleCIPullRequestCloser(GitHubRepository):
     def comments(self, number):
         return self.gh_pages(f"/issues/{number}/comments")
 
+    def stale_failure_numbers(self, now):
+        cutoff = (datetime.fromtimestamp(now, UTC) - timedelta(days=7)).date()
+        query = (
+            f"repo:{self.repository} is:pr is:open draft:false status:failure "
+            f"updated:<{cutoff.isoformat()}"
+        )
+        numbers = set()
+        for page in range(1, 11):
+            result = self.api(
+                "GET",
+                "/search/issues",
+                params={"q": query, "per_page": 100, "page": page},
+            )
+            if result.get("incomplete_results"):
+                raise RuntimeError("GitHub returned incomplete stale CI search results")
+            items = result.get("items", [])
+            numbers.update(item["number"] for item in items)
+            if len(items) < 100:
+                return numbers
+        raise RuntimeError("GitHub stale CI search exceeded 1,000 pull requests")
+
     def post_comment(self, number, body):
         return self.gh("POST", f"/issues/{number}/comments", {"body": body})
 
@@ -276,11 +297,17 @@ class StaleCIPullRequestCloser(GitHubRepository):
         state = load_state(self.repository)
         records = state.setdefault("prs", {})
         open_prs = self.gh_pages("/pulls?state=open")
-        open_numbers = {str(pr["number"]) for pr in open_prs}
+        open_by_number = {pr["number"]: pr for pr in open_prs}
+        open_numbers = {str(number) for number in open_by_number}
         for key in set(records) - open_numbers:
             records.pop(key, None)
         now = time.time()
-        for pr in open_prs:
+        candidates = self.stale_failure_numbers(now)
+        candidates.update(int(number) for number in records)
+        for number in sorted(candidates, reverse=True):
+            pr = open_by_number.get(number)
+            if pr is None:
+                continue
             outcome = self.reconcile(pr, records, now)
             print(
                 json.dumps(
