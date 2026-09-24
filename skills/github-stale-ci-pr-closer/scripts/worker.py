@@ -276,14 +276,25 @@ class StaleCIPullRequestCloser(GitHubRepository):
         seen_cursors = set()
         pull_requests = []
         while True:
-            result = self.api(
-                "POST",
-                "/graphql",
-                body={
-                    "query": PULL_REQUESTS_QUERY,
-                    "variables": {"owner": owner, "name": name, "cursor": cursor},
-                },
-            )
+            for attempt in range(4):
+                try:
+                    result = self.api(
+                        "POST",
+                        "/graphql",
+                        body={
+                            "query": PULL_REQUESTS_QUERY,
+                            "variables": {
+                                "owner": owner,
+                                "name": name,
+                                "cursor": cursor,
+                            },
+                        },
+                    )
+                    break
+                except HTTPError as exc:
+                    if exc.code < 500 or attempt == 3:
+                        raise
+                    time.sleep(2**attempt)
             if result.get("errors"):
                 raise RuntimeError("GitHub GraphQL pull request query failed")
             connection = result["data"]["repository"]["pullRequests"]

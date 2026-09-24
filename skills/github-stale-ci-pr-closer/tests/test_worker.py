@@ -2,6 +2,7 @@ import sys
 import unittest
 from os import environ
 from pathlib import Path
+from urllib.error import HTTPError
 from unittest.mock import Mock, patch
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "scripts"))
@@ -300,6 +301,21 @@ class TestPullRequestPagination(unittest.TestCase):
         self.closer.required_ci_result.assert_called_once_with(
             "sha-2", [{"context": "test"}]
         )
+
+    @patch("worker.time.sleep")
+    def test_retries_a_transient_graphql_page_failure(self, sleep):
+        self.closer.required_checks = Mock(return_value=[])
+        self.closer.api = Mock(
+            side_effect=[
+                HTTPError(
+                    "https://api.github.com/graphql", 502, "bad gateway", {}, None
+                ),
+                self.page(2, False, None),
+            ]
+        )
+
+        self.assertEqual(self.closer.open_pull_requests()[0]["number"], 2)
+        sleep.assert_called_once_with(1)
 
 
 if __name__ == "__main__":
