@@ -1,0 +1,30 @@
+name: Build VS Code App
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - apps/vscode/**
+      - .github/workflows/build-vscode-app.yml
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Build installable App package
+        run: node apps/vscode/scripts/package.mjs
+      - name: Validate package files
+        run: |
+          test -f dist/apps/vscode/canvas-extension.json
+          test -f dist/apps/vscode/extension.js
+          test -f dist/apps/vscode/backend/openvscode-linux-amd64.tar.gz
+          test -f dist/apps/vscode/backend/openvscode-linux-arm64.tar.gz
+      - uses: actions/upload-artifact@v4
+        with:
+          name: vscode-app-${{ github.sha }}
+          path: dist/apps/vscode
+          if-no-files-found: error
