@@ -85,10 +85,34 @@ def save_state(repo, state):
     os.replace(temporary, path)
 
 
+def complete_run(status="COMPLETED", error=None):
+    """Report this detached entrypoint's terminal state to Automations."""
+    url = os.environ.get("AUTOMATION_CALLBACK_URL")
+    if not url:
+        return
+    body = {"status": status, "run_id": os.environ.get("AUTOMATION_RUN_ID", "")}
+    if error:
+        body["error"] = error
+    request = Request(
+        url,
+        data=json.dumps(body).encode(),
+        headers={
+            "Authorization": "Bearer "
+            + os.environ.get("AUTOMATION_CALLBACK_API_KEY", ""),
+            "Content-Type": "application/json",
+        },
+    )
+    with urlopen(request):
+        pass
+
+
 class StaleCIPullRequestCloser(GitHubRepository):
     name = "github-stale-ci-pr-closer"
 
     def required_checks(self, branch):
+        cached = getattr(self, "_required_checks", {})
+        if branch in cached:
+            return cached[branch]
         try:
             rules = self.gh("GET", f"/rules/branches/{quote(branch, safe='')}")
         except HTTPError as exc:
@@ -102,6 +126,8 @@ class StaleCIPullRequestCloser(GitHubRepository):
             required.extend(
                 rule.get("parameters", {}).get("required_status_checks", [])
             )
+        cached[branch] = required
+        self._required_checks = cached
         return required
 
     def required_ci_state(self, sha, required):
@@ -269,4 +295,10 @@ class StaleCIPullRequestCloser(GitHubRepository):
 
 
 if __name__ == "__main__":
-    run_repositories(StaleCIPullRequestCloser)
+    try:
+        run_repositories(StaleCIPullRequestCloser)
+    except Exception as exc:
+        complete_run("FAILED", str(exc))
+        raise
+    else:
+        complete_run()
