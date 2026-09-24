@@ -12,9 +12,7 @@ from __future__ import annotations
 from ._version import __version__
 from .integrations import (
     INTEGRATION_CATALOG_SNAPSHOT,
-    get_integration_catalog_entry,
     get_integration_catalog_entry_model,
-    list_integration_catalog,
     list_integration_catalog_models,
 )
 from .integration_models import (
@@ -55,8 +53,6 @@ __all__ = [
     "StdioTransport",
     "StreamableHttpTransport",
     "__version__",
-    "get_integration_catalog_entry",
     "get_integration_catalog_entry_model",
-    "list_integration_catalog",
     "list_integration_catalog_models",
 ]

@@ -80,8 +80,8 @@ class TestCodeReviewSkillReferencesRisk:
 
     def test_risk_section_appears_after_dependency_section(self):
         content = get_code_review_skill()
-        dep_pos = content.index("8. **Dependency Changes**")
-        risk_pos = content.index("9. **Risk and Safety Evaluation**")
+        dep_pos = content.index("## Dependency and workflow updates")
+        risk_pos = content.index("## Risk and Safety Evaluation and output")
         assert risk_pos > dep_pos
 
     def test_always_include_risk_instruction(self):

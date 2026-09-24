@@ -3,7 +3,6 @@ name: bitbucket
 description: Bitbucket integration hub. Detects whether the repository is on Bitbucket Cloud or Bitbucket Data Center and directs you to the matching detailed skill (bitbucket-cloud or bitbucket-data-center). Use for any Bitbucket repository or pull request task.
 triggers:
 - bitbucket
-- git
 ---
 
 You are working with **Bitbucket**, which ships as two distinct products that behave

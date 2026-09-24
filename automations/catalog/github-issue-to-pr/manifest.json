@@ -1,0 +1,121 @@
+{
+  "id": "github-issue-to-pr",
+  "name": "GitHub issue to PR",
+  "category": "Software development",
+  "description": "Implement ready GitHub issues, address pull request feedback, and publish tested changes for review.",
+  "requires": {
+    "integrations": {},
+    "features": [
+      "customTarball",
+      "agentProfiles"
+    ]
+  },
+  "popularityRank": 95,
+  "estimatedSetupMinutes": 4,
+  "exampleImplementation": "A scheduled scanner selects every ready issue and each pull request whose exact head failed review. It submits one idempotent subject turn for each item. The profile-backed agent then clones the repository in its own runtime, implements or revises the change, tests it, pushes it, and requests independent review.",
+  "impact": {
+    "basis": "completed-runs",
+    "one": "1 issue sweep completed",
+    "other": "{{count}} issue sweeps completed"
+  },
+  "setup": {
+    "version": "1.0",
+    "mode": "direct",
+    "form": {
+      "triggers": {
+        "cron": {
+          "schedule": {
+            "type": "cron",
+            "label": "Check frequency",
+            "help": "How often to look for newly labelled issues.",
+            "default": "*/15 * * * *",
+            "required": true
+          },
+          "timezone": {
+            "type": "timezone",
+            "label": "Timezone",
+            "help": "Timezone the schedule is interpreted in.",
+            "default": "UTC",
+            "required": true
+          }
+        }
+      },
+      "args": {
+        "repositories": {
+          "type": "repo-picker",
+          "label": "Repositories",
+          "help": "The repositories whose labelled issues are implemented. Each is polled independently and keeps its own state, so issue numbers never collide between them.",
+          "provider": "github",
+          "multiple": true,
+          "required": true
+        },
+        "triggerLabel": {
+          "type": "text",
+          "label": "Trigger label",
+          "help": "Only issues carrying this label are worked on.",
+          "default": "openhands",
+          "required": true,
+          "constraints": {
+            "minLength": 1,
+            "maxLength": 50
+          }
+        },
+        "branchPrefix": {
+          "type": "text",
+          "label": "Branch prefix",
+          "help": "Branches are named after this prefix and the issue number, such as openhands/issue-42.",
+          "default": "openhands/issue",
+          "required": true,
+          "constraints": {
+            "minLength": 1,
+            "maxLength": 50
+          }
+        },
+        "pullRequestMode": {
+          "type": "select",
+          "label": "Pull request mode",
+          "help": "Whether the pull request is opened as a draft or ready for review.",
+          "default": "draft",
+          "required": true,
+          "options": [
+            {
+              "value": "draft",
+              "label": "Draft"
+            },
+            {
+              "value": "ready",
+              "label": "Ready for review"
+            }
+          ]
+        },
+        "githubTokenSecret": {
+          "type": "text",
+          "label": "GitHub token secret",
+          "help": "Name of a saved Agent Server secret. Include it in the selected profile so the delegated agent can use GitHub.",
+          "default": "GITHUB_PERSONAL_ACCESS_TOKEN",
+          "required": true
+        }
+      }
+    },
+    "bundle": {
+      "version": "1.2.1",
+      "entrypoint": "python3 worker.py",
+      "timeout": 300,
+      "files": {
+        "main.py": "skills/github-issue-to-pr/scripts/main.py",
+        "agent_conversation.py": "skills/github/scripts/agent_conversation.py",
+        "github_client.py": "skills/github/scripts/github_client.py",
+        "worker.py": "skills/github-issue-to-pr/scripts/worker.py"
+      },
+      "config": {
+        "repos": "{{form.repositories}}",
+        "trigger_label": "{{form.triggerLabel}}",
+        "branch_prefix": "{{form.branchPrefix}}",
+        "pull_request_mode": "{{form.pullRequestMode}}",
+        "github_token_secret": "{{form.githubTokenSecret}}"
+      }
+    },
+    "message": "Configure the repositories, labels, branch prefix, pull request mode, agent profile, and schedule."
+  },
+  "version": "1.2.1"
+}

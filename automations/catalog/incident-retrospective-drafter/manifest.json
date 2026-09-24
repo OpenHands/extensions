@@ -1,0 +1,100 @@
+{
+  "id": "incident-retrospective-drafter",
+  "name": "Incident retrospective drafter",
+  "category": "Reliability",
+  "description": "Collect incident chatter and issue updates, then draft a timeline and follow-up checklist.",
+  "requires": {
+    "integrations": {
+      "slack": {
+        "message": "Reads incident discussion and timestamps."
+      },
+      "linear": {
+        "message": "Reads follow-up tickets, owners, and status."
+      },
+      "notion": {
+        "message": "Publishes the drafted retrospective. Can be connected later during setup.",
+        "required": false
+      }
+    },
+    "features": [
+      "mcpTools",
+      "conversationDispatch"
+    ]
+  },
+  "popularityRank": 78,
+  "estimatedSetupMinutes": 8,
+  "skill": "incident-retrospective",
+  "exampleImplementation": "Trigger: manual, cron, or incident label added\nRequired MCPs: Slack, Linear, Notion\n\n1. Gather incident messages, timestamps, and linked issue references.\n2. Pull Linear follow-up tickets, owners, and status.\n3. TODO: define the incident identifier format and approved Notion template.\n4. Build a timeline, impact summary, root-cause hypotheses, and action items.\n5. Publish a draft retrospective and notify the incident owner.",
+  "setup": {
+    "version": "1.0",
+    "mode": "assisted",
+    "form": {
+      "note": "These answers start the conversation. Anything left blank is something the agent will ask about.",
+      "args": {
+        "incidentChannel": {
+          "type": "text",
+          "label": "Incident channel",
+          "help": "The Slack channel where incidents are discussed.",
+          "placeholder": "#incidents",
+          "required": false,
+          "constraints": {
+            "maxLength": 100
+          }
+        },
+        "linearTeam": {
+          "type": "text",
+          "label": "Linear team",
+          "help": "The team whose follow-up tickets belong in the retrospective.",
+          "required": false,
+          "constraints": {
+            "maxLength": 100
+          }
+        },
+        "notionDestination": {
+          "type": "text",
+          "label": "Notion destination",
+          "help": "Page or database where drafts should be published. Leave blank to decide during setup.",
+          "required": false,
+          "constraints": {
+            "maxLength": 200
+          }
+        },
+        "triggerPreference": {
+          "type": "select",
+          "label": "How should it run?",
+          "help": "A starting preference only. The agent confirms the exact trigger before creating anything.",
+          "default": "undecided",
+          "required": false,
+          "options": [
+            {
+              "value": "undecided",
+              "label": "Let the agent recommend one"
+            },
+            {
+              "value": "scheduled",
+              "label": "On a schedule"
+            },
+            {
+              "value": "onIncidentLabel",
+              "label": "When an incident is labelled"
+            },
+            {
+              "value": "manual",
+              "label": "Only when I run it"
+            }
+          ]
+        },
+        "notes": {
+          "type": "textarea",
+          "label": "Anything else the agent should know?",
+          "help": "Incident naming conventions, an existing retro template, who should be notified.",
+          "required": false,
+          "constraints": {
+            "maxLength": 2000
+          }
+        }
+      }
+    },
+    "message": "The user supplied these starting points. Confirm each one, ask about anything left blank, then create the automation.\n\n- Incident channel: {{form.incidentChannel}}\n- Linear team: {{form.linearTeam}}\n- Notion destination: {{form.notionDestination}}\n- Preferred trigger: {{form.triggerPreference}}\n- Notes: {{form.notes}}\n\nStill undecided and required before creation: the incident identifier format and the approved Notion retrospective template."
+  }
+}

@@ -51,6 +51,8 @@ python3 -m py_compile main.py   # fails with a clear error on any syntax problem
 bash -n setup.sh                 # validates shell syntax without executing
 ```
 
+Syntax checks alone don't catch a config value that's valid-but-wrong Python — e.g. `json.dumps` emitting `true`/`false` where Python expects `True`/`False`, which compiles fine and only fails at runtime. Run the script once against a synthetic event before deploying; see `references/security.md#verify-before-deploying-not-just-compile`.
+
 Fix any errors reported before proceeding to the next step.
 
 

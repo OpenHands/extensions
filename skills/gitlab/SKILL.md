@@ -3,7 +3,6 @@ name: gitlab
 description: Interact with GitLab repositories, merge requests, and APIs using the GITLAB_TOKEN environment variable. Use when working with code hosted on GitLab or managing GitLab resources.
 triggers:
 - gitlab
-- git
 ---
 
 You have access to an environment variable, `GITLAB_TOKEN`, which allows you to interact with

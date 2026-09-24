@@ -1,0 +1,85 @@
+{
+  "id": "upstream-fork-sync",
+  "name": "Upstream fork sync",
+  "category": "Developer tools",
+  "description": "Keep a long-lived fork current with its upstream by re-running a nightly job that fetches upstream changes, rebases local customizations on top, verifies the software still works, and replaces the running version when it does.",
+  "requires": {
+    "integrations": {
+      "github": {
+        "message": "Used to fetch upstream changes and push the rebased fork."
+      }
+    },
+    "features": [
+      "repoClone",
+      "presetPrompt"
+    ]
+  },
+  "popularityRank": 80,
+  "estimatedSetupMinutes": 4,
+  "exampleImplementation": "Trigger: cron, nightly (configurable)\nRequired secret: GITHUB_PERSONAL_ACCESS_TOKEN\n\n1. Clone the fork repository and fetch the latest from its upstream remote.\n2. Rebase every local customization commit on top of the newest upstream HEAD.\n3. Run the configured verification command to confirm the software works as intended.\n4. If verification passes, force-push the rebased branch and replace the currently deployed version with the freshly built one.\n5. If verification fails, leave the running version untouched and report the conflict.",
+  "setup": {
+    "version": "1.0",
+    "mode": "direct",
+    "form": {
+      "triggers": {
+        "cron": {
+          "schedule": {
+            "type": "cron",
+            "label": "Sync schedule",
+            "help": "How often to fetch upstream and rebase local changes. Nightly is the default.",
+            "default": "0 3 * * *",
+            "required": true
+          },
+          "timezone": {
+            "type": "timezone",
+            "label": "Timezone",
+            "help": "Timezone the schedule is interpreted in.",
+            "default": "UTC",
+            "required": true
+          }
+        }
+      },
+      "args": {
+        "repository": {
+          "type": "repo-picker",
+          "label": "Repository",
+          "help": "The long-lived fork to keep synchronized with upstream.",
+          "provider": "github",
+          "required": true
+        },
+        "upstreamRemote": {
+          "type": "text",
+          "label": "Upstream remote",
+          "help": "The remote (URL or owner/repo) the fork tracks. Defaults to the repository's parent.",
+          "default": "",
+          "required": false,
+          "constraints": {
+            "maxLength": 255
+          }
+        },
+        "localChanges": {
+          "type": "text",
+          "label": "Local changes",
+          "help": "Plain-language description of the customizations to preserve across rebase.",
+          "default": "",
+          "required": false,
+          "constraints": {
+            "maxLength": 2000
+          }
+        },
+        "verifyCommand": {
+          "type": "text",
+          "label": "Verify command",
+          "help": "The command that confirms the software works as intended (e.g. `make test`). If blank, the agent infers a sensible check.",
+          "default": "",
+          "required": false,
+          "constraints": {
+            "maxLength": 500
+          }
+        }
+      }
+    },
+    "prompt": "Fetch the latest upstream changes for the fork {{form.repository}} and rebase all local changes on top of upstream. Local changes to preserve: {{form.localChanges}}. Check that the software works as intended; if it does, replace the current version, otherwise leave the running version untouched and report what failed.",
+    "message": "This deployment cannot run the scheduled fork-sync automation directly. Set it up in this conversation instead: confirm the fork repository, the upstream remote, the local changes to preserve, the verification command, and the nightly schedule, then create the automation."
+  }
+}

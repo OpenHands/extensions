@@ -6,6 +6,13 @@ It contains reusable, shareable skills and plugins that customize agent behavior
 - Skills overview docs: https://docs.openhands.dev/overview/skills
 - SDK skill guide: https://docs.openhands.dev/sdk/guides/skill
 
+
+## Repository boundaries
+
+`OpenHands/extensions` is the public registry for reusable skills, plugins, automations, and integrations. [`OpenHands/software-agent-sdk`](https://github.com/OpenHands/software-agent-sdk) owns Agent Server execution, the canonical API, and typed browser access to it under `clients/typescript/`, [`OpenHands/OpenHands`](https://github.com/OpenHands/OpenHands) owns Agent Canvas UI, and [`OpenHands/automation`](https://github.com/OpenHands/automation) owns scheduling, webhooks, run history, dispatch, and sandbox lifecycle orchestration.
+
+Put reusable extension artifacts here rather than in application repositories. If a PR is opened in the wrong repository, close and move it to the repository that owns the change.
+
 ## Repository Layout
 
 ### Skills
@@ -61,20 +68,22 @@ See [`integrations/README.md`](integrations/README.md), [`automations/README.md`
 
 The integration catalog is also published as a Python package (`openhands-extensions`) so Python services read the same catalog data as JS consumers. The single source of truth is the hand-authored JSON directory `integrations/catalog/<id>.json`; there is no separate provider file and no aggregate catalog JSON to maintain. Both the JS package (`@openhands/extensions/integrations`) and the Python package read those same per-integration JSON files and expose parallel read functions.
 
-Each catalog entry can carry oauth and/or mcp/http `connectionOptions`. `supportsOauth` / `supportsMcp` flags are derived at runtime. Use `listIntegrationCatalog({ mcp, oauth })` (JS) or `list_integration_catalog(mcp=, oauth=)` (Python) to filter by connector type - for example only integrations that support an oauth connector.
+Each catalog entry can carry oauth and/or mcp/http `connectionOptions`. `supportsOauth` / `supportsMcp` flags are derived at runtime. Use `listIntegrationCatalog({ mcp, oauth })` (JS) or `list_integration_catalog_models(mcp=, oauth=)` (Python) to filter by connector type - for example only integrations that support an oauth connector.
 
 ```python
 from openhands_extensions import (
-    list_integration_catalog,                        # listIntegrationCatalog({ mcp, oauth })
-    get_integration_catalog_entry,                   # getIntegrationCatalogEntry(id)
+    list_integration_catalog_models,                 # listIntegrationCatalog({ mcp, oauth })
+    get_integration_catalog_entry_model,             # getIntegrationCatalogEntry(id)
     INTEGRATION_CATALOG_SNAPSHOT,                    # { integrations }
 )
 
-all_integrations = list_integration_catalog()
-oauth_integrations = list_integration_catalog(oauth=True)      # only entries with an oauth connector
-mcp_integrations = list_integration_catalog(mcp=True)          # only entries with an mcp connector
-sample = get_integration_catalog_entry(all_integrations[0]["id"])
+all_integrations = list_integration_catalog_models()
+oauth_integrations = list_integration_catalog_models(oauth=True)  # only entries with an oauth connector
+mcp_integrations = list_integration_catalog_models(mcp=True)      # only entries with an mcp connector
+sample = get_integration_catalog_entry_model(all_integrations[0].id)
 ```
+
+The Python functions return validated `IntegrationCatalogEntry` models. The raw-dictionary accessors `list_integration_catalog` / `get_integration_catalog_entry` were deprecated in 0.10.0 and removed in 0.12.0; see [`MIGRATION.md`](MIGRATION.md).
 
 Install from git (the hub backend consumes it this way):
 
@@ -87,7 +96,7 @@ The JS and Python versions are kept in lock-step by `release-please` and guarded
 ## Extensions Catalog
 
 <!-- BEGIN AUTO-GENERATED CATALOG -->
-This repository contains **2 marketplace(s)** with **68 extensions** (57 skills, 11 plugins).
+This repository contains **2 marketplace(s)** with **78 extensions** (67 skills, 11 plugins).
 
 ### large-codebase
 
@@ -106,7 +115,7 @@ OpenHands skills for interacting, improving, and refactoring large codebases
 
 Official skills and plugins for OpenHands — the open-source AI software engineer.
 
-**64 extensions** (55 skills, 9 plugins)
+**74 extensions** (65 skills, 9 plugins)
 
 | Name | Type | Description | Commands |
 |------|------|-------------|----------|
@@ -119,6 +128,7 @@ Official skills and plugins for OpenHands — the open-source AI software engine
 | bitbucket | skill | Bitbucket integration hub. Detects whether the repository is on Bitbucket Cloud or Bitbucket Data Center and directs ... | — |
 | bitbucket-cloud | skill | Bitbucket Cloud (bitbucket.org) specifics — authenticate with BITBUCKET_TOKEN, use the REST API v2, workspace/repo_sl... | — |
 | bitbucket-data-center | skill | Bitbucket Data Center (self-hosted Bitbucket Server) specifics — authenticate with BITBUCKET_DATA_CENTER_TOKEN, use t... | — |
+| canvas-extension-api | skill | Build and validate Apps for Agent Canvas using the supported Canvas Extensions API v1 routed-page contract. | — |
 | city-weather | plugin | Get current weather, time, and precipitation forecast for any city using the free Open-Meteo API. Provides slash comm... | — |
 | code-review | skill | Rigorous code review focusing on data structures, simplicity, security, pragmatism, and risk/safety evaluation. Provi... | `/codereview`, `/codereview-roasted` |
 | code-simplifier | skill | Simplifies and refines code across three dimensions - code reuse, code quality, and efficiency - while preserving all... | `/simplify` |
@@ -131,10 +141,15 @@ Official skills and plugins for OpenHands — the open-source AI software engine
 | frontend-design | skill | Create distinctive, production-grade frontend interfaces with high design quality. Use this skill when the user asks ... | — |
 | github | skill | Interact with GitHub repositories, pull requests, issues, and workflows using the GITHUB_TOKEN environment variable a... | — |
 | github-actions | skill | Create, debug, and test GitHub Actions workflows and custom actions. Use when building CI/CD pipelines, automating wo... | — |
+| github-agents-md-maintainer | skill | Create an automation that keeps AGENTS.md current in one or more GitHub repositories. On a schedule an agent reads th... | `/agents-md:setup` |
+| github-delivery-watchdog | skill | Periodically check pull requests and merge only current heads with independent review, tests, and passing CI. | `/github-delivery-watchdog` |
+| github-issue-to-pr | skill | Create an automation that implements GitHub issues when a configurable trigger label is applied. Clones the default b... | `/issue-to-pr:setup` |
+| github-issue-triage | skill | Prioritize open issues and establish acceptance criteria before marking them ready for development. | `/github-issue-triage` |
 | github-pr-review | skill | Post structured PR reviews to GitHub with inline comments/suggestions in a single API call. | `/github-pr-review` |
 | github-pr-reviewer | skill | Create an automation that reviews GitHub pull requests when they are opened or updated. Inspects the diff, changed fi... | `/pr-reviewer:setup` |
 | github-repo-monitor | skill | Create a cron automation that polls a GitHub repository for issue and PR comments containing a configurable trigger p... | `/github-monitor:poll` |
 | gitlab | skill | Interact with GitLab repositories, merge requests, and APIs using the GITLAB_TOKEN environment variable. Use when wor... | — |
+| gitlab-issue-to-mr | skill | Create an automation that implements GitLab issues when a configurable trigger label is applied. Clones the default b... | `/issue-to-mr:setup` |
 | incident-retrospective | skill | Create an automation that drafts incident retrospectives by gathering incident-channel messages from Slack, collectin... | `/incident-retro:setup` |
 | iterate | skill | Iterate on a GitHub pull request — drive it through CI, code review, and QA until merge-ready. Monitors state, fixes ... | `/iterate`, `/verify`, `/babysit` |
 | jira-issue-to-pr | skill | Deploy a cron-based OpenHands automation that watches a Jira Cloud project for issues labeled with a configurable lab... | — |
@@ -144,12 +159,14 @@ Official skills and plugins for OpenHands — the open-source AI software engine
 | linear | skill | Interact with Linear project management - query issues, update status, create tickets using the Linear GraphQL API. | — |
 | linear-triage | skill | Create an automation that triages new Linear issues by inspecting title, description, team, and recent related issues... | `/linear-triage:setup` |
 | magic-test | plugin | A simple test plugin for verifying plugin loading. Triggers on magic words (alakazam, abracadabra) and returns a spec... | — |
+| news-digest | skill | Create an automation that reads public RSS and Atom feeds on a schedule, keeps what is new and matches the configured... | `/news-digest:setup` |
 | notion | skill | Create, search, and update Notion pages/databases using the Notion API. Use for documenting work, generating runbooks... | — |
 | npm | skill | Handle npm package installation in non-interactive environments by piping confirmations. Use when installing Node.js ... | — |
 | onboarding | plugin | Assess repository agent-readiness across five pillars, propose high-impact fixes, and generate repo-specific AGENTS.m... | — |
 | openhands | plugin | Unified OpenHands plugin — bundles Cloud CLI, REST API (openhands-api), and Automations (openhands-automation) into a... | `/openhands-cloud` |
 | openhands-api | skill | Use the OpenHands Cloud REST API (V1) and agent-server APIs to create and manage Cloud or local backend conversations... | — |
 | openhands-automation | skill | Create and manage OpenHands automations - scheduled tasks that run in sandboxes. Use the prompt preset to create auto... | `/automation:create` |
+| openhands-enterprise-troubleshooting | skill | Diagnose and resolve common issues on OpenHands Enterprise self-hosted installations. Covers sandbox startup failures... | — |
 | openhands-sdk | skill | Reference skill for the OpenHands Software Agent SDK - build AI agents with custom tools, LLM configuration, conversa... | `/sdk` |
 | pdflatex | skill | Install and use pdflatex to compile LaTeX documents into PDFs on Linux. Use when generating academic papers, research... | — |
 | plain-english-content | skill | Write and edit clear, accessible prose in a plain English content style: active voice, front-loaded content, sentence... | — |
@@ -171,6 +188,8 @@ Official skills and plugins for OpenHands — the open-source AI software engine
 | test-prioritization-framework | skill | Reliability-first framework for consolidating and prioritizing test audit findings into CRITICAL, HIGH, and MEDIUM work. | — |
 | test-validation-checklist | skill | Checklist for validating proposed test-suite improvements against the real code before implementation. | — |
 | theme-factory | skill | Toolkit for styling artifacts with a theme. These artifacts can be slides, docs, reportings, HTML landing pages, etc.... | — |
+| ticket-to-code-change | skill | Set up Jira or Linear ticket-to-code-change automations for GitHub, GitLab, and Bitbucket. | `/ticket-to-code-change:setup` |
+| upstream-fork-sync | skill | Keep a long-lived fork in sync with its upstream. Creates a cron automation that fetches upstream changes, rebases lo... | `/upstream-fork-sync:setup` |
 | uv | skill | Common project, dependency, and environment operations using uv. | — |
 | vercel | skill | Deploy and manage applications on Vercel, including preview deployments and deployment protection. | — |
 | vulnerability-remediation | plugin | Automated security vulnerability scanning and AI-powered remediation. Scans repositories, skips when no issues found,... | — |
@@ -184,7 +203,10 @@ Official skills and plugins for OpenHands — the open-source AI software engine
 2. Create a new directory: `skills/<your-skill-name>/`
 3. Add `skills/<your-skill-name>/SKILL.md`
 4. (Optional) Add `README.md`, `references/`, `scripts/`, etc.
-5. Submit a pull request
+5. Add an entry to `marketplaces/openhands-extensions.json` with a `category` — this is what the OpenHands Skills page uses to group the skill. Skills with no entry are grouped as "Uncategorized". Marketplace entries also require `.plugin/plugin.json` and vendor symlinks.
+6. Submit a pull request
+
+Valid skill categories: `automations`, `environment`, `code-hosting`, `agent-authoring`, `code-quality`, `integrations`, `writing`, `design`, `other`.
 
 ### Adding a Plugin
 

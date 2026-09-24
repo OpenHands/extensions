@@ -59,6 +59,18 @@ def test_prompt_with_roasted_trigger():
     assert "/codereview-roasted" in prompt
 
 
+def test_prompt_instructs_reading_repo_guidance():
+    """The reviewer must be told to read AGENTS.md (and other guideline docs)
+    to understand the repo before reviewing."""
+    prompt = _format_prompt(require_evidence=False)
+
+    assert "AGENTS.md" in prompt
+    assert "MUST read" in prompt
+    assert "CONTRIBUTING.md" in prompt
+    assert "inspect how the affected feature or code path works" in prompt
+    assert "concrete failure on the current head" in prompt
+
+
 def test_format_prompt_omits_evidence_requirements_by_default():
     prompt = _format_prompt(require_evidence=False)
 
@@ -119,14 +131,16 @@ def test_file_reviewer_skill_content():
     content = module.FILE_REVIEWER_SKILL
 
     assert "file-level code reviewer" in content
-    # Unified review style
-    assert "pragmatic" in content
+    # Concrete findings only, while retaining limited-impact defects.
+    assert "concrete failure" in content
     # JSON schema documented
     assert "path" in content
     assert "line" in content
     assert "severity" in content
     assert "body" in content
     assert "critical" in content
+    assert '`"minor"`' in content
+    assert '`"nit"`' not in content
     # Tool access documented
     assert "terminal" in content
     assert "file_editor" in content

@@ -3,6 +3,40 @@
 This repository (`OpenHands/extensions`) is the **public extensions registry** for OpenHands.
 It contains **shareable skills and plugins** that can be loaded by OpenHands (CLI/GUI/Cloud) and by client code using the **Software Agent SDK**.
 
+
+## Cross-Repository Boundaries
+
+This repository owns the public registry of reusable OpenHands skills, plugins, automations, and integrations. These extensions are consumed by OpenHands applications and SDK-based clients.
+
+Related repositories have distinct responsibilities:
+
+- [`OpenHands/software-agent-sdk`](https://github.com/OpenHands/software-agent-sdk) owns the Python SDK, Agent Server, agent/tool behavior, conversations, workspaces, events, canonical API, and browser-compatible TypeScript Agent Server client under `clients/typescript/`.
+- [`OpenHands/OpenHands`](https://github.com/OpenHands/OpenHands) owns Agent Canvas UI and local-stack orchestration.
+- [`OpenHands/automation`](https://github.com/OpenHands/automation) owns scheduling, webhooks, run history, dispatch, and sandbox lifecycle orchestration.
+
+Put reusable skills, plugins, automations, and integrations here; put backend execution behavior and typed API access in the SDK, application UI in Agent Canvas, and scheduling/dispatch lifecycle code in `automation`. If a PR is opened in the wrong repository, explicitly recommend closing and moving it to the owning repository. PRs must follow this repository's applicable contribution and code-review guidance.
+
+## Review-Facing Extension Checklist
+
+Before opening a PR:
+
+- Keep a content change focused on one skill, plugin, automation bundle, or
+  integration. Put shared product runtime behavior in the repository that owns
+  it instead of copying machinery into extension content.
+- Treat every command, import, environment variable, endpoint, setup step, and
+  package name as an executable contract. Test the documented entrypoint with
+  released packages in each local or cloud environment the extension claims to
+  support; do not rely on developer-only variables or private paths.
+- For event-, comment-, or message-triggered work, define who may trigger it,
+  whose identity executes it, what scope it may mutate, and which minimal secrets
+  it receives. A trigger phrase is not authorization.
+- Edit the hand-authored source once and regenerate derived catalogs, commands,
+  indexes, and package assets with the existing sync/build command. Document the
+  true generation direction and do not introduce a parallel source of truth.
+- Verify copy-paste commands and factual documentation claims against the actual
+  tool or authoritative source. Extension instructions are executed by agents,
+  so incorrect setup or data-flow documentation is a functional defect.
+
 ## What this repo contains
 
 - `skills/` — a catalog of skills, **one directory per skill**.
@@ -87,22 +121,48 @@ When editing or adding skills in this repo, follow these rules (and add new skil
 ## Repository conventions
 
 - **Punctuation style**: Use plain hyphens (`-`) instead of em dashes (`—` / `\u2014`) in skill descriptions, SKILL.md content, and marketplace JSON entries.
+- **`defaultEnabled` on marketplace skill entries**: a skill entry may carry `"defaultEnabled": true`, which means the skill is enabled for every **new** workspace. Omit the field for everything else - absence already means off, so `"defaultEnabled": false` is not written. Keep the set small and provider-agnostic; anything language-, vendor- or workflow-specific should start off and be opted into from the catalog UI. `npm run build:skills` joins the flag into `skills/index.js` and exports `DEFAULT_ENABLED_SKILL_NAMES` for hosts to seed a workspace from. Seeding is all it does: the contract hosts implement is that a workspace which already saved a selection keeps it, so adding the flag to a skill later will not retroactively enable it for existing users.
 - Keep formatting consistent across skills.
 - If you change a skill’s behavior or scope, update its `README.md` (if present) accordingly.
 - If you change top-level documentation, ensure links still resolve.
-- `integrations/catalog/*.json` is the single hand-authored source of truth consumed by `@openhands/extensions`; adding or editing an integration should require changing exactly one JSON file in that directory. Do not reintroduce `integrations/integration-catalog.json`, separate provider files, per-language catalog duplicates, or provider-specific runtime code. Run `npm run build:integrations` after catalog edits to regenerate `integrations/catalog-index.js`, which statically imports each individual JSON file for the JS package. The Python package includes the same individual JSON files via wheel data and reads them directly. Agent-canvas and integrations-hub import this package directly, so integration marketplace fixes belong here rather than in app-local constants. When upstream MCP projects move repos, verify both `docsUrl` and the connection option (`transport`, `command`/`args`, or URL), not just links. JS exposes `listIntegrationCatalog({ mcp, oauth })` / `getIntegrationCatalogEntry`; Python mirrors with `list_integration_catalog(mcp=, oauth=)` / `get_integration_catalog_entry`. The legacy provider-catalog compatibility layer and `managedConnectorMigration` / `legacyScopeBundles` / `canonicalServerUrl` / `errorHints` mechanisms were removed intentionally; providers declare only standard OAuth config as integration data.
+- `integrations/catalog/*.json` is the single hand-authored source of truth consumed by `@openhands/extensions`; adding or editing an integration should require changing exactly one JSON file in that directory. Do not reintroduce `integrations/integration-catalog.json`, separate provider files, per-language catalog duplicates, or provider-specific runtime code. Run `npm run build:integrations` after catalog edits to regenerate `integrations/catalog-index.js`, which statically imports each individual JSON file for the JS package. The Python package includes the same individual JSON files via wheel data and reads them directly. Agent-canvas and integrations-hub import this package directly, so integration marketplace fixes belong here rather than in app-local constants. When upstream MCP projects move repos, verify both `docsUrl` and the connection option (`transport`, `command`/`args`, or URL), not just links. JS exposes `listIntegrationCatalog({ mcp, oauth })` / `getIntegrationCatalogEntry`; Python mirrors with `list_integration_catalog_models(mcp=, oauth=)` / `get_integration_catalog_entry_model`, which return validated Pydantic models (the raw-dict accessors were deprecated in 0.10.0 and removed in 0.12.0). The legacy provider-catalog compatibility layer and `managedConnectorMigration` / `legacyScopeBundles` / `canonicalServerUrl` / `errorHints` mechanisms were removed intentionally; providers declare only standard OAuth config as integration data.
+- `automations/catalog/<id>/` follows the same rule, as a directory per automation so an automation can ship the scripts it uploads to the automations service alongside its metadata. `manifest.json` is the single hand-authored file, carrying both the card metadata and an optional nested `setup` block (the extension-owned configuration experience). Every entry is validated against `automations/catalog.schema.json`. Run `npm run build:automations` after catalog edits to regenerate `automations/catalog-index.js`. JS exposes `listAutomationCatalog()` / `getAutomationCatalogEntry(id)` alongside `AUTOMATION_CATALOG`. The governing rule is that a manifest states only what varies between automations, and states it once; anything derivable is absent and the host generates it. Derived, so never written in a manifest: the command that launches the card (read from the `triggers:` frontmatter of the skill named by `skill`, which defaults to `id` and is stated only where the two differ - editing an automation must never require editing a skill), the setup route (`/automations/new/<id>`), the trigger variants a deployment can offer (the keys of `setup.form.triggers`; multiple keys mean any supported selected variant can run), schedule limits, timezone lists, event choices, and model profiles (the `cron`, `timezone`, `event-source`, `event-type`, and `llm-profile` field types), the preflight call, the create request's `name`/`repos`/`model`/`timeout`/`trigger` (rebuilt from same-named form fields when present, the repo-picker field, and the selected key and fields under `setup.form.triggers`, where a field is named after the property it fills), the mapping from a rejected payload path back to the input at fault, the review screen, the create endpoint, the post-success navigation, and the analytics stages. `requires.integrations` is keyed by integration id and lives on the entry, not in `setup`, because a card lists its integrations whether or not it ships a setup flow; there is no key anywhere for a credential, because the credential comes with the connection. `setup.form` splits inputs into `triggers` (keyed by trigger kind - what decides when the automation runs) and `args` (everything else), both keyed by field name. `setup` declares a `prompt` (plus a `filter` for an event trigger) when `mode` is `direct`, and a `message` when it is `assisted`. Contract fixtures are test vectors, not catalog data: they live in `tests/fixtures/automations/`, are optional per automation, and are reachable only through the `@openhands/extensions/testing/automations/*.json` subpath - never from the runtime entry point.
 - For Python test runs, prefer `uv sync --group test` followed by `uv run pytest -q`; the full suite depends on `openhands-sdk`, which is not available in the base environment.
 - Agent-driven plugins (for example `plugins/pr-review` and `plugins/release-notes`) use `uv run --with openhands-sdk --with openhands-tools ...` and require an `LLM_API_KEY` in addition to `GITHUB_TOKEN`.
 - For OpenHands Cloud API guidance, automations, and CLI integration, use `plugins/openhands`. It is the canonical unified OpenHands plugin covering the V1 Cloud API, Automations API, and CLI. The individual skills (`skills/openhands-api`, `skills/openhands-automation`) are also available standalone.
 - Bundle-only plugins can just provide `plugins/<name>/skills/` symlinks plus a root `.plugin/plugin.json` and optional `README.md`; a root `SKILL.md` is only needed when the plugin itself exposes commands or top-level instructions.
 - When reviewing or editing `skills/openhands-sdk`, validate copy-paste imports against the released packages with `uv run --with openhands-tools --with openhands-workspace --with openhands-agent-server python ...`. In the current released workspace package, the exported remote workspace classes are `APIRemoteWorkspace` / `OpenHandsCloudWorkspace`; `RemoteAPIWorkspace` is not available.
-- For agent-driven plugin scripts, prefer `from openhands.sdk.plugin import PluginSource` and pass `plugins=[PluginSource(source=...)]` into `Conversation`. In the current released SDK (`openhands-sdk` 1.18.x), `Plugin` is not exported from `openhands.sdk.plugin`, so direct `Plugin.load(...)` imports can break CI.
-- For released SDK compatibility, import `load_project_skills` from `openhands.sdk.skills`, not `openhands.sdk.context.skills`; the latter does not export it in the current package and will break tests.
+- For agent-driven plugin scripts, prefer `from openhands.sdk.plugin import PluginSource` and pass `plugins=[PluginSource(source=...)]` into `Conversation`. The current released SDK (`openhands-sdk` 1.49.x) exports both `PluginSource` and `Plugin` from `openhands.sdk.plugin`, so `Plugin.load(...)` imports also work (used by `tests/test_skill_plugin_loading.py`).
 - `plugins/qa-changes/action.yml` now has a preflight guard for fork PRs in `pull_request` context: if the PR comes from a fork and `LLM_API_KEY` is unavailable (normal for forks), the action exits successfully with a clear skip notice instead of failing.
 - `skills/bitbucket` should not tell agents to rewrite remotes proactively. In OpenHands, `BITBUCKET_TOKEN` is commonly kept in unencoded `user:token` form for API calls like `curl --user "$BITBUCKET_TOKEN" ...`; only split and URL-encode it when constructing a non-interactive HTTPS Git remote URL.
 
 - `plugins/release-notes` now has a standalone validator at `plugins/release-notes/scripts/validate_release_notes.py`; it rebuilds the deterministic tag-range context, fails if a change bullet omits explicit PR/commit refs or matching author handles, and enforces full PR/author coverage by appending a compact `### 🔎 Small Fixes/Internal Changes` appendix grouped by author when the agent omits lower-signal items. New contributor detection in `generate_release_notes.py` should use merged PR history for human authors (excluding bots) rather than commit-author lookup.
 
+
+## PR-specific documents (`.pr/`)
+
+When working on a PR that requires design documents, live-test logs, development-only scripts, or other temporary artifacts that should **not** be merged to `main`, store them in a `.pr/` directory at the repository root.
+
+```bash
+mkdir -p .pr
+
+.pr/
+├── design.md       # Design decisions and architecture notes
+├── analysis.md     # Investigation or debugging notes
+└── notes.md        # Any other PR-specific content
+```
+
+The `PR Artifacts` workflow (`.github/workflows/pr-artifacts.yml`) owns the lifecycle of this directory:
+
+1. **Notification**: When a PR contains `.pr/`, a single comment is posted to the PR conversation alerting reviewers.
+2. **Auto-cleanup on approval**: For same-repository PRs, the directory is automatically removed by a follow-up commit when the PR is approved.
+3. **Post-merge cleanup**: If artifacts reach `main`, including through a fork PR, the workflow opens or updates a cleanup PR against `main`.
+
+Important notes:
+
+- Do not put anything in `.pr/` that needs to be preserved.
+- The `.pr/` check is informational during development; it posts a notice rather than blocking the PR.
+- Cleanup PRs follow the normal review and required-check protections for `main`.
 
 ## CI / validation gotchas
 
@@ -111,6 +171,17 @@ When editing or adding skills in this repo, follow these rules (and add new skil
 - `scripts/sync_extensions.py` keeps generated artifacts in sync: Claude Code command files, README catalog section, coverage checks, and vendor symlinks. Run `python scripts/sync_extensions.py --check` (or just push — CI runs it) to verify everything is consistent. Run without `--check` to auto-fix. The "Quick Start" section in `README.md` (OpenHands SDK, Claude Code, and Codex setup instructions) is **manually maintained** above the auto-generated catalog markers and is intentionally not generated by the sync script.
 - After adding `.plugin/plugin.json` for a skill, re-run `scripts/sync_extensions.py` so the expected `.claude-plugin` and `.codex-plugin` symlinks are created.
 - The sync script uses PyYAML to parse SKILL.md frontmatter. If you add a skill with a slash trigger (e.g., `triggers: ["/mycommand"]`), the script auto-generates `commands/mycommand.md`. **Note:** Slash triggers in SKILL.md frontmatter are deprecated — prefer adding a `commands/command-name.md` file to the plugin's `commands/` directory instead. Keyword triggers (non-slash) remain the recommended way to activate skills by topic.
+
+- The GitHub issue-triage automation and repository writers may grant
+  `ready-for-dev`.
+  `.github/workflows/issue-readiness-check.yml` removes a newly applied label
+  unless a user with `write`, `maintain`, or `admin` permission applied it. An
+  `unlabeled` event then lets triage reassess the issue.
+  `.github/workflows/pr-description-check.yml` still requires linked issues to
+  be ready, and label transitions refresh that check through
+  `.github/scripts/refresh_linked_pr_checks.py`. Tests for the PR gates live in
+  `tests/test_check_pr_description.py` and
+  `tests/test_refresh_linked_pr_checks.py`.
 
 ## OpenHands SDK documentation policy
 

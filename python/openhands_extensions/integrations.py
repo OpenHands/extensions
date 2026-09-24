@@ -14,15 +14,12 @@ from importlib import resources
 from pathlib import Path
 from typing import Any, Iterable
 
-from .deprecation import deprecated
 from .integration_models import IntegrationCatalogEntry
 
 
 __all__ = [
     "INTEGRATION_CATALOG_SNAPSHOT",
-    "get_integration_catalog_entry",
     "get_integration_catalog_entry_model",
-    "list_integration_catalog",
     "list_integration_catalog_models",
 ]
 
@@ -81,20 +78,11 @@ def _entry_supports_oauth(entry: dict[str, Any]) -> bool:
     )
 
 
-@deprecated(
-    deprecated_in="0.10.0",
-    removed_in="0.12.0",
-    details="Use list_integration_catalog_models() for validated Pydantic models.",
-)
-def list_integration_catalog(
+def _list_catalog_entries(
     mcp: bool | None = None,
     oauth: bool | None = None,
 ) -> list[dict[str, Any]]:
-    """Return raw catalog dictionaries, optionally filtered by connector type.
-
-    Deprecated since v0.10.0 and scheduled for removal in v0.12.0.
-    Use :func:`list_integration_catalog_models` instead.
-    """
+    """Return raw catalog dictionaries, optionally filtered by connector type."""
     result = []
     for entry in _integrations():
         if mcp is not None and _entry_supports_mcp(entry) != mcp:
@@ -111,34 +99,24 @@ def list_integration_catalog_models(
 ) -> list[IntegrationCatalogEntry]:
     """Return typed, validated integration catalog entries.
 
-    ``list_integration_catalog`` remains available for callers that need the
-    original JSON-compatible dictionaries. New Python consumers should prefer
-    this function for a stable, validated contract.
+    This is the supported Python contract for reading the catalog. The raw
+    dictionary accessors it replaced were removed in v0.12.0.
     """
     return [
         IntegrationCatalogEntry.model_validate(entry)
-        for entry in list_integration_catalog(mcp=mcp, oauth=oauth)
+        for entry in _list_catalog_entries(mcp=mcp, oauth=oauth)
     ]
 
 
-@deprecated(
-    deprecated_in="0.10.0",
-    removed_in="0.12.0",
-    details="Use get_integration_catalog_entry_model() for a validated Pydantic model.",
-)
-def get_integration_catalog_entry(id: str) -> dict[str, Any] | None:
-    """Return one raw catalog dictionary by id, or ``None``.
-
-    Deprecated since v0.10.0 and scheduled for removal in v0.12.0.
-    Use :func:`get_integration_catalog_entry_model` instead.
-    """
+def _get_catalog_entry(id: str) -> dict[str, Any] | None:
+    """Return one raw catalog dictionary by id, or ``None``."""
     entry = _integration_by_id().get(id)
     return copy.deepcopy(entry) if entry is not None else None
 
 
 def get_integration_catalog_entry_model(id: str) -> IntegrationCatalogEntry | None:
     """Return one typed catalog entry, or ``None`` when it does not exist."""
-    entry = get_integration_catalog_entry(id)
+    entry = _get_catalog_entry(id)
     return IntegrationCatalogEntry.model_validate(entry) if entry is not None else None
 
 

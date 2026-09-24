@@ -33,6 +33,28 @@ def _load_checker():
     return module
 
 
+def _sample_package(checker, tmp_path: Path, *, version: str):
+    """A throwaway package holding one deprecation scheduled for removal in 0.12.0.
+
+    The deadline tests use this instead of the shipped source so they assert the
+    checker's behaviour rather than whichever deprecations happen to be pending.
+    """
+    pyproject = tmp_path / "pyproject.toml"
+    pyproject.write_text(f'[project]\nname = "sample"\nversion = "{version}"\n')
+
+    source_root = tmp_path / "sample"
+    source_root.mkdir()
+    (source_root / "legacy.py").write_text(
+        '@deprecated(deprecated_in="0.10.0", removed_in="0.12.0")\n'
+        "def legacy_helper() -> None:\n"
+        "    pass\n"
+    )
+
+    return checker.PackageConfig(
+        name="sample", pyproject=pyproject, source_roots=(source_root,)
+    )
+
+
 def test_deprecated_decorator_warns_and_preserves_calls() -> None:
     @deprecated(
         deprecated_in="0.10.0",
@@ -107,9 +129,13 @@ warn_cleanup(\"temporary workaround\", cleanup_by=date(2030, 1, 1))
 
 def test_release_please_deadline_passes_before_removal_version(
     monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
 ) -> None:
     checker = _load_checker()
-    monkeypatch.setattr(checker, "_load_current_version", lambda _: "0.10.0")
+    monkeypatch.setattr(checker, "REPO_ROOT", tmp_path)
+    monkeypatch.setattr(
+        checker, "PACKAGES", (_sample_package(checker, tmp_path, version="0.11.0"),)
+    )
 
     assert checker.main() == 0
 
@@ -117,14 +143,23 @@ def test_release_please_deadline_passes_before_removal_version(
 def test_release_please_deadline_fails_at_removal_version(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
 ) -> None:
     checker = _load_checker()
-    monkeypatch.setattr(checker, "_load_current_version", lambda _: "0.12.0")
+    monkeypatch.setattr(checker, "REPO_ROOT", tmp_path)
+    monkeypatch.setattr(
+        checker, "PACKAGES", (_sample_package(checker, tmp_path, version="0.12.0"),)
+    )
 
     assert checker.main() == 1
     output = capsys.readouterr().out
-    assert "list_integration_catalog" in output
-    assert "get_integration_catalog_entry" in output
+    assert "legacy_helper" in output
+    assert "removed in:    0.12.0" in output
+
+
+def test_shipped_source_has_no_overdue_deprecations() -> None:
+    """The gate the release PR runs: nothing shipped is past its deadline."""
+    assert _load_checker().main() == 0
 
 
 def test_date_based_deadlines_use_the_sdk_semantics() -> None:

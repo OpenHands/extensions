@@ -1,0 +1,507 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/OpenHands/extensions/automations/interface.schema.json",
+  "title": "AutomationInterfaceManifest",
+  "description": "Strict schema for automations/interface.json. Mirrors the AutomationInterfaceManifest types in automations/index.d.ts. The catalog states what varies per automation; this file states the domain-level facts of the production Automation interface - routes, navigation, page-identity copy, the settable attributes of an automation, the import/export envelope, the service-relative endpoints, and the featured and responder id lists. The host renders it; it is data, not code - no markup in copy, no free-form URL, no host name, method, or credential.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "version",
+    "routes",
+    "navigation",
+    "pages",
+    "docsUrl",
+    "attributes",
+    "importExport",
+    "endpoints",
+    "featuredAutomationIds",
+    "responderIntegrationIds"
+  ],
+  "properties": {
+    "version": {
+      "const": "1.0",
+      "description": "Selects how this manifest is interpreted. A future format ships a new constant."
+    },
+    "routes": {
+      "description": "The routes of the Automation interface. The host must have a registration serving each declared shape, so admission verifies they match what it mounted; the manifest is the single source for link construction.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["list", "setup", "detail", "templates"],
+      "properties": {
+        "list": { "$ref": "#/$defs/routePath" },
+        "setup": { "$ref": "#/$defs/parameterizedRoutePath" },
+        "detail": { "$ref": "#/$defs/parameterizedRoutePath" },
+        "templates": {
+          "description": "The templates sub-page. Static: there is no parameter to substitute.",
+          "allOf": [{ "$ref": "#/$defs/routePath" }, { "not": { "pattern": ":" } }]
+        }
+      }
+    },
+    "navigation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sidebar", "commandMenu", "subPages"],
+      "properties": {
+        "sidebar": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["label"],
+          "properties": { "label": { "$ref": "#/$defs/copy" } }
+        },
+        "commandMenu": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["title", "description", "keywords"],
+          "properties": {
+            "title": { "$ref": "#/$defs/copy" },
+            "description": { "$ref": "#/$defs/copy" },
+            "keywords": { "$ref": "#/$defs/copy" }
+          }
+        },
+        "subPages": {
+          "description": "The ordered sub-page navigation of the Automation interface. Each page id may appear once; the host's admission checks that, since uniqueItems cannot see through differing labels.",
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 2,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/subPageNavItem" }
+        }
+      }
+    },
+    "pages": {
+      "description": "Page-identity copy, plus the list page's dashboard composition. Generic chrome - buttons, toasts, empty states, validation sentences - stays host copy, rendered through the host's translations.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["list", "detail", "edit", "templates"],
+      "properties": {
+        "list": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["title", "subtitle", "overview", "filters", "sort", "insights"],
+          "properties": {
+            "title": { "$ref": "#/$defs/copy" },
+            "subtitle": { "$ref": "#/$defs/copy" },
+            "overview": { "$ref": "#/$defs/overview" },
+            "filters": {
+              "description": "The filter dropdowns of the list page, in render order. Each filter id may appear once; the host's admission checks that.",
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 2,
+              "uniqueItems": true,
+              "items": {
+                "oneOf": [
+                  { "$ref": "#/$defs/statusFilter" },
+                  { "$ref": "#/$defs/triggerFilter" }
+                ]
+              }
+            },
+            "sort": { "$ref": "#/$defs/sort" },
+            "insights": { "$ref": "#/$defs/insights" }
+          }
+        },
+        "detail": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["backLabel"],
+          "properties": { "backLabel": { "$ref": "#/$defs/copy" } }
+        },
+        "edit": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["title"],
+          "properties": { "title": { "$ref": "#/$defs/copy" } }
+        },
+        "templates": {
+          "description": "The templates sub-page identity. Its body - the catalog cards and their launch behavior - is the host's existing catalog surface.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["title", "description"],
+          "properties": {
+            "title": { "$ref": "#/$defs/copy" },
+            "description": { "$ref": "#/$defs/copy" }
+          }
+        }
+      }
+    },
+    "docsUrl": {
+      "description": "The automations documentation link. Prefix-pinned so this cannot become an arbitrary link.",
+      "type": "string",
+      "pattern": "^https://docs\\.openhands\\.dev/[A-Za-z0-9/._-]*$"
+    },
+    "attributes": {
+      "description": "The input surface of an existing Automation: which attributes can be set after creation, keyed by the runtime-model property the host sends. The closed key set is the settable surface of the runtime model; how a client offers them - Agent Canvas renders an edit dialog, an agent sends them over the API - is the client's choice, not stated here. schedule is a semantic type whose frequency/weekday/time composite the host owns, like the setup form's cron type.",
+      "type": "object",
+      "additionalProperties": false,
+      "minProperties": 1,
+      "properties": {
+        "name": { "$ref": "#/$defs/attribute" },
+        "prompt": { "$ref": "#/$defs/attribute" },
+        "model": { "$ref": "#/$defs/attribute" },
+        "timeout": { "$ref": "#/$defs/attribute" },
+        "schedule": { "$ref": "#/$defs/attribute" }
+      }
+    },
+    "importExport": {
+      "description": "The export file envelope, and the two facts an import cannot derive from the file: the provider inferred for short repository URLs and the placeholder event source that keeps a half-imported automation inert until its real trigger is applied.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["fileKind", "fileVersion", "filenameSuffix", "importDefaults"],
+      "properties": {
+        "fileKind": { "type": "string", "pattern": "^[a-z][a-z-]*$" },
+        "fileVersion": { "const": 1 },
+        "filenameSuffix": { "type": "string", "pattern": "^\\.[a-z][a-z.]*json$" },
+        "importDefaults": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["repoProvider", "placeholderEventSource"],
+          "properties": {
+            "repoProvider": { "enum": ["github", "gitlab", "bitbucket"] },
+            "placeholderEventSource": {
+              "type": "string",
+              "pattern": "^[a-z0-9][a-z0-9.-]*$"
+            }
+          }
+        }
+      }
+    },
+    "endpoints": {
+      "description": "Service-relative paths the host calls. Relative paths only: the base path, methods, headers, and auth remain the host's, so this cannot express a request to anywhere the host did not choose. {id} marks where the host substitutes the automation id.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "list",
+        "detail",
+        "dispatch",
+        "runs",
+        "tarball",
+        "health",
+        "capabilities",
+        "validate",
+        "createPrompt",
+        "createPlugin",
+        "createBundle",
+        "uploads"
+      ],
+      "properties": {
+        "list": { "$ref": "#/$defs/plainEndpoint" },
+        "detail": { "$ref": "#/$defs/idEndpoint" },
+        "dispatch": { "$ref": "#/$defs/idEndpoint" },
+        "runs": { "$ref": "#/$defs/idEndpoint" },
+        "tarball": { "$ref": "#/$defs/idEndpoint" },
+        "health": { "$ref": "#/$defs/plainEndpoint" },
+        "capabilities": { "$ref": "#/$defs/plainEndpoint" },
+        "validate": { "$ref": "#/$defs/plainEndpoint" },
+        "createPrompt": { "$ref": "#/$defs/plainEndpoint" },
+        "createPlugin": { "$ref": "#/$defs/plainEndpoint" },
+        "createBundle": { "$ref": "#/$defs/plainEndpoint" },
+        "uploads": { "$ref": "#/$defs/plainEndpoint" }
+      }
+    },
+    "featuredAutomationIds": {
+      "description": "Catalog entries the list page surfaces as proven. Each id must resolve to an automations/catalog entry; the host's admission checks that, mirroring how requires.integrations ids are checked by the catalog tests.",
+      "$ref": "#/$defs/slugList"
+    },
+    "responderIntegrationIds": {
+      "description": "Integrations whose automations are treated as continuously-polling responders and get the deployment-choice dialog.",
+      "$ref": "#/$defs/slugList"
+    }
+  },
+  "$defs": {
+    "copy": {
+      "description": "Literal user-visible copy. Carries no markup, because this manifest must never inject HTML into the host.",
+      "type": "string",
+      "minLength": 1,
+      "not": { "pattern": "<[A-Za-z/!]" }
+    },
+    "routePath": {
+      "type": "string",
+      "pattern": "^/[A-Za-z0-9/:_-]*$",
+      "not": { "pattern": "//" }
+    },
+    "parameterizedRoutePath": {
+      "description": "A route path carrying the :automationId segment the host substitutes.",
+      "allOf": [
+        { "$ref": "#/$defs/routePath" },
+        { "pattern": ":automationId" }
+      ]
+    },
+    "endpointPath": {
+      "type": "string",
+      "pattern": "^/[A-Za-z0-9/{}_-]*$",
+      "not": { "pattern": "//" }
+    },
+    "plainEndpoint": {
+      "allOf": [
+        { "$ref": "#/$defs/endpointPath" },
+        { "not": { "pattern": "[{}]" } }
+      ]
+    },
+    "idEndpoint": {
+      "description": "An endpoint path with exactly one {id} substitution and no other braces.",
+      "allOf": [
+        { "$ref": "#/$defs/endpointPath" },
+        { "pattern": "^[^{}]*\\{id\\}[^{}]*$" }
+      ]
+    },
+    "attribute": {
+      "description": "How one settable attribute is offered: a semantic input type, user-visible copy, and value constraints. Only a number attribute carries constraints.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "label", "required"],
+      "properties": {
+        "type": {
+          "enum": ["text", "textarea", "number", "llm-profile", "schedule"]
+        },
+        "label": { "$ref": "#/$defs/copy" },
+        "help": { "$ref": "#/$defs/copy" },
+        "required": { "type": "boolean" },
+        "constraints": {
+          "type": "object",
+          "additionalProperties": false,
+          "minProperties": 1,
+          "properties": {
+            "min": { "type": "integer", "minimum": 0 },
+            "max": { "type": "integer", "minimum": 1 }
+          }
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": { "type": { "not": { "const": "number" } } },
+            "required": ["type"]
+          },
+          "then": { "not": { "required": ["constraints"] } }
+        }
+      ]
+    },
+    "slugList": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "type": "string", "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$" }
+    },
+    "iconSlug": {
+      "description": "An icon name from the host's closed icon map. The manifest picks from what the host ships; it cannot supply artwork.",
+      "enum": [
+        "layout-dashboard",
+        "sparkles",
+        "bot",
+        "circle-alert",
+        "activity",
+        "timer"
+      ]
+    },
+    "subPageNavItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["page", "label", "icon"],
+      "properties": {
+        "page": {
+          "description": "The pages entry this item navigates to; its route comes from routes.list or routes.templates.",
+          "enum": ["list", "templates"]
+        },
+        "label": { "$ref": "#/$defs/copy" },
+        "icon": { "$ref": "#/$defs/iconSlug" }
+      }
+    },
+    "overview": {
+      "description": "The summary tiles above the list. label names the section for assistive technology.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["label", "tiles"],
+      "properties": {
+        "label": { "$ref": "#/$defs/copy" },
+        "tiles": {
+          "description": "Each metric may appear once; the host's admission checks that.",
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 8,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/overviewTile" }
+        }
+      }
+    },
+    "overviewTile": {
+      "description": "One summary tile. The metric names a value the host computes - a tile picks and captions it, never defines it. detail is the caption under the value; zeroDetail, when present, replaces it while the value is zero. Both are plain substitution over the metric's placeholder namespace: only the automations metric exposes {{active}}, so every other tile's copy is literal.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["metric", "label", "detail", "icon"],
+      "properties": {
+        "metric": {
+          "enum": ["automations", "needs-attention", "total-runs", "average-duration"]
+        },
+        "label": { "$ref": "#/$defs/copy" },
+        "detail": { "$ref": "#/$defs/copy" },
+        "zeroDetail": { "$ref": "#/$defs/copy" },
+        "icon": { "$ref": "#/$defs/iconSlug" }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": { "metric": { "const": "automations" } },
+            "required": ["metric"]
+          },
+          "then": {
+            "properties": {
+              "detail": { "not": { "pattern": "\\{\\{(?!active\\}\\})" } },
+              "zeroDetail": { "not": { "pattern": "\\{\\{(?!active\\}\\})" } }
+            }
+          },
+          "else": {
+            "properties": {
+              "detail": { "not": { "pattern": "\\{\\{" } },
+              "zeroDetail": { "not": { "pattern": "\\{\\{" } }
+            }
+          }
+        }
+      ]
+    },
+    "statusFilter": {
+      "description": "The status filter. Values name predicates the host implements over an automation and its derived health; the manifest supplies which appear and their labels. The all option is the host's default and reset target, so it must be offered.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "label", "options"],
+      "properties": {
+        "id": { "const": "status" },
+        "label": {
+          "description": "The control's accessible name.",
+          "$ref": "#/$defs/copy"
+        },
+        "options": {
+          "description": "Each value may appear once; the host's admission checks that.",
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 8,
+          "uniqueItems": true,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["value", "label"],
+            "properties": {
+              "value": { "enum": ["all", "active", "failing", "disabled"] },
+              "label": { "$ref": "#/$defs/copy" }
+            }
+          },
+          "contains": {
+            "type": "object",
+            "required": ["value"],
+            "properties": { "value": { "const": "all" } }
+          }
+        }
+      }
+    },
+    "triggerFilter": {
+      "description": "The trigger filter. Like the status filter, values name host-implemented predicates: event matches event-triggered automations, schedule everything else.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "label", "options"],
+      "properties": {
+        "id": { "const": "trigger" },
+        "label": {
+          "description": "The control's accessible name.",
+          "$ref": "#/$defs/copy"
+        },
+        "options": {
+          "description": "Each value may appear once; the host's admission checks that.",
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 8,
+          "uniqueItems": true,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["value", "label"],
+            "properties": {
+              "value": { "enum": ["all", "schedule", "event"] },
+              "label": { "$ref": "#/$defs/copy" }
+            }
+          },
+          "contains": {
+            "type": "object",
+            "required": ["value"],
+            "properties": { "value": { "const": "all" } }
+          }
+        }
+      }
+    },
+    "sort": {
+      "description": "The sort dropdown. Values name comparators the host implements. default must be one of the declared option values; the host's admission checks that, as schemas cannot cheaply.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["label", "options", "default"],
+      "properties": {
+        "label": {
+          "description": "The control's accessible name.",
+          "$ref": "#/$defs/copy"
+        },
+        "options": {
+          "description": "Each value may appear once; the host's admission checks that.",
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 3,
+          "uniqueItems": true,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["value", "label"],
+            "properties": {
+              "value": { "$ref": "#/$defs/sortValue" },
+              "label": { "$ref": "#/$defs/copy" }
+            }
+          }
+        },
+        "default": { "$ref": "#/$defs/sortValue" }
+      }
+    },
+    "sortValue": { "enum": ["last-run", "runs", "name"] },
+    "insights": {
+      "description": "Copy for the per-automation run insights on cards and rows. The states, precedence, sampling, and value formatting are the host's; the manifest names them.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["health", "lastRun", "stats"],
+      "properties": {
+        "health": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "healthy",
+            "failing",
+            "running",
+            "disabled",
+            "neverRun",
+            "checking"
+          ],
+          "properties": {
+            "healthy": { "$ref": "#/$defs/copy" },
+            "failing": { "$ref": "#/$defs/copy" },
+            "running": { "$ref": "#/$defs/copy" },
+            "disabled": { "$ref": "#/$defs/copy" },
+            "neverRun": { "$ref": "#/$defs/copy" },
+            "checking": { "$ref": "#/$defs/copy" }
+          }
+        },
+        "lastRun": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["label", "never", "justNow"],
+          "properties": {
+            "label": { "$ref": "#/$defs/copy" },
+            "never": { "$ref": "#/$defs/copy" },
+            "justNow": { "$ref": "#/$defs/copy" }
+          }
+        },
+        "stats": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["runs", "recentSuccess", "averageDuration"],
+          "properties": {
+            "runs": { "$ref": "#/$defs/copy" },
+            "recentSuccess": { "$ref": "#/$defs/copy" },
+            "averageDuration": { "$ref": "#/$defs/copy" }
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "name": "upstream-fork-sync",
+  "version": "1.0.0",
+  "description": "Create a cron automation that keeps a long-lived fork synchronized with its upstream. Fetches upstream changes, rebases local customizations on top, verifies the software works, and replaces the running version when the rebase is clean.",
+  "author": {
+    "name": "OpenHands",
+    "email": "contact@all-hands.dev"
+  },
+  "homepage": "https://github.com/OpenHands/extensions",
+  "repository": "https://github.com/OpenHands/extensions",
+  "license": "MIT",
+  "keywords": [
+    "fork",
+    "upstream",
+    "rebase",
+    "sync",
+    "cron",
+    "automation",
+    "long-lived-fork"
+  ]
+}

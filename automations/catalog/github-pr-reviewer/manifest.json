@@ -1,0 +1,150 @@
+{
+  "id": "github-pr-reviewer",
+  "version": "1.5.0",
+  "name": "GitHub code review",
+  "category": "Code review",
+  "description": "Review requested pull-request heads, record exact-head decisions, stop early on out-of-scope changes, and optionally request a code-aware human maintainer after approval or a maintainer-decision scope stop.",
+  "requires": {
+    "integrations": {},
+    "features": [
+      "customTarball",
+      "agentProfiles"
+    ]
+  },
+  "popularityRank": 100,
+  "estimatedSetupMinutes": 4,
+  "exampleImplementation": "A scheduled label scan or GitHub reviewer-request event selects a PR head and submits an idempotent subject turn. The profile-backed agent clones that exact head in its runtime, applies an early repository-ownership and product/architecture scope gate, then reuses the established review workflow, runs appropriate tests, and publishes a readable native review. A native approval, or a maintainer-decision scope stop, can then be handed to a code-aware human maintainer.",
+  "impact": {
+    "basis": "completed-runs",
+    "one": "1 PR review sweep completed",
+    "other": "{{count}} PR review sweeps completed"
+  },
+  "setup": {
+    "version": "1.0",
+    "mode": "direct",
+    "form": {
+      "triggers": {
+        "cron": {
+          "schedule": {
+            "type": "cron",
+            "label": "Check frequency",
+            "help": "How often to look for newly labelled pull requests.",
+            "default": "*/15 * * * *",
+            "required": true
+          },
+          "timezone": {
+            "type": "timezone",
+            "label": "Timezone",
+            "help": "Timezone the schedule is interpreted in.",
+            "default": "UTC",
+            "required": true
+          }
+        },
+        "event": {
+          "on": {
+            "type": "select",
+            "label": "GitHub events",
+            "help": "Handle requests for the configured bot and its resulting native reviews.",
+            "default": "*",
+            "required": true,
+            "options": [
+              {
+                "value": "*",
+                "label": "Reviewer request and completion"
+              }
+            ]
+          }
+        }
+      },
+      "args": {
+        "repositories": {
+          "type": "repo-picker",
+          "label": "Repositories",
+          "help": "The repositories whose pull requests will be reviewed. Each is polled independently and keeps its own state, so pull request numbers never collide between them.",
+          "provider": "github",
+          "multiple": true,
+          "required": true
+        },
+        "triggerLabel": {
+          "type": "text",
+          "label": "Trigger label",
+          "help": "Only pull requests carrying this label are reviewed.",
+          "default": "openhands-review",
+          "required": true,
+          "constraints": {
+            "minLength": 1,
+            "maxLength": 50
+          }
+        },
+        "triggerReviewer": {
+          "type": "text",
+          "label": "Requested reviewer",
+          "help": "GitHub login whose review request starts an event-driven review.",
+          "default": "all-hands-bot",
+          "required": true,
+          "constraints": {
+            "minLength": 1,
+            "maxLength": 39
+          }
+        },
+        "reviewTone": {
+          "type": "select",
+          "label": "Review tone",
+          "help": "How detailed the review comments should be.",
+          "default": "concise",
+          "required": true,
+          "options": [
+            {
+              "value": "concise",
+              "label": "Concise"
+            },
+            {
+              "value": "thorough",
+              "label": "Thorough"
+            },
+            {
+              "value": "friendly",
+              "label": "Friendly"
+            }
+          ]
+        },
+        "maintainers": {
+          "type": "text",
+          "label": "Maintainers",
+          "help": "Optional comma-separated GitHub collaborator logins. Include at least two so a maintainer-authored PR still has an eligible reviewer. After an exact-head approval, request one based on changed-path history and current review load.",
+          "default": "",
+          "required": false
+        },
+        "githubTokenSecret": {
+          "type": "text",
+          "label": "GitHub token secret",
+          "help": "Name of a saved Agent Server secret. Include it in the selected profile so the delegated agent can use GitHub.",
+          "default": "GITHUB_PERSONAL_ACCESS_TOKEN",
+          "required": true
+        }
+      }
+    },
+    "bundle": {
+      "version": "1.5.0",
+      "entrypoint": "python3 worker.py",
+      "timeout": 300,
+      "files": {
+        "main.py": "skills/github-pr-reviewer/scripts/main.py",
+        "agent_conversation.py": "skills/github/scripts/agent_conversation.py",
+        "github_client.py": "skills/github/scripts/github_client.py",
+        "maintainer_handoff.py": "skills/github-pr-reviewer/scripts/maintainer_handoff.py",
+        "worker.py": "skills/github-pr-reviewer/scripts/worker.py"
+      },
+      "config": {
+        "repos": "{{form.repositories}}",
+        "trigger_label": "{{form.triggerLabel}}",
+        "trigger_reviewer": "{{form.triggerReviewer}}",
+        "review_tone": "{{form.reviewTone}}",
+        "maintainers": "{{form.maintainers}}",
+        "github_token_secret": "{{form.githubTokenSecret}}"
+      }
+    },
+    "filter": "contains({{form.repositories}}, repository.full_name) && contains(keys(@), 'pull_request') && ((action == 'review_requested' && requested_reviewer.login == '{{form.triggerReviewer}}') || (action == 'submitted' && contains(keys(@), 'review') && review.user.login == '{{form.triggerReviewer}}'))",
+    "message": "Configure the repositories, trigger, review tone, optional maintainer roster, credential name, and agent profile."
+  }
+}
