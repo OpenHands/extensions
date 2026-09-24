@@ -5,8 +5,27 @@ triggers:
 - github
 ---
 
-You have access to an environment variable, `GITHUB_TOKEN`, which allows you to interact with
-the GitHub API.
+You can interact with GitHub using one of the following methods, in order of preference:
+
+1. **OAuth MCP Server** (preferred): If authenticated GitHub MCP tools are available in the
+   environment, use them for GitHub operations. MCP tools handle authentication via the
+   configured OAuth integration, so no token is needed.
+2. **Secret Token**: If a `GITHUB_TOKEN` environment variable is set, use it with the GitHub
+   API and GitHub CLI (`gh`), as described below.
+3. **No authentication**: If neither is available, ask the user to either:
+   - Connect a GitHub OAuth MCP server in Canvas, OR
+   - Provide a `GITHUB_TOKEN` as a Secret
+
+Detection is based on the availability of authenticated GitHub MCP tools - no specific
+MCP server name or tool name is required. When MCP tools are available, prefer them;
+the token/REST and `gh` flows below remain the correct path when MCP is unavailable or
+when you explicitly need raw API/curl or CLI access.
+
+If `GITHUB_TOKEN` may be set but you are unsure, check it before relying on the token path:
+
+```bash
+[ -n "$GITHUB_TOKEN" ] && echo "GITHUB_TOKEN is set" || echo "GITHUB_TOKEN is NOT set"
+```
 
 <IMPORTANT>
 You can use `curl` with the `GITHUB_TOKEN` to interact with GitHub's API.

@@ -3,9 +3,24 @@ name: bitbucket-cloud
 description: Bitbucket Cloud (bitbucket.org) specifics — authenticate with BITBUCKET_TOKEN, use the REST API v2, workspace/repo_slug repositories, and the create_bitbucket_pr tool. Loaded on demand by the bitbucket skill once a Cloud environment is detected.
 ---
 
-You are working with **Bitbucket Cloud** (`bitbucket.org`). You have access to an
-environment variable, `BITBUCKET_TOKEN`, which allows you to interact with the Bitbucket
-Cloud API.
+You are working with **Bitbucket Cloud** (`bitbucket.org`). You can interact with Bitbucket
+Cloud using one of the following methods, in order of preference:
+
+1. **OAuth MCP Server** (preferred): If authenticated Bitbucket MCP tools are available in
+   the environment, use them for Bitbucket Cloud operations. MCP tools handle
+   authentication via the configured OAuth integration, so no token is needed.
+2. **Secret Token**: If a `BITBUCKET_TOKEN` environment variable is set, use it with the
+   Bitbucket Cloud API, as described below.
+3. **No authentication**: If neither is available, ask the user to either:
+   - Connect a Bitbucket OAuth MCP server in Canvas, OR
+   - Provide a `BITBUCKET_TOKEN` as a Secret
+
+Detection is based on the availability of authenticated Bitbucket MCP tools - no specific
+MCP server name or tool name is required. When MCP tools are available, prefer them; the
+token/direct-API flows below remain the correct path when MCP is unavailable or when you
+explicitly need raw API/curl access.
+
+The `BITBUCKET_TOKEN` path uses these specifics:
 
 - REST API base URL: `https://api.bitbucket.org/2.0`
 - Repository identifier format: `workspace/repo_slug`
