@@ -1,0 +1,19 @@
+{
+  "name": "test-improvement-workflow",
+  "version": "1.0.0",
+  "description": "Concise orchestrator for auditing, prioritizing, validating, and implementing test-suite improvements using Dave Farley's 8 properties.",
+  "author": {
+    "name": "OpenHands",
+    "email": "contact@all-hands.dev"
+  },
+  "homepage": "https://github.com/OpenHands/extensions",
+  "repository": "https://github.com/OpenHands/extensions",
+  "license": "MIT",
+  "keywords": [
+    "testing",
+    "test-quality",
+    "workflow",
+    "dave-farley",
+    "audit"
+  ]
+}

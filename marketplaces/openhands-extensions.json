@@ -836,6 +836,71 @@
       ]
     },
     {
+      "name": "test-improvement-workflow",
+      "source": "./skills/test-improvement-workflow",
+      "description": "Concise orchestrator for auditing, prioritizing, validating, and implementing test-suite improvements using Dave Farley's 8 properties.",
+      "category": "testing",
+      "keywords": [
+        "testing",
+        "test-quality",
+        "workflow",
+        "dave-farley",
+        "audit"
+      ]
+    },
+    {
+      "name": "test-prioritization-framework",
+      "source": "./skills/test-prioritization-framework",
+      "description": "Reliability-first framework for consolidating and prioritizing test audit findings into CRITICAL, HIGH, and MEDIUM work.",
+      "category": "testing",
+      "keywords": [
+        "testing",
+        "prioritization",
+        "test-quality",
+        "audit",
+        "reliability"
+      ]
+    },
+    {
+      "name": "test-validation-checklist",
+      "source": "./skills/test-validation-checklist",
+      "description": "Checklist for validating proposed test-suite improvements against the real code before implementation.",
+      "category": "testing",
+      "keywords": [
+        "testing",
+        "validation",
+        "audit",
+        "checklist",
+        "verification"
+      ]
+    },
+    {
+      "name": "test-improvement-patterns",
+      "source": "./skills/test-improvement-patterns",
+      "description": "Common execution patterns for implementing validated test-suite improvements with safe refactoring and TDD loops.",
+      "category": "testing",
+      "keywords": [
+        "testing",
+        "patterns",
+        "refactoring",
+        "tdd",
+        "test-quality"
+      ]
+    },
+    {
+      "name": "test-improvement",
+      "source": "./plugins/test-improvement",
+      "description": "Bundle the test-improvement workflow, prioritization, validation, and execution-pattern skills into one installable plugin.",
+      "category": "testing",
+      "keywords": [
+        "testing",
+        "test-improvement",
+        "quality",
+        "pytest",
+        "refactor"
+      ]
+    },
+    {
       "name": "news-digest",
       "source": "./skills/news-digest",
       "description": "Create an automation that reads public RSS and Atom feeds on a schedule, keeps what is new and matches the configured topics, and has an agent write a short digest of it. Needs no credentials.",

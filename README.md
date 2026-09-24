@@ -96,7 +96,7 @@ The JS and Python versions are kept in lock-step by `release-please` and guarded
 ## Extensions Catalog
 
 <!-- BEGIN AUTO-GENERATED CATALOG -->
-This repository contains **2 marketplace(s)** with **73 extensions** (63 skills, 10 plugins).
+This repository contains **2 marketplace(s)** with **78 extensions** (67 skills, 11 plugins).
 
 ### large-codebase
 
@@ -115,7 +115,7 @@ OpenHands skills for interacting, improving, and refactoring large codebases
 
 Official skills and plugins for OpenHands — the open-source AI software engineer.
 
-**69 extensions** (61 skills, 8 plugins)
+**74 extensions** (65 skills, 9 plugins)
 
 | Name | Type | Description | Commands |
 |------|------|-------------|----------|
@@ -182,6 +182,11 @@ Official skills and plugins for OpenHands — the open-source AI software engine
 | ssh | skill | Establish and manage SSH connections to remote machines, including key generation, configuration, and file transfers.... | — |
 | swift-linux | skill | Install and configure Swift programming language on Debian Linux for server-side development. Use when building Swift... | — |
 | technical-writing | skill | Write and revise technical explanations in flowing, direct, conversational prose that stays concise without becoming ... | — |
+| test-improvement | plugin | Bundle the test-improvement workflow, prioritization, validation, and execution-pattern skills into one installable p... | — |
+| test-improvement-patterns | skill | Common execution patterns for implementing validated test-suite improvements with safe refactoring and TDD loops. | — |
+| test-improvement-workflow | skill | Concise orchestrator for auditing, prioritizing, validating, and implementing test-suite improvements using Dave Farl... | — |
+| test-prioritization-framework | skill | Reliability-first framework for consolidating and prioritizing test audit findings into CRITICAL, HIGH, and MEDIUM work. | — |
+| test-validation-checklist | skill | Checklist for validating proposed test-suite improvements against the real code before implementation. | — |
 | theme-factory | skill | Toolkit for styling artifacts with a theme. These artifacts can be slides, docs, reportings, HTML landing pages, etc.... | — |
 | ticket-to-code-change | skill | Set up Jira or Linear ticket-to-code-change automations for GitHub, GitLab, and Bitbucket. | `/ticket-to-code-change:setup` |
 | upstream-fork-sync | skill | Keep a long-lived fork in sync with its upstream. Creates a cron automation that fetches upstream changes, rebases lo... | `/upstream-fork-sync:setup` |

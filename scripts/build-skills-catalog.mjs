@@ -28,6 +28,7 @@ export const SKILL_CATEGORY_IDS = [
   "code-hosting",
   "agent-authoring",
   "code-quality",
+  "testing",
   "integrations",
   "writing",
   "design",
