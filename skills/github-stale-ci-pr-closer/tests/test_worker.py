@@ -125,6 +125,18 @@ class TestReconcile(unittest.TestCase):
             self.records["7"], {"head_sha": "def", "first_failed_at": 14 * DAY}
         )
 
+    def test_old_check_failure_warns_despite_recent_pr_activity(self):
+        self.pr["updated_at"] = "1970-01-08T00:00:00Z"
+        self.pr["_ci_state"] = "failing"
+        self.pr["_failed_at"] = 0
+        self.assertEqual(self.reconcile(7 * DAY), "warned")
+
+    def test_backfills_legacy_observation_time_from_check_failure(self):
+        self.records["7"] = {"head_sha": "abc", "first_failed_at": 6 * DAY}
+        self.pr["_ci_state"] = "failing"
+        self.pr["_failed_at"] = 0
+        self.assertEqual(self.reconcile(7 * DAY), "warned")
+
     def test_draft_cancels_the_lifecycle(self):
         self.reconcile(0)
         self.pr["draft"] = True
@@ -185,28 +197,109 @@ class TestRequiredCI(unittest.TestCase):
         ]
         self.assertEqual(self.state(runs, required), "pending")
 
+    def test_newest_required_failure_sets_the_age(self):
+        contexts = [
+            {
+                "__typename": "CheckRun",
+                "databaseId": 2,
+                "name": "a",
+                "status": "COMPLETED",
+                "conclusion": "FAILURE",
+                "completedAt": "1970-01-01T00:00:00Z",
+                "checkSuite": {"app": {"databaseId": 1}},
+            },
+            {
+                "__typename": "CheckRun",
+                "databaseId": 3,
+                "name": "b",
+                "status": "COMPLETED",
+                "conclusion": "FAILURE",
+                "completedAt": "1970-01-03T00:00:00Z",
+                "checkSuite": {"app": {"databaseId": 1}},
+            },
+        ]
+        state, failed_at = self.closer._graphql_ci_result(
+            contexts,
+            [
+                {"context": "a", "integration_id": 1},
+                {"context": "b", "integration_id": 1},
+            ],
+        )
+        self.assertEqual(state, "failing")
+        self.assertEqual(failed_at, 2 * DAY)
 
-class TestCandidateSearch(unittest.TestCase):
+
+class TestPullRequestPagination(unittest.TestCase):
     def setUp(self):
         self.closer = object.__new__(worker.StaleCIPullRequestCloser)
         self.closer.repository = "OpenHands/OpenHands"
 
-    def test_searches_only_inactive_failing_pull_requests(self):
-        self.closer.api = Mock(
-            return_value={
-                "incomplete_results": False,
-                "items": [{"number": 2}, {"number": 3}],
+    @staticmethod
+    def page(number, has_next, cursor):
+        return {
+            "data": {
+                "repository": {
+                    "pullRequests": {
+                        "pageInfo": {
+                            "hasNextPage": has_next,
+                            "endCursor": cursor,
+                        },
+                        "nodes": [
+                            {
+                                "number": number,
+                                "isDraft": False,
+                                "baseRefName": "main",
+                                "headRefOid": f"sha-{number}",
+                                "author": {"login": "author"},
+                                "commits": {
+                                    "nodes": [
+                                        {
+                                            "commit": {
+                                                "statusCheckRollup": {
+                                                    "contexts": {
+                                                        "totalCount": 0,
+                                                        "nodes": [],
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    ]
+                                },
+                            }
+                        ],
+                    }
+                }
             }
-        )
-        self.assertEqual(self.closer.stale_failure_numbers(14 * DAY), {2, 3})
-        params = self.closer.api.call_args.kwargs["params"]
-        self.assertIn("is:pr is:open draft:false status:failure", params["q"])
-        self.assertIn("updated:<1970-01-08", params["q"])
+        }
 
-    def test_rejects_incomplete_search_results(self):
-        self.closer.api = Mock(return_value={"incomplete_results": True, "items": []})
-        with self.assertRaisesRegex(RuntimeError, "incomplete"):
-            self.closer.stale_failure_numbers(14 * DAY)
+    def test_paginates_every_open_pull_request(self):
+        self.closer.required_checks = Mock(return_value=[])
+        self.closer.api = Mock(
+            side_effect=[self.page(2, True, "next"), self.page(3, False, None)]
+        )
+        self.assertEqual(
+            [pr["number"] for pr in self.closer.open_pull_requests()], [2, 3]
+        )
+        second_variables = self.closer.api.call_args_list[1].kwargs["body"]["variables"]
+        self.assertEqual(second_variables["cursor"], "next")
+
+    def test_falls_back_to_rest_when_check_contexts_are_paginated(self):
+        page = self.page(2, False, None)
+        contexts = page["data"]["repository"]["pullRequests"]["nodes"][0]["commits"][
+            "nodes"
+        ][0]["commit"]["statusCheckRollup"]["contexts"]
+        contexts["totalCount"] = 101
+        self.closer.required_checks = Mock(return_value=[{"context": "test"}])
+        self.closer.required_ci_result = Mock(return_value=("failing", 0))
+        self.closer.api = Mock(return_value=page)
+
+        pull_request = self.closer.open_pull_requests()[0]
+
+        self.assertEqual(pull_request["_ci_state"], "failing")
+        self.assertEqual(pull_request["_failed_at"], 0)
+        self.closer.required_ci_result.assert_called_once_with(
+            "sha-2", [{"context": "test"}]
+        )
 
 
 if __name__ == "__main__":
