@@ -1,0 +1,272 @@
+"""Warn and close abandoned pull requests with persistently failing required CI."""
+
+import json
+import os
+import time
+from datetime import datetime
+from pathlib import Path
+from urllib.error import HTTPError
+from urllib.parse import quote
+from urllib.request import Request, urlopen
+
+from github_client import GitHubRepository, run_repositories
+
+WARN_AFTER_SECONDS = 7 * 24 * 60 * 60
+CLOSE_AFTER_SECONDS = 7 * 24 * 60 * 60
+WARNING_MARKER = "<!-- openhands-stale-ci-warning -->"
+CLOSE_MARKER = "<!-- openhands-stale-ci-close -->"
+PASSING_CONCLUSIONS = {"success", "neutral", "skipped"}
+KV_TOKEN = os.environ.get("AUTOMATION_KV_TOKEN", "")
+KV_BASE = os.environ.get("AUTOMATION_API_URL", "").rstrip("/")
+
+
+def _timestamp(value):
+    return datetime.fromisoformat(value).timestamp()
+
+
+def _state_key(repo):
+    return "github-stale-ci-pr-closer:" + repo.replace("/", "__")
+
+
+def _state_path(repo):
+    workspace = Path(
+        os.environ.get("WORKSPACE_BASE", Path.home() / ".openhands/workspaces")
+    )
+    root = (
+        workspace.resolve().parent.parent
+        if os.environ.get("WORKSPACE_BASE")
+        else workspace
+    )
+    directory = root / "automation-state"
+    directory.mkdir(parents=True, exist_ok=True)
+    return directory / (_state_key(repo) + ".json")
+
+
+def _kv_request(key, method, value=None):
+    if not KV_TOKEN or not KV_BASE:
+        return None
+    data = json.dumps({"value": value}).encode() if value is not None else None
+    request = Request(
+        f"{KV_BASE}/v1/kv/{quote(key, safe='')}",
+        data=data,
+        method=method,
+        headers={
+            "Authorization": f"Bearer {KV_TOKEN}",
+            "Content-Type": "application/json",
+        },
+    )
+    try:
+        with urlopen(request) as response:
+            payload = json.loads(response.read() or b"{}")
+            return payload.get("value")
+    except HTTPError as exc:
+        if method == "GET" and exc.code == 404:
+            return None
+        raise
+
+
+def load_state(repo):
+    if KV_TOKEN and KV_BASE:
+        return _kv_request(_state_key(repo), "GET") or {"version": 1, "prs": {}}
+    path = _state_path(repo)
+    if not path.exists():
+        return {"version": 1, "prs": {}}
+    return json.loads(path.read_text())
+
+
+def save_state(repo, state):
+    state["version"] = 1
+    if KV_TOKEN and KV_BASE:
+        _kv_request(_state_key(repo), "PUT", state)
+        return
+    path = _state_path(repo)
+    temporary = path.with_suffix(".tmp")
+    temporary.write_text(json.dumps(state, indent=2, sort_keys=True) + "\n")
+    os.replace(temporary, path)
+
+
+class StaleCIPullRequestCloser(GitHubRepository):
+    name = "github-stale-ci-pr-closer"
+
+    def required_checks(self, branch):
+        try:
+            rules = self.gh("GET", f"/rules/branches/{quote(branch, safe='')}")
+        except HTTPError as exc:
+            if exc.code == 404:
+                return []
+            raise
+        required = []
+        for rule in rules:
+            if rule.get("type") != "required_status_checks":
+                continue
+            required.extend(
+                rule.get("parameters", {}).get("required_status_checks", [])
+            )
+        return required
+
+    def required_ci_state(self, sha, required):
+        if not required:
+            return "unconfigured"
+        runs = []
+        for page in range(1, 11):
+            batch = self.gh(
+                "GET", f"/commits/{sha}/check-runs?per_page=100&page={page}"
+            )
+            page_runs = batch.get("check_runs", [])
+            runs.extend(page_runs)
+            if len(page_runs) < 100:
+                break
+        else:
+            raise RuntimeError(f"More than 1,000 check runs found for {sha}")
+        latest_runs = {}
+        for run in sorted(runs, key=lambda item: item.get("id", 0), reverse=True):
+            latest_runs.setdefault(
+                (run.get("name"), (run.get("app") or {}).get("id")), run
+            )
+        statuses = {}
+        for status in self.gh_pages(f"/commits/{sha}/statuses"):
+            statuses.setdefault(status.get("context"), status)
+
+        states = []
+        for item in required:
+            context = item["context"]
+            integration = item.get("integration_id") or None
+            run = latest_runs.get((context, integration))
+            if run is None and integration is None:
+                matches = [
+                    value for (name, _), value in latest_runs.items() if name == context
+                ]
+                run = max(matches, key=lambda value: value.get("id", 0), default=None)
+            if run is not None:
+                if run.get("status") != "completed" or run.get("conclusion") is None:
+                    states.append("pending")
+                elif run.get("conclusion") in PASSING_CONCLUSIONS:
+                    states.append("passing")
+                else:
+                    states.append("failing")
+                continue
+            status = statuses.get(context) if integration is None else None
+            if status is None or status.get("state") in {"pending", "expected"}:
+                states.append("pending")
+            elif status.get("state") == "success":
+                states.append("passing")
+            else:
+                states.append("failing")
+        if "pending" in states:
+            return "pending"
+        if "failing" in states:
+            return "failing"
+        return "passing"
+
+    def comments(self, number):
+        return self.gh_pages(f"/issues/{number}/comments")
+
+    def post_comment(self, number, body):
+        return self.gh("POST", f"/issues/{number}/comments", {"body": body})
+
+    @staticmethod
+    def author_followed_up(pr, comments, after):
+        author = (pr.get("user") or {}).get("login", "").lower()
+        return any(
+            (comment.get("user") or {}).get("login", "").lower() == author
+            and _timestamp(comment["created_at"]) > after
+            for comment in comments
+        )
+
+    def reconcile(self, pr, records, now):
+        number = pr["number"]
+        key = str(number)
+        if pr.get("draft"):
+            records.pop(key, None)
+            return "draft"
+        head = pr["head"]["sha"]
+        required = self.required_checks(pr["base"]["ref"])
+        ci_state = self.required_ci_state(head, required)
+        if ci_state != "failing":
+            records.pop(key, None)
+            return ci_state
+
+        record = records.get(key)
+        if not record or record.get("head_sha") != head:
+            record = {"head_sha": head, "first_failed_at": now}
+            records[key] = record
+        warning = record.get("warning")
+        if not warning:
+            if now - record["first_failed_at"] < WARN_AFTER_SECONDS:
+                return "observing"
+            comments = self.comments(number)
+            head_marker = f"<!-- openhands-stale-ci-warning head={head} -->"
+            existing = [
+                comment
+                for comment in comments
+                if head_marker in (comment.get("body") or "")
+            ]
+            existing.sort(
+                key=lambda comment: comment.get("created_at", ""), reverse=True
+            )
+            if existing:
+                warning_at = _timestamp(existing[0]["created_at"])
+                if not self.author_followed_up(pr, comments, warning_at):
+                    warning = {
+                        "at": warning_at,
+                        "head_sha": head,
+                        "comment_id": existing[0].get("id"),
+                    }
+                    record["warning"] = warning
+            if not warning:
+                comment = self.post_comment(
+                    number,
+                    f"{WARNING_MARKER}\n{head_marker}\nRequired CI has remained failing for "
+                    "seven days. Please repair it or comment with an update. If the author "
+                    "does not push or comment and required CI remains failing for another "
+                    "seven days, this pull request will be closed automatically.",
+                )
+                record["warning"] = {
+                    "at": now,
+                    "head_sha": head,
+                    "comment_id": comment.get("id"),
+                }
+                return "warned"
+
+        comments = self.comments(number)
+        if self.author_followed_up(pr, comments, warning["at"]):
+            records[key] = {"head_sha": head, "first_failed_at": now}
+            return "followed-up"
+        if now - warning["at"] < CLOSE_AFTER_SECONDS:
+            return "waiting"
+
+        if not any(CLOSE_MARKER in (comment.get("body") or "") for comment in comments):
+            self.post_comment(
+                number,
+                f"{CLOSE_MARKER}\nClosing because required CI is still failing seven days "
+                "after the automated warning and the author has not pushed or commented. "
+                "The pull request can be reopened when work resumes.",
+            )
+        self.gh("PATCH", f"/pulls/{number}", {"state": "closed"})
+        records.pop(key, None)
+        return "closed"
+
+    def run(self):
+        state = load_state(self.repository)
+        records = state.setdefault("prs", {})
+        open_prs = self.gh_pages("/pulls?state=open")
+        open_numbers = {str(pr["number"]) for pr in open_prs}
+        for key in set(records) - open_numbers:
+            records.pop(key, None)
+        now = time.time()
+        for pr in open_prs:
+            outcome = self.reconcile(pr, records, now)
+            print(
+                json.dumps(
+                    {
+                        "repository": self.repository,
+                        "pr": pr["number"],
+                        "outcome": outcome,
+                    }
+                )
+            )
+        save_state(self.repository, state)
+
+
+if __name__ == "__main__":
+    run_repositories(StaleCIPullRequestCloser)
