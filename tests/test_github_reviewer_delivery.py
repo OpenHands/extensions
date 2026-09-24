@@ -317,6 +317,34 @@ def test_reviewer_event_hands_positive_review_to_maintainer(tmp_path, monkeypatc
     run.dispatcher.deliver.assert_not_called()
 
 
+def test_reviewer_event_skips_handoff_for_low_priority_issue(tmp_path, monkeypatch):
+    module, run = _reviewer(tmp_path, monkeypatch)
+    _event(monkeypatch, action="submitted")
+    run.config["maintainers"] = "neubig, VascoSch92"
+    pr = {
+        "number": 2,
+        "body": "Fixes #7",
+        "head": {"sha": "head-2"},
+        "labels": [],
+    }
+    issue = {"number": 7, "labels": [{"name": "priority:low"}]}
+    request = {
+        "id": 42,
+        "event": "review_requested",
+        "created_at": "2026-01-01T00:00:00Z",
+        "requested_reviewer": {"login": "all-hands-bot"},
+    }
+    run.gh = Mock(side_effect=[{"id": 99}, pr, issue, pr])
+    run.gh_pages = lambda path: [request] if path.endswith("/events") else _reviews()
+    handoff = Mock()
+    monkeypatch.setattr(module, "request_maintainer_review", handoff)
+
+    run.run()
+
+    handoff.assert_not_called()
+    run.dispatcher.deliver.assert_not_called()
+
+
 def test_reviewer_submitted_non_decisive_review_does_not_dispatch(
     tmp_path, monkeypatch
 ):

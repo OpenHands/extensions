@@ -49,11 +49,12 @@ def test_triage_submits_each_changed_issue_as_agent_work(tmp_path, monkeypatch):
         "closest existing or adjacent implementation"
         in submit.call_args_list[0].kwargs["prompt"]
     )
-    assert "Add `ready-for-dev` only after" in submit.call_args_list[0].kwargs["prompt"]
-    assert (
-        "Do not invent acceptance criteria around an arbitrary choice"
-        in submit.call_args_list[0].kwargs["prompt"]
-    )
+    prompt = submit.call_args_list[0].kwargs["prompt"]
+    assert "Add `ready-for-dev` only after" in prompt
+    assert "Default to `priority:low`" in prompt
+    assert "clear user pain" in prompt
+    assert "Technical possibility, code inspection, or a synthetic/unit reproduction" in prompt
+    assert "Do not invent acceptance criteria around an arbitrary choice" in prompt
     assert (
         "ask only the focused follow-up questions needed to resolve it"
         in submit.call_args_list[0].kwargs["prompt"]
