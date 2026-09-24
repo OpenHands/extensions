@@ -255,7 +255,9 @@ class StaleCIPullRequestCloser(GitHubRepository):
             )
             if existing:
                 warning_at = _timestamp(existing[0]["created_at"])
-                if not self.author_followed_up(pr, comments, warning_at):
+                if warning_at >= record[
+                    "first_failed_at"
+                ] and not self.author_followed_up(pr, comments, warning_at):
                     warning = {
                         "at": warning_at,
                         "head_sha": head,

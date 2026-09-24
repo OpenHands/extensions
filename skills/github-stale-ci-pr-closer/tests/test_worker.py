@@ -83,6 +83,25 @@ class TestReconcile(unittest.TestCase):
             self.closer.required_ci_state.return_value = "failing"
             self.reconcile(DAY)
 
+    def test_old_warning_is_not_reused_after_ci_recovers(self):
+        self.reconcile(0)
+        self.reconcile(7 * DAY)
+        self.closer.required_ci_state.return_value = "passing"
+        self.reconcile(8 * DAY)
+        self.closer.required_ci_state.return_value = "failing"
+        self.closer.comments.return_value = [
+            {
+                "id": 41,
+                "user": {"login": "all-hands-bot"},
+                "created_at": "1970-01-08T00:00:00Z",
+                "body": "<!-- openhands-stale-ci-warning head=abc -->",
+            }
+        ]
+        self.assertEqual(self.reconcile(8 * DAY), "observing")
+        self.assertEqual(self.reconcile(15 * DAY), "warned")
+        self.assertEqual(self.closer.post_comment.call_count, 2)
+        self.assertIn("warning", self.records["7"])
+
     def test_author_comment_starts_a_fresh_window(self):
         self.reconcile(0)
         self.reconcile(7 * DAY)
