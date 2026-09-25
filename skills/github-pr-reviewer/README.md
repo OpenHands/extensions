@@ -34,6 +34,9 @@ This skill is activated by:
   so switching a deployment from the event trigger to a cron scan updates the
   outstanding-request explanation instead of leaving the old instruction
 - Watches several repositories from a single automation, each with its own state
+- Bounds a scheduled scan to a small, configurable number of new review
+  conversations across all repositories (default 2), draining the oldest
+  outstanding reviewer requests first and reaching the rest on later scans
 - Processes each review request or label application idempotently
 - Supports re-review by requesting the bot again or re-applying the label. Each
   explicit request refreshes mutable GitHub state (head, PR body, reviews,

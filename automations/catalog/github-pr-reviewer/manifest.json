@@ -1,9 +1,9 @@
 {
   "id": "github-pr-reviewer",
-  "version": "1.6.0",
+  "version": "1.7.0",
   "name": "GitHub code review",
   "category": "Code review",
-  "description": "Review requested pull-request heads, resuming an outstanding reviewer request on a schedule once its checks are green, record exact-head decisions, stop early on out-of-scope changes, and optionally request a code-aware human maintainer after approval or a maintainer-decision scope stop.",
+  "description": "Review requested pull-request heads, resuming an outstanding reviewer request on a schedule once its checks are green, draining the backlog oldest-request first under a small per-scan new-conversation bound, record exact-head decisions, stop early on out-of-scope changes, and optionally request a code-aware human maintainer after approval or a maintainer-decision scope stop.",
   "requires": {
     "integrations": {},
     "features": [
@@ -13,7 +13,7 @@
   },
   "popularityRank": 100,
   "estimatedSetupMinutes": 4,
-  "exampleImplementation": "A scheduled scan of the trigger label and of open non-draft PRs holding an outstanding reviewer request, or a GitHub reviewer-request event, selects a PR head and submits an idempotent subject turn. The profile-backed agent clones that exact head in its runtime, applies an early repository-ownership and product/architecture scope gate, then reuses the established review workflow, runs appropriate tests, and publishes a readable native review. A native approval, or a maintainer-decision scope stop, can then be handed to a code-aware human maintainer.",
+  "exampleImplementation": "A scheduled scan of the trigger label and of open non-draft PRs holding an outstanding reviewer request, or a GitHub reviewer-request event, selects a PR head and submits an idempotent subject turn. The scheduled scan orders eligible heads by the oldest outstanding request and starts at most a small configurable number of new conversations per scan across every repository. The profile-backed agent clones that exact head in its runtime, applies an early repository-ownership and product/architecture scope gate, then reuses the established review workflow, runs appropriate tests, and publishes a readable native review. A native approval, or a maintainer-decision scope stop, can then be handed to a code-aware human maintainer.",
   "impact": {
     "basis": "completed-runs",
     "one": "1 PR review sweep completed",
@@ -87,6 +87,16 @@
             "maxLength": 39
           }
         },
+        "maxNewPerRun": {
+          "type": "number",
+          "label": "New reviews per scan",
+          "help": "Most new review conversations one scheduled scan may start, counted across every repository. Keeps a first scan over a large backlog from starting an agent for every eligible pull request at once. Reviews that are already running are resumed without counting against it.",
+          "default": 2,
+          "required": true,
+          "constraints": {
+            "min": 1
+          }
+        },
         "reviewTone": {
           "type": "select",
           "label": "Review tone",
@@ -125,7 +135,7 @@
       }
     },
     "bundle": {
-      "version": "1.6.0",
+      "version": "1.7.0",
       "entrypoint": "python3 worker.py",
       "timeout": 300,
       "files": {
@@ -139,12 +149,13 @@
         "repos": "{{form.repositories}}",
         "trigger_label": "{{form.triggerLabel}}",
         "trigger_reviewer": "{{form.triggerReviewer}}",
+        "max_new_per_run": "{{form.maxNewPerRun}}",
         "review_tone": "{{form.reviewTone}}",
         "maintainers": "{{form.maintainers}}",
         "github_token_secret": "{{form.githubTokenSecret}}"
       }
     },
     "filter": "contains({{form.repositories}}, repository.full_name) && contains(keys(@), 'pull_request') && ((action == 'review_requested' && requested_reviewer.login == '{{form.triggerReviewer}}') || (action == 'submitted' && contains(keys(@), 'review') && review.user.login == '{{form.triggerReviewer}}'))",
-    "message": "Configure the repositories, trigger, review tone, optional maintainer roster, credential name, and agent profile."
+    "message": "Configure the repositories, trigger, review tone, optional maintainer roster, credential name, per-scan new-review bound, and agent profile."
   }
 }
