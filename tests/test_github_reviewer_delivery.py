@@ -37,6 +37,15 @@ def _reviewer(tmp_path, monkeypatch):
     run.token_name = "FACTORY_GITHUB_REVIEWER_TOKEN"
     run.github_login = "all-hands-bot"
     run.dispatcher = Mock()
+    # Default to a head with no reported check runs or workflow runs, which the
+    # gate reads as green. Gate-specific tests override these.
+    run.check_runs = lambda sha: []
+    run.workflow_runs = lambda sha: []
+    run.statuses = lambda sha: {}
+    # Default to no required-check signal so the gate uses its conservative
+    # all-run fallback, matching the pre-required-check behavior. Tests that
+    # exercise required-only classification override this.
+    run.required_check_contexts = lambda number: []
     monkeypatch.delenv("AUTOMATION_EVENT_PAYLOAD", raising=False)
     monkeypatch.setattr(
         module.workflow,
@@ -44,6 +53,65 @@ def _reviewer(tmp_path, monkeypatch):
         lambda *args: {"id": 7, "created_at": "2026-01-01T00:00:00Z"},
     )
     return module, run
+
+
+def _checks(*runs, sha="head-2"):
+    """Check runs as the API reports them: name, status, and conclusion."""
+    return [{"name": name, "status": status, "conclusion": conclusion, "head_sha": sha}
+            for name, status, conclusion in runs]
+
+
+def _run(
+    name,
+    status,
+    conclusion,
+    *,
+    app="github-actions",
+    started_at="",
+    run_id=0,
+    sha="head-2",
+    suite_id=0,
+):
+    """One check run with the app identity and ordering fields the API sends."""
+    return {
+        "name": name,
+        "status": status,
+        "conclusion": conclusion,
+        "head_sha": sha,
+        "app": {"slug": app},
+        "started_at": started_at,
+        "id": run_id,
+        "check_suite": {"id": suite_id},
+    }
+
+
+def _workflow_run(
+    name,
+    status,
+    conclusion,
+    *,
+    run_id=0,
+    suite_id=0,
+    workflow_id=0,
+    sha="head-2",
+    started_at="",
+):
+    """One Actions workflow run, as the runs endpoint reports it.
+
+    `check_suite_id` links the run to its check runs; a suite whose workflows
+    failed before any job reported has no check runs under it.
+    """
+    return {
+        "name": name,
+        "status": status,
+        "conclusion": conclusion,
+        "head_sha": sha,
+        "id": run_id,
+        "check_suite_id": suite_id,
+        "workflow_id": workflow_id,
+        "run_started_at": started_at,
+        "created_at": started_at,
+    }
 
 
 def _event(monkeypatch, *, action="review_requested", login="all-hands-bot"):
@@ -551,3 +619,922 @@ def test_reviewer_hands_scope_stop_to_maintainer(tmp_path, monkeypatch):
         "/issues/2/labels/openhands-review",
     )
     run.dispatcher.deliver.assert_not_called()
+
+
+# --------------------------------------------------------------------------- #
+# Head-eligibility gate: a deterministically blocked head spends no agent work.
+# --------------------------------------------------------------------------- #
+
+
+def _labeled_pr(number=2, sha="head-2"):
+    return {
+        "number": number,
+        "head": {"sha": sha},
+        "labels": [{"name": "openhands-review"}],
+    }
+
+
+def _comment(body, login="all-hands-bot", comment_id=900):
+    return {
+        "id": comment_id,
+        "body": body,
+        "user": {"login": login},
+    }
+
+
+def _gate_pages(pr, comments):
+    return lambda path: (
+        [pr] if path.startswith("/pulls?") else comments
+    )
+
+
+def _gate_comment_calls(run, number=2):
+    return [
+        call
+        for call in run.gh.call_args_list
+        if call.args[1] == f"/issues/{number}/comments"
+    ]
+
+
+def test_reviewer_blocking_current_head_check_creates_no_conversation(
+    tmp_path, monkeypatch
+):
+    _module, run = _reviewer(tmp_path, monkeypatch)
+    pr = _labeled_pr()
+    run.gh_pages = _gate_pages(pr, [])
+    run.gh = Mock(side_effect=[{"id": 99}, pr, {"id": 1234}])
+    run.check_runs = lambda sha: _checks(
+        ("Validate PR description", "completed", "failure"), sha=sha
+    )
+
+    run.run()
+
+    run.dispatcher.deliver.assert_not_called()
+    posted = [call for call in _gate_comment_calls(run) if call.args[0] == "POST"]
+    assert len(posted) == 1
+    body = posted[0].args[2]["body"]
+    assert "<!-- openhands-review-gate:blocked:head-2 -->" in body
+    assert "`Validate PR description`" in body
+    assert "no AI was used to generate this comment" in body
+
+
+def test_reviewer_green_current_head_creates_exactly_one_conversation(
+    tmp_path, monkeypatch
+):
+    _module, run = _reviewer(tmp_path, monkeypatch)
+    pr = _labeled_pr()
+    run.gh_pages = _gate_pages(pr, [])
+    run.gh = Mock(side_effect=[{"id": 99}, pr])
+    run.check_runs = lambda sha: _checks(
+        ("Validate PR description", "completed", "success"),
+        ("lint", "completed", "skipped"),
+        ("optional", "completed", "neutral"),
+        sha=sha,
+    )
+    run.dispatcher.deliver.return_value = {
+        "disposition": "created",
+        "conversation_id": "conversation",
+    }
+
+    run.run()
+
+    run.dispatcher.deliver.assert_called_once()
+    assert run.dispatcher.deliver.call_args.kwargs["delivery"] == "7:head-2"
+
+
+def test_reviewer_pending_current_head_check_waits_without_a_conversation(
+    tmp_path, monkeypatch
+):
+    _module, run = _reviewer(tmp_path, monkeypatch)
+    pr = _labeled_pr()
+    run.gh_pages = _gate_pages(pr, [])
+    run.gh = Mock(side_effect=[{"id": 99}, pr, {"id": 1234}])
+    run.check_runs = lambda sha: _checks(
+        ("ci", "completed", "success"),
+        ("slow-e2e", "in_progress", None),
+        sha=sha,
+    )
+
+    run.run()
+
+    run.dispatcher.deliver.assert_not_called()
+    posted = [call for call in _gate_comment_calls(run) if call.args[0] == "POST"]
+    assert len(posted) == 1
+    body = posted[0].args[2]["body"]
+    assert "<!-- openhands-review-gate:waiting:head-2 -->" in body
+    assert "`slow-e2e`" in body
+    assert "waiting on checks" in body
+
+
+def test_reviewer_ignores_checks_from_an_obsolete_head(tmp_path, monkeypatch):
+    _module, run = _reviewer(tmp_path, monkeypatch)
+    pr = _labeled_pr()
+    run.gh_pages = _gate_pages(pr, [])
+    run.gh = Mock(side_effect=[{"id": 99}, pr])
+    run.check_runs = lambda sha: _checks(
+        ("Validate PR description", "completed", "failure"), sha="head-1"
+    )
+    run.dispatcher.deliver.return_value = {
+        "disposition": "created",
+        "conversation_id": "conversation",
+    }
+
+    run.run()
+
+    run.dispatcher.deliver.assert_called_once()
+    assert _gate_comment_calls(run) == []
+
+
+def test_reviewer_blocks_a_workflow_that_failed_with_no_check_runs(
+    tmp_path, monkeypatch
+):
+    """The #426 case: green check-run rollup, but a workflow failed before jobs.
+
+    `Tests`, `Check Extensions`, and `Deprecation deadlines` failed with zero
+    jobs, so they contributed no check runs and the commit's rollup was a green
+    `pr-title`. Reading only check runs launched the reviewer for red CI.
+    """
+    _module, run = _reviewer(tmp_path, monkeypatch)
+    pr = _labeled_pr()
+    run.gh_pages = _gate_pages(pr, [])
+    run.gh = Mock(side_effect=[{"id": 99}, pr, {"id": 1234}])
+    run.check_runs = lambda sha: _checks(
+        ("pr-title / Lint PR title (conventional)", "completed", "success"), sha=sha
+    )
+    run.workflow_runs = lambda sha: [
+        _workflow_run(
+            "Tests",
+            "completed",
+            "failure",
+            run_id=3,
+            suite_id=3003,
+            workflow_id=236324519,
+            sha=sha,
+        ),
+        _workflow_run(
+            "Check Extensions",
+            "completed",
+            "failure",
+            run_id=2,
+            suite_id=3002,
+            workflow_id=260888338,
+            sha=sha,
+        ),
+        _workflow_run(
+            "Deprecation deadlines",
+            "completed",
+            "failure",
+            run_id=1,
+            suite_id=3001,
+            workflow_id=311570275,
+            sha=sha,
+        ),
+    ]
+
+    run.run()
+
+    run.dispatcher.deliver.assert_not_called()
+    posted = [call for call in _gate_comment_calls(run) if call.args[0] == "POST"]
+    assert len(posted) == 1
+    body = posted[0].args[2]["body"]
+    assert "<!-- openhands-review-gate:blocked:head-2 -->" in body
+    assert "`Tests`" in body
+    assert "`Check Extensions`" in body
+    assert "`Deprecation deadlines`" in body
+
+
+def test_reviewer_does_not_double_report_a_workflow_that_has_check_runs(
+    tmp_path, monkeypatch
+):
+    """A workflow whose suite already has check runs is not reported twice."""
+    _module, run = _reviewer(tmp_path, monkeypatch)
+    pr = _labeled_pr()
+    run.gh_pages = _gate_pages(pr, [])
+    run.gh = Mock(side_effect=[{"id": 99}, pr])
+    # The suite the workflow run points at is the one that reported the check,
+    # so the workflow run is redundant and must not be reported a second time.
+    run.check_runs = lambda sha: [
+        _run(
+            "Validate PR description",
+            "completed",
+            "success",
+            started_at="2026-09-22T13:00:00Z",
+            run_id=1,
+            sha=sha,
+            suite_id=900,
+        )
+    ]
+    run.workflow_runs = lambda sha: [
+        _workflow_run(
+            "PR Description Check",
+            "completed",
+            "success",
+            run_id=5,
+            suite_id=900,
+            workflow_id=341671185,
+            sha=sha,
+        )
+    ]
+    run.dispatcher.deliver.return_value = {
+        "disposition": "created",
+        "conversation_id": "conversation",
+    }
+
+    run.run()
+
+    run.dispatcher.deliver.assert_called_once()
+    assert _gate_comment_calls(run) == []
+
+
+def test_reviewer_waits_for_a_workflow_run_that_has_not_finished(
+    tmp_path, monkeypatch
+):
+    """A current-head workflow run still in progress makes the head wait."""
+    _module, run = _reviewer(tmp_path, monkeypatch)
+    pr = _labeled_pr()
+    run.gh_pages = _gate_pages(pr, [])
+    run.gh = Mock(side_effect=[{"id": 99}, pr, {"id": 1234}])
+    run.workflow_runs = lambda sha: [
+        _workflow_run(
+            "Tests",
+            "in_progress",
+            None,
+            run_id=4,
+            suite_id=4004,
+            workflow_id=236324519,
+            sha=sha,
+        )
+    ]
+
+    run.run()
+
+    run.dispatcher.deliver.assert_not_called()
+    posted = [call for call in _gate_comment_calls(run) if call.args[0] == "POST"]
+    assert len(posted) == 1
+    body = posted[0].args[2]["body"]
+    assert "<!-- openhands-review-gate:waiting:head-2 -->" in body
+    assert "`Tests`" in body
+
+
+def test_reviewer_ignores_workflow_runs_from_an_obsolete_head(
+    tmp_path, monkeypatch
+):
+    """A failed workflow on an earlier head must not block the push that fixed it."""
+    _module, run = _reviewer(tmp_path, monkeypatch)
+    pr = _labeled_pr()
+    run.gh_pages = _gate_pages(pr, [])
+    run.gh = Mock(side_effect=[{"id": 99}, pr])
+    run.workflow_runs = lambda sha: [
+        _workflow_run(
+            "Tests",
+            "completed",
+            "failure",
+            run_id=1,
+            suite_id=3001,
+            workflow_id=236324519,
+            sha="head-1",
+        )
+    ]
+    run.dispatcher.deliver.return_value = {
+        "disposition": "created",
+        "conversation_id": "conversation",
+    }
+
+    run.run()
+
+    run.dispatcher.deliver.assert_called_once()
+    assert _gate_comment_calls(run) == []
+
+
+def test_reviewer_lets_a_green_workflow_rerun_supersede_a_failed_one(
+    tmp_path, monkeypatch
+):
+    """The latest run of a workflow decides, so a successful re-run clears it."""
+    _module, run = _reviewer(tmp_path, monkeypatch)
+    pr = _labeled_pr()
+    run.gh_pages = _gate_pages(pr, [])
+    run.gh = Mock(side_effect=[{"id": 99}, pr])
+    run.workflow_runs = lambda sha: [
+        _workflow_run(
+            "Tests",
+            "completed",
+            "failure",
+            run_id=1,
+            suite_id=3001,
+            workflow_id=236324519,
+            sha=sha,
+            started_at="2026-09-22T13:00:00Z",
+        ),
+        _workflow_run(
+            "Tests",
+            "completed",
+            "success",
+            run_id=2,
+            suite_id=3002,
+            workflow_id=236324519,
+            sha=sha,
+            started_at="2026-09-22T13:10:00Z",
+        ),
+    ]
+    run.dispatcher.deliver.return_value = {
+        "disposition": "created",
+        "conversation_id": "conversation",
+    }
+
+    run.run()
+
+    run.dispatcher.deliver.assert_called_once()
+    assert _gate_comment_calls(run) == []
+
+
+def test_reviewer_ignores_an_optional_zero_job_workflow_on_a_green_required_head(
+    tmp_path, monkeypatch
+):
+    """The #17200 case: the only required check passes, an optional workflow does not.
+
+    OpenHands/OpenHands#17200 passes `test-and-build (ubuntu)`, its only
+    required check, while the optional `release ready` workflow has a zero-job
+    `startup_failure`. Scheduled discovery must classify on the required check
+    and dispatch, not block on the optional workflow.
+    """
+    _module, run = _reviewer(tmp_path, monkeypatch)
+    pr = _labeled_pr()
+    run.gh_pages = _gate_pages(pr, [])
+    run.gh = Mock(side_effect=[{"id": 99}, pr])
+    run.required_check_contexts = lambda number: [
+        {"name": "test-and-build (ubuntu)", "kind": "CheckRun"}
+    ]
+    run.check_runs = lambda sha: _checks(
+        ("test-and-build (ubuntu)", "completed", "success"), sha=sha
+    )
+    run.workflow_runs = lambda sha: [
+        _workflow_run(
+            "release ready",
+            "completed",
+            "startup_failure",
+            run_id=1,
+            suite_id=1001,
+            workflow_id=305675242,
+            sha=sha,
+        )
+    ]
+    run.dispatcher.deliver.return_value = {
+        "disposition": "created",
+        "conversation_id": "conversation",
+    }
+
+    run.run()
+
+    run.dispatcher.deliver.assert_called_once()
+    assert _gate_comment_calls(run) == []
+
+
+def test_reviewer_blocks_when_a_required_check_fails(tmp_path, monkeypatch):
+    """A failed required check still blocks scheduled discovery."""
+    _module, run = _reviewer(tmp_path, monkeypatch)
+    pr = _labeled_pr()
+    run.gh_pages = _gate_pages(pr, [])
+    run.gh = Mock(side_effect=[{"id": 99}, pr, {"id": 1234}])
+    run.required_check_contexts = lambda number: [
+        {"name": "test-and-build (ubuntu)", "kind": "CheckRun"}
+    ]
+    run.check_runs = lambda sha: _checks(
+        ("test-and-build (ubuntu)", "completed", "failure"),
+        ("optional", "completed", "startup_failure"),
+        sha=sha,
+    )
+
+    run.run()
+
+    run.dispatcher.deliver.assert_not_called()
+    posted = [call for call in _gate_comment_calls(run) if call.args[0] == "POST"]
+    assert len(posted) == 1
+    body = posted[0].args[2]["body"]
+    assert "<!-- openhands-review-gate:blocked:head-2 -->" in body
+    assert "`test-and-build (ubuntu)`" in body
+    assert "`optional`" not in body
+
+
+def test_reviewer_waits_for_a_pending_required_check(tmp_path, monkeypatch):
+    """A required check that has not finished makes scheduled discovery wait."""
+    _module, run = _reviewer(tmp_path, monkeypatch)
+    pr = _labeled_pr()
+    run.gh_pages = _gate_pages(pr, [])
+    run.gh = Mock(side_effect=[{"id": 99}, pr, {"id": 1234}])
+    run.required_check_contexts = lambda number: [
+        {"name": "test-and-build (ubuntu)", "kind": "CheckRun"}
+    ]
+    run.check_runs = lambda sha: _checks(
+        ("test-and-build (ubuntu)", "in_progress", None), sha=sha
+    )
+
+    run.run()
+
+    run.dispatcher.deliver.assert_not_called()
+    posted = [call for call in _gate_comment_calls(run) if call.args[0] == "POST"]
+    assert len(posted) == 1
+    body = posted[0].args[2]["body"]
+    assert "<!-- openhands-review-gate:waiting:head-2 -->" in body
+    assert "`test-and-build (ubuntu)`" in body
+
+
+def test_reviewer_waits_for_a_required_context_with_no_current_head_run(
+    tmp_path, monkeypatch
+):
+    """A required name that reported no check run is expected, so the head waits.
+
+    A required context can appear without a matching current-head check run (a
+    required commit status, or a re-run whose name now resolves elsewhere).
+    Unfulfilled is never approval.
+    """
+    _module, run = _reviewer(tmp_path, monkeypatch)
+    pr = _labeled_pr()
+    run.gh_pages = _gate_pages(pr, [])
+    run.gh = Mock(side_effect=[{"id": 99}, pr, {"id": 1234}])
+    run.required_check_contexts = lambda number: [
+        {"name": "test", "kind": "CheckRun"},
+    ]
+    run.check_runs = lambda sha: []
+
+    run.run()
+
+    run.dispatcher.deliver.assert_not_called()
+    posted = [call for call in _gate_comment_calls(run) if call.args[0] == "POST"]
+    assert len(posted) == 1
+    body = posted[0].args[2]["body"]
+    assert "<!-- openhands-review-gate:waiting:head-2 -->" in body
+    assert "`test`" in body
+
+
+def test_reviewer_falls_back_to_all_checks_when_required_reported_nothing(
+    tmp_path, monkeypatch
+):
+    """The #426 shape through the required path: required checks never reported.
+
+    `isRequired` is a field on each context in the head's rollup, so a required
+    check that failed before creating any check run has no node and the required
+    set comes back empty. An empty set must fall back to the full current-head
+    rollup rather than treating the head as green.
+    """
+    _module, run = _reviewer(tmp_path, monkeypatch)
+    pr = _labeled_pr()
+    run.gh_pages = _gate_pages(pr, [])
+    run.gh = Mock(side_effect=[{"id": 99}, pr, {"id": 1234}])
+    run.required_check_contexts = lambda number: []
+    run.check_runs = lambda sha: _checks(
+        ("pr-title / Lint PR title (conventional)", "completed", "success"), sha=sha
+    )
+    run.workflow_runs = lambda sha: [
+        _workflow_run(
+            "Tests",
+            "completed",
+            "failure",
+            run_id=1,
+            suite_id=3001,
+            workflow_id=236324519,
+            sha=sha,
+        )
+    ]
+
+    run.run()
+
+    run.dispatcher.deliver.assert_not_called()
+    posted = [call for call in _gate_comment_calls(run) if call.args[0] == "POST"]
+    assert len(posted) == 1
+    body = posted[0].args[2]["body"]
+    assert "<!-- openhands-review-gate:blocked:head-2 -->" in body
+    assert "`Tests`" in body
+
+
+def test_reviewer_ignores_an_optional_failure_but_reads_required_statuses(
+    tmp_path, monkeypatch
+):
+    """A required commit status is classified alongside required check runs."""
+    _module, run = _reviewer(tmp_path, monkeypatch)
+    pr = _labeled_pr()
+    run.gh_pages = _gate_pages(pr, [])
+    run.gh = Mock(side_effect=[{"id": 99}, pr, {"id": 1234}])
+    run.required_check_contexts = lambda number: [
+        {"name": "test-and-build (ubuntu)", "kind": "CheckRun"},
+        {"name": "ci/required", "kind": "StatusContext"},
+    ]
+    run.check_runs = lambda sha: _checks(
+        ("test-and-build (ubuntu)", "completed", "success"), sha=sha
+    )
+    run.statuses = lambda sha: {"ci/required": "failure"}
+
+    run.run()
+
+    run.dispatcher.deliver.assert_not_called()
+    posted = [call for call in _gate_comment_calls(run) if call.args[0] == "POST"]
+    assert len(posted) == 1
+    assert "`ci/required`" in posted[0].args[2]["body"]
+
+
+def test_reviewer_falls_back_to_every_check_when_required_signal_is_unavailable(
+    tmp_path, monkeypatch
+):
+    """A failed required-check read must not approve silently."""
+
+    _module, run = _reviewer(tmp_path, monkeypatch)
+    pr = _labeled_pr()
+    run.gh_pages = _gate_pages(pr, [])
+    run.gh = Mock(side_effect=[{"id": 99}, pr, {"id": 1234}])
+
+    def unavailable(number):
+        raise RuntimeError("GitHub required-check query failed")
+
+    run.required_check_contexts = unavailable
+    run.check_runs = lambda sha: _checks(("ci", "completed", "failure"), sha=sha)
+
+    run.run()
+
+    run.dispatcher.deliver.assert_not_called()
+    posted = [call for call in _gate_comment_calls(run) if call.args[0] == "POST"]
+    assert len(posted) == 1
+    assert "<!-- openhands-review-gate:blocked:head-2 -->" in posted[0].args[2]["body"]
+
+
+def test_reviewer_fails_closed_on_an_unknown_conclusion(tmp_path, monkeypatch):
+    _module, run = _reviewer(tmp_path, monkeypatch)
+    pr = _labeled_pr()
+    run.gh_pages = _gate_pages(pr, [])
+    run.gh = Mock(side_effect=[{"id": 99}, pr, {"id": 1234}])
+    run.check_runs = lambda sha: _checks(("mystery", "completed", "action_required"), sha=sha)
+
+    run.run()
+
+    run.dispatcher.deliver.assert_not_called()
+    body = [
+        call.args[2]["body"]
+        for call in _gate_comment_calls(run)
+        if call.args[0] == "POST"
+    ][0]
+    assert "<!-- openhands-review-gate:blocked:head-2 -->" in body
+
+
+def test_reviewer_does_not_duplicate_the_gate_comment_for_the_same_head(
+    tmp_path, monkeypatch
+):
+    _module, run = _reviewer(tmp_path, monkeypatch)
+    pr = _labeled_pr()
+    existing = _comment(
+        "already explained\n\n<!-- openhands-review-gate:blocked:head-2 -->"
+    )
+    run.gh_pages = _gate_pages(pr, [existing])
+    run.gh = Mock(side_effect=[{"id": 99}, pr])
+    run.check_runs = lambda sha: _checks(("ci", "completed", "failure"), sha=sha)
+
+    run.run()
+
+    run.dispatcher.deliver.assert_not_called()
+    assert _gate_comment_calls(run) == []
+
+
+def test_reviewer_updates_its_gate_comment_when_the_head_moves(
+    tmp_path, monkeypatch
+):
+    _module, run = _reviewer(tmp_path, monkeypatch)
+    pr = _labeled_pr()
+    stale = _comment("stale head\n\n<!-- openhands-review-gate:blocked:head-1 -->")
+    run.gh_pages = _gate_pages(pr, [stale])
+    run.gh = Mock(side_effect=[{"id": 99}, pr, {}])
+    run.check_runs = lambda sha: _checks(("ci", "completed", "failure"), sha=sha)
+
+    run.run()
+
+    patched = [call for call in run.gh.call_args_list if call.args[0] == "PATCH"]
+    assert len(patched) == 1
+    assert patched[0].args[1] == "/issues/comments/900"
+    assert "<!-- openhands-review-gate:blocked:head-2 -->" in patched[0].args[2]["body"]
+    assert run.dispatcher.deliver.call_count == 0
+
+
+def test_reviewer_defers_to_an_equivalent_workflow_remediation_comment(
+    tmp_path, monkeypatch
+):
+    _module, run = _reviewer(tmp_path, monkeypatch)
+    pr = _labeled_pr()
+    workflow = _comment(
+        "The `Validate PR description` check still fails: the PR description's "
+        "`HUMAN:` section needs at least 20 characters of what you tested.\n\n"
+        "_This is an automated check - no AI was used to generate this comment._"
+    )
+    run.gh_pages = _gate_pages(pr, [workflow])
+    run.gh = Mock(side_effect=[{"id": 99}, pr])
+    run.check_runs = lambda sha: _checks(
+        ("Validate PR description", "completed", "failure"), sha=sha
+    )
+
+    run.run()
+
+    run.dispatcher.deliver.assert_not_called()
+    assert _gate_comment_calls(run) == []
+
+
+def test_reviewer_ignores_a_marked_comment_a_pr_author_wrote(
+    tmp_path, monkeypatch
+):
+    """A forged marker is untrusted: it neither suppresses nor gets PATCHed."""
+    _module, run = _reviewer(tmp_path, monkeypatch)
+    pr = _labeled_pr()
+    forged = _comment(
+        "I already handled this\n\n<!-- openhands-review-gate:blocked:head-2 -->",
+        login="neubig",
+    )
+    run.gh_pages = _gate_pages(pr, [forged])
+    run.gh = Mock(side_effect=[{"id": 99}, pr, {"id": 1234}])
+    run.check_runs = lambda sha: _checks(("ci", "completed", "failure"), sha=sha)
+
+    run.run()
+
+    run.dispatcher.deliver.assert_not_called()
+    assert [call for call in run.gh.call_args_list if call.args[0] == "PATCH"] == []
+    posted = [call for call in _gate_comment_calls(run) if call.args[0] == "POST"]
+    assert len(posted) == 1
+    assert "<!-- openhands-review-gate:blocked:head-2 -->" in posted[0].args[2]["body"]
+
+
+def test_reviewer_does_not_defer_to_a_workflow_comment_about_another_check(
+    tmp_path, monkeypatch
+):
+    """A disclosure for a different check must not suppress this head's gate."""
+    _module, run = _reviewer(tmp_path, monkeypatch)
+    pr = _labeled_pr()
+    unrelated = _comment(
+        "The `Validate PR description` check still fails.\n\n"
+        "_This is an automated check - no AI was used to generate this comment._"
+    )
+    run.gh_pages = _gate_pages(pr, [unrelated])
+    run.gh = Mock(side_effect=[{"id": 99}, pr, {"id": 1234}])
+    run.check_runs = lambda sha: _checks(("lint", "completed", "failure"), sha=sha)
+
+    run.run()
+
+    posted = [call for call in _gate_comment_calls(run) if call.args[0] == "POST"]
+    assert len(posted) == 1
+    assert "`lint`" in posted[0].args[2]["body"]
+    assert "<!-- openhands-review-gate:blocked:head-2 -->" in posted[0].args[2]["body"]
+
+
+def test_reviewer_explicit_request_bypasses_the_ci_gate(tmp_path, monkeypatch):
+    """An explicit `all-hands-bot` request is the intake exception.
+
+    The caller asked for this head by name, so a red or pending required check
+    must not stop the dispatch - and the gate leaves no explanatory comment.
+    """
+    _module, run = _reviewer(tmp_path, monkeypatch)
+    _event(monkeypatch)
+    pr = {"number": 2, "head": {"sha": "head-2"}, "labels": []}
+    request = {
+        "id": 42,
+        "event": "review_requested",
+        "created_at": "2026-01-01T00:00:00Z",
+        "requested_reviewer": {"login": "all-hands-bot"},
+    }
+    run.gh = Mock(side_effect=[{"id": 99}, pr])
+    run.gh_pages = lambda path: [request] if path.endswith("/events") else []
+    run.check_runs = lambda sha: _checks(
+        ("Validate PR description", "completed", "failure"), sha=sha
+    )
+    run.required_check_contexts = lambda number: [
+        {"name": "Validate PR description", "kind": "CheckRun"}
+    ]
+    run.dispatcher.deliver.return_value = {
+        "disposition": "created",
+        "conversation_id": "conversation",
+    }
+
+    run.run()
+
+    run.dispatcher.deliver.assert_called_once()
+    assert run.dispatcher.deliver.call_args.kwargs["delivery"] == "42:head-2"
+    assert _gate_comment_calls(run) == []
+
+
+def test_reviewer_waiting_head_does_not_consume_a_later_green_request(
+    tmp_path, monkeypatch
+):
+    """The trigger survives a waiting run, so the head is reviewed once green."""
+    _module, run = _reviewer(tmp_path, monkeypatch)
+    pr = _labeled_pr()
+    pending = _checks(("slow-e2e", "queued", None), sha="head-2")
+    state = {"runs": pending}
+    run.gh_pages = _gate_pages(pr, [])
+    run.gh = Mock(side_effect=[{"id": 99}, pr, {"id": 1234}, pr])
+    run.check_runs = lambda sha: state["runs"]
+    run.dispatcher.deliver.return_value = {
+        "disposition": "created",
+        "conversation_id": "conversation",
+    }
+
+    run.run()
+    assert run.dispatcher.deliver.call_count == 0
+
+    run.gh_pages = _gate_pages(pr, [])
+    run.gh = Mock(side_effect=[{"id": 99}, pr])
+    state["runs"] = _checks(("slow-e2e", "completed", "success"), sha="head-2")
+    run.run()
+    assert run.dispatcher.deliver.call_count == 1
+
+
+
+def test_reviewer_ignores_a_superseded_failure_for_the_same_check(
+    tmp_path, monkeypatch
+):
+    """The live #647/#649 case: an early failure and a later success, one SHA.
+
+    GitHub lists both `Validate PR description` runs on a single commit when the
+    PR body is fixed without a code push, so only the latest run may count.
+    """
+    _module, run = _reviewer(tmp_path, monkeypatch)
+    pr = _labeled_pr()
+    run.gh_pages = _gate_pages(pr, [])
+    run.gh = Mock(side_effect=[{"id": 99}, pr])
+    run.check_runs = lambda sha: [
+        _run(
+            "Validate PR description",
+            "completed",
+            "success",
+            started_at="2026-09-22T13:18:41Z",
+            run_id=106761769135,
+        ),
+        _run(
+            "Validate PR description",
+            "completed",
+            "failure",
+            started_at="2026-09-22T13:04:07Z",
+            run_id=106756418507,
+        ),
+    ]
+    run.dispatcher.deliver.return_value = {
+        "disposition": "created",
+        "conversation_id": "conversation",
+    }
+
+    run.run()
+
+    run.dispatcher.deliver.assert_called_once()
+    assert _gate_comment_calls(run) == []
+
+
+def test_reviewer_prefers_run_id_to_break_a_start_time_tie(tmp_path, monkeypatch):
+    """Two runs sharing a start time are ordered by run ID, not list order."""
+    _module, run = _reviewer(tmp_path, monkeypatch)
+    pr = _labeled_pr()
+    run.gh_pages = _gate_pages(pr, [])
+    run.gh = Mock(side_effect=[{"id": 99}, pr])
+    run.check_runs = lambda sha: [
+        _run(
+            "ci",
+            "completed",
+            "failure",
+            started_at="2026-09-22T13:04:07Z",
+            run_id=106756418507,
+        ),
+        _run(
+            "ci",
+            "completed",
+            "success",
+            started_at="2026-09-22T13:04:07Z",
+            run_id=106761769135,
+        ),
+    ]
+    run.dispatcher.deliver.return_value = {
+        "disposition": "created",
+        "conversation_id": "conversation",
+    }
+
+    run.run()
+
+    run.dispatcher.deliver.assert_called_once()
+    assert _gate_comment_calls(run) == []
+
+
+def test_reviewer_waits_for_a_newer_rerun_that_superseded_a_success(
+    tmp_path, monkeypatch
+):
+    """A later queued re-run of the same check makes the head wait, not pass."""
+    _module, run = _reviewer(tmp_path, monkeypatch)
+    pr = _labeled_pr()
+    run.gh_pages = _gate_pages(pr, [])
+    run.gh = Mock(side_effect=[{"id": 99}, pr, {"id": 1234}])
+    run.check_runs = lambda sha: [
+        _run("ci", "completed", "success", started_at="2026-09-22T13:00:00Z", run_id=1),
+        _run("ci", "queued", None, started_at="2026-09-22T13:10:00Z", run_id=2),
+    ]
+
+    run.run()
+
+    run.dispatcher.deliver.assert_not_called()
+    posted = [call for call in _gate_comment_calls(run) if call.args[0] == "POST"]
+    assert len(posted) == 1
+    body = posted[0].args[2]["body"]
+    assert "<!-- openhands-review-gate:waiting:head-2 -->" in body
+    assert "`ci`" in body
+
+
+def test_reviewer_treats_same_name_from_different_apps_as_distinct_checks(
+    tmp_path, monkeypatch
+):
+    """Grouping by name and app identity keeps two apps' checks independent."""
+    _module, run = _reviewer(tmp_path, monkeypatch)
+    pr = _labeled_pr()
+    run.gh_pages = _gate_pages(pr, [])
+    run.gh = Mock(side_effect=[{"id": 99}, pr, {"id": 1234}])
+    run.check_runs = lambda sha: [
+        _run(
+            "ci",
+            "completed",
+            "success",
+            app="github-actions",
+            started_at="2026-09-22T13:10:00Z",
+            run_id=2,
+        ),
+        _run(
+            "ci",
+            "completed",
+            "failure",
+            app="custom-ci",
+            started_at="2026-09-22T13:00:00Z",
+            run_id=1,
+        ),
+    ]
+
+    run.run()
+
+    run.dispatcher.deliver.assert_not_called()
+    posted = [call for call in _gate_comment_calls(run) if call.args[0] == "POST"]
+    assert len(posted) == 1
+    assert "<!-- openhands-review-gate:blocked:head-2 -->" in posted[0].args[2]["body"]
+
+
+def test_reviewer_waits_for_a_newer_queued_run_without_a_start_time(
+    tmp_path, monkeypatch
+):
+    """A queued re-run with `started_at: null` still supersedes an earlier run.
+
+    GitHub allows a queued or requested check run before it has a start
+    timestamp, so ordering must not treat the absent start time as earlier than
+    a completed run's timestamp and let the stale success launch the review.
+    """
+    _module, run = _reviewer(tmp_path, monkeypatch)
+    pr = _labeled_pr()
+    run.gh_pages = _gate_pages(pr, [])
+    run.gh = Mock(side_effect=[{"id": 99}, pr, {"id": 1234}])
+    run.check_runs = lambda sha: [
+        _run(
+            "ci",
+            "completed",
+            "success",
+            started_at="2026-09-22T13:00:00Z",
+            run_id=1,
+        ),
+        _run("ci", "queued", None, started_at=None, run_id=2),
+    ]
+
+    run.run()
+
+    run.dispatcher.deliver.assert_not_called()
+    posted = [call for call in _gate_comment_calls(run) if call.args[0] == "POST"]
+    assert len(posted) == 1
+    body = posted[0].args[2]["body"]
+    assert "<!-- openhands-review-gate:waiting:head-2 -->" in body
+    assert "`ci`" in body
+
+
+def test_reviewer_launches_when_a_success_supersedes_an_older_null_start_run(
+    tmp_path, monkeypatch
+):
+    """The reverse of the null-start case: the older run is the one without one.
+
+    An older queued or cancelled run with `started_at: null` must not outrank a
+    newer successful run on the same check. The run ID is the primary order, so
+    the later success wins and the head is green; keying on start time, or on a
+    fallback that sorts past every timestamp, would keep the head blocked or
+    waiting after the successful rerun.
+    """
+    _module, run = _reviewer(tmp_path, monkeypatch)
+    pr = _labeled_pr()
+    run.gh_pages = _gate_pages(pr, [])
+    run.gh = Mock(side_effect=[{"id": 99}, pr])
+    run.check_runs = lambda sha: [
+        _run("ci", "queued", None, started_at=None, run_id=1),
+        _run(
+            "ci",
+            "completed",
+            "success",
+            started_at="2026-09-22T13:10:00Z",
+            run_id=2,
+        ),
+    ]
+    run.dispatcher.deliver.return_value = {
+        "disposition": "created",
+        "conversation_id": "conversation",
+    }
+
+    run.run()
+
+    run.dispatcher.deliver.assert_called_once()
+    assert _gate_comment_calls(run) == []
+

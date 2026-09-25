@@ -12,6 +12,18 @@ This skill is activated by:
 ## Features
 
 - Reviews PRs on demand from a GitHub reviewer request or label event
+- Gates each scheduled review on the current head's GitHub-required checks
+  before starting an agent, read through the `isRequired` signal, so an optional
+  workflow that fails cannot block a mergeable head: a completed `failure`,
+  `cancelled`, or `timed_out` required check blocks the review, and a `queued`,
+  `in_progress`, or not-yet-reported required check exits with a clear
+  waiting-on-checks outcome instead of holding a slot. If the required-check
+  signal is unavailable the gate falls back to every current-head check run and
+  workflow run, including a workflow that fails before creating any check run
+- Dispatches an explicit `all-hands-bot` review request even when required CI is
+  red or pending; the CI gate applies to scheduled discovery
+- Ignores checks and workflow runs recorded for an obsolete head, so a stale
+  failure cannot block the push that fixed it
 - Watches several repositories from a single automation, each with its own state
 - Processes each review request or label application idempotently
 - Supports re-review by requesting the bot again or re-applying the label. Each
