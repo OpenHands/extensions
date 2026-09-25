@@ -20,7 +20,8 @@
         ],
         "githubTokenSecret": "GITHUB_PERSONAL_ACCESS_TOKEN",
         "maintainers": "",
-        "triggerReviewer": "all-hands-bot"
+        "triggerReviewer": "all-hands-bot",
+        "maxNewPerRun": 2
       },
       "upload": {
         "request": {
@@ -67,7 +68,7 @@
               "timeout": 300,
               "template": {
                 "id": "github-pr-reviewer",
-                "version": "1.5.0",
+                "version": "1.7.0",
                 "config": {
                   "repos": [
                     "OpenHands/agent-server-gui"
@@ -76,7 +77,8 @@
                   "review_tone": "thorough",
                   "github_token_secret": "GITHUB_PERSONAL_ACCESS_TOKEN",
                   "maintainers": "",
-                  "trigger_reviewer": "all-hands-bot"
+                  "trigger_reviewer": "all-hands-bot",
+                  "max_new_per_run": 2
                 }
               }
             }
@@ -106,7 +108,7 @@
             "timeout": 300,
             "template": {
               "id": "github-pr-reviewer",
-              "version": "1.5.0",
+              "version": "1.7.0",
               "config": {
                 "repos": [
                   "OpenHands/agent-server-gui"
@@ -115,7 +117,8 @@
                 "review_tone": "thorough",
                 "github_token_secret": "GITHUB_PERSONAL_ACCESS_TOKEN",
                 "maintainers": "",
-                "trigger_reviewer": "all-hands-bot"
+                "trigger_reviewer": "all-hands-bot",
+                "max_new_per_run": 2
               }
             }
           }
@@ -162,7 +165,8 @@
         ],
         "githubTokenSecret": "GITHUB_PERSONAL_ACCESS_TOKEN",
         "maintainers": "",
-        "triggerReviewer": "all-hands-bot"
+        "triggerReviewer": "all-hands-bot",
+        "maxNewPerRun": 2
       },
       "upload": {
         "request": {
@@ -209,7 +213,7 @@
               "timeout": 300,
               "template": {
                 "id": "github-pr-reviewer",
-                "version": "1.5.0",
+                "version": "1.7.0",
                 "config": {
                   "repos": [
                     "OpenHands/agent-server-gui",
@@ -219,7 +223,8 @@
                   "review_tone": "thorough",
                   "github_token_secret": "GITHUB_PERSONAL_ACCESS_TOKEN",
                   "maintainers": "",
-                  "trigger_reviewer": "all-hands-bot"
+                  "trigger_reviewer": "all-hands-bot",
+                  "max_new_per_run": 2
                 }
               }
             }
@@ -249,7 +254,7 @@
             "timeout": 300,
             "template": {
               "id": "github-pr-reviewer",
-              "version": "1.5.0",
+              "version": "1.7.0",
               "config": {
                 "repos": [
                   "OpenHands/agent-server-gui",
@@ -259,7 +264,8 @@
                 "review_tone": "thorough",
                 "github_token_secret": "GITHUB_PERSONAL_ACCESS_TOKEN",
                 "maintainers": "",
-                "trigger_reviewer": "all-hands-bot"
+                "trigger_reviewer": "all-hands-bot",
+                "max_new_per_run": 2
               }
             }
           }
@@ -290,7 +296,7 @@
             "preset_metadata": {
               "template": {
                 "id": "github-pr-reviewer",
-                "version": "1.5.0",
+                "version": "1.7.0",
                 "config": {
                   "repos": [
                     "OpenHands/agent-server-gui",
@@ -300,7 +306,8 @@
                   "review_tone": "thorough",
                   "github_token_secret": "GITHUB_PERSONAL_ACCESS_TOKEN",
                   "maintainers": "",
-                  "trigger_reviewer": "all-hands-bot"
+                  "trigger_reviewer": "all-hands-bot",
+                  "max_new_per_run": 2
                 }
               }
             }
@@ -322,7 +329,8 @@
         ],
         "githubTokenSecret": "GITHUB_PERSONAL_ACCESS_TOKEN",
         "maintainers": "",
-        "triggerReviewer": "all-hands-bot"
+        "triggerReviewer": "all-hands-bot",
+        "maxNewPerRun": 2
       },
       "preflight": {
         "request": {
@@ -343,7 +351,7 @@
               "timeout": 300,
               "template": {
                 "id": "github-pr-reviewer",
-                "version": "1.5.0",
+                "version": "1.7.0",
                 "config": {
                   "repos": [
                     "OpenHands/agent-server-gui"
@@ -352,7 +360,8 @@
                   "review_tone": "concise",
                   "github_token_secret": "GITHUB_PERSONAL_ACCESS_TOKEN",
                   "maintainers": "",
-                  "trigger_reviewer": "all-hands-bot"
+                  "trigger_reviewer": "all-hands-bot",
+                  "max_new_per_run": 2
                 }
               }
             }
@@ -390,7 +399,8 @@
         ],
         "githubTokenSecret": "GITHUB_PERSONAL_ACCESS_TOKEN",
         "maintainers": "",
-        "triggerReviewer": "all-hands-bot"
+        "triggerReviewer": "all-hands-bot",
+        "maxNewPerRun": 2
       },
       "upload": {
         "request": {
@@ -434,7 +444,7 @@
             "timeout": 300,
             "template": {
               "id": "github-pr-reviewer",
-              "version": "1.5.0",
+              "version": "1.7.0",
               "config": {
                 "repos": [
                   "OpenHands/agent-server-gui"
@@ -443,7 +453,8 @@
                 "review_tone": "concise",
                 "github_token_secret": "GITHUB_PERSONAL_ACCESS_TOKEN",
                 "maintainers": "",
-                "trigger_reviewer": "all-hands-bot"
+                "trigger_reviewer": "all-hands-bot",
+                "max_new_per_run": 2
               }
             }
           }
@@ -484,7 +495,8 @@
         ],
         "githubTokenSecret": "GITHUB_PERSONAL_ACCESS_TOKEN",
         "maintainers": "",
-        "triggerReviewer": "all-hands-bot"
+        "triggerReviewer": "all-hands-bot",
+        "maxNewPerRun": 2
       },
       "upload": {
         "request": {
@@ -528,7 +540,7 @@
             "timeout": 300,
             "template": {
               "id": "github-pr-reviewer",
-              "version": "1.5.0",
+              "version": "1.7.0",
               "config": {
                 "repos": [
                   "OpenHands/agent-server-gui"
@@ -537,7 +549,8 @@
                 "review_tone": "concise",
                 "github_token_secret": "GITHUB_PERSONAL_ACCESS_TOKEN",
                 "maintainers": "",
-                "trigger_reviewer": "all-hands-bot"
+                "trigger_reviewer": "all-hands-bot",
+                "max_new_per_run": 2
               }
             },
             "repos": [
@@ -580,7 +593,8 @@
           "OpenHands/automation"
         ],
         "githubTokenSecret": "GITHUB_TOKEN_REVIEW",
-        "maintainers": "neubig,malhotra5"
+        "maintainers": "neubig,malhotra5",
+        "maxNewPerRun": 2
       },
       "preflight": {
         "request": {
@@ -602,7 +616,7 @@
               "timeout": 300,
               "template": {
                 "id": "github-pr-reviewer",
-                "version": "1.5.0",
+                "version": "1.7.0",
                 "config": {
                   "repos": [
                     "OpenHands/automation"
@@ -611,7 +625,8 @@
                   "trigger_reviewer": "all-hands-bot",
                   "review_tone": "concise",
                   "maintainers": "neubig,malhotra5",
-                  "github_token_secret": "GITHUB_TOKEN_REVIEW"
+                  "github_token_secret": "GITHUB_TOKEN_REVIEW",
+                  "max_new_per_run": 2
                 }
               }
             }

@@ -1176,11 +1176,10 @@ def test_reviewer_fails_closed_on_an_unknown_conclusion(tmp_path, monkeypatch):
 def test_reviewer_does_not_duplicate_the_gate_comment_for_the_same_head(
     tmp_path, monkeypatch
 ):
+    """An identical explanation already on the PR is left untouched."""
     _module, run = _reviewer(tmp_path, monkeypatch)
     pr = _labeled_pr()
-    existing = _comment(
-        "already explained\n\n<!-- openhands-review-gate:blocked:head-2 -->"
-    )
+    existing = _comment(run._gate_body("head-2", "blocked", ["ci"], scheduled=True))
     run.gh_pages = _gate_pages(pr, [existing])
     run.gh = Mock(side_effect=[{"id": 99}, pr])
     run.check_runs = lambda sha: _checks(("ci", "completed", "failure"), sha=sha)
@@ -1189,6 +1188,31 @@ def test_reviewer_does_not_duplicate_the_gate_comment_for_the_same_head(
 
     run.dispatcher.deliver.assert_not_called()
     assert _gate_comment_calls(run) == []
+    assert [call for call in run.gh.call_args_list if call.args[0] == "PATCH"] == []
+
+
+def test_reviewer_rewrites_a_stale_gate_comment_body_for_the_same_head(
+    tmp_path, monkeypatch
+):
+    """Same head, changed wording: the managed comment is rewritten, not stacked."""
+    _module, run = _reviewer(tmp_path, monkeypatch)
+    pr = _labeled_pr()
+    stale = _comment(
+        "old wording\n\n<!-- openhands-review-gate:blocked:head-2 -->"
+    )
+    run.gh_pages = _gate_pages(pr, [stale])
+    run.gh = Mock(side_effect=[{"id": 99}, pr, {}])
+    run.check_runs = lambda sha: _checks(("ci", "completed", "failure"), sha=sha)
+
+    run.run()
+
+    assert [call for call in _gate_comment_calls(run) if call.args[0] == "POST"] == []
+    patched = [call for call in run.gh.call_args_list if call.args[0] == "PATCH"]
+    assert len(patched) == 1
+    assert patched[0].args[1] == "/issues/comments/900"
+    body = patched[0].args[2]["body"]
+    assert "<!-- openhands-review-gate:blocked:head-2 -->" in body
+    assert "old wording" not in body
 
 
 def test_reviewer_updates_its_gate_comment_when_the_head_moves(
@@ -1503,31 +1527,129 @@ def test_reviewer_waits_for_a_newer_queued_run_without_a_start_time(
     assert "`ci`" in body
 
 
-def test_reviewer_launches_when_a_success_supersedes_an_older_null_start_run(
+# Scheduled retry: a five-minute scan resumes an outstanding review request.
+# --------------------------------------------------------------------------- #
+
+
+def _requested_pr(number=2, sha="head-2", draft=False):
+    return {
+        "number": number,
+        "head": {"sha": sha},
+        "labels": [],
+        "draft": draft,
+        "requested_reviewers": [{"login": "all-hands-bot"}],
+    }
+
+
+def _review_request_event(request_id=42):
+    return {
+        "id": request_id,
+        "event": "review_requested",
+        "created_at": "2026-01-01T00:00:00Z",
+        "requested_reviewer": {"login": "all-hands-bot"},
+    }
+
+
+def _request_pages(pr, request, comments):
+    return lambda path: (
+        [pr]
+        if path.startswith("/pulls?")
+        else ([request] if path.endswith("/events") else comments)
+    )
+
+
+def test_reviewer_scheduled_scan_reviews_an_outstanding_request(tmp_path, monkeypatch):
+    """A request made before CI finished is reviewed once the head is green."""
+    _module, run = _reviewer(tmp_path, monkeypatch)
+    pr = _requested_pr()
+    state = {"runs": _checks(("slow-e2e", "queued", None), sha="head-2")}
+    run.check_runs = lambda sha: state["runs"]
+    run.gh_pages = _request_pages(pr, _review_request_event(), [])
+    run.gh = Mock(side_effect=[{"id": 99}, pr, {"id": 1234}, pr])
+    run.dispatcher.deliver.return_value = {
+        "disposition": "created",
+        "conversation_id": "conversation",
+    }
+
+    run.run()
+    assert run.dispatcher.deliver.call_count == 0
+    posted = [call for call in _gate_comment_calls(run) if call.args[0] == "POST"]
+    assert len(posted) == 1
+    waiting = posted[0].args[2]["body"]
+    assert "<!-- openhands-review-gate:waiting:head-2 -->" in waiting
+    assert "The scheduled scan retries" in waiting
+
+    run.gh_pages = _request_pages(pr, _review_request_event(), [])
+    run.gh = Mock(side_effect=[{"id": 99}, pr])
+    state["runs"] = _checks(("slow-e2e", "completed", "success"), sha="head-2")
+    run.run()
+
+    run.dispatcher.deliver.assert_called_once()
+    call = run.dispatcher.deliver.call_args.kwargs
+    assert call["delivery"] == "42:head-2"
+    assert "latest review request for `all-hands-bot` event 42" in call["prompt"]
+
+
+def test_reviewer_repeated_scans_do_not_duplicate_a_requested_review(
     tmp_path, monkeypatch
 ):
-    """The reverse of the null-start case: the older run is the one without one.
+    """Two scans over one outstanding request produce one stable delivery key."""
+    _module, run = _reviewer(tmp_path, monkeypatch)
+    pr = _requested_pr()
+    run.check_runs = lambda sha: _checks(("ci", "completed", "success"), sha=sha)
+    run.dispatcher.deliver.return_value = {
+        "disposition": "created",
+        "conversation_id": "conversation",
+    }
 
-    An older queued or cancelled run with `started_at: null` must not outrank a
-    newer successful run on the same check. The run ID is the primary order, so
-    the later success wins and the head is green; keying on start time, or on a
-    fallback that sorts past every timestamp, would keep the head blocked or
-    waiting after the successful rerun.
-    """
+    for _ in range(2):
+        run.gh_pages = _request_pages(pr, _review_request_event(), [])
+        run.gh = Mock(side_effect=[{"id": 99}, pr])
+        run.run()
+
+    assert run.dispatcher.deliver.call_count == 2
+    deliveries = {
+        call.kwargs["delivery"] for call in run.dispatcher.deliver.call_args_list
+    }
+    assert deliveries == {"42:head-2"}
+
+
+def test_reviewer_scheduled_scan_ignores_a_draft_with_a_request(
+    tmp_path, monkeypatch
+):
+    _module, run = _reviewer(tmp_path, monkeypatch)
+    pr = _requested_pr(draft=True)
+    run.gh_pages = lambda path: [pr]
+    run.gh = Mock(return_value={"id": 99})
+
+    run.run()
+
+    run.dispatcher.deliver.assert_not_called()
+
+
+def test_reviewer_scheduled_scan_ignores_an_unlabeled_unrequested_pr(
+    tmp_path, monkeypatch
+):
+    _module, run = _reviewer(tmp_path, monkeypatch)
+    pr = {"number": 3, "head": {"sha": "head-3"}, "labels": [], "draft": False}
+    run.gh_pages = lambda path: [pr]
+    run.gh = Mock(return_value={"id": 99})
+
+    run.run()
+
+    run.dispatcher.deliver.assert_not_called()
+    assert run.gh.call_count == 1
+
+
+def test_reviewer_scheduled_scan_keeps_the_label_path_unchanged(
+    tmp_path, monkeypatch
+):
+    """A labeled PR is still driven by its label event, not by a request."""
     _module, run = _reviewer(tmp_path, monkeypatch)
     pr = _labeled_pr()
     run.gh_pages = _gate_pages(pr, [])
     run.gh = Mock(side_effect=[{"id": 99}, pr])
-    run.check_runs = lambda sha: [
-        _run("ci", "queued", None, started_at=None, run_id=1),
-        _run(
-            "ci",
-            "completed",
-            "success",
-            started_at="2026-09-22T13:10:00Z",
-            run_id=2,
-        ),
-    ]
+    run.check_runs = lambda sha: _checks(("ci", "completed", "success"), sha=sha)
     run.dispatcher.deliver.return_value = {
         "disposition": "created",
         "conversation_id": "conversation",
@@ -1536,5 +1658,453 @@ def test_reviewer_launches_when_a_success_supersedes_an_older_null_start_run(
     run.run()
 
     run.dispatcher.deliver.assert_called_once()
-    assert _gate_comment_calls(run) == []
+    assert run.dispatcher.deliver.call_args.kwargs["delivery"] == "7:head-2"
 
+
+def test_reviewer_event_body_names_the_request_retry_not_a_scan(
+    tmp_path, monkeypatch
+):
+    """The event-only body names the retry it actually honors.
+
+    Explicit `all-hands-bot` requests bypass the CI gate, so this body is not
+    reached through `run()`; assert the wording contract directly.
+    """
+    _module, run = _reviewer(tmp_path, monkeypatch)
+    body = run._gate_body("head-2", "waiting", ["slow-e2e"], scheduled=False)
+
+    assert "remove the outstanding `all-hands-bot` request and request " in body
+    assert "GitHub will not accept a second request" in body
+    assert "scheduled" not in body.lower()
+
+
+def test_reviewer_event_blocked_body_names_the_request_retry_not_a_scan(
+    tmp_path, monkeypatch
+):
+    _module, run = _reviewer(tmp_path, monkeypatch)
+    body = run._gate_body("head-2", "blocked", ["ci"], scheduled=False)
+
+    assert "remove the outstanding `all-hands-bot` request and request " in body
+    assert "GitHub will not accept a second request" in body
+    assert "scheduled" not in body.lower()
+
+
+def test_reviewer_rewords_the_managed_comment_when_an_event_deployment_becomes_scheduled(
+    tmp_path, monkeypatch
+):
+    """An event-only gate comment is reworded once a cron scan exists.
+
+    A PR first gated by the event-only deployment keeps a "remove and re-request"
+    comment on the same head. When the automation is switched to a scheduled scan
+    the comment must name the retry that is now actually deployed, in place,
+    without creating a second comment.
+    """
+    _module, run = _reviewer(tmp_path, monkeypatch)
+    pr = _requested_pr()
+    request = _review_request_event()
+    run.check_runs = lambda sha: _checks(("slow-e2e", "in_progress", None), sha=sha)
+
+    # The comment an event-only deployment would have left on this head.
+    event_body = run._gate_body("head-2", "waiting", ["slow-e2e"], scheduled=False)
+    assert "remove the outstanding `all-hands-bot` request" in event_body
+    managed = _comment(event_body)
+
+    run.gh_pages = _request_pages(pr, request, [managed])
+    run.gh = Mock(side_effect=[{"id": 99}, pr, {}])
+    run.run()
+
+    assert [call for call in _gate_comment_calls(run) if call.args[0] == "POST"] == []
+    patched = [call for call in run.gh.call_args_list if call.args[0] == "PATCH"]
+    assert len(patched) == 1
+    assert patched[0].args[1] == "/issues/comments/900"
+    scheduled_body = patched[0].args[2]["body"]
+    assert "<!-- openhands-review-gate:waiting:head-2 -->" in scheduled_body
+    assert "The scheduled scan retries" in scheduled_body
+    assert "remove the outstanding" not in scheduled_body
+
+
+def test_reviewer_scheduled_scan_blocked_comment_names_the_scan(
+    tmp_path, monkeypatch
+):
+    _module, run = _reviewer(tmp_path, monkeypatch)
+    pr = _requested_pr()
+    run.gh_pages = _request_pages(pr, _review_request_event(), [])
+    run.gh = Mock(side_effect=[{"id": 99}, pr, {"id": 1234}])
+    run.check_runs = lambda sha: _checks(("ci", "completed", "failure"), sha=sha)
+
+    run.run()
+
+    posted = [call for call in _gate_comment_calls(run) if call.args[0] == "POST"]
+    body = posted[0].args[2]["body"]
+    assert "The scheduled scan then starts the review" in body
+
+
+
+# --------------------------------------------------------------------------- #
+# Bounded intake: one scheduled scan starts a small, configurable number of new
+# review conversations across every configured repository, oldest request first.
+# --------------------------------------------------------------------------- #
+
+
+class _DedupeDispatcher:
+    """An in-memory stand-in for the shipped dispatcher's dedupe contract.
+
+    The real AgentConversationDispatcher needs an agent server and SDK, so this
+    reproduces only the contract the worker relies on: a delivery keyed by
+    (subject, delivery) starts one conversation and reports `created` once, then
+    reports `deduplicated` for the same key. That is what lets a repeat scan
+    reuse a conversation without spending another intake slot.
+    """
+
+    def __init__(self):
+        self.seen = {}
+        self.calls = []
+
+    def deliver(self, *, subject, delivery, prompt):
+        self.calls.append((subject, delivery))
+        if self.seen.get(subject) == delivery:
+            return {"disposition": "deduplicated", "conversation_id": subject}
+        self.seen[subject] = delivery
+        return {"disposition": "created", "conversation_id": subject}
+
+
+def _scan_reviewers(tmp_path, monkeypatch, repositories, *, max_new=None):
+    """One module and one reviewer per repository, as the shipped scan builds them."""
+    module = worker("github-pr-reviewer", tmp_path, monkeypatch)
+    monkeypatch.delenv("AUTOMATION_EVENT_PAYLOAD", raising=False)
+    monkeypatch.setattr(
+        module.workflow,
+        "_latest_trigger_label_event",
+        lambda *args: {"id": 7, "created_at": "2026-01-01T00:00:00Z"},
+    )
+    reviewers = []
+    for repository in repositories:
+        run = object.__new__(module.PullRequestReviewer)
+        run.config = {"trigger_label": "openhands-review"}
+        if max_new is not None:
+            run.config["max_new_per_run"] = max_new
+        run.repository = repository
+        run.token = "token"
+        run.token_name = "FACTORY_GITHUB_REVIEWER_TOKEN"
+        run.github_login = "all-hands-bot"
+        run.dispatcher = _DedupeDispatcher()
+        run.check_runs = lambda sha: []
+        run.workflow_runs = lambda sha: []
+        reviewers.append(run)
+    return module, reviewers
+
+
+def _run_scan(module, reviewers):
+    """Drive the shipped scheduled-scan control flow over the given reviewers.
+
+    `module.run_scan` is the shipped entrypoint function, so the shared-intake
+    and drain wiring under test is the one that runs in production. Only the
+    repository objects it drives are supplied here: the GitHub transport is
+    already stubbed on each reviewer, so `run_repositories` is replaced by a
+    loop over them in the order a scan would visit the configured repositories.
+    """
+    dispatcher = reviewers[0].dispatcher if reviewers else None
+    by_repository = {run.repository: run for run in reviewers}
+
+    def fake_run_repositories(automation_type, conversation=None, dispatcher=None):
+        for source in by_repository.values():
+            run = object.__new__(automation_type)
+            run.__dict__.update(source.__dict__)
+            run.run()
+
+    original = module.run_repositories
+    module.run_repositories = fake_run_repositories
+    try:
+        module.run_scan(dispatcher)
+    finally:
+        module.run_repositories = original
+        module.PullRequestReviewer.scan_intake = None
+
+
+def _eligible_pr(number, sha, request_id, created_at, *, checks=()):
+    """An open non-draft PR holding an outstanding all-hands-bot request."""
+    return {
+        "number": number,
+        "head": {"sha": sha},
+        "labels": [],
+        "draft": False,
+        "requested_reviewers": [{"login": "all-hands-bot"}],
+        "_request": {
+            "id": request_id,
+            "event": "review_requested",
+            "created_at": created_at,
+            "requested_reviewer": {"login": "all-hands-bot"},
+        },
+        "_checks": list(checks),
+    }
+
+
+def _wire_scan(run, prs, repository_id):
+    """Point one reviewer at its PRs, request events, and check runs."""
+    by_number = {pr["number"]: pr for pr in prs}
+
+    def gh(method, path, body=None):
+        if path == "":
+            return {"id": repository_id}
+        if method == "GET" and path.startswith("/pulls/"):
+            return by_number[int(path.split("/")[2])]
+        if method == "POST" and path.endswith("/comments"):
+            return {"id": 1234}
+        return {}
+
+    def gh_pages(path):
+        if path.startswith("/pulls?"):
+            return list(prs)
+        if path.endswith("/events"):
+            return [by_number[int(path.split("/")[2])]["_request"]]
+        return []
+
+    def check_runs(sha):
+        for pr in by_number.values():
+            if pr["head"]["sha"] == sha:
+                return [
+                    {
+                        "name": name,
+                        "status": status,
+                        "conclusion": conclusion,
+                        "head_sha": sha,
+                    }
+                    for name, status, conclusion in pr["_checks"]
+                ]
+        return []
+
+    run.gh = gh
+    run.gh_pages = gh_pages
+    run.check_runs = check_runs
+
+
+def test_one_scan_starts_at_most_the_maximum_and_a_later_scan_reaches_the_rest(
+    tmp_path, monkeypatch
+):
+    """Three eligible PRs across two repositories, default maximum of two."""
+    module, (one, two) = _scan_reviewers(
+        tmp_path, monkeypatch, ["owner/one", "owner/two"]
+    )
+    # Oldest request first: #5 (Jan 1), then #2 (Jan 2), then #9 (Jan 3).
+    _wire_scan(
+        one,
+        [
+            _eligible_pr(5, "head-5", 500, "2026-01-01T00:00:00Z"),
+            _eligible_pr(9, "head-9", 900, "2026-01-03T00:00:00Z"),
+        ],
+        101,
+    )
+    _wire_scan(two, [_eligible_pr(2, "head-2", 200, "2026-01-02T00:00:00Z")], 102)
+
+    _run_scan(module, [one, two])
+
+    started = set(one.dispatcher.calls) | set(two.dispatcher.calls)
+    assert started == {("101:pr:5", "500:head-5"), ("102:pr:2", "200:head-2")}
+    assert one.dispatcher.seen == {"101:pr:5": "500:head-5"}
+    assert two.dispatcher.seen == {"102:pr:2": "200:head-2"}
+
+    # A later scan sees the first two as already-running and reaches the rest.
+    _run_scan(module, [one, two])
+
+    assert one.dispatcher.seen == {
+        "101:pr:5": "500:head-5",
+        "101:pr:9": "900:head-9",
+    }
+    assert two.dispatcher.seen == {"102:pr:2": "200:head-2"}
+
+
+def test_a_pending_check_candidate_consumes_no_slot_and_does_not_block_the_queue(
+    tmp_path, monkeypatch
+):
+    """The oldest candidate is waiting on CI, so the next two drain instead."""
+    module, (one, two) = _scan_reviewers(
+        tmp_path, monkeypatch, ["owner/one", "owner/two"]
+    )
+    _wire_scan(
+        one,
+        [
+            # Oldest request, but its exact head still has a queued check.
+            _eligible_pr(
+                5,
+                "head-5",
+                500,
+                "2026-01-01T00:00:00Z",
+                checks=[("slow-e2e", "queued", None)],
+            ),
+            _eligible_pr(9, "head-9", 900, "2026-01-03T00:00:00Z"),
+        ],
+        101,
+    )
+    _wire_scan(two, [_eligible_pr(2, "head-2", 200, "2026-01-02T00:00:00Z")], 102)
+
+    _run_scan(module, [one, two])
+
+    assert one.dispatcher.seen == {"101:pr:9": "900:head-9"}
+    assert two.dispatcher.seen == {"102:pr:2": "200:head-2"}
+
+
+def test_non_dispatching_work_still_runs_after_the_maximum_is_reached(
+    tmp_path, monkeypatch
+):
+    """A blocked candidate past the maximum still gets its gate explanation."""
+    module, (one,) = _scan_reviewers(tmp_path, monkeypatch, ["owner/one"])
+    _wire_scan(
+        one,
+        [
+            _eligible_pr(5, "head-5", 500, "2026-01-01T00:00:00Z"),
+            _eligible_pr(6, "head-6", 600, "2026-01-02T00:00:00Z"),
+            _eligible_pr(
+                7,
+                "head-7",
+                700,
+                "2026-01-04T00:00:00Z",
+                checks=[("ci", "completed", "failure")],
+            ),
+        ],
+        101,
+    )
+    one.gh = Mock(side_effect=one.gh)
+
+    _run_scan(module, [one])
+
+    # Only the two oldest start; the blocked third consumes no slot.
+    assert set(one.dispatcher.seen) == {"101:pr:5", "101:pr:6"}
+    posted = [call for call in one.gh.call_args_list if call.args[0] == "POST"]
+    assert len(posted) == 1
+    assert "<!-- openhands-review-gate:blocked:head-7 -->" in posted[0].args[2]["body"]
+
+
+def test_a_failing_dispatch_is_reported_without_consuming_a_slot_or_aborting(
+    tmp_path, monkeypatch
+):
+    """The oldest dispatch raises; the next candidates still get their turn."""
+    module, (one,) = _scan_reviewers(tmp_path, monkeypatch, ["owner/one"])
+    _wire_scan(
+        one,
+        [
+            _eligible_pr(5, "head-5", 500, "2026-01-01T00:00:00Z"),
+            _eligible_pr(6, "head-6", 600, "2026-01-02T00:00:00Z"),
+            _eligible_pr(7, "head-7", 700, "2026-01-03T00:00:00Z"),
+        ],
+        101,
+    )
+
+    def deliver(*, subject, delivery, prompt):
+        if subject == "101:pr:5":
+            raise RuntimeError("agent server unavailable")
+        one.dispatcher.seen[subject] = delivery
+        return {"disposition": "created", "conversation_id": subject}
+
+    one.dispatcher.deliver = deliver
+
+    with pytest.raises(RuntimeError, match="#5"):
+        _run_scan(module, [one])
+
+    assert set(one.dispatcher.seen) == {"101:pr:6", "101:pr:7"}
+
+
+def test_the_maximum_is_configurable_through_the_rendered_config(tmp_path, monkeypatch):
+    module, (one,) = _scan_reviewers(tmp_path, monkeypatch, ["owner/one"], max_new=1)
+    _wire_scan(
+        one,
+        [
+            _eligible_pr(5, "head-5", 500, "2026-01-01T00:00:00Z"),
+            _eligible_pr(6, "head-6", 600, "2026-01-02T00:00:00Z"),
+        ],
+        101,
+    )
+
+    _run_scan(module, [one])
+
+    assert set(one.dispatcher.seen) == {"101:pr:5"}
+
+
+def test_the_rendered_config_defaults_the_maximum_to_two(tmp_path, monkeypatch):
+    """An unset max_new_per_run still bounds a scheduled scan to two."""
+    module, (one,) = _scan_reviewers(tmp_path, monkeypatch, ["owner/one"])
+    _wire_scan(
+        one,
+        [
+            _eligible_pr(5, "head-5", 500, "2026-01-01T00:00:00Z"),
+            _eligible_pr(6, "head-6", 600, "2026-01-02T00:00:00Z"),
+            _eligible_pr(7, "head-7", 700, "2026-01-03T00:00:00Z"),
+        ],
+        101,
+    )
+
+    _run_scan(module, [one])
+
+    assert module.workflow.MAX_NEW_PER_RUN == 2
+    assert set(one.dispatcher.seen) == {"101:pr:5", "101:pr:6"}
+
+
+def test_the_explicit_request_event_path_is_not_bounded(tmp_path, monkeypatch):
+    """Only the scheduled scan's new conversations are bounded."""
+    module, (one,) = _scan_reviewers(tmp_path, monkeypatch, ["owner/one"])
+    monkeypatch.setenv(
+        "AUTOMATION_EVENT_PAYLOAD",
+        json.dumps(
+            {
+                "automation_id": "automation",
+                "event": {
+                    "payload": {
+                        "action": "review_requested",
+                        "repository": {"full_name": "owner/one"},
+                        "pull_request": {"number": 5},
+                        "requested_reviewer": {"login": "all-hands-bot"},
+                    }
+                },
+            }
+        ),
+    )
+    pr = {"number": 5, "head": {"sha": "head-5"}, "labels": []}
+    one.gh = Mock(side_effect=[{"id": 101}, pr])
+    one.gh_pages = lambda path: (
+        [
+            {
+                "id": 500,
+                "event": "review_requested",
+                "created_at": "2026-01-01T00:00:00Z",
+                "requested_reviewer": {"login": "all-hands-bot"},
+            }
+        ]
+        if path.endswith("/events")
+        else []
+    )
+
+    one.run()
+
+    assert one.dispatcher.seen == {"101:pr:5": "500:head-5"}
+
+
+def test_the_rendered_config_reads_a_positive_max_new_per_run(tmp_path, monkeypatch):
+    """The rendered config overrides the default, following the key the other
+    automations already use."""
+    module = worker("github-pr-reviewer", tmp_path, monkeypatch)
+    (tmp_path / "github-pr-reviewer" / "config.json").write_text(
+        json.dumps(
+            {
+                "repos": ["owner/one"],
+                "max_new_per_run": 3,
+                "github_token_secret": "GITHUB_TOKEN",
+            }
+        )
+    )
+
+    config = module.workflow.load_config(tmp_path / "github-pr-reviewer")
+
+    assert config["max_new_per_run"] == 3
+
+
+@pytest.mark.parametrize("bad", [0, -1, True, "2"])
+def test_the_rendered_config_rejects_a_misbehaving_max_new_per_run(
+    tmp_path, monkeypatch, bad
+):
+    """A non-positive or non-integer bound is a hard error, not a coercion: the
+    alternative is a scan that either never starts or starts `True` conversations."""
+    module = worker("github-pr-reviewer", tmp_path, monkeypatch)
+    (tmp_path / "github-pr-reviewer" / "config.json").write_text(
+        json.dumps({"repos": ["owner/one"], "max_new_per_run": bad})
+    )
+
+    with pytest.raises(SystemExit):
+        module.workflow.load_config(tmp_path / "github-pr-reviewer")

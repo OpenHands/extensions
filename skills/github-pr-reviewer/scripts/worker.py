@@ -31,8 +31,100 @@ NON_BLOCKING_CHECK_CONCLUSIONS = frozenset({"success", "neutral", "skipped"})
 WORKFLOW_DISCLOSURE = "no AI was used to generate this comment"
 
 
+class ReviewIntake:
+    """The per-scan bound on new review conversations, shared across repositories.
+
+    A scheduled scan drains every eligible pull request, but starting an agent
+    for each one at once exhausted the OSS Agent Canvas VM, so a small maximum
+    caps what a single scan may start. The maximum is per scan and shared by
+    every configured repository rather than reset per repository, and it bounds
+    the conversations a scan *starts*: a delivery that only deduplicates, or
+    reports an already-running conversation, reuses a runtime and consumes no
+    slot. Candidates are drained oldest reviewer-request first, then by
+    repository and pull-request number, so a scan over more candidates than the
+    maximum allows starts the oldest and a later scan reaches the remainder.
+    """
+
+    def __init__(self):
+        # The budget lives on the intake so a scan that drains repository by
+        # repository still counts its conversations against one shared maximum.
+        self._pending = []
+        self._maximum = None
+        self._started = 0
+
+    def register(self, record):
+        """Queue one eligible candidate for this scan's bounded drain."""
+        self._pending.append(record)
+
+    def drain(self):
+        """Start the oldest pending conversations, up to the per-scan maximum.
+
+        The budget is held on the intake, so a scan that drains repository by
+        repository still counts its conversations against one shared maximum. A
+        candidate whose dispatch raises is reported and skipped without
+        consuming a slot, so the candidates behind it are still considered.
+        """
+        pending, self._pending = self._pending, []
+        if not pending:
+            return
+        if self._maximum is None:
+            self._maximum = pending[0]["config"].get(
+                "max_new_per_run", workflow.MAX_NEW_PER_RUN
+            )
+        failures = []
+        for record in sorted(
+            pending,
+            key=lambda item: (
+                item["created_at"],
+                item["repository"],
+                item["number"],
+            ),
+        ):
+            if self._started >= self._maximum:
+                break
+            try:
+                result = record["start"]()
+            except Exception as exc:  # noqa: BLE001 - one PR must not block the scan
+                failures.append(record["number"])
+                print(
+                    f"Failed to submit {record['repository']} PR "
+                    f"#{record['number']}: {type(exc).__name__}: {exc}",
+                    file=sys.stderr,
+                    flush=True,
+                )
+                continue
+            if result["disposition"] == "created":
+                self._started += 1
+        if failures:
+            raise RuntimeError(
+                "Reviewer scan failed for PRs: "
+                + ", ".join(f"#{number}" for number in failures)
+            )
+
+
 class PullRequestReviewer(GitHubRepository):
     name = "github-pr-reviewer"
+    # The shared intake the shipped entrypoint creates once per scheduled scan,
+    # so the per-run maximum spans every configured repository. It is None for a
+    # run() invoked on its own (tests, one-off scans), which then bounds its own
+    # conversations with a private intake instead.
+    scan_intake = None
+
+    @property
+    def intake(self):
+        """The intake this run registers eligible candidates with.
+
+        The shipped entrypoint sets `scan_intake` once, so every repository in a
+        scan shares one budget and the drain happens after all repositories have
+        been scanned. A run() with no shared intake uses its own, created lazily
+        so it exists whether or not __init__ ran.
+        """
+        if self.scan_intake is not None:
+            return self.scan_intake
+        intake = self.__dict__.get("_intake")
+        if intake is None:
+            intake = self.__dict__["_intake"] = ReviewIntake()
+        return intake
 
     @cached_property
     def github_login(self):
@@ -452,12 +544,16 @@ class PullRequestReviewer(GitHubRepository):
 
         The marker carries the head SHA and gate category, so a later run for a
         different head updates the comment it owns instead of stacking another
-        one. Every PR comment is untrusted input: only a marker this account
-        authored is "managed", so a marker someone else placed can neither
-        suppress the explanation nor be edited. An unmarked deterministic comment
-        an existing repository workflow already posted is treated as the
-        equivalent explanation only when it names the same reported checks; a
-        comment about some other check is left alone and the gate posts its own.
+        one. A run that finds the same marker still compares the full body, so a
+        comment written for one deployment is reworded in place when the retry it
+        names changes -- an event-only gate comment becomes the scheduled one when
+        the automation is switched to cron -- and an unchanged body is a no-op.
+        Every PR comment is untrusted input: only a marker this account authored
+        is "managed", so a marker someone else placed can neither suppress the
+        explanation nor be edited. An unmarked deterministic comment an existing
+        repository workflow already posted is treated as the equivalent
+        explanation only when it names the same reported checks; a comment about
+        some other check is left alone and the gate posts its own.
         """
         comments = self.gh_pages(f"/issues/{number}/comments")
         managed = [
@@ -466,8 +562,15 @@ class PullRequestReviewer(GitHubRepository):
             if CHECK_GATE_MARKER in (comment.get("body") or "")
             and self._owns_comment(comment)
         ]
-        if any(marker in (comment.get("body") or "") for comment in managed):
-            return None
+        matching = [
+            comment for comment in managed if marker in (comment.get("body") or "")
+        ]
+        if matching:
+            target = max(matching, key=lambda comment: int(comment["id"]))
+            if (target.get("body") or "").strip() == body.strip():
+                return None
+            self.gh("PATCH", f"/issues/comments/{target['id']}", {"body": body})
+            return target["id"]
         if managed:
             target = max(managed, key=lambda comment: int(comment["id"]))
             self.gh("PATCH", f"/issues/comments/{target['id']}", {"body": body})
@@ -482,7 +585,16 @@ class PullRequestReviewer(GitHubRepository):
         created = self.gh("POST", f"/issues/{number}/comments", {"body": body})
         return created.get("id")
 
-    def _gate_body(self, sha, state, names):
+    def _gate_body(self, sha, state, names, scheduled):
+        """Explain a stop, naming the retry this deployment actually has.
+
+        A scheduled run proves a scan is configured, so it may promise the next
+        scan. An event run does not, so it names the one mechanism this
+        deployment is guaranteed to honor: another native review request. GitHub
+        refuses to request a reviewer who is already requested, so an event-only
+        deployment must say that the outstanding request has to be removed and
+        re-requested before the review can start.
+        """
         short = sha[:12]
         listed = "\n".join(f"- `{name}`" for name in names)
         if state == "blocked":
@@ -492,8 +604,14 @@ class PullRequestReviewer(GitHubRepository):
                 "conversation was started:"
             )
             action = (
-                "Fix the checks above and push. The scheduled scan, or a new "
-                "review request, then starts the review on the updated head."
+                "Fix the checks above and push. The scheduled scan then starts "
+                "the review on the updated head."
+                if scheduled
+                else "Fix the checks above and push. Then remove the outstanding "
+                f"`{self.trigger_reviewer}` request and request "
+                f"`{self.trigger_reviewer}` again: GitHub will not accept a "
+                "second request while the first is still outstanding. The review "
+                "starts on the updated head."
             )
         else:
             heading = "### ⏳ Review waiting on checks"
@@ -502,9 +620,14 @@ class PullRequestReviewer(GitHubRepository):
                 "finished, so no review conversation was started:"
             )
             action = (
-                "No action is needed. The scheduled scan, or a new review "
-                "request, retries once every check on the head reports a "
-                "conclusion."
+                "No action is needed. The scheduled scan retries once every "
+                "check on the head reports a conclusion."
+                if scheduled
+                else "Once every check on the head reports a conclusion, remove "
+                f"the outstanding `{self.trigger_reviewer}` request and request "
+                f"`{self.trigger_reviewer}` again: GitHub will not accept a "
+                "second request while the first is still outstanding. That "
+                "starts the review."
             )
         return (
             f"{heading}\n\n{lead}\n\n{listed}\n\n{action}\n\n"
@@ -512,13 +635,15 @@ class PullRequestReviewer(GitHubRepository):
             f"_This is an automated check - {WORKFLOW_DISCLOSURE}._"
         )
 
-    def _gate_head(self, pr, requested=False):
+    def _gate_head(self, pr, requested=False, scheduled=False):
         """Return the head's eligibility, explaining any stop on the PR.
 
         An explicit `all-hands-bot` review request is the intake-policy
         exception: the caller asked for this head by name, so the CI gate does
         not apply and no gate comment is left. Scheduled discovery still gates on
-        the required checks.
+        the required checks. When it stops a scheduled run, the explanation names
+        the retry that deployment actually has, which is why `scheduled` is
+        threaded into the body.
         """
         sha = pr["head"]["sha"]
         if requested:
@@ -527,9 +652,26 @@ class PullRequestReviewer(GitHubRepository):
         if state in ("blocked", "waiting"):
             marker = f"{CHECK_GATE_MARKER}{state}:{sha} -->"
             self._gate_comment(
-                pr["number"], marker, self._gate_body(sha, state, names), names
+                pr["number"],
+                marker,
+                self._gate_body(sha, state, names, scheduled),
+                names,
             )
         return state, sha
+
+    def _outstanding_review_request(self, pr):
+        """Whether an open, non-draft PR still holds a request for the reviewer.
+
+        The list endpoint already answers this: `requested_reviewers` is the live
+        set, so a review that was submitted, or a request that was withdrawn, is
+        simply absent. Drafts are excluded because a draft is not reviewable.
+        """
+        if pr.get("draft"):
+            return False
+        return any(
+            (item.get("login") or "").lower() == self.trigger_reviewer
+            for item in pr.get("requested_reviewers") or []
+        )
 
     def run(self):
         repository_id = self.gh("GET", "")["id"]
@@ -550,20 +692,31 @@ class PullRequestReviewer(GitHubRepository):
             event_mode = payload is not None
             if not event_mode and label not in {
                 item["name"] for item in candidate.get("labels", [])
-            }:
+            } and not self._outstanding_review_request(candidate):
+                # A scheduled scan covers the trigger label and any PR that still
+                # holds a review request the CI gate deferred. Everything else is
+                # not ours to review.
                 continue
             try:
                 pr = self.gh("GET", f"/pulls/{candidate['number']}")
-                trigger = (
-                    self._latest_reviewer_request(pr["number"])
-                    if event_mode
-                    else workflow._latest_trigger_label_event(
-                        self.token, self.repository, pr["number"]
+                has_label = label in {
+                    item["name"] for item in pr.get("labels", [])
+                }
+                if event_mode or has_label:
+                    trigger = (
+                        self._latest_reviewer_request(pr["number"])
+                        if event_mode
+                        else workflow._latest_trigger_label_event(
+                            self.token, self.repository, pr["number"]
+                        )
                     )
-                )
+                else:
+                    # The outstanding request is the trigger, so its own event
+                    # keys the delivery and dedupes repeated scans.
+                    trigger = self._latest_reviewer_request(pr["number"])
                 if trigger is None:
                     continue
-                trigger_label = None if event_mode else label
+                trigger_label = label if (not event_mode and has_label) else None
                 if self._finish_completed_review(pr, trigger, trigger_label):
                     continue
                 if event_mode and payload.get("action") == "submitted":
@@ -573,7 +726,9 @@ class PullRequestReviewer(GitHubRepository):
                     # dispatching a review the caller never asked for.
                     continue
                 sha = pr["head"]["sha"]
-                gate_state, sha = self._gate_head(pr, requested=event_mode)
+                gate_state, sha = self._gate_head(
+                    pr, requested=event_mode, scheduled=not event_mode
+                )
                 if gate_state != "green":
                     # A deterministic blocker stops the run without spending a
                     # worker slot on an agent. The trigger is not consumed: the
@@ -591,23 +746,28 @@ class PullRequestReviewer(GitHubRepository):
                         flush=True,
                     )
                     continue
-                result = self.dispatcher.deliver(
-                    subject=f"{repository_id}:pr:{pr['number']}",
-                    delivery=f"{trigger['id']}:{sha}",
-                    prompt=self._prompt(pr, trigger, trigger_label),
-                )
-                print(
-                    json.dumps(
-                        {
-                            "repository": self.repository,
-                            "pr": pr["number"],
-                            "head_sha": sha,
-                            "disposition": result["disposition"],
-                            "conversation_id": result["conversation_id"],
-                        }
+                record = {
+                    "repository": self.repository,
+                    "number": pr["number"],
+                    # The oldest outstanding request drains first; repository and
+                    # number break a tie so the order is deterministic.
+                    "created_at": trigger.get("created_at") or "",
+                    "config": self.config,
+                    "start": lambda pr=pr, trigger=trigger, sha=sha,
+                    trigger_label=trigger_label: self._start_review(
+                        repository_id, pr, trigger, sha, trigger_label
                     ),
-                    flush=True,
-                )
+                }
+                if event_mode:
+                    # An explicit request is a caller's decision to spend a
+                    # conversation now, not a backlog item, so the event path
+                    # dispatches immediately and is never bounded by the
+                    # scheduled scan's per-run maximum.
+                    self._start_review(
+                        repository_id, pr, trigger, sha, trigger_label
+                    )
+                else:
+                    self.intake.register(record)
             except Exception as exc:  # noqa: BLE001 - one PR must not block the scan
                 failures.append(candidate.get("number", "?"))
                 print(
@@ -617,13 +777,61 @@ class PullRequestReviewer(GitHubRepository):
                     file=sys.stderr,
                     flush=True,
                 )
+        if self.scan_intake is None:
+            # A run() with no shared scan intake owns its whole scan, so it
+            # drains the candidates it collected, bounded by the per-run maximum.
+            self.intake.drain()
         if failures:
             raise RuntimeError(
                 "Reviewer scan failed for PRs: "
                 + ", ".join(f"#{number}" for number in failures)
             )
 
+    def _start_review(self, repository_id, pr, trigger, sha, trigger_label):
+        result = self.dispatcher.deliver(
+            subject=f"{repository_id}:pr:{pr['number']}",
+            delivery=f"{trigger['id']}:{sha}",
+            prompt=self._prompt(pr, trigger, trigger_label),
+        )
+        print(
+            json.dumps(
+                {
+                    "repository": self.repository,
+                    "pr": pr["number"],
+                    "head_sha": sha,
+                    "disposition": result["disposition"],
+                    "conversation_id": result["conversation_id"],
+                }
+            ),
+            flush=True,
+        )
+        return result
+
+
+def run_scan(dispatcher):
+    """Run one scheduled scan over every configured repository, then drain.
+
+    One shared intake spans the whole scan, so the per-run maximum is global
+    rather than reset per repository, and the drain happens after every
+    repository has been scanned so the oldest outstanding request across all of
+    them starts first. One repository failing must not discard another
+    repository's drained candidates, so the drain still runs and the first
+    failure is what the scan reports.
+    """
+    PullRequestReviewer.scan_intake = ReviewIntake()
+    failure = None
+    try:
+        run_repositories(PullRequestReviewer, dispatcher=dispatcher)
+    except Exception as exc:  # noqa: BLE001 - reported after the drain
+        failure = exc
+    try:
+        PullRequestReviewer.scan_intake.drain()
+    except Exception as exc:  # noqa: BLE001 - reported after the scan failure
+        failure = failure or exc
+    if failure is not None:
+        raise failure
+
 
 if __name__ == "__main__":
     with AgentConversationDispatcher() as dispatcher:
-        run_repositories(PullRequestReviewer, dispatcher=dispatcher)
+        run_scan(dispatcher)
