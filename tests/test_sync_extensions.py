@@ -9,8 +9,11 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "scripts"))
 from sync_extensions import (
     CMD_MARKER,
     CommandSpec,
+    PRIMARY_MARKETPLACE,
     REPO_ROOT,
+    ROOT_MARKETPLACE_DIRS,
     _entry_type,
+    _normalize_marketplace_bytes,
     build_command_content,
     collect_needed_commands,
     generate_catalog,
@@ -18,6 +21,7 @@ from sync_extensions import (
     parse_frontmatter,
     slash_triggers,
     sync_commands,
+    sync_root_marketplace,
 )
 
 
@@ -304,3 +308,122 @@ class TestMarketplaceSourcePaths:
                     f"{mp_file.name}: {plugin.get('name', '?')} source "
                     f"'{src}' does not exist at {resolved}"
                 )
+
+
+# ── root marketplace copies ──────────────────────────────────────────
+
+class TestRootMarketplace:
+    """The root vendor marketplace.json files must be real (non-symlink) copies.
+
+    raw.githubusercontent.com does not dereference git symlinks through
+    directory paths, so consumers using the standard
+    ``.claude-plugin/marketplace.json`` path (e.g. plugin-directory with
+    ``MARKETPLACE_SOURCE=github://openhands/extensions``) need real files.
+    """
+
+    def test_vendor_dirs_are_real_directories(self):
+        for vendor in ROOT_MARKETPLACE_DIRS:
+            vendor_dir = REPO_ROOT / vendor
+            assert vendor_dir.is_dir(), f"{vendor}/ is not a directory"
+            assert not vendor_dir.is_symlink(), (
+                f"{vendor} is a symlink; raw.githubusercontent.com cannot "
+                "traverse symlinked directory paths"
+            )
+
+    def test_marketplace_json_files_are_real_files(self):
+        for vendor in ROOT_MARKETPLACE_DIRS:
+            target = REPO_ROOT / vendor / "marketplace.json"
+            assert target.is_file(), f"{target} is missing"
+            assert not target.is_symlink(), (
+                f"{target} is a symlink; raw.githubusercontent.com serves "
+                "symlink blobs as their literal target text, not the catalog"
+            )
+
+    def test_marketplace_json_matches_canonical(self):
+        canonical = _normalize_marketplace_bytes(PRIMARY_MARKETPLACE.read_bytes())
+        for vendor in ROOT_MARKETPLACE_DIRS:
+            target = REPO_ROOT / vendor / "marketplace.json"
+            current = _normalize_marketplace_bytes(target.read_bytes())
+            assert current == canonical, (
+                f"{target.relative_to(REPO_ROOT)} is out of sync with "
+                f"{PRIMARY_MARKETPLACE.relative_to(REPO_ROOT)}"
+            )
+
+    def test_marketplace_json_is_valid_catalog(self):
+        import json
+
+        canonical = json.loads(PRIMARY_MARKETPLACE.read_bytes())
+        for vendor in ROOT_MARKETPLACE_DIRS:
+            target = REPO_ROOT / vendor / "marketplace.json"
+            data = json.loads(target.read_bytes())
+            assert data.get("name") == canonical.get("name")
+            assert len(data.get("plugins", [])) == len(canonical.get("plugins", []))
+
+    def test_sync_root_marketplace_detects_and_fixes_symlinks(self, tmp_path, monkeypatch):
+        """sync_root_marketplace replaces symlinked dirs/files with real copies."""
+        import json
+
+        monkeypatch.setattr("sync_extensions.REPO_ROOT", tmp_path)
+        monkeypatch.setattr("sync_extensions.PRIMARY_MARKETPLACE", tmp_path / "marketplaces" / "openhands-extensions.json")
+
+        # Canonical marketplace source.
+        mp_dir = tmp_path / "marketplaces"
+        mp_dir.mkdir()
+        canonical_data = {"name": "openhands-extensions", "plugins": [{"name": "x", "source": "./skills/x"}]}
+        canonical_bytes = (json.dumps(canonical_data, indent=2, ensure_ascii=False, sort_keys=True) + "\n").encode()
+        (mp_dir / "openhands-extensions.json").write_bytes(canonical_bytes)
+
+        # Recreate the broken double-symlink chain from the issue.
+        plugin_dir = tmp_path / ".plugin"
+        plugin_dir.mkdir()
+        (plugin_dir / "marketplace.json").symlink_to("../marketplaces/openhands-extensions.json")
+        (tmp_path / ".claude-plugin").symlink_to(".plugin")
+        (tmp_path / ".codex-plugin").symlink_to(".plugin")
+
+        # Check mode must report the symlinks as problems.
+        problems = sync_root_marketplace(check=True)
+        assert any("symlinked dir" in p for p in problems)
+        assert any("symlinked file" in p for p in problems)
+
+        # Write mode fixes them.
+        sync_root_marketplace(check=False)
+        for vendor in [".claude-plugin", ".codex-plugin", ".plugin"]:
+            vendor_dir = tmp_path / vendor
+            target = vendor_dir / "marketplace.json"
+            assert vendor_dir.is_dir() and not vendor_dir.is_symlink(), f"{vendor} still a symlink dir"
+            assert target.is_file() and not target.is_symlink(), f"{target} still a symlink file"
+            assert _normalize_marketplace_bytes(target.read_bytes()) == canonical_bytes
+
+        # After fixing, check mode is clean.
+        assert sync_root_marketplace(check=True) == []
+
+    def test_sync_root_marketplace_detects_stale_copy(self, tmp_path, monkeypatch):
+        """sync_root_marketplace reports (and fixes) an out-of-date real copy."""
+        import json
+
+        monkeypatch.setattr("sync_extensions.REPO_ROOT", tmp_path)
+        monkeypatch.setattr("sync_extensions.PRIMARY_MARKETPLACE", tmp_path / "marketplaces" / "openhands-extensions.json")
+
+        mp_dir = tmp_path / "marketplaces"
+        mp_dir.mkdir()
+        canonical = {"name": "openhands-extensions", "plugins": [{"name": "x", "source": "./skills/x"}]}
+        canonical_bytes = (json.dumps(canonical, indent=2, ensure_ascii=False, sort_keys=True) + "\n").encode()
+        (mp_dir / "openhands-extensions.json").write_bytes(canonical_bytes)
+
+        stale = {"name": "openhands-extensions", "plugins": []}
+        for vendor in [".claude-plugin", ".codex-plugin", ".plugin"]:
+            (tmp_path / vendor).mkdir()
+            (tmp_path / vendor / "marketplace.json").write_text(json.dumps(stale))
+
+        problems = sync_root_marketplace(check=True)
+        assert len(problems) == 3
+        assert all("out of date" in p for p in problems)
+
+        sync_root_marketplace(check=False)
+        for vendor in [".claude-plugin", ".codex-plugin", ".plugin"]:
+            assert _normalize_marketplace_bytes((tmp_path / vendor / "marketplace.json").read_bytes()) == canonical_bytes
+        assert sync_root_marketplace(check=True) == []
+
+
+if __name__ == "__main__":
+    pytest.main([__file__, "-v"])
