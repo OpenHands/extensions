@@ -1,5 +1,6 @@
 """Tests for scripts/sync_extensions.py core functions."""
 
+import shutil
 import sys
 from pathlib import Path
 
@@ -18,6 +19,7 @@ from sync_extensions import (
     parse_frontmatter,
     slash_triggers,
     sync_commands,
+    sync_symlinks,
 )
 
 
@@ -286,6 +288,106 @@ class TestSyncCommands:
 
         problems = sync_commands(check=True)
         assert any("manually-edited" in p for p in problems)
+
+
+# ── vendor manifests ─────────────────────────────────────────────────
+
+def _make_plugin_skill(root: Path, name: str = "demo") -> Path:
+    """Create a fake skill dir with a canonical .plugin/plugin.json."""
+    skill = root / "skills" / name
+    (skill / ".plugin").mkdir(parents=True)
+    (skill / ".plugin" / "plugin.json").write_text('{"name": "demo"}\n')
+    return skill
+
+
+def _make_real_vendor_mirror(skill: Path, vendor: str = ".codex-plugin") -> Path:
+    path = skill / vendor
+    path.mkdir(exist_ok=True)
+    (path / "plugin.json").write_text('{"name": "demo"}\n')
+    return path
+
+
+def _point_sync_at(tmp_path, monkeypatch):
+    monkeypatch.setattr("sync_extensions.SKILL_DIRS", [tmp_path / "skills"])
+    monkeypatch.setattr("sync_extensions.REPO_ROOT", tmp_path)
+
+
+class TestVendorManifests:
+    def test_iterate_vendor_dirs_are_real_and_mirror_canonical(self):
+        """Codex drops symlinked dirs on install, so iterate ships real ones."""
+        iterate = REPO_ROOT / "skills" / "iterate"
+        canon = (iterate / ".plugin" / "plugin.json").read_bytes()
+        for vendor in (".codex-plugin", ".claude-plugin"):
+            path = iterate / vendor
+            assert not path.is_symlink(), f"{vendor} must not be a symlink"
+            assert path.is_dir(), f"{vendor} must be a real directory"
+            assert (path / "plugin.json").read_bytes() == canon
+
+    def test_symlink_to_canonical_passes(self, tmp_path, monkeypatch):
+        skill = _make_plugin_skill(tmp_path)
+        try:
+            for vendor in (".codex-plugin", ".claude-plugin"):
+                (skill / vendor).symlink_to(".plugin", target_is_directory=True)
+        except OSError:
+            pytest.skip("symlinks need privileges on this platform")
+        _point_sync_at(tmp_path, monkeypatch)
+
+        assert sync_symlinks(check=True) == []
+
+    def test_real_dir_mirror_passes_and_stale_copy_is_flagged(self, tmp_path, monkeypatch):
+        skill = _make_plugin_skill(tmp_path)
+        vendor = _make_real_vendor_mirror(skill)
+        _make_real_vendor_mirror(skill, ".claude-plugin")
+        _point_sync_at(tmp_path, monkeypatch)
+
+        assert sync_symlinks(check=True) == []
+
+        (vendor / "plugin.json").write_text('{"name": "stale"}\n')
+        problems = sync_symlinks(check=True)
+        assert any("stale manifest copy" in p for p in problems)
+
+    def test_fix_mode_refreshes_stale_copy(self, tmp_path, monkeypatch):
+        skill = _make_plugin_skill(tmp_path)
+        vendor = _make_real_vendor_mirror(skill)
+        _make_real_vendor_mirror(skill, ".claude-plugin")
+        (vendor / "plugin.json").write_text('{"name": "stale"}\n')
+        _point_sync_at(tmp_path, monkeypatch)
+
+        problems = sync_symlinks(check=False)
+        assert any("stale manifest copy" in p for p in problems)
+        assert (vendor / "plugin.json").read_text() == '{"name": "demo"}\n'
+        assert sync_symlinks(check=True) == []
+
+    def test_lossy_install_copy_keeps_codex_manifest(self, tmp_path):
+        """Mimic Codex `plugin add`, which drops symlinked directories.
+
+        The installed cache must still contain
+        `.codex-plugin/plugin.json` for the plugin to load.
+        """
+        src = REPO_ROOT / "skills" / "iterate"
+        dst = tmp_path / "iterate"
+        shutil.copytree(
+            src,
+            dst,
+            ignore=lambda d, names: [
+                n for n in names if (Path(d) / n).is_symlink()
+            ],
+        )
+        manifest = dst / ".codex-plugin" / "plugin.json"
+        assert manifest.is_file(), "Codex install lost .codex-plugin/plugin.json"
+        assert manifest.read_bytes() == (src / ".plugin" / "plugin.json").read_bytes()
+
+    def test_missing_vendor_still_gets_symlink(self, tmp_path, monkeypatch):
+        skill = _make_plugin_skill(tmp_path)
+        _point_sync_at(tmp_path, monkeypatch)
+        try:
+            sync_symlinks(check=False)
+        except OSError:
+            pytest.skip("symlinks need privileges on this platform")
+
+        assert (skill / ".codex-plugin").is_symlink()
+        assert (skill / ".claude-plugin").is_symlink()
+        assert sync_symlinks(check=True) == []
 
 
 # ── marketplace source paths ─────────────────────────────────────────
