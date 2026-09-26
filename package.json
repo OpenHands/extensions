@@ -51,6 +51,12 @@
       "import": "./skills/index.js",
       "default": "./skills/index.js"
     },
+    "./apps": {
+      "types": "./apps/index.d.ts",
+      "import": "./apps/index.js",
+      "default": "./apps/index.js"
+    },
+    "./apps/*": "./apps/*",
     "./skills/*": "./skills/*",
     "./plugins/*": "./plugins/*",
     "./marketplaces/*.json": "./marketplaces/*.json",
