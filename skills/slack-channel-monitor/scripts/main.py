@@ -37,7 +37,7 @@ import sys
 import time
 import urllib.error
 import urllib.request
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from urllib.parse import urlencode
 
 # ── Debug logging to a per-run file ───────────────────────────────────────────
@@ -58,9 +58,20 @@ TRIGGER_PHRASE = "@openhands"
 CHANNEL_IDS: list[str] = []          # e.g. ["C0123456789", "C9876543210"]
 DEFAULT_OPENHANDS_URL = "http://localhost:8000"
 
-# Lookback slightly over 60s to avoid missing messages at cron boundaries
-# when poll interval jitter causes slight delays.
-INITIAL_LOOKBACK = 70
+# Lookback window for the per-channel history path (bot token, no search).
+# Larger than the poll interval on purpose: processed_ts deduplicates, so a
+# wide window only costs extra fetches, while a narrow one silently drops
+# messages missed across longer gaps (cron jitter, disabled automation, etc.).
+INITIAL_LOOKBACK = 600
+
+# Fixed back-window used when matching trigger messages via search.messages.
+# Slack's search index lags the live stream by ~1-2 minutes, so a just-posted
+# message may not be returned by search until well after last_poll has already
+# advanced past it. Bounding the search by last_poll therefore silently drops
+# those messages forever. Instead we search over this fixed recent window and
+# rely on processed_ts (plus the trigger itself) to deduplicate, so a message
+# that lands during the search-index lag is still caught on a later run.
+SEARCH_LOOKBACK_SECONDS = 3600  # 1 hour of search window for trigger matching
 
 # Prevent posting summaries in the same run that created the conversation,
 # avoiding race conditions with conversation startup.
@@ -374,13 +385,18 @@ def post_message(token: str, channel: str, text: str, thread_ts: str | None = No
     return slack_post(token, "chat.postMessage", body).get("ts", "")
 
 
-def channel_history(token: str, channel: str, oldest: str, limit: int = 100) -> list[dict]:
-    result = slack_get(token, "conversations.history", {
+def channel_history(
+    token: str, channel: str, oldest: str, limit: int = 100, latest: str | None = None
+) -> list[dict]:
+    params: dict = {
         "channel": channel,
         "oldest": oldest,
         "limit": limit,
         "inclusive": "false",
-    })
+    }
+    if latest is not None:
+        params["latest"] = latest
+    result = slack_get(token, "conversations.history", params)
     return result.get("messages", [])
 
 
@@ -453,18 +469,33 @@ def search_trigger_messages(
     """
     channel_filter = " ".join(f"in:<#{cid}>" for cid in channel_ids)
     oldest_dt = datetime.fromtimestamp(float(oldest_ts), tz=timezone.utc)
-    # Use yesterday's date to ensure we catch all messages since our timestamp
-    date_str = oldest_dt.strftime("%Y-%m-%d")
-    query = f'"{trigger}" {channel_filter} after:{date_str}'
+    # Slack search does not index the leading "@" of a mention: "@agent" is treated
+    # as a user reference (matches nothing unless a user/bot named "agent" exists),
+    # and a quoted phrase match ("agent") also fails to match an @agent mention.
+    # Search for the bare unquoted trigger term instead; the raw text is still
+    # matched against TRIGGER_PHRASE afterwards by _has_trigger.
+    search_term = trigger.lstrip("@")
+    # Slack's `after:` date modifier is exclusive of the given day, so using today's
+    # date silently drops all of today's messages. Use yesterday instead and rely on
+    # the precise post-filter below (float(ts) > float(oldest_ts)).
+    yesterday = oldest_dt - timedelta(days=1)
+    date_str = yesterday.strftime("%Y-%m-%d")
+    query = f'{search_term} {channel_filter} after:{date_str}'
+    # Descending so count=100 keeps the most recent matches within the window;
+    # the caller sorts chronologically afterwards.
     result = slack_get(token, "search.messages", {
         "query": query,
         "count": 100,
         "sort": "timestamp",
-        "sort_dir": "asc",
+        "sort_dir": "desc",
     })
     matches = result.get("messages", {}).get("matches", [])
-    # Post-filter to our precise oldest timestamp
-    return [m for m in matches if float(m.get("ts", "0")) > float(oldest_ts)]
+    # Post-filter to a fixed recent window rather than last_poll: Slack's search
+    # index lags the live stream, so a message posted just before a run may only
+    # become searchable a minute or two later, after last_poll has moved past it.
+    # Searching the fixed window (and deduping via processed_ts) catches it.
+    cutoff = str(time.time() - SEARCH_LOOKBACK_SECONDS)
+    return [m for m in matches if float(m.get("ts", "0")) > float(cutoff)]
 
 
 def has_search_permission(scopes: set[str]) -> bool:
@@ -701,6 +732,45 @@ def _verify_token_scopes(scopes: set[str]) -> bool:
     return can_react
 
 
+_AUTH_CACHE: dict | None = None
+
+
+def _slack_auth_once() -> dict:
+    """Resolve the Slack token + scopes once per process run (cached).
+
+    Slack auth/identity does not change across a single run's polling iterations,
+    so cache the result to avoid repeating auth.test + scope resolution on every
+    iteration (cuts Slack HTTP calls by ~90 % for the common no-trigger case).
+    """
+    global _AUTH_CACHE
+    if _AUTH_CACHE is not None:
+        return _AUTH_CACHE
+
+    slack_token, token_is_user = _resolve_slack_token()
+    bot_user_id, scopes = _slack_auth_test(slack_token)
+
+    # The user token's auth.test returns the HUMAN who owns the token (e.g.
+    # U0ABCD1234). If we used that as bot_user_id, every message posted by that
+    # human would be treated as "the bot" and silently skipped. The real bot
+    # identity must come from the bot token, when one is configured.
+    if get_secret("SLACK_BOT_TOKEN"):
+        try:
+            bot_user_id, _ = _slack_auth_test(get_secret("SLACK_BOT_TOKEN"))
+        except Exception as exc:
+            print(f"  Warning: could not resolve bot token identity: {exc}")
+
+    can_react = _verify_token_scopes(scopes)
+    _AUTH_CACHE = {
+        "slack_token": slack_token,
+        "token_is_user": token_is_user,
+        "scopes": scopes,
+        "bot_user_id": bot_user_id,
+        "can_react": can_react,
+    }
+    print(f"Bot user ID: {bot_user_id}")
+    return _AUTH_CACHE
+
+
 def _gather_channel_context(
     slack_token: str,
     channel_id: str,
@@ -713,7 +783,8 @@ def _gather_channel_context(
     context_lines: list[str] = []
     try:
         cutoff = str(float(before_ts) - CONTEXT_LOOKBACK_SECONDS)
-        msgs = channel_history(slack_token, channel_id, cutoff, limit)
+        msgs = channel_history(slack_token, channel_id, cutoff, limit,
+                               latest=before_ts)
         for msg in reversed(msgs):
             if _is_human_message(msg, bot_user_id, bot_message_ts):
                 context_lines.append(f"[{msg.get('user','?')}]: {msg.get('text','')}")
@@ -838,8 +909,10 @@ def _poll_new_messages(
             for m in matches:
                 cid = m.get("channel", {}).get("id", "")
                 if cid in CHANNEL_IDS:
-                    ch_oldest = oldest_by_channel.get(cid, global_oldest)
-                    if float(m.get("ts", "0")) > float(ch_oldest):
+                    # Do NOT re-filter by last_poll here: search lags the live
+                    # stream, so bound by the fixed search window instead and
+                    # let processed_ts dedupe.
+                    if float(m.get("ts", "0")) > float(time.time() - SEARCH_LOOKBACK_SECONDS):
                         new_messages.append((cid, m))
             print(f"search.messages returned {len(new_messages)} trigger candidate(s)")
         except Exception as exc:
@@ -895,8 +968,21 @@ def _process_trigger_message(
     if can_react:
         add_reaction(slack_token, channel_id, msg_ts)
 
-    # Build context: thread history (if in a thread) or nothing (root-level)
+    # Build context blocks:
+    #  1. Recent channel history (always included, best-effort).
+    #  2. Full thread history (only when the trigger is a reply inside a thread).
+    channel_context = _gather_channel_context(
+        slack_token, channel_id, msg_ts, bot_user_id, bot_message_ts
+    )
     context_block = ""
+    if channel_context:
+        context_block = (
+            f"\nRecent channel history (oldest → newest, with the trigger message "
+            f"at the end):\n---\n"
+            + "\n".join(channel_context)
+            + "\n---\n"
+        )
+
     if is_thread_reply:
         try:
             thread_msgs = full_thread_history(
@@ -906,7 +992,7 @@ def _process_trigger_message(
                 f"[{m.get('user','?')}]: {m.get('text','')}" for m in thread_msgs
             ]
             if thread_lines:
-                context_block = (
+                context_block += (
                     f"\nFull thread history (oldest → newest):\n"
                     f"---\n" + "\n".join(thread_lines) + "\n---\n"
                 )
@@ -933,7 +1019,7 @@ def _process_trigger_message(
         f"the user request explicitly refers to them.\n\n"
         f"When you are finished, summarise what you did clearly — that summary "
         f"will be posted back to the Slack thread. "
-        f"Understand that your response will be displayed in Slack. Format links so they stay clickable in Slack: never wrap a URL in asterisks or backticks, never bold or otherwise style a link, and always output the bare URL as plain text (e.g. https://example.com/path, not **https://example.com/path** or <https://example.com/path>). You can always use Slack format for link text and address."
+        f"Understand that your response will be displayed in Slack, so format any links appropriately for Slack. Do NOT bold the links on Slack."
     )
 
     try:
@@ -1002,7 +1088,7 @@ def _check_conversation_completion(
                 + (f"\n\n{final}" if final else "")
             )
         else:
-            summary = final if final else "Success (no message available)."
+            summary = f"✅ Done!\n\n{final}" if final else "✅ Task complete (no summary available)."
 
         ts_back = post_message(slack_token, channel_id, summary, thread_ts=thread_ts)
         if ts_back:
@@ -1029,18 +1115,18 @@ def main() -> str | None:
     agent_url = os.environ.get("AGENT_SERVER_URL", "").rstrip("/")
     api_key = _get_env_key()
 
-    slack_token, token_is_user = _resolve_slack_token()
+    # Slack identity/scopes are resolved once per run and cached (see
+    # _slack_auth_once). Raises RuntimeError if the token is invalid.
+    auth = _slack_auth_once()
+    slack_token: str = auth["slack_token"]
+    token_is_user: bool = auth["token_is_user"]
+    scopes: set[str] = auth["scopes"]
+    bot_user_id: str = auth["bot_user_id"]
+    can_react: bool = auth["can_react"]
+    state["bot_user_id"] = bot_user_id
 
     openhands_url = resolve_openhands_url()
 
-    # Raises RuntimeError immediately if the token is invalid - no point polling.
-    bot_user_id_new, scopes = _slack_auth_test(slack_token)
-    state["bot_user_id"] = bot_user_id_new
-    print(f"Bot user ID: {bot_user_id_new}")
-
-    can_react = _verify_token_scopes(scopes)
-
-    bot_user_id: str = state.get("bot_user_id") or ""
     bot_message_ts: list[str] = state.get("bot_message_ts", [])
     processed_ts: set[str] = set(state.get("processed_ts", []))
 
@@ -1096,12 +1182,34 @@ def main() -> str | None:
         text: str = msg.get("text", "") or ""
         thread_ts: str | None = msg.get("thread_ts")
 
+        has_trigger = _has_trigger(text)
+
+        # search.messages does not populate thread_ts, so a trigger posted as a
+        # reply inside a thread arrives looking like a root message and loses its
+        # thread context. When we only have a search result (no thread_ts) for a
+        # message that matched the trigger, resolve the real parent best-effort:
+        # conversations.replies reports the message's thread_ts (the parent for a
+        # reply, or its own ts for a root message).
+        if has_trigger and not thread_ts:
+            try:
+                marker = slack_get(slack_token, "conversations.replies", {
+                    "channel": channel_id, "ts": msg_ts, "limit": 1, "inclusive": "true",
+                }).get("messages", [])
+                if marker:
+                    resolved_ts = marker[0].get("thread_ts")
+                    # For a root message thread_ts == its own ts; only adopt the
+                    # value when it points at a different (parent) message.
+                    if resolved_ts and resolved_ts != msg_ts:
+                        thread_ts = resolved_ts
+                        print(f"  Resolved thread parent {thread_ts} for {msg_ts}")
+            except Exception as exc:
+                print(f"  Warning: could not resolve thread for {msg_ts}: {exc}")
+
         # thread_root is the TS we use as the conversation key.
         # For top-level messages it's the message itself; for replies it's the parent.
         thread_root: str = thread_ts if thread_ts and thread_ts != msg_ts else msg_ts
         conv_key = f"{channel_id}:{thread_root}"
 
-        has_trigger = _has_trigger(text)
         is_thread_reply = (
             thread_ts is not None
             and thread_ts != msg_ts
@@ -1215,8 +1323,8 @@ def main() -> str | None:
     return last_conversation_id
 
 
-POLL_ITERATIONS = 10
-POLL_INTERVAL_SECONDS = 5
+POLL_ITERATIONS = 6
+POLL_INTERVAL_SECONDS = 3
 
 try:
     last_conversation_id = None
