@@ -48,6 +48,58 @@ for (const field of ["name", "version", "entrypoint"]) {
 if (typeof manifest.name === "string" && !name.test(manifest.name)) fail("Manifest name must use lowercase kebab-case.");
 if (typeof manifest.version === "string" && !semver.test(manifest.version)) fail("Manifest version must use semantic versioning.");
 
+if (manifest.backend !== undefined && manifest.backend !== null) {
+  const backend = manifest.backend;
+  if (typeof backend !== "object" || Array.isArray(backend)) {
+    fail("Manifest backend must be an object.");
+  } else {
+    if (backend.schema_version !== 1) fail("Manifest backend.schema_version must equal 1.");
+    const artifacts = backend.artifacts;
+    if (!artifacts || typeof artifacts !== "object" || Array.isArray(artifacts) || Object.keys(artifacts).length === 0) {
+      fail("Manifest backend.artifacts must be a non-empty platform map.");
+    } else {
+      for (const [platform, artifact] of Object.entries(artifacts)) {
+        const label = `backend.artifacts[${platform}]`;
+        if (!new Set(["linux-amd64", "linux-arm64"]).has(platform)) fail(`${label} uses an unsupported platform.`);
+        if (!artifact || typeof artifact !== "object" || Array.isArray(artifact)) { fail(`${label} must be an object.`); continue; }
+        if (typeof artifact.path !== "string" || !artifact.path || artifact.path.startsWith("/") || artifact.path.split(/[\\/]/).includes("..") || !artifact.path.endsWith(".tar.gz")) fail(`${label}.path must be a contained relative .tar.gz path.`);
+        if (typeof artifact.sha256 !== "string" || !/^[0-9a-f]{64}$/.test(artifact.sha256)) fail(`${label}.sha256 must be a lowercase SHA-256 checksum.`);
+      }
+    }
+    if (!Array.isArray(backend.argv) || backend.argv.length === 0 || backend.argv.some((argument) => typeof argument !== "string" || !argument || argument.includes("\0"))) {
+      fail("Manifest backend.argv must be a non-empty array of strings.");
+    } else {
+      if (!backend.argv[0].startsWith("{artifact_dir}/")) {
+        fail("Manifest backend.argv[0] must execute from {artifact_dir}.");
+      } else if (backend.argv[0].slice("{artifact_dir}/".length).split(/[\\/]/).includes("..")) {
+        fail("Manifest backend.argv[0] must resolve inside {artifact_dir}.");
+      }
+      const allowed = new Set(["{port}", "{data_dir}", "{artifact_dir}"]);
+      for (const argument of backend.argv) {
+        for (const placeholder of argument.match(/\{[^{}]+\}/g) ?? []) {
+          if (!allowed.has(placeholder)) fail(`Manifest backend.argv contains unsupported placeholder ${placeholder}.`);
+        }
+      }
+    }
+    if (backend.health !== undefined) {
+      const health = backend.health;
+      if (!health || typeof health !== "object" || Array.isArray(health)) {
+        fail("Manifest backend.health must be an object.");
+      } else {
+        if (health.path !== undefined && (typeof health.path !== "string" || !/^\/[A-Za-z0-9._~!$&'()*+,;=:@%/-]*$/.test(health.path))) fail("Manifest backend.health.path must be a root-relative HTTP path.");
+        for (const [field, maximum] of [["timeout_seconds", 300], ["interval_seconds", 10]]) {
+          if (health[field] !== undefined && (typeof health[field] !== "number" || health[field] <= 0 || health[field] > maximum)) fail(`Manifest backend.health.${field} must be greater than 0 and at most ${maximum}.`);
+        }
+      }
+    }
+    if (backend.inherit_environment !== undefined) {
+      const environment = backend.inherit_environment;
+      const allowed = new Set(["LANG", "LC_ALL", "LC_CTYPE", "PATH", "TMPDIR", "TZ"]);
+      if (!Array.isArray(environment) || environment.some((variable) => typeof variable !== "string" || !allowed.has(variable)) || new Set(environment).size !== environment.length) fail("Manifest backend.inherit_environment must contain unique names from the supported non-credential allowlist.");
+    }
+  }
+}
+
 const ids = new Set();
 const paths = new Set();
 const pages = manifest.contributes?.pages;
