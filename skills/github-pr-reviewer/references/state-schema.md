@@ -18,6 +18,21 @@ store under the key `state:{owner}__{repo}` — for example
 `AUTOMATION_KV_TOKEN` is injected into the run environment. Each automation has
 its own isolated namespace.
 
+The scheduled worker (`worker.py`) uses the same store for one more document, the
+**unrequested-scan cursor**, under the key `review-scan:{owner}__{repo}`:
+
+```json
+{ "cursor": 20 }
+```
+
+`cursor` is the position in the repository's unrequested-PR backlog at which the
+next scheduled scan's bounded window starts. Each scan examines at most
+`SCAN_WINDOW` (10) unrequested PRs from that position, then writes the position
+after the window, so successive scans rotate through the whole backlog instead of
+reading one pull request per open PR. A cursor past the end wraps to the start.
+This document is separate from `main.py`'s per-repository review state; a missing
+or unreadable cursor simply starts the window at the beginning.
+
 **Fallback (local/dev):** When the KV store is not available, the state is
 written to a local JSON file at:
 
