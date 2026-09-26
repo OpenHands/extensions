@@ -8,16 +8,39 @@ triggers:
 You are working with **Bitbucket**, which ships as two distinct products that behave
 differently:
 
-- **Bitbucket Cloud** (`bitbucket.org`) — authenticates with the `BITBUCKET_TOKEN`
+- **Bitbucket Cloud** (`bitbucket.org`) - authenticates with the `BITBUCKET_TOKEN`
   environment variable.
-- **Bitbucket Data Center** (self-hosted Bitbucket Server) — authenticates with the
+- **Bitbucket Data Center** (self-hosted Bitbucket Server) - authenticates with the
   `BITBUCKET_DATA_CENTER_TOKEN` environment variable.
 
 They use different REST APIs, repository identifiers, git remote URL formats, and pull
 request tools, so you must first determine which one you are on, then load the matching
 detailed skill for full instructions.
 
-## Step 1 — Detect which Bitbucket you are on
+## Authentication
+
+You can interact with Bitbucket using one of the following methods, in order of preference:
+
+1. **OAuth MCP Server** (preferred): If authenticated Bitbucket MCP tools are available in
+   the environment, use them for Bitbucket operations. MCP tools handle authentication via
+   the configured OAuth integration, so no token is needed.
+2. **Secret Token**: If the relevant token environment variable is set
+   (`BITBUCKET_TOKEN` for Cloud, `BITBUCKET_DATA_CENTER_TOKEN` for Data Center), use it
+   with the Bitbucket API, as described in the detailed skills.
+3. **No authentication**: If neither is available, ask the user to either:
+   - Connect a Bitbucket OAuth MCP server in Canvas, OR
+   - Provide the relevant token as a Secret
+
+Detection is based on the availability of authenticated Bitbucket MCP tools - no specific
+MCP server name or tool name is required. When MCP tools are available, prefer them; the
+token/direct-API flows in the detailed skills remain the correct path when MCP is
+unavailable or when you explicitly need raw API/curl access.
+
+The detection steps below determine which product you are on (Cloud vs Data Center) for
+the token path; if you are using an MCP server, product detection is handled by the MCP
+tools themselves.
+
+## Step 1 - Detect which Bitbucket you are on
 
 Check which token environment variable is present. Environment variable names are
 case-sensitive, so look for it case-insensitively:
@@ -34,7 +57,7 @@ env | grep -i 'bitbucket' || echo "no bitbucket token found"
 When you reference the token later, use the exact variable name (and letter case) that
 actually exists in the environment.
 
-## Step 2 — Load the detailed skill
+## Step 2 - Load the detailed skill
 
 Once you know the environment, use the `invoke_skill` tool to load the matching skill for
 full instructions on API calls, authenticated git remotes, and opening pull requests:
