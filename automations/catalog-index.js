@@ -24,6 +24,7 @@ import entry18 from "./catalog/github-issue-triage/manifest.json" with { type: "
 import entry19 from "./catalog/upstream-fork-sync/manifest.json" with { type: "json" };
 import entry20 from "./catalog/incident-retrospective-drafter/manifest.json" with { type: "json" };
 import entry21 from "./catalog/news-digest/manifest.json" with { type: "json" };
+import entry22 from "./catalog/github-stale-ci-pr-closer/manifest.json" with { type: "json" };
 
 export const AUTOMATION_CATALOG_ENTRIES = [
   entry0,
@@ -48,4 +49,5 @@ export const AUTOMATION_CATALOG_ENTRIES = [
   entry19,
   entry20,
   entry21,
+  entry22,
 ];

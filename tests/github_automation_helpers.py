@@ -20,6 +20,7 @@ def worker(name, tmp_path, monkeypatch):
         "agent_conversation",
         "main",
         "github_client",
+        "maintainer_handoff",
         "qa_prompt",
         "worker",
     ):

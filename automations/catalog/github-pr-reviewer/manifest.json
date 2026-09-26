@@ -1,9 +1,9 @@
 {
   "id": "github-pr-reviewer",
-  "version": "1.1.1",
+  "version": "1.8.0",
   "name": "GitHub code review",
   "category": "Code review",
-  "description": "Review labeled pull-request heads, publish readable findings, and record exact-head test and review decisions.",
+  "description": "Review requested pull-request heads, resume an outstanding reviewer request on a schedule once its checks are green, review a bounded rotating window of open non-draft pull requests that nobody requested once their current head is green and unreviewed, drain the backlog oldest-first under a small per-scan new-conversation bound, record exact-head decisions, stop early on out-of-scope changes, and optionally request a code-aware human maintainer after approval or a maintainer-decision scope stop.",
   "requires": {
     "integrations": {},
     "features": [
@@ -13,7 +13,7 @@
   },
   "popularityRank": 100,
   "estimatedSetupMinutes": 4,
-  "exampleImplementation": "A scheduled scanner selects every labeled PR head and submits an idempotent subject turn. The profile-backed agent clones that exact head in its runtime, reuses the established review workflow, runs appropriate tests, publishes a readable native review, and records exact-head review and test statuses.",
+  "exampleImplementation": "A scheduled scan of the trigger label, of open non-draft PRs holding an outstanding reviewer request, and of a bounded rotating window of open non-draft PRs nobody requested whose current head is green and unreviewed, or a GitHub reviewer-request event, selects a PR head and submits an idempotent subject turn. The unrequested window resumes from a per-repository position kept in the Automation KV store, so each scan reads a bounded number of pull requests while still covering the backlog over time, and explicit requests are always examined. The scheduled scan orders eligible heads with explicit requests first and then oldest-first, and starts at most a small configurable number of new conversations per scan across every repository. The profile-backed agent clones that exact head in its runtime, applies an early repository-ownership and product/architecture scope gate, then reuses the established review workflow, runs appropriate tests, and publishes a readable native review. A native approval, or a maintainer-decision scope stop, can then be handed to a code-aware human maintainer.",
   "impact": {
     "basis": "completed-runs",
     "one": "1 PR review sweep completed",
@@ -28,8 +28,8 @@
           "schedule": {
             "type": "cron",
             "label": "Check frequency",
-            "help": "How often to look for newly labelled pull requests.",
-            "default": "*/15 * * * *",
+            "help": "How often to look for newly labelled pull requests, outstanding reviewer requests whose checks have not yet finished, and open non-draft pull requests nobody requested that still need a review.",
+            "default": "*/5 * * * *",
             "required": true
           },
           "timezone": {
@@ -38,6 +38,21 @@
             "help": "Timezone the schedule is interpreted in.",
             "default": "UTC",
             "required": true
+          }
+        },
+        "event": {
+          "on": {
+            "type": "select",
+            "label": "GitHub events",
+            "help": "Handle requests for the configured bot and its resulting native reviews.",
+            "default": "*",
+            "required": true,
+            "options": [
+              {
+                "value": "*",
+                "label": "Reviewer request and completion"
+              }
+            ]
           }
         }
       },
@@ -53,12 +68,33 @@
         "triggerLabel": {
           "type": "text",
           "label": "Trigger label",
-          "help": "Only pull requests carrying this label are reviewed.",
+          "help": "Pull requests carrying this label are reviewed. An open, non-draft pull request that nobody requested is also reviewed once its current head is green and carries no review yet, examined a bounded rotating window at a time so one scan reads only a slice of the backlog.",
           "default": "openhands-review",
           "required": true,
           "constraints": {
             "minLength": 1,
             "maxLength": 50
+          }
+        },
+        "triggerReviewer": {
+          "type": "text",
+          "label": "Requested reviewer",
+          "help": "GitHub login whose review request starts an event-driven review.",
+          "default": "all-hands-bot",
+          "required": true,
+          "constraints": {
+            "minLength": 1,
+            "maxLength": 39
+          }
+        },
+        "maxNewPerRun": {
+          "type": "number",
+          "label": "New reviews per scan",
+          "help": "Most new review conversations one scheduled scan may start, counted across every repository. Keeps a first scan over a large backlog from starting an agent for every eligible pull request at once. Reviews that are already running are resumed without counting against it.",
+          "default": 2,
+          "required": true,
+          "constraints": {
+            "min": 1
           }
         },
         "reviewTone": {
@@ -82,6 +118,13 @@
             }
           ]
         },
+        "maintainers": {
+          "type": "text",
+          "label": "Maintainers",
+          "help": "Optional comma-separated GitHub collaborator logins. Include at least two so a maintainer-authored PR still has an eligible reviewer. After an exact-head approval, request one based on changed-path history and current review load.",
+          "default": "",
+          "required": false
+        },
         "githubTokenSecret": {
           "type": "text",
           "label": "GitHub token secret",
@@ -92,22 +135,27 @@
       }
     },
     "bundle": {
-      "version": "1.1.1",
+      "version": "1.8.0",
       "entrypoint": "python3 worker.py",
       "timeout": 300,
       "files": {
         "main.py": "skills/github-pr-reviewer/scripts/main.py",
         "agent_conversation.py": "skills/github/scripts/agent_conversation.py",
         "github_client.py": "skills/github/scripts/github_client.py",
+        "maintainer_handoff.py": "skills/github-pr-reviewer/scripts/maintainer_handoff.py",
         "worker.py": "skills/github-pr-reviewer/scripts/worker.py"
       },
       "config": {
         "repos": "{{form.repositories}}",
         "trigger_label": "{{form.triggerLabel}}",
+        "trigger_reviewer": "{{form.triggerReviewer}}",
+        "max_new_per_run": "{{form.maxNewPerRun}}",
         "review_tone": "{{form.reviewTone}}",
+        "maintainers": "{{form.maintainers}}",
         "github_token_secret": "{{form.githubTokenSecret}}"
       }
     },
-    "message": "Configure the repositories, review label, tone, credential name, agent profile, and schedule."
+    "filter": "contains({{form.repositories}}, repository.full_name) && contains(keys(@), 'pull_request') && ((action == 'review_requested' && requested_reviewer.login == '{{form.triggerReviewer}}') || (action == 'submitted' && contains(keys(@), 'review') && review.user.login == '{{form.triggerReviewer}}'))",
+    "message": "Configure the repositories, trigger, review tone, optional maintainer roster, credential name, per-scan new-review bound, and agent profile."
   }
 }
