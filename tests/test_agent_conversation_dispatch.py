@@ -209,3 +209,182 @@ def test_subjects_use_independent_kv_records(monkeypatch):
         _state_key("repo:issue:7"),
         _state_key("repo:issue:8"),
     }
+
+
+# --------------------------------------------------------------------------- #
+# In-flight registry: a dispatcher asked to track its work records every
+# conversation it starts and counts the nonterminal ones on demand, so a
+# scheduled scan can bound live runtimes across runs.
+# --------------------------------------------------------------------------- #
+
+
+def _tracked_dispatcher(monkeypatch, state, statuses):
+    """The shipped dispatcher with tracking on and the agent server stubbed.
+
+    `statuses` maps conversation_id -> execution_status; an id absent from it is
+    answered as a 404, which is how a conversation the server no longer has looks.
+    """
+    monkeypatch.setenv("AGENT_SERVER_URL", "http://agent")
+    monkeypatch.setenv("SESSION_API_KEY", "session")
+    monkeypatch.setenv(
+        "AUTOMATION_AGENT_PROFILE_ID", "11111111-1111-4111-8111-111111111111"
+    )
+    monkeypatch.setenv(
+        "AUTOMATION_EVENT_PAYLOAD", json.dumps({"automation_id": "automation-1"})
+    )
+    _fake_kv(monkeypatch, state)
+    monkeypatch.setattr(agent_conversation, "_register_tools", lambda: None)
+    workspace = MagicMock()
+    workspace.__enter__.return_value = workspace
+    workspace.get_secrets.return_value = {}
+    monkeypatch.setattr(
+        agent_conversation, "RemoteWorkspace", lambda **kwargs: workspace
+    )
+    missing = agent_conversation.httpx.HTTPStatusError(
+        "missing", request=MagicMock(), response=MagicMock(status_code=404)
+    )
+    monkeypatch.setattr(
+        agent_conversation.RemoteConversation, "attach", MagicMock(side_effect=missing)
+    )
+    monkeypatch.setattr(
+        agent_conversation.RemoteConversation,
+        "create",
+        MagicMock(side_effect=lambda *a, **k: MagicMock()),
+    )
+
+    def get(path):
+        response = MagicMock()
+        if path in statuses:
+            response.status_code = 200
+            response.json.return_value = {"execution_status": statuses[path]}
+        else:
+            response.status_code = 404
+        return response
+
+    workspace.client.get = get
+    return agent_conversation.AgentConversationDispatcher(track_in_flight=True)
+
+
+def test_a_started_conversation_is_recorded_and_counted_while_live(monkeypatch):
+    state = {}
+    conversation_id = None
+    dispatcher = _tracked_dispatcher(monkeypatch, state, {})
+    with dispatcher as active:
+        result = active.deliver("repo:pr:9", "head-1", "work")
+        conversation_id = result["conversation_id"]
+        active._execution_status = lambda cid: "running"
+        assert active.in_flight() == 1
+
+    registry = state[agent_conversation._IN_FLIGHT_KEY]
+    assert list(registry) == [conversation_id]
+    assert registry[conversation_id]["subject"] == "repo:pr:9"
+
+
+def test_in_flight_is_none_when_tracking_is_off(monkeypatch):
+    """A dispatcher not asked to track must report no signal, not zero."""
+    state = {}
+    monkeypatch.setenv("AGENT_SERVER_URL", "http://agent")
+    monkeypatch.setenv("SESSION_API_KEY", "session")
+    monkeypatch.setenv(
+        "AUTOMATION_AGENT_PROFILE_ID", "11111111-1111-4111-8111-111111111111"
+    )
+    monkeypatch.setenv(
+        "AUTOMATION_EVENT_PAYLOAD", json.dumps({"automation_id": "automation-1"})
+    )
+    _fake_kv(monkeypatch, state)
+    monkeypatch.setattr(agent_conversation, "_register_tools", lambda: None)
+    workspace = MagicMock()
+    workspace.__enter__.return_value = workspace
+    workspace.get_secrets.return_value = {}
+    monkeypatch.setattr(
+        agent_conversation, "RemoteWorkspace", lambda **kwargs: workspace
+    )
+    dispatcher = agent_conversation.AgentConversationDispatcher()
+    with dispatcher as active:
+        assert active.in_flight() is None
+    assert state == {}
+
+
+@pytest.mark.parametrize(
+    ("status", "expected"),
+    [
+        ("running", 1),
+        ("waiting_for_confirmation", 1),
+        ("idle", 1),
+        ("paused", 1),
+        ("finished", 0),
+        ("error", 0),
+        ("stuck", 0),
+        (None, 0),
+    ],
+)
+def test_only_nonterminal_conversations_hold_capacity(monkeypatch, status, expected):
+    """Completed, errored, and missing conversations all release their slot."""
+    state = {}
+    dispatcher = _tracked_dispatcher(monkeypatch, state, {})
+    with dispatcher as active:
+        active.deliver("repo:pr:9", "head-1", "work")
+        active._execution_status = lambda cid: status
+        assert active.in_flight() == expected
+
+
+def test_an_abandoned_registry_entry_releases_its_slot_without_a_status_read(
+    monkeypatch,
+):
+    """An entry older than the abandonment window is not asked about at all."""
+    state = {}
+    dispatcher = _tracked_dispatcher(monkeypatch, state, {})
+    reads = []
+    stale = (
+        agent_conversation.time.time()
+        - agent_conversation._ABANDONED_AFTER_SECONDS
+        - 1
+    )
+    with dispatcher as active:
+        active._registry = lambda: {
+            "old-conversation": {"subject": "repo:pr:1", "started_at": stale},
+            "live-conversation": {
+                "subject": "repo:pr:2",
+                "started_at": agent_conversation.time.time(),
+            },
+        }
+
+        def status(cid):
+            reads.append(cid)
+            return "running"
+
+        active._execution_status = status
+        assert active.in_flight() == 1
+
+    assert reads == ["live-conversation"]
+
+
+def test_an_entry_with_no_timestamp_counts_as_live(monkeypatch):
+    """An unknown age is treated as live, not as abandoned, so the slot is held."""
+    state = {}
+    dispatcher = _tracked_dispatcher(monkeypatch, state, {})
+    with dispatcher as active:
+        active._registry = lambda: {"unknown": {"subject": "repo:pr:1"}}
+        active._execution_status = lambda cid: "running"
+        assert active.in_flight() == 1
+
+
+def test_a_conversation_the_server_no_longer_has_releases_its_slot(monkeypatch):
+    """A 404 from the agent server counts as gone, freeing the slot once."""
+    state = {}
+    dispatcher = _tracked_dispatcher(monkeypatch, state, {})
+    with dispatcher as active:
+        active.deliver("repo:pr:9", "head-1", "work")
+        assert active.in_flight() == 0
+    assert state[agent_conversation._IN_FLIGHT_KEY] == {}
+
+
+def test_release_drops_a_conversation_from_the_registry(monkeypatch):
+    state = {}
+    dispatcher = _tracked_dispatcher(monkeypatch, state, {})
+    with dispatcher as active:
+        active._registry = lambda: {
+            "one": {"subject": "repo:pr:1", "started_at": agent_conversation.time.time()}
+        }
+        active.release("one")
+        assert state[agent_conversation._IN_FLIGHT_KEY] == {}

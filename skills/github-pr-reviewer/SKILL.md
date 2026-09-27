@@ -186,6 +186,37 @@ use.
   unchanged: an explicit request still starts its conversation immediately, and
   only the scheduled scan's new conversations are bounded.
 
+## Global in-flight cap
+
+A per-scan bound still lets live runtimes accumulate: every scan starts its
+quota again, so a sustained backlog grows the number of Docker runtimes until the
+host runs out of memory. The scheduled scan therefore also counts the review
+conversations still running from earlier scans and starts at most what the
+global cap `MAX_IN_FLIGHT` leaves. The two bounds compose - a scan starts
+`min(MAX_NEW_PER_RUN, MAX_IN_FLIGHT - in_flight)` conversations - so the cap is
+what actually bounds the deployment's live runtimes, whichever of the two is
+smaller. A cap below `MAX_NEW_PER_RUN` simply binds tighter than the per-scan
+bound; set it to at least `MAX_NEW_PER_RUN` to let each scan use its full quota.
+
+- The count is read once, before the drain, so it cannot change mid-scan, and it
+  spans every repository, matching the per-scan bound's scope.
+- A conversation releases its slot when it reaches a terminal status
+  (`finished`, `error`, `stuck`), or when the agent server no longer has it. The
+  count is the scanner's capacity signal, so the next scan reuses the freed slot
+  and the backlog keeps draining instead of stalling at the cap.
+- A registry entry left behind by a scan that died before recording a completion
+  is a stale entry: once it is older than the same two hours the completion
+  handler allows before abandoning a review, it stops counting and releases its
+  slot. An entry with no timestamp counts as live, so an unknown age never frees
+  a slot too early.
+- A capacity read that fails, or a dispatcher that cannot report a count, falls
+  back to the per-scan bound alone rather than aborting the scan. The
+  deterministic scanner owns no conversation code, so it reads capacity from the
+  injected dispatcher: only the component that creates and stops conversations
+  can see their status. The `github-pr-reviewer` worker asks its dispatcher to
+  track conversations for exactly this reason; the other automations share the
+  same dispatcher class but do not opt in, so their behavior is unchanged.
+
 The review prompt starts with a scope gate: using the repository's own guidance
 (its scope categories and ownership boundaries, not a list of individual PR
 numbers), the reviewer decides whether the change belongs in this repository
@@ -323,7 +354,7 @@ Record as `CRON_SCHEDULE`.
 
 ### Step 6 - Generate the automation script
 
-Read `scripts/main.py` from this skill's directory. Apply exactly seven constant
+Read `scripts/main.py` from this skill's directory. Apply exactly eight constant
 substitutions near the top of the file:
 
 > The script also reads a `config.json` shipped beside it, if there is one, over
@@ -340,6 +371,7 @@ substitutions near the top of the file:
 | `REVIEW_STYLE_INSTRUCTIONS = ""` | `REVIEW_STYLE_INSTRUCTIONS = "{style_instructions}"` |
 | `REPO_REVIEW_GUIDE_PATH = ".agents/skills/custom-codereview-guide.md"` | leave unchanged to auto-load a repo review guide at this path, or set to `""` to disable |
 | `MAX_NEW_PER_RUN = 2` | leave unchanged to bound a scheduled scan to two new review conversations across all repositories, or raise it if the deployment can hold more agents at once |
+| `MAX_IN_FLIGHT = 4` | leave unchanged to cap the review conversations running at once across scans, or raise it for a deployment that can hold more; it must be at least `MAX_NEW_PER_RUN` |
 | `DEFAULT_OPENHANDS_URL = "http://localhost:8000"` | leave unchanged unless the user has a preference |
 
 Use a safe string writer such as `json.dumps(value)` when inserting user-provided
@@ -499,7 +531,8 @@ The completion callback fires once for the whole run.
 | Review paused with a failing-check comment | A current-head required check reported `failure`, `cancelled`, or `timed_out` | Fix the named checks and push; the review starts on the new head, or request `all-hands-bot` to review immediately |
 | Review reported waiting on checks | A current-head required check is `queued` or `in_progress`, or has not reported yet | No action; a later scan or a new review request retries |
 | Optional workflow failed but no review was paused | The failed workflow is not required, so the required-only scheduled gate ignored it | No action; only GitHub-required checks gate scheduled discovery |
-| Only a few reviews start on a large backlog | The per-scan `max_new_per_run` bound (default 2) reached | No action; later scans drain the remaining oldest requests and the bounded rotating window of unrequested PRs, or raise `max_new_per_run` if the deployment can hold more agents |
+| Only a few reviews start on a large backlog | The per-scan `max_new_per_run` bound (default 2) or the global `max_in_flight` cap reached | No action; later scans drain the remaining oldest requests and the bounded rotating window of unrequested PRs as capacity frees, or raise `max_new_per_run`/`max_in_flight` if the deployment can hold more agents |
+| Reviews stop starting even though the backlog is long | The global `max_in_flight` cap is reached by conversations from earlier scans | No action; a review releases its slot when it finishes and the next scan reuses it. Raise `max_in_flight` only if the deployment can hold more concurrent agents |
 | Review result never posts | Conversation still running or stuck | Open the conversation link from the acknowledgement comment |
 | Stale review suppressed | PR head SHA changed while the agent was reviewing | Re-apply the trigger label after the latest commit |
 | Review arrives as a plain comment, not a review | Publishing failed, so the script posted the text as a fallback | Check that the token has Pull requests: Read and Write |

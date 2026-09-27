@@ -2,6 +2,7 @@
 
 import json
 import os
+import time
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 from uuid import NAMESPACE_URL, UUID, uuid5
@@ -17,6 +18,20 @@ from openhands.sdk.llm.message import TextContent
 from openhands.sdk.workspace import LocalWorkspace, RemoteWorkspace
 
 _CONVERSATION_KEY_PREFIX = "agent-conversation-"
+# Every conversation a dispatcher has started, as `conversation_id: {subject,
+# started_at}`. The per-subject records above answer "what delivery did this
+# subject last receive"; this index answers "how much work is still live", which
+# a scheduled scan needs in order to bound in-flight conversations across runs.
+# It is keyed by conversation rather than subject because a worker that reclaims
+# capacity has to ask the agent server about a conversation, and the subject is
+# the worker's business, not the dispatcher's.
+_IN_FLIGHT_KEY = "agent-conversations-in-flight"
+# A registry entry older than this is assumed abandoned. The review worker
+# abandons a conversation that has not stopped within two hours, and the
+# registry has to outlive that so a slot is not recycled while the conversation
+# still exists.
+_ABANDONED_AFTER_SECONDS = 2 * 60 * 60
+_TERMINAL_EXECUTION_STATUSES = frozenset({"finished", "error", "stuck"})
 
 
 def _register_tools() -> None:
@@ -53,7 +68,7 @@ def _kv_request(key: str, method: str, value: dict | None = None) -> dict | None
 class AgentConversationDispatcher:
     """Deliver one revision at a time to a stable conversation for each subject."""
 
-    def __init__(self) -> None:
+    def __init__(self, *, track_in_flight: bool = False) -> None:
         self.agent_url = os.environ["AGENT_SERVER_URL"]
         self.api_key = os.environ["SESSION_API_KEY"]
         self.profile_id = UUID(os.environ["AUTOMATION_AGENT_PROFILE_ID"])
@@ -61,6 +76,10 @@ class AgentConversationDispatcher:
         self.automation_id = str(payload["automation_id"])
         self._workspace: RemoteWorkspace | None = None
         self._secrets = {}
+        # Only a caller that bounds its work across runs needs the global
+        # registry, so it is opt-in and the other automations' dispatchers keep
+        # writing exactly one KV record per subject.
+        self._track_in_flight = track_in_flight
 
     def __enter__(self):
         _register_tools()
@@ -135,6 +154,10 @@ class AgentConversationDispatcher:
             conversation.close()
 
         if disposition in ("deduplicated", "in_progress"):
+            if disposition == "in_progress":
+                # A conversation that is still running must be countable even if
+                # its creation-time registration did not reach the store.
+                self._remember(str(conversation_id), subject)
             return {
                 "disposition": disposition,
                 "conversation_id": str(conversation_id),
@@ -149,7 +172,89 @@ class AgentConversationDispatcher:
                 "delivery": delivery,
             },
         )
+        self._remember(str(conversation_id), subject)
         return {
             "disposition": disposition,
             "conversation_id": str(conversation_id),
         }
+
+    def _registry(self) -> dict:
+        """Every conversation this dispatcher has started, or {}."""
+        value = _kv_request(_IN_FLIGHT_KEY, "GET")
+        return value if isinstance(value, dict) else {}
+
+    def _remember(self, conversation_id: str, subject: str) -> None:
+        """Record a conversation so a later scan can count it as live."""
+        if not self._track_in_flight:
+            return
+        registry = self._registry()
+        if conversation_id in registry:
+            return
+        registry[conversation_id] = {"subject": subject, "started_at": time.time()}
+        _kv_request(_IN_FLIGHT_KEY, "PUT", registry)
+
+    def _execution_status(self, conversation_id: str) -> str | None:
+        """One conversation's status, or None when the server no longer has it.
+
+        A WebSocket subscription is not needed to ask, so this reads the REST
+        endpoint directly rather than attaching, which keeps the count cheap
+        even when several conversations are live.
+        """
+        assert self._workspace is not None
+        response = self._workspace.client.get(
+            f"/api/conversations/{conversation_id}"
+        )
+        if response.status_code == 404:
+            return None
+        response.raise_for_status()
+        return response.json().get("execution_status")
+
+    def in_flight(self) -> int | None:
+        """Count this dispatcher's nonterminal conversations, pruning the rest.
+
+        A scheduled scan starts more reviews only when the count is below its
+        configured maximum, so this is the capacity signal that bounds how many
+        runtimes exist at once. Completed and errored conversations release their
+        slot, a conversation the server no longer has releases it, and an entry
+        left behind by a scan that died before recording a completion goes stale
+        after `_ABANDONED_AFTER_SECONDS` and releases it too. Unknown statuses
+        count as live, so a transient read failure never lets the scan overshoot.
+
+        None means this dispatcher was not asked to track its work, and the
+        caller should fall back to its own per-run bound rather than read the
+        empty registry as "nothing is running".
+        """
+        if self._workspace is None:
+            raise RuntimeError("AgentConversationDispatcher must be used as a context")
+        if not self._track_in_flight:
+            return None
+        registry = self._registry()
+        now = time.time()
+        live = {}
+        for conversation_id, entry in registry.items():
+            started_at = entry.get("started_at") if isinstance(entry, dict) else None
+            try:
+                started_at = float(started_at) if started_at else 0.0
+            except (TypeError, ValueError):
+                started_at = 0.0
+            if started_at and now - started_at > _ABANDONED_AFTER_SECONDS:
+                continue
+            try:
+                status = self._execution_status(conversation_id)
+            except Exception:
+                live[conversation_id] = entry
+                continue
+            if status is None or status in _TERMINAL_EXECUTION_STATUSES:
+                continue
+            live[conversation_id] = entry
+        if live != registry:
+            _kv_request(_IN_FLIGHT_KEY, "PUT", live)
+        return len(live)
+
+    def release(self, conversation_id: str) -> None:
+        """Drop one conversation from the registry, freeing its slot."""
+        if not self._track_in_flight:
+            return
+        registry = self._registry()
+        if registry.pop(str(conversation_id), None) is not None:
+            _kv_request(_IN_FLIGHT_KEY, "PUT", registry)

@@ -1806,7 +1806,9 @@ class _DedupeDispatcher:
         return {"disposition": "created", "conversation_id": subject}
 
 
-def _scan_reviewers(tmp_path, monkeypatch, repositories, *, max_new=None):
+def _scan_reviewers(
+    tmp_path, monkeypatch, repositories, *, max_new=None, max_in_flight=None
+):
     """One module and one reviewer per repository, as the shipped scan builds them."""
     module = worker("github-pr-reviewer", tmp_path, monkeypatch)
     monkeypatch.delenv("AUTOMATION_EVENT_PAYLOAD", raising=False)
@@ -1821,6 +1823,8 @@ def _scan_reviewers(tmp_path, monkeypatch, repositories, *, max_new=None):
         run.config = {"trigger_label": "openhands-review"}
         if max_new is not None:
             run.config["max_new_per_run"] = max_new
+        if max_in_flight is not None:
+            run.config["max_in_flight"] = max_in_flight
         run.repository = repository
         run.token = "token"
         run.token_name = "FACTORY_GITHUB_REVIEWER_TOKEN"
@@ -2198,6 +2202,311 @@ def test_the_rendered_config_rejects_a_misbehaving_max_new_per_run(
 
     with pytest.raises(SystemExit):
         module.workflow.load_config(tmp_path / "github-pr-reviewer")
+
+
+# --------------------------------------------------------------------------- #
+# Global in-flight cap: a scan counts the review conversations still running
+# from earlier scans and starts only what the deployment's cap leaves, so
+# capacity is released as reviews finish and reused on the next scan.
+# --------------------------------------------------------------------------- #
+
+
+class _CapacityDispatcher(_DedupeDispatcher):
+    """The dedupe contract plus the in-flight count the scan bounds itself by.
+
+    It stands in for `AgentConversationDispatcher.in_flight()`: the number is
+    read per scan, and a delivery that reports `created` occupies a slot until
+    the test releases it.
+    """
+
+    def __init__(self, in_flight=0):
+        super().__init__()
+        self.live = in_flight
+        self.in_flight_reads = 0
+        self.released = []
+
+    def in_flight(self):
+        self.in_flight_reads += 1
+        return self.live
+
+    def release(self, conversation_id):
+        self.released.append(conversation_id)
+        self.live = max(0, self.live - 1)
+
+
+def test_a_scan_starts_only_what_the_in_flight_cap_leaves(tmp_path, monkeypatch):
+    """Two conversations are already live, so a cap of three starts one.
+
+    The per-scan bound would allow two, but the global cap is what actually
+    holds the deployment's runtimes down, so the scan starts the single slot the
+    cap leaves. Hard-coded capacity across runs is what a purely per-scan bound
+    misses.
+    """
+    module, (one,) = _scan_reviewers(
+        tmp_path, monkeypatch, ["owner/one"], max_new=2, max_in_flight=3
+    )
+    dispatcher = _CapacityDispatcher(in_flight=2)
+    one.dispatcher = dispatcher
+    _wire_scan(
+        one,
+        [
+            _unrequested_pr(5, "head-5", created_at="2026-01-01T00:00:00Z"),
+            _unrequested_pr(6, "head-6", created_at="2026-01-02T00:00:00Z"),
+            _unrequested_pr(7, "head-7", created_at="2026-01-03T00:00:00Z"),
+        ],
+        101,
+    )
+
+    _run_scan(module, [one])
+
+    assert dispatcher.in_flight_reads == 1
+    assert set(dispatcher.seen) == {"101:pr:5"}
+
+
+def test_capacity_released_by_finished_reviews_is_reused_on_a_later_scan(
+    tmp_path, monkeypatch
+):
+    """The first scan fills the cap; a completed review frees a slot for the next.
+
+    Reading the live count per scan, rather than assuming anything left running
+    is permanent, is what lets the backlog drain instead of stalling once the
+    cap is reached.
+    """
+    module, (one,) = _scan_reviewers(
+        tmp_path, monkeypatch, ["owner/one"], max_new=5, max_in_flight=2
+    )
+    dispatcher = _CapacityDispatcher(in_flight=0)
+    one.dispatcher = dispatcher
+    _wire_scan(
+        one,
+        [
+            _unrequested_pr(5, "head-5", created_at="2026-01-01T00:00:00Z"),
+            _unrequested_pr(6, "head-6", created_at="2026-01-02T00:00:00Z"),
+            _unrequested_pr(7, "head-7", created_at="2026-01-03T00:00:00Z"),
+        ],
+        101,
+    )
+
+    _run_scan(module, [one])
+    assert set(dispatcher.seen) == {"101:pr:5", "101:pr:6"}
+
+    # One review finishes, releasing its slot, and the next scan reaches #7.
+    dispatcher.release("101:pr:5")
+    _wire_scan(
+        one,
+        [
+            _unrequested_pr(5, "head-5", created_at="2026-01-01T00:00:00Z"),
+            _unrequested_pr(6, "head-6", created_at="2026-01-02T00:00:00Z"),
+            _unrequested_pr(7, "head-7", created_at="2026-01-03T00:00:00Z"),
+        ],
+        101,
+    )
+    _run_scan(module, [one])
+
+    assert dispatcher.seen["101:pr:7"] == "scan:owner/one:7:head-7"
+
+
+def test_a_full_in_flight_cap_starts_nothing(tmp_path, monkeypatch):
+    """At the cap the scan dispatches no conversation but still evaluates heads."""
+    module, (one,) = _scan_reviewers(
+        tmp_path, monkeypatch, ["owner/one"], max_new=5, max_in_flight=2
+    )
+    dispatcher = _CapacityDispatcher(in_flight=2)
+    one.dispatcher = dispatcher
+    _wire_scan(one, [_unrequested_pr(5, "head-5")], 101)
+
+    _run_scan(module, [one])
+
+    assert dispatcher.seen == {}
+    assert dispatcher.calls == []
+
+
+def test_an_over_cap_deployment_starts_nothing_rather_than_going_negative(
+    tmp_path, monkeypatch
+):
+    """More live conversations than the cap must clamp to zero, never a refund.
+
+    If a shrinking cap (or a stale count) left the arithmetic negative, a scan
+    that treated it as a budget would start more work precisely when the
+    deployment is already over its limit.
+    """
+    module, (one,) = _scan_reviewers(
+        tmp_path, monkeypatch, ["owner/one"], max_new=5, max_in_flight=2
+    )
+    dispatcher = _CapacityDispatcher(in_flight=5)
+    one.dispatcher = dispatcher
+    _wire_scan(
+        one,
+        [
+            _unrequested_pr(5, "head-5", created_at="2026-01-01T00:00:00Z"),
+            _unrequested_pr(6, "head-6", created_at="2026-01-02T00:00:00Z"),
+        ],
+        101,
+    )
+
+    _run_scan(module, [one])
+
+    assert dispatcher.seen == {}
+
+
+def test_a_dispatcher_without_an_in_flight_count_keeps_the_per_scan_bound(
+    tmp_path, monkeypatch
+):
+    """A stand-in with no capacity signal bounds the scan by max_new_per_run.
+
+    The worker must not require the conversation runtime - that is its
+    no-runtime-code contract - so a dispatcher that cannot answer leaves the
+    existing per-scan behavior untouched.
+    """
+    module, (one,) = _scan_reviewers(tmp_path, monkeypatch, ["owner/one"], max_new=2)
+    assert not hasattr(one.dispatcher, "in_flight")
+    _wire_scan(
+        one,
+        [
+            _unrequested_pr(5, "head-5", created_at="2026-01-01T00:00:00Z"),
+            _unrequested_pr(6, "head-6", created_at="2026-01-02T00:00:00Z"),
+            _unrequested_pr(7, "head-7", created_at="2026-01-03T00:00:00Z"),
+        ],
+        101,
+    )
+
+    _run_scan(module, [one])
+
+    assert set(one.dispatcher.seen) == {"101:pr:5", "101:pr:6"}
+
+
+def test_a_non_integer_in_flight_count_is_not_a_capacity_signal(
+    tmp_path, monkeypatch
+):
+    """A stub that answers with a Mock or a string must not zero the budget."""
+    module, (one,) = _scan_reviewers(tmp_path, monkeypatch, ["owner/one"], max_new=1)
+    one.dispatcher.in_flight = lambda: "two"
+    _wire_scan(
+        one,
+        [
+            _unrequested_pr(5, "head-5", created_at="2026-01-01T00:00:00Z"),
+            _unrequested_pr(6, "head-6", created_at="2026-01-02T00:00:00Z"),
+        ],
+        101,
+    )
+
+    _run_scan(module, [one])
+
+    assert set(one.dispatcher.seen) == {"101:pr:5"}
+
+
+def test_a_failing_in_flight_read_falls_back_to_the_per_scan_bound(
+    tmp_path, monkeypatch
+):
+    """A capacity read that raises must not abort or unbounded-bypass the scan."""
+    module, (one,) = _scan_reviewers(tmp_path, monkeypatch, ["owner/one"], max_new=1)
+
+    def in_flight():
+        raise RuntimeError("agent server unreachable")
+
+    one.dispatcher.in_flight = in_flight
+    _wire_scan(
+        one,
+        [
+            _unrequested_pr(5, "head-5", created_at="2026-01-01T00:00:00Z"),
+            _unrequested_pr(6, "head-6", created_at="2026-01-02T00:00:00Z"),
+        ],
+        101,
+    )
+
+    _run_scan(module, [one])
+
+    assert set(one.dispatcher.seen) == {"101:pr:5"}
+
+
+def test_the_capacity_is_read_once_per_scan_across_repositories(
+    tmp_path, monkeypatch
+):
+    """The count is a snapshot, taken once, so it cannot change mid-drain."""
+    module, (one, two) = _scan_reviewers(
+        tmp_path,
+        monkeypatch,
+        ["owner/one", "owner/two"],
+        max_new=2,
+        max_in_flight=4,
+    )
+    dispatcher = _CapacityDispatcher(in_flight=2)
+    one.dispatcher = dispatcher
+    two.dispatcher = dispatcher
+    _wire_scan(
+        one, [_unrequested_pr(5, "head-5", created_at="2026-01-01T00:00:00Z")], 101
+    )
+    _wire_scan(
+        two, [_unrequested_pr(6, "head-6", created_at="2026-01-02T00:00:00Z")], 102
+    )
+
+    _run_scan(module, [one, two])
+
+    assert dispatcher.in_flight_reads == 1
+    assert set(dispatcher.seen) == {"101:pr:5", "102:pr:6"}
+
+
+def test_the_in_flight_cap_is_configurable_through_the_rendered_config(
+    tmp_path, monkeypatch
+):
+    module, (one,) = _scan_reviewers(
+        tmp_path, monkeypatch, ["owner/one"], max_new=1, max_in_flight=3
+    )
+    dispatcher = _CapacityDispatcher(in_flight=1)
+    one.dispatcher = dispatcher
+    _wire_scan(
+        one,
+        [
+            _unrequested_pr(5, "head-5", created_at="2026-01-01T00:00:00Z"),
+            _unrequested_pr(6, "head-6", created_at="2026-01-02T00:00:00Z"),
+        ],
+        101,
+    )
+
+    _run_scan(module, [one])
+
+    # One live conversation plus a cap of three leaves room for two, but the
+    # per-scan bound of one still applies, so exactly one starts.
+    assert set(dispatcher.seen) == {"101:pr:5"}
+
+
+def test_the_rendered_config_reads_a_max_in_flight(tmp_path, monkeypatch):
+    module = worker("github-pr-reviewer", tmp_path, monkeypatch)
+    (tmp_path / "github-pr-reviewer" / "config.json").write_text(
+        json.dumps(
+            {
+                "repos": ["owner/one"],
+                "max_new_per_run": 2,
+                "max_in_flight": 6,
+            }
+        )
+    )
+
+    config = module.workflow.load_config(tmp_path / "github-pr-reviewer")
+
+    assert config["max_in_flight"] == 6
+
+
+def test_the_rendered_config_defaults_the_in_flight_cap(tmp_path, monkeypatch):
+    module = worker("github-pr-reviewer", tmp_path, monkeypatch)
+
+    assert module.workflow.MAX_IN_FLIGHT == 4
+    assert module.workflow.load_config(tmp_path / "github-pr-reviewer") == {}
+
+
+@pytest.mark.parametrize("bad", [0, -1, True, "4"])
+def test_the_rendered_config_rejects_a_misbehaving_max_in_flight(
+    tmp_path, monkeypatch, bad
+):
+    module = worker("github-pr-reviewer", tmp_path, monkeypatch)
+    (tmp_path / "github-pr-reviewer" / "config.json").write_text(
+        json.dumps({"repos": ["owner/one"], "max_in_flight": bad})
+    )
+
+    with pytest.raises(SystemExit):
+        module.workflow.load_config(tmp_path / "github-pr-reviewer")
+
+
 
 # --------------------------------------------------------------------------- #
 # Unrequested scheduled scan: an open, non-draft PR with a green current head and
