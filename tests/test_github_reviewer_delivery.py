@@ -1162,7 +1162,13 @@ def test_reviewer_falls_back_to_every_check_when_required_signal_is_unavailable(
     assert "<!-- openhands-review-gate:blocked:head-2 -->" in posted[0].args[2]["body"]
 
 
-def test_reviewer_fails_closed_on_an_unknown_conclusion(tmp_path, monkeypatch):
+def test_reviewer_waits_on_an_action_required_run(tmp_path, monkeypatch):
+    """A fork head parked at action_required is waiting, not failing.
+
+    GitHub sets this conclusion on a fork head's workflows until a maintainer
+    approves them; the check runs those workflows would create do not exist yet.
+    Reading it as a failure misreports a head that only awaits approval as red.
+    """
     _module, run = _reviewer(tmp_path, monkeypatch)
     pr = _labeled_pr()
     run.gh_pages = _gate_pages(pr, [])
@@ -1177,7 +1183,7 @@ def test_reviewer_fails_closed_on_an_unknown_conclusion(tmp_path, monkeypatch):
         for call in _gate_comment_calls(run)
         if call.args[0] == "POST"
     ][0]
-    assert "<!-- openhands-review-gate:blocked:head-2 -->" in body
+    assert "<!-- openhands-review-gate:waiting:head-2 -->" in body
 
 
 def test_reviewer_does_not_duplicate_the_gate_comment_for_the_same_head(

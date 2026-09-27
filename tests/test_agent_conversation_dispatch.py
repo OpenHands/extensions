@@ -177,6 +177,44 @@ def test_same_delivery_resumes_only_inactive_conversation(
         conversation.run.assert_not_called()
 
 
+def test_errored_conversation_retries_its_delivery(monkeypatch):
+    """A matched delivery whose conversation died is retried, not deduplicated.
+
+    The delivery string never changes for a stable subject, so treating ERROR as
+    "deduplicated" would strand that subject forever with its work unfinished.
+    """
+    state = {
+        _state_key("repo:pr:9"): {
+            "subject": "repo:pr:9",
+            "conversation_id": "22222222-2222-4222-8222-222222222222",
+            "delivery": "head-1",
+        }
+    }
+    _fake_kv(monkeypatch, state)
+    monkeypatch.setattr(agent_conversation, "_register_tools", lambda: None)
+    workspace = MagicMock()
+    workspace.__enter__.return_value = workspace
+    workspace.get_secrets.return_value = {}
+    monkeypatch.setattr(
+        agent_conversation, "RemoteWorkspace", lambda **kwargs: workspace
+    )
+    conversation = MagicMock()
+    conversation.state.execution_status = ConversationExecutionStatus.ERROR
+    monkeypatch.setattr(
+        agent_conversation.RemoteConversation,
+        "attach",
+        MagicMock(return_value=conversation),
+    )
+
+    with _dispatcher(monkeypatch) as dispatcher:
+        result = dispatcher.deliver("repo:pr:9", "head-1", "old")
+
+    assert result["disposition"] == "retried"
+    conversation.update_secrets.assert_called_once_with(dispatcher._secrets)
+    conversation.send_message.assert_called_once_with("old")
+    conversation.run.assert_called_once_with(blocking=False)
+
+
 def test_subjects_use_independent_kv_records(monkeypatch):
     state = {}
     _fake_kv(monkeypatch, state)

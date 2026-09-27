@@ -125,6 +125,18 @@ class AgentConversationDispatcher:
                     ):
                         conversation.update_secrets(self._secrets)
                         conversation.run(blocking=False)
+                    elif (
+                        conversation.state.execution_status
+                        == ConversationExecutionStatus.ERROR
+                    ):
+                        # The stored delivery matched but the conversation died, so
+                        # its work never finished. Re-send the prompt to retry it:
+                        # treating ERROR as deduplicated would strand the subject
+                        # forever, because the delivery never changes.
+                        conversation.update_secrets(self._secrets)
+                        conversation.send_message(prompt)
+                        conversation.run(blocking=False)
+                        disposition = "retried"
                     else:
                         disposition = "deduplicated"
                 else:
