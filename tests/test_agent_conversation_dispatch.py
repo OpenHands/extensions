@@ -27,13 +27,48 @@ def _state_key(subject):
 
 
 def _fake_kv(monkeypatch, state):
-    def request(key, method, value=None):
-        if method == "GET":
-            return state.get(key)
-        state[key] = value
-        return {"key": key, "value": value}
+    """An in-memory Automation KV store with the conditional-write semantics.
+
+    The store versions its whole state document, so a write carries the version
+    it read and loses with a 409-equivalent (here, `KVConflictError`) when
+    another writer got there first. The real store holds one row lock across the
+    read-modify-write, so the check and the set here are serialized under a lock;
+    that is what makes the version check meaningful between threads. `state` is
+    the plain key->value mapping the tests assert against.
+    """
+    import threading
+
+    versions = {"value": 0}
+    lock = threading.Lock()
+
+    def request(key, method, value=None, *, query=None):
+        query = query or {}
+        with lock:
+            if method == "GET":
+                if key not in state:
+                    return None
+                if query.get("meta") in (True, "true"):
+                    return {
+                        "key": key,
+                        "value": state[key],
+                        "version": versions["value"],
+                    }
+                return {"key": key, "value": state[key]}
+            if query.get("nx") in (True, "true") and key in state:
+                raise agent_conversation.KVConflictError(key)
+            if "if_version" in query:
+                expected = query["if_version"]
+                expected = (
+                    int(expected) if not isinstance(expected, int) else expected
+                )
+                if expected != versions["value"]:
+                    raise agent_conversation.KVConflictError(key)
+            state[key] = value
+            versions["value"] += 1
+            return {"key": key, "value": value}
 
     monkeypatch.setattr(agent_conversation, "_kv_request", request)
+    return state
 
 
 def test_github_secret_falls_back_to_agent_server(monkeypatch):
@@ -218,11 +253,13 @@ def test_subjects_use_independent_kv_records(monkeypatch):
 # --------------------------------------------------------------------------- #
 
 
-def _tracked_dispatcher(monkeypatch, state, statuses):
+def _tracked_dispatcher(monkeypatch, state, statuses, max_in_flight=None):
     """The shipped dispatcher with tracking on and the agent server stubbed.
 
     `statuses` maps conversation_id -> execution_status; an id absent from it is
     answered as a 404, which is how a conversation the server no longer has looks.
+    `max_in_flight` is the cap the dispatcher admits against; None means track
+    without capping, matching the pre-existing tests.
     """
     monkeypatch.setenv("AGENT_SERVER_URL", "http://agent")
     monkeypatch.setenv("SESSION_API_KEY", "session")
@@ -262,7 +299,9 @@ def _tracked_dispatcher(monkeypatch, state, statuses):
         return response
 
     workspace.client.get = get
-    return agent_conversation.AgentConversationDispatcher(track_in_flight=True)
+    return agent_conversation.AgentConversationDispatcher(
+        track_in_flight=True, max_in_flight=max_in_flight
+    )
 
 
 def test_a_started_conversation_is_recorded_and_counted_while_live(monkeypatch):
@@ -341,7 +380,7 @@ def test_an_abandoned_registry_entry_releases_its_slot_without_a_status_read(
         - 1
     )
     with dispatcher as active:
-        active._registry = lambda: {
+        state[agent_conversation._IN_FLIGHT_KEY] = {
             "old-conversation": {"subject": "repo:pr:1", "started_at": stale},
             "live-conversation": {
                 "subject": "repo:pr:2",
@@ -364,7 +403,9 @@ def test_an_entry_with_no_timestamp_counts_as_live(monkeypatch):
     state = {}
     dispatcher = _tracked_dispatcher(monkeypatch, state, {})
     with dispatcher as active:
-        active._registry = lambda: {"unknown": {"subject": "repo:pr:1"}}
+        state[agent_conversation._IN_FLIGHT_KEY] = {
+            "unknown": {"subject": "repo:pr:1"}
+        }
         active._execution_status = lambda cid: "running"
         assert active.in_flight() == 1
 
@@ -380,11 +421,181 @@ def test_a_conversation_the_server_no_longer_has_releases_its_slot(monkeypatch):
 
 
 def test_release_drops_a_conversation_from_the_registry(monkeypatch):
-    state = {}
+    state = {
+        agent_conversation._IN_FLIGHT_KEY: {
+            "one": {
+                "subject": "repo:pr:1",
+                "started_at": agent_conversation.time.time(),
+            }
+        }
+    }
     dispatcher = _tracked_dispatcher(monkeypatch, state, {})
     with dispatcher as active:
-        active._registry = lambda: {
-            "one": {"subject": "repo:pr:1", "started_at": agent_conversation.time.time()}
-        }
         active.release("one")
         assert state[agent_conversation._IN_FLIGHT_KEY] == {}
+
+
+# --------------------------------------------------------------------------- #
+# Atomic admission: the in-flight cap is enforced by the dispatcher itself, at
+# launch time, through a conditional read-modify-write of the registry. A scan's
+# earlier read is only a pre-filter; this is what cannot be raced, and it is the
+# one gate both the scheduled and the event launch paths pass through.
+# --------------------------------------------------------------------------- #
+
+
+def _counting_dispatcher(monkeypatch, state, statuses, max_in_flight):
+    return _tracked_dispatcher(
+        monkeypatch, state, statuses, max_in_flight=max_in_flight
+    )
+
+
+def test_admission_refuses_a_new_conversation_at_the_cap(monkeypatch):
+    """A third conversation under a cap of two is refused, not started."""
+    live = {"conv-1": {"subject": "a"}, "conv-2": {"subject": "b"}}
+    state = {agent_conversation._IN_FLIGHT_KEY: dict(live)}
+    dispatcher = _counting_dispatcher(
+        monkeypatch, state, {"/api/conversations/conv-1": "running",
+                             "/api/conversations/conv-2": "running"}, 2
+    )
+    created = agent_conversation.RemoteConversation.create
+    with dispatcher as active:
+        result = active.deliver("repo:pr:3", "head-3", "work")
+    assert result["disposition"] == "deferred"
+    created.assert_not_called()
+    # The refused conversation left no delivery record, so the request retries.
+    assert state[agent_conversation._IN_FLIGHT_KEY] == live
+
+
+def test_admission_starts_under_the_cap_and_reserves_the_slot(monkeypatch):
+    state = {
+        agent_conversation._IN_FLIGHT_KEY: {
+            "conv-1": {"subject": "a", "started_at": agent_conversation.time.time()}
+        }
+    }
+    dispatcher = _counting_dispatcher(
+        monkeypatch, state, {"/api/conversations/conv-1": "running"}, 2
+    )
+    with dispatcher as active:
+        result = active.deliver("repo:pr:3", "head-3", "work")
+    assert result["disposition"] == "created"
+    registry = state[agent_conversation._IN_FLIGHT_KEY]
+    assert set(registry) == {"conv-1", result["conversation_id"]}
+
+
+def test_admission_refuses_at_a_zero_cap(monkeypatch):
+    """A cap of zero refuses even the first conversation, atomically."""
+    state = {}
+    dispatcher = _counting_dispatcher(monkeypatch, state, {}, 0)
+    with dispatcher as active:
+        result = active.deliver("repo:pr:3", "head-3", "work")
+    assert result["disposition"] == "deferred"
+    assert state.get(agent_conversation._IN_FLIGHT_KEY) is None
+
+
+def test_admission_creates_the_registry_atomically_for_the_first_conversation(
+    monkeypatch,
+):
+    state = {}
+    dispatcher = _counting_dispatcher(monkeypatch, state, {}, 4)
+    with dispatcher as active:
+        result = active.deliver("repo:pr:3", "head-3", "work")
+    assert result["disposition"] == "created"
+    assert list(state[agent_conversation._IN_FLIGHT_KEY]) == [
+        result["conversation_id"]
+    ]
+
+
+def test_admission_retries_a_lost_race_instead_of_overshooting(monkeypatch):
+    """A conditional write that loses a race re-reads and cannot over-admit.
+
+    The fake store rejects the first conditional write as though a concurrent
+    run had written first, and adds a live conversation behind the dispatcher's
+    back. The retry must observe that conversation and refuse, rather than trust
+    its own earlier read and start beyond the cap.
+    """
+    state = {
+        agent_conversation._IN_FLIGHT_KEY: {
+            "conv-1": {"subject": "a", "started_at": agent_conversation.time.time()}
+        }
+    }
+    dispatcher = _counting_dispatcher(
+        monkeypatch, state, {"/api/conversations/conv-1": "running"}, 2
+    )
+    original = agent_conversation._kv_request
+    failed = {"once": False}
+
+    def racy(key, method, value=None, *, query=None):
+        query = query or {}
+        if (
+            method == "PUT"
+            and key == agent_conversation._IN_FLIGHT_KEY
+            and "if_version" in query
+            and not failed["once"]
+        ):
+            failed["once"] = True
+            # A concurrent run claimed the other slot.
+            original(
+                key,
+                "PUT",
+                {
+                    "conv-1": {"subject": "a", "started_at": 0},
+                    "conv-2": {"subject": "b", "started_at": 0},
+                },
+            )
+            raise agent_conversation.KVConflictError(key)
+        return original(key, method, value, query=query)
+
+    monkeypatch.setattr(agent_conversation, "_kv_request", racy)
+    with dispatcher as active:
+        active._execution_status = lambda cid: "running"
+        result = active.deliver("repo:pr:3", "head-3", "work")
+    assert result["disposition"] == "deferred"
+    assert agent_conversation.RemoteConversation.create.call_count == 0
+
+
+def test_admission_is_additive_across_concurrent_bursts(monkeypatch):
+    """Ten concurrent deliveries under a cap of two reserve exactly two slots.
+
+    This is the burst the event path can produce: simultaneous deliveries racing
+    the same read-modify-write. Only the outer cap may be admitted no matter the
+    interleaving.
+    """
+    import threading
+
+    state = {}
+    dispatcher = _counting_dispatcher(monkeypatch, state, {}, 2)
+    created = agent_conversation.RemoteConversation.create
+    results = []
+    lock = threading.Lock()
+
+    def run(subject):
+        # Each delivery needs its own admission attempt against the one store.
+        with dispatcher as active:
+            active._execution_status = lambda cid: "running"
+            result = active.deliver(subject, f"head-{subject}", "work")
+        with lock:
+            results.append(result["disposition"])
+
+    threads = [threading.Thread(target=run, args=(f"pr-{i}",)) for i in range(10)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+
+    assert results.count("created") == 2
+    assert results.count("deferred") == 8
+    assert created.call_count == 2
+    assert len(state[agent_conversation._IN_FLIGHT_KEY]) == 2
+
+
+def test_a_failed_creation_releases_the_reserved_slot(monkeypatch):
+    """A runtime that fails to come up must not hold a slot until it ages out."""
+    state = {}
+    dispatcher = _counting_dispatcher(monkeypatch, state, {}, 1)
+    agent_conversation.RemoteConversation.create.side_effect = RuntimeError("boom")
+    with dispatcher as active:
+        with pytest.raises(RuntimeError, match="boom"):
+            active.deliver("repo:pr:3", "head-3", "work")
+    # The reservation was rolled back, so the slot is free again.
+    assert state.get(agent_conversation._IN_FLIGHT_KEY) == {}
+

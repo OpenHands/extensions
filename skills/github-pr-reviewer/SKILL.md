@@ -182,40 +182,60 @@ use.
   skipped silently.
 - A dispatch that raises is reported and does not consume a slot or abort the
   scan, so the candidates behind it are still considered.
-- The explicit `review_requested` event path and the trigger-label scan are
-  unchanged: an explicit request still starts its conversation immediately, and
-  only the scheduled scan's new conversations are bounded.
+- The explicit `review_requested` event path is never bounded by the per-scan
+  maximum, but it is bounded by the global in-flight cap below, because it
+  launches through the same dispatcher admission gate the scheduled scan does.
 
 ## Global in-flight cap
 
 A per-scan bound still lets live runtimes accumulate: every scan starts its
 quota again, so a sustained backlog grows the number of Docker runtimes until the
-host runs out of memory. The scheduled scan therefore also counts the review
-conversations still running from earlier scans and starts at most what the
-global cap `MAX_IN_FLIGHT` leaves. The two bounds compose - a scan starts
+host runs out of memory. The scan therefore also counts the review conversations
+still running from earlier scans and starts at most what the global cap
+`MAX_IN_FLIGHT` leaves. The two bounds compose - a scan starts
 `min(MAX_NEW_PER_RUN, MAX_IN_FLIGHT - in_flight)` conversations - so the cap is
 what actually bounds the deployment's live runtimes, whichever of the two is
 smaller. A cap below `MAX_NEW_PER_RUN` simply binds tighter than the per-scan
 bound; set it to at least `MAX_NEW_PER_RUN` to let each scan use its full quota.
 
-- The count is read once, before the drain, so it cannot change mid-scan, and it
-  spans every repository, matching the per-scan bound's scope.
+- The authoritative admission is atomic and lives in the dispatcher, at the
+  moment a conversation is created or resumed. A scan's earlier read is only a
+  pre-filter: it makes the drain stop early, but it is a read-count-then-start
+  sequence and would race a second automation run. The dispatcher therefore
+  reserves the slot through a conditional read-modify-write of the registry in
+  the Automation KV store (the store's optimistic `if_version` check, with `nx`
+  for the first write), retrying a lost race against fresh state. Two concurrent
+  runs cannot both observe one free slot and both start a runtime.
+- Because the gate is in the dispatcher, every launch path passes through it -
+  the scheduled drain **and** the `review_requested` event path. A burst of
+  simultaneous reviewer requests is admitted up to the cap and refused past it,
+  so event mode cannot create an unbounded number of Docker runtimes.
+- A delivery the cap refuses comes back with a `deferred` disposition: no
+  conversation is started and no delivery record is written, so the GitHub review
+  request is not consumed and the next scheduled scan retries it once capacity
+  frees. The drain stops at the first deferral, since nothing behind it could be
+  admitted either.
+- The count spans every repository, matching the per-scan bound's scope.
 - A conversation releases its slot when it reaches a terminal status
   (`finished`, `error`, `stuck`), or when the agent server no longer has it. The
-  count is the scanner's capacity signal, so the next scan reuses the freed slot
-  and the backlog keeps draining instead of stalling at the cap.
+  next admission reuses the freed slot and the backlog keeps draining instead of
+  stalling at the cap.
 - A registry entry left behind by a scan that died before recording a completion
   is a stale entry: once it is older than the same two hours the completion
   handler allows before abandoning a review, it stops counting and releases its
   slot. An entry with no timestamp counts as live, so an unknown age never frees
   a slot too early.
 - A capacity read that fails, or a dispatcher that cannot report a count, falls
-  back to the per-scan bound alone rather than aborting the scan. The
-  deterministic scanner owns no conversation code, so it reads capacity from the
-  injected dispatcher: only the component that creates and stops conversations
-  can see their status. The `github-pr-reviewer` worker asks its dispatcher to
-  track conversations for exactly this reason; the other automations share the
-  same dispatcher class but do not opt in, so their behavior is unchanged.
+  back to the per-scan bound alone rather than aborting the scan, and a
+  conversation whose status cannot be read counts as live, so a transient
+  failure never lets the deployment overshoot. If the atomic reservation cannot
+  be won after its retries, the delivery is refused rather than launched ungated.
+  The deterministic scanner owns no conversation code, so it reads capacity from
+  the injected dispatcher: only the component that creates and stops
+  conversations can see their status. The `github-pr-reviewer` worker asks its
+  dispatcher to track conversations and passes it `MAX_IN_FLIGHT` for exactly
+  this reason; the other automations share the same dispatcher class but do not
+  opt in, so their behavior is unchanged.
 
 The review prompt starts with a scope gate: using the repository's own guidance
 (its scope categories and ownership boundaries, not a list of individual PR

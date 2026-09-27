@@ -72,6 +72,14 @@ class ReviewIntake:
     dispatcher that owns the conversations, which is the only component that can
     see their status - so the worker keeps its no-conversation-code contract and
     a scan with no capacity signal behaves exactly as before.
+
+    That read is only a pre-filter. The authoritative admission decision is made
+    atomically by the dispatcher at launch time (see `AgentConversationDispatcher`),
+    because a read-then-start sequence is racy across concurrent automation runs
+    and a second launch path - the event-triggered one - never passes through this
+    intake at all. A delivery the dispatcher refuses comes back with a `deferred`
+    disposition, which stops the drain: no runtime was started and the triggering
+    request is left for a later scan.
     """
 
     def __init__(self, capacity=None):
@@ -101,7 +109,10 @@ class ReviewIntake:
         candidate whose dispatch raises is reported and skipped without
         consuming a slot, so the candidates behind it are still considered. The
         maximum is reduced by whatever the deployment already has in flight, so
-        the drain cannot push the deployment past its global cap.
+        the drain cannot push the deployment past its global cap. A candidate the
+        dispatcher refuses as `deferred` stops the drain without being counted:
+        the cap is what binds, no runtime was started, and the untried candidates
+        stay in the backlog for the next scan.
         """
         pending, self._pending = self._pending, []
         if not pending:
@@ -139,6 +150,10 @@ class ReviewIntake:
                     flush=True,
                 )
                 continue
+            if result["disposition"] == "deferred":
+                # The dispatcher's atomic reservation found the deployment at
+                # capacity, so nothing else in this scan can start either.
+                break
             if result["disposition"] == "created":
                 self._started += 1
         if failures:
@@ -1044,9 +1059,13 @@ class PullRequestReviewer(GitHubRepository):
                 }
                 if event_mode:
                     # An explicit request is a caller's decision to spend a
-                    # conversation now, not a backlog item, so the event path
-                    # dispatches immediately and is never bounded by the
-                    # scheduled scan's per-run maximum.
+                    # conversation now, not a backlog item, so it is not bounded
+                    # by the scheduled scan's per-run maximum. It still goes
+                    # through the dispatcher's atomic admission, so the global
+                    # in-flight cap holds on this path too: a burst of
+                    # simultaneous requests is refused past the cap, and each
+                    # refusal leaves its GitHub request unconsumed for a later
+                    # scheduled scan to retry.
                     self._start_review(
                         repository_id, pr, trigger, sha, trigger_label, delivery_key
                     )
@@ -1124,6 +1143,10 @@ def run_scan(dispatcher):
 
 if __name__ == "__main__":
     # The scheduled scan is the one caller that must bound the deployment's live
-    # runtimes across runs, so it asks the dispatcher to track them.
-    with AgentConversationDispatcher(track_in_flight=True) as dispatcher:
+    # runtimes across runs, so it asks the dispatcher to track them and hands it
+    # the configured cap. The same entrypoint serves the event trigger, so event
+    # deliveries are admitted under the same cap rather than bypassing it.
+    with AgentConversationDispatcher(
+        track_in_flight=True, max_in_flight=workflow.MAX_IN_FLIGHT
+    ) as dispatcher:
         run_scan(dispatcher)

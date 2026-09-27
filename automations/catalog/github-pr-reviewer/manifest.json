@@ -3,7 +3,7 @@
   "version": "1.9.0",
   "name": "GitHub code review",
   "category": "Code review",
-  "description": "Review requested pull-request heads, resume an outstanding reviewer request on a schedule once its checks are green, review a bounded rotating window of open non-draft pull requests that nobody requested once their current head is green and unreviewed, drain the backlog oldest-first under a small per-scan new-conversation bound and a global in-flight cap, record exact-head decisions, stop early on out-of-scope changes, and optionally request a code-aware human maintainer after approval or a maintainer-decision scope stop.",
+  "description": "Review requested pull-request heads, resume an outstanding reviewer request on a schedule once its checks are green, review a bounded rotating window of open non-draft pull requests that nobody requested once their current head is green and unreviewed, drain the backlog oldest-first under a small per-scan new-conversation bound and an atomically enforced global in-flight cap that also bounds a burst of reviewer-request events, record exact-head decisions, stop early on out-of-scope changes, and optionally request a code-aware human maintainer after approval or a maintainer-decision scope stop.",
   "requires": {
     "integrations": {},
     "features": [
