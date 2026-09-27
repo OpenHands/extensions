@@ -394,7 +394,7 @@ def test_youcom_anonymous_search():
             },
             timeout=HTTP_TIMEOUT,
         )
-        assert not result.is_error
+        assert not result.isError
         text = "\n".join(
             block.text
             for block in result.content
