@@ -24,6 +24,8 @@ This skill is activated by:
   red or pending; the CI gate applies to scheduled discovery
 - Ignores checks and workflow runs recorded for an obsolete head, so a stale
   failure cannot block the push that fixed it
+- Explicit reviewer requests include draft PRs in both event mode and scheduled
+  scans; drafts without a request or trigger label remain excluded
 - Resumes an outstanding reviewer request on the next scheduled scan once the
   requested head's checks are green, so a request that arrives during CI is not
   lost; the explicit-request event path is kept for event-only deployments

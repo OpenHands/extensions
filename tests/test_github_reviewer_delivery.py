@@ -168,10 +168,11 @@ def test_reviewer_submits_each_labeled_exact_head(tmp_path, monkeypatch):
     assert "stop immediately" in prompt
 
 
-def test_reviewer_submits_requested_exact_head(tmp_path, monkeypatch):
+@pytest.mark.parametrize("draft", [False, True])
+def test_reviewer_submits_requested_exact_head(tmp_path, monkeypatch, draft):
     _module, run = _reviewer(tmp_path, monkeypatch)
     _event(monkeypatch)
-    pr = {"number": 2, "head": {"sha": "head-2"}, "labels": []}
+    pr = {"number": 2, "head": {"sha": "head-2"}, "labels": [], "draft": draft}
     request = {
         "id": 42,
         "event": "review_requested",
@@ -1565,10 +1566,11 @@ def _request_pages(pr, request, comments):
     )
 
 
-def test_reviewer_scheduled_scan_reviews_an_outstanding_request(tmp_path, monkeypatch):
+@pytest.mark.parametrize("draft", [False, True])
+def test_reviewer_scheduled_scan_reviews_an_outstanding_request(tmp_path, monkeypatch, draft):
     """A request made before CI finished is reviewed once the head is green."""
     _module, run = _reviewer(tmp_path, monkeypatch)
-    pr = _requested_pr()
+    pr = _requested_pr(draft=draft)
     state = {"runs": _checks(("slow-e2e", "queued", None), sha="head-2")}
     run.check_runs = lambda sha: state["runs"]
     run.gh_pages = _request_pages(pr, _review_request_event(), [])
@@ -1597,12 +1599,13 @@ def test_reviewer_scheduled_scan_reviews_an_outstanding_request(tmp_path, monkey
     assert "latest review request for `all-hands-bot` event 42" in call["prompt"]
 
 
+@pytest.mark.parametrize("draft", [False, True])
 def test_reviewer_repeated_scans_do_not_duplicate_a_requested_review(
-    tmp_path, monkeypatch
+    tmp_path, monkeypatch, draft
 ):
     """Two scans over one outstanding request produce one stable delivery key."""
     _module, run = _reviewer(tmp_path, monkeypatch)
-    pr = _requested_pr()
+    pr = _requested_pr(draft=draft)
     run.check_runs = lambda sha: _checks(("ci", "completed", "success"), sha=sha)
     run.dispatcher.deliver.return_value = {
         "disposition": "created",
@@ -1621,11 +1624,12 @@ def test_reviewer_repeated_scans_do_not_duplicate_a_requested_review(
     assert deliveries == {"42:head-2"}
 
 
-def test_reviewer_scheduled_scan_ignores_a_draft_with_a_request(
+def test_reviewer_scheduled_scan_ignores_a_draft_requested_from_someone_else(
     tmp_path, monkeypatch
 ):
     _module, run = _reviewer(tmp_path, monkeypatch)
     pr = _requested_pr(draft=True)
+    pr["requested_reviewers"] = [{"login": "another-reviewer"}]
     run.gh_pages = lambda path: [pr]
     run.gh = Mock(return_value={"id": 99})
 

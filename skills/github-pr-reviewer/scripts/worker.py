@@ -765,14 +765,12 @@ class PullRequestReviewer(GitHubRepository):
         return state, sha
 
     def _outstanding_review_request(self, pr):
-        """Whether an open, non-draft PR still holds a request for the reviewer.
+        """Whether an open PR, including a draft, still requests this reviewer.
 
         The list endpoint already answers this: `requested_reviewers` is the live
         set, so a review that was submitted, or a request that was withdrawn, is
-        simply absent. Drafts are excluded because a draft is not reviewable.
+        simply absent. An explicit request opts a draft into review.
         """
-        if pr.get("draft"):
-            return False
         return any(
             (item.get("login") or "").lower() == self.trigger_reviewer
             for item in pr.get("requested_reviewers") or []

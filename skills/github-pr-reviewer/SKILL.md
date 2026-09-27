@@ -58,7 +58,7 @@ symbolic base branch carries no branch rules of its own:
   `gh pr checks` both report success and only the workflow run reveals the red
   CI. A workflow run whose check suite already reported check runs is left to
   those runs, so a workflow is never counted twice.
-- A scheduled scan considers the trigger label **and** every open, non-draft PR
+- A scheduled scan considers the trigger label **and** every open PR, including drafts,
   that still holds an outstanding `all-hands-bot` review request. That is what
   resumes a request made while CI was running: the request is keyed by its own
   `review_requested` event, so repeated scans reuse one conversation and one
