@@ -33,6 +33,14 @@ _IN_FLIGHT_KEY = "agent-conversations-in-flight"
 # still exists.
 _ABANDONED_AFTER_SECONDS = 2 * 60 * 60
 _TERMINAL_EXECUTION_STATUSES = frozenset({"finished", "error", "stuck"})
+# A slot reserved for a conversation that has not been created yet is held for
+# this long before the agent server is believed when it answers 404. The
+# reservation is written just before `RemoteConversation.create`, so a
+# concurrent admission that reads the registry in that window would otherwise
+# prune the reservation as "gone", freeing a slot that is about to be used and
+# letting the deployment overshoot its cap. Once the grace has passed, a 404
+# really is a conversation that no longer exists and the slot is released.
+_PENDING_GRACE_SECONDS = 3 * 60
 # A conditional write that loses a race is retried against a fresh read. The
 # store versions the whole state document, not one key, so an unrelated write by
 # another automation run can invalidate a conditional write even when the
@@ -257,12 +265,16 @@ class AgentConversationDispatcher:
     def _prune(self, registry: dict) -> dict:
         """Return only the registry entries that still hold a runtime.
 
-        An entry whose conversation reached a terminal status, or which the
-        agent server no longer has, releases its slot. An entry older than the
-        abandonment window does too, without a status read, so a scan that died
-        before recording a completion does not park a slot forever. An entry
-        whose status cannot be read is kept live, so a transient failure never
-        lets the deployment overshoot.
+        An entry whose conversation reached a terminal status releases its slot.
+        An entry the agent server no longer has releases it too, but only once
+        the reservation is older than `_PENDING_GRACE_SECONDS`: a slot is
+        reserved just before its conversation is created, so in that window a
+        404 means "not created yet", not "gone", and freeing it would let a
+        concurrent admission overshoot the cap. An entry older than the
+        abandonment window releases its slot without a status read, so a scan
+        that died before recording a completion does not park a slot forever. An
+        entry whose status cannot be read is kept live, so a transient failure
+        never lets the deployment overshoot.
         """
         now = time.time()
         live = {}
@@ -279,7 +291,11 @@ class AgentConversationDispatcher:
             except Exception:
                 live[conversation_id] = entry
                 continue
-            if status is None or status in _TERMINAL_EXECUTION_STATUSES:
+            if status is None:
+                if started_at and now - started_at <= _PENDING_GRACE_SECONDS:
+                    live[conversation_id] = entry
+                continue
+            if status in _TERMINAL_EXECUTION_STATUSES:
                 continue
             live[conversation_id] = entry
         return live

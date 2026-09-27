@@ -217,9 +217,12 @@ bound; set it to at least `MAX_NEW_PER_RUN` to let each scan use its full quota.
   admitted either.
 - The count spans every repository, matching the per-scan bound's scope.
 - A conversation releases its slot when it reaches a terminal status
-  (`finished`, `error`, `stuck`), or when the agent server no longer has it. The
-  next admission reuses the freed slot and the backlog keeps draining instead of
-  stalling at the cap.
+  (`finished`, `error`, `stuck`), or when the agent server no longer has it. A
+  slot reserved just before its conversation is created is held for a short grace
+  window before a 404 is believed, so a concurrent admission that reads the
+  registry while the conversation is still being created cannot free a slot that
+  is about to be used. The next admission reuses a genuinely freed slot and the
+  backlog keeps draining instead of stalling at the cap.
 - A registry entry left behind by a scan that died before recording a completion
   is a stale entry: once it is older than the same two hours the completion
   handler allows before abandoning a review, it stops counting and releases its

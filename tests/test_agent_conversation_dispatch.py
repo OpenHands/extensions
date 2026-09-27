@@ -363,6 +363,15 @@ def test_only_nonterminal_conversations_hold_capacity(monkeypatch, status, expec
     dispatcher = _tracked_dispatcher(monkeypatch, state, {})
     with dispatcher as active:
         active.deliver("repo:pr:9", "head-1", "work")
+        # Age the reservation past the pending grace so a 404 is believed: a
+        # just-reserved slot is held while its conversation is being created.
+        registry = state[agent_conversation._IN_FLIGHT_KEY]
+        for entry in registry.values():
+            entry["started_at"] = (
+                agent_conversation.time.time()
+                - agent_conversation._PENDING_GRACE_SECONDS
+                - 1
+            )
         active._execution_status = lambda cid: status
         assert active.in_flight() == expected
 
@@ -411,13 +420,39 @@ def test_an_entry_with_no_timestamp_counts_as_live(monkeypatch):
 
 
 def test_a_conversation_the_server_no_longer_has_releases_its_slot(monkeypatch):
-    """A 404 from the agent server counts as gone, freeing the slot once."""
+    """A 404 past the reservation grace counts as gone, freeing the slot once."""
     state = {}
     dispatcher = _tracked_dispatcher(monkeypatch, state, {})
     with dispatcher as active:
         active.deliver("repo:pr:9", "head-1", "work")
+        registry = state[agent_conversation._IN_FLIGHT_KEY]
+        for entry in registry.values():
+            entry["started_at"] = (
+                agent_conversation.time.time()
+                - agent_conversation._PENDING_GRACE_SECONDS
+                - 1
+            )
         assert active.in_flight() == 0
     assert state[agent_conversation._IN_FLIGHT_KEY] == {}
+
+
+def test_a_just_reserved_slot_is_held_until_its_conversation_exists(monkeypatch):
+    """A 404 within the reservation grace is "not created yet", not "gone".
+
+    A slot is reserved just before its conversation is created. A concurrent
+    admission that reads the registry in that window must keep counting the
+    reservation, or it would free a slot that is about to be used and start a
+    runtime past the cap.
+    """
+    state = {}
+    dispatcher = _tracked_dispatcher(monkeypatch, state, {}, max_in_flight=1)
+    with dispatcher as active:
+        first = active.deliver("repo:pr:9", "head-1", "work")
+        assert first["disposition"] == "created"
+        # The conversation does not exist yet, so the server answers 404.
+        second = active.deliver("repo:pr:10", "head-10", "work")
+    assert second["disposition"] == "deferred"
+    assert agent_conversation.RemoteConversation.create.call_count == 1
 
 
 def test_release_drops_a_conversation_from_the_registry(monkeypatch):
