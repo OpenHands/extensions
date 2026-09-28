@@ -169,6 +169,61 @@ query($owner: String!, $repo: String!, $pr_number: Int!, $cursor: String) {
 }
 """
 
+LINKED_ISSUES_QUERY = """
+query(
+    $owner: String!
+    $repo: String!
+    $pr_number: Int!
+    $count: Int!
+    $cursor: String
+) {
+    repository(owner: $owner, name: $repo) {
+        pullRequest(number: $pr_number) {
+            closingIssuesReferences(last: $count, before: $cursor) {
+                pageInfo {
+                    hasPreviousPage
+                    startCursor
+                }
+                nodes {
+                    number
+                    title
+                    body
+                    repository { nameWithOwner }
+                }
+            }
+        }
+    }
+}
+"""
+
+ISSUE_COMMENTS_QUERY = """
+query(
+    $owner: String!
+    $repo: String!
+    $pr_number: Int!
+    $count: Int!
+    $cursor: String
+) {
+    repository(owner: $owner, name: $repo) {
+        pullRequest(number: $pr_number) {
+            comments(last: $count, before: $cursor) {
+                pageInfo {
+                    hasPreviousPage
+                    startCursor
+                }
+                nodes {
+                    id
+                    author { login __typename }
+                    authorAssociation
+                    body
+                    createdAt
+                }
+            }
+        }
+    }
+}
+"""
+
 
 def _get_required_env(name: str) -> str:
     value = os.getenv(name)
@@ -379,6 +434,58 @@ def get_pr_reviews(pr_number: str, max_reviews: int = 100) -> list[dict[str, Any
     return reviews
 
 
+def get_pr_issue_comments(
+    pr_number: str, max_comments: int = 100
+) -> list[dict[str, Any]]:
+    """Fetch the latest top-level PR comments in chronological order."""
+    repo = _get_required_env("REPO_NAME")
+    owner, repo_name = repo.split("/")
+    nodes = _paginate_graphql(
+        query=ISSUE_COMMENTS_QUERY,
+        variables={
+            "owner": owner,
+            "repo": repo_name,
+            "pr_number": int(pr_number),
+            "count": max_comments,
+        },
+        path_to_nodes=["pullRequest", "comments"],
+        max_items=max_comments,
+        item_name="top-level PR comments",
+    )
+    comments = [
+        {
+            "id": node.get("id"),
+            "user": {
+                "login": (node.get("author") or {}).get("login", "unknown"),
+                "type": (node.get("author") or {}).get("__typename", "User"),
+            },
+            "author_association": node.get("authorAssociation", "UNKNOWN"),
+            "body": node.get("body", ""),
+            "created_at": node.get("createdAt"),
+        }
+        for node in nodes
+    ]
+    return sorted(comments, key=lambda comment: comment.get("created_at") or "")
+
+
+def get_linked_issues(pr_number: str, max_issues: int = 5) -> list[dict[str, Any]]:
+    """Fetch the issues GitHub recognizes as closed by this PR."""
+    repo = _get_required_env("REPO_NAME")
+    owner, repo_name = repo.split("/")
+    return _paginate_graphql(
+        query=LINKED_ISSUES_QUERY,
+        variables={
+            "owner": owner,
+            "repo": repo_name,
+            "pr_number": int(pr_number),
+            "count": max_issues,
+        },
+        path_to_nodes=["pullRequest", "closingIssuesReferences"],
+        max_items=max_issues,
+        item_name="linked issues",
+    )
+
+
 def get_review_threads_graphql(pr_number: str) -> list[dict[str, Any]]:
     """Fetch the latest review threads with resolution status using GraphQL API.
 
@@ -419,44 +526,90 @@ def get_review_threads_graphql(pr_number: str) -> list[dict[str, Any]]:
 def format_review_context(
     reviews: list[dict[str, Any]],
     threads: list[dict[str, Any]],
+    issue_comments: list[dict[str, Any]] | None = None,
+    linked_issues: list[dict[str, Any]] | None = None,
     max_size: int = MAX_REVIEW_CONTEXT,
 ) -> str:
-    """Format review history into a context string for the agent.
-
-    Args:
-        reviews: List of review objects from get_pr_reviews()
-        threads: List of thread objects from get_review_threads_graphql()
-        max_size: Maximum size of the formatted context
-
-    Returns:
-        Formatted markdown string with review history
-    """
-    if not reviews and not threads:
+    """Format the highest-signal PR and linked-issue context for the agent."""
+    issue_comments = issue_comments or []
+    linked_issues = linked_issues or []
+    if not reviews and not threads and not issue_comments and not linked_issues:
         return ""
 
     sections: list[str] = []
     current_size = 0
 
     def _add_section(section: str) -> bool:
-        """Add a section if it fits within max_size. Returns True if added."""
         nonlocal current_size
-        section_size = len(section) + 1  # +1 for newline separator
+        section_size = len(section) + 1
         if current_size + section_size > max_size:
             return False
         sections.append(section)
         current_size += section_size
         return True
 
-    # Format reviews (high-level review decisions)
+    if linked_issues:
+        _add_section("### Linked Issues and Acceptance Criteria\n")
+        for issue in linked_issues:
+            title = issue.get("title") or "(untitled issue)"
+            number = issue.get("number", "?")
+            repository = (issue.get("repository") or {}).get("nameWithOwner")
+            body = (issue.get("body") or "").strip()
+            body_preview = body[:2000] + "..." if len(body) > 2000 else body
+            reference = f"{repository}#{number}" if repository else f"Issue #{number}"
+            section = f"**{reference}: {title}**"
+            if body_preview:
+                section += "\n" + "\n".join(
+                    f"> {line}" for line in body_preview.splitlines()
+                )
+            if not _add_section(section):
+                sections.append("... [remaining linked issues omitted] ...")
+                break
+
+    human_comments = [
+        comment
+        for comment in issue_comments
+        if ((comment.get("user") or {}).get("type") or "").lower() != "bot"
+        and ((comment.get("user") or {}).get("login") or "").lower() != "all-hands-bot"
+    ]
+    if human_comments:
+        _add_section("### Top-level PR Discussion\n")
+        for comment in human_comments[-12:]:
+            author = ((comment.get("user") or {}).get("login")) or "unknown"
+            association = comment.get("author_association") or "UNKNOWN"
+            body = (comment.get("body") or "").strip()
+            if not body:
+                continue
+            body_preview = body[:750] + "..." if len(body) > 750 else body
+            section = f"- **{author}** ({association})\n" + "\n".join(
+                f"  > {line}" for line in body_preview.splitlines()
+            )
+            if not _add_section(section):
+                sections.append("... [older PR discussion omitted] ...")
+                break
+
+    resolved_threads = [thread for thread in threads if thread.get("isResolved")]
+    unresolved_threads = [thread for thread in threads if not thread.get("isResolved")]
+
+    if unresolved_threads:
+        _add_section(
+            "### Unresolved Review Threads\n\n"
+            "*These concerns may still need to be addressed:*"
+        )
+        for index, thread in enumerate(unresolved_threads):
+            if not _add_section("\n".join(_format_thread(thread))):
+                remaining = len(unresolved_threads) - index
+                sections.append(
+                    f"... [{remaining} unresolved review threads omitted] ..."
+                )
+                break
+
     if reviews:
-        review_lines: list[str] = ["### Previous Reviews\n"]
+        review_lines: list[str] = ["### Previous Review Decisions\n"]
         for review in reviews:
-            user_data = review.get("user") or {}
-            user = user_data.get("login", "unknown")
+            user = ((review.get("user") or {}).get("login")) or "unknown"
             state = review.get("state") or "UNKNOWN"
             body = (review.get("body") or "").strip()
-
-            # Map state to emoji for visual clarity
             state_emoji = {
                 "APPROVED": "✅",
                 "CHANGES_REQUESTED": "🔴",
@@ -464,72 +617,29 @@ def format_review_context(
                 "DISMISSED": "❌",
                 "PENDING": "⏳",
             }.get(state, "❓")
-
             review_lines.append(f"- {state_emoji} **{user}** ({state})")
             if body:
-                # Indent the body and truncate if too long
                 body_preview = body[:500] + "..." if len(body) > 500 else body
-                indented = "\n".join(f"  > {line}" for line in body_preview.split("\n"))
-                review_lines.append(indented)
+                review_lines.extend(f"  > {line}" for line in body_preview.splitlines())
             review_lines.append("")
+        if not _add_section("\n".join(review_lines)):
+            sections.append("... [previous review decisions omitted] ...")
 
-        review_section = "\n".join(review_lines)
-        if not _add_section(review_section):
-            # Even reviews section doesn't fit, return truncation message
-            return (
-                f"... [review context truncated, "
-                f"content exceeds {max_size:,} chars] ..."
-            )
-
-    # Format review threads with resolution status
-    if threads:
-        resolved_threads = [t for t in threads if t.get("isResolved")]
-        unresolved_threads = [t for t in threads if not t.get("isResolved")]
-
-        # Unresolved threads (higher priority)
-        if unresolved_threads:
-            header = (
-                "### Unresolved Review Threads\n\n"
-                "*These threads have not been resolved and may need attention:*\n"
-            )
-            if not _add_section(header):
-                count = len(unresolved_threads)
+    if (
+        resolved_threads
+        and current_size < max_size
+        and _add_section(
+            "### Resolved Review Threads\n\n"
+            "*Use these as context; do not repeat resolved findings:*"
+        )
+    ):
+        for index, thread in enumerate(resolved_threads):
+            if not _add_section("\n".join(_format_thread(thread))):
+                remaining = len(resolved_threads) - index
                 sections.append(
-                    f"\n... [truncated, {count} unresolved threads omitted] ..."
+                    f"... [{remaining} resolved review threads omitted] ..."
                 )
-            else:
-                threads_added = 0
-                for thread in unresolved_threads:
-                    thread_lines = _format_thread(thread)
-                    thread_section = "\n".join(thread_lines)
-                    if not _add_section(thread_section):
-                        remaining = len(unresolved_threads) - threads_added
-                        sections.append(
-                            f"\n... [truncated, {remaining} unresolved "
-                            "threads omitted] ..."
-                        )
-                        break
-                    threads_added += 1
-
-        # Resolved threads (lower priority, add if space remains)
-        if resolved_threads and current_size < max_size:
-            header = (
-                "### Resolved Review Threads\n\n"
-                "*These threads have been resolved but provide context:*\n"
-            )
-            if _add_section(header):
-                threads_added = 0
-                for thread in resolved_threads:
-                    thread_lines = _format_thread(thread)
-                    thread_section = "\n".join(thread_lines)
-                    if not _add_section(thread_section):
-                        remaining = len(resolved_threads) - threads_added
-                        sections.append(
-                            f"\n... [truncated, {remaining} resolved "
-                            "threads omitted] ..."
-                        )
-                        break
-                    threads_added += 1
+                break
 
     return "\n".join(sections)
 
@@ -650,7 +760,8 @@ def _fetch_with_fallback(
 def get_pr_review_context(pr_number: str) -> str:
     """Get all review context for a PR.
 
-    Fetches reviews and review threads, then formats them into a context string.
+    Fetches linked issues, top-level discussion, reviews, and review threads,
+    then formats them into a context string.
 
     Args:
         pr_number: The PR number
@@ -662,8 +773,14 @@ def get_pr_review_context(pr_number: str) -> str:
     threads = _fetch_with_fallback(
         "review threads", lambda: get_review_threads_graphql(pr_number)
     )
+    comments = _fetch_with_fallback(
+        "top-level PR comments", lambda: get_pr_issue_comments(pr_number)
+    )
+    linked_issues = _fetch_with_fallback(
+        "linked issues", lambda: get_linked_issues(pr_number)
+    )
 
-    return format_review_context(reviews, threads)
+    return format_review_context(reviews, threads, comments, linked_issues)
 
 
 def get_pr_files(pr_number: str) -> list[dict[str, Any]]:

@@ -1,0 +1,71 @@
+{
+  "id": "github-stale-ci-pr-closer",
+  "version": "1.0.0",
+  "name": "GitHub stale CI cleanup",
+  "category": "Code review",
+  "description": "Warn and close abandoned pull requests whose required CI remains failing.",
+  "requires": {
+    "integrations": {},
+    "features": [
+      "customTarball"
+    ]
+  },
+  "estimatedSetupMinutes": 3,
+  "exampleImplementation": "A deterministic scheduled scan reads the required checks that apply to each pull request's base branch. It warns after seven days of observed failure and closes after seven more days only when the author has neither pushed nor commented.",
+  "setup": {
+    "version": "1.0",
+    "mode": "direct",
+    "form": {
+      "triggers": {
+        "cron": {
+          "schedule": {
+            "type": "cron",
+            "label": "Check frequency",
+            "help": "How often to reconcile failing pull requests.",
+            "default": "0 * * * *",
+            "required": true
+          },
+          "timezone": {
+            "type": "timezone",
+            "label": "Timezone",
+            "help": "Timezone for the schedule.",
+            "default": "UTC",
+            "required": true
+          }
+        }
+      },
+      "args": {
+        "repositories": {
+          "type": "repo-picker",
+          "provider": "github",
+          "multiple": true,
+          "label": "Repositories",
+          "help": "Repositories whose open pull requests should be maintained.",
+          "required": true
+        },
+        "githubTokenSecret": {
+          "type": "text",
+          "label": "GitHub token secret",
+          "help": "Name of a saved GitHub token with rules and CI read access plus issue and pull-request write access.",
+          "default": "GITHUB_TOKEN_REVIEW",
+          "required": true
+        }
+      }
+    },
+    "bundle": {
+      "version": "1.0.0",
+      "entrypoint": "python3 worker.py",
+      "timeout": 300,
+      "files": {
+        "worker.py": "skills/github-stale-ci-pr-closer/scripts/worker.py",
+        "github_client.py": "skills/github/scripts/github_client.py"
+      },
+      "config": {
+        "repos": "{{form.repositories}}",
+        "github_token_secret": "{{form.githubTokenSecret}}"
+      }
+    },
+    "message": "Configure the repositories, credential name, and schedule."
+  },
+  "popularityRank": 77
+}

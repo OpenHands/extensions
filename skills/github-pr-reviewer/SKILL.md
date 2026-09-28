@@ -1,10 +1,10 @@
 ---
 name: github-pr-reviewer
 description: >
-  Create an automation that reviews GitHub pull requests when a configurable
-  trigger label is applied. Polls one or more repositories deterministically,
-  starts one OpenHands review conversation per label event with the pull
-  request's head commit already checked out, and publishes the review to GitHub.
+  Create an automation that reviews GitHub pull requests when a configured
+  reviewer is requested or a trigger label is applied. Starts one OpenHands
+  review conversation per request with the pull request's exact head checked
+  out, and publishes the review to GitHub.
 triggers:
   - /pr-reviewer:setup
 ---
@@ -14,9 +14,10 @@ triggers:
 ## Agent Canvas catalog
 
 For new Agent Canvas installations, use the **GitHub code review** catalog
-entry. Its deterministic `worker.py` scanner delegates each labeled exact head
-to a stable conversation using the selected agent profile. The manual upload
-flow below remains for existing deployments and is deprecated for new installations.
+entry. Its deterministic `worker.py` delegates each requested exact head to a
+stable conversation using the selected agent profile. It supports GitHub
+reviewer-request events and scheduled label scans. The manual upload flow below
+remains for existing deployments and is deprecated for new installations.
 
 Create a cron automation that watches one or more GitHub repositories for pull
 requests with a review trigger label, starts an OpenHands review conversation
@@ -24,9 +25,178 @@ once per label event, and publishes the AI review to GitHub.
 Windows PowerShell equivalents for the setup, packaging, upload, and API-check shell snippets are in `references/windows.md`.
 
 The automation script is deterministic: PR discovery, label-event tracking,
-state persistence, stale-result suppression, the repository checkout, and its
-removal are all handled in Python. The LLM is invoked only for the review
-itself.
+head eligibility, state persistence, stale-result suppression, the repository
+checkout, and its removal are all handled in Python. The LLM is invoked only for
+the review itself.
+
+Before any review conversation is created, a scheduled scan evaluates the
+current head's GitHub-required checks, read through the GraphQL `isRequired`
+signal for the pull request. That signal is the merge policy's own source of
+truth and is pull-request-scoped, so it stays correct for a stacked PR whose
+symbolic base branch carries no branch rules of its own:
+
+- Only checks GitHub reports as required decide the scheduled gate. An optional
+  workflow that fails - including one that fails before creating any check run -
+  does not block a head whose required checks pass.
+- A completed required run on the exact head whose conclusion is `failure`,
+  `cancelled`, or `timed_out` blocks the review. Any other unrecognized
+  conclusion fails closed as a block rather than silently approving.
+- A completed required run whose conclusion is `success`, `neutral`, or
+  `skipped` does not block. A required `commit status` context is classified
+  alongside required check runs.
+- A `queued` or `in_progress` required run on the exact head, and a required
+  context that has not reported a current-head check run at all, make the run
+  exit with a **waiting on checks** outcome. Unfulfilled is never approval. The
+  worker does not hold a slot polling; the next scheduled scan or explicit
+  review request retries.
+- When the required-check signal cannot be read or is empty, the gate falls back
+  to every current-head check run and workflow run, so a red head still blocks.
+  In that fallback, workflow runs are read as well as check runs, because a
+  workflow can fail before creating any check run - a workflow-level error, or a
+  `pull_request` run whose jobs never start. Such a run leaves a failed check
+  suite with no check runs under it, so the commit's check-run rollup and
+  `gh pr checks` both report success and only the workflow run reveals the red
+  CI. A workflow run whose check suite already reported check runs is left to
+  those runs, so a workflow is never counted twice.
+- A scheduled scan considers the trigger label **and** every open, non-draft PR
+  that still holds an outstanding `all-hands-bot` review request. That is what
+  resumes a request made while CI was running: the request is keyed by its own
+  `review_requested` event, so repeated scans reuse one conversation and one
+  review instead of creating duplicates, and a PR whose request was answered or
+  withdrawn simply drops out of `requested_reviewers`.
+- The scheduled scan also reviews open, non-draft PRs that **nobody requested**
+  and that carry no trigger label, once their current head has no completed
+  review by this account. That is what keeps reviewing PRs after the outstanding
+  requests are exhausted. The delivery key is the stable
+  `scan:{repository}:{number}:{head}`, so repeated scans reuse one conversation
+  and one native review, and a changed head becomes eligible again under its new
+  SHA.
+- The unrequested part of a scan is a **bounded, rotating window**, not the whole
+  backlog. Classifying one unrequested head costs a review read plus the
+  exact-head check and workflow reads, so examining every open PR in one scan
+  spent the run's API budget in the largest repository and announced every red or
+  pending head. A scan examines at most `SCAN_WINDOW` (10) unrequested PRs per
+  repository and stores where the window ended in the automation service's own
+  KV store, under a per-repository `review-scan:{owner}__{repo}` key, so the next
+  scan resumes past that point and the backlog is covered fairly over several
+  scans. The window wraps at the end of the backlog. When the KV store is not
+  available (a local run) the position is kept in memory, so the scan still
+  rotates within the run.
+- An explicit `all-hands-bot` review request or a trigger label is **never**
+  subject to the window: every explicit candidate is examined on every scan,
+  whatever the stored position is, so a request is not delayed behind the
+  rotation.
+- A gate stop on an **unrequested** head posts no managed comment. A PR nobody
+  asked about that is merely red or pending is simply skipped without starting an
+  agent, which is what keeps a scan over a large backlog from posting a gate
+  comment on every PR. The managed comment is the answer to an explicit request,
+  so a requested or labeled head that is red or pending still gets its
+  explanation.
+- Workflow runs are read as well as check runs, because a workflow can fail
+  before creating any check run - a workflow-level error, or a `pull_request`
+  run whose jobs never start. Such a run leaves a failed check suite with no
+  check runs under it, so the commit's check-run rollup and `gh pr checks` both
+  report success and only the workflow run reveals the red CI. A workflow run
+  whose check suite already reported check runs is left to those runs, so a
+  workflow is never counted twice.
+- Runs attributed to any other (obsolete) head SHA are ignored, so a stale
+  failure cannot block the push that fixed it. This applies to workflow runs
+  too.
+- Only the latest run of each logical check or workflow counts. A logical check
+  is its name plus the reporting app identity, and a logical workflow is its
+  name plus workflow ID. The latest is chosen by the run ID (the reliable
+  creation sequence) with the start time as a tie-break, so a re-run that fixed
+  a check supersedes its earlier failure on the same SHA while a newer queued or
+  in-progress re-run supersedes an earlier success and makes the head wait.
+  Ordering by the run ID keeps a run whose start time is still absent in its
+  true creation position in both directions.
+
+An explicit `all-hands-bot` review request is the intake-policy exception: the
+caller asked for that head by name, so the request dispatches even when required
+CI is red or pending, and the gate leaves no explanatory comment. Draft, scope,
+exact-head, and delivery-deduplication safeguards still apply. A blocked or
+waiting scheduled stop consumes no trigger: once the head's required checks are
+non-blocking, the scheduled scan, or a new `all-hands-bot` review request,
+starts the normal review.
+
+The gate needs no configured list of check names. When it stops a review it
+leaves one concise explanation on the PR, identified by a hidden marker carrying
+the head SHA and gate category, so a later run for a different head updates that
+comment instead of posting another. Only a marker this reviewer account authored
+counts as its own comment; every other PR comment is untrusted and can neither
+suppress the explanation nor be edited. If the repository's own workflow already
+posted a deterministic remediation comment that names the same current-head
+checks, the gate adds nothing; a disclosure about some other check does not
+suppress it. The gate applies to scheduled label scans; an explicit
+`all-hands-bot` review request bypasses it by design.
+
+Each explicit review request - a re-applied trigger label, or a new reviewer
+request in event mode - is a fresh review. The conversation for a PR is reused,
+but its earlier turns must not be trusted as current: before deciding a verdict
+the reviewer re-fetches the mutable GitHub state (the exact head, the PR body,
+review comments and threads, review requests, the linked issues' bodies and
+labels, and the current-head Actions results) and ignores any earlier finding,
+verdict, or label/priority claim that state no longer supports. Repository
+analysis the conversation already did, such as reading `AGENTS.md`, stays
+useful and is not repeated.
+
+The waiting and blocked explanations name the retry the deployment actually has.
+A scheduled run proves a scan is configured, so it says the next scan will
+retry. An event-only run does not, so it tells the reader to remove the
+outstanding `all-hands-bot` request and request `all-hands-bot` again instead of
+promising a scan that does not exist: GitHub will not accept a second request
+while the first is still outstanding.
+
+The gate leaves only one explanation per head. When the same head keeps the same
+hidden marker but the retry wording changes -- an event-only comment on a head
+whose automation is later switched to a cron scan -- the scheduled run rewrites
+that managed comment in place, so the comment always names the retry that is
+actually deployed, and an unchanged body is left untouched.
+
+## Bounded intake per scheduled scan
+
+A scheduled scan drains outstanding reviewer requests fairly, but starting an
+agent for every eligible pull request at once would overload the deployment, so
+the scan starts at most `MAX_NEW_PER_RUN` new review conversations, counted
+**across every configured repository** rather than per repository. The default
+is `2`, and the rendered `config.json` overrides it through the
+`max_new_per_run` key that `github-issue-to-pr` and `gitlab-issue-to-mr` already
+use.
+
+- Eligible candidates are ordered deterministically: an explicit `all-hands-bot`
+  request (or a trigger label) is ordered before an unrequested PR, then by the
+  oldest `all-hands-bot` `review_requested` event for a requested PR or the PR's
+  own creation time (oldest first) for an unrequested one, then by repository,
+  then by pull-request number, so the oldest work drains first and a later scan
+  reaches the remainder.
+- The bound counts the conversations a scan **starts**. A delivery that only
+  deduplicates or reports an already-running conversation reuses a runtime and
+  consumes no slot, so repeated scans make progress on the backlog instead of
+  re-spending the bound on work already in flight.
+- Reaching the bound never cuts the scan short. The scan still evaluates the
+  exact-head checks of the remaining candidates, reconciles completed reviews,
+  and runs the maintainer handoff. A candidate whose checks are pending or
+  failing starts no conversation and consumes no slot, so it cannot block a later
+  green candidate. Only an explicit request or a trigger label gets a waiting or
+  blocked gate comment; an unrequested head that is merely red or pending is
+  skipped silently.
+- A dispatch that raises is reported and does not consume a slot or abort the
+  scan, so the candidates behind it are still considered.
+- The explicit `review_requested` event path and the trigger-label scan are
+  unchanged: an explicit request still starts its conversation immediately, and
+  only the scheduled scan's new conversations are bounded.
+
+The review prompt starts with a scope gate: using the repository's own guidance
+(its scope categories and ownership boundaries, not a list of individual PR
+numbers), the reviewer decides whether the change belongs in this repository
+and has the product/architecture direction it needs. When it does not, the review
+stops with a single `event: COMMENT` review that says whether the change should
+move repositories, close, or receive a maintainer decision, and ends with the
+`🛑 MAINTAINER DECISION REQUIRED` verdict. That outcome is **neither an approval
+nor a change request**: it does not approve or merge the PR. The completion
+handler recognizes the verdict and requests one configured maintainer through the
+same handoff used after an approval. An in-scope change continues the existing
+review unchanged.
 
 The script prepares each review's workspace before the agent starts: the pull
 request's head commit is downloaded as a tarball and extracted to a directory of
@@ -53,8 +223,10 @@ Verify that the following secret is set in **OpenHands Settings -> Secrets**:
 | `GITHUB_PERSONAL_ACCESS_TOKEN` | Fine-grained PAT | Contents: Read, Metadata: Read, Pull requests: **Read and Write**, Issues: Read and Write |
 
 Pull-request **write** access is required because the agent publishes a pull
-request review, not just an issue comment. A token with only Pull requests: Read
-will poll happily and then fail at the point of publishing.
+request review, not just an issue comment. The Agent Canvas catalog worker may
+also request a configured human reviewer after approval. A token with only Pull
+requests: Read will poll happily and then fail at the point of publishing or
+requesting the handoff.
 
 When several repositories are monitored, the token must cover all of them.
 
@@ -151,7 +323,7 @@ Record as `CRON_SCHEDULE`.
 
 ### Step 6 - Generate the automation script
 
-Read `scripts/main.py` from this skill's directory. Apply exactly six constant
+Read `scripts/main.py` from this skill's directory. Apply exactly seven constant
 substitutions near the top of the file:
 
 > The script also reads a `config.json` shipped beside it, if there is one, over
@@ -167,6 +339,7 @@ substitutions near the top of the file:
 | `REVIEW_TONE = "thorough"` | `REVIEW_TONE = "{review_tone}"` |
 | `REVIEW_STYLE_INSTRUCTIONS = ""` | `REVIEW_STYLE_INSTRUCTIONS = "{style_instructions}"` |
 | `REPO_REVIEW_GUIDE_PATH = ".agents/skills/custom-codereview-guide.md"` | leave unchanged to auto-load a repo review guide at this path, or set to `""` to disable |
+| `MAX_NEW_PER_RUN = 2` | leave unchanged to bound a scheduled scan to two new review conversations across all repositories, or raise it if the deployment can hold more agents at once |
 | `DEFAULT_OPENHANDS_URL = "http://localhost:8000"` | leave unchanged unless the user has a preference |
 
 Use a safe string writer such as `json.dumps(value)` when inserting user-provided
@@ -275,7 +448,8 @@ For each repository:
      paths, and symlinks skipped rather than materialised.
    - Starts an OpenHands conversation **whose working directory is that
      checkout**, with a review prompt carrying PR metadata, the exact head SHA,
-     and label event details.
+     label event details, and the requirement to re-fetch the current mutable
+     GitHub state before deciding a verdict.
    - Posts an acknowledgement comment with the label event, head SHA, and
      conversation link.
    - Records the review in state with `status: "active"` and the checkout path.
@@ -322,6 +496,10 @@ The completion callback fires once for the whole run.
 | 404 on repo access | Repo name wrong or no access | Re-check the entry in `REPOS` and the token's permissions |
 | One repository is skipped, others work | That repository failed its access check | Read the `=== owner/repo ===` block in the run log |
 | Same PR not reviewed after new commits | Label event was already processed | Remove and re-apply the trigger label |
+| Review paused with a failing-check comment | A current-head required check reported `failure`, `cancelled`, or `timed_out` | Fix the named checks and push; the review starts on the new head, or request `all-hands-bot` to review immediately |
+| Review reported waiting on checks | A current-head required check is `queued` or `in_progress`, or has not reported yet | No action; a later scan or a new review request retries |
+| Optional workflow failed but no review was paused | The failed workflow is not required, so the required-only scheduled gate ignored it | No action; only GitHub-required checks gate scheduled discovery |
+| Only a few reviews start on a large backlog | The per-scan `max_new_per_run` bound (default 2) reached | No action; later scans drain the remaining oldest requests and the bounded rotating window of unrequested PRs, or raise `max_new_per_run` if the deployment can hold more agents |
 | Review result never posts | Conversation still running or stuck | Open the conversation link from the acknowledgement comment |
 | Stale review suppressed | PR head SHA changed while the agent was reviewing | Re-apply the trigger label after the latest commit |
 | Review arrives as a plain comment, not a review | Publishing failed, so the script posted the text as a fallback | Check that the token has Pull requests: Read and Write |

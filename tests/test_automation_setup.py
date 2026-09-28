@@ -654,6 +654,21 @@ def test_schema_file_is_valid_draft_2020_12() -> None:
     Draft202012Validator.check_schema(_SCHEMA)
 
 
+def test_schema_allows_event_filter_on_script_bundle() -> None:
+    entry = deepcopy(_load(CATALOG_DIR / "github-pr-reviewer" / "manifest.json"))
+    entry["setup"]["form"]["triggers"]["event"] = {
+        "on": {
+            "type": "event-type",
+            "label": "Event type",
+            "help": "GitHub event that starts the bundled script.",
+            "required": True,
+        }
+    }
+    entry["setup"]["filter"] = "repository.full_name == 'owner/repo'"
+
+    assert list(VALIDATOR.iter_errors(entry)) == []
+
+
 def test_schema_rejects_content_a_setup_block_must_never_carry() -> None:
     """The format constraints are the trust boundary, so they are asserted here.
 
