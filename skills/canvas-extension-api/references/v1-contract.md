@@ -23,7 +23,7 @@ Inspect these files when targeting a newer OpenHands revision:
 
 Treat the active Agent Server as the owner of installed apps. Source, resolved revision, files, manifest, and enabled state live on that backend. Switching backend replaces the active app inventory.
 
-Treat enabled code as trusted same-realm JavaScript. No iframe, worker sandbox, granular permission boundary, or CSS security boundary exists in v1. Enabled code has the ambient browser authority available to Canvas and can use authenticated helpers for the current backend.
+Treat enabled code as trusted same-realm JavaScript. No iframe, worker sandbox, granular permission boundary, or CSS security boundary exists in v1 for App-authored code or the App's own frame. Enabled code has the ambient browser authority available to Canvas and can use authenticated helpers for the current backend. The only frame in v1 is the host-owned managed-backend view, created by the `host.appBackendView` helper described below and never by the App; it isolates the backend's own content on a separate ingress origin and grants the App no authority it did not already have.
 
 Keep install and enable separate. Installation produces a disabled app. Enabling is the explicit execution consent point. Enablement and disablement are hot and require no restart.
 
@@ -71,7 +71,11 @@ interface CanvasExtensionPageContribution {
 
 Required manifest fields are `schema_version`, `name`, `version`, and `entrypoint`. A useful page package also supplies `display_name`, `description`, and at least one `contributes.pages` entry. `backend` is optional: omitting it preserves a browser-only App or a manual/deployment-owned Sidecar.
 
-The managed-backend contract requires the stacked, unreleased Agent Server changes in [software-agent-sdk PR #5270](https://github.com/OpenHands/software-agent-sdk/pull/5270) at `ac7b322ddf7d2e0e90a3643c5e26d848236af9a3` and [PR #5272](https://github.com/OpenHands/software-agent-sdk/pull/5272) at `6d9c82973e765cce4843d6a2fb52f634efa64293`. Until a release containing both lands, those exact revisions are the minimum Agent Server implementation. Feature-detect `canvas_app_backend_bridge_v1` in `GET /server_info`; the same response must provide `app_backend_ingress_url`. Use the host view helper only at the minimum host version stated below.
+The managed-backend contract requires the stacked, unreleased Agent Server changes in [software-agent-sdk PR #5270](https://github.com/OpenHands/software-agent-sdk/pull/5270) at `ac7b322ddf7d2e0e90a3643c5e26d848236af9a3` and [PR #5272](https://github.com/OpenHands/software-agent-sdk/pull/5272) at `6d9c82973e765cce4843d6a2fb52f634efa64293`. Until a release containing both lands, those exact revisions are the minimum Agent Server implementation. Feature-detect `canvas_app_backend_bridge_v1` in `GET /server_info`; the same response must provide `app_backend_ingress_url`.
+
+The minimum host is the Agent Canvas revision that adds the optional `host.appBackendView` helper specified under Host API 1 below — the frontend change in OpenHands/OpenHands#17641, which this document's PR lists as a merge prerequisite. No upstream release pins that helper yet, so there is no release number to name; until there is, the minimum host is exactly "the build whose `host.appBackendView` is present", and feature-detecting that helper is the only supported test. Absence is an actionable unsupported state, not a reason to guess an ingress port or read Canvas internals.
+
+All references in this bundle to "the minimum host version documented in `v1-contract.md`" mean this paragraph.
 
 For a managed backend:
 
@@ -289,7 +293,7 @@ Do not promise or implement these features without confirming a newer contract:
 - visualizer augmentation or replacement;
 - marketplace signing or publisher verification;
 - enforceable fine-grained permissions;
-- iframe or worker isolation;
+- iframe or worker isolation for App-authored frames: an App must not create its own frames or Workers to obtain an isolation boundary. (A host-owned managed-backend view is the one exception and is not App-authored: it is reachable only through the feature-detected `host.appBackendView` helper, which owns the ingress origin, sandbox attributes, and session lifecycle. The App never constructs that frame, picks its URL, or reads its credential.)
 - arbitrary install lifecycle scripts;
 - automatic agent-driven enablement.
 
