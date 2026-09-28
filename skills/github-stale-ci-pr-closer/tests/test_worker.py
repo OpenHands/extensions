@@ -138,6 +138,37 @@ class TestReconcile(unittest.TestCase):
         self.pr["_failed_at"] = 0
         self.assertEqual(self.reconcile(7 * DAY), "warned")
 
+    def test_backfill_leaves_a_legacy_follow_up_reset_alone(self):
+        # A pre-marker version cleared `warning` on author follow-up to open a
+        # fresh window. Re-aging that record to the check failure would collapse
+        # the new window and warn inside it.
+        self.records["7"] = {"head_sha": "abc", "first_failed_at": 13 * DAY}
+        self.pr["_ci_state"] = "failing"
+        self.pr["_failed_at"] = 0
+        self.closer.comments.return_value = [
+            {
+                "user": {"login": "author"},
+                "created_at": "1970-01-14T00:00:00Z",
+                "body": "working",
+            }
+        ]
+        self.assertEqual(self.reconcile(14 * DAY), "observing")
+        self.assertEqual(self.records["7"]["first_failed_at"], 13 * DAY)
+        self.closer.post_comment.assert_not_called()
+
+    def test_legacy_follow_up_reset_still_warns_after_a_full_fresh_window(self):
+        self.records["7"] = {"head_sha": "abc", "first_failed_at": 13 * DAY}
+        self.pr["_ci_state"] = "failing"
+        self.pr["_failed_at"] = 0
+        self.closer.comments.return_value = [
+            {
+                "user": {"login": "author"},
+                "created_at": "1970-01-14T00:00:00Z",
+                "body": "working",
+            }
+        ]
+        self.assertEqual(self.reconcile(20 * DAY), "warned")
+
     def test_draft_cancels_the_lifecycle(self):
         self.reconcile(0)
         self.pr["draft"] = True

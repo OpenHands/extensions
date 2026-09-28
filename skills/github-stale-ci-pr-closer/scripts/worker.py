@@ -349,6 +349,28 @@ class StaleCIPullRequestCloser(GitHubRepository):
             for comment in comments
         )
 
+    def _backfill_first_failed_at(self, pr, record):
+        """Age a record from the required-check failure, unless it is a reset.
+
+        Versions before this one stored first *observation* time, so a record
+        whose CI had already been failing for longer than we had been watching
+        under-counted the window; re-age it to the newest required-check
+        failure. Versions before this one also cleared `warning` on author
+        follow-up to open a fresh window without leaving a marker, so such a
+        reset is indistinguishable from a first sighting by record shape alone
+        and is recognized from the comment history instead: the author of the
+        pull request commented after the newest required-check failure. Aging
+        that record would collapse the fresh window the follow-up just opened,
+        so it is left alone.
+        """
+        failed_at = pr.get("_failed_at")
+        if failed_at is None:
+            return
+        if self.author_followed_up(pr, self.comments(pr["number"]), failed_at):
+            record["reset_at"] = record["first_failed_at"]
+            return
+        record["first_failed_at"] = min(record["first_failed_at"], failed_at)
+
     def reconcile(self, pr, records, now):
         number = pr["number"]
         key = str(number)
@@ -372,14 +394,10 @@ class StaleCIPullRequestCloser(GitHubRepository):
                 "first_failed_at": now if failed_at is None else failed_at,
             }
             records[key] = record
-        elif (
-            not record.get("warning")
-            and not record.get("reset_at")
-            and pr.get("_failed_at") is not None
-        ):
-            # Backfill records created by versions that used first observation time.
-            record["first_failed_at"] = min(record["first_failed_at"], pr["_failed_at"])
+
         warning = record.get("warning")
+        if not warning and not record.get("reset_at"):
+            self._backfill_first_failed_at(pr, record)
         if not warning:
             if now - record["first_failed_at"] < WARN_AFTER_SECONDS:
                 return "observing"
