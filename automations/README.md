@@ -278,8 +278,8 @@ falling back to its built-in defaults when the manifest is absent or fails admis
   replaces `detail` while the value is zero.
 - **`docsUrl`** - the automations documentation link, prefix-pinned to docs.openhands.dev by schema.
 - **`attributes`** - the input surface of an existing Automation: which attributes can be set after
-  creation, keyed by the runtime-model property the host sends (`name`, `prompt`, `model`, `timeout`,
-  `schedule`), with labels, help, and numeric bounds. How a client offers them - Agent Canvas renders an
+  creation, keyed by the runtime-model property the host sends (`name`, `description`, `prompt`, `model`,
+  `timeout`, `schedule`), with labels, help, and numeric bounds. How a client offers them - Agent Canvas renders an
   edit dialog - is the client's choice, not stated here. `schedule` is a semantic type: the host owns the
   frequency/weekday/time composite it renders, as it owns the setup form's `cron` type.
 - **`importExport`** - the export file envelope (`kind`, `version`, filename suffix) and the two facts an

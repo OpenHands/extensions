@@ -109,6 +109,11 @@
   "docsUrl": "https://docs.openhands.dev/openhands/usage/automations/overview",
   "attributes": {
     "name": { "type": "text", "label": "Name", "required": true },
+    "description": {
+      "type": "textarea",
+      "label": "Description",
+      "required": false
+    },
     "prompt": {
       "type": "textarea",
       "label": "Prompt",
