@@ -542,6 +542,20 @@
       ]
     },
     {
+      "name": "runtime-api-configs",
+      "source": "./plugins/runtime-api-configs",
+      "description": "Manage warm sandbox pools on OpenHands Enterprise by driving the runtime-api admin endpoints (list, save, delete warm runtime configurations) from a Python CLI. Standard-library only, runs anywhere python3 is available.",
+      "category": "environment",
+      "keywords": [
+        "openhands-enterprise",
+        "runtime-api",
+        "warm-runtime-config",
+        "warm-pool",
+        "custom-sandbox-image",
+        "admin"
+      ]
+    },
+    {
       "name": "security",
       "source": "./skills/security",
       "description": "Security best practices for secure coding, authentication, authorization, and data protection. Use when developing features that handle sensitive data, user authentication, or require security review.",
