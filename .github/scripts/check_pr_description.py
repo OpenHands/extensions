@@ -35,6 +35,10 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 
+# `markdown_sections` is a sibling in this directory, which is not on sys.path
+# when the module is imported from a file location (the loader-based tests).
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
 from markdown_sections import find_headings, without_fenced_code_blocks
 
 

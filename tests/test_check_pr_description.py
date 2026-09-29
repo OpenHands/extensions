@@ -17,9 +17,8 @@ def _load(name: str, script_name: str):
     return mod
 
 
-# Import markdown_sections first so check_pr_description can resolve its
-# `from markdown_sections import ...` against the module we loaded above.
-_load("markdown_sections", "markdown_sections.py")
+# `check_pr_description` resolves its sibling `markdown_sections` itself, so no
+# preloading is needed here and this file genuinely exercises that contract.
 _prod = _load("check_pr_description", "check_pr_description.py")
 validate_pr_body = _prod.validate_pr_body
 body_from_event = _prod.body_from_event
