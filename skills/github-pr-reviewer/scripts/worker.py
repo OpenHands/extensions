@@ -260,6 +260,16 @@ class PullRequestReviewer(GitHubRepository):
             "- Inspect the current GitHub Actions results for the exact head and run "
             "the repository's appropriate focused tests in the workspace. Do not "
             "modify tracked files.\n"
+            "- Before publishing anything, read the PR's existing reviews and "
+            "comments on GitHub. If this account has already published a review on "
+            f"`{sha}` and no one else has commented since that review, do NOT "
+            "publish a second review and do NOT start another review pass: another "
+            "review of identical code is a duplicate. Report the earlier verdict as "
+            "still current and stop. Review the head again only when the head has "
+            "moved, or when a comment from someone other than this account was "
+            "posted after the earlier review.\n"
+            "- If a review by this account is currently underway for this head, wait "
+            "for it instead of starting a second one.\n"
             f"- Re-read {self.repository} PR #{number} immediately before reporting. "
             "Confirm its current body, labels, review threads, and the head's check "
             "results, and re-read every linked issue's current body and labels: an "
@@ -739,6 +749,66 @@ class PullRequestReviewer(GitHubRepository):
             for review in self.gh_pages(f"/pulls/{number}/reviews")
         )
 
+    def _clarified_since(self, number, submitted_at):
+        """Whether a human clarified the pull request after a review.
+
+        A comment by someone other than the reviewer accounts is the one thing
+        that makes reviewing an unchanged head worth another conversation: the
+        author answered a finding, so the earlier verdict no longer speaks to
+        the current state. Any other account (an author, a maintainer, a
+        different bot workflow posting a new result) counts, and the reviewer
+        account's own comments are excluded so its "reviewing now" and verdict
+        comments cannot re-trigger it.
+        """
+        if not submitted_at:
+            return False
+        for comment in self.gh_pages(f"/issues/{number}/comments"):
+            login = ((comment.get("user") or {}).get("login") or "").lower()
+            if login in {"", self.github_login.lower(), self.trigger_reviewer}:
+                continue
+            if (comment.get("created_at") or "") > submitted_at:
+                return True
+        return False
+
+    def _reviewed_current_head_without_clarification(self, number, sha):
+        """Whether the current head is already reviewed and nothing has changed.
+
+        A review on this exact head, followed by no clarifying comment from
+        anyone else, means another conversation would publish a second review of
+        the same code — the same verdict twice, spending a runtime to repeat it.
+        The head advancing, or any human comment arriving afterwards, makes the
+        head eligible again under the normal rules.
+
+        Returns the reviewed head's latest submission time (for the log line) or
+        None when the head should be reviewed.
+        """
+        if not sha:
+            return None
+        submitted_at = ""
+        for review in self.gh_pages(f"/pulls/{number}/reviews"):
+            if review.get("commit_id") != sha:
+                continue
+            if ((review.get("user") or {}).get("login") or "").lower() != (
+                self.github_login.lower()
+            ):
+                continue
+            # A dismissal removes the review's standing, exactly as
+            # maintainer_handoff._reviewer_states treats it: a maintainer who
+            # dismisses this account's verdict and re-requests a review on the
+            # same head is asking for a fresh look, not repeating a completed
+            # one. Keeping the dismissed review here would suppress that review
+            # permanently, because nothing else makes an unchanged head eligible.
+            if (review.get("state") or "").upper() == "DISMISSED":
+                continue
+            when = review.get("submitted_at") or ""
+            if when > submitted_at:
+                submitted_at = when
+        if not submitted_at:
+            return None
+        if self._clarified_since(number, submitted_at):
+            return None
+        return submitted_at
+
     def _unrequested_head(self, pr):
         """The current-head delivery key for an unrequested PR, or None.
 
@@ -826,6 +896,46 @@ class PullRequestReviewer(GitHubRepository):
                     delivery_key = self._unrequested_head(pr)
                     unrequested_candidate = True
                 if trigger is None and delivery_key is None:
+                    continue
+                # A head this account already reviewed, with no clarifying
+                # comment since, is done: another conversation would publish a
+                # second review of identical code. This must come before the
+                # delivery dispatch, because a fresh trigger (a new review
+                # request, or a label re-applied after the bot's own handoff)
+                # produces a new delivery key that would otherwise start a
+                # second review on an unchanged head.
+                already = self._reviewed_current_head_without_clarification(
+                    pr["number"], pr["head"]["sha"]
+                )
+                if already:
+                    print(
+                        json.dumps(
+                            {
+                                "repository": self.repository,
+                                "pr": pr["number"],
+                                "head_sha": pr["head"]["sha"],
+                                "disposition": "review-already-published",
+                                "reviewed_at": already,
+                            }
+                        ),
+                        flush=True,
+                    )
+                    if trigger is not None:
+                        # Reconcile the completed review (clearing the label and
+                        # running the maintainer handoff) where the review is
+                        # this trigger's result. When it predates the trigger -
+                        # the #698 ordering, a re-applied label - there is no
+                        # completion to reconcile, so clear the label directly:
+                        # otherwise the label stays and every later scan re-reads
+                        # this head and re-logs with no effect.
+                        if not self._finish_completed_review(
+                            pr, trigger, trigger_label
+                        ) and trigger_label:
+                            self.gh(
+                                "DELETE",
+                                f"/issues/{pr['number']}/labels/"
+                                f"{quote(trigger_label, safe='')}",
+                            )
                     continue
                 if delivery_key is None and self._finish_completed_review(
                     pr, trigger, trigger_label
@@ -922,6 +1032,7 @@ class PullRequestReviewer(GitHubRepository):
             subject=f"{repository_id}:pr:{pr['number']}",
             delivery=delivery_key or f"{trigger['id']}:{sha}",
             prompt=self._prompt(pr, trigger, trigger_label, delivery_key),
+            head=sha,
         )
         print(
             json.dumps(
