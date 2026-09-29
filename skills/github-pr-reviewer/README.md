@@ -33,10 +33,9 @@ This skill is activated by:
   their current head is green and carries no review yet, keyed by
   repository/PR/head so a repeat scan never duplicates a conversation or review
   and a changed head becomes eligible again
-- Examines a bounded, rotating window of that unrequested backlog per scan
-  (10 PRs per repository), remembering its position in the Automation KV store so
-  the next scan resumes past it; explicit requests and trigger labels are always
-  examined, never skipped behind the window
+- Examines the whole unrequested backlog on each scheduled scan, while the
+  global `max_new_per_run` quota limits only newly created review conversations;
+  blocked or pending heads consume no launch slot
 - Posts no managed gate comment for an unrequested PR that is merely red or
   pending - the comment answers an explicit request, so a scan over a large
   backlog cannot storm the PRs with comments
