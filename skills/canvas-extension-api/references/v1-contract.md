@@ -23,7 +23,7 @@ Inspect these files when targeting a newer OpenHands revision:
 
 Treat the active Agent Server as the owner of installed apps. Source, resolved revision, files, manifest, and enabled state live on that backend. Switching backend replaces the active app inventory.
 
-Treat enabled code as trusted same-realm JavaScript. No iframe, worker sandbox, granular permission boundary, or CSS security boundary exists in v1. Enabled code has the ambient browser authority available to Canvas and can use authenticated helpers for the current backend.
+Treat enabled code as trusted same-realm JavaScript. No iframe, worker sandbox, granular permission boundary, or CSS security boundary exists in v1 for App-authored code or the App's own frame. Enabled code has the ambient browser authority available to Canvas and can use authenticated helpers for the current backend. The only frame in v1 is the host-owned managed-backend view, created by the `host.appBackendView` helper described below and never by the App; it isolates the backend's own content on a separate ingress origin and grants the App no authority it did not already have.
 
 Keep install and enable separate. Installation produces a disabled app. Enabling is the explicit execution consent point. Enablement and disablement are hot and require no restart.
 
@@ -42,6 +42,22 @@ interface CanvasExtensionManifest {
   contributes?: {
     pages?: CanvasExtensionPageContribution[] | null;
   } | null;
+  backend?: CanvasExtensionBackend | null;
+}
+
+interface CanvasExtensionBackend {
+  schema_version: 1;
+  artifacts: Partial<Record<"linux-amd64" | "linux-arm64", {
+    path: string;
+    sha256: string;
+  }>>;
+  argv: string[];
+  health?: {
+    path?: string;
+    timeout_seconds?: number;
+    interval_seconds?: number;
+  };
+  inherit_environment?: string[];
 }
 
 interface CanvasExtensionPageContribution {
@@ -53,7 +69,23 @@ interface CanvasExtensionPageContribution {
 }
 ```
 
-Required manifest fields are `schema_version`, `name`, `version`, and `entrypoint`. A useful page package also supplies `display_name`, `description`, and at least one `contributes.pages` entry.
+Required manifest fields are `schema_version`, `name`, `version`, and `entrypoint`. A useful page package also supplies `display_name`, `description`, and at least one `contributes.pages` entry. `backend` is optional: omitting it preserves a browser-only App or a manual/deployment-owned Sidecar.
+
+The managed-backend contract requires the stacked, unreleased Agent Server changes in [software-agent-sdk PR #5270](https://github.com/OpenHands/software-agent-sdk/pull/5270) at `ac7b322ddf7d2e0e90a3643c5e26d848236af9a3` and [PR #5272](https://github.com/OpenHands/software-agent-sdk/pull/5272) at `6d9c82973e765cce4843d6a2fb52f634efa64293`. Until a release containing both lands, those exact revisions are the minimum Agent Server implementation. Feature-detect `canvas_app_backend_bridge_v1` in `GET /server_info`; the same response must provide `app_backend_ingress_url`.
+
+The minimum host is the Agent Canvas revision that adds the optional `host.appBackendView` helper specified under Host API 1 below — the frontend change in OpenHands/OpenHands#17641, which this document's PR lists as a merge prerequisite. No upstream release pins that helper yet, so there is no release number to name; until there is, the minimum host is exactly "the build whose `host.appBackendView` is present", and feature-detecting that helper is the only supported test. Absence is an actionable unsupported state, not a reason to guess an ingress port or read Canvas internals.
+
+All references in this bundle to "the minimum host version documented in `v1-contract.md`" mean this paragraph.
+
+For a managed backend:
+
+- Key `artifacts` only by `linux-amd64` or `linux-arm64`; one matching entry is sufficient.
+- Keep each artifact `path` package-relative, contained, and ending in `.tar.gz`.
+- Set `sha256` to exactly 64 lowercase hexadecimal characters.
+- Use a non-empty structured `argv`; `argv[0]` must resolve inside `{artifact_dir}`.
+- Use only `{artifact_dir}`, `{data_dir}`, and `{port}` placeholders.
+- Keep `health.path` root-relative. Defaults are `/health`, 30 seconds, and 0.1 seconds.
+- Request only `LANG`, `LC_ALL`, `LC_CTYPE`, `PATH`, `TMPDIR`, or `TZ` in `inherit_environment`, without duplicates. Ambient Agent Server credentials are never inherited.
 
 Apply these rules:
 
@@ -95,6 +127,9 @@ interface CanvasExtensionHost {
       headers?: Record<string, string>;
     }): Promise<T>;
   };
+  readonly appBackendView?: {
+    mount(options: { container: HTMLElement }): () => void;
+  };
 }
 
 type CanvasExtensionPageMount = (context: {
@@ -113,6 +148,11 @@ export function activate(
 ```
 
 The loader fetches authenticated JavaScript text, creates a temporary Blob URL, imports it as ESM, verifies the `activate` export, and revokes the Blob URL. Import does not activate a disabled installation.
+
+`appBackendView` is additive and optional. Feature-detect it before mounting. It is absent for host builds without the helper, no-backend and cloud selections, or selected Agent Servers without `canvas_app_backend_bridge_v1`, `app_backend_ingress_url`, and the compatible typed client. `mount({ container })` returns a disposer. The helper obtains an app-scoped session, validates the HTTP(S) ingress and sandbox, renders loading/error/retry and safe new-tab fallback, and revokes the session on disposal. It does not prepare, start, stop, or delete backend data.
+
+Every App API call is scoped to the active backend. When the user changes backend, Canvas disposes the old activation, mounted backend views, and sessions before activating the App with a fresh host snapshot.
+
 
 ## Registration constraints
 
@@ -213,6 +253,16 @@ The current Canvas frontend service calls:
 | `PATCH` | `/api/canvas-extensions/installed/{name}` | Set enabled state |
 | `DELETE` | `/api/canvas-extensions/installed/{name}` | Uninstall |
 | `GET` | `/api/canvas-extensions/installed/{name}/bundle` | Fetch entrypoint JavaScript text |
+| `GET` | `/api/canvas-extensions/installed/{name}/backend` | Read managed-backend status and revision |
+| `POST` | `/api/canvas-extensions/installed/{name}/backend/prepare` | Verify and prepare the approved revision |
+| `POST` | `/api/canvas-extensions/installed/{name}/backend/start` | Start the prepared approved revision |
+| `POST` | `/api/canvas-extensions/installed/{name}/backend/stop` | Stop the owned process group |
+| `GET` | `/api/canvas-extensions/installed/{name}/backend/logs` | Read bounded backend logs |
+| `DELETE` | `/api/canvas-extensions/installed/{name}/backend/data` | Separately delete preserved mutable data |
+
+Prepare and start bodies are `{"revision":"<exact installed revision>"}`. Status is exactly `missing`, `stopped`, `starting`, `ready`, `unhealthy`, or `unsupported`. Installation, enablement, activation, and page mounting never prepare or start a backend. Updating invalidates approval. Disable and uninstall stop owned processes and revoke bridge access but preserve backend data; data deletion is separate.
+
+The bridge advertises `canvas_app_backend_bridge_v1` and `app_backend_ingress_url` through `GET /server_info`. Its control endpoints are `POST` and `DELETE` on `/app-backends/{name}/session` at the configured ingress, which must be a separate browser origin from Canvas. Session responses contain `ingress_url`, `expires_at`, and `iframe_sandbox`; the credential is an HttpOnly cookie and never appears in the response or URL. The v1 sandbox is `allow-forms allow-modals allow-popups allow-same-origin allow-scripts`. Preserve `allow-same-origin`: the separate ingress origin is the isolation boundary, while an opaque sandbox origin causes Chromium to send `Origin: null` for mutating fetches and WebSockets, omit the partitioned cookie, and reject Worker creation with `SecurityError`.
 
 Install request:
 
@@ -243,7 +293,7 @@ Do not promise or implement these features without confirming a newer contract:
 - visualizer augmentation or replacement;
 - marketplace signing or publisher verification;
 - enforceable fine-grained permissions;
-- iframe or worker isolation;
+- iframe or worker isolation for App-authored frames: an App must not create its own frames or Workers to obtain an isolation boundary. (A host-owned managed-backend view is the one exception and is not App-authored: it is reachable only through the feature-detected `host.appBackendView` helper, which owns the ingress origin, sandbox attributes, and session lifecycle. The App never constructs that frame, picks its URL, or reads its credential.)
 - arbitrary install lifecycle scripts;
 - automatic agent-driven enablement.
 

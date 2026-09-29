@@ -6,10 +6,9 @@ import sys
 from pathlib import Path
 
 
-def _load_prod_module():
+def _load(name: str, script_name: str):
     repo_root = Path(__file__).resolve().parents[1]
-    script_path = repo_root / ".github" / "scripts" / "check_pr_description.py"
-    name = "check_pr_description"
+    script_path = repo_root / ".github" / "scripts" / script_name
     spec = importlib.util.spec_from_file_location(name, script_path)
     assert spec and spec.loader
     mod = importlib.util.module_from_spec(spec)
@@ -18,9 +17,12 @@ def _load_prod_module():
     return mod
 
 
-_prod = _load_prod_module()
+# `check_pr_description` resolves its sibling `markdown_sections` itself, so no
+# preloading is needed here and this file genuinely exercises that contract.
+_prod = _load("check_pr_description", "check_pr_description.py")
 validate_pr_body = _prod.validate_pr_body
 body_from_event = _prod.body_from_event
+extract_human_note = _prod.extract_human_note
 extract_linked_issue_numbers = _prod.extract_linked_issue_numbers
 validate_linked_issue_ready = _prod.validate_linked_issue_ready
 fetch_issue_details = _prod.fetch_issue_details
@@ -28,9 +30,11 @@ fetch_issue_details = _prod.fetch_issue_details
 
 VALID_BODY = """<!-- Keep this PR as draft until it is ready for review. -->
 
-<!-- AI/LLM agents: be concise and specific. Do not check the box below. -->
+HUMAN:
 
-- [ ] A human has tested these changes.
+I checked this change and it does what the PR says.
+
+AGENT:
 
 ---
 
@@ -62,6 +66,85 @@ N/A
 
 def test_valid_pr_body_passes():
     assert validate_pr_body(VALID_BODY) == []
+
+
+def test_first_visible_line_must_be_human_marker():
+    body = VALID_BODY.replace("HUMAN:", "## Why\n\nSomething.\n\nHUMAN:", 1)
+
+    errors = validate_pr_body(body)
+
+    assert any("first visible line" in e for e in errors)
+
+
+def test_human_note_must_clear_the_minimum_length():
+    body = VALID_BODY.replace(
+        "I checked this change and it does what the PR says.", "Looks good."
+    )
+
+    errors = validate_pr_body(body)
+
+    assert any("human-written note" in e for e in errors)
+
+
+def test_missing_human_section_is_reported():
+    body = VALID_BODY.replace("HUMAN:", "", 1)
+
+    errors = validate_pr_body(body)
+
+    assert any("first visible line" in e for e in errors)
+    assert any("human-written note" in e for e in errors)
+
+
+def test_agent_marker_must_be_kept():
+    body = VALID_BODY.replace("AGENT:", "", 1)
+
+    errors = validate_pr_body(body)
+
+    assert any("AGENT:" in e for e in errors)
+
+
+def test_quoting_the_template_markers_in_a_fence_does_not_satisfy_the_gate():
+    # A body whose only HUMAN:/AGENT: markers are quoted inside a code fence has
+    # no real human attestation: the markers must appear outside fenced code.
+    body = VALID_BODY.replace(
+        "HUMAN:\n\nI checked this change and it does what the PR says.\n\nAGENT:",
+        "```text\nHUMAN:\n\nfill this in yourself\n\nAGENT:\n```",
+    )
+
+    errors = validate_pr_body(body)
+
+    assert any("first visible line" in e for e in errors)
+    assert any("human-written note" in e for e in errors)
+
+
+def test_human_note_stops_at_the_agent_marker():
+    # Text after AGENT: must not count toward the human note.
+    body = VALID_BODY.replace(
+        "I checked this change and it does what the PR says.",
+        "ok\n\nAGENT:\n\n" + "agent padding " * 5,
+    )
+
+    assert extract_human_note(body) == "ok"
+    assert any("human-written note" in e for e in validate_pr_body(body))
+
+
+def test_human_note_and_sections_survive_crlf_bodies():
+    body = VALID_BODY.replace("\n", "\r\n")
+
+    assert validate_pr_body(body) == []
+
+
+def test_template_fields_must_be_outside_fenced_code_blocks():
+    # Quoting the template's headings in a fence must not satisfy the sections.
+    body = (
+        "HUMAN:\n\nI reviewed this change carefully and it works as described.\n\n"
+        "AGENT:\n\n```markdown\n## Why\n\nx\n\n## Summary\n\n- y\n\n"
+        "## How to Test\n\nz\n```\n"
+    )
+
+    errors = validate_pr_body(body)
+
+    assert any("Keep the `## Why`" in e for e in errors)
 
 
 def test_required_template_fields_must_be_present_and_filled():

@@ -166,6 +166,41 @@ def test_reviewer_submits_each_labeled_exact_head(tmp_path, monkeypatch):
     assert "GIT_TERMINAL_PROMPT=0" in prompt
     assert "Never paste JSON artifacts" in prompt
     assert "stop immediately" in prompt
+    # The prompt carries the dedup rule as well as the worker enforcing it: the
+    # agent is the one that reads GitHub before publishing, so it must be told
+    # not to publish a second review of a head it already reviewed.
+    assert "do NOT publish a second review" in prompt
+    assert "currently underway for this head" in prompt
+
+
+def test_reviewer_prompt_forbids_republishing_an_unchanged_reviewed_head(
+    tmp_path, monkeypatch
+):
+    """The reviewer prompt names the head and the no-clarification condition."""
+    module, run = _reviewer(tmp_path, monkeypatch)
+    pr = {
+        "number": 2,
+        "head": {"sha": "head-2"},
+        "labels": [{"name": "openhands-review"}],
+    }
+    run.gh_pages = lambda path: [pr]
+    run.gh = Mock(side_effect=[{"id": 99}, pr])
+    monkeypatch.setattr(
+        module.workflow,
+        "_latest_trigger_label_event",
+        lambda *args: {"id": 7, "created_at": "now"},
+    )
+    submit = Mock(
+        return_value={"disposition": "created", "conversation_id": "conversation"}
+    )
+    run.dispatcher.deliver = submit
+
+    run.run()
+
+    prompt = submit.call_args.kwargs["prompt"]
+    assert "already published a review on `head-2`" in prompt
+    assert "no one else has commented since that review" in prompt
+    assert "Review the head again only when the head has moved" in prompt
 
 
 @pytest.mark.parametrize("draft", [False, True])
@@ -375,7 +410,16 @@ def test_reviewer_submitted_review_on_superseded_head_does_not_dispatch(
     handoff.assert_not_called()
 
 
-def test_reviewer_redelivers_when_review_predates_latest_label(tmp_path, monkeypatch):
+def test_reviewer_does_not_redeliver_a_label_for_an_already_reviewed_head(
+    tmp_path, monkeypatch
+):
+    """A re-applied label on an unchanged, already-reviewed head is not new work.
+
+    The label event predates the existing review, so `_finish_completed_review`
+    would not treat the review as this event's result and the old code dispatched
+    a second review of identical code. A review on the current head with nothing
+    posted after it is already the answer, whatever trigger arrives next.
+    """
     _module, run = _reviewer(tmp_path, monkeypatch)
     pr = {
         "number": 2,
@@ -387,6 +431,42 @@ def test_reviewer_redelivers_when_review_predates_latest_label(tmp_path, monkeyp
         if path.startswith("/pulls?")
         else _reviews(submitted_at="2025-12-31T00:00:00Z")
     )
+    run.gh = Mock(side_effect=[{"id": 99}, pr, pr])
+    run.dispatcher.deliver.return_value = {
+        "disposition": "continued",
+        "conversation_id": "conversation",
+    }
+
+    run.run()
+
+    run.dispatcher.deliver.assert_not_called()
+
+
+def test_reviewer_redelivers_a_label_when_a_human_clarified_since(
+    tmp_path, monkeypatch
+):
+    """A comment from someone else after the review makes the head reviewable."""
+    _module, run = _reviewer(tmp_path, monkeypatch)
+    pr = {
+        "number": 2,
+        "head": {"sha": "head-2"},
+        "labels": [{"name": "openhands-review"}],
+    }
+
+    def pages(path):
+        if path.startswith("/pulls?"):
+            return [pr]
+        if path.endswith("/comments"):
+            return [
+                {
+                    "body": "I added the missing test you asked for.",
+                    "created_at": "2026-01-02T00:00:00Z",
+                    "user": {"login": "neubig"},
+                }
+            ]
+        return _reviews(submitted_at="2025-12-31T00:00:00Z")
+
+    run.gh_pages = pages
     run.gh = Mock(side_effect=[{"id": 99}, pr])
     run.dispatcher.deliver.return_value = {
         "disposition": "continued",
@@ -397,6 +477,130 @@ def test_reviewer_redelivers_when_review_predates_latest_label(tmp_path, monkeyp
 
     run.dispatcher.deliver.assert_called_once()
     assert run.dispatcher.deliver.call_args.kwargs["delivery"] == "7:head-2"
+    assert run.dispatcher.deliver.call_args.kwargs["head"] == "head-2"
+
+
+def test_reviewer_does_not_re_review_a_head_after_a_repeat_request(
+    tmp_path, monkeypatch
+):
+    """The extensions#698 sequence: repeat requests must not review twice.
+
+    A review landed on `head-2`; a second review request arrived for the same
+    head with no clarifying comment in between. The old trigger-keyed delivery
+    started another conversation and published a second review of identical
+    code (three APPROVED reviews on one head in production). The head is now
+    the guard: an unchanged head with nothing posted after the review is done.
+    """
+    _module, run = _reviewer(tmp_path, monkeypatch)
+    pr = _requested_pr(2, "head-2")
+    run.check_runs = lambda sha: _checks(("ci", "completed", "success"), sha=sha)
+    submitted = Mock(
+        return_value={"disposition": "created", "conversation_id": "first"}
+    )
+    run.dispatcher.deliver = submitted
+
+    # First request: no review exists yet, so the review is dispatched.
+    run.gh_pages = _request_pages(pr, _review_request_event(42), [])
+    run.gh = Mock(side_effect=[{"id": 99}, pr])
+    _event(monkeypatch)
+    run.run()
+    assert submitted.call_count == 1
+
+    # Second request for the same head, and the review is now on GitHub with no
+    # comment after it: the repeat request starts nothing. The review predates
+    # this request (the #698 ordering), so `_finish_completed_review` alone would
+    # not recognize it as this request's result and the old code dispatched again.
+    reviewed = _reviews(
+        sha="head-2", submitted_at="2026-01-02T00:00:00Z"
+    )
+    later_request = {**_review_request_event(43), "created_at": "2026-01-03T00:00:00Z"}
+
+    def pages(path):
+        if path.startswith("/pulls?"):
+            return [pr]
+        if path.endswith("/events"):
+            return [later_request]
+        if path.endswith("/reviews"):
+            return reviewed
+        return []
+
+    run.gh_pages = pages
+    run.gh = Mock(side_effect=[{"id": 99}, pr, pr])
+    _event(monkeypatch)
+    run.run()
+
+    assert submitted.call_count == 1
+
+
+def test_reviewer_rereviews_a_head_after_a_dismissed_review(
+    tmp_path, monkeypatch
+):
+    """A dismissed review does not stand: the head is reviewable again.
+
+    GitHub keeps a dismissed review in /pulls/{n}/reviews with its commit_id and
+    state "DISMISSED". Counting it as a standing review would suppress every
+    later review of that head forever, because no other condition clears it. A
+    maintainer who dismisses the verdict and re-requests review is asking for a
+    fresh look, so the guard must skip dismissed reviews.
+    """
+    _module, run = _reviewer(tmp_path, monkeypatch)
+    pr = {
+        "number": 2,
+        "head": {"sha": "head-2"},
+        "labels": [{"name": "openhands-review"}],
+    }
+
+    def pages(path):
+        if path.startswith("/pulls?"):
+            return [pr]
+        reviews = _reviews(submitted_at="2025-12-31T00:00:00Z")
+        reviews[0]["state"] = "DISMISSED"
+        return reviews
+
+    run.gh_pages = pages
+    run.gh = Mock(side_effect=[{"id": 99}, pr])
+    run.dispatcher.deliver.return_value = {
+        "disposition": "continued",
+        "conversation_id": "conversation",
+    }
+
+    run.run()
+
+    run.dispatcher.deliver.assert_called_once()
+
+
+def test_reviewer_clears_the_label_when_the_review_predates_the_trigger(
+    tmp_path, monkeypatch
+):
+    """The guard must clear the label, not leave a scan re-reading forever.
+
+    A review predating the re-applied label yields no `completed` entry in
+    `_finish_completed_review`, so that call returns before its label DELETE.
+    Without clearing the label here the label stays and every later scan re-reads
+    this head and re-logs `review-already-published` with no effect.
+    """
+    _module, run = _reviewer(tmp_path, monkeypatch)
+    pr = {
+        "number": 2,
+        "head": {"sha": "head-2"},
+        "labels": [{"name": "openhands-review"}],
+    }
+    run.gh_pages = lambda path: (
+        [pr]
+        if path.startswith("/pulls?")
+        else _reviews(submitted_at="2025-12-31T00:00:00Z")
+    )
+    run.gh = Mock(side_effect=[{"id": 99}, pr, pr])
+
+    run.run()
+
+    run.dispatcher.deliver.assert_not_called()
+    deleted = [
+        call.args[1]
+        for call in run.gh.call_args_list
+        if call.args[0] == "DELETE"
+    ]
+    assert "/issues/2/labels/openhands-review" in deleted
 
 
 def test_reviewer_does_not_trust_another_reviewers_verdict(tmp_path, monkeypatch):
@@ -1793,17 +1997,21 @@ class _DedupeDispatcher:
     reproduces only the contract the worker relies on: a delivery keyed by
     (subject, delivery) starts one conversation and reports `created` once, then
     reports `deduplicated` for the same key. That is what lets a repeat scan
-    reuse a conversation without spending another intake slot.
+    reuse a conversation without spending another intake slot. It also records
+    the head the caller named, which the worker's own pre-dispatch guard uses to
+    suppress a second review of an unchanged head.
     """
 
     def __init__(self):
         self.seen = {}
+        self.heads = []
         self.calls = []
         self.prompts = []
 
-    def deliver(self, *, subject, delivery, prompt):
+    def deliver(self, *, subject, delivery, prompt, head=""):
         self.calls.append((subject, delivery))
         self.prompts.append(prompt)
+        self.heads.append(head)
         if self.seen.get(subject) == delivery:
             return {"disposition": "deduplicated", "conversation_id": subject}
         self.seen[subject] = delivery
@@ -2081,7 +2289,7 @@ def test_a_failing_dispatch_is_reported_without_consuming_a_slot_or_aborting(
         101,
     )
 
-    def deliver(*, subject, delivery, prompt):
+    def deliver(*, subject, delivery, prompt, head=""):
         if subject == "101:pr:5":
             raise RuntimeError("agent server unavailable")
         one.dispatcher.seen[subject] = delivery
