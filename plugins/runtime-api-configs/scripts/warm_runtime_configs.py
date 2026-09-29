@@ -6,8 +6,10 @@ inside the runtime-api pod on Helm installs.
 
 Environment variables:
     RUNTIME_API_URL   Base URL, e.g. https://runtime-api.example.com
-    API_KEY           Sent as X-API-Key on read operations
     ADMIN_PASSWORD    Password used for the PBKDF2 challenge/response handshake
+    API_KEY           Sent as X-API-Key on read operations. Optional: when
+                      unset, list/template log in as admin and fetch the
+                      'default' API key over HTTPS via /api/admin/api-keys
     ADMIN_TOKEN       Pre-obtained admin JWT; when set, skips the handshake
     NAMESPACE         Kubernetes namespace, default 'openhands' (bootstrap only)
 
@@ -40,7 +42,10 @@ from typing import Any
 def _runtime_api_url() -> str:
     url = os.environ.get("RUNTIME_API_URL", "").rstrip("/")
     if not url:
-        _fail("RUNTIME_API_URL is not set. Run `bootstrap` first or export it.")
+        _fail(
+            "RUNTIME_API_URL is not set. Export it (e.g. "
+            "https://runtime-api.<your-base-domain>) or run `bootstrap`."
+        )
     return url
 
 
@@ -72,9 +77,27 @@ def _request(
 
 def _api_key() -> str:
     key = os.environ.get("API_KEY")
-    if not key:
-        _fail("API_KEY is not set. Run `bootstrap` first or export it.")
-    return key
+    if key:
+        return key
+    # No API_KEY exported. If admin creds are available, log in and pull the
+    # 'default' key value over HTTPS - the same value bootstrap would extract
+    # from the k8s secret. Lets an admin drive the CLI end-to-end with just
+    # RUNTIME_API_URL + ADMIN_PASSWORD, no cluster access.
+    if not (os.environ.get("ADMIN_TOKEN") or os.environ.get("ADMIN_PASSWORD")):
+        _fail(
+            "API_KEY is not set, and no ADMIN_PASSWORD (or ADMIN_TOKEN) to "
+            "fall back to. Either export API_KEY, or export ADMIN_PASSWORD "
+            "so the CLI can fetch the default API key over HTTPS."
+        )
+    token = _admin_token()
+    keys = _request(
+        "/api/admin/api-keys",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    for k in keys or []:
+        if k.get("name") == "default":
+            return k["key_value"]
+    _fail("No API key named 'default' returned by /api/admin/api-keys.")
 
 
 def _admin_token() -> str:

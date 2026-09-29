@@ -52,33 +52,37 @@ If the user is instead asking how to **build** a custom sandbox image
 
 - OpenHands Enterprise **0.64.0 or later**.
 - Python **3.9+** on the machine running the CLI. No third-party packages.
-- One of the two connectivity paths below.
+- The **Runtime API Admin Password** you set in the Admin Console
+  (VM: *Config → Sandbox Configuration → Runtime API Admin Password*;
+  Helm: the value in the `admin-password` secret).
 
-### Connectivity: VM (Replicated) install
+## Setup
 
-The runtime-api is exposed at `https://runtime-api.<your-base-domain>`. Fetch
-credentials from Kubernetes secrets once, then export and reuse:
-
-```bash
-eval "$(python3 scripts/warm_runtime_configs.py bootstrap --namespace openhands)"
-```
-
-`bootstrap` prints `export` lines for `RUNTIME_API_URL`, `API_KEY`, and
-`ADMIN_PASSWORD`. After you `eval` it, all later commands run from any
-machine with network access to the ingress - no cluster shell needed.
-
-### Connectivity: Helm install
-
-The runtime-api is cluster-internal. Port-forward first, then bootstrap
-credentials via the pod:
+On any machine with HTTPS reachability to the runtime-api, export two env
+vars:
 
 ```bash
-kubectl -n openhands port-forward svc/runtime-api 5000:5000 &
-export RUNTIME_API_URL=http://localhost:5000
-eval "$(python3 scripts/warm_runtime_configs.py bootstrap --namespace openhands --skip-url)"
+export RUNTIME_API_URL=https://runtime-api.<your-base-domain>
+export ADMIN_PASSWORD=<the-password-you-set-in-the-Admin-Console>
 ```
 
-`--skip-url` leaves `RUNTIME_API_URL` alone so your port-forward URL wins.
+That is the full setup. No `kubectl`, no SSH, no cluster access. The CLI
+uses the admin password directly for `save` and `delete` (via the PBKDF2
+handshake), and for `list` and `template` it logs in as admin and fetches
+the `default` read-only API key over HTTPS from `/api/admin/api-keys`.
+
+If you already know the read-only API key (for example, from an operator
+runbook), export it too and the CLI will skip the extra admin-login round
+trip on reads:
+
+```bash
+export API_KEY=<default api key>
+```
+
+If you have `kubectl` access to the cluster and prefer to pull all three
+env vars from Kubernetes secrets in one step, see
+**[Advanced: bootstrap from Kubernetes](#advanced-bootstrap-from-kubernetes)**
+at the bottom of this file.
 
 ## CLI reference
 
@@ -88,11 +92,11 @@ on failure.
 
 | Subcommand | Auth | Purpose |
 |---|---|---|
-| `list` | API key | Print the effective set of configurations. |
-| `template <source>` | API key | Fetch a config, strip identity fields, override image/count, print JSON ready to `save`. |
+| `list` | `API_KEY` if set, else admin login | Print the effective set of configurations. |
+| `template <source>` | `API_KEY` if set, else admin login | Fetch a config, strip identity fields, override image/count, print JSON ready to `save`. |
 | `save <name> [--file F]` | Admin password | Upsert a configuration. Reads JSON from `--file` or stdin. |
 | `delete <name>` | Admin password | Delete a database-managed configuration. |
-| `bootstrap` | kubectl | Print `export` lines for `RUNTIME_API_URL`, `API_KEY`, `ADMIN_PASSWORD`. |
+| `bootstrap` | kubectl | Print `export` lines for `RUNTIME_API_URL`, `API_KEY`, `ADMIN_PASSWORD`. Optional; see [Advanced](#advanced-bootstrap-from-kubernetes) below. |
 
 Full help: `python3 scripts/warm_runtime_configs.py --help` and
 `python3 scripts/warm_runtime_configs.py <subcommand> --help`.
@@ -147,10 +151,37 @@ configurations are updated.
 | Variable | Used by | Notes |
 |---|---|---|
 | `RUNTIME_API_URL` | all HTTP subcommands | e.g. `https://runtime-api.example.com` or `http://localhost:5000`. |
-| `API_KEY` | `list`, `template` | Sent as `X-API-Key`. |
-| `ADMIN_PASSWORD` | `save`, `delete` | Runs the PBKDF2 challenge–response handshake. |
-| `ADMIN_TOKEN` | `save`, `delete` | Skips the handshake when a JWT is already in hand. |
+| `ADMIN_PASSWORD` | `save`, `delete`, and `list`/`template` when `API_KEY` is unset | Runs the PBKDF2 challenge-response handshake. |
+| `API_KEY` | `list`, `template` (optional) | Sent as `X-API-Key`. Optional: when unset, the CLI fetches the `default` key over HTTPS via admin login. |
+| `ADMIN_TOKEN` | `save`, `delete`, and admin-login fallback | Skips the handshake when a JWT is already in hand. |
 | `NAMESPACE` | `bootstrap` | Defaults to `openhands`. Overridable via `--namespace`. |
+
+## Advanced: bootstrap from Kubernetes
+
+`bootstrap` extracts all three env vars from Kubernetes secrets in one
+step. Handy for cluster operators and CI, but the default HTTPS-only
+workflow above is preferred for interactive admin use.
+
+### VM (Replicated) install
+
+The k0s kubeconfig is root-owned, so the invocation runs under sudo:
+
+```bash
+eval "$(sudo -E python3 scripts/warm_runtime_configs.py bootstrap --namespace openhands)"
+```
+
+### Helm install
+
+The runtime-api is cluster-internal. Port-forward first, then bootstrap
+credentials, letting your port-forward URL win:
+
+```bash
+kubectl -n openhands port-forward svc/runtime-api 5000:5000 &
+export RUNTIME_API_URL=http://localhost:5000
+eval "$(python3 scripts/warm_runtime_configs.py bootstrap --namespace openhands --skip-url)"
+```
+
+`--skip-url` leaves `RUNTIME_API_URL` alone.
 
 ## See also
 

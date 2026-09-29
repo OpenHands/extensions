@@ -76,6 +76,17 @@ class FakeRuntimeAPI(BaseHTTPRequestHandler):
         if self.path == "/api/admin/challenge":
             self._respond(200, {"salt": SALT, "challenge": CHALLENGE, "iterations": ITERATIONS})
             return
+        if self.path == "/api/admin/api-keys":
+            if self.headers.get("Authorization") != f"Bearer {ADMIN_JWT}":
+                self._respond(401, {"error": "bad token"})
+                return
+            self.calls.append(("GET", self.path, dict(self.headers), {}))
+            # Real runtime-api returns a top-level JSON array of ApiKeyResponse.
+            self._respond_raw(200, json.dumps([
+                {"id": 1, "name": "default", "key_value": API_KEY},
+                {"id": 2, "name": "other",   "key_value": "other-key"},
+            ]).encode())
+            return
         if self.path == "/api/warm-runtime-configs":
             if self.headers.get("X-API-Key") != API_KEY:
                 self._respond(401, {"error": "bad api key"})
@@ -86,6 +97,13 @@ class FakeRuntimeAPI(BaseHTTPRequestHandler):
             self._respond(200, {"configs": merged})
             return
         self._respond(404, {"error": "not found"})
+
+    def _respond_raw(self, status: int, body: bytes) -> None:
+        self.send_response(status)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
 
     def do_POST(self):
         if self.path == "/api/admin/login":
@@ -255,6 +273,34 @@ class CliIntegrationTests(unittest.TestCase):
         finally:
             host, port = self.server.server_address
             os.environ["RUNTIME_API_URL"] = f"http://{host}:{port}"
+
+    def test_list_falls_back_to_admin_when_api_key_missing(self) -> None:
+        """Without API_KEY set, list must log in as admin and fetch it."""
+        os.environ.pop("API_KEY", None)
+        try:
+            with self._capture_stdout() as out:
+                wrc.main(["list"])
+            self.assertEqual(
+                [c["name"] for c in json.loads(out.getvalue())], ["v1_current"]
+            )
+            # Fallback path hit /api/admin/api-keys with the admin JWT.
+            paths = [c[1] for c in FakeRuntimeAPI.calls]
+            self.assertIn("/api/admin/api-keys", paths)
+        finally:
+            os.environ["API_KEY"] = API_KEY
+
+    def test_list_fails_when_no_api_key_and_no_admin_creds(self) -> None:
+        """No fallback possible: neither API_KEY nor admin creds set."""
+        os.environ.pop("API_KEY", None)
+        os.environ.pop("ADMIN_PASSWORD", None)
+        os.environ.pop("ADMIN_TOKEN", None)
+        try:
+            with self.assertRaises(SystemExit) as cm:
+                wrc.main(["list"])
+            self.assertEqual(cm.exception.code, 1)
+        finally:
+            os.environ["API_KEY"] = API_KEY
+            os.environ["ADMIN_PASSWORD"] = ADMIN_PASSWORD
 
 
 if __name__ == "__main__":
