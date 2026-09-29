@@ -1,12 +1,17 @@
 """Validate a pull request description against the repository PR template.
 
-Two gates:
+Three gates:
 
-1. Template sections: the `## Why`, `## Summary`, and `## How to Test`
+1. Human/agent authorship: the first visible line must be `HUMAN:`, it must be
+   followed by a short human-written note before the `AGENT:` marker, and the
+   `AGENT:` marker itself must remain. This keeps the human attestation
+   distinguishable from agent-authored content.
+
+2. Template sections: the `## Why`, `## Summary`, and `## How to Test`
    sections from `.github/pull_request_template.md` must be present and
    filled in.
 
-2. Linked-issue readiness: every issue linked via a closing keyword
+3. Linked-issue readiness: every issue linked via a closing keyword
    (`Fixes #123`, `Closes #123`, `Resolves #123`) or referenced in the
    `## Issue Number` section must exist and, unless it predates the
    `ready-for-dev` rollout, carry the `ready-for-dev` label. This blocks
@@ -30,12 +35,21 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 
+from markdown_sections import find_headings, without_fenced_code_blocks
 
+
+# Reject placeholders while allowing a concise human-written sentence.
+MIN_HUMAN_NOTE_CHARS = 20
 # These are the only PR-template sections that must remain and contain content.
 REQUIRED_TEMPLATE_FIELDS: tuple[str, ...] = ("Why", "Summary", "How to Test")
 
 HTML_COMMENT_RE = re.compile(r"<!--[\s\S]*?-->")
-HEADING_RE = re.compile(r"(?m)^##\s+(.+?)\s*$")
+HEADING_RE = re.compile(r"(?m)^##[ \t]+(.+?)[ \t]*$")
+# `\r?$` rather than `\s*$`: these run against masked text too, and there is no
+# capture group here to absorb the `\r` of a CRLF body, so it is matched
+# explicitly.
+HUMAN_HEADING_RE = re.compile(r"(?im)^[ \t]*HUMAN:[ \t]*\r?$")
+AGENT_HEADING_RE = re.compile(r"(?im)^[ \t]*AGENT:[ \t]*\r?$")
 ISSUE_REF_RE = re.compile(r"(?i)\b(?:fix|clos|resolv)(?:e?(?:s|d)?|ing)?\s+#(\d+)")
 BARE_ISSUE_REF_RE = re.compile(r"(?<!\w)#(\d+)")
 READY_FOR_DEV_LABEL = "ready-for-dev"
@@ -59,8 +73,36 @@ def visible_text(text: str) -> str:
     return "\n".join(lines).strip()
 
 
+def first_visible_line(text: str) -> str:
+    for line in HTML_COMMENT_RE.sub("", text).splitlines():
+        stripped = line.strip()
+        if stripped:
+            return stripped
+    return ""
+
+
+def extract_human_note(body: str) -> str:
+    """Return human-written text in the required location before `AGENT:`.
+
+    The markers are located outside fenced code blocks so that quoting the
+    template does not stand in for filling it out. Offsets are preserved by the
+    masking, so the note itself is still read from the original body.
+    """
+    outside_fences = without_fenced_code_blocks(body)
+
+    human_match = HUMAN_HEADING_RE.search(outside_fences)
+    if human_match is None:
+        return ""
+
+    agent_match = AGENT_HEADING_RE.search(outside_fences, human_match.end())
+    if agent_match is None:
+        return ""
+
+    return visible_text(body[human_match.end() : agent_match.start()])
+
+
 def extract_sections(body: str) -> dict[str, str]:
-    matches = list(HEADING_RE.finditer(body))
+    matches = find_headings(body, HEADING_RE)
     sections: dict[str, str] = {}
     for index, match in enumerate(matches):
         start = match.end()
@@ -152,6 +194,19 @@ def validate_linked_issue_ready(
 
 def validate_pr_body(body: str) -> list[str]:
     errors: list[str] = []
+
+    if first_visible_line(body) != "HUMAN:":
+        errors.append("The first visible line of the PR description must be `HUMAN:`.")
+
+    human_note = extract_human_note(body)
+    if len(human_note) < MIN_HUMAN_NOTE_CHARS:
+        errors.append(
+            f"Add a short human-written note (at least {MIN_HUMAN_NOTE_CHARS} "
+            "characters) between `HUMAN:` and `AGENT:`."
+        )
+
+    if AGENT_HEADING_RE.search(without_fenced_code_blocks(body)) is None:
+        errors.append("Keep the `AGENT:` marker from the PR template.")
 
     sections = extract_sections(body)
     for section in REQUIRED_TEMPLATE_FIELDS:
