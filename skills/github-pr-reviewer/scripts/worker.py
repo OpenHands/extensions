@@ -27,11 +27,6 @@ from maintainer_handoff import (
 # every current-head check and workflow run, so a red head still blocks.
 CHECK_GATE_MARKER = "<!-- openhands-review-gate:"
 NON_BLOCKING_CHECK_CONCLUSIONS = frozenset({"success", "neutral", "skipped"})
-# How many unrequested heads one scheduled scan examines, per repository. Each
-# one costs a review read plus the exact-head check/workflow reads, so an
-# unbounded scan spends the whole run's API budget in the largest repository.
-# The window rotates by this many PRs per scan, so the backlog is still covered.
-SCAN_WINDOW = 10
 # The gate is deterministic; this disclosure is what tells a reader no model ran.
 WORKFLOW_DISCLOSURE = "no AI was used to generate this comment"
 
@@ -111,56 +106,6 @@ class ReviewIntake:
                 + ", ".join(f"#{number}" for number in failures)
             )
 
-
-class ScanCursor:
-    """The per-repository position of the rotating unrequested-PR window.
-
-    Classifying one unrequested head costs a review read, a check-run read, and
-    a workflow-run read, so a scan that examined every open PR spent the API
-    budget on the largest repository alone. The scan instead examines a bounded
-    slice of the unrequested backlog and remembers where the slice ended, in the
-    automation service's own KV store - the same facility `main.py` already uses
-    for review state, reached with the same `AUTOMATION_KV_TOKEN` and
-    `AUTOMATION_API_URL`, so no new secret or store is introduced. The next scan
-    resumes past that point, so the whole backlog is covered fairly over several
-    scans.
-
-    When the KV store is unavailable (a local run, or the tests) the position is
-    kept in memory, so the scan still rotates within the run and nothing else
-    about it changes. A KV read or write failure is not fatal: a scan position is
-    not worth aborting reviews over, so the in-memory position is used instead.
-    """
-
-    def __init__(self, repository):
-        self._key = f"review-scan:{workflow._repo_slug(repository)}"
-        self._memory = 0
-
-    def position(self, total):
-        """The stored cursor, reduced to a valid offset into `total` items."""
-        return self._read() % total if total else 0
-
-    def advance(self, cursor):
-        """Record where the next scan's window starts."""
-        self._memory = cursor
-        if not workflow._kv_available():
-            return
-        try:
-            workflow._kv_set(self._key, {"cursor": cursor})
-        except Exception as exc:  # noqa: BLE001 - a cursor is not worth failing a scan
-            print(f"  Warning: scan cursor write failed ({exc})")
-
-    def _read(self):
-        if not workflow._kv_available():
-            return self._memory
-        try:
-            data = workflow._kv_get(self._key) or {}
-        except Exception as exc:  # noqa: BLE001 - fall back to the in-memory cursor
-            print(f"  Warning: scan cursor read failed ({exc})")
-            return self._memory
-        try:
-            return int(data.get("cursor") or 0)
-        except (TypeError, ValueError):
-            return self._memory
 
 
 class PullRequestReviewer(GitHubRepository):
@@ -745,7 +690,7 @@ class PullRequestReviewer(GitHubRepository):
         `explain` is False for an unrequested candidate: a PR nobody asked about
         that is merely red or pending gets no managed comment. Announcing a
         blocked or waiting head for every open PR is what produced the comment
-        storm the rotating window is bounded against, and the managed comment is
+        storm that full-backlog scans must avoid, and the managed comment is
         the answer to an explicit request or trigger label. The gate still
         classifies the head, so a red or pending unrequested head is skipped
         without starting an agent.
@@ -804,56 +749,25 @@ class PullRequestReviewer(GitHubRepository):
         sha = pr["head"]["sha"]
         return f"scan:{self.repository}:{pr['number']}:{sha}"
 
-    @property
-    def _scan_cursor(self):
-        """This repository's scan position, created lazily like the intake."""
-        cursor = self.__dict__.get("_cursor")
-        if cursor is None:
-            cursor = self.__dict__["_cursor"] = ScanCursor(self.repository)
-        return cursor
+    def _scan_candidates(self, prs, label):
+        """Return every potentially reviewable PR in the scheduled backlog.
 
-    def _explicit_candidate(self, pr, label):
-        """Whether a PR was explicitly requested by a caller.
-
-        An explicit `all-hands-bot` review request or a trigger label is a
-        caller's decision, so it is never subject to the rotating window: every
-        explicit candidate is examined on every scan, whatever the stored scan
-        position is.
+        The scan must classify the whole backlog so blocked, pending, draft, or
+        already-reviewed heads cannot hide eligible heads behind an inspection
+        window. The shared ReviewIntake applies the configured maximum only when
+        conversations are launched.
         """
-        if label in {item["name"] for item in pr.get("labels", [])}:
-            return True
-        return self._outstanding_review_request(pr)
-
-    def _rotating_window(self, prs, label):
-        """The explicit candidates plus a bounded slice of the unrequested ones.
-
-        Classifying an unrequested head costs a review read and the exact-head
-        check/workflow reads, so examining every open PR in one scan is what let
-        a single run exhaust the API budget and post a managed gate comment for
-        every red or pending head. The unrequested backlog is therefore examined
-        a bounded `SCAN_WINDOW` at a time, starting where the previous scan
-        stopped (the per-repository position in the Automation KV store), so
-        successive scans rotate through the whole backlog. Explicit candidates
-        are always included, so a request is never delayed behind the window.
-        """
-        explicit, unrequested = [], []
+        candidates = []
         for pr in prs:
-            if pr.get("draft") and label not in {
-                item["name"] for item in pr.get("labels", [])
-            } and not self._outstanding_review_request(pr):
-                # A draft that is neither labeled nor requested is not reviewable
-                # by the unrequested path either, so drop it before the full read.
+            labels = {item["name"] for item in pr.get("labels", [])}
+            if (
+                pr.get("draft")
+                and label not in labels
+                and not self._outstanding_review_request(pr)
+            ):
                 continue
-            if self._explicit_candidate(pr, label):
-                explicit.append(pr)
-            else:
-                unrequested.append(pr)
-        if not unrequested:
-            return explicit
-        start = self._scan_cursor.position(len(unrequested))
-        window = unrequested[start : start + SCAN_WINDOW]
-        self._scan_cursor.advance(start + len(window))
-        return explicit + window
+            candidates.append(pr)
+        return candidates
 
     def run(self):
         repository_id = self.gh("GET", "")["id"]
@@ -861,7 +775,7 @@ class PullRequestReviewer(GitHubRepository):
         payload = self._event_payload()
         event_mode = payload is not None
         if not event_mode:
-            prs = self._rotating_window(
+            prs = self._scan_candidates(
                 self.gh_pages("/pulls?state=open&sort=updated&direction=asc"), label
             )
         else:

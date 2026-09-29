@@ -2474,30 +2474,8 @@ def test_unrequested_scan_marks_a_self_authored_pr_for_the_comment_verdict(
 
 
 # --------------------------------------------------------------------------- #
-# Bounded rotating scan window: each scheduled scan examines a bounded slice of
-# the unrequested backlog, remembers its position in the Automation KV store, and
-# resumes there on the next scan. Explicit requests are never subject to it.
+# Comprehensive scheduled scan: inspect the backlog, cap only review launches.
 # --------------------------------------------------------------------------- #
-
-
-def _kv_store(module, monkeypatch):
-    """Back the scan cursor with an in-memory stand-in for the Automation KV store.
-
-    The real store is an HTTP service; this reproduces the contract the cursor
-    relies on - a per-key `GET` that misses with None and a `PUT` that replaces
-    the value - so the shipped `ScanCursor` persists and reloads through it.
-    """
-    values = {}
-    monkeypatch.setattr(module.workflow, "_kv_available", lambda: True)
-    monkeypatch.setattr(
-        module.workflow, "_kv_get", lambda key: values.get(key)
-    )
-
-    def put(key, value):
-        values[key] = value
-
-    monkeypatch.setattr(module.workflow, "_kv_set", put)
-    return values
 
 
 def _many_unrequested(count, *, checks=()):
@@ -2518,74 +2496,37 @@ def _examined(run):
     return [int(subject.split(":")[-1]) for subject, _ in run.dispatcher.calls]
 
 
-def test_scan_examines_a_bounded_rotating_window_of_unrequested_prs(
+def test_scan_skips_blocked_heads_until_it_fills_the_review_quota(
     tmp_path, monkeypatch
 ):
-    """Each scan covers the next slice, so the whole backlog is reached in turn."""
-    module, (one,) = _scan_reviewers(tmp_path, monkeypatch, ["owner/one"], max_new=5)
-    monkeypatch.setattr(module, "SCAN_WINDOW", 2)
-    _kv_store(module, monkeypatch)
-    _wire_scan(one, _many_unrequested(5), 101)
+    """The quota limits launches, not how many backlog entries are inspected.
 
-    _run_scan(module, [one])
-    assert _examined(one) == [1, 2]
-
-    _run_scan(module, [one])
-    assert _examined(one)[-2:] == [3, 4]
-
-    _run_scan(module, [one])
-    assert _examined(one)[-1:] == [5]
-
-    # Past the end the window wraps, so the backlog keeps rotating.
-    _run_scan(module, [one])
-    assert _examined(one)[-2:] == [1, 2]
-
-
-def test_the_scan_position_is_persisted_per_repository_in_the_kv_store(
-    tmp_path, monkeypatch
-):
-    """The cursor is written under a per-repository key, so a later run resumes.
-
-    A cron run is a fresh process, so the only way the window survives is the
-    Automation KV store; this pins the key and the value the next scan reads.
+    Ten blocked heads at the front of the backlog must not consume the ten-review
+    launch quota or prevent the ten green heads behind them from being reviewed.
     """
-    module, (one,) = _scan_reviewers(tmp_path, monkeypatch, ["owner/one"], max_new=5)
-    monkeypatch.setattr(module, "SCAN_WINDOW", 2)
-    values = _kv_store(module, monkeypatch)
-    _wire_scan(one, _many_unrequested(5), 101)
+    module, (one,) = _scan_reviewers(tmp_path, monkeypatch, ["owner/one"], max_new=10)
+    blocked = [
+        _unrequested_pr(
+            number,
+            f"head-{number}",
+            created_at=f"2026-01-{number:02d}T00:00:00Z",
+            checks=(("ci", "completed", "failure"),),
+        )
+        for number in range(1, 11)
+    ]
+    green = [
+        _unrequested_pr(
+            number,
+            f"head-{number}",
+            created_at=f"2026-01-{number:02d}T00:00:00Z",
+        )
+        for number in range(11, 21)
+    ]
+    _wire_scan(one, blocked + green, 101)
 
     _run_scan(module, [one])
 
-    assert values == {"review-scan:owner__one": {"cursor": 2}}
-
-
-def test_explicit_requests_are_examined_regardless_of_the_rotation_window(
-    tmp_path, monkeypatch
-):
-    """An explicit request is never skipped because the window sits elsewhere.
-
-    The cursor points at the last unrequested PR, but the explicit request on
-    PR #1 is still examined and dispatched, because a caller asked for it.
-    """
-    module, (one,) = _scan_reviewers(tmp_path, monkeypatch, ["owner/one"], max_new=5)
-    monkeypatch.setattr(module, "SCAN_WINDOW", 1)
-    values = _kv_store(module, monkeypatch)
-    # Only PR #1 holds a request; the rest are unrequested and the window sits on
-    # the last of them, so the request must still be examined.
-    _wire_scan(
-        one,
-        [_eligible_pr(1, "head-1", 100, "2026-01-01T00:00:00Z")]
-        + _many_unrequested(4)[1:],
-        101,
-    )
-    values["review-scan:owner__one"] = {"cursor": 2}
-
-    _run_scan(module, [one])
-
-    assert one.dispatcher.seen == {
-        "101:pr:1": "100:head-1",
-        "101:pr:4": "scan:owner/one:4:head-4",
-    }
+    assert _examined(one) == list(range(11, 21))
 
 
 def test_unrequested_red_and_pending_prs_post_no_gate_comments(
@@ -2598,7 +2539,6 @@ def test_unrequested_red_and_pending_prs_post_no_gate_comments(
     managed explanation.
     """
     module, (one,) = _scan_reviewers(tmp_path, monkeypatch, ["owner/one"], max_new=5)
-    monkeypatch.setattr(module, "SCAN_WINDOW", 20)
     _wire_scan(
         one,
         [
@@ -2623,36 +2563,20 @@ def test_unrequested_red_and_pending_prs_post_no_gate_comments(
     assert one.dispatcher.seen == {"101:pr:7": "scan:owner/one:7:head-7"}
 
 
-def test_scan_reads_a_bounded_number_of_pull_requests_per_repository(
+def test_scan_reads_every_pull_request_but_starts_only_the_quota(
     tmp_path, monkeypatch
 ):
-    """A scan reads one list page plus at most one head per examined candidate.
-
-    A full scan would issue one full pull read per open PR - the API cost that
-    made the canary time out. With a window of 10 over 40 PRs, only the 10 in the
-    window are read.
-    """
+    """Classification is comprehensive while launches remain bounded."""
     module, (one,) = _scan_reviewers(tmp_path, monkeypatch, ["owner/one"], max_new=5)
-    monkeypatch.setattr(module, "SCAN_WINDOW", 10)
-    _kv_store(module, monkeypatch)
     _wire_scan(one, _many_unrequested(40), 101)
-
-    list_reads = []
-    original_pages = one.gh_pages
-
-    def counting_pages(path):
-        if path.startswith("/pulls?"):
-            list_reads.append(path)
-        return original_pages(path)
-
-    one.gh_pages = counting_pages
     one.gh = Mock(side_effect=one.gh)
 
     _run_scan(module, [one])
 
     full_reads = [
-        call for call in one.gh.call_args_list
+        call
+        for call in one.gh.call_args_list
         if call.args[0] == "GET" and str(call.args[1]).startswith("/pulls/")
     ]
-    assert len(list_reads) == 1
-    assert len(full_reads) == 10
+    assert len(full_reads) == 40
+    assert _examined(one) == [1, 2, 3, 4, 5]
