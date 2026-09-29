@@ -36,6 +36,22 @@ SCAN_WINDOW = 10
 WORKFLOW_DISCLOSURE = "no AI was used to generate this comment"
 
 
+def _dispatcher_capacity(dispatcher):
+    """The in-flight count a dispatcher can report, or None when it cannot.
+
+    The scanner must not import the conversation runtime - that is what keeps a
+    scheduling bug from becoming a runtime bug - so capacity is read from
+    whatever object it was handed. The shipped `AgentConversationDispatcher`
+    offers `in_flight()`; a stub with no such method, or one whose method cannot
+    answer, yields None, which the intake reads as "no capacity signal" and
+    bounds the scan by its per-scan maximum alone.
+    """
+    in_flight = getattr(dispatcher, "in_flight", None)
+    if not callable(in_flight):
+        return None
+    return in_flight
+
+
 class ReviewIntake:
     """The per-scan bound on new review conversations, shared across repositories.
 
@@ -48,14 +64,34 @@ class ReviewIntake:
     slot. Candidates are drained oldest reviewer-request first, then by
     repository and pull-request number, so a scan over more candidates than the
     maximum allows starts the oldest and a later scan reaches the remainder.
+
+    A per-scan bound alone still lets runtimes accumulate across scans, so the
+    drain also honors a global in-flight cap: the conversations still running
+    from earlier scans are counted first and the scan starts at most what the cap
+    leaves. Capacity is read through an injected `capacity` callable - the
+    dispatcher that owns the conversations, which is the only component that can
+    see their status - so the worker keeps its no-conversation-code contract and
+    a scan with no capacity signal behaves exactly as before.
+
+    That read is only a pre-filter. The authoritative admission decision is made
+    atomically by the dispatcher at launch time (see `AgentConversationDispatcher`),
+    because a read-then-start sequence is racy across concurrent automation runs
+    and a second launch path - the event-triggered one - never passes through this
+    intake at all. A delivery the dispatcher refuses comes back with a `deferred`
+    disposition, which stops the drain: no runtime was started and the triggering
+    request is left for a later scan.
     """
 
-    def __init__(self):
+    def __init__(self, capacity=None):
         # The budget lives on the intake so a scan that drains repository by
         # repository still counts its conversations against one shared maximum.
         self._pending = []
         self._maximum = None
         self._started = 0
+        # Returns the number of nonterminal conversations the deployment already
+        # has, or None when no such signal exists (tests, one-off scans). It is
+        # called once, before the drain, so the count cannot change mid-drain.
+        self._capacity = capacity
 
     def register(self, record):
         """Queue one eligible candidate for this scan's bounded drain.
@@ -71,7 +107,12 @@ class ReviewIntake:
         The budget is held on the intake, so a scan that drains repository by
         repository still counts its conversations against one shared maximum. A
         candidate whose dispatch raises is reported and skipped without
-        consuming a slot, so the candidates behind it are still considered.
+        consuming a slot, so the candidates behind it are still considered. The
+        maximum is reduced by whatever the deployment already has in flight, so
+        the drain cannot push the deployment past its global cap. A candidate the
+        dispatcher refuses as `deferred` stops the drain without being counted:
+        the cap is what binds, no runtime was started, and the untried candidates
+        stay in the backlog for the next scan.
         """
         pending, self._pending = self._pending, []
         if not pending:
@@ -80,6 +121,12 @@ class ReviewIntake:
             self._maximum = pending[0]["config"].get(
                 "max_new_per_run", workflow.MAX_NEW_PER_RUN
             )
+        maximum = self._maximum
+        available = self._capacity_available(pending[0]["config"])
+        if available is not None:
+            maximum = min(maximum, available)
+        if maximum <= 0:
+            return
         failures = []
         for record in sorted(
             pending,
@@ -90,7 +137,7 @@ class ReviewIntake:
                 item["number"],
             ),
         ):
-            if self._started >= self._maximum:
+            if self._started >= maximum:
                 break
             try:
                 result = record["start"]()
@@ -103,6 +150,10 @@ class ReviewIntake:
                     flush=True,
                 )
                 continue
+            if result["disposition"] == "deferred":
+                # The dispatcher's atomic reservation found the deployment at
+                # capacity, so nothing else in this scan can start either.
+                break
             if result["disposition"] == "created":
                 self._started += 1
         if failures:
@@ -110,6 +161,36 @@ class ReviewIntake:
                 "Reviewer scan failed for PRs: "
                 + ", ".join(f"#{number}" for number in failures)
             )
+
+    def _capacity_available(self, config):
+        """How many more conversations the global in-flight cap allows, or None.
+
+        None means the deployment has no capacity signal, so only the per-scan
+        maximum applies - the behavior of a one-off scan or a test. Otherwise the
+        count of already-live conversations is subtracted from the configured cap.
+        A negative remainder is clamped to zero: a deployment that is somehow
+        over its cap must start nothing rather than free the next scan to
+        overshoot again.
+        """
+        if self._capacity is None:
+            return None
+        maximum = config.get("max_in_flight", workflow.MAX_IN_FLIGHT)
+        try:
+            live = self._capacity()
+        except Exception as exc:  # noqa: BLE001 - the bound must not abort a scan
+            print(
+                f"Could not read in-flight review conversations ({exc}); "
+                "applying the per-scan bound only",
+                file=sys.stderr,
+                flush=True,
+            )
+            return None
+        # A dispatcher without a real count reports None, and a stand-in that
+        # answers with something other than an integer count (a Mock, a string)
+        # is not a capacity signal either.
+        if not isinstance(live, int) or isinstance(live, bool):
+            return None
+        return max(0, maximum - live)
 
 
 class ScanCursor:
@@ -178,13 +259,17 @@ class PullRequestReviewer(GitHubRepository):
         The shipped entrypoint sets `scan_intake` once, so every repository in a
         scan shares one budget and the drain happens after all repositories have
         been scanned. A run() with no shared intake uses its own, created lazily
-        so it exists whether or not __init__ ran.
+        so it exists whether or not __init__ ran. Both read their in-flight
+        capacity from the dispatcher, so a standalone run() is bounded by the
+        global cap too.
         """
         if self.scan_intake is not None:
             return self.scan_intake
         intake = self.__dict__.get("_intake")
         if intake is None:
-            intake = self.__dict__["_intake"] = ReviewIntake()
+            intake = self.__dict__["_intake"] = ReviewIntake(
+                capacity=_dispatcher_capacity(self.dispatcher)
+            )
         return intake
 
     @cached_property
@@ -974,9 +1059,13 @@ class PullRequestReviewer(GitHubRepository):
                 }
                 if event_mode:
                     # An explicit request is a caller's decision to spend a
-                    # conversation now, not a backlog item, so the event path
-                    # dispatches immediately and is never bounded by the
-                    # scheduled scan's per-run maximum.
+                    # conversation now, not a backlog item, so it is not bounded
+                    # by the scheduled scan's per-run maximum. It still goes
+                    # through the dispatcher's atomic admission, so the global
+                    # in-flight cap holds on this path too: a burst of
+                    # simultaneous requests is refused past the cap, and each
+                    # refusal leaves its GitHub request unconsumed for a later
+                    # scheduled scan to retry.
                     self._start_review(
                         repository_id, pr, trigger, sha, trigger_label, delivery_key
                     )
@@ -1030,11 +1119,15 @@ def run_scan(dispatcher):
     One shared intake spans the whole scan, so the per-run maximum is global
     rather than reset per repository, and the drain happens after every
     repository has been scanned so the oldest outstanding request across all of
-    them starts first. One repository failing must not discard another
-    repository's drained candidates, so the drain still runs and the first
-    failure is what the scan reports.
+    them starts first. The shared intake also carries the dispatcher's in-flight
+    count, so the scan starts no more than the deployment's global cap allows
+    across scans. One repository failing must not discard another repository's
+    drained candidates, so the drain still runs and the first failure is what the
+    scan reports.
     """
-    PullRequestReviewer.scan_intake = ReviewIntake()
+    PullRequestReviewer.scan_intake = ReviewIntake(
+        capacity=_dispatcher_capacity(dispatcher)
+    )
     failure = None
     try:
         run_repositories(PullRequestReviewer, dispatcher=dispatcher)
@@ -1049,5 +1142,11 @@ def run_scan(dispatcher):
 
 
 if __name__ == "__main__":
-    with AgentConversationDispatcher() as dispatcher:
+    # The scheduled scan is the one caller that must bound the deployment's live
+    # runtimes across runs, so it asks the dispatcher to track them and hands it
+    # the configured cap. The same entrypoint serves the event trigger, so event
+    # deliveries are admitted under the same cap rather than bypassing it.
+    with AgentConversationDispatcher(
+        track_in_flight=True, max_in_flight=workflow.MAX_IN_FLIGHT
+    ) as dispatcher:
         run_scan(dispatcher)
