@@ -1,0 +1,20 @@
+{
+  "name": "runtime-api-configs",
+  "version": "0.1.0",
+  "description": "Manage warm sandbox pools on OpenHands Enterprise by driving the runtime-api admin endpoints (list, save, delete warm runtime configurations) from a Python CLI. Standard-library only, runs anywhere python3 is available.",
+  "author": {
+    "name": "OpenHands",
+    "email": "contact@all-hands.dev"
+  },
+  "homepage": "https://github.com/OpenHands/extensions",
+  "repository": "https://github.com/OpenHands/extensions",
+  "license": "MIT",
+  "keywords": [
+    "openhands-enterprise",
+    "runtime-api",
+    "warm-runtime-config",
+    "warm-pool",
+    "custom-sandbox-image",
+    "admin"
+  ]
+}
