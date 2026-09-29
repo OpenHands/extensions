@@ -531,6 +531,77 @@ def test_reviewer_does_not_re_review_a_head_after_a_repeat_request(
     assert submitted.call_count == 1
 
 
+def test_reviewer_rereviews_a_head_after_a_dismissed_review(
+    tmp_path, monkeypatch
+):
+    """A dismissed review does not stand: the head is reviewable again.
+
+    GitHub keeps a dismissed review in /pulls/{n}/reviews with its commit_id and
+    state "DISMISSED". Counting it as a standing review would suppress every
+    later review of that head forever, because no other condition clears it. A
+    maintainer who dismisses the verdict and re-requests review is asking for a
+    fresh look, so the guard must skip dismissed reviews.
+    """
+    _module, run = _reviewer(tmp_path, monkeypatch)
+    pr = {
+        "number": 2,
+        "head": {"sha": "head-2"},
+        "labels": [{"name": "openhands-review"}],
+    }
+
+    def pages(path):
+        if path.startswith("/pulls?"):
+            return [pr]
+        reviews = _reviews(submitted_at="2025-12-31T00:00:00Z")
+        reviews[0]["state"] = "DISMISSED"
+        return reviews
+
+    run.gh_pages = pages
+    run.gh = Mock(side_effect=[{"id": 99}, pr])
+    run.dispatcher.deliver.return_value = {
+        "disposition": "continued",
+        "conversation_id": "conversation",
+    }
+
+    run.run()
+
+    run.dispatcher.deliver.assert_called_once()
+
+
+def test_reviewer_clears_the_label_when_the_review_predates_the_trigger(
+    tmp_path, monkeypatch
+):
+    """The guard must clear the label, not leave a scan re-reading forever.
+
+    A review predating the re-applied label yields no `completed` entry in
+    `_finish_completed_review`, so that call returns before its label DELETE.
+    Without clearing the label here the label stays and every later scan re-reads
+    this head and re-logs `review-already-published` with no effect.
+    """
+    _module, run = _reviewer(tmp_path, monkeypatch)
+    pr = {
+        "number": 2,
+        "head": {"sha": "head-2"},
+        "labels": [{"name": "openhands-review"}],
+    }
+    run.gh_pages = lambda path: (
+        [pr]
+        if path.startswith("/pulls?")
+        else _reviews(submitted_at="2025-12-31T00:00:00Z")
+    )
+    run.gh = Mock(side_effect=[{"id": 99}, pr, pr])
+
+    run.run()
+
+    run.dispatcher.deliver.assert_not_called()
+    deleted = [
+        call.args[1]
+        for call in run.gh.call_args_list
+        if call.args[0] == "DELETE"
+    ]
+    assert "/issues/2/labels/openhands-review" in deleted
+
+
 def test_reviewer_does_not_trust_another_reviewers_verdict(tmp_path, monkeypatch):
     _module, run = _reviewer(tmp_path, monkeypatch)
     pr = {

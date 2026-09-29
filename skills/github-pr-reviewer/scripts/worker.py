@@ -847,6 +847,14 @@ class PullRequestReviewer(GitHubRepository):
                 self.github_login.lower()
             ):
                 continue
+            # A dismissal removes the review's standing, exactly as
+            # maintainer_handoff._reviewer_states treats it: a maintainer who
+            # dismisses this account's verdict and re-requests a review on the
+            # same head is asking for a fresh look, not repeating a completed
+            # one. Keeping the dismissed review here would suppress that review
+            # permanently, because nothing else makes an unchanged head eligible.
+            if (review.get("state") or "").upper() == "DISMISSED":
+                continue
             when = review.get("submitted_at") or ""
             if when > submitted_at:
                 submitted_at = when
@@ -999,10 +1007,21 @@ class PullRequestReviewer(GitHubRepository):
                         flush=True,
                     )
                     if trigger is not None:
-                        # Still reconcile the completed review so the label is
-                        # cleared and the maintainer handoff runs, exactly as the
-                        # unrequested path does for a completed head.
-                        self._finish_completed_review(pr, trigger, trigger_label)
+                        # Reconcile the completed review (clearing the label and
+                        # running the maintainer handoff) where the review is
+                        # this trigger's result. When it predates the trigger -
+                        # the #698 ordering, a re-applied label - there is no
+                        # completion to reconcile, so clear the label directly:
+                        # otherwise the label stays and every later scan re-reads
+                        # this head and re-logs with no effect.
+                        if not self._finish_completed_review(
+                            pr, trigger, trigger_label
+                        ) and trigger_label:
+                            self.gh(
+                                "DELETE",
+                                f"/issues/{pr['number']}/labels/"
+                                f"{quote(trigger_label, safe='')}",
+                            )
                     continue
                 if delivery_key is None and self._finish_completed_review(
                     pr, trigger, trigger_label
