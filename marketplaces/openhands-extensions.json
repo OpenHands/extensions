@@ -544,7 +544,7 @@
     {
       "name": "runtime-api-configs",
       "source": "./plugins/runtime-api-configs",
-      "description": "Manage warm sandbox pools on OpenHands Enterprise by driving the runtime-api admin endpoints (list, save, delete warm runtime configurations) from a Python CLI. Standard-library only, runs anywhere python3 is available.",
+      "description": "Manage warm sandbox pools on OpenHands Enterprise from a Python CLI: list, template, save, and delete warm runtime configurations against the runtime-api, and bootstrap credentials from Kubernetes secrets. Standard-library only, runs anywhere python3 is available.",
       "category": "environment",
       "keywords": [
         "openhands-enterprise",

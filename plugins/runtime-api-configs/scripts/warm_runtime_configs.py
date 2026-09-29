@@ -15,8 +15,9 @@ Environment variables:
 
 Exit codes:
     0  success
-    1  usage / precondition failure
-    2  HTTP or connection error against the runtime-api
+    1  precondition failure (missing env vars, no matching config, etc.)
+    2  HTTP or connection error against the runtime-api, or argparse usage
+       error (argparse's own default)
 """
 
 from __future__ import annotations
@@ -27,6 +28,7 @@ import binascii
 import hashlib
 import json
 import os
+import shlex
 import shutil
 import subprocess
 import sys
@@ -219,21 +221,17 @@ def cmd_bootstrap(args: argparse.Namespace) -> None:
             allow_empty=True,
         )
         if host:
-            lines.append(f"export RUNTIME_API_URL=https://{host}")
+            lines.append(f"export RUNTIME_API_URL={shlex.quote(f'https://{host}')}")
         else:
             print(
                 "# No runtime-api ingress found; export RUNTIME_API_URL manually",
                 file=sys.stderr,
             )
 
-    lines.append(
-        "export API_KEY="
-        + _decode_secret(ns, "default-api-key", "default-api-key")
-    )
-    lines.append(
-        "export ADMIN_PASSWORD="
-        + _decode_secret(ns, "admin-password", "admin-password")
-    )
+    api_key = _decode_secret(ns, "default-api-key", "default-api-key")
+    admin_password = _decode_secret(ns, "admin-password", "admin-password")
+    lines.append(f"export API_KEY={shlex.quote(api_key)}")
+    lines.append(f"export ADMIN_PASSWORD={shlex.quote(admin_password)}")
     print("\n".join(lines))
 
 

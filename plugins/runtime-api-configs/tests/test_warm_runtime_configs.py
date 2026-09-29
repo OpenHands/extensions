@@ -302,6 +302,37 @@ class CliIntegrationTests(unittest.TestCase):
             os.environ["API_KEY"] = API_KEY
             os.environ["ADMIN_PASSWORD"] = ADMIN_PASSWORD
 
+    def test_bootstrap_shell_quotes_hostile_secret_values(self) -> None:
+        """Guards against `eval` breakout when a secret contains shell metacharacters."""
+        hostile_password = "p@ss word;echo INJECTED"
+        hostile_key = "key$(touch /tmp/pwned)"
+
+        original_which = wrc.shutil.which
+        original_decode = wrc._decode_secret
+        wrc.shutil.which = lambda _cmd: "/usr/bin/kubectl"
+        wrc._decode_secret = lambda _ns, secret, _key: (
+            hostile_password if secret == "admin-password" else hostile_key
+        )
+        try:
+            with self._capture_stdout() as out:
+                wrc.main(["bootstrap", "--skip-url"])
+            rendered = out.getvalue()
+        finally:
+            wrc.shutil.which = original_which
+            wrc._decode_secret = original_decode
+
+        # Parse the emitted export lines through the shell's own tokenizer,
+        # then verify each variable ends up with the exact original value.
+        env: dict[str, str] = {}
+        for line in rendered.strip().splitlines():
+            tokens = __import__("shlex").split(line)
+            assert tokens[0] == "export" and len(tokens) == 2, tokens
+            key, _, value = tokens[1].partition("=")
+            env[key] = value
+
+        self.assertEqual(env["ADMIN_PASSWORD"], hostile_password)
+        self.assertEqual(env["API_KEY"], hostile_key)
+
 
 if __name__ == "__main__":
     unittest.main()

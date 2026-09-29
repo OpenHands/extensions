@@ -10,26 +10,38 @@ the `runtime-api` admin endpoints. This plugin supersedes the ad-hoc
 
 ## Quick start
 
-```bash
-# 1. Bootstrap credentials from Kubernetes secrets (once)
-eval "$(python3 scripts/warm_runtime_configs.py bootstrap --namespace openhands)"
+Export the runtime-api URL and the admin password you set in the OHE Admin
+Console (VM installs) or that lives in the `admin-password` Kubernetes
+secret (Helm installs):
 
-# 2. Inspect the effective set
+```bash
+export RUNTIME_API_URL=https://runtime-api.<your-base-domain>
+export ADMIN_PASSWORD=<the-runtime-api-admin-password>
+```
+
+Then drive the CLI over HTTPS. No `kubectl`, no SSH:
+
+```bash
+# 1. Inspect the effective set
 python3 scripts/warm_runtime_configs.py list
 
-# 3. Register a new custom sandbox image
+# 2. Register a new custom sandbox image
 python3 scripts/warm_runtime_configs.py template v1_current \
   --image ghcr.io/your-org/openhands-php:8.4-v1 --count 1 \
   | python3 scripts/warm_runtime_configs.py save php-web --file -
 
-# 4. Delete when finished
+# 3. Delete when finished
 python3 scripts/warm_runtime_configs.py delete php-web
 ```
 
+If you would rather pull all three env vars from Kubernetes secrets in one
+step, see the `bootstrap` subcommand in [`SKILL.md`](./SKILL.md) - on
+Replicated VM installs it needs `sudo -E`; on Helm it needs
+`kubectl port-forward` and `--skip-url`.
+
 ## Why a plugin instead of a shell script
 
-- **Runs anywhere Python 3.9+ is available**, including inside the runtime-api
-  pod for Helm installs.
+- **Runs anywhere Python 3.9+ is available.**
 - **No third-party dependencies** - pure stdlib (`urllib`, `hashlib`,
   `argparse`).
 - **First-class `template` subcommand** replaces `jq` gymnastics when

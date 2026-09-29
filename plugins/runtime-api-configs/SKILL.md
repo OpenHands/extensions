@@ -25,8 +25,7 @@ workflow.
 
 The CLI talks HTTP to the runtime-api service. It never modifies the cluster
 directly, and it uses only the Python standard library, so it runs anywhere
-`python3` is available - including inside the `runtime-api` pod on Helm
-installs.
+`python3` is available.
 
 ## When to use this skill
 
@@ -52,9 +51,26 @@ If the user is instead asking how to **build** a custom sandbox image
 
 - OpenHands Enterprise **0.64.0 or later**.
 - Python **3.9+** on the machine running the CLI. No third-party packages.
-- The **Runtime API Admin Password** you set in the Admin Console
-  (VM: *Config → Sandbox Configuration → Runtime API Admin Password*;
-  Helm: the value in the `admin-password` secret).
+- The **Runtime API Admin Password**:
+  - **VM (Replicated) installs**: set via *Admin Console → Config → Sandbox
+    Configuration → Runtime API Admin Password*.
+  - **Helm installs**: the value stored in the `admin-password` Kubernetes
+    secret in the runtime-api namespace. Helm has no Admin Console.
+- **Helm installs only**: the runtime-api chart must be running in **overlay
+  mode** and have warm pools enabled, so `v1_current` shows up in `list` and
+  can be used as a `template` source. Set both in your umbrella values:
+
+  ```yaml
+  runtime-api:
+    warmRuntimes:
+      enabled: true
+    env:
+      WARM_RUNTIME_CONFIG_OVERLAY: "1"
+  ```
+
+  Overlay mode is on by default on Replicated VM installs. Without it on
+  Helm, `list` returns `[]` on a fresh install and `template v1_current`
+  fails.
 
 ## Setup
 
@@ -63,13 +79,18 @@ vars:
 
 ```bash
 export RUNTIME_API_URL=https://runtime-api.<your-base-domain>
-export ADMIN_PASSWORD=<the-password-you-set-in-the-Admin-Console>
+export ADMIN_PASSWORD=<runtime-api-admin-password>   # see Prerequisites above
 ```
 
-That is the full setup. No `kubectl`, no SSH, no cluster access. The CLI
-uses the admin password directly for `save` and `delete` (via the PBKDF2
-handshake), and for `list` and `template` it logs in as admin and fetches
-the `default` read-only API key over HTTPS from `/api/admin/api-keys`.
+That is the full setup on any install where the runtime-api ingress is
+reachable from the machine running the CLI. No `kubectl`, no SSH, no
+cluster access. If the runtime-api is cluster-internal (Helm default), see
+the Helm entry in the Advanced section below to port-forward first.
+
+Under the hood, the CLI uses the admin password directly for `save` and
+`delete` (via the PBKDF2 handshake), and for `list` and `template` it logs
+in as admin and fetches the `default` read-only API key over HTTPS from
+`/api/admin/api-keys`.
 
 If you already know the read-only API key (for example, from an operator
 runbook), export it too and the CLI will skip the extra admin-login round
@@ -121,39 +142,61 @@ python3 scripts/warm_runtime_configs.py list
 Within about a minute the pool is ready and `php-web` appears in
 **Settings → Application → Default Sandbox**.
 
-Deleting a database entry restores an installer-managed entry of the same
-name on the next reconciler cycle:
+Deleting an API-managed configuration removes it from the effective set:
 
 ```bash
-python3 scripts/warm_runtime_configs.py delete v1_current
+python3 scripts/warm_runtime_configs.py delete php-web
 ```
+
+`delete` operates on database rows only, so it 404s for names that have
+never been saved through this CLI (installer-managed entries like
+`v1_current` on a fresh install fall in that bucket). In overlay mode, if
+you had previously saved a database row that shadowed a same-named
+ConfigMap entry, deleting the row reverts to the ConfigMap entry on the
+next reconciler cycle.
 
 ## After an OHE upgrade
 
 Frozen API-managed configurations do not follow release bumps. After every
 OHE upgrade, re-derive each API-managed configuration from the refreshed
-default template:
+default template, keeping each configuration's current image tag and pool
+size unless you deliberately change them:
 
 ```bash
-for name in php-web ruby-app node-monorepo; do
+# One "name image count" tuple per API-managed config; edit for your fleet.
+# Preserving the existing pool count matters: hardcoding it would silently
+# shrink pools on every refresh.
+while read -r name image count; do
+  [ -z "$name" ] && continue
   python3 scripts/warm_runtime_configs.py template v1_current \
-    --image "ghcr.io/your-org/openhands-${name}:v2" --count 1 \
+    --image "$image" --count "$count" \
     | python3 scripts/warm_runtime_configs.py save "$name" --file -
-done
+done <<'EOF'
+php-web        ghcr.io/your-org/openhands-php:8.4-v2    3
+ruby-app       ghcr.io/your-org/openhands-ruby:3.3-v2   2
+node-monorepo  ghcr.io/your-org/openhands-node:20-v2    1
+EOF
 ```
 
-Skipping this step leaves configurations pointing at the previous agent-server
-version, and new conversations fail with a version mismatch until the
-configurations are updated.
+Two caveats worth spelling out:
+
+- `template` refreshes the *command* and *environment* to match the new
+  `v1_current`, but it keeps whatever image tag you pass. To actually
+  pick up a new agent-server version, the image itself must be rebuilt
+  against the matching agent-server base. This loop alone does not do
+  that.
+- Skipping this step leaves configurations pointing at the previous
+  agent-server command/environment, and new conversations fail with a
+  version mismatch until the configurations are updated.
 
 ## Environment variables
 
 | Variable | Used by | Notes |
 |---|---|---|
 | `RUNTIME_API_URL` | all HTTP subcommands | e.g. `https://runtime-api.example.com` or `http://localhost:5000`. |
-| `ADMIN_PASSWORD` | `save`, `delete`, and `list`/`template` when `API_KEY` is unset | Runs the PBKDF2 challenge-response handshake. |
+| `ADMIN_PASSWORD` | `save`, `delete`; also `list`/`template` when `API_KEY` is unset | Runs the PBKDF2 challenge-response handshake. |
+| `ADMIN_TOKEN` | Anywhere `ADMIN_PASSWORD` is used | Pre-obtained admin JWT. When set, it wins over `ADMIN_PASSWORD` and skips the handshake. |
 | `API_KEY` | `list`, `template` (optional) | Sent as `X-API-Key`. Optional: when unset, the CLI fetches the `default` key over HTTPS via admin login. |
-| `ADMIN_TOKEN` | `save`, `delete`, and admin-login fallback | Skips the handshake when a JWT is already in hand. |
 | `NAMESPACE` | `bootstrap` | Defaults to `openhands`. Overridable via `--namespace`. |
 
 ## Advanced: bootstrap from Kubernetes
@@ -172,19 +215,26 @@ eval "$(sudo -E python3 scripts/warm_runtime_configs.py bootstrap --namespace op
 
 ### Helm install
 
-The runtime-api is cluster-internal. Port-forward first, then bootstrap
-credentials, letting your port-forward URL win:
+The runtime-api is cluster-internal on Helm (chart default is
+`ingress.enabled: false`). The Kubernetes service name is release-prefixed
+via `include "runtime-api.fullname"`, so it is not literally `runtime-api`
+- discover it and port-forward, then bootstrap without touching
+`RUNTIME_API_URL`:
 
 ```bash
-kubectl -n openhands port-forward svc/runtime-api 5000:5000 &
+SVC=$(kubectl -n openhands get svc \
+  -l app.kubernetes.io/name=runtime-api \
+  -o jsonpath='{.items[0].metadata.name}')
+kubectl -n openhands port-forward "svc/$SVC" 5000:5000 &
 export RUNTIME_API_URL=http://localhost:5000
 eval "$(python3 scripts/warm_runtime_configs.py bootstrap --namespace openhands --skip-url)"
 ```
 
-`--skip-url` leaves `RUNTIME_API_URL` alone.
+`--skip-url` leaves `RUNTIME_API_URL` alone. If the operator set
+`nameOverride` on the runtime-api subchart, adjust the label selector to
+match.
 
 ## See also
 
 - Docs: [Configuring Custom Sandbox Images](https://docs.openhands.dev/enterprise/custom-sandbox-images/multiple-images-warm-pools)
 - Docs: [Using Custom Images](https://docs.openhands.dev/enterprise/custom-sandbox-images/using-custom-images)
-- Reference implementation: [`OpenHands/runtime-api` `scripts/`](https://github.com/OpenHands/runtime-api/tree/main/scripts) (private)
