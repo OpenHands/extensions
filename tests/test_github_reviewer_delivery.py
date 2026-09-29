@@ -4,6 +4,7 @@ import json
 import sys
 from pathlib import Path
 from unittest.mock import MagicMock, Mock
+from urllib.error import HTTPError
 from uuid import NAMESPACE_URL, uuid5
 
 import pytest
@@ -342,6 +343,98 @@ def test_reviewer_event_skips_handoff_for_low_priority_issue(tmp_path, monkeypat
     run.run()
 
     handoff.assert_not_called()
+    run.dispatcher.deliver.assert_not_called()
+
+
+def test_reviewer_scope_stop_hands_off_despite_low_priority_issue(
+    tmp_path, monkeypatch
+):
+    """A scope stop reaches a maintainer even when the linked issue is low priority.
+
+    The low-priority guard covers the approval path only. A scope stop is the
+    reviewer's escalation that it could not decide the change's scope, which is
+    exactly when a low-priority link must not silence the handoff.
+    """
+    module, run = _reviewer(tmp_path, monkeypatch)
+    _event(monkeypatch, action="submitted")
+    run.config["maintainers"] = "neubig, VascoSch92"
+    pr = {
+        "number": 2,
+        "body": "Fixes #7",
+        "head": {"sha": "head-2"},
+        "labels": [],
+    }
+    request = {
+        "id": 42,
+        "event": "review_requested",
+        "created_at": "2026-01-01T00:00:00Z",
+        "requested_reviewer": {"login": "all-hands-bot"},
+    }
+    reads = []
+
+    def gh(method, path, body=None):
+        reads.append(path)
+        if path == "/issues/7":
+            return {"number": 7, "labels": [{"name": "priority:low"}]}
+        return {"id": 99} if path == "" else pr
+
+    run.gh = gh
+    run.gh_pages = lambda path: (
+        [request]
+        if path.endswith("/events")
+        else _reviews(verdict="🛑 MAINTAINER DECISION REQUIRED")
+    )
+    handoff = Mock(return_value="VascoSch92")
+    monkeypatch.setattr(module, "request_maintainer_review", handoff)
+
+    run.run()
+
+    handoff.assert_called_once_with(run, pr, ["neubig", "VascoSch92"])
+    # The guard is not consulted at all on this path, so the low-priority link
+    # cannot suppress the escalation.
+    assert "/issues/7" not in reads
+    run.dispatcher.deliver.assert_not_called()
+
+
+def test_reviewer_hands_off_when_linked_issue_does_not_resolve(
+    tmp_path, monkeypatch
+):
+    """An unresolvable linked issue number is skipped, not fatal.
+
+    The closing-keyword pattern accepts any digits, so a deleted issue, a typo,
+    or `#0` returns 404. Raising would abort the completion handler before the
+    handoff, the current-head re-read, and the trigger-label deletion, leaving
+    the PR to fail every later scan with its label still attached.
+    """
+    module, run = _reviewer(tmp_path, monkeypatch)
+    _event(monkeypatch, action="submitted")
+    run.config["maintainers"] = "neubig, VascoSch92"
+    pr = {
+        "number": 2,
+        "body": "Fixes #0",
+        "head": {"sha": "head-2"},
+        "labels": [],
+    }
+    request = {
+        "id": 42,
+        "event": "review_requested",
+        "created_at": "2026-01-01T00:00:00Z",
+        "requested_reviewer": {"login": "all-hands-bot"},
+    }
+
+    def gh(method, path, body=None):
+        if path == "/issues/0":
+            raise HTTPError("https://api.github.com", 404, "Not Found", {}, None)
+        return {"id": 99} if path == "" else pr
+
+    run.gh = gh
+    run.gh_pages = lambda path: [request] if path.endswith("/events") else _reviews()
+    handoff = Mock(return_value="VascoSch92")
+    monkeypatch.setattr(module, "request_maintainer_review", handoff)
+
+    run.run()
+
+    handoff.assert_called_once_with(run, pr, ["neubig", "VascoSch92"])
     run.dispatcher.deliver.assert_not_called()
 
 
