@@ -74,11 +74,11 @@
         },
         {
           "id": "created_by",
-          "label": "Filter by creator",
+          "label": "Created by",
           "options": [
-            { "value": "all", "label": "All creators" },
-            { "value": "me", "label": "Created by me" },
-            { "value": "others", "label": "Created by others" }
+            { "value": "all", "label": "Anyone" },
+            { "value": "me", "label": "Me" },
+            { "value": "others", "label": "Others" }
           ]
         }
       ],
