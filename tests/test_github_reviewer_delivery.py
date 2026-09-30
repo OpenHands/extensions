@@ -346,6 +346,48 @@ def test_reviewer_event_skips_handoff_for_low_priority_issue(tmp_path, monkeypat
     run.dispatcher.deliver.assert_not_called()
 
 
+@pytest.mark.parametrize(("low", "high"), [(7, 8), (9, 8)])
+def test_reviewer_hands_off_when_another_linked_issue_outranks_low(
+    tmp_path, monkeypatch, low, high
+):
+    """A higher-priority closing issue keeps the approval handoff.
+
+    The other closing issue's recorded user pain earned `priority:high`, so the
+    unsupported `priority:low` link must not silence the maintainer handoff,
+    whichever of the two issues is read first.
+    """
+    module, run = _reviewer(tmp_path, monkeypatch)
+    _event(monkeypatch, action="submitted")
+    run.config["maintainers"] = "neubig, VascoSch92"
+    pr = {
+        "number": 2,
+        "body": f"Fixes #{low}\nFixes #{high}",
+        "head": {"sha": "head-2"},
+        "labels": [],
+    }
+    request = {
+        "id": 42,
+        "event": "review_requested",
+        "created_at": "2026-01-01T00:00:00Z",
+        "requested_reviewer": {"login": "all-hands-bot"},
+    }
+    issues = {
+        f"/issues/{low}": {"number": low, "labels": [{"name": "priority:low"}]},
+        f"/issues/{high}": {"number": high, "labels": [{"name": "Priority:High"}]},
+    }
+    run.gh = lambda method, path, body=None: issues.get(path) or (
+        {"id": 99} if path == "" else pr
+    )
+    run.gh_pages = lambda path: [request] if path.endswith("/events") else _reviews()
+    handoff = Mock(return_value="VascoSch92")
+    monkeypatch.setattr(module, "request_maintainer_review", handoff)
+
+    run.run()
+
+    handoff.assert_called_once_with(run, pr, ["neubig", "VascoSch92"])
+    run.dispatcher.deliver.assert_not_called()
+
+
 def test_reviewer_scope_stop_hands_off_despite_low_priority_issue(
     tmp_path, monkeypatch
 ):
