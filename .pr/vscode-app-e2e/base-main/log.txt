@@ -1,2 +1,0 @@
-[http] POST /api/canvas-extensions/install 400 {"detail":"Could not read canvas extension source: Local extension path does not exist: /tmp/base-wt/apps/vscode"}
-[card] none

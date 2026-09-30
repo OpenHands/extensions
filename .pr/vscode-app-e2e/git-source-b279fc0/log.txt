@@ -1,5 +1,0 @@
-[http] POST /api/canvas-extensions/install 200 {"name":"vscode","version":"0.1.0","description":"A managed OpenVSCode editor for the selected Agent Canvas workspace.","enabled":false,"source":"https://github.com/OpenHands/extensions","resolved_ref":"b279fc0ec404af416ac302889d6b4ec123ecc123","repo_path":"apps/vscode","installed_at":"2026-09-30T10
-[card] VS Code https://github.com/OpenHands/extensions A managed OpenVSCode editor for the selected Agent Canvas workspace. Disabled v0.1.0 Pages: 1 Ref b279fc0ec404af416ac302889d6b4ec123ecc123 Path apps/vscode VS Code Uninstall
-[api] PATCH /api/canvas-extensions/installed/vscode {"enabled":true} -> {"name":"vscode","enabled":true}
-[api] GET  .../vscode/backend -> {"state":"stopped","revision":"b279fc0ec404af416ac302889d6b4ec123ecc123","prepared_revision":null}
-[api] POST .../vscode/backend/prepare {"revision":"b279fc0ec404af416ac302889d6b4ec123ecc123"} -> {"detail":"backend artifact is not a contained regular file"}
