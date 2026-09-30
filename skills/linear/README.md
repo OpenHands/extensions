@@ -29,9 +29,9 @@ the direct GraphQL flows below remain the correct path when MCP is unavailable o
 you explicitly need raw API/curl access.
 
 <IMPORTANT>
-You can use `curl` with the `LINEAR_API_KEY` to interact with Linear's GraphQL API.
-ALWAYS use the Linear API for operations instead of a web browser.
-Before performing any Linear operations, verify the API key is available by checking the environment variable.
+If authenticated Linear MCP tools are available in the environment, use them first. MCP tools do not require `LINEAR_API_KEY`; authentication is handled by the configured OAuth integration.
+
+Use the direct Linear GraphQL API (`curl` with `LINEAR_API_KEY`) below only when MCP is unavailable or when you explicitly need raw API/curl access. For that direct-API path, verify the API key is available by checking the environment variable before proceeding. ALWAYS use the Linear API for operations instead of a web browser.
 </IMPORTANT>
 
 ## Features
