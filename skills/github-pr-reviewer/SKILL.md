@@ -182,8 +182,9 @@ nor a change request**: it does not approve or merge the PR. The completion
 handler recognizes the verdict and requests one configured maintainer through the
 same handoff used after an approval. That handoff is unconditional for a scope
 stop; the approval path alone skips it when the PR closes an issue carrying
-`priority:low`, so low-priority work is not escalated to a maintainer on
-approval. An in-scope change continues the existing review unchanged.
+`priority:low` and no issue carrying another `priority:` label, so low-priority
+work is not escalated to a maintainer on approval. An in-scope change continues
+the existing review unchanged.
 
 The script prepares each review's workspace before the agent starts: the pull
 request's head commit is downloaded as a tarball and extracted to a directory of
