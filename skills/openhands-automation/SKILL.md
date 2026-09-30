@@ -47,7 +47,7 @@ The agent server typically runs inside a **sandbox** (a Docker or Kubernetes con
 | Variable | Availability | Description |
 |---|---|---|
 | `RUNTIME_URL` | Ambient in cloud environments | Public-facing URL of the **agent server** sandbox. Use this to determine whether external webhook delivery is possible — if unset or local, webhooks cannot be received. The automation service may run at a separate URL (see Determining the API Host). |
-| `AGENT_SERVER_URL` | Injected into scripts at run time only | Internal URL of the agent server. Available inside script execution context; **not** an ambient environment variable outside of a running script. |
+| `AGENT_SERVER_URL` | Injected into scripts at run time, local Agent Canvas only | Internal URL of the agent server. Available inside script execution context; **not** an ambient environment variable outside of a running script, and not set on OpenHands Cloud or Enterprise. |
 | `OPENHANDS_HOST` | Shell convention only — set manually | Base URL for the automation service API. **Not a real environment variable.** Set it from an explicit host, a detected local Agent Canvas server, or the cloud default. Used in all `curl` examples throughout this skill. |
 
 > **⚠️ CRITICAL — Agent behavior rules:**
@@ -77,17 +77,22 @@ The agent server typically runs inside a **sandbox** (a Docker or Kubernetes con
 
 ### No-LLM Script Helpers
 
-When building a deterministic custom script, these two stdlib-only functions are required. Copy them verbatim — they use `AGENT_SERVER_URL` and `SESSION_API_KEY` injected by the automation service.
+When building a deterministic custom script, these two stdlib-only functions are required. Copy them verbatim - they use variables injected by the automation service: `SESSION_API_KEY`, plus `AGENT_SERVER_URL` on a local Agent Canvas or `OPENHANDS_CLOUD_API_URL` and `SANDBOX_ID` on OpenHands Cloud and Enterprise.
 
 ```python
 import json, os, urllib.request
 
 def get_secret(name):
-    """Fetch a named secret stored in the agent server."""
+    """Fetch a named secret: from the agent server when AGENT_SERVER_URL is set, else from the OpenHands API."""
     url = os.environ.get("AGENT_SERVER_URL", "").rstrip("/")
     key = os.environ.get("SESSION_API_KEY") or os.environ.get("OH_SESSION_API_KEYS_0", "")
+    if url:  # local Agent Canvas
+        url = f"{url}/api/settings/secrets/{name}"
+    else:  # OpenHands Cloud / Enterprise
+        api = os.environ["OPENHANDS_CLOUD_API_URL"].rstrip("/")
+        url = f"{api}/api/v1/sandboxes/{os.environ['SANDBOX_ID']}/settings/secrets/{name}"
     with urllib.request.urlopen(urllib.request.Request(
-        f"{url}/api/settings/secrets/{name}", headers={"X-Session-API-Key": key}
+        url, headers={"X-Session-API-Key": key}
     )) as r:
         return r.read().decode().strip()
 
