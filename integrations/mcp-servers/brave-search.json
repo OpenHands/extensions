@@ -1,0 +1,83 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "dev.openhands/brave-search",
+  "description": "Privacy-first web and local search using the Brave Search API.",
+  "title": "Brave Search",
+  "websiteUrl": "https://github.com/brave/brave-search-mcp-server",
+  "repository": {
+    "url": "https://github.com/brave/brave-search-mcp-server",
+    "source": "github"
+  },
+  "version": "1.0.0",
+  "packages": [
+    {
+      "registryType": "npm",
+      "registryBaseUrl": "https://registry.npmjs.org",
+      "identifier": "@brave/brave-search-mcp-server",
+      "runtimeHint": "npx",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "BRAVE_API_KEY",
+          "description": "API key from the Brave Search API portal.",
+          "isRequired": true,
+          "isSecret": true
+        }
+      ],
+      "packageArguments": [
+        {
+          "type": "named",
+          "name": "--transport"
+        },
+        {
+          "type": "positional",
+          "value": "stdio"
+        }
+      ]
+    }
+  ],
+  "_meta": {
+    "dev.openhands": {
+      "catalogId": "brave-search",
+      "descriptorVersion": "1.0.0",
+      "schemaDate": "2025-12-11",
+      "defaultMcpConnectionOptionId": "api",
+      "connectionOptions": [
+        {
+          "id": "api",
+          "provider": "mcp",
+          "transport": {
+            "kind": "stdio",
+            "serverName": "brave_search",
+            "command": "npx",
+            "args": [
+              "-y",
+              "@brave/brave-search-mcp-server",
+              "--transport",
+              "stdio"
+            ],
+            "envFields": [
+              {
+                "key": "BRAVE_API_KEY",
+                "label": "Brave API key",
+                "type": "password",
+                "required": true,
+                "helperText": "API key from the Brave Search API portal.",
+                "helperLink": "https://api-dashboard.search.brave.com/app/keys"
+              }
+            ]
+          },
+          "auth": {
+            "strategy": "api_key"
+          }
+        }
+      ],
+      "keywords": [
+        "search",
+        "web"
+      ]
+    }
+  }
+}

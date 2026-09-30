@@ -1,0 +1,55 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "dev.openhands/sequential-thinking",
+  "description": "Lets the agent emit and revise a chain of structured thoughts.",
+  "title": "Sequential Thinking",
+  "websiteUrl": "https://github.com/modelcontextprotocol/servers/tree/main/src/sequentialthinking",
+  "repository": {
+    "url": "https://github.com/modelcontextprotocol/servers",
+    "source": "github",
+    "subfolder": "src/sequentialthinking"
+  },
+  "version": "1.0.0",
+  "packages": [
+    {
+      "registryType": "npm",
+      "registryBaseUrl": "https://registry.npmjs.org",
+      "identifier": "@modelcontextprotocol/server-sequential-thinking",
+      "runtimeHint": "npx",
+      "transport": {
+        "type": "stdio"
+      }
+    }
+  ],
+  "_meta": {
+    "dev.openhands": {
+      "catalogId": "sequential-thinking",
+      "descriptorVersion": "1.0.0",
+      "schemaDate": "2025-12-11",
+      "defaultMcpConnectionOptionId": "none",
+      "connectionOptions": [
+        {
+          "id": "none",
+          "provider": "mcp",
+          "transport": {
+            "kind": "stdio",
+            "serverName": "sequential_thinking",
+            "command": "npx",
+            "args": [
+              "-y",
+              "@modelcontextprotocol/server-sequential-thinking"
+            ]
+          },
+          "auth": {
+            "strategy": "none"
+          }
+        }
+      ],
+      "keywords": [
+        "reasoning",
+        "planning",
+        "thoughts"
+      ]
+    }
+  }
+}

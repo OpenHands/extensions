@@ -12,8 +12,11 @@ from __future__ import annotations
 from ._version import __version__
 from .integrations import (
     INTEGRATION_CATALOG_SNAPSHOT,
+    MCP_SERVER_ARTIFACTS,
     get_integration_catalog_entry_model,
+    get_mcp_server_artifact,
     list_integration_catalog_models,
+    list_mcp_server_artifacts,
 )
 from .integration_models import (
     HttpConnectionOption,
@@ -36,6 +39,7 @@ from .integration_models import (
 
 __all__ = [
     "INTEGRATION_CATALOG_SNAPSHOT",
+    "MCP_SERVER_ARTIFACTS",
     "HttpConnectionOption",
     "IntegrationAuthConfig",
     "IntegrationCatalogEntry",
@@ -54,5 +58,7 @@ __all__ = [
     "StreamableHttpTransport",
     "__version__",
     "get_integration_catalog_entry_model",
+    "get_mcp_server_artifact",
     "list_integration_catalog_models",
+    "list_mcp_server_artifacts",
 ]

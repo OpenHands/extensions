@@ -2,7 +2,8 @@
 
 The source of truth is the hand-authored ``integrations/catalog/<id>.json``
 directory. Wheels include those individual JSON files directly; no aggregate
-catalog JSON is authored or packaged.
+catalog JSON is authored or packaged. Generated MCP ``server.json`` artifacts
+(``integrations/mcp-servers/<id>.json``) are also read directly.
 """
 
 from __future__ import annotations
@@ -19,8 +20,11 @@ from .integration_models import IntegrationCatalogEntry
 
 __all__ = [
     "INTEGRATION_CATALOG_SNAPSHOT",
+    "MCP_SERVER_ARTIFACTS",
     "get_integration_catalog_entry_model",
+    "get_mcp_server_artifact",
     "list_integration_catalog_models",
+    "list_mcp_server_artifacts",
 ]
 
 
@@ -123,3 +127,44 @@ def get_integration_catalog_entry_model(id: str) -> IntegrationCatalogEntry | No
 INTEGRATION_CATALOG_SNAPSHOT: dict[str, Any] = {
     "integrations": copy.deepcopy(list(_integrations()))
 }
+
+
+def _repo_mcp_servers_dir() -> Path:
+    return Path(__file__).resolve().parents[2] / "integrations" / "mcp-servers"
+
+
+def _mcp_server_files() -> Iterable[Any]:
+    packaged = resources.files(__package__).joinpath("mcp_servers")
+    if packaged.is_dir():
+        return sorted(
+            (path for path in packaged.iterdir() if path.name.endswith(".json")),
+            key=lambda path: path.name,
+        )
+    repo_dir = _repo_mcp_servers_dir()
+    return sorted(repo_dir.glob("*.json"), key=lambda path: path.name)
+
+
+@lru_cache(maxsize=1)
+def _mcp_server_artifacts() -> tuple[dict[str, Any], ...]:
+    return tuple(_read_json(path) for path in _mcp_server_files())
+
+
+@lru_cache(maxsize=1)
+def _mcp_server_by_name() -> dict[str, dict[str, Any]]:
+    return {artifact["name"]: artifact for artifact in _mcp_server_artifacts()}
+
+
+def list_mcp_server_artifacts() -> list[dict[str, Any]]:
+    """Return every generated MCP server artifact as an independent copy."""
+    return [copy.deepcopy(artifact) for artifact in _mcp_server_artifacts()]
+
+
+def get_mcp_server_artifact(name: str) -> dict[str, Any] | None:
+    """Return one generated MCP server artifact by reverse-DNS ``name``, or ``None``."""
+    artifact = _mcp_server_by_name().get(name)
+    return copy.deepcopy(artifact) if artifact is not None else None
+
+
+MCP_SERVER_ARTIFACTS: list[dict[str, Any]] = [
+    copy.deepcopy(artifact) for artifact in _mcp_server_artifacts()
+]

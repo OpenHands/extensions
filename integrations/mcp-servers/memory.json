@@ -1,0 +1,56 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "dev.openhands/memory",
+  "description": "Persistent key-value memory for the agent across conversations.",
+  "title": "Memory",
+  "websiteUrl": "https://github.com/modelcontextprotocol/servers/tree/main/src/memory",
+  "repository": {
+    "url": "https://github.com/modelcontextprotocol/servers",
+    "source": "github",
+    "subfolder": "src/memory"
+  },
+  "version": "1.0.0",
+  "packages": [
+    {
+      "registryType": "npm",
+      "registryBaseUrl": "https://registry.npmjs.org",
+      "identifier": "@modelcontextprotocol/server-memory",
+      "runtimeHint": "npx",
+      "transport": {
+        "type": "stdio"
+      }
+    }
+  ],
+  "_meta": {
+    "dev.openhands": {
+      "catalogId": "memory",
+      "descriptorVersion": "1.0.0",
+      "schemaDate": "2025-12-11",
+      "defaultMcpConnectionOptionId": "none",
+      "connectionOptions": [
+        {
+          "id": "none",
+          "provider": "mcp",
+          "transport": {
+            "kind": "stdio",
+            "serverName": "memory",
+            "command": "npx",
+            "args": [
+              "-y",
+              "@modelcontextprotocol/server-memory"
+            ]
+          },
+          "auth": {
+            "strategy": "none"
+          }
+        }
+      ],
+      "keywords": [
+        "memory",
+        "kv",
+        "state",
+        "persistence"
+      ]
+    }
+  }
+}

@@ -1,0 +1,49 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "dev.openhands/webflow",
+  "description": "CMS items, sites, and web publishing workflows.",
+  "title": "Webflow",
+  "websiteUrl": "https://developers.webflow.com/mcp/reference/getting-started",
+  "version": "1.0.0",
+  "remotes": [
+    {
+      "type": "streamable-http",
+      "url": "https://mcp.webflow.com/mcp"
+    }
+  ],
+  "_meta": {
+    "dev.openhands": {
+      "catalogId": "webflow",
+      "descriptorVersion": "1.0.0",
+      "schemaDate": "2025-12-11",
+      "defaultMcpConnectionOptionId": "oauth",
+      "connectionOptions": [
+        {
+          "id": "oauth",
+          "provider": "mcp",
+          "auth": {
+            "strategy": "oauth2",
+            "oauth": {
+              "authorizationUrl": "https://mcp.webflow.com/oauth/authorize",
+              "tokenUrl": "https://mcp.webflow.com/oauth/token",
+              "scopes": [],
+              "pkce": true,
+              "clientAuthentication": "none",
+              "registrationUrl": "https://mcp.webflow.com/oauth/register"
+            }
+          },
+          "transport": {
+            "kind": "shttp",
+            "url": "https://mcp.webflow.com/mcp"
+          }
+        }
+      ],
+      "categories": [
+        "CMS",
+        "Marketing"
+      ],
+      "popularityRank": 32,
+      "notes": "Uses Webflow's official hosted MCP server and deployment-scoped MCP OAuth registration so each user can authorize their own sites and workspaces."
+    }
+  }
+}

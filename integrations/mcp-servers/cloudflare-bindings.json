@@ -1,0 +1,43 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "dev.openhands/cloudflare-bindings",
+  "description": "Inspect and manage KV, D1, R2, and Durable Object bindings on your Cloudflare account.",
+  "title": "Cloudflare Workers Bindings",
+  "websiteUrl": "https://developers.cloudflare.com/agents/model-context-protocol/",
+  "version": "1.0.0",
+  "remotes": [
+    {
+      "type": "streamable-http",
+      "url": "https://bindings.mcp.cloudflare.com/mcp"
+    }
+  ],
+  "_meta": {
+    "dev.openhands": {
+      "catalogId": "cloudflare-bindings",
+      "descriptorVersion": "1.0.0",
+      "schemaDate": "2025-12-11",
+      "defaultMcpConnectionOptionId": "oauth",
+      "connectionOptions": [
+        {
+          "id": "oauth",
+          "provider": "mcp",
+          "transport": {
+            "kind": "shttp",
+            "url": "https://bindings.mcp.cloudflare.com/mcp"
+          },
+          "auth": {
+            "strategy": "oauth2"
+          }
+        }
+      ],
+      "keywords": [
+        "cloudflare",
+        "workers",
+        "kv",
+        "d1",
+        "r2",
+        "durable objects"
+      ]
+    }
+  }
+}

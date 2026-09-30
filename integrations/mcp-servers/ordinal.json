@@ -1,0 +1,47 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "dev.openhands/ordinal",
+  "description": "Social media posts, profiles, analytics, labels, approvals, and engagements.",
+  "title": "Ordinal",
+  "websiteUrl": "https://docs.tryordinal.com/api/mcp",
+  "version": "1.0.0",
+  "remotes": [
+    {
+      "type": "streamable-http",
+      "url": "https://app.tryordinal.com/api/mcp"
+    }
+  ],
+  "_meta": {
+    "dev.openhands": {
+      "catalogId": "ordinal",
+      "descriptorVersion": "1.0.0",
+      "schemaDate": "2025-12-11",
+      "defaultMcpConnectionOptionId": "api",
+      "connectionOptions": [
+        {
+          "id": "api",
+          "provider": "mcp",
+          "auth": {
+            "strategy": "bearer",
+            "authModes": [
+              "bearer"
+            ],
+            "credentialLabel": "Ordinal API key",
+            "credentialPlaceholder": "Paste your Ordinal API key",
+            "credentialHelp": "API key from your Ordinal workspace settings, sent as a Bearer token in the Authorization header."
+          },
+          "transport": {
+            "kind": "shttp",
+            "url": "https://app.tryordinal.com/api/mcp"
+          }
+        }
+      ],
+      "categories": [
+        "Social media",
+        "Marketing"
+      ],
+      "popularityRank": 52,
+      "notes": "Official MCP server backed by Ordinal's API with API-key (Bearer) auth."
+    }
+  }
+}

@@ -1,0 +1,40 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "dev.openhands/paypal",
+  "description": "Manage transactions and merchant data via PayPal's MCP server.",
+  "title": "PayPal",
+  "websiteUrl": "https://developer.paypal.com/tools/mcp-server/",
+  "version": "1.0.0",
+  "remotes": [
+    {
+      "type": "streamable-http",
+      "url": "https://mcp.paypal.com/mcp"
+    }
+  ],
+  "_meta": {
+    "dev.openhands": {
+      "catalogId": "paypal",
+      "descriptorVersion": "1.0.0",
+      "schemaDate": "2025-12-11",
+      "defaultMcpConnectionOptionId": "oauth",
+      "connectionOptions": [
+        {
+          "id": "oauth",
+          "provider": "mcp",
+          "transport": {
+            "kind": "shttp",
+            "url": "https://mcp.paypal.com/mcp"
+          },
+          "auth": {
+            "strategy": "oauth2"
+          }
+        }
+      ],
+      "keywords": [
+        "payments",
+        "billing",
+        "finance"
+      ]
+    }
+  }
+}

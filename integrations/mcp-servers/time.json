@@ -1,0 +1,54 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "dev.openhands/time",
+  "description": "Timezone-aware current time, conversions, and timestamp formatting.",
+  "title": "Time",
+  "websiteUrl": "https://github.com/modelcontextprotocol/servers/tree/main/src/time",
+  "repository": {
+    "url": "https://github.com/modelcontextprotocol/servers",
+    "source": "github",
+    "subfolder": "src/time"
+  },
+  "version": "1.0.0",
+  "packages": [
+    {
+      "registryType": "pypi",
+      "registryBaseUrl": "https://pypi.org",
+      "identifier": "mcp-server-time",
+      "runtimeHint": "uvx",
+      "transport": {
+        "type": "stdio"
+      }
+    }
+  ],
+  "_meta": {
+    "dev.openhands": {
+      "catalogId": "time",
+      "descriptorVersion": "1.0.0",
+      "schemaDate": "2025-12-11",
+      "defaultMcpConnectionOptionId": "none",
+      "connectionOptions": [
+        {
+          "id": "none",
+          "provider": "mcp",
+          "transport": {
+            "kind": "stdio",
+            "serverName": "time",
+            "command": "uvx",
+            "args": [
+              "mcp-server-time"
+            ]
+          },
+          "auth": {
+            "strategy": "none"
+          }
+        }
+      ],
+      "keywords": [
+        "clock",
+        "timezone",
+        "date"
+      ]
+    }
+  }
+}

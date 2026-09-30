@@ -1,0 +1,42 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "dev.openhands/cloudflare-observability",
+  "description": "Tail Workers logs and query observability data from your Cloudflare account.",
+  "title": "Cloudflare Observability",
+  "websiteUrl": "https://developers.cloudflare.com/agents/model-context-protocol/",
+  "version": "1.0.0",
+  "remotes": [
+    {
+      "type": "streamable-http",
+      "url": "https://observability.mcp.cloudflare.com/mcp"
+    }
+  ],
+  "_meta": {
+    "dev.openhands": {
+      "catalogId": "cloudflare-observability",
+      "descriptorVersion": "1.0.0",
+      "schemaDate": "2025-12-11",
+      "defaultMcpConnectionOptionId": "oauth",
+      "connectionOptions": [
+        {
+          "id": "oauth",
+          "provider": "mcp",
+          "transport": {
+            "kind": "shttp",
+            "url": "https://observability.mcp.cloudflare.com/mcp"
+          },
+          "auth": {
+            "strategy": "oauth2"
+          }
+        }
+      ],
+      "keywords": [
+        "cloudflare",
+        "logs",
+        "tail",
+        "observability",
+        "workers"
+      ]
+    }
+  }
+}

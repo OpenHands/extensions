@@ -1,0 +1,44 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "dev.openhands/huggingface",
+  "description": "Search models, datasets, and Spaces on the Hugging Face Hub from your agent.",
+  "title": "Hugging Face",
+  "websiteUrl": "https://huggingface.co/docs/huggingface_hub/en/guides/mcp",
+  "version": "1.0.0",
+  "remotes": [
+    {
+      "type": "streamable-http",
+      "url": "https://huggingface.co/mcp"
+    }
+  ],
+  "_meta": {
+    "dev.openhands": {
+      "catalogId": "huggingface",
+      "descriptorVersion": "1.0.0",
+      "schemaDate": "2025-12-11",
+      "defaultMcpConnectionOptionId": "none",
+      "connectionOptions": [
+        {
+          "id": "none",
+          "provider": "mcp",
+          "transport": {
+            "kind": "shttp",
+            "url": "https://huggingface.co/mcp",
+            "apiKeyOptional": true
+          },
+          "auth": {
+            "strategy": "none",
+            "apiKeyOptional": true
+          }
+        }
+      ],
+      "keywords": [
+        "ml",
+        "models",
+        "datasets",
+        "ai",
+        "hub"
+      ]
+    }
+  }
+}

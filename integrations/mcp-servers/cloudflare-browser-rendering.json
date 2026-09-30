@@ -1,0 +1,41 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "dev.openhands/cloudflare-browser-rendering",
+  "description": "Fetch and screenshot pages using Cloudflare's hosted browser rendering.",
+  "title": "Cloudflare Browser Rendering",
+  "websiteUrl": "https://developers.cloudflare.com/agents/model-context-protocol/",
+  "version": "1.0.0",
+  "remotes": [
+    {
+      "type": "streamable-http",
+      "url": "https://browser.mcp.cloudflare.com/mcp"
+    }
+  ],
+  "_meta": {
+    "dev.openhands": {
+      "catalogId": "cloudflare-browser-rendering",
+      "descriptorVersion": "1.0.0",
+      "schemaDate": "2025-12-11",
+      "defaultMcpConnectionOptionId": "oauth",
+      "connectionOptions": [
+        {
+          "id": "oauth",
+          "provider": "mcp",
+          "transport": {
+            "kind": "shttp",
+            "url": "https://browser.mcp.cloudflare.com/mcp"
+          },
+          "auth": {
+            "strategy": "oauth2"
+          }
+        }
+      ],
+      "keywords": [
+        "cloudflare",
+        "browser",
+        "rendering",
+        "screenshots"
+      ]
+    }
+  }
+}

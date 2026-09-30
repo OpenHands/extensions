@@ -1,0 +1,75 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "dev.openhands/neon",
+  "description": "Serverless Postgres: list projects, run queries, manage branches.",
+  "title": "Neon",
+  "websiteUrl": "https://neon.com/docs/ai/neon-mcp-server",
+  "version": "1.0.0",
+  "packages": [
+    {
+      "registryType": "npm",
+      "registryBaseUrl": "https://registry.npmjs.org",
+      "identifier": "@neondatabase/mcp-server-neon",
+      "runtimeHint": "npx",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "NEON_API_KEY",
+          "description": "API key from your Neon account settings.",
+          "isRequired": true,
+          "isSecret": true
+        }
+      ],
+      "packageArguments": [
+        {
+          "type": "positional",
+          "value": "start"
+        }
+      ]
+    }
+  ],
+  "_meta": {
+    "dev.openhands": {
+      "catalogId": "neon",
+      "descriptorVersion": "1.0.0",
+      "schemaDate": "2025-12-11",
+      "defaultMcpConnectionOptionId": "api",
+      "connectionOptions": [
+        {
+          "id": "api",
+          "provider": "mcp",
+          "transport": {
+            "kind": "stdio",
+            "serverName": "neon",
+            "command": "npx",
+            "args": [
+              "-y",
+              "@neondatabase/mcp-server-neon",
+              "start"
+            ],
+            "envFields": [
+              {
+                "key": "NEON_API_KEY",
+                "label": "Neon API key",
+                "type": "password",
+                "required": true,
+                "helperText": "API key from your Neon account settings.",
+                "helperLink": "https://neon.tech/docs/manage/api-keys"
+              }
+            ]
+          },
+          "auth": {
+            "strategy": "api_key"
+          }
+        }
+      ],
+      "keywords": [
+        "database",
+        "postgres",
+        "serverless"
+      ]
+    }
+  }
+}

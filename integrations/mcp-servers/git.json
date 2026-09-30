@@ -1,0 +1,82 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "dev.openhands/git",
+  "description": "Local git repository operations: log, diff, blame, status, and more.",
+  "title": "Git",
+  "websiteUrl": "https://github.com/modelcontextprotocol/servers/tree/main/src/git",
+  "repository": {
+    "url": "https://github.com/modelcontextprotocol/servers",
+    "source": "github",
+    "subfolder": "src/git"
+  },
+  "version": "1.0.0",
+  "packages": [
+    {
+      "registryType": "pypi",
+      "registryBaseUrl": "https://pypi.org",
+      "identifier": "mcp-server-git",
+      "runtimeHint": "uvx",
+      "transport": {
+        "type": "stdio"
+      },
+      "packageArguments": [
+        {
+          "type": "named",
+          "name": "--repository"
+        },
+        {
+          "type": "positional",
+          "valueHint": "repo_path",
+          "description": "Appended as --repository <path>.",
+          "isRequired": true,
+          "isSecret": false,
+          "placeholder": "/Users/me/code/my-repo",
+          "isRepeated": false
+        }
+      ]
+    }
+  ],
+  "_meta": {
+    "dev.openhands": {
+      "catalogId": "git",
+      "descriptorVersion": "1.0.0",
+      "schemaDate": "2025-12-11",
+      "defaultMcpConnectionOptionId": "api",
+      "connectionOptions": [
+        {
+          "id": "api",
+          "provider": "mcp",
+          "transport": {
+            "kind": "stdio",
+            "serverName": "git",
+            "command": "uvx",
+            "args": [
+              "mcp-server-git",
+              "--repository"
+            ],
+            "argFields": [
+              {
+                "key": "repo_path",
+                "label": "Repository path",
+                "type": "text",
+                "placeholder": "/Users/me/code/my-repo",
+                "required": true,
+                "helperText": "Appended as --repository <path>."
+              }
+            ]
+          },
+          "auth": {
+            "strategy": "api_key"
+          }
+        }
+      ],
+      "installHint": "Runs the official Python server via uvx — no setup beyond the path.",
+      "keywords": [
+        "version control",
+        "log",
+        "diff",
+        "blame"
+      ]
+    }
+  }
+}

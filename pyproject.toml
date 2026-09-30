@@ -18,6 +18,7 @@ packages = ["python/openhands_extensions"]
 
 [tool.hatch.build.targets.wheel.force-include]
 "integrations/catalog" = "openhands_extensions/catalog"
+"integrations/mcp-servers" = "openhands_extensions/mcp_servers"
 
 [dependency-groups]
 test = [

@@ -1,0 +1,77 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "dev.openhands/filesystem",
+  "description": "Give the agent secure, scoped filesystem access outside the workspace.",
+  "title": "Filesystem",
+  "websiteUrl": "https://github.com/modelcontextprotocol/servers/tree/main/src/filesystem",
+  "repository": {
+    "url": "https://github.com/modelcontextprotocol/servers",
+    "source": "github",
+    "subfolder": "src/filesystem"
+  },
+  "version": "1.0.0",
+  "packages": [
+    {
+      "registryType": "npm",
+      "registryBaseUrl": "https://registry.npmjs.org",
+      "identifier": "@modelcontextprotocol/server-filesystem",
+      "runtimeHint": "npx",
+      "transport": {
+        "type": "stdio"
+      },
+      "packageArguments": [
+        {
+          "type": "positional",
+          "valueHint": "paths",
+          "description": "Each whitespace-separated token is appended as its own argument.",
+          "isRequired": true,
+          "isSecret": false,
+          "placeholder": "/Users/me/Documents /Users/me/Projects",
+          "isRepeated": true
+        }
+      ]
+    }
+  ],
+  "_meta": {
+    "dev.openhands": {
+      "catalogId": "filesystem",
+      "descriptorVersion": "1.0.0",
+      "schemaDate": "2025-12-11",
+      "defaultMcpConnectionOptionId": "api",
+      "connectionOptions": [
+        {
+          "id": "api",
+          "provider": "mcp",
+          "transport": {
+            "kind": "stdio",
+            "serverName": "filesystem",
+            "command": "npx",
+            "args": [
+              "-y",
+              "@modelcontextprotocol/server-filesystem"
+            ],
+            "argFields": [
+              {
+                "key": "paths",
+                "label": "Paths (space separated)",
+                "type": "text",
+                "placeholder": "/Users/me/Documents /Users/me/Projects",
+                "required": true,
+                "helperText": "Each whitespace-separated token is appended as its own argument."
+              }
+            ]
+          },
+          "auth": {
+            "strategy": "api_key"
+          }
+        }
+      ],
+      "installHint": "Each path is exposed read/write. Add as many as you need, separated by spaces.",
+      "keywords": [
+        "files",
+        "local",
+        "disk"
+      ]
+    }
+  }
+}

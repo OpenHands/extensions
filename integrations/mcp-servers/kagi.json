@@ -1,0 +1,71 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "dev.openhands/kagi",
+  "description": "Paid, privacy-first search with high signal-to-noise — great for research.",
+  "title": "Kagi Search",
+  "websiteUrl": "https://github.com/kagisearch/kagimcp",
+  "repository": {
+    "url": "https://github.com/kagisearch/kagimcp",
+    "source": "github"
+  },
+  "version": "1.0.0",
+  "packages": [
+    {
+      "registryType": "pypi",
+      "registryBaseUrl": "https://pypi.org",
+      "identifier": "kagimcp",
+      "runtimeHint": "uvx",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "KAGI_API_KEY",
+          "description": "API key from your Kagi account settings.",
+          "isRequired": true,
+          "isSecret": true
+        }
+      ]
+    }
+  ],
+  "_meta": {
+    "dev.openhands": {
+      "catalogId": "kagi",
+      "descriptorVersion": "1.0.0",
+      "schemaDate": "2025-12-11",
+      "defaultMcpConnectionOptionId": "api",
+      "connectionOptions": [
+        {
+          "id": "api",
+          "provider": "mcp",
+          "transport": {
+            "kind": "stdio",
+            "serverName": "kagi",
+            "command": "uvx",
+            "args": [
+              "kagimcp"
+            ],
+            "envFields": [
+              {
+                "key": "KAGI_API_KEY",
+                "label": "Kagi API key",
+                "type": "password",
+                "required": true,
+                "helperText": "API key from your Kagi account settings.",
+                "helperLink": "https://kagi.com/settings?p=api"
+              }
+            ]
+          },
+          "auth": {
+            "strategy": "api_key"
+          }
+        }
+      ],
+      "keywords": [
+        "search",
+        "web",
+        "privacy"
+      ]
+    }
+  }
+}

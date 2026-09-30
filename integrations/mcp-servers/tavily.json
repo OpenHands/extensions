@@ -1,0 +1,77 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "dev.openhands/tavily",
+  "description": "Production-grade web search optimized for LLM agents. Free tier available.",
+  "title": "Tavily",
+  "websiteUrl": "https://github.com/tavily-ai/tavily-mcp",
+  "repository": {
+    "url": "https://github.com/tavily-ai/tavily-mcp",
+    "source": "github"
+  },
+  "version": "1.0.0",
+  "packages": [
+    {
+      "registryType": "npm",
+      "registryBaseUrl": "https://registry.npmjs.org",
+      "identifier": "tavily-mcp",
+      "runtimeHint": "npx",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "TAVILY_API_KEY",
+          "description": "API key from your Tavily dashboard.",
+          "isRequired": true,
+          "isSecret": true,
+          "placeholder": "tvly-..."
+        }
+      ]
+    }
+  ],
+  "_meta": {
+    "dev.openhands": {
+      "catalogId": "tavily",
+      "descriptorVersion": "1.0.0",
+      "schemaDate": "2025-12-11",
+      "defaultMcpConnectionOptionId": "api",
+      "connectionOptions": [
+        {
+          "id": "api",
+          "provider": "mcp",
+          "transport": {
+            "kind": "stdio",
+            "serverName": "tavily",
+            "command": "npx",
+            "args": [
+              "-y",
+              "tavily-mcp"
+            ],
+            "envFields": [
+              {
+                "key": "TAVILY_API_KEY",
+                "label": "Tavily API key",
+                "type": "password",
+                "placeholder": "tvly-...",
+                "required": true,
+                "helperText": "API key from your Tavily dashboard.",
+                "helperLink": "https://app.tavily.com/home?tab=keys"
+              }
+            ]
+          },
+          "auth": {
+            "strategy": "api_key"
+          }
+        }
+      ],
+      "installHint": "Paste your Tavily API key - the official tavily-mcp package runs via npx.",
+      "keywords": [
+        "search",
+        "web",
+        "browsing",
+        "research"
+      ],
+      "popularityRank": 90
+    }
+  }
+}

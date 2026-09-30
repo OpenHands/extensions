@@ -1,0 +1,76 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "dev.openhands/sentry",
+  "description": "Triage issues, inspect events, and run Seer fixes against your Sentry org.",
+  "title": "Sentry",
+  "websiteUrl": "https://docs.sentry.io/product/sentry-mcp/",
+  "version": "1.0.0",
+  "remotes": [
+    {
+      "type": "streamable-http",
+      "url": "https://mcp.sentry.dev/mcp"
+    }
+  ],
+  "_meta": {
+    "dev.openhands": {
+      "catalogId": "sentry",
+      "descriptorVersion": "1.0.0",
+      "schemaDate": "2025-12-11",
+      "defaultMcpConnectionOptionId": "oauth-mcp",
+      "connectionOptions": [
+        {
+          "id": "oauth-mcp",
+          "provider": "mcp",
+          "transport": {
+            "kind": "shttp",
+            "url": "https://mcp.sentry.dev/mcp"
+          },
+          "auth": {
+            "strategy": "oauth2",
+            "oauth": {
+              "authorizationUrl": "https://sentry.io/oauth/authorize",
+              "tokenUrl": "https://sentry.io/oauth/token",
+              "scopes": [
+                "project:read",
+                "event:read",
+                "org:read"
+              ]
+            }
+          }
+        },
+        {
+          "id": "oauth",
+          "provider": "http",
+          "auth": {
+            "strategy": "oauth2",
+            "oauth": {
+              "authorizationUrl": "https://sentry.io/oauth/authorize",
+              "tokenUrl": "https://sentry.io/oauth/token",
+              "scopes": [
+                "project:read",
+                "event:read",
+                "org:read"
+              ]
+            }
+          },
+          "http": {
+            "apiBaseUrl": "https://sentry.io/api/0",
+            "openApiUrl": "https://raw.githubusercontent.com/getsentry/sentry/master/api-docs/openapi.json"
+          }
+        }
+      ],
+      "keywords": [
+        "errors",
+        "observability",
+        "monitoring",
+        "crash"
+      ],
+      "categories": [
+        "Observability",
+        "Engineering"
+      ],
+      "popularityRank": 36,
+      "notes": "Natural target for engineering support agents."
+    }
+  }
+}
