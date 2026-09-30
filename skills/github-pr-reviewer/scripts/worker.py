@@ -2,8 +2,10 @@
 
 import json
 import os
+import re
 import sys
 from functools import cached_property
+from urllib.error import HTTPError
 from urllib.parse import quote
 
 import main as workflow
@@ -325,6 +327,37 @@ class PullRequestReviewer(GitHubRepository):
             f"second result.{self_review_note}"
         )
 
+    def _linked_issue_is_low_priority(self, pr):
+        """Return whether any same-repository closing issue is priority:low.
+
+        A referenced number that does not resolve - a deleted issue, a typo, or
+        the `#0` the pattern accepts - is skipped rather than raised. Letting the
+        404 out would abort the completion handler before the handoff, the
+        current-head re-read, and the trigger-label deletion, so the same PR
+        would fail every later scan with its label still attached.
+        """
+        numbers = {
+            int(number)
+            for number in re.findall(
+                r"(?im)\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\s+#(\d+)",
+                pr.get("body") or "",
+            )
+        }
+        for number in numbers:
+            try:
+                issue = self.gh("GET", f"/issues/{number}")
+            except HTTPError as exc:
+                if exc.code == 404:
+                    continue
+                raise
+            labels = {
+                (item.get("name") or "").casefold()
+                for item in issue.get("labels", [])
+            }
+            if "priority:low" in labels:
+                return True
+        return False
+
     def _finish_completed_review(self, pr, trigger, label=None):
         """Complete an exact-head review, including an optional human handoff.
 
@@ -369,8 +402,12 @@ class PullRequestReviewer(GitHubRepository):
         if approved is None and not maintainer_decision:
             return False
         # A scope stop is not an approval: it requests the maintainer decision
-        # the change is missing, through the same handoff as an approval.
-        if approved or maintainer_decision:
+        # the change is missing, through the same handoff as an approval. Only
+        # the approval path skips the handoff for a low-priority linked issue;
+        # a scope stop is the opposite situation, so it stays unconditional.
+        if maintainer_decision or (
+            approved and not self._linked_issue_is_low_priority(pr)
+        ):
             maintainers = parse_maintainers(self.config.get("maintainers"))
             if maintainers:
                 try:
