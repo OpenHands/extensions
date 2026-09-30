@@ -30,10 +30,10 @@ starts, it also posts a comment on the Jira ticket: "I'm on it: &lt;conversation
    be picked up. Subsequent runs filter by both `first_run_at` and a KV-backed set of
    already-processed issue keys. A `max_new_per_run` cap (default 5) limits conversations
    started per cron firing as additional defense-in-depth.
-3. **Dispatch** - for each new issue, call `POST /api/conversations` on the agent server
-   to start an independent agent conversation with a PR-creation prompt. The prompt
-   instructs the agent to extract the target GitHub repository (`owner/repo`) from the
-   ticket body.
+3. **Dispatch** - for each new issue, start an independent agent conversation with a
+   PR-creation prompt: `POST /api/conversations` on the agent server when running locally,
+   or `POST /api/v1/app-conversations` on OpenHands Cloud. The prompt instructs the agent
+   to extract the target GitHub repository (`owner/repo`) from the ticket body.
 4. **Comment** - immediately after the conversation is created, post a Jira comment on the
    issue: `I'm on it: <conversation URL>`.
 5. **Persist** - record the processed issue key so re-runs never duplicate work.
@@ -48,11 +48,27 @@ Before deploying, ensure the following are in place:
 | Requirement | Details |
 |---|---|
 | **Jira API token** | Stored as an OpenHands secret (see [Jira API token setup](#jira-api-token)) |
-| **GitHub token** | Must be stored as an OpenHands secret with `repo` + `workflow` scope so the spawned conversation can push branches and open PRs |
+| **GitHub access** | Local: a GitHub token stored as an OpenHands secret with `repo` + `workflow` scope so the spawned conversation can push branches and open PRs. OpenHands Cloud: the spawned conversation uses the user's connected GitHub integration (native integration recommended, or the GitHub MCP server) |
+| **KV store** (OpenHands Cloud only) | The automation service must have its KV store enabled (`kvStore` in `GET /api/automation/v1/capabilities`); each cloud run starts in a fresh sandbox, so processed issues are remembered there |
 | **Jira label** | The label to watch for (default: `create-pr`) must exist in the Jira project |
 | **GitHub repo** | The target repository must exist and the GitHub token must have write access |
 
 ## Deploying the Automation
+
+### Determine the API host and auth
+
+Set `OPENHANDS_HOST` and `AUTH_HEADER` for the curl commands below:
+
+- **OpenHands Cloud** - a `<HOST>` value is present in the system prompt:
+  ```bash
+  OPENHANDS_HOST="<HOST value>"
+  AUTH_HEADER="Authorization: Bearer $OPENHANDS_API_KEY"
+  ```
+- **Local Agent Canvas** - no `<HOST>` value:
+  ```bash
+  OPENHANDS_HOST="http://localhost:8000"
+  AUTH_HEADER="X-Session-API-Key: $OPENHANDS_AUTOMATION_API_KEY"
+  ```
 
 ### Step 1 - Collect parameters
 
@@ -101,8 +117,8 @@ python3 -m py_compile "$WORK/main.py"   # validate syntax before uploading
 
 ```bash
 TARBALL_PATH=$(curl -s -X POST \
-  "http://localhost:8000/api/automation/v1/uploads?name=jira-issue-to-pr" \
-  -H "X-Session-API-Key: $OPENHANDS_AUTOMATION_API_KEY" \
+  "${OPENHANDS_HOST}/api/automation/v1/uploads?name=jira-issue-to-pr" \
+  -H "$AUTH_HEADER" \
   -H "Content-Type: application/gzip" \
   --data-binary @/tmp/jira-issue-to-pr.tar.gz \
   | python3 -c "import sys,json; print(json.load(sys.stdin)['tarball_path'])")
@@ -111,8 +127,8 @@ TARBALL_PATH=$(curl -s -X POST \
 ### Step 5 - Create the automation
 
 ```bash
-curl -s -X POST "http://localhost:8000/api/automation/v1" \
-  -H "X-Session-API-Key: $OPENHANDS_AUTOMATION_API_KEY" \
+curl -s -X POST "${OPENHANDS_HOST}/api/automation/v1" \
+  -H "$AUTH_HEADER" \
   -H "Content-Type: application/json" \
   -d "{
     \"name\": \"Jira issue-to-PR Poller\",
@@ -133,12 +149,12 @@ Save the returned `id` - use it for updates and monitoring.
 
 ```bash
 curl -s -X POST \
-  "http://localhost:8000/api/automation/v1/<AUTOMATION_ID>/dispatch" \
-  -H "X-Session-API-Key: $OPENHANDS_AUTOMATION_API_KEY" | python3 -m json.tool
+  "${OPENHANDS_HOST}/api/automation/v1/<AUTOMATION_ID>/dispatch" \
+  -H "$AUTH_HEADER" | python3 -m json.tool
 
 # After ~30 seconds, check the run status:
-curl -s "http://localhost:8000/api/automation/v1/<AUTOMATION_ID>/runs?limit=1" \
-  -H "X-Session-API-Key: $OPENHANDS_AUTOMATION_API_KEY" \
+curl -s "${OPENHANDS_HOST}/api/automation/v1/<AUTOMATION_ID>/runs?limit=1" \
+  -H "$AUTH_HEADER" \
   | python3 -c "import sys,json; r=json.load(sys.stdin)['runs'][0]; print(r['status'], r.get('error_detail'))"
 ```
 
@@ -152,8 +168,8 @@ To change configuration or update the script:
 
 ```bash
 curl -s -X PATCH \
-  "http://localhost:8000/api/automation/v1/<AUTOMATION_ID>" \
-  -H "X-Session-API-Key: $OPENHANDS_AUTOMATION_API_KEY" \
+  "${OPENHANDS_HOST}/api/automation/v1/<AUTOMATION_ID>" \
+  -H "$AUTH_HEADER" \
   -H "Content-Type: application/json" \
   -d "{\"tarball_path\": \"<NEW_TARBALL_PATH>\"}"
 ```
@@ -164,7 +180,7 @@ To reprocess issues that were already handled (e.g., after testing), clear the K
 
 ```bash
 curl -s -X DELETE \
-  "http://localhost:8000/api/automation/v1/<KV_BASE>/v1/kv/state" \
+  "${OPENHANDS_HOST}/api/automation/v1/<KV_BASE>/v1/kv/state" \
   -H "Authorization: Bearer $AUTOMATION_KV_TOKEN"
 ```
 
@@ -178,9 +194,9 @@ The automation script lives at `scripts/main.py`. Key behaviors:
 - **Config file** - reads all parameters from `config.json` co-located with the script.
 - **First-run baseline** - on the very first execution the script writes `first_run_at` (UTC timestamp) into the KV store and exits without dispatching; issues whose `updated` timestamp predates that baseline are skipped on all subsequent runs. Using `updated` (not `created`) means an old issue that has its label applied after deployment is correctly treated as new.
 - **Per-run cap** - `max_new_per_run` (default 5) limits how many conversations are started per cron firing; any remaining new issues are dispatched on the next run.
-- **KV store** - persists `{"processed_keys": [...], "first_run_at": "..."}` between runs; falls back to a local file in dev environments where `AUTOMATION_KV_TOKEN` is absent.
+- **KV store** - persists `{"processed_keys": [...], "first_run_at": "..."}` between runs; falls back to a local file in local dev environments where `AUTOMATION_KV_TOKEN` is absent (on OpenHands Cloud the run fails instead, since its sandbox does not persist).
 - **Jira API** - uses `POST /rest/api/3/search/jql` (the current non-deprecated endpoint).
-- **Conversation dispatch** - calls `POST /api/conversations` on the agent server with the current user's LLM/agent settings forwarded to the new conversation.
+- **Conversation dispatch** - locally, calls `POST /api/conversations` on the agent server with the current user's LLM/agent settings forwarded to the new conversation; on OpenHands Cloud, calls `POST /api/v1/app-conversations`, which runs each conversation in its own sandbox with the user's settings, secrets and connected git provider.
 - **Error transparency** - captures Jira HTTP response bodies in error messages for fast diagnosis.
 
 ## Known Limitations

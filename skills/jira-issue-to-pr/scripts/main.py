@@ -10,8 +10,11 @@ config.json fields:
 
 The target GitHub repository is NOT configured here. Each Jira ticket body must include
 the repo in "owner/repo" format; the spawned agent extracts it from the ticket text.
+
+Runs against a local agent server (AGENT_SERVER_URL is injected) or on OpenHands Cloud
+(OPENHANDS_CLOUD_API_URL / OPENHANDS_API_KEY / SANDBOX_ID are injected instead).
 """
-import base64, json, os, re, sys, tempfile, urllib.error, urllib.request
+import base64, json, os, re, sys, tempfile, urllib.error, urllib.request, uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -25,6 +28,9 @@ JIRA_EMAIL         = _cfg["jira_email"]
 JIRA_TOKEN_SECRET  = _cfg.get("jira_token_secret", "JIRA_CLOUD_KEY")
 JIRA_LABEL         = _cfg.get("jira_label", "create-pr")
 MAX_NEW_PER_RUN    = int(_cfg.get("max_new_per_run", 5))
+
+# Only a local run is handed the agent server's URL.
+IS_LOCAL = bool(os.environ.get("AGENT_SERVER_URL"))
 
 # ── KV store helpers ──────────────────────────────────────────────────────────
 _KV_TOKEN  = os.environ.get("AUTOMATION_KV_TOKEN", "")
@@ -105,10 +111,16 @@ def save_state(state):
 
 # ── Required stdlib helpers ───────────────────────────────────────────────────
 def get_secret(name):
-    url = os.environ.get("AGENT_SERVER_URL", "").rstrip("/")
     key = os.environ.get("SESSION_API_KEY") or os.environ.get("OH_SESSION_API_KEYS_0", "")
+    if IS_LOCAL:
+        url = f"{os.environ['AGENT_SERVER_URL'].rstrip('/')}/api/settings/secrets/{name}"
+    else:
+        # Cloud: the OpenHands Cloud API serves the secrets of this run's sandbox.
+        cloud_url = os.environ.get("OPENHANDS_CLOUD_API_URL", "").rstrip("/")
+        sandbox_id = os.environ.get("SANDBOX_ID", "")
+        url = f"{cloud_url}/api/v1/sandboxes/{sandbox_id}/settings/secrets/{name}"
     with urllib.request.urlopen(urllib.request.Request(
-        f"{url}/api/settings/secrets/{name}", headers={"X-Session-API-Key": key}
+        url, headers={"X-Session-API-Key": key}
     )) as r:
         return r.read().decode().strip()
 
@@ -120,12 +132,15 @@ def fire_callback(status="COMPLETED", error=None):
     body = {"status": status, "run_id": os.environ.get("AUTOMATION_RUN_ID", "")}
     if error:
         body["error"] = error
+    # Cloud runs are not given a callback key; they authenticate with their API key.
+    api_key = (os.environ.get("AUTOMATION_CALLBACK_API_KEY")
+               or os.environ.get("OPENHANDS_API_KEY", ""))
     try:
         urllib.request.urlopen(urllib.request.Request(
             url, data=json.dumps(body).encode(),
             headers={
                 "Content-Type": "application/json",
-                "Authorization": f"Bearer {os.environ.get('AUTOMATION_CALLBACK_API_KEY', '')}",
+                "Authorization": f"Bearer {api_key}",
             }
         ))
     except Exception as e:
@@ -199,6 +214,35 @@ def post_jira_comment(issue_key, auth_header, text):
         print(f"Warning: failed to post Jira comment on {issue_key} ({exc.code}): {body_text[:200]}")
 
 
+def start_cloud_conversation(title, prompt):
+    """Start a conversation through the OpenHands Cloud API and return its URL.
+
+    OpenHands Cloud runs it in its own sandbox with the user's LLM, MCP servers,
+    secrets and connected git provider (e.g. the native GitHub integration).
+    """
+    cloud_url       = os.environ.get("OPENHANDS_CLOUD_API_URL", "").rstrip("/")
+    conversation_id = uuid.uuid4().hex
+    req = urllib.request.Request(
+        f"{cloud_url}/api/v1/app-conversations",
+        data=json.dumps({
+            "conversation_id": conversation_id,
+            "title":           title,
+            "initial_message": {"content": [{"type": "text", "text": prompt}]},
+        }).encode(),
+        headers={
+            "Authorization": f"Bearer {os.environ.get('OPENHANDS_API_KEY', '')}",
+            "Content-Type":  "application/json",
+        },
+    )
+    try:
+        with urllib.request.urlopen(req) as r:
+            r.read()
+    except urllib.error.HTTPError as exc:
+        body_text = exc.read().decode(errors="replace")
+        raise RuntimeError(f"Starting a conversation failed {exc.code}: {body_text[:500]}") from exc
+    return f"{cloud_url}/canvas/conversations/{conversation_id}"
+
+
 # ── Timestamp helpers ─────────────────────────────────────────────────────────
 def _parse_ts(ts):
     """Parse an ISO-8601 timestamp, normalising +HHMM → +HH:MM for Python < 3.11."""
@@ -208,6 +252,12 @@ def _parse_ts(ts):
 
 # ── Main ──────────────────────────────────────────────────────────────────────
 try:
+    # A cloud run starts in a fresh sandbox, so without the KV store the processed
+    # issues (and the first-run baseline) would be forgotten after every run.
+    if not IS_LOCAL and not kv_available():
+        raise RuntimeError("The automation KV store is required on OpenHands Cloud, "
+                           "but AUTOMATION_KV_TOKEN is not set for this run.")
+
     jira_token  = get_secret(JIRA_TOKEN_SECRET)
     auth_header = "Basic " + base64.b64encode(
         f"{JIRA_EMAIL}:{jira_token}".encode()
@@ -248,26 +298,28 @@ try:
         fire_callback("COMPLETED")
         sys.exit(0)
 
-    # Start one agent conversation per new issue via the agent server HTTP API.
-    agent_url   = os.environ.get("AGENT_SERVER_URL", "").rstrip("/")
-    session_key = os.environ.get("SESSION_API_KEY") or os.environ.get("OH_SESSION_API_KEYS_0", "")
+    # Start one agent conversation per new issue: via the agent server HTTP API on a
+    # local run, via the OpenHands Cloud API (start_cloud_conversation) on a cloud run.
+    if IS_LOCAL:
+        agent_url   = os.environ.get("AGENT_SERVER_URL", "").rstrip("/")
+        session_key = os.environ.get("SESSION_API_KEY") or os.environ.get("OH_SESSION_API_KEYS_0", "")
 
-    # Fetch settings with encrypted secrets so llm.api_key is a Fernet token
-    # (starts with gAAAAA) rather than the masked "**********" placeholder.
-    # The conversation payload must include secrets_encrypted: True so the
-    # agent-server decrypts it server-side; we never handle the plaintext key.
-    with urllib.request.urlopen(urllib.request.Request(
-        f"{agent_url}/api/settings",
-        headers={"X-Session-API-Key": session_key, "X-Expose-Secrets": "encrypted"},
-    )) as r:
-        settings = json.loads(r.read())
+        # Fetch settings with encrypted secrets so llm.api_key is a Fernet token
+        # (starts with gAAAAA) rather than the masked "**********" placeholder.
+        # The conversation payload must include secrets_encrypted: True so the
+        # agent-server decrypts it server-side; we never handle the plaintext key.
+        with urllib.request.urlopen(urllib.request.Request(
+            f"{agent_url}/api/settings",
+            headers={"X-Session-API-Key": session_key, "X-Expose-Secrets": "encrypted"},
+        )) as r:
+            settings = json.loads(r.read())
 
-    agent_settings = settings.get("agent_settings", {})
-    agent_settings.pop("schema_version", None)
-    mcp_config = agent_settings.pop("mcp_config", None)
-    ctx = agent_settings.setdefault("agent_context", {})
-    ctx.update({"load_public_skills": True, "load_user_skills": True, "load_project_skills": True})
-    max_iterations = (settings.get("conversation_settings") or {}).get("max_iterations") or 1000
+        agent_settings = settings.get("agent_settings", {})
+        agent_settings.pop("schema_version", None)
+        mcp_config = agent_settings.pop("mcp_config", None)
+        ctx = agent_settings.setdefault("agent_context", {})
+        ctx.update({"load_public_skills": True, "load_user_skills": True, "load_project_skills": True})
+        max_iterations = (settings.get("conversation_settings") or {}).get("max_iterations") or 1000
 
     for issue in new_issues:
         key         = issue["key"]
@@ -297,36 +349,40 @@ Steps:
    - Body  : Reference the Jira issue key and describe the changes made.
 6. Print the PR URL when done.
 """
-        workdir = tempfile.mkdtemp(prefix=f"jira-{key.lower()}-")
-        payload = {
-            "secrets_encrypted":   True,
-            "agent_settings":      agent_settings,
-            "workspace":           {"kind": "LocalWorkspace", "working_dir": workdir},
-            "confirmation_policy": {"kind": "NeverConfirm"},
-            "max_iterations":      max_iterations,
-            "stuck_detection":     True,
-            "autotitle":           True,
-            "worktree":            False,
-            "initial_message": {
-                "role":    "user",
-                "content": [{"type": "text", "text": prompt}],
-                "run":     True,
-            },
-        }
-        if mcp_config:
-            payload["mcp_config"] = mcp_config
+        if IS_LOCAL:
+            workdir = tempfile.mkdtemp(prefix=f"jira-{key.lower()}-")
+            payload = {
+                "secrets_encrypted":   True,
+                "agent_settings":      agent_settings,
+                "workspace":           {"kind": "LocalWorkspace", "working_dir": workdir},
+                "confirmation_policy": {"kind": "NeverConfirm"},
+                "max_iterations":      max_iterations,
+                "stuck_detection":     True,
+                "autotitle":           True,
+                "worktree":            False,
+                "initial_message": {
+                    "role":    "user",
+                    "content": [{"type": "text", "text": prompt}],
+                    "run":     True,
+                },
+            }
+            if mcp_config:
+                payload["mcp_config"] = mcp_config
 
-        conv_req = urllib.request.Request(
-            f"{agent_url}/api/conversations",
-            data=json.dumps(payload).encode(),
-            headers={"Content-Type": "application/json", "X-Session-API-Key": session_key},
-        )
-        with urllib.request.urlopen(conv_req) as r:
-            conv = json.loads(r.read())
+            conv_req = urllib.request.Request(
+                f"{agent_url}/api/conversations",
+                data=json.dumps(payload).encode(),
+                headers={"Content-Type": "application/json", "X-Session-API-Key": session_key},
+            )
+            with urllib.request.urlopen(conv_req) as r:
+                conv = json.loads(r.read())
 
-        conv_id  = conv.get("id")
-        conv_url = f"{agent_url}/conversations/{conv_id}"
-        print(f"✓ Conversation started for {key}: id={conv_id}")
+            conv_id  = conv.get("id")
+            conv_url = f"{agent_url}/conversations/{conv_id}"
+            print(f"✓ Conversation started for {key}: id={conv_id}")
+        else:
+            conv_url = start_cloud_conversation(f"[{key}] {summary}", prompt)
+            print(f"✓ Conversation started for {key}: {conv_url}")
 
         post_jira_comment(key, auth_header, f"I'm on it: {conv_url}")
 
