@@ -1,0 +1,26 @@
+[http] POST http://127.0.0.1:18000/api/canvas-extensions/install 200
+[card-after-install] VS Code /tmp/vsc-head/apps/vscode A managed OpenVSCode editor for the selected Agent Canvas workspace. Disabled v0.1.0 Pages: 1 VS Code Uninstall
+[http] PATCH http://127.0.0.1:18000/api/canvas-extensions/installed/vscode 200
+[http] GET http://127.0.0.1:18000/api/canvas-extensions/installed/vscode/bundle 200
+[card-after-enable] VS Code /tmp/vsc-head/apps/vscode A managed OpenVSCode editor for the selected Agent Canvas workspace. Enabled v0.1.0 Pages: 1 VS Code Uninstall
+[http] GET http://127.0.0.1:18000/api/canvas-extensions/installed/vscode/bundle 200
+[http] GET http://127.0.0.1:18000/api/canvas-extensions/installed/vscode/backend 200
+[setup-panel] VS Code setup Backend status: stopped. Prepare and startRefresh
+[http] POST http://127.0.0.1:18000/api/canvas-extensions/installed/vscode/backend/prepare 200
+[http] POST http://127.0.0.1:18000/api/canvas-extensions/installed/vscode/backend/start 200
+[http] GET http://127.0.0.1:18000/api/canvas-extensions/installed/vscode/backend 200
+[http] POST http://localhost:18000/app-backends/vscode/session 200
+[http] GET http://localhost:18000/app-backends/vscode/ 200
+[iframe] http://localhost:18000/app-backends/vscode/ folder=/workspace/stack/state/demo-folder sandbox=allow-forms allow-modals allow-popups allow-same-origin allow-scripts
+[http] GET http://localhost:18000/app-backends/vscode/ 200
+[workbench] monaco-workbench rendered; explorer lists HELLO_FROM_HEAD.md
+[iframe-box] {"x":300,"y":0,"width":1140,"height":900}
+[pageerror] Could not register service workers: NotSupportedError: Failed to register a ServiceWorker for scope ('https://1qhrvu7vtfpnta1nj1egr0nedf96a2f757aiuea2or6s78go04lt.vscode-cdn.net/insider/ef65ac1ba57f57f2a3961bfe94aa20481caca4c6/out/vs/workbench/contrib/webview/browser/pre/') with script ('https://1qhrvu7vtfpnta1nj1egr0nedf96a2f757aiuea2or6s78go04lt.vscode-cdn.net/insider/ef65ac1ba57f57f
+[http] GET http://localhost:18000/app-backends/vscode/stable-072586267e68ece9a47aa43f8c108e0dcbf44622/static/node_modules/vscode-oniguruma/release/onig.wasm 200
+[http] GET http://localhost:18000/app-backends/vscode/stable-072586267e68ece9a47aa43f8c108e0dcbf44622/static/node_modules/vscode-textmate/release/main.js 200
+[http] GET http://localhost:18000/app-backends/vscode/stable-072586267e68ece9a47aa43f8c108e0dcbf44622/static/node_modules/vscode-oniguruma/release/main.js 200
+[editor] # head
+[http] GET http://localhost:18000/app-backends/vscode/stable-072586267e68ece9a47aa43f8c108e0dcbf44622/static/node_modules/vscode-textmate/release/main.js 200
+[http] GET http://localhost:18000/app-backends/vscode/stable-072586267e68ece9a47aa43f8c108e0dcbf44622/static/node_modules/vscode-oniguruma/release/main.js 200
+[http] GET http://localhost:18000/app-backends/vscode/stable-072586267e68ece9a47aa43f8c108e0dcbf44622/static/node_modules/vscode-oniguruma/release/onig.wasm 200
+[disk-after-save] "# head\nsaved-from-canvas-head"
