@@ -20,9 +20,12 @@ formats, and pull request tools.
 This hub triggers broadly (on `git`/`bitbucket`) so it loads for any Bitbucket task — even
 when the words "data center" never appear. It then:
 
-1. **Detects** the environment by checking which token variable is present
-   (`BITBUCKET_DATA_CENTER_TOKEN` → Data Center, else `BITBUCKET_TOKEN` → Cloud). The check
-   is case-insensitive so it is robust to env-var casing differences.
+1. **Detects** the environment. It checks for an authenticated Bitbucket MCP connection
+   first; when MCP is unavailable it falls back to the token variable
+   (`BITBUCKET_DATA_CENTER_TOKEN` → Data Center, else `BITBUCKET_TOKEN` → Cloud). The token
+   check is case-insensitive so it is robust to env-var casing differences. If neither an
+   MCP connection nor a token is available, it asks the user to authenticate rather than
+   guessing the product.
 2. **Hands off** to the matching detailed skill via the `invoke_skill` tool:
    - Bitbucket Cloud → [`bitbucket-cloud`](../bitbucket-cloud/)
    - Bitbucket Data Center → [`bitbucket-data-center`](../bitbucket-data-center/)

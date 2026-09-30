@@ -36,14 +36,19 @@ MCP server name or tool name is required. When MCP tools are available, prefer t
 token/direct-API flows in the detailed skills remain the correct path when MCP is
 unavailable or when you explicitly need raw API/curl access.
 
-The detection steps below determine which product you are on (Cloud vs Data Center) for
-the token path; if you are using an MCP server, product detection is handled by the MCP
-tools themselves.
+The detection steps below determine which product you are on (Cloud vs Data Center). They
+check for an authenticated Bitbucket MCP connection first; only when MCP is unavailable do
+they fall back to the token environment variables. If neither is available, ask the user to
+authenticate (per the No-authentication option above) rather than assuming a product.
 
 ## Step 1 - Detect which Bitbucket you are on
 
-Check which token environment variable is present. Environment variable names are
-case-sensitive, so look for it case-insensitively:
+First check for an authenticated Bitbucket MCP connection. If Bitbucket MCP tools are
+available in the environment, you already have an authenticated path - use it directly, and
+treat the connected product (Cloud or Data Center) as the detected environment.
+
+If no Bitbucket MCP tools are available, detect the product from the token environment
+variable. Environment variable names are case-sensitive, so look for it case-insensitively:
 
 ```bash
 env | grep -i 'bitbucket' || echo "no bitbucket token found"
@@ -52,7 +57,9 @@ env | grep -i 'bitbucket' || echo "no bitbucket token found"
 - If a **`BITBUCKET_DATA_CENTER_TOKEN`** variable is set (in any letter case) → you are on
   **Bitbucket Data Center**.
 - Otherwise, if a **`BITBUCKET_TOKEN`** variable is set → you are on **Bitbucket Cloud**.
-- If neither is set, ask the user how they authenticate to Bitbucket before proceeding.
+- If neither an MCP connection nor a token is available, ask the user to either connect a
+  Bitbucket OAuth MCP server in Canvas or provide the relevant token as a Secret before
+  proceeding (do not guess the product).
 
 When you reference the token later, use the exact variable name (and letter case) that
 actually exists in the environment.
@@ -60,7 +67,9 @@ actually exists in the environment.
 ## Step 2 - Load the detailed skill
 
 Once you know the environment, use the `invoke_skill` tool to load the matching skill for
-full instructions on API calls, authenticated git remotes, and opening pull requests:
+full instructions on API calls, authenticated git remotes, and opening pull requests. The
+detailed skills also carry the MCP-first guidance, so load the matching one even when you
+plan to use MCP, and prefer the MCP tools it documents when available:
 
 - Bitbucket Cloud → invoke the **`bitbucket-cloud`** skill.
 - Bitbucket Data Center → invoke the **`bitbucket-data-center`** skill.
