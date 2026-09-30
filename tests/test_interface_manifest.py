@@ -96,6 +96,22 @@ def test_featured_automations_resolve_to_catalog_entries():
             "a status filter without the all option",
             lambda doc: doc["pages"]["list"]["filters"][0]["options"].pop(0),
         ),
+        (
+            "a creator filter without the all option",
+            lambda doc: doc["pages"]["list"]["filters"][2]["options"].pop(0),
+        ),
+        (
+            "a creator filter value the host does not implement",
+            lambda doc: doc["pages"]["list"]["filters"][2]["options"].append(
+                {"value": "team", "label": "My team"}
+            ),
+        ),
+        (
+            "more filters than the host renders",
+            lambda doc: doc["pages"]["list"]["filters"].append(
+                {**doc["pages"]["list"]["filters"][0], "label": "Filter again"}
+            ),
+        ),
     ],
 )
 def test_schema_rejects(case, mutation):
