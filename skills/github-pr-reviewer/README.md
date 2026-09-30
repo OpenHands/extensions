@@ -12,7 +12,43 @@ This skill is activated by:
 ## Features
 
 - Reviews PRs on demand from a GitHub reviewer request or label event
+- Gates each scheduled review on the current head's GitHub-required checks
+  before starting an agent, read through the `isRequired` signal, so an optional
+  workflow that fails cannot block a mergeable head: a completed `failure`,
+  `cancelled`, or `timed_out` required check blocks the review, and a `queued`,
+  `in_progress`, or not-yet-reported required check exits with a clear
+  waiting-on-checks outcome instead of holding a slot. If the required-check
+  signal is unavailable the gate falls back to every current-head check run and
+  workflow run, including a workflow that fails before creating any check run
+- Dispatches an explicit `all-hands-bot` review request even when required CI is
+  red or pending; the CI gate applies to scheduled discovery
+- Ignores checks and workflow runs recorded for an obsolete head, so a stale
+  failure cannot block the push that fixed it
+- Explicit reviewer requests include draft PRs in both event mode and scheduled
+  scans; drafts without a request or trigger label remain excluded
+- Resumes an outstanding reviewer request on the next scheduled scan once the
+  requested head's checks are green, so a request that arrives during CI is not
+  lost; the explicit-request event path is kept for event-only deployments
+- Reviews open, non-draft PRs that nobody requested on a scheduled scan once
+  their current head is green and carries no review yet, keyed by
+  repository/PR/head so a repeat scan never duplicates a conversation or review
+  and a changed head becomes eligible again
+- Examines the whole unrequested backlog on each scheduled scan, while the
+  global `max_new_per_run` quota limits only newly created review conversations;
+  blocked or pending heads consume no launch slot
+- Posts no managed gate comment for an unrequested PR that is merely red or
+  pending - the comment answers an explicit request, so a scan over a large
+  backlog cannot storm the PRs with comments
+- Names the retry the deployment actually has in the waiting comment: a
+  scheduled scan where a cron trigger exists, and removing and re-requesting the
+  bot where only the event trigger does
+- Rewrites its own managed gate comment in place when the retry wording changes,
+  so switching a deployment from the event trigger to a cron scan updates the
+  outstanding-request explanation instead of leaving the old instruction
 - Watches several repositories from a single automation, each with its own state
+- Bounds a scheduled scan to a small, configurable number of new review
+  conversations across all repositories (default 2), draining the oldest
+  outstanding reviewer requests first and reaching the rest on later scans
 - Processes each review request or label application idempotently
 - Supports re-review by requesting the bot again or re-applying the label. Each
   explicit request refreshes mutable GitHub state (head, PR body, reviews,

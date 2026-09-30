@@ -165,6 +165,122 @@ class GitHubRepository:
             result.setdefault(item["context"], item["state"])
         return result
 
+    def check_runs(self, sha):
+        """Return every check run GitHub reported for one commit SHA.
+
+        Reading check runs needs no branch-protection or ruleset access, so this
+        is the head-eligibility signal the automation's own token can always
+        see. The endpoint answers with an object rather than a list, so it
+        paginates through ``gh`` instead of ``gh_pages``.
+        """
+        runs = []
+        for page in range(1, 101):
+            data = self.gh(
+                "GET", f"/commits/{sha}/check-runs?per_page=100&page={page}"
+            )
+            batch = data.get("check_runs") or []
+            runs.extend(batch)
+            if len(runs) >= int(data.get("total_count") or 0) or not batch:
+                return runs
+        raise RuntimeError("GitHub check-run pagination exceeded limit")
+
+    def required_check_contexts(self, number):
+        """Return the status contexts GitHub marks required on one pull request.
+
+        `isRequired` is the merge-policy source of truth and is PR-scoped, so it
+        is correct for a stacked PR whose symbolic base branch carries no branch
+        rules of its own. It is a field on each context in the head's status
+        check rollup and takes the pull request number, so a single GraphQL query
+        answers with the required check runs and any required commit statuses,
+        each already attributed to the exact head. Only contexts GitHub itself
+        reports as required are returned, so an optional workflow that fails
+        before creating any check run is not present.
+        """
+        owner, name = self.repository.split("/", 1)
+        query = (
+            "query($owner:String!,$name:String!,$number:Int!){"
+            "repository(owner:$owner,name:$name){"
+            "pullRequest(number:$number){"
+            "commits(last:1){"
+            "nodes{"
+            "commit{"
+            "statusCheckRollup{"
+            "contexts(first:100){"
+            "pageInfo{hasNextPage}"
+            "nodes{"
+            "__typename"
+            " ... on CheckRun{name isRequired(pullRequestNumber:$number)}"
+            " ... on StatusContext{context isRequired(pullRequestNumber:$number)}"
+            "}"
+            "}"
+            "}"
+            "}"
+            "}"
+            "}"
+            "}"
+            "}"
+            "}"
+        )
+        data = self.api(
+            "POST",
+            "/graphql",
+            body={
+                "query": query,
+                "variables": {"owner": owner, "name": name, "number": number},
+            },
+        )
+        if data.get("errors"):
+            raise RuntimeError(
+                f"GitHub required-check query failed: {data['errors'][0].get('message')}"
+            )
+        nodes = (
+            (((data.get("data") or {}).get("repository") or {}).get("pullRequest") or {})
+            .get("commits", {})
+            .get("nodes")
+        ) or []
+        contexts = (
+            ((nodes[0].get("commit") or {}).get("statusCheckRollup") or {}).get(
+                "contexts", {}
+            )
+            if nodes
+            else {}
+        )
+        if (contexts.get("pageInfo") or {}).get("hasNextPage"):
+            raise RuntimeError(
+                "GitHub required-check rollup exceeds one page; the required "
+                "set may be incomplete"
+            )
+        return [
+            {
+                "name": node.get("name") or node.get("context"),
+                "kind": node.get("__typename"),
+            }
+            for node in (contexts.get("nodes") or [])
+            if node.get("isRequired") and (node.get("name") or node.get("context"))
+        ]
+
+    def workflow_runs(self, sha):
+        """Return every Actions workflow run GitHub reported for one commit SHA.
+
+        A workflow that fails before any job starts - a workflow-level error, or
+        a `pull_request` run whose jobs never materialize - still records a
+        failed check suite, but it contributes no check runs, so the commit's
+        check-run rollup and `gh pr checks` both report success. Reading the
+        workflow runs directly is the only way the gate can see that failure.
+        Like the check-run endpoint this answers with an object, so it paginates
+        manually.
+        """
+        runs = []
+        for page in range(1, 101):
+            data = self.gh(
+                "GET", f"/actions/runs?head_sha={sha}&per_page=100&page={page}"
+            )
+            batch = data.get("workflow_runs") or []
+            runs.extend(batch)
+            if len(runs) >= int(data.get("total_count") or 0) or not batch:
+                return runs
+        raise RuntimeError("GitHub workflow-run pagination exceeded limit")
+
     def completed_dependency(self, number):
         if number in self._completed_dependencies:
             return self._completed_dependencies[number]

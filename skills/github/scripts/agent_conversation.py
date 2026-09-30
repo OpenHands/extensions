@@ -79,7 +79,21 @@ class AgentConversationDispatcher:
         assert self._workspace is not None
         return self._workspace.__exit__(*args)
 
-    def deliver(self, subject: str, delivery: str, prompt: str) -> dict[str, str]:
+    def deliver(
+        self, subject: str, delivery: str, prompt: str, head: str = ""
+    ) -> dict[str, str]:
+        """Deliver one revision of `subject`, deduping a repeated head.
+
+        `delivery` keys the revision: a second trigger for the same revision
+        reuses the conversation without a new turn, and a changed head becomes a
+        new delivery. `head` is the revision's commit, and it is the guard that
+        matters when two triggers name the same commit - a re-request after the
+        bot's own handoff, say - because a delivery key that only counts triggers
+        would send a second turn and publish a second review of identical code.
+        A conversation already running for this head is reported `in_progress`
+        and left alone, whatever the new delivery says. Callers with no revision
+        identity leave `head` empty and keep the delivery-key-only behavior.
+        """
         conversation_id = uuid5(NAMESPACE_URL, f"{self.automation_id}:{subject}")
         state_key = f"{_CONVERSATION_KEY_PREFIX}{conversation_id}"
         record = _kv_request(state_key, "GET") or {}
@@ -87,6 +101,7 @@ class AgentConversationDispatcher:
             raise RuntimeError("AgentConversationDispatcher must be used as a context")
 
         same_delivery = record.get("delivery") == delivery
+        same_head = bool(head) and record.get("head") == head
 
         try:
             conversation = RemoteConversation.attach(
@@ -112,14 +127,18 @@ class AgentConversationDispatcher:
             disposition = "created"
         try:
             if disposition == "resumed":
-                if same_delivery:
-                    if (
-                        conversation.state.execution_status
-                        == ConversationExecutionStatus.RUNNING
-                    ):
-                        conversation.update_secrets(self._secrets)
-                        disposition = "in_progress"
-                    elif conversation.state.execution_status in (
+                running = (
+                    conversation.state.execution_status
+                    == ConversationExecutionStatus.RUNNING
+                )
+                if running and (same_delivery or same_head):
+                    # A turn is already running for this very revision, so a new
+                    # trigger is not new work: report the live conversation
+                    # rather than starting a second pass beside it.
+                    conversation.update_secrets(self._secrets)
+                    disposition = "in_progress"
+                elif same_delivery:
+                    if conversation.state.execution_status in (
                         ConversationExecutionStatus.IDLE,
                         ConversationExecutionStatus.PAUSED,
                     ):
@@ -128,6 +147,9 @@ class AgentConversationDispatcher:
                     else:
                         disposition = "deduplicated"
                 else:
+                    # A changed head, or a head a human clarified since, is new
+                    # work on the same subject: reuse the conversation and send
+                    # the revision as its next turn.
                     conversation.update_secrets(self._secrets)
                     conversation.send_message(prompt)
                     conversation.run(blocking=False)
@@ -147,6 +169,7 @@ class AgentConversationDispatcher:
                 "subject": subject,
                 "conversation_id": str(conversation_id),
                 "delivery": delivery,
+                "head": head or record.get("head") or "",
             },
         )
         return {
