@@ -271,7 +271,12 @@ def settle_cloud_starts(state, processed_keys, auth_header):
     if not pending:
         return
     query = "&".join(f"ids={entry['task_id']}" for entry in pending.values())
-    tasks = _cloud_request("GET", f"/api/v1/app-conversations/start-tasks?{query}")
+    try:
+        tasks = _cloud_request("GET", f"/api/v1/app-conversations/start-tasks?{query}")
+    except RuntimeError as exc:
+        # Confirming earlier starts must not keep this run from polling Jira.
+        print(f"Warning: could not confirm earlier conversation starts: {exc}")
+        return
     if not isinstance(tasks, list):
         return  # not the answer expected; leave them for the next run
     by_id = {task["id"]: task for task in tasks if task}
