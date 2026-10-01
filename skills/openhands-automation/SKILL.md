@@ -652,7 +652,7 @@ curl -X POST "${OPENHANDS_HOST}/api/automation/v1/webhooks" \
     "signature_header": "X-Hub-Signature"
   }'
 
-# Response includes webhook_url and the generated webhook_secret — configure both in Jira:
+# Response includes webhook_url and the generated webhook_secret - configure both in Jira:
 # Jira settings → System → WebHooks → Create a WebHook → paste the webhook_url and the
 # secret, then select the issue events. A JQL filter such as `labels = create-pr` keeps
 # unrelated issues from being sent at all.
@@ -660,7 +660,9 @@ curl -X POST "${OPENHANDS_HOST}/api/automation/v1/webhooks" \
 # 2. Create an automation for issues that receive a label
 #    The filter matches an issue created with the label and an update that changes the
 #    labels of an issue carrying it. Without the changelog check, every later edit of a
-#    labelled issue would start another run.
+#    labelled issue would start another run. It still fires when another label is added
+#    to or removed from an issue that carries the label, so have the prompt skip an
+#    issue that already has a pull request.
 curl -X POST "${OPENHANDS_HOST}/api/automation/v1/preset/prompt" \
   -H "Authorization: Bearer ${OPENHANDS_API_KEY}" \
   -H "Content-Type: application/json" \

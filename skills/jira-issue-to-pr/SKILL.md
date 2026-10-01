@@ -192,7 +192,9 @@ an account with the **Administer Jira** permission, stored as an OpenHands secre
    (`source` `jira`, `webhookEvent`, `X-Hub-Signature`), creates the Jira webhook for
    *Issue created* and *Issue updated* limited to `labels = "create-pr"`, and sends one
    signed test request. `"signed_delivery_check": "ok"` in its output means the pair works.
-   Running it again rotates the secret and updates both sides in place.
+   Running it again updates the Jira webhook in place and keeps the secret, so a
+   failure half way cannot break a working pair. Add `--rotate-secret` when the two
+   sides have drifted apart, for instance after the deployment was reinstalled.
 
    The secret is generated inside the script and is never printed. Do not ask the user
    for it, and do not try to read or echo it.
@@ -218,6 +220,8 @@ Create the automation with this trigger:
 Jira sends labels as plain strings, so the filter reads `issue.fields.labels`, not
 `issue.fields.labels[].name`. The `changelog` check limits updates to those that
 change the labels; without it every later edit of a labelled issue starts another run.
+It still fires when another label is added to or removed from an issue that
+carries the label, so have the prompt skip an issue that already has a pull request.
 
 To verify, add the label to an issue and check the automation's runs.
 
@@ -285,6 +289,7 @@ The automation script lives at `scripts/main.py`. Key behaviors:
 - **KV store** - persists `{"processed_keys": [...], "first_run_at": "..."}` between runs; falls back to a local file in local dev environments where `AUTOMATION_KV_TOKEN` is absent (on OpenHands Cloud the run fails instead, since its sandbox does not persist).
 - **Jira API** - uses `POST /rest/api/3/search/jql` (the current non-deprecated endpoint).
 - **Conversation dispatch** - locally, calls `POST /api/conversations` on the agent server with the current user's LLM/agent settings forwarded to the new conversation; on OpenHands Cloud, calls `POST /api/v1/app-conversations`, which runs each conversation in its own sandbox with the user's settings, secrets and connected git provider.
+- **Start confirmation** (OpenHands Cloud only) - the API answers a start request before the conversation exists, so the next run checks each one. A start that failed is made again, up to three times, and after that the failure is posted on the Jira issue.
 - **Error transparency** - captures Jira HTTP response bodies in error messages for fast diagnosis.
 
 `scripts/setup_webhook.py` belongs to the [event-based alternative](#event-based-alternative) and is not part of the poller's tarball. It is stdlib-only, reads `OPENHANDS_API_KEY` and the Jira API token from the environment, and prints a JSON summary that never contains the signing secret.

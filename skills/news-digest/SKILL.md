@@ -4,8 +4,8 @@ description: >
   Create an automation that reads a list of public RSS and Atom feeds on a
   schedule - daily by default - keeps what is new and matches the configured
   topics, and has an agent write a short digest of it. It needs no credentials:
-  the feeds are public URLs and the conversation is started with no secrets and
-  no MCP servers.
+  the feeds are public URLs and, on a local Agent Canvas, the conversation is
+  started with no secrets and no MCP servers.
 triggers:
   - /news-digest:setup
 ---
@@ -248,6 +248,9 @@ shipped one and then:
    with the stories **and the topics** in its prompt, an empty secrets payload
    and no MCP servers, working in `{WORKSPACE_BASE}/news-digest/{date}`. The
    agent decides which stories are relevant before it writes anything.
+   On OpenHands Cloud and Enterprise the conversation is started through
+   the OpenHands API instead, in a sandbox of its own and with the user's own
+   settings, so there it does hold the user's secrets and MCP servers.
 7. When the conversation reaches `idle`, `finished`, `error` or `stuck`:
    - reads `digest.md` from the working directory, falling back to the agent's
      final message;
