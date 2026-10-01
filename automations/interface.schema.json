@@ -427,7 +427,7 @@
       }
     },
     "createdByFilter": {
-      "description": "The creator filter. Like the status filter, values name host-implemented predicates: me matches automations the signed-in user created, others every other automation, including one with no recorded creator. The host decides where the filter is shown and may hide it where every automation is the signed-in user's.",
+      "description": "The creator filter. Like the status filter, values name host-implemented predicates: me matches automations the signed-in user created, others every other automation. The host decides where the filter is shown and may hide it where every automation is the signed-in user's.",
       "type": "object",
       "additionalProperties": false,
       "required": ["id", "label", "options"],
