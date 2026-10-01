@@ -1,1 +1,10 @@
-[]
+[
+  {
+    "id": "vscode",
+    "name": "VS Code",
+    "description": "A managed full-height OpenVSCode editor for the selected Agent Canvas workspace.",
+    "source": "./apps/vscode",
+    "manifest": "./apps/vscode/canvas-extension.json",
+    "beta": true
+  }
+]

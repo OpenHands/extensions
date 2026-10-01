@@ -6,7 +6,7 @@ Apps are installable interfaces that bring dashboards, internal tools, and workf
 
 Each App occupies one directory under `apps/` and is a self-contained Canvas Extension package:
 
-- `canvas-extension.json` declares the package and its routed pages, following the manifest schema 1 documented in `skills/canvas-extension-api/references/v1-contract.md`. Schema 1 has no backend field: an App that needs a separately installed service ships that service as a Sidecar and presents its own onboarding, per `skills/canvas-extension-api/references/sidecar-pattern.md`.
+- `canvas-extension.json` declares the package, its routed pages, and an optional package-owned managed backend, following the manifest schema 1 documented in `skills/canvas-extension-api/references/v1-contract.md`. An App that needs a service either declares that managed `backend` or ships a manual/deployment-owned Sidecar, per `skills/canvas-extension-api/references/sidecar-pattern.md`.
 - The manifest's `entrypoint` is a browser ESM module that exports `activate(host)`.
 - App-specific documentation and assets may live beside the manifest and entrypoint.
 - Build output must remain self-contained: browser entrypoints must not import package dependencies at runtime.

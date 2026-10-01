@@ -12,6 +12,8 @@
     "build:skills": "node scripts/build-skills-catalog.mjs",
     "build:integrations": "node scripts/build-integration-catalog.mjs",
     "build:automations": "node scripts/build-automation-catalog.mjs",
+    "build:vscode-app": "node apps/vscode/scripts/package.mjs",
+    "test:vscode-app": "node tests/vscode-app.test.mjs",
     "build": "npm run build:skills && npm run build:integrations && npm run build:automations"
   },
   "engines": {
