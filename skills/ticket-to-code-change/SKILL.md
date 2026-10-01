@@ -40,9 +40,12 @@ Ask the user for:
    dependency status, repository, base branch, and provider-specific request
    terminology. Require the agent to run the repository's tests before opening
    the pull request or merge request.
-5. Create the automation through the Automation backend described in
-   `<RUNTIME_SERVICES>`. Use its prompt-preset endpoint and authenticate with
-   the runtime-provided automation API key.
+5. Create the automation through the Automation backend's prompt-preset
+   endpoint. On OpenHands Cloud or Enterprise the backend is the `<HOST>` value
+   in your system prompt, authenticated with
+   `Authorization: Bearer $OPENHANDS_API_KEY`. On a local Agent Canvas it is the
+   Automation backend described in `<RUNTIME_SERVICES>`, authenticated with the
+   runtime-provided automation API key.
 6. Configure the automation to post the OpenHands conversation URL immediately
    and the resulting pull-request or merge-request URL back to the ticket.
 

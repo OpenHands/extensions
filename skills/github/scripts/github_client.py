@@ -12,24 +12,60 @@ from urllib.parse import parse_qsl, urlencode, urlsplit
 from urllib.request import Request, urlopen
 
 
+# The secret name of the GitHub token an OpenHands Cloud or Enterprise user's
+# connected GitHub integration provides: how this run's sandbox serves it, and
+# how a conversation sees it in its environment.
+CLOUD_GITHUB_TOKEN_SECRET = "github_token"
+CLOUD_GITHUB_TOKEN_ENV = "GITHUB_TOKEN"
+
+
+def is_cloud_run() -> bool:
+    """Whether this run is on OpenHands Cloud or Enterprise.
+
+    The automation service hands a run the Agent Server URL only on a local
+    Agent Canvas; elsewhere the run talks to the OpenHands API instead.
+    """
+    return not os.environ.get("AGENT_SERVER_URL")
+
+
+def _load_cloud_secret(name: str) -> str | None:
+    """Read one named secret of this run's sandbox from the OpenHands API."""
+    api = os.environ["OPENHANDS_CLOUD_API_URL"].rstrip("/")
+    request = Request(
+        f"{api}/api/v1/sandboxes/{os.environ['SANDBOX_ID']}/settings/secrets/{name}",
+        headers={"X-Session-API-Key": os.environ["SESSION_API_KEY"]},
+    )
+    try:
+        with urlopen(request, timeout=90) as response:
+            return response.read().decode().strip()
+    except HTTPError as exc:
+        if exc.code == 404:
+            return None
+        raise
+
+
 def _load_secret(name: str) -> str:
-    """Read one named secret from the environment or configured Agent Server."""
+    """Read one named secret from the environment, or from the configured Agent
+    Server on a local run and the OpenHands API on a cloud one."""
     value = os.environ.get(name)
     if value:
         return value
 
-    from openhands.sdk.workspace import RemoteWorkspace
+    if is_cloud_run():
+        value = _load_cloud_secret(name)
+    else:
+        from openhands.sdk.workspace import RemoteWorkspace
 
-    workspace = RemoteWorkspace(
-        host=os.environ["AGENT_SERVER_URL"],
-        api_key=os.environ["SESSION_API_KEY"],
-        working_dir=os.environ.get("WORKSPACE_BASE", "/workspace"),
-    )
-    try:
-        secret = workspace.get_secrets([name]).get(name)
-        value = secret.get_value() if secret else None
-    finally:
-        workspace.reset_client()
+        workspace = RemoteWorkspace(
+            host=os.environ["AGENT_SERVER_URL"],
+            api_key=os.environ["SESSION_API_KEY"],
+            working_dir=os.environ.get("WORKSPACE_BASE", "/workspace"),
+        )
+        try:
+            secret = workspace.get_secrets([name]).get(name)
+            value = secret.get_value() if secret else None
+        finally:
+            workspace.reset_client()
     if not value:
         raise ValueError(f"The GitHub credential {name} is unavailable")
     return value
@@ -95,11 +131,22 @@ class GitHubRepository:
                 "Expected the environment variable containing the GitHub token"
             )
         self.token_name = github_token_secret
-        self.token = _load_secret(github_token_secret)
+        try:
+            self.token = _load_secret(github_token_secret)
+        except ValueError:
+            if not is_cloud_run():
+                raise
+            # No secret is saved under that name, so use the user's connected
+            # GitHub integration, under the name a conversation sees it by.
+            self.token = _load_cloud_secret(CLOUD_GITHUB_TOKEN_SECRET)
+            if not self.token:
+                raise
+            self.token_name = CLOUD_GITHUB_TOKEN_ENV
         self.conversation = conversation
         self.conversation_id = str(conversation.id) if conversation else None
         self.dispatcher = dispatcher
-        self.workspace = Path(os.environ["WORKSPACE_BASE"])
+        # A cloud run is not given a workspace base; its sandbox has /workspace.
+        self.workspace = Path(os.environ.get("WORKSPACE_BASE", "/workspace"))
         self.project = self.workspace
         self.evidence = self.workspace / "evidence"
         self.evidence.mkdir(exist_ok=True)
