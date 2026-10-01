@@ -624,11 +624,63 @@ curl -X POST "${OPENHANDS_HOST}/api/automation/v1/preset/prompt" \
   }'
 ```
 
+### Custom Webhook Example: Jira Cloud
+
+Jira Cloud sends webhooks with:
+- Signature header: `X-Hub-Signature` (`sha256=` followed by the hex HMAC-SHA256 of the body), sent only when the webhook has a secret
+- Event type in payload: `webhookEvent` field (e.g., `jira:issue_created`, `jira:issue_updated`)
+- Labels as plain strings: `issue.fields.labels` is `["create-pr"]`, not a list of objects, so `issue.fields.labels[].name` matches nothing
+- On an update, a `changelog.items` list naming each changed `field`
+
+Only a webhook a Jira admin registers (Jira settings → System → WebHooks, or the REST API) can carry a secret. The "Send web request" action of a Jira Automation rule cannot sign its request, so it cannot deliver to a custom webhook.
+
+```bash
+# 1. Register the Jira webhook
+#    - Use "X-Hub-Signature" as the signature header
+#    - Use "webhookEvent" to extract the event type from the payload
+#    - Omit webhook_secret to have one generated, or pass the one Jira generated
+curl -X POST "${OPENHANDS_HOST}/api/automation/v1/webhooks" \
+  -H "Authorization: Bearer ${OPENHANDS_API_KEY}" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Jira Cloud",
+    "source": "jira",
+    "event_key_expr": "webhookEvent",
+    "signature_header": "X-Hub-Signature"
+  }'
+
+# Response includes webhook_url and the generated webhook_secret — configure both in Jira:
+# Jira settings → System → WebHooks → Create a WebHook → paste the webhook_url and the
+# secret, then select the issue events. A JQL filter such as `labels = create-pr` keeps
+# unrelated issues from being sent at all.
+
+# 2. Create an automation for issues that receive a label
+#    The filter matches an issue created with the label and an update that changes the
+#    labels of an issue carrying it. Without the changelog check, every later edit of a
+#    labelled issue would start another run.
+curl -X POST "${OPENHANDS_HOST}/api/automation/v1/preset/prompt" \
+  -H "Authorization: Bearer ${OPENHANDS_API_KEY}" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Jira Issues Labelled create-pr",
+    "prompt": "A Jira issue received the create-pr label. Read the issue from the event payload and open a pull request for it.",
+    "trigger": {
+      "type": "event",
+      "source": "jira",
+      "on": ["jira:issue_created", "jira:issue_updated"],
+      "filter": "contains(issue.fields.labels, '\''create-pr'\'') && (webhookEvent == '\''jira:issue_created'\'' || length(changelog.items[?field == '\''labels'\''] || `[]`) > `0`)"
+    }
+  }'
+```
+
+An unsigned request to the webhook URL answers `401 Missing signature header: X-Hub-Signature`; that is the webhook working, not a fault. `404 Unknown webhook source` means no webhook with that source is registered for the organization in the URL.
+
 ### Common Signature Headers by Service
 
 | Service | Signature Header | Event Key Expression |
 |---------|-----------------|---------------------|
 | Linear | `Linear-Signature` | `type` |
+| Jira Cloud | `X-Hub-Signature` | `webhookEvent` |
 | Stripe | `Stripe-Signature` | `type` |
 | Slack | `X-Slack-Signature` | `type` |
 | Twilio | `X-Twilio-Signature` | `type` |

@@ -158,6 +158,48 @@ curl -s "${OPENHANDS_HOST}/api/automation/v1/<AUTOMATION_ID>/runs?limit=1" \
   | python3 -c "import sys,json; r=json.load(sys.stdin)['runs'][0]; print(r['status'], r.get('error_detail'))"
 ```
 
+## Event-Based Alternative
+
+Where Jira can reach the deployment over the internet (OpenHands Cloud and Enterprise),
+Jira can push label events instead of being polled. That is a different automation from
+the poller above: a prompt automation triggered by a Jira webhook, created with the
+`openhands-automation` skill (see its "Custom Webhook Example: Jira Cloud").
+`scripts/main.py` is not used, so its KV-backed deduplication and its "I'm on it"
+comment do not apply; the prompt has to ask for whatever of that is wanted.
+
+1. **Register the webhook** with `"source": "jira"`, `"event_key_expr": "webhookEvent"`
+   and `"signature_header": "X-Hub-Signature"`. The defaults (`type`, `X-Signature-256`)
+   do not fit Jira: deliveries are refused with 401, or accepted and never matched.
+2. **Configure Jira** - a Jira admin creates the webhook under Jira settings → System →
+   WebHooks with the returned `webhook_url` and secret, the *Issue created* and
+   *Issue updated* events, and a JQL filter such as `labels = create-pr`. A Jira
+   Automation rule cannot be used instead: its "Send web request" action is not signed.
+3. **Create the automation** with this trigger:
+
+   ```json
+   {
+     "type": "event",
+     "source": "jira",
+     "on": ["jira:issue_created", "jira:issue_updated"],
+     "filter": "contains(issue.fields.labels, 'create-pr') && (webhookEvent == 'jira:issue_created' || length(changelog.items[?field == 'labels'] || `[]`) > `0`)"
+   }
+   ```
+
+   Jira sends labels as plain strings, so the filter reads `issue.fields.labels`, not
+   `issue.fields.labels[].name`. The `changelog` check limits updates to those that
+   change the labels; without it every later edit of a labelled issue starts another run.
+4. **Verify** - add the label to an issue and check the automation's runs. To test
+   without Jira, sign a request the way Jira does:
+
+   ```bash
+   BODY='{"webhookEvent":"jira:issue_created","issue":{"key":"TEST-1","fields":{"labels":["create-pr"]}}}'
+   SIG=$(printf '%s' "$BODY" | openssl dgst -sha256 -hmac "$WEBHOOK_SECRET" | awk '{print $NF}')
+   curl -s -X POST "<webhook_url>" -H "Content-Type: application/json" \
+     -H "X-Hub-Signature: sha256=$SIG" -d "$BODY"
+   ```
+
+   `"matched": 1` in the response means the trigger fired and a run was started.
+
 ## Updating an Existing Deployment
 
 To change configuration or update the script:
