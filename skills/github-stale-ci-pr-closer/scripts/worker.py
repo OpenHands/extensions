@@ -127,12 +127,16 @@ def complete_run(status="COMPLETED", error=None):
     body = {"status": status, "run_id": os.environ.get("AUTOMATION_RUN_ID", "")}
     if error:
         body["error"] = error
+    # A run on OpenHands Cloud or Enterprise is not given a callback key; it
+    # authenticates with its API key.
+    api_key = os.environ.get("AUTOMATION_CALLBACK_API_KEY") or os.environ.get(
+        "OPENHANDS_API_KEY", ""
+    )
     request = Request(
         url,
         data=json.dumps(body).encode(),
         headers={
-            "Authorization": "Bearer "
-            + os.environ.get("AUTOMATION_CALLBACK_API_KEY", ""),
+            "Authorization": f"Bearer {api_key}",
             "Content-Type": "application/json",
         },
     )
