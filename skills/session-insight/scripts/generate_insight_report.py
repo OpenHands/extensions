@@ -23,8 +23,17 @@ FAILURE_WORDS = re.compile(
     re.IGNORECASE,
 )
 ACTION_KEYS = ("tool_name", "tool", "action", "command", "event_type", "type")
-ERROR_KEYS = ("error", "error_detail", "exception", "failure", "status_detail")
+ERROR_KEYS = (
+    "error",
+    "error_detail",
+    "exception",
+    "failure",
+    "status_detail",
+    "code",
+    "detail",
+)
 CONTAINER_KEYS = ("events", "messages", "actions", "history", "items", "results")
+FAILURE_CATEGORIES = {"auth", "quota", "rate_limit", "internal"}
 
 
 @dataclass
@@ -71,6 +80,13 @@ def read_values(path: Path) -> list[Any]:
 
 
 def classify_failure(record: dict[str, Any]) -> str | None:
+    classification = record.get("classification")
+    if record.get("kind") == "ConversationErrorEvent" and isinstance(
+        classification, dict
+    ):
+        category = str(classification.get("kind", "")).strip().lower()
+        if category in FAILURE_CATEGORIES:
+            return category
     for key in ERROR_KEYS:
         value = record.get(key)
         if value in (None, "", False, [], {}):
