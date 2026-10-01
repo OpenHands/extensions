@@ -135,7 +135,7 @@
       }
     },
     "bundle": {
-      "version": "1.9.0",
+      "version": "1.8.1",
       "entrypoint": "python3 worker.py",
       "timeout": 300,
       "files": {
