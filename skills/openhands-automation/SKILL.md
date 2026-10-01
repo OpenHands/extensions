@@ -503,6 +503,7 @@ For services other than GitHub (Linear, Stripe, Slack, etc.), register a custom 
 
 > **Agent behavior:**
 > - **Always provide the curl request** to the user — do not attempt to register webhooks yourself.
+>   The exception is a service skill that ships a setup script for its webhook, such as `jira-issue-to-pr`: the script registers both sides and keeps the signing secret out of the conversation, so run it as that skill describes.
 > - **Ask the user:** "Do you have a webhook signing secret from [service], or should the system generate one?"
 >   - If they have one → include `webhook_secret` in the request
 >   - If not → omit it; the response will contain a generated secret they must configure in their service
@@ -633,6 +634,8 @@ Jira Cloud sends webhooks with:
 - On an update, a `changelog.items` list naming each changed `field`
 
 Only a webhook a Jira admin registers (Jira settings → System → WebHooks, or the REST API) can carry a secret. The "Send web request" action of a Jira Automation rule cannot sign its request, so it cannot deliver to a custom webhook.
+
+When the user can supply the API token of a Jira administrator, `scripts/setup_webhook.py` in the `jira-issue-to-pr` skill registers the webhook on both sides for them, replacing step 1 and the Jira configuration below. Done by hand:
 
 ```bash
 # 1. Register the Jira webhook

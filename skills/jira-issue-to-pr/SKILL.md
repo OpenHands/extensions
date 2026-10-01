@@ -167,38 +167,84 @@ the poller above: a prompt automation triggered by a Jira webhook, created with 
 `scripts/main.py` is not used, so its KV-backed deduplication and its "I'm on it"
 comment do not apply; the prompt has to ask for whatever of that is wanted.
 
+### Set up the webhook
+
+The webhook is a pair: a custom webhook source in OpenHands and an admin webhook in
+Jira, sharing a signing secret. `scripts/setup_webhook.py` creates both, so the user
+does not have to open Jira or copy a URL and secret by hand. It needs the API token of
+an account with the **Administer Jira** permission, stored as an OpenHands secret.
+
+1. **Collect** the Jira site URL, the account email, the name of the secret holding that
+   account's API token, and the label. A token used only for this step (for example
+   `JIRA_ADMIN_TOKEN`) can be deleted from the user's secrets afterwards.
+2. **Dry run, then ask.** Registering a webhook changes the user's Jira site, so show
+   what will be created and wait for the user to confirm:
+
+   ```bash
+   OPENHANDS_API_KEY="$OPENHANDS_API_KEY" python3 <skill-dir>/scripts/setup_webhook.py apply --dry-run \
+     --jira-base-url "https://acme.atlassian.net" --jira-email "alice@acme.com" \
+     --jira-token-env JIRA_ADMIN_TOKEN --openhands-host "$OPENHANDS_HOST" --label create-pr
+   ```
+
+   The command has to name the secret (`--jira-token-env JIRA_ADMIN_TOKEN`): naming it is
+   what makes its value available to the command.
+3. **Apply** - the same command without `--dry-run`. It registers the OpenHands webhook
+   (`source` `jira`, `webhookEvent`, `X-Hub-Signature`), creates the Jira webhook for
+   *Issue created* and *Issue updated* limited to `labels = "create-pr"`, and sends one
+   signed test request. `"signed_delivery_check": "ok"` in its output means the pair works.
+   Running it again rotates the secret and updates both sides in place.
+
+   The secret is generated inside the script and is never printed. Do not ask the user
+   for it, and do not try to read or echo it.
+4. **If it exits with code 3**, the account is not a Jira administrator. Fall back to
+   [Manual webhook setup](#manual-webhook-setup).
+
+To stop Jira sending events, for example when the automation is deleted, run the same
+command with `delete` in place of `apply`.
+
+### Create the event-triggered automation
+
+Create the automation with this trigger:
+
+```json
+{
+  "type": "event",
+  "source": "jira",
+  "on": ["jira:issue_created", "jira:issue_updated"],
+  "filter": "contains(issue.fields.labels, 'create-pr') && (webhookEvent == 'jira:issue_created' || length(changelog.items[?field == 'labels'] || `[]`) > `0`)"
+}
+```
+
+Jira sends labels as plain strings, so the filter reads `issue.fields.labels`, not
+`issue.fields.labels[].name`. The `changelog` check limits updates to those that
+change the labels; without it every later edit of a labelled issue starts another run.
+
+To verify, add the label to an issue and check the automation's runs.
+
+### Manual webhook setup
+
+Use this when the Jira account is not an administrator: the user, or their Jira
+administrator, does both steps by hand.
+
 1. **Register the webhook** with `"source": "jira"`, `"event_key_expr": "webhookEvent"`
-   and `"signature_header": "X-Hub-Signature"`. The defaults (`type`, `X-Signature-256`)
-   do not fit Jira: deliveries are refused with 401, or accepted and never matched.
+   and `"signature_header": "X-Hub-Signature"` (see the `openhands-automation` skill for
+   the request). The defaults (`type`, `X-Signature-256`) do not fit Jira: deliveries are
+   refused with 401, or accepted and never matched.
 2. **Configure Jira** - a Jira admin creates the webhook under Jira settings → System →
    WebHooks with the returned `webhook_url` and secret, the *Issue created* and
    *Issue updated* events, and a JQL filter such as `labels = create-pr`. A Jira
    Automation rule cannot be used instead: its "Send web request" action is not signed.
-3. **Create the automation** with this trigger:
 
-   ```json
-   {
-     "type": "event",
-     "source": "jira",
-     "on": ["jira:issue_created", "jira:issue_updated"],
-     "filter": "contains(issue.fields.labels, 'create-pr') && (webhookEvent == 'jira:issue_created' || length(changelog.items[?field == 'labels'] || `[]`) > `0`)"
-   }
-   ```
+To test a manually configured webhook without Jira, sign a request the way Jira does:
 
-   Jira sends labels as plain strings, so the filter reads `issue.fields.labels`, not
-   `issue.fields.labels[].name`. The `changelog` check limits updates to those that
-   change the labels; without it every later edit of a labelled issue starts another run.
-4. **Verify** - add the label to an issue and check the automation's runs. To test
-   without Jira, sign a request the way Jira does:
+```bash
+BODY='{"webhookEvent":"jira:issue_created","issue":{"key":"TEST-1","fields":{"labels":["create-pr"]}}}'
+SIG=$(printf '%s' "$BODY" | openssl dgst -sha256 -hmac "$WEBHOOK_SECRET" | awk '{print $NF}')
+curl -s -X POST "<webhook_url>" -H "Content-Type: application/json" \
+  -H "X-Hub-Signature: sha256=$SIG" -d "$BODY"
+```
 
-   ```bash
-   BODY='{"webhookEvent":"jira:issue_created","issue":{"key":"TEST-1","fields":{"labels":["create-pr"]}}}'
-   SIG=$(printf '%s' "$BODY" | openssl dgst -sha256 -hmac "$WEBHOOK_SECRET" | awk '{print $NF}')
-   curl -s -X POST "<webhook_url>" -H "Content-Type: application/json" \
-     -H "X-Hub-Signature: sha256=$SIG" -d "$BODY"
-   ```
-
-   `"matched": 1` in the response means the trigger fired and a run was started.
+`"matched": 1` in the response means the trigger fired and a run was started.
 
 ## Updating an Existing Deployment
 
@@ -240,6 +286,8 @@ The automation script lives at `scripts/main.py`. Key behaviors:
 - **Jira API** - uses `POST /rest/api/3/search/jql` (the current non-deprecated endpoint).
 - **Conversation dispatch** - locally, calls `POST /api/conversations` on the agent server with the current user's LLM/agent settings forwarded to the new conversation; on OpenHands Cloud, calls `POST /api/v1/app-conversations`, which runs each conversation in its own sandbox with the user's settings, secrets and connected git provider.
 - **Error transparency** - captures Jira HTTP response bodies in error messages for fast diagnosis.
+
+`scripts/setup_webhook.py` belongs to the [event-based alternative](#event-based-alternative) and is not part of the poller's tarball. It is stdlib-only, reads `OPENHANDS_API_KEY` and the Jira API token from the environment, and prints a JSON summary that never contains the signing secret.
 
 ## Known Limitations
 
