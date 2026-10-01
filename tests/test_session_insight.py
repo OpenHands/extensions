@@ -95,3 +95,32 @@ def test_malformed_file_is_reported_but_valid_data_still_runs(tmp_path):
     assert result.returncode == 0
     summary = json.loads(result.stdout)
     assert summary["malformed_files"] == 1
+
+
+def test_counts_conversation_error_event_by_classification(tmp_path):
+    session = tmp_path / "conversation.jsonl"
+    session.write_text(
+        json.dumps(
+            {
+                "source": "environment",
+                "code": "LLMAuthenticationError",
+                "detail": "invalid api key",
+                "classification": {
+                    "kind": "auth",
+                    "retryable": False,
+                    "user_action": "settings",
+                },
+                "kind": "ConversationErrorEvent",
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    result = run_report(tmp_path, session)
+
+    assert result.returncode == 0
+    assert json.loads(result.stdout)["failure_signals"] == 1
+    report = (tmp_path / "usage" / "report.html").read_text(encoding="utf-8")
+    assert "auth" in report
+    assert "invalid api key" not in report
