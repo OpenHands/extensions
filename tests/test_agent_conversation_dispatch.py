@@ -4,6 +4,7 @@ from uuid import NAMESPACE_URL, UUID, uuid5
 
 import agent_conversation
 import github_client
+import pytest
 from openhands.sdk.conversation.state import ConversationExecutionStatus
 from openhands.sdk.secret import LookupSecret
 
@@ -93,6 +94,9 @@ def test_new_subject_uses_selected_profile_and_persists_mapping(monkeypatch):
         "subject": "repo:issue:7",
         "conversation_id": result["conversation_id"],
         "delivery": "revision-1",
+        # A caller with no revision identity records an empty head, which keeps
+        # the dedupe keyed on `delivery` alone.
+        "head": "",
     }
 
 
@@ -130,7 +134,17 @@ def test_known_subject_resumes_once_per_delivery(monkeypatch):
     conversation.run.assert_called_once_with(blocking=False)
 
 
-def test_same_delivery_resumes_paused_conversation(monkeypatch):
+@pytest.mark.parametrize(
+    ("status", "disposition", "should_run"),
+    [
+        (ConversationExecutionStatus.IDLE, "resumed", True),
+        (ConversationExecutionStatus.PAUSED, "resumed", True),
+        (ConversationExecutionStatus.RUNNING, "in_progress", False),
+    ],
+)
+def test_same_delivery_resumes_only_inactive_conversation(
+    monkeypatch, status, disposition, should_run
+):
     state = {
         _state_key("repo:pr:9"): {
             "subject": "repo:pr:9",
@@ -147,7 +161,7 @@ def test_same_delivery_resumes_paused_conversation(monkeypatch):
         agent_conversation, "RemoteWorkspace", lambda **kwargs: workspace
     )
     conversation = MagicMock()
-    conversation.state.execution_status = ConversationExecutionStatus.PAUSED
+    conversation.state.execution_status = status
     monkeypatch.setattr(
         agent_conversation.RemoteConversation,
         "attach",
@@ -157,9 +171,96 @@ def test_same_delivery_resumes_paused_conversation(monkeypatch):
     with _dispatcher(monkeypatch) as dispatcher:
         result = dispatcher.deliver("repo:pr:9", "head-1", "old")
 
-    assert result["disposition"] == "resumed"
+    assert result["disposition"] == disposition
     conversation.send_message.assert_not_called()
+    conversation.update_secrets.assert_called_once_with(dispatcher._secrets)
+    if should_run:
+        conversation.run.assert_called_once_with(blocking=False)
+    else:
+        conversation.run.assert_not_called()
+
+
+def test_new_delivery_on_a_running_same_head_is_not_a_second_review(monkeypatch):
+    """A fresh trigger for a head already under review must not start a review.
+
+    This is the duplicate the trigger-keyed delivery alone allowed: a second
+    review request (or a label re-applied after the bot's own handoff) produces a
+    new delivery key, which would send a new turn and publish a second review of
+    the head an in-flight conversation is already reviewing.
+    """
+    state = {
+        _state_key("repo:pr:9"): {
+            "subject": "repo:pr:9",
+            "conversation_id": "22222222-2222-4222-8222-222222222222",
+            "delivery": "42:head-2",
+            "head": "head-2",
+        }
+    }
+    _fake_kv(monkeypatch, state)
+    monkeypatch.setattr(agent_conversation, "_register_tools", lambda: None)
+    workspace = MagicMock()
+    workspace.__enter__.return_value = workspace
+    workspace.get_secrets.return_value = {}
+    monkeypatch.setattr(
+        agent_conversation, "RemoteWorkspace", lambda **kwargs: workspace
+    )
+    conversation = MagicMock()
+    conversation.state.execution_status = ConversationExecutionStatus.RUNNING
+    monkeypatch.setattr(
+        agent_conversation.RemoteConversation,
+        "attach",
+        MagicMock(return_value=conversation),
+    )
+
+    with _dispatcher(monkeypatch) as dispatcher:
+        result = dispatcher.deliver("repo:pr:9", "43:head-2", "again", head="head-2")
+
+    assert result["disposition"] == "in_progress"
+    conversation.send_message.assert_not_called()
+    conversation.run.assert_not_called()
+    # The revision the live turn is working on is left recorded, not overwritten
+    # by the trigger that arrived beside it.
+    assert state[_state_key("repo:pr:9")]["delivery"] == "42:head-2"
+
+
+def test_new_delivery_on_a_running_new_head_still_sends_a_turn(monkeypatch):
+    """A moved head is new work, so the running conversation gets the new turn."""
+    state = {
+        _state_key("repo:pr:9"): {
+            "subject": "repo:pr:9",
+            "conversation_id": "22222222-2222-4222-8222-222222222222",
+            "delivery": "42:head-1",
+            "head": "head-1",
+        }
+    }
+    _fake_kv(monkeypatch, state)
+    monkeypatch.setattr(agent_conversation, "_register_tools", lambda: None)
+    workspace = MagicMock()
+    workspace.__enter__.return_value = workspace
+    workspace.get_secrets.return_value = {}
+    monkeypatch.setattr(
+        agent_conversation, "RemoteWorkspace", lambda **kwargs: workspace
+    )
+    conversation = MagicMock()
+    conversation.state.execution_status = ConversationExecutionStatus.RUNNING
+    monkeypatch.setattr(
+        agent_conversation.RemoteConversation,
+        "attach",
+        MagicMock(return_value=conversation),
+    )
+
+    with _dispatcher(monkeypatch) as dispatcher:
+        result = dispatcher.deliver("repo:pr:9", "43:head-2", "next", head="head-2")
+
+    assert result["disposition"] == "resumed"
+    conversation.send_message.assert_called_once_with("next")
     conversation.run.assert_called_once_with(blocking=False)
+    assert state[_state_key("repo:pr:9")] == {
+        "subject": "repo:pr:9",
+        "conversation_id": result["conversation_id"],
+        "delivery": "43:head-2",
+        "head": "head-2",
+    }
 
 
 def test_subjects_use_independent_kv_records(monkeypatch):
