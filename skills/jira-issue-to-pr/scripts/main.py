@@ -272,17 +272,21 @@ def settle_cloud_starts(state, processed_keys, auth_header):
         return
     query = "&".join(f"ids={entry['task_id']}" for entry in pending.values())
     tasks = _cloud_request("GET", f"/api/v1/app-conversations/start-tasks?{query}")
+    if not isinstance(tasks, list):
+        return  # not the answer expected; leave them for the next run
     by_id = {task["id"]: task for task in tasks if task}
 
     for key, entry in list(pending.items()):
         task = by_id.get(entry["task_id"])
-        status = task["status"] if task else "ERROR"
+        # A task OpenHands no longer has says nothing about a failure, so it is
+        # settled like a started one rather than risk a second conversation.
+        status = task["status"] if task else "READY"
         if status not in ("READY", "ERROR"):
             continue  # still starting
         del pending[key]
         if status == "READY":
             continue
-        detail = (task or {}).get("detail") or "OpenHands no longer has the start task"
+        detail = task.get("detail") or "no detail given"
         if entry.get("attempts", 1) < MAX_START_ATTEMPTS:
             print(f"Conversation for {key} did not start ({detail}); it will be started again")
             processed_keys.discard(key)

@@ -135,11 +135,12 @@ class Jira:
                           "create the webhook by hand.", code=3)
 
     def find(self, url):
+        """The webhooks delivering to `url`; none when no URL is known yet."""
         status, body = _call("GET", self.base, self.headers)
         hooks = _expect("Listing Jira webhooks", status, body)
         if not isinstance(hooks, list):
             raise Failure("Listing Jira webhooks returned an unexpected response.")
-        return [h for h in hooks if h.get("url") == url]
+        return [h for h in hooks if url and h.get("url") == url]
 
     @staticmethod
     def _id(hook):
@@ -183,7 +184,7 @@ def apply(args, openhands, jira):
     webhook = openhands.find()
     # Asked before anything is written: it proves Jira serves this account the
     # webhook API, and says whether Jira already holds this webhook's secret.
-    in_jira = jira.find(webhook["webhook_url"]) if webhook else []
+    in_jira = jira.find(webhook["webhook_url"] if webhook else None)
     # A pair that exists on both sides keeps its secret, so a failure half way
     # through cannot leave Jira signing with one OpenHands no longer accepts.
     new_secret = args.rotate_secret or not (webhook and in_jira)
