@@ -1081,10 +1081,13 @@ def _build_implementation_prompt(
         # The conversation runs in a sandbox of its own, so there is no clone to
         # hand it and none for this script to finish the job from afterwards.
         workplace = "a clone you make of the project"
+        # OpenHands initializes a Git repository in a conversation's working
+        # directory, so the project is cloned into a directory of its own.
         workspace = (
-            f"- It is empty. Clone `{base_branch}` into it and open the branch the "
-            f"merge request comes from: `git clone --depth 1 --branch {base_branch} "
-            f"\"{remote}\" . && git checkout -b {branch}`\n"
+            f"- It holds no copy of the project. Clone `{base_branch}` into a new "
+            "directory, work inside it, and open the branch the merge request comes "
+            f"from: `git clone --depth 1 --branch {base_branch} \"{remote}\" repo "
+            f"&& cd repo && git checkout -b {branch}`\n"
             "- Every command that talks to GitLab must name `GITLAB_TOKEN`, because "
             "the value is only put in the environment of a command that mentions it. "
             "Never echo it.\n"

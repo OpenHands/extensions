@@ -3,7 +3,8 @@ Set up the Jira Cloud webhook of an event-based Jira automation.
 
 Registers a custom webhook source in OpenHands and the matching admin webhook in
 Jira Cloud. The two share a signing secret that is generated or rotated here and is
-never printed, so it does not enter the conversation.
+never printed, so it does not enter the conversation. A webhook that already exists
+on both sides is updated in place and keeps its secret.
 
 Usage:
   python3 setup_webhook.py apply  --jira-base-url URL --jira-email EMAIL --openhands-host HOST
@@ -15,6 +16,8 @@ Usage:
   --jql JQL              JQL filter to use instead of the label
   --name NAME            name of the webhook in Jira
   --dry-run              apply only: report what would change, change nothing
+  --rotate-secret        apply only: give an existing pair a new signing secret; without
+                         it a webhook that exists on both sides keeps the one it has
 
 Environment:
   OPENHANDS_API_KEY      API key for the OpenHands deployment
@@ -121,7 +124,11 @@ class Jira:
         if status in (401, 403):
             raise Failure(f"Jira rejected the credentials (HTTP {status}). Check the site URL, "
                           "the account email and the API token.")
-        permission = _expect("Reading Jira permissions", status, body)["permissions"]["ADMINISTER"]
+        body = _expect("Reading Jira permissions", status, body)
+        try:
+            permission = body["permissions"]["ADMINISTER"]
+        except (KeyError, TypeError) as exc:
+            raise Failure("Reading Jira permissions returned an unexpected response.") from exc
         if not permission.get("havePermission"):
             raise Failure("This Jira account does not have the Administer Jira permission, "
                           "which registering a webhook requires. Ask a Jira administrator to "
@@ -174,42 +181,60 @@ def apply(args, openhands, jira):
     jql = args.jql or 'labels = "{}"'.format(args.label.replace("\\", "\\\\").replace('"', '\\"'))
     name = args.name or f"OpenHands: issues labelled {args.label}"
     webhook = openhands.find()
+    # Asked before anything is written: it proves Jira serves this account the
+    # webhook API, and says whether Jira already holds this webhook's secret.
+    in_jira = jira.find(webhook["webhook_url"]) if webhook else []
+    # A pair that exists on both sides keeps its secret, so a failure half way
+    # through cannot leave Jira signing with one OpenHands no longer accepts.
+    new_secret = args.rotate_secret or not (webhook and in_jira)
 
     if args.dry_run:
-        in_jira = jira.find(webhook["webhook_url"]) if webhook else []
+        if not webhook:
+            openhands_plan = f"register source '{args.source}'"
+        elif new_secret:
+            openhands_plan = "rotate the secret of the existing one"
+        else:
+            openhands_plan = "keep the existing one and its secret"
         return {
             "dry_run": True,
-            "openhands_webhook": "rotate the secret of the existing one" if webhook
-                                 else f"register source '{args.source}'",
+            "openhands_webhook": openhands_plan,
             "jira_webhook": "update the existing one" if in_jira else "create",
             "jira": {"site": jira.site, "name": name, "events": JIRA_EVENTS, "jql": jql,
                      "url": webhook["webhook_url"] if webhook else "(assigned on registration)"},
         }
 
+    payload = {"name": name, "events": JIRA_EVENTS, "excludeBody": False,
+               "filters": {"issue-related-events-section": jql}}
     if webhook:
         webhook = openhands.align(webhook)
-        _secret = openhands.rotate(webhook)
+        if new_secret:
+            _secret = openhands.rotate(webhook)
     else:
         _secret = secrets.token_urlsafe(32)
         webhook = openhands.create(_secret)
     url = webhook["webhook_url"]
     if not url.startswith("https://"):
         raise Failure(f"Jira only delivers to HTTPS URLs, and this deployment's is {url}")
+    if new_secret:
+        # Left out otherwise: Jira keeps the secret of a webhook updated without one.
+        payload["secret"] = _secret
 
     try:
-        hook_id, action = jira.save(jira.find(url), {
-            "name": name, "url": url, "events": JIRA_EVENTS, "excludeBody": False,
-            "filters": {"issue-related-events-section": jql}, "secret": _secret,
-        })
+        hook_id, action = jira.save(in_jira, {**payload, "url": url})
     except Failure as exc:
-        raise Failure(f"{exc} The OpenHands webhook is registered, the Jira one is not; "
-                      "run apply again once the cause is fixed.", exc.code) from exc
+        if not new_secret:
+            raise
+        raise Failure(f"{exc} OpenHands now holds a signing secret that Jira does not, so "
+                      "Jira's deliveries are refused until apply succeeds; run it again once "
+                      "the cause is fixed.", exc.code) from exc
 
     return {
         "openhands_webhook": {"id": webhook["id"], "source": webhook["source"], "url": url},
         "jira_webhook": {"id": hook_id, "action": action, "name": name,
                          "events": JIRA_EVENTS, "jql": jql},
-        "signed_delivery_check": _signed_check(url, _secret),
+        "signing_secret": "new" if new_secret else "unchanged",
+        "signed_delivery_check": _signed_check(url, _secret) if new_secret
+                                 else "skipped: the secret was not changed",
     }
 
 
@@ -235,6 +260,7 @@ def main():
     parser.add_argument("--jql")
     parser.add_argument("--name")
     parser.add_argument("--dry-run", action="store_true")
+    parser.add_argument("--rotate-secret", action="store_true")
     args = parser.parse_args()
 
     api_key = os.environ.get("OPENHANDS_API_KEY", "")
@@ -247,6 +273,9 @@ def main():
                           "OpenHands secret and name it in the command.", code=2)
         if urllib.parse.urlparse(args.jira_base_url).scheme != "https":
             raise Failure("--jira-base-url must be an https:// URL.", code=2)
+        if urllib.parse.urlparse(args.openhands_host).scheme != "https":
+            raise Failure("--openhands-host must be an https:// URL: Jira only delivers "
+                          "webhooks over HTTPS.", code=2)
         openhands = OpenHands(args.openhands_host, api_key, args.source)
         jira = Jira(args.jira_base_url, args.jira_email, token)
         result = (apply if args.action == "apply" else delete)(args, openhands, jira)

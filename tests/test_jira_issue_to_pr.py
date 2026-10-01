@@ -37,6 +37,10 @@ class StubServer:
 
     def __init__(self):
         self.requests = []
+        # What the automation's KV store holds, and the tasks OpenHands Cloud
+        # reports for the conversations it was asked to start.
+        self.state = dict(STATE)
+        self.start_tasks = []
         stub = self
 
         class Handler(BaseHTTPRequestHandler):
@@ -65,14 +69,13 @@ class StubServer:
         self.url = f"http://127.0.0.1:{self.httpd.server_port}"
         threading.Thread(target=self.httpd.serve_forever, daemon=True).start()
 
-    @staticmethod
-    def respond(path):
+    def respond(self, path):
         if path == "/rest/api/3/search/jql":
             return 200, {"issues": [ISSUE]}
         if path.startswith("/rest/api/3/issue/"):
             return 201, {}
         if path == "/automation/v1/kv/state":
-            return 200, {"value": STATE}
+            return 200, {"value": self.state}
         if path.endswith("/settings/secrets/JIRA_CLOUD_KEY"):
             return 200, "jira-token"
         if path == "/api/settings":
@@ -81,6 +84,8 @@ class StubServer:
             return 201, {"id": "local-conversation"}
         if path == "/api/v1/app-conversations":
             return 200, {"id": "start-task", "status": "WORKING"}
+        if path.startswith("/api/v1/app-conversations/start-tasks?"):
+            return 200, self.start_tasks
         if path == "/callback":
             return 200, {}
         return 404, {}
@@ -191,6 +196,62 @@ def test_a_cloud_run_links_the_jira_issue_to_its_conversation(stub, run_script):
     [comment] = stub.find("POST", "/rest/api/3/issue/ENG-1/comment")
     conversation_id = conversation["body"]["conversation_id"]
     assert comment_text(comment) == f"I'm on it: {stub.url}/canvas/conversations/{conversation_id}"
+
+
+def test_a_cloud_run_starts_an_issue_again_when_its_conversation_failed_to_start(stub, run_script):
+    # Arrange - an earlier run asked for the conversation and marked the issue done
+    stub.state = {
+        **STATE,
+        "processed_keys": ["ENG-1"],
+        "pending_starts": {"ENG-1": {"task_id": "task-1", "attempts": 1}},
+    }
+    stub.start_tasks = [{"id": "task-1", "status": "ERROR", "detail": "sandbox did not start"}]
+
+    # Act
+    result = run_script(cloud_env(stub))
+
+    # Assert
+    assert result.returncode == 0, result.stderr
+    [conversation] = stub.find("POST", "/api/v1/app-conversations")
+    assert conversation["body"]["title"] == "[ENG-1] Add a README"
+
+
+def test_a_cloud_run_leaves_an_issue_alone_once_its_conversation_is_up(stub, run_script):
+    # Arrange
+    stub.state = {
+        **STATE,
+        "processed_keys": ["ENG-1"],
+        "pending_starts": {"ENG-1": {"task_id": "task-1", "attempts": 1}},
+    }
+    stub.start_tasks = [{"id": "task-1", "status": "READY"}]
+
+    # Act
+    result = run_script(cloud_env(stub))
+
+    # Assert
+    assert result.returncode == 0, result.stderr
+    assert stub.find("POST", "/api/v1/app-conversations") == []
+    assert stub.find("POST", "/rest/api/3/issue/ENG-1/comment") == []
+
+
+def test_a_cloud_run_reports_a_start_that_keeps_failing_on_the_issue(stub, run_script):
+    # Arrange - the last allowed attempt has failed as well
+    stub.state = {
+        **STATE,
+        "processed_keys": ["ENG-1"],
+        "pending_starts": {"ENG-1": {"task_id": "task-1", "attempts": 3}},
+    }
+    stub.start_tasks = [{"id": "task-1", "status": "ERROR", "detail": "sandbox did not start"}]
+
+    # Act
+    result = run_script(cloud_env(stub))
+
+    # Assert
+    assert result.returncode == 0, result.stderr
+    assert stub.find("POST", "/api/v1/app-conversations") == []
+    [comment] = stub.find("POST", "/rest/api/3/issue/ENG-1/comment")
+    assert "could not start a conversation" in comment_text(comment)
+    assert "sandbox did not start" in comment_text(comment)
 
 
 def test_a_cloud_run_reports_completion_with_its_api_key(stub, run_script):

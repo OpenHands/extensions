@@ -94,7 +94,7 @@ class CloudConversations:
     def get(self, conversation_id) -> dict | None:
         """The conversation, or None while the API has no record of it."""
         found = self._request("GET", f"/api/v1/app-conversations?ids={conversation_id}")
-        return found[0]
+        return found[0] if found else None
 
     def start(self, conversation_id, profile_id, title: str, prompt: str) -> None:
         self._request(
@@ -249,8 +249,11 @@ class AgentConversationDispatcher:
 
         if conversation is None:
             started = time.time() - float(record.get("started_at") or 0)
-            if same_delivery and started < _CLOUD_START_GRACE_SECONDS:
-                # The API is still bringing this delivery's conversation up.
+            if started < _CLOUD_START_GRACE_SECONDS:
+                # The API is still bringing the subject's conversation up and
+                # does not list it yet. Starting another would run two for one
+                # subject, so even a new revision waits: the record is left as
+                # it is and the next trigger delivers it.
                 return "in_progress", current_id
         elif conversation.get("sandbox_status") in ("ERROR", "MISSING"):
             if same_delivery:

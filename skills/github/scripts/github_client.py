@@ -25,7 +25,9 @@ def is_cloud_run() -> bool:
     The automation service hands a run the Agent Server URL only on a local
     Agent Canvas; elsewhere the run talks to the OpenHands API instead.
     """
-    return not os.environ.get("AGENT_SERVER_URL")
+    return bool(os.environ.get("OPENHANDS_CLOUD_API_URL")) and not os.environ.get(
+        "AGENT_SERVER_URL"
+    )
 
 
 def _load_cloud_secret(name: str) -> str | None:
@@ -158,10 +160,13 @@ class GitHubRepository:
 
     @property
     def github_instructions(self):
+        # A cloud conversation runs in a sandbox of its own, so this run's
+        # workspace path means nothing to it.
+        where = "your working directory" if is_cloud_run() else self.project
         return (
             f"Use `GH_TOKEN=${self.token_name} gh api` for GitHub requests. "
             "Never print the credential value. "
-            f"Only {self.repository} is in scope. Work in {self.project}. "
+            f"Only {self.repository} is in scope. Work in {where}. "
             "Do not modify the automation bundle or its configuration."
         )
 
