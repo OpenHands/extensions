@@ -35,8 +35,16 @@ jobs:
       # a separate step so a plugin failure is attributed to the plugin, not
       # the root suite. shopt -s nullglob leaves the array empty when no
       # plugin ships tests, so this step is a no-op in that case.
+      #
+      # PYTHONDONTWRITEBYTECODE=1 keeps __pycache__/*.pyc from being written
+      # next to the plugin's scripts/ directory, which would otherwise leak
+      # into the agent-visible SkillResources manifest the next time the
+      # plugin is loaded via openhands.sdk.skills. See
+      # scripts/check_plugin_resources.py for the matching CI guard.
       - name: Run plugin tests
         shell: bash
+        env:
+          PYTHONDONTWRITEBYTECODE: "1"
         run: |
           shopt -s nullglob
           plugin_tests=(plugins/*/tests)
