@@ -29,3 +29,21 @@ jobs:
         run: uv run --group test pytest tests/
         env:
           PYTHONPATH: ${{ github.workspace }}
+
+      # Plugins under plugins/<name>/tests are self-contained (stdlib-only unit
+      # tests that import the plugin's own scripts via importlib). Run them in
+      # a separate step so a plugin failure is attributed to the plugin, not
+      # the root suite. shopt -s nullglob leaves the array empty when no
+      # plugin ships tests, so this step is a no-op in that case.
+      - name: Run plugin tests
+        shell: bash
+        run: |
+          shopt -s nullglob
+          plugin_tests=(plugins/*/tests)
+          if [ ${#plugin_tests[@]} -eq 0 ]; then
+            echo "No plugin tests found; skipping."
+            exit 0
+          fi
+          echo "Discovered plugin test dirs:"
+          printf '  %s\n' "${plugin_tests[@]}"
+          uv run --group test pytest "${plugin_tests[@]}"
