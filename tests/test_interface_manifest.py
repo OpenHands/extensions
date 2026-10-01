@@ -100,7 +100,7 @@ def test_featured_automations_resolve_to_catalog_entries():
         ),
         (
             "a status filter without the all option",
-            lambda doc: doc["pages"]["list"]["filters"][0]["options"].pop(0),
+            lambda doc: _filter(doc, "status")["options"].pop(0),
         ),
         (
             "a creator filter without the all option",
