@@ -402,6 +402,7 @@ export type AutomationAttributeType =
 /** The closed set of runtime-model properties a client may offer for setting. */
 export type AutomationAttributeName =
   | "name"
+  | "description"
   | "prompt"
   | "model"
   | "timeout"
