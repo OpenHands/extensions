@@ -6,8 +6,21 @@ triggers:
 - azure
 ---
 
-You have access to an environment variable, `AZURE_DEVOPS_TOKEN`, which allows you to interact with
-the Azure DevOps API.
+You can interact with Azure DevOps using one of the following methods, in order of preference:
+
+1. **OAuth MCP Server** (preferred): If authenticated Azure DevOps MCP tools are available in
+   the environment, use them for Azure DevOps operations. MCP tools handle authentication
+   via the configured OAuth integration, so no token is needed.
+2. **Secret Token**: If an `AZURE_DEVOPS_TOKEN` environment variable is set, use it with the
+   Azure DevOps API, as described below.
+3. **No authentication**: If neither is available, ask the user to either:
+   - Connect an Azure DevOps OAuth MCP server in Canvas, OR
+   - Provide an `AZURE_DEVOPS_TOKEN` as a Secret
+
+Detection is based on the availability of authenticated Azure DevOps MCP tools - no specific
+MCP server name or tool name is required. When MCP tools are available, prefer them; the
+token/REST flows below remain the correct path when MCP is unavailable or when you
+explicitly need raw API/curl access.
 
 <IMPORTANT>
 You can use `curl` with the `AZURE_DEVOPS_TOKEN` to interact with Azure DevOps's API.

@@ -11,14 +11,32 @@ triggers:
 
 Windows PowerShell equivalents for the repeated Linear GraphQL `curl` and environment-variable snippets are in `references/windows.md`.
 
+You can interact with Linear using one of the following methods, in order of preference:
+
+1. **OAuth MCP Server** (preferred): If authenticated Linear MCP tools are available in the
+   environment, use them for Linear operations. MCP tools handle authentication via the
+   configured OAuth integration, so no API key is needed.
+2. **Secret API Key**: If a `LINEAR_API_KEY` environment variable is set, use it with the
+   Linear GraphQL API, as described below.
+3. **No authentication**: If neither is available, ask the user to either:
+   - Connect a Linear OAuth MCP server in Canvas, OR
+   - Provide a `LINEAR_API_KEY` as a Secret
+
+Detection is based on the availability of authenticated Linear MCP tools - no specific
+MCP server name or tool name is required. When MCP tools are available, prefer them;
+the direct GraphQL flows below remain the correct path when MCP is unavailable or when
+you explicitly need raw API/curl access.
+
 <IMPORTANT>
-Before performing any Linear operations, check if the required environment variable is set:
+If authenticated Linear MCP tools are available in the environment, use them first. MCP tools do not require `LINEAR_API_KEY`; authentication is handled by the configured OAuth integration.
+
+Use the direct Linear GraphQL API examples below only when MCP is unavailable or when you explicitly need raw API/curl access. For that direct-API path, first check whether the required environment variable is set:
 
 ```bash
 [ -n "$LINEAR_API_KEY" ] && echo "LINEAR_API_KEY is set" || echo "LINEAR_API_KEY is NOT set"
 ```
 
-If LINEAR_API_KEY is missing, ask the user to provide it before proceeding.
+If it's missing and you need the direct API path, ask the user to provide it (or connect a Linear OAuth MCP server) before proceeding.
 </IMPORTANT>
 
 ## Understanding Linear Identifiers

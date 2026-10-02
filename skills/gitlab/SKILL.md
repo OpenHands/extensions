@@ -5,8 +5,21 @@ triggers:
 - gitlab
 ---
 
-You have access to an environment variable, `GITLAB_TOKEN`, which allows you to interact with
-the GitLab API.
+You can interact with GitLab using one of the following methods, in order of preference:
+
+1. **OAuth MCP Server** (preferred): If authenticated GitLab MCP tools are available in the
+   environment, use them for GitLab operations. MCP tools handle authentication via the
+   configured OAuth integration, so no token is needed.
+2. **Secret Token**: If a `GITLAB_TOKEN` environment variable is set, use it with the GitLab
+   API, as described below.
+3. **No authentication**: If neither is available, ask the user to either:
+   - Connect a GitLab OAuth MCP server in Canvas, OR
+   - Provide a `GITLAB_TOKEN` as a Secret
+
+Detection is based on the availability of authenticated GitLab MCP tools - no specific
+MCP server name or tool name is required. When MCP tools are available, prefer them;
+the token/REST and `create_mr` flows below remain the correct path when MCP is
+unavailable or when you explicitly need raw API/curl access.
 
 <IMPORTANT>
 You can use `curl` with the `GITLAB_TOKEN` to interact with GitLab's API.

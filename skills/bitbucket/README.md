@@ -20,12 +20,34 @@ formats, and pull request tools.
 This hub triggers broadly (on `git`/`bitbucket`) so it loads for any Bitbucket task — even
 when the words "data center" never appear. It then:
 
-1. **Detects** the environment by checking which token variable is present
-   (`BITBUCKET_DATA_CENTER_TOKEN` → Data Center, else `BITBUCKET_TOKEN` → Cloud). The check
-   is case-insensitive so it is robust to env-var casing differences.
+1. **Detects** the environment. It checks for an authenticated Bitbucket MCP connection
+   first; when MCP is unavailable it falls back to the token variable
+   (`BITBUCKET_DATA_CENTER_TOKEN` → Data Center, else `BITBUCKET_TOKEN` → Cloud). The token
+   check is case-insensitive so it is robust to env-var casing differences. If neither an
+   MCP connection nor a token is available, it asks the user to authenticate rather than
+   guessing the product.
 2. **Hands off** to the matching detailed skill via the `invoke_skill` tool:
    - Bitbucket Cloud → [`bitbucket-cloud`](../bitbucket-cloud/)
    - Bitbucket Data Center → [`bitbucket-data-center`](../bitbucket-data-center/)
+
+## Authentication
+
+You can interact with Bitbucket using one of the following methods, in order of preference:
+
+1. **OAuth MCP Server** (preferred): If authenticated Bitbucket MCP tools are available in
+   the environment, use them for Bitbucket operations. MCP tools handle authentication via
+   the configured OAuth integration, so no token is needed.
+2. **Secret Token**: If the relevant token environment variable is set
+   (`BITBUCKET_TOKEN` for Cloud, `BITBUCKET_DATA_CENTER_TOKEN` for Data Center), use it
+   with the Bitbucket API, as described in the detailed skills.
+3. **No authentication**: If neither is available, ask the user to either:
+   - Connect a Bitbucket OAuth MCP server in Canvas, OR
+   - Provide the relevant token as a Secret
+
+Detection is based on the availability of authenticated Bitbucket MCP tools - no specific
+MCP server name or tool name is required. When MCP tools are available, prefer them; the
+token/direct-API flows in the detailed skills remain the correct path when MCP is
+unavailable or when you explicitly need raw API/curl access.
 
 The hub also carries a small quick-reference table as a fallback in case the detailed skill
 cannot be loaded.
