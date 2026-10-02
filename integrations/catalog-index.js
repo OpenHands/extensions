@@ -81,6 +81,7 @@ import entry75 from "./catalog/resend.json" with { type: "json" };
 import entry76 from "./catalog/sequential-thinking.json" with { type: "json" };
 import entry77 from "./catalog/superhuman-mail.json" with { type: "json" };
 import entry78 from "./catalog/time.json" with { type: "json" };
+import entry79 from "./catalog/youcom-search.json" with { type: "json" };
 
 export const INTEGRATION_CATALOG_ENTRIES = [
   entry0,
@@ -162,4 +163,5 @@ export const INTEGRATION_CATALOG_ENTRIES = [
   entry76,
   entry77,
   entry78,
+  entry79,
 ];

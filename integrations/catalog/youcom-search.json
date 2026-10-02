@@ -1,0 +1,26 @@
+{
+  "id": "youcom-search",
+  "name": "You.com",
+  "description": "Web search with cited results via the You.com MCP server. Free tier works without an API key.",
+  "docsUrl": "https://you.com/docs",
+  "keywords": [
+    "search",
+    "web",
+    "research",
+    "you",
+    "citations"
+  ],
+  "connectionOptions": [
+    {
+      "id": "none",
+      "provider": "mcp",
+      "transport": {
+        "kind": "shttp",
+        "url": "https://api.you.com/mcp?profile=free"
+      },
+      "auth": {
+        "strategy": "none"
+      }
+    }
+  ]
+}
