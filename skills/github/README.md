@@ -11,6 +11,8 @@ This skill is activated by the following keywords:
 
 ## Details
 
+Use authenticated GitHub MCP tools first when they are available in the agent's environment. Detect the connection through tool availability rather than a particular server name. Fall back to the documented `GITHUB_TOKEN` and direct API flow when those tools are unavailable or raw API or `curl` access is explicitly needed.
+
 You have access to an environment variable, `GITHUB_TOKEN`, which allows you to interact with
 the GitHub API.
 
