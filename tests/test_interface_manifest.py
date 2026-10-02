@@ -44,6 +44,14 @@ def test_manifest_validates_against_its_schema():
     _validate(MANIFEST)
 
 
+def test_events_page_declares_ordered_navigation_and_route():
+    assert MANIFEST["routes"]["events"] == "/automations/events"
+    assert [item["page"] for item in MANIFEST["navigation"]["subPages"]] == [
+        "list", "events", "templates"
+    ]
+    assert MANIFEST["pages"]["events"]["title"] == "Event sources"
+
+
 def test_featured_automations_resolve_to_catalog_entries():
     for automation_id in MANIFEST["featuredAutomationIds"]:
         manifest = AUTOMATIONS / "catalog" / automation_id / "manifest.json"

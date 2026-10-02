@@ -4,6 +4,7 @@
     "list": "/automations",
     "setup": "/automations/new/:automationId",
     "detail": "/automations/:automationId",
+    "events": "/automations/events",
     "templates": "/automations/templates"
   },
   "navigation": {
@@ -15,6 +16,7 @@
     },
     "subPages": [
       { "page": "list", "label": "Dashboard", "icon": "layout-dashboard" },
+      { "page": "events", "label": "Events", "icon": "activity" },
       { "page": "templates", "label": "Templates", "icon": "sparkles" }
     ]
   },
@@ -110,6 +112,10 @@
     },
     "detail": { "backLabel": "Back to Automations" },
     "edit": { "title": "Edit automation" },
+    "events": {
+      "title": "Event sources",
+      "description": "Manage custom webhook event sources."
+    },
     "templates": {
       "title": "Templates",
       "description": "Browse proven automations and beta ideas, then launch one into a conversation to tailor it to your work."
@@ -155,7 +161,8 @@
     "createPrompt": "/v1/preset/prompt",
     "createPlugin": "/v1/preset/plugin",
     "createBundle": "/v1",
-    "uploads": "/v1/uploads"
+    "uploads": "/v1/uploads",
+    "webhooks": "/v1/webhooks"
   },
   "featuredAutomationIds": [
     "github-pr-reviewer",
