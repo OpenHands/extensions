@@ -1,0 +1,7 @@
+OpenHands SDK 1.51.0 / npm @ismalicious/mcp-server 0.3.0
+Catalogue command: npx -y @ismalicious/mcp-server@0.3.0
+Discovered: scan_before_use, check_url, check_indicator, get_cve, recent_cves, search_indicators, check_indicators
+scan_before_use: allow preserved
+scan_before_use: block preserved
+PASS: catalogue -> released SDK -> published npm stdio -> loopback HTTP fixture -> tool output
+Local SDK only; synthetic credentials; Cloud and detector accuracy not tested.
