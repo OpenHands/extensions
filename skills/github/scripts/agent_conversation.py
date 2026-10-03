@@ -2,6 +2,7 @@
 
 import json
 import os
+import sys
 import time
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
@@ -25,6 +26,10 @@ except ImportError:
     TextContent = LocalWorkspace = RemoteWorkspace = None
 
 _CONVERSATION_KEY_PREFIX = "agent-conversation-"
+# High watermark: maximum records allowed before batch pruning is triggered
+_MAX_RETAINED_CONVERSATIONS = 50
+# Low watermark: target record count after pruning, avoiding N+1 KV calls on every dispatch
+_PRUNE_TARGET_CONVERSATIONS = 35
 
 # How long a conversation the OpenHands API was asked to start may take to
 # appear before the start is taken to have failed and is made again.
@@ -46,8 +51,9 @@ def _kv_request(key: str, method: str, value: dict | None = None) -> dict | None
     token = os.environ.get("AUTOMATION_KV_TOKEN", "")
     if not base_url or not token:
         raise RuntimeError("Automation KV is required for agent conversation dispatch")
+    url = f"{base_url}/v1/kv/{key}" if key else f"{base_url}/v1/kv"
     request = Request(
-        f"{base_url}/v1/kv/{key}",
+        url,
         data=json.dumps(value).encode() if value is not None else None,
         headers={
             "Authorization": f"Bearer {token}",
@@ -57,12 +63,13 @@ def _kv_request(key: str, method: str, value: dict | None = None) -> dict | None
     )
     try:
         with urlopen(request, timeout=90) as response:
-            body = json.load(response)
+            raw = response.read()
+            body = json.loads(raw) if raw.strip() else {}
     except HTTPError as exc:
-        if method == "GET" and exc.code == 404:
+        if method in ("GET", "DELETE") and exc.code == 404:
             return None
         raise
-    return body.get("value") if method == "GET" else body
+    return body.get("value") if (method == "GET" and key) else body
 
 
 class CloudConversations:
@@ -228,11 +235,120 @@ class AgentConversationDispatcher:
         }
         if disposition == "created" and self._cloud:
             new_record["started_at"] = time.time()
-        _kv_request(state_key, "PUT", new_record)
+        elif record.get("started_at"):
+            new_record["started_at"] = record["started_at"]
+
+        # Watermark pruning: only runs when total keys exceed _MAX_RETAINED_CONVERSATIONS,
+        # pruning down to _PRUNE_TARGET_CONVERSATIONS to avoid N+1 round trips on every dispatch.
+        self._prune_records(preserve_id=str(conversation_id), force=False)
+        try:
+            _kv_request(state_key, "PUT", new_record)
+        except HTTPError as exc:
+            if exc.code == 413:
+                # KV is overflowing (>64 KiB) from prior unbounded runs:
+                # prune completed records aggressively down to target and retry.
+                print(
+                    "Warning: automation KV returned HTTP 413; aggressively pruning completed records",
+                    file=sys.stderr,
+                )
+                self._prune_records(preserve_id=str(conversation_id), force=True)
+                _kv_request(state_key, "PUT", new_record)
+            else:
+                raise
+
         return {
             "disposition": disposition,
             "conversation_id": str(conversation_id),
         }
+
+    def _list_dispatcher_keys(self) -> list[str]:
+        """Fetch all agent-conversation-* keys currently in the KV document.
+
+        The automation service KV listing endpoint GET /v1/kv is expected to return
+        either an envelope with a 'keys' list or a dict mapping keys to values.
+        """
+        try:
+            res = _kv_request("", "GET") or {}
+        except Exception as exc:
+            print(f"Warning: failed to list dispatcher KV keys ({exc})", file=sys.stderr)
+            return []
+        if isinstance(res, dict):
+            keys = res.get("keys", list(res.keys()))
+        elif isinstance(res, list):
+            keys = res
+        else:
+            keys = []
+        return [
+            k for k in keys if isinstance(k, str) and k.startswith(_CONVERSATION_KEY_PREFIX)
+        ]
+
+    def _is_running(self, record: dict) -> bool:
+        """Check if the conversation is currently running and must not be deleted."""
+        conv_id = record.get("conversation_id")
+        if not conv_id:
+            return False
+        if self._cloud:
+            conv = self._cloud.get(conv_id)
+            if conv is None:
+                started = time.time() - float(record.get("started_at") or 0)
+                return started < _CLOUD_START_GRACE_SECONDS
+            return conv.get("execution_status") == "running"
+        if self._workspace:
+            try:
+                conv = RemoteConversation.attach(self._workspace, conv_id, visualizer=None)
+                running = (
+                    conv.state.execution_status == ConversationExecutionStatus.RUNNING
+                )
+                conv.close()
+                return running
+            except Exception:
+                return False
+        return False
+
+    def _prune_records(self, preserve_id: str | None = None, force: bool = False) -> None:
+        """Prune oldest completed conversation records down to _PRUNE_TARGET_CONVERSATIONS.
+
+        NOTE: Evicting an idle/completed conversation's record is an accepted
+        tradeoff of bounding state within the 64 KiB KV store limit. An evicted
+        subject forfeits its deduplication and resume continuity if another
+        trigger arrives for it later.
+        """
+        keys = self._list_dispatcher_keys()
+        # High watermark: only prune if exceeding cap or explicitly forced by HTTP 413
+        if not force and len(keys) <= _MAX_RETAINED_CONVERSATIONS:
+            return
+
+        target_to_remove = (
+            max(len(keys) - _PRUNE_TARGET_CONVERSATIONS, min(15, len(keys)))
+            if force
+            else len(keys) - _PRUNE_TARGET_CONVERSATIONS
+        )
+        if target_to_remove <= 0:
+            return
+
+        records = []
+        for key in keys:
+            conv_id = key[len(_CONVERSATION_KEY_PREFIX):]
+            if conv_id == preserve_id:
+                continue
+            rec = _kv_request(key, "GET") or {}
+            records.append((key, rec))
+
+        records.sort(
+            key=lambda item: float(item[1].get("started_at") or 0)
+        )
+
+        pruned = 0
+        for key, rec in records:
+            if pruned >= target_to_remove:
+                break
+            if self._is_running(rec):
+                continue
+            try:
+                _kv_request(key, "DELETE")
+                pruned += 1
+            except Exception as exc:
+                print(f"Warning: failed to delete KV key {key}: {exc}", file=sys.stderr)
 
     def _deliver_cloud(
         self, record, conversation_id, subject, prompt, same_delivery, same_head
