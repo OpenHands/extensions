@@ -1,0 +1,56 @@
+{
+  "id": "cognicore",
+  "name": "CogniCore",
+  "description": "Persistent agent memory across runs: record verified outcomes, recall them in later sessions, and reflect on recurring patterns.",
+  "categories": [
+    "Memory",
+    "Knowledge base"
+  ],
+  "docsUrl": "https://github.com/cognicore-dev/cognicore-env",
+  "notes": "Runs a local MCP server over stdio; install with `pip install \"cognicore-env[mcp]\"`. Memories are stored in a SQLite database at `COGNICORE_DATA_DIR` (default `~/.cognicore/mcp/mcp_memories.db`). Point that variable at a mounted volume, or memory is discarded when a sandbox is recreated. Stored entries carry `state: candidate`; the released server exposes no tool that promotes an entry to a trusted state, so callers should re-verify a recalled value before acting on it. For the same reason, treat recall as a hint rather than as a verified fact.",
+  "connectionOptions": [
+    {
+      "id": "stdio",
+      "provider": "mcp",
+      "transport": {
+        "kind": "stdio",
+        "serverName": "cognicore",
+        "command": "uvx",
+        "args": [
+          "--from",
+          "cognicore-env[mcp]",
+          "cognicore",
+          "mcp",
+          "serve",
+          "--transport",
+          "stdio"
+        ],
+        "envFields": [
+          {
+            "key": "COGNICORE_DATA_DIR",
+            "label": "Memory directory",
+            "type": "text",
+            "required": false,
+            "placeholder": "/workspace/.cognicore",
+            "helperText": "Directory holding the memory database. Set this to a path that persists between runs; the default under the home directory is discarded when a sandbox is recreated.",
+            "helperLink": "https://github.com/cognicore-dev/cognicore-env/blob/main/docs/deployment.md"
+          }
+        ]
+      },
+      "auth": {
+        "strategy": "none"
+      }
+    }
+  ],
+  "iconBg": "#4C1D95",
+  "keywords": [
+    "memory",
+    "persistent memory",
+    "long-term memory",
+    "recall",
+    "reflection",
+    "knowledge base",
+    "cross-session"
+  ],
+  "installHint": "Requires the uv package manager on PATH, since uvx launches the server. No API key is required. Set COGNICORE_DATA_DIR to a path that survives between runs; otherwise recorded memories are lost with the sandbox."
+}
