@@ -64,6 +64,26 @@ gh api repos/<OWNER>/<REPO>/pulls/<PR_NUMBER>/merge-async/<UUID>
 Final `status` is `merged`, `enqueued` (added to the merge queue, NOT merged yet), or `failed` (see `details.message`).
 A `200` on the PUT means the PR is already merged or queued; a `409` means a merge request is already pending (its UUID is returned).
 
+## Requesting a Review
+
+Trigger a review exactly once, through one path:
+
+- a reviewer request through MCP tools (preferred when they are available),
+- `gh pr edit <number> --repo <owner/repo> --add-reviewer <reviewer-login>`, or
+- the REST endpoint (`POST /repos/{owner}/{repo}/pulls/{number}/requested_reviewers`).
+
+Do not combine paths. Adding the `review-this` label on top of a reviewer
+request is the same double-trigger: a reviewer-request webhook and a
+label webhook can each start an independent agent, producing a formal review
+and a second review-shaped comment for the same request. Do not post an
+`@reviewer please review` comment either — a mention responder can start yet
+another agent.
+
+Check pending requests and submitted reviews before retrying; lack of an
+immediate response is not a reason to trigger another path. If the chosen path
+fails, inspect the error and the repository's documented trigger before using
+an alternative, and never use one in addition to the first.
+
 ## Handling Review Comments
 
 - Critically evaluate each review comment before acting on it. Not all feedback is worth implementing:
