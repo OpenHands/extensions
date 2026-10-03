@@ -1,0 +1,19 @@
+{
+  "name": "session-insight",
+  "version": "1.0.0",
+  "description": "Generate a local HTML usage report from OpenHands session exports, identify recurring failures and repetitive actions, and propose evidence-backed workflow improvements.",
+  "author": {
+    "name": "OpenHands",
+    "email": "contact@all-hands.dev"
+  },
+  "homepage": "https://github.com/OpenHands/extensions",
+  "repository": "https://github.com/OpenHands/extensions",
+  "license": "MIT",
+  "keywords": [
+    "insight",
+    "analytics",
+    "sessions",
+    "usage",
+    "report"
+  ]
+}

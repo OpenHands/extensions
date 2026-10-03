@@ -100,7 +100,7 @@ The JS and Python versions are kept in lock-step by `release-please` and guarded
 ## Extensions Catalog
 
 <!-- BEGIN AUTO-GENERATED CATALOG -->
-This repository contains **2 marketplace(s)** with **76 extensions** (65 skills, 11 plugins).
+This repository contains **2 marketplace(s)** with **77 extensions** (66 skills, 11 plugins).
 
 ### large-codebase
 
@@ -119,7 +119,7 @@ OpenHands skills for interacting, improving, and refactoring large codebases
 
 Official skills and plugins for OpenHands — the open-source AI software engineer.
 
-**72 extensions** (63 skills, 9 plugins)
+**73 extensions** (64 skills, 9 plugins)
 
 | Name | Type | Description | Commands |
 |------|------|-------------|----------|
@@ -182,6 +182,7 @@ Official skills and plugins for OpenHands — the open-source AI software engine
 | research-brief | skill | Create a recurring automation that researches a topic using Tavily web search and publishes a structured brief to Not... | `/research-brief:setup` |
 | runtime-api-configs | plugin | Manage warm sandbox pools on OpenHands Enterprise from a Python CLI: list, template, save, and delete warm runtime co... | — |
 | security | skill | Security best practices for secure coding, authentication, authorization, and data protection. Use when developing fe... | — |
+| session-insight | skill | Generate a local HTML usage report from OpenHands session exports, identify recurring failures and repetitive actions... | `/insight` |
 | skill-creator | skill | Guide for creating effective skills. This skill should be used when users want to create a new skill (or update an ex... | — |
 | slack-channel-monitor | skill | Create a cron automation that polls up to 10 Slack channels every minute and starts an OpenHands conversation when a ... | `/slack-monitor:poll` |
 | slack-standup-digest | skill | Create an automation that generates an async standup digest from Slack. Searches selected channels for messages since... | `/standup-digest:setup` |
