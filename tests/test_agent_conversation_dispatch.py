@@ -29,7 +29,12 @@ def _state_key(subject):
 def _fake_kv(monkeypatch, state):
     def request(key, method, value=None):
         if method == "GET":
+            if not key:
+                return {"keys": list(state.keys())}
             return state.get(key)
+        if method == "DELETE":
+            state.pop(key, None)
+            return {}
         state[key] = value
         return {"key": key, "value": value}
 
@@ -421,3 +426,151 @@ def test_cloud_run_replaces_a_conversation_whose_sandbox_is_gone(monkeypatch):
     [started] = cloud.started
     assert started["id"] != gone
     assert state[_state_key("repo:pr:7")]["conversation_id"] == started["id"]
+
+
+def test_dispatcher_bounds_kv_records_and_prunes_oldest_completed(monkeypatch):
+    state = {}
+    for i in range(55):
+        key = _state_key(f"repo:pr:{i}")
+        state[key] = {
+            "subject": f"repo:pr:{i}",
+            "conversation_id": f"00000000-0000-0000-0000-{i:012d}",
+            "delivery": f"del-{i}",
+            "head": f"head-{i}",
+            "started_at": float(i + 1),
+        }
+    _fake_kv(monkeypatch, state)
+    target_id = str(uuid5(NAMESPACE_URL, "automation-1:repo:pr:999"))
+    completed = {"sandbox_status": "RUNNING", "execution_status": "finished"}
+    cloud = _FakeCloud()
+    cloud.get = lambda cid: None if str(cid) == target_id else completed
+
+    with _cloud_dispatcher(monkeypatch, cloud) as dispatcher:
+        result = dispatcher.deliver("repo:pr:999", "del-999", "work", head="head-999")
+
+    assert result["disposition"] == "created"
+    assert len(state) <= agent_conversation._MAX_RETAINED_CONVERSATIONS
+    # Oldest records should have been pruned first
+    assert _state_key("repo:pr:0") not in state
+    assert _state_key("repo:pr:999") in state
+
+
+def test_dispatcher_preserves_running_conversation_during_prune(monkeypatch):
+    state = {}
+    # Create 55 records, but record 0 is running (even though oldest)
+    for i in range(55):
+        key = _state_key(f"repo:pr:{i}")
+        state[key] = {
+            "subject": f"repo:pr:{i}",
+            "conversation_id": f"00000000-0000-0000-0000-{i:012d}",
+            "delivery": f"del-{i}",
+            "head": f"head-{i}",
+            "started_at": float(i + 1),
+        }
+    _fake_kv(monkeypatch, state)
+
+    target_id = str(uuid5(NAMESPACE_URL, "automation-1:repo:pr:999"))
+    running_id = "00000000-0000-0000-0000-000000000000"
+    completed = {"sandbox_status": "RUNNING", "execution_status": "finished"}
+    cloud = _FakeCloud()
+
+    def custom_get(cid):
+        if str(cid) == target_id:
+            return None
+        if str(cid) == running_id:
+            return {"sandbox_status": "RUNNING", "execution_status": "running"}
+        return completed
+
+    cloud.get = custom_get
+
+    with _cloud_dispatcher(monkeypatch, cloud) as dispatcher:
+        dispatcher.deliver("repo:pr:999", "del-999", "work", head="head-999")
+
+    # Record 0 was running, so it must NOT be pruned despite being the oldest
+    assert _state_key("repo:pr:0") in state
+
+
+def test_dispatcher_recovers_from_http_413_payload_too_large(monkeypatch):
+    from urllib.error import HTTPError
+
+    state = {}
+    for i in range(60):
+        key = _state_key(f"repo:pr:{i}")
+        state[key] = {
+            "subject": f"repo:pr:{i}",
+            "conversation_id": f"00000000-0000-0000-0000-{i:012d}",
+            "delivery": f"del-{i}",
+            "head": f"head-{i}",
+            "started_at": float(i + 1),
+        }
+
+    first_put = True
+
+    def request(key, method, value=None):
+        nonlocal first_put
+        if method == "GET":
+            if not key:
+                return {"keys": list(state.keys())}
+            return state.get(key)
+        if method == "DELETE":
+            state.pop(key, None)
+            return {}
+        if method == "PUT" and first_put:
+            first_put = False
+            raise HTTPError(url="http://kv/v1/kv", code=413, msg="Payload Too Large", hdrs={}, fp=None)
+        state[key] = value
+        return {"key": key, "value": value}
+
+    monkeypatch.setattr(agent_conversation, "_kv_request", request)
+    target_id = str(uuid5(NAMESPACE_URL, "automation-1:repo:pr:999"))
+    completed = {"sandbox_status": "RUNNING", "execution_status": "finished"}
+    cloud = _FakeCloud()
+    cloud.get = lambda cid: None if str(cid) == target_id else completed
+
+    with _cloud_dispatcher(monkeypatch, cloud) as dispatcher:
+        result = dispatcher.deliver("repo:pr:999", "del-999", "work", head="head-999")
+
+    assert result["disposition"] == "created"
+    assert not first_put  # 413 was triggered and handled
+    assert _state_key("repo:pr:999") in state
+
+
+def test_dispatcher_does_not_prune_when_below_high_watermark(monkeypatch):
+    state = {}
+    for i in range(45):
+        key = _state_key(f"repo:pr:{i}")
+        state[key] = {
+            "subject": f"repo:pr:{i}",
+            "conversation_id": f"00000000-0000-0000-0000-{i:012d}",
+            "delivery": f"del-{i}",
+            "head": f"head-{i}",
+            "started_at": float(i + 1),
+        }
+    delete_calls = []
+
+    def request(key, method, value=None):
+        if method == "GET":
+            if not key:
+                return {"keys": list(state.keys())}
+            return state.get(key)
+        if method == "DELETE":
+            delete_calls.append(key)
+            state.pop(key, None)
+            return {}
+        state[key] = value
+        return {"key": key, "value": value}
+
+    monkeypatch.setattr(agent_conversation, "_kv_request", request)
+    target_id = str(uuid5(NAMESPACE_URL, "automation-1:repo:pr:999"))
+    cloud = _FakeCloud()
+    cloud.get = lambda cid: None
+
+    with _cloud_dispatcher(monkeypatch, cloud) as dispatcher:
+        dispatcher.deliver("repo:pr:999", "del-999", "work", head="head-999")
+
+    # With 45 records (<= 50), high watermark is not exceeded: no DELETEs should occur
+    assert len(delete_calls) == 0
+    assert len(state) == 46
+    assert _state_key("repo:pr:0") in state
+    assert _state_key("repo:pr:999") in state
+
