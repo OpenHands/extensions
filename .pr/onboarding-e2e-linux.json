@@ -1,0 +1,80 @@
+{
+  "sdk_version": "1.49.0",
+  "platform": "posix",
+  "loading_and_activation": {
+    "skills": 5,
+    "positive": 5,
+    "negative": 5
+  },
+  "dependency_only": {
+    "scan_agent_instructions.sh": {
+      "exit_code": 0,
+      "stdout": "=== Pillar 1: Agent Instructions ===\n\n-- Agent instruction files --\n\n-- AI IDE configuration --\n\n-- Agent skills --\n\n-- Tool server configuration --\n\n-- Agent prompt library --\n\n-- README --\n(not found)\n\n-- Contributing guide --\n\n-- Architecture docs --\n\n-- API documentation --\n\n-- Changelog --\n\n-- Environment variable docs --\n\n-- Documentation site / directory --\n\n-- Examples directory --\n\n-- Module-level READMEs --\n  Total: 0 module READMEs\n"
+    },
+    "scan_build_env.sh": {
+      "exit_code": 0,
+      "stdout": "=== Pillar 5: Build & Dev Environment ===\n\n-- Dependency lockfiles --\n\n-- Build commands --\n\n-- Setup scripts --\n\n-- Dev container --\n  (not found)\n\n-- Containerized services --\n\n-- Reproducible environment --\n\n-- Tool version pinning --\n\n-- Monorepo orchestration --\n\n-- Build caching --\n\n-- Cross-platform support --\n\n-- Cloud dev environment --\n\n-- Package manager configuration --\n"
+    },
+    "scan_feedback_loops.sh": {
+      "exit_code": 0,
+      "stdout": "=== Pillar 2: Feedback Loops ===\n\n-- Linter configuration --\n\n-- Formatter configuration --\n\n-- Type checking --\n\n-- Pre-commit hooks --\n\n-- Test directories --\n\n-- Test file count --\n  0 test files found\n\n-- Test coverage --\n\n-- CI pipelines --\n\n-- Config/schema validation --\n\n-- Snapshot tests --\n  0 snapshot dirs/files, 0 testdata dirs\n\n-- Benchmark suite --\n  0 benchmark files found\n\n-- Spell checking --\n"
+    },
+    "scan_policy.sh": {
+      "exit_code": 0,
+      "stdout": "=== Pillar 4: Policy & Governance ===\n\n-- .gitignore --\n  (not found)\n\n-- License --\n\n-- Code ownership --\n\n-- Security policy --\n\n-- Code of conduct --\n\n-- AI usage policy --\n\n-- Secrets management --\n\n-- Security scanning --\n\n-- Git attributes --\n  (not found)\n\n-- Contributor agreement --\n\n-- Governance model --\n\n-- CI workflow validation --\n\n-- Environment separation --\n"
+    },
+    "scan_workflows.sh": {
+      "exit_code": 0,
+      "stdout": "=== Pillar 3: Workflows & Automation ===\n\n-- Issue templates --\n  (not found)\n\n-- PR template --\n  (not found)\n\n-- Dependency update automation --\n\n-- Release automation --\n\n-- Branch protection signals --\n\n-- Merge automation --\n\n-- Task runner --\n\n-- Structured change tracking --\n\n-- CI concurrency control --\n\n-- Automated release notes --\n\n-- Stale issue management --\n\n-- Label automation --\n\n-- Multi-platform CI --\n\n-- Deployment automation --\n"
+    }
+  },
+  "authored_project": {
+    "scan_agent_instructions.sh": {
+      "exit_code": 0,
+      "evidence": "./packages/app/AGENTS.md"
+    },
+    "scan_feedback_loops.sh": {
+      "exit_code": 0,
+      "evidence": "  1 test files found"
+    },
+    "scan_workflows.sh": {
+      "exit_code": 0,
+      "evidence": "./.github/pull_request_template.md"
+    },
+    "scan_policy.sh": {
+      "exit_code": 0,
+      "evidence": "./docs/SECURITY.md"
+    },
+    "scan_build_env.sh": {
+      "exit_code": 0,
+      "evidence": "./services/Dockerfile"
+    }
+  },
+  "real_extensions_checkout": {
+    "scan_agent_instructions.sh": {
+      "exit_code": 0,
+      "stdout": "=== Pillar 1: Agent Instructions ===\n\n-- Agent instruction files --\n./AGENTS.md\n\n-- AI IDE configuration --\n\n-- Agent skills --\n./plugins/openhands/SKILL.md\n./plugins/release-notes/SKILL.md\n./plugins/runtime-api-configs/SKILL.md\n./skills/add-javadoc/SKILL.md\n./skills/add-skill/SKILL.md\n./skills/agent-canvas-environment/SKILL.md\n./skills/agent-creator/SKILL.md\n./skills/agent-memory/SKILL.md\n./skills/agent-sdk-builder/SKILL.md\n./skills/azure-devops/SKILL.md\n./skills/bitbucket-cloud/SKILL.md\n./skills/bitbucket-data-center/SKILL.md\n./skills/bitbucket/SKILL.md\n./skills/canvas-extension-api/SKILL.md\n./skills/code-review/SKILL.md\n./skills/code-simplifier/SKILL.md\n./skills/datadog/SKILL.md\n./skills/deno/SKILL.md\n./skills/discord/SKILL.md\n./skills/docker/SKILL.md\n./skills/evidence-based-citations/SKILL.md\n./skills/flarglebargle/SKILL.md\n./skills/frontend-design/SKILL.md\n./skills/github-actions/SKILL.md\n./skills/github-agents-md-maintainer/SKILL.md\n./skills/github-delivery-watchdog/SKILL.md\n./skills/github-issue-to-pr/SKILL.md\n./skills/github-issue-triage/SKILL.md\n./skills/github-pr-review/SKILL.md\n./skills/github-pr-reviewer/SKILL.md\n./skills/github-repo-monitor/SKILL.md\n./skills/github-stale-ci-pr-closer/SKILL.md\n./skills/github/SKILL.md\n./skills/gitlab-issue-to-mr/SKILL.md\n./skills/gitlab/SKILL.md\n./skills/incident-retrospective/SKILL.md\n./skills/iterate/SKILL.md\n./skills/jira-issue-to-pr/SKILL.md\n./skills/jupyter/SKILL.md\n./skills/kubernetes/SKILL.md\n./skills/learn-from-code-review/SKILL.md\n./skills/linear-triage/SKILL.md\n./skills/linear/SKILL.md\n./skills/news-digest/SKILL.md\n./skills/notion/SKILL.md\n./skills/npm/SKILL.md\n./skills/openhands-api/SKILL.md\n./skills/openhands-automation/SKILL.md\n./skills/openhands-enterprise-troubleshooting/SKILL.md\n./skills/openhands-sdk/SKILL.md\n./skills/pdflatex/SKILL.md\n./skills/plain-english-content/SKILL.md\n./skills/prd/SKILL.md\n./skills/qa-changes/SKILL.md\n./skills/release-notes/SKILL.md\n./skills/research-brief/SKILL.md\n./skills/security/SKILL.md\n./skills/skill-creator/SKILL.md\n./skills/slack-channel-monitor/SKILL.md\n./skills/slack-standup-digest/SKILL.md\n./skills/spark-version-upgrade/SKILL.md\n./skills/ssh/SKILL.md\n./skills/swift-linux/SKILL.md\n./skills/technical-writing/SKILL.md\n./skills/theme-factory/SKILL.md\n./skills/ticket-to-code-change/SKILL.md\n./skills/upstream-fork-sync/SKILL.md\n./skills/use-jev/SKILL.md\n./skills/uv/SKILL.md\n./skills/vercel/SKILL.md\n\n-- Tool server configuration --\n\n-- Agent prompt library --\n\n-- README --\n./README.md (233 lines)\n\n-- Contributing guide --\n\n-- Architecture docs --\n\n-- API documentation --\n\n-- Changelog --\n\n-- Environment variable docs --\n\n-- Documentation site / directory --\n\n-- Examples directory --\n\n-- Module-level READMEs --\n./utils/analysis/README.md\n./.pytest_cache/README.md\n./plugins/migration-scoring/README.md\n./plugins/qa-changes/README.md\n./plugins/onboarding/README.md\n./plugins/city-weather/README.md\n./plugins/release-notes/README.md\n./plugins/pr-review/README.md\n./plugins/vulnerability-remediation/README.md\n./plugins/issue-duplicate-checker/README.md\n  ... and 76 more\n  Total: 86 module READMEs\n"
+    },
+    "scan_build_env.sh": {
+      "exit_code": 0,
+      "stdout": "=== Pillar 5: Build & Dev Environment ===\n\n-- Dependency lockfiles --\n./uv.lock\n\n-- Build commands --\n  3 build command references in AGENTS.md\n\n-- Setup scripts --\n\n-- Dev container --\n  (not found)\n\n-- Containerized services --\n\n-- Reproducible environment --\n\n-- Tool version pinning --\n\n-- Monorepo orchestration --\n\n-- Build caching --\n  0 workflows with cache configuration\n\n-- Cross-platform support --\n\n-- Cloud dev environment --\n\n-- Package manager configuration --\n"
+    },
+    "scan_feedback_loops.sh": {
+      "exit_code": 0,
+      "stdout": "=== Pillar 2: Feedback Loops ===\n\n-- Linter configuration --\n\n-- Formatter configuration --\n\n-- Type checking --\n\n-- Pre-commit hooks --\n\n-- Test directories --\n./tests/ (50 top-level files)\n\n-- Test file count --\n  53 test files found\n\n-- Test coverage --\n  (coverage/pytest config in pyproject.toml)\n\n-- CI pipelines --\n.github/workflows/:\n  build-vscode-app.yml\n  check-extensions.yml\n  deprecation-check.yml\n  issue-readiness-check.yml\n  npm-publish.yml\n  pr-artifacts.yml\n  pr-description-check.yml\n  pr.yml\n  pypi-publish.yml\n  release.yml\n  tests.yml\n  vulnerability-scan.yml\n\n-- Config/schema validation --\n\n-- Snapshot tests --\n  0 snapshot dirs/files, 0 testdata dirs\n\n-- Benchmark suite --\n  0 benchmark files found\n\n-- Spell checking --\n"
+    },
+    "scan_policy.sh": {
+      "exit_code": 0,
+      "stdout": "=== Pillar 4: Policy & Governance ===\n\n-- .gitignore --\n./.gitignore (32 lines)\n  (4 agent-related ignore entries)\n\n-- License --\n./LICENSE\n\n-- Code ownership --\n\n-- Security policy --\n./skills/security\n\n-- Code of conduct --\n\n-- AI usage policy --\n  4 AI policy references in AGENTS.md\n\n-- Secrets management --\n  2 distinct secrets referenced in CI\n\n-- Security scanning --\n  trivy in vulnerability-scan.yml\n\n-- Git attributes --\n  (not found)\n\n-- Contributor agreement --\n  DCO/CLA reference in check-extensions.yml\n  DCO/CLA reference in vulnerability-scan.yml\n\n-- Governance model --\n\n-- CI workflow validation --\n\n-- Environment separation --\n"
+    },
+    "scan_workflows.sh": {
+      "exit_code": 0,
+      "stdout": "=== Pillar 3: Workflows & Automation ===\n\n-- Issue templates --\n  (not found)\n\n-- PR template --\n./.github/pull_request_template.md\n\n-- Dependency update automation --\n./.github/dependabot.yml\n\n-- Release automation --\n  release.yml\n  pr.yml\n  deprecation-check.yml\n  pr-description-check.yml\n  npm-publish.yml\n  pypi-publish.yml\n./release-please-config.json\n\n-- Branch protection signals --\n\n-- Merge automation --\n\n-- Task runner --\n  package.json: 6 scripts\n\n-- Structured change tracking --\n\n-- CI concurrency control --\n  4 workflows with concurrency groups, 4 with cancel-in-progress\n\n-- Automated release notes --\n./release-please-config.json\n./.github/release.yml\n.github/workflows/release.yml\n.github/workflows/pr.yml\n.github/workflows/deprecation-check.yml\n\n-- Stale issue management --\n\n-- Label automation --\n\n-- Multi-platform CI --\n\n-- Deployment automation --\n"
+    }
+  },
+  "missing_repository": {
+    "exit_code": 1,
+    "message": "Cannot access"
+  },
+  "cleanup": "temporary installation removed; assessed files were not modified"
+}

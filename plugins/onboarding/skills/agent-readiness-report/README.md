@@ -21,3 +21,10 @@ The five pillars are:
 - **Build & Dev Environment** — can the agent build and run the project?
 
 Once you have a report, use `improve-agent-readiness` to turn the gaps into concrete fixes.
+
+The scanner helpers exclude `.git`, `node_modules`, `.venv`, and `venv`
+directories, including those nested in monorepo packages. Third-party tests,
+configs and policies do not count as project evidence. Other authored files
+remain in scope within the existing depth limits; `.gitignore` is not used as
+an evidence filter. Keep `scripts/find_repo.sh` with the scanners when copying
+them. Missing optional signals do not cause a nonzero exit status.

@@ -1,0 +1,27 @@
+{
+  "scan_agent_instructions.sh": {
+    "exit_code": 0,
+    "stdout": "=== Pillar 1: Agent Instructions ===\n\n-- Agent instruction files --\n./node_modules/pkg/AGENTS.md\n\n-- AI IDE configuration --\n\n-- Agent skills --\n\n-- Tool server configuration --\n\n-- Agent prompt library --\n\n-- README --\n(not found)\n\n-- Contributing guide --\n\n-- Architecture docs --\n\n-- API documentation --\n\n-- Changelog --\n\n-- Environment variable docs --\n\n-- Documentation site / directory --\n\n-- Examples directory --\n\n-- Module-level READMEs --\n  Total: 0 module READMEs\n",
+    "stderr": ""
+  },
+  "scan_build_env.sh": {
+    "exit_code": 1,
+    "stdout": "=== Pillar 5: Build & Dev Environment ===\n\n-- Dependency lockfiles --\n\n-- Build commands --\n\n-- Setup scripts --\n\n-- Dev container --\n  (not found)\n\n-- Containerized services --\n./.venv/Dockerfile\n\n-- Reproducible environment --\n\n-- Tool version pinning --\n\n-- Monorepo orchestration --\n\n-- Build caching --\n\n-- Cross-platform support --\n\n-- Cloud dev environment --\n\n-- Package manager configuration --\n",
+    "stderr": ""
+  },
+  "scan_feedback_loops.sh": {
+    "exit_code": 0,
+    "stdout": "=== Pillar 2: Feedback Loops ===\n\n-- Linter configuration --\n./node_modules/.eslintrc.json\n\n-- Formatter configuration --\n\n-- Type checking --\n\n-- Pre-commit hooks --\n\n-- Test directories --\n\n-- Test file count --\n  2 test files found\n\n-- Test coverage --\n\n-- CI pipelines --\n\n-- Config/schema validation --\n\n-- Snapshot tests --\n  0 snapshot dirs/files, 0 testdata dirs\n\n-- Benchmark suite --\n  0 benchmark files found\n\n-- Spell checking --\n",
+    "stderr": ""
+  },
+  "scan_policy.sh": {
+    "exit_code": 1,
+    "stdout": "=== Pillar 4: Policy & Governance ===\n\n-- .gitignore --\n  (not found)\n\n-- License --\n\n-- Code ownership --\n\n-- Security policy --\n./node_modules/pkg/SECURITY.md\n\n-- Code of conduct --\n\n-- AI usage policy --\n\n-- Secrets management --\n\n-- Security scanning --\n\n-- Git attributes --\n  (not found)\n\n-- Contributor agreement --\n\n-- Governance model --\n\n-- CI workflow validation --\n\n-- Environment separation --\n",
+    "stderr": ""
+  },
+  "scan_workflows.sh": {
+    "exit_code": 1,
+    "stdout": "=== Pillar 3: Workflows & Automation ===\n\n-- Issue templates --\n  (not found)\n\n-- PR template --\n./node_modules/pkg/pull_request_template.md\n  (not found)\n\n-- Dependency update automation --\n\n-- Release automation --\n\n-- Branch protection signals --\n\n-- Merge automation --\n\n-- Task runner --\n\n-- Structured change tracking --\n\n-- CI concurrency control --\n\n-- Automated release notes --\n\n-- Stale issue management --\n\n-- Label automation --\n\n-- Multi-platform CI --\n\n-- Deployment automation --\n",
+    "stderr": ""
+  }
+}

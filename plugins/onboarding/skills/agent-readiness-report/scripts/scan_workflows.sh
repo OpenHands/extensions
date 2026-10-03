@@ -2,6 +2,9 @@
 # Scan for Workflows & Automation signals (Pillar 3)
 # Helps the agent find relevant files — not a substitute for judgment.
 
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/find_repo.sh" || exit 1
+
 REPO="${1:-.}"
 cd "$REPO" 2>/dev/null || { echo "Cannot access $REPO"; exit 1; }
 
@@ -18,7 +21,7 @@ fi
 
 echo ""
 echo "-- PR template --"
-find . -maxdepth 3 -iname 'pull_request_template*' 2>/dev/null | sort
+find_repo . -maxdepth 3 -iname 'pull_request_template*' 2>/dev/null | sort
 [ -f .github/pull_request_template.md ] || echo "  (not found)"
 
 echo ""
@@ -51,7 +54,7 @@ fi
 
 echo ""
 echo "-- Merge automation --"
-find . -maxdepth 2 -name '.mergify.yml' -o -name 'mergify.yml' 2>/dev/null | sort
+find_repo . -maxdepth 2 -name '.mergify.yml' -o -name 'mergify.yml' 2>/dev/null | sort
 if [ -d .github/workflows ]; then
   grep -rl 'auto-merge\|automerge\|gh pr merge' .github/workflows/ 2>/dev/null | head -3
 fi
@@ -70,7 +73,7 @@ fi
 echo ""
 echo "-- Structured change tracking --"
 [ -d .changeset ] && echo ".changeset/ ($(ls .changeset/*.md 2>/dev/null | wc -l | tr -d ' ') pending changesets)"
-find . -maxdepth 2 -name 'commitlint.config.*' -o -name '.commitlintrc*' 2>/dev/null | sort
+find_repo . -maxdepth 2 -name 'commitlint.config.*' -o -name '.commitlintrc*' 2>/dev/null | sort
 if [ -d .github/workflows ]; then
   grep -rl 'conventional-commits\|commitlint\|semantic-pull-request' .github/workflows/ 2>/dev/null | head -3
 fi
@@ -103,7 +106,7 @@ fi
 
 echo ""
 echo "-- Label automation --"
-find . -maxdepth 3 -name 'labeler.yml' -o -name '.github/labeler.yml' -o -name 'label-sync*' 2>/dev/null | sort
+find_repo . -maxdepth 3 -name 'labeler.yml' -o -name '.github/labeler.yml' -o -name 'label-sync*' 2>/dev/null | sort
 
 echo ""
 echo "-- Multi-platform CI --"
@@ -125,3 +128,6 @@ fi
 [ -f netlify.toml ] && echo "./netlify.toml"
 [ -f fly.toml ] && echo "./fly.toml"
 [ -f render.yaml ] && echo "./render.yaml"
+
+# Missing optional signals are findings, not scanner failures.
+exit 0

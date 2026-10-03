@@ -37,6 +37,12 @@ Five shell scripts gather filesystem signals — file existence, config patterns
 directory structures.  They surface what's present so you don't have to run
 dozens of `find` commands manually.
 
+Scanners prune `.git`, `node_modules`, `.venv`, and `venv` directories at any
+depth. Installed dependencies and Git internals are not evidence of the assessed
+project's readiness. Authored monorepo packages remain in scope, within each
+scan's depth limit. Keep `scripts/find_repo.sh` alongside the five scanners.
+An absent optional signal is a finding, not a command failure.
+
 ```bash
 bash scripts/scan_agent_instructions.sh /path/to/repo
 bash scripts/scan_feedback_loops.sh /path/to/repo

@@ -2,6 +2,9 @@
 # Scan for Policy & Governance signals (Pillar 4)
 # Helps the agent find relevant files — not a substitute for judgment.
 
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/find_repo.sh" || exit 1
+
 REPO="${1:-.}"
 cd "$REPO" 2>/dev/null || { echo "Cannot access $REPO"; exit 1; }
 
@@ -21,24 +24,24 @@ fi
 
 echo ""
 echo "-- License --"
-find . -maxdepth 1 -iname 'LICENSE*' -o -iname 'COPYING*' -o -iname 'MIT-LICENSE' 2>/dev/null | sort
+find_repo . -maxdepth 1 -iname 'LICENSE*' -o -iname 'COPYING*' -o -iname 'MIT-LICENSE' 2>/dev/null | sort
 
 echo ""
 echo "-- Code ownership --"
-find . -maxdepth 3 -name 'CODEOWNERS' 2>/dev/null | sort
+find_repo . -maxdepth 3 -name 'CODEOWNERS' 2>/dev/null | sort
 if [ -f CODEOWNERS ] || [ -f .github/CODEOWNERS ] || [ -f docs/CODEOWNERS ]; then
-  f=$(find . -maxdepth 3 -name 'CODEOWNERS' 2>/dev/null | head -1)
+  f=$(find_repo . -maxdepth 3 -name 'CODEOWNERS' 2>/dev/null | head -1)
   rules=$(grep -c '^[^#]' "$f" 2>/dev/null | tr -d ' ')
   echo "  ($rules ownership rules)"
 fi
 
 echo ""
 echo "-- Security policy --"
-find . -maxdepth 3 -iname 'SECURITY*' 2>/dev/null | sort
+find_repo . -maxdepth 3 -iname 'SECURITY*' 2>/dev/null | sort
 
 echo ""
 echo "-- Code of conduct --"
-find . -maxdepth 2 -iname 'CODE_OF_CONDUCT*' -o -iname 'CONDUCT*' 2>/dev/null | sort
+find_repo . -maxdepth 2 -iname 'CODE_OF_CONDUCT*' -o -iname 'CONDUCT*' 2>/dev/null | sort
 
 echo ""
 echo "-- AI usage policy --"
@@ -56,8 +59,8 @@ if [ -d .github/workflows ]; then
   secrets_refs=$(grep -roh '\${{ secrets\.[A-Z_]*' .github/workflows/ 2>/dev/null | sort -u | wc -l | tr -d ' ')
   echo "  $secrets_refs distinct secrets referenced in CI"
 fi
-find . -maxdepth 2 -name '.env.example' -o -name '.env.template' 2>/dev/null | sort
-find . -maxdepth 2 -name 'vault.hcl' -o -name '.vault-token' 2>/dev/null | sort
+find_repo . -maxdepth 2 -name '.env.example' -o -name '.env.template' 2>/dev/null | sort
+find_repo . -maxdepth 2 -name 'vault.hcl' -o -name '.vault-token' 2>/dev/null | sort
 
 echo ""
 echo "-- Security scanning --"
@@ -68,7 +71,7 @@ if [ -d .github/workflows ]; then
     done
   done
 fi
-find . -maxdepth 2 -name '.snyk' -o -name '.trivyignore' 2>/dev/null | sort
+find_repo . -maxdepth 2 -name '.snyk' -o -name '.trivyignore' 2>/dev/null | sort
 
 echo ""
 echo "-- Git attributes --"
@@ -85,7 +88,7 @@ fi
 
 echo ""
 echo "-- Contributor agreement --"
-find . -maxdepth 2 -iname 'DCO*' -o -iname 'CLA*' 2>/dev/null | sort
+find_repo . -maxdepth 2 -iname 'DCO*' -o -iname 'CLA*' 2>/dev/null | sort
 for f in CONTRIBUTING.md .github/workflows/*.yml; do
   [ -f "$f" ] && grep -qi 'signed-off-by\|DCO\|CLA\|contributor license' "$f" 2>/dev/null \
     && echo "  DCO/CLA reference in $(basename "$f")"
@@ -93,7 +96,7 @@ done
 
 echo ""
 echo "-- Governance model --"
-find . -maxdepth 2 -iname 'GOVERNANCE*' -o -iname 'MAINTAINERS*' -o -iname 'OWNERS*' 2>/dev/null | sort
+find_repo . -maxdepth 2 -iname 'GOVERNANCE*' -o -iname 'MAINTAINERS*' -o -iname 'OWNERS*' 2>/dev/null | sort
 
 echo ""
 echo "-- CI workflow validation --"
@@ -106,8 +109,11 @@ fi
 
 echo ""
 echo "-- Environment separation --"
-find . -maxdepth 2 -name '.env.test' -o -name '.env.production' -o -name '.env.staging' \
+find_repo . -maxdepth 2 -name '.env.test' -o -name '.env.production' -o -name '.env.staging' \
   -o -name '.env.development' 2>/dev/null | sort
 for d in config/environments environments; do
   [ -d "$d" ] && echo "./$d/ ($(ls "$d" | wc -l | tr -d ' ') environments)"
 done
+
+# Missing optional signals are findings, not scanner failures.
+exit 0

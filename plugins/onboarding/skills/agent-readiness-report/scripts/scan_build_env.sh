@@ -2,6 +2,9 @@
 # Scan for Build & Dev Environment signals (Pillar 5)
 # Helps the agent find relevant files — not a substitute for judgment.
 
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/find_repo.sh" || exit 1
+
 REPO="${1:-.}"
 cd "$REPO" 2>/dev/null || { echo "Cannot access $REPO"; exit 1; }
 
@@ -45,7 +48,7 @@ fi
 
 echo ""
 echo "-- Containerized services --"
-find . -maxdepth 2 -name 'Dockerfile*' -o -name 'docker-compose*.yml' \
+find_repo . -maxdepth 2 -name 'Dockerfile*' -o -name 'docker-compose*.yml' \
   -o -name 'docker-compose*.yaml' -o -name 'compose.yml' -o -name 'compose.yaml' 2>/dev/null | sort
 
 echo ""
@@ -112,3 +115,6 @@ for f in .npmrc .yarnrc .yarnrc.yml .pnpmrc pip.conf .cargo/config.toml \
          .cargo/config gradle.properties; do
   [ -f "$f" ] && echo "./$f"
 done
+
+# Missing optional signals are findings, not scanner failures.
+exit 0
