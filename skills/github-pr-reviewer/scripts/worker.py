@@ -328,7 +328,11 @@ class PullRequestReviewer(GitHubRepository):
         )
 
     def _linked_issue_is_low_priority(self, pr):
-        """Return whether any same-repository closing issue is priority:low.
+        """Return whether the same-repository closing issues rank the PR as low.
+
+        A closing issue with any other `priority:` label outranks a
+        `priority:low` one, so a PR that also fixes recorded user pain keeps its
+        handoff.
 
         A referenced number that does not resolve - a deleted issue, a typo, or
         the `#0` the pattern accepts - is skipped rather than raised. Letting the
@@ -343,6 +347,7 @@ class PullRequestReviewer(GitHubRepository):
                 pr.get("body") or "",
             )
         }
+        low = False
         for number in numbers:
             try:
                 issue = self.gh("GET", f"/issues/{number}")
@@ -350,13 +355,17 @@ class PullRequestReviewer(GitHubRepository):
                 if exc.code == 404:
                     continue
                 raise
-            labels = {
-                (item.get("name") or "").casefold()
+            priorities = {
+                name
                 for item in issue.get("labels", [])
+                if (name := (item.get("name") or "").casefold()).startswith(
+                    "priority:"
+                )
             }
-            if "priority:low" in labels:
-                return True
-        return False
+            if priorities - {"priority:low"}:
+                return False
+            low = low or "priority:low" in priorities
+        return low
 
     def _finish_completed_review(self, pr, trigger, label=None):
         """Complete an exact-head review, including an optional human handoff.
