@@ -310,7 +310,19 @@ class PullRequestReviewer(GitHubRepository):
         ]
         if not completed:
             return False
-        self._annotate_llm_provenance(pr, completed)
+        try:
+            self._annotate_llm_provenance(pr, completed)
+        except Exception as exc:  # noqa: BLE001 - provenance never blocks completion
+            print(
+                json.dumps(
+                    {
+                        "repository": self.repository,
+                        "pr": pr["number"],
+                        "llm_provenance_error": f"{type(exc).__name__}: {exc}",
+                    }
+                ),
+                flush=True,
+            )
         approved = None
         maintainer_decision = False
         for review in sorted(
@@ -383,12 +395,18 @@ class PullRequestReviewer(GitHubRepository):
         time cannot tell two automations sharing a bot account apart, so a
         review is annotated only when its single run marker names the
         conversation this automation records for the pull request. Any other
-        review, including one by an overlapping run, is left as it is.
+        review, including one by an overlapping run, is left as it is. A
+        review is stamped once: one that already carries a footer keeps it, so
+        a later edit of the agent profile cannot rewrite what was recorded.
         """
-        if not any(
-            workflow._REVIEW_RUN_MARKER_RE.search(review.get("body") or "")
+        reviews = [
+            review
             for review in reviews
-        ):
+            if workflow._REVIEW_RUN_MARKER_RE.search(review.get("body") or "")
+            and workflow._without_llm_provenance(review.get("body") or "")
+            == (review.get("body") or "").strip()
+        ]
+        if not reviews:
             return
         repository_id = self.gh("GET", "")["id"]
         conversation_id = self.dispatcher.subject_conversation(
