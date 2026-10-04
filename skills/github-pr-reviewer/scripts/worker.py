@@ -283,7 +283,7 @@ class PullRequestReviewer(GitHubRepository):
             f"second result.{self_review_note}"
         )
 
-    def _finish_completed_review(self, pr, trigger, label=None):
+    def _finish_completed_review(self, pr, trigger, label=None, submitted_review=None):
         """Complete an exact-head review, including an optional human handoff.
 
         `trigger` is the event the current work is keyed on. It is None for an
@@ -291,7 +291,11 @@ class PullRequestReviewer(GitHubRepository):
         is the whole key, so any submitted review by this account on the current
         head is the completion of that work. That is what lets an unrequested
         review the scan started be reconciled and handed off on a later scan
-        instead of being restarted.
+        instead of being restarted. `submitted_review` is the review a
+        `submitted` delivery reports. It can predate the latest
+        `review_requested` event, so it is found by id rather than by the
+        trigger window; this account's later reviews of the head still count, so
+        a newer verdict supersedes it. A dismissed review completes nothing.
         """
         head_sha = pr["head"]["sha"]
         if trigger is not None:
@@ -299,14 +303,35 @@ class PullRequestReviewer(GitHubRepository):
         else:
             triggered_at = ""
         reviews = self.gh_pages(f"/pulls/{pr['number']}/reviews")
-        completed = [
+        mine = [
             review
             for review in reviews
             if review.get("commit_id") == head_sha
             and ((review.get("user") or {}).get("login") or "").lower()
             == self.github_login.lower()
-            and (review.get("submitted_at") or "") > triggered_at
+            and (review.get("state") or "").upper() != "DISMISSED"
         ]
+        if submitted_review and submitted_review.get("id") is not None:
+            reported = next(
+                (review for review in mine if review.get("id") == submitted_review["id"]),
+                None,
+            )
+            reported_at = (reported or {}).get("submitted_at") or ""
+            completed = (
+                []
+                if reported is None
+                else [
+                    review
+                    for review in mine
+                    if (review.get("submitted_at") or "") >= reported_at
+                ]
+            )
+        else:
+            completed = [
+                review
+                for review in mine
+                if (review.get("submitted_at") or "") > triggered_at
+            ]
         if not completed:
             return False
         approved = None
@@ -858,6 +883,11 @@ class PullRequestReviewer(GitHubRepository):
         for candidate in prs:
             try:
                 pr = self.gh("GET", f"/pulls/{candidate['number']}")
+                submitted_review = (
+                    payload.get("review")
+                    if event_mode and payload.get("action") == "submitted"
+                    else None
+                )
                 has_label = label in {
                     item["name"] for item in pr.get("labels", [])
                 }
@@ -894,7 +924,11 @@ class PullRequestReviewer(GitHubRepository):
                     delivery_key = self._unrequested_head(pr)
                     unrequested_candidate = True
                 if trigger is None and delivery_key is None:
-                    continue
+                    # A submitted review is its own completion signal: its
+                    # request can predate the issue-event window, and that
+                    # review must still be reconciled.
+                    if submitted_review is None:
+                        continue
                 # A head this account already reviewed, with no clarifying
                 # comment since, is done: another conversation would publish a
                 # second review of identical code. This must come before the
@@ -918,7 +952,7 @@ class PullRequestReviewer(GitHubRepository):
                         ),
                         flush=True,
                     )
-                    if trigger is not None:
+                    if trigger is not None or submitted_review is not None:
                         # Reconcile the completed review (clearing the label and
                         # running the maintainer handoff) where the review is
                         # this trigger's result. When it predates the trigger -
@@ -927,7 +961,7 @@ class PullRequestReviewer(GitHubRepository):
                         # otherwise the label stays and every later scan re-reads
                         # this head and re-logs with no effect.
                         if not self._finish_completed_review(
-                            pr, trigger, trigger_label
+                            pr, trigger, trigger_label, submitted_review
                         ) and trigger_label:
                             self.gh(
                                 "DELETE",
@@ -936,7 +970,7 @@ class PullRequestReviewer(GitHubRepository):
                             )
                     continue
                 if delivery_key is None and self._finish_completed_review(
-                    pr, trigger, trigger_label
+                    pr, trigger, trigger_label, submitted_review
                 ):
                     continue
                 if event_mode and payload.get("action") == "submitted":
