@@ -28,10 +28,13 @@ This skill is activated by keywords:
    Subsequent runs filter by both `first_run_at` and a KV-backed set of
    already-processed issue keys. A `max_new_per_run` cap (default 5) limits
    conversations started per cron firing.
-3. **Dispatch** - for each new issue, the script calls
-   `POST /api/conversations` on the agent server to start an independent agent
-   conversation with a PR-creation prompt. The prompt instructs the agent to
-   extract the target GitHub repository (`owner/repo`) from the ticket body.
+3. **Dispatch** - for each new issue, the script starts an independent agent
+   conversation with a PR-creation prompt: `POST /api/conversations` on the
+   agent server when running locally, `POST /api/v1/app-conversations` on
+   OpenHands Cloud and Enterprise. The prompt instructs the agent to extract the
+   target GitHub repository (`owner/repo`) from the ticket body. On Cloud the
+   next poll confirms the conversation came up and starts it again when it did
+   not.
 4. **Comment** - immediately after the conversation is created, the script
    posts a Jira comment on the issue: `I'm on it: <conversation URL>`.
 5. **Persist** - the processed issue key is recorded so re-runs never
@@ -39,6 +42,11 @@ This skill is activated by keywords:
 
 The polling run is lightweight (Python stdlib only, no SDK install); LLM costs
 are incurred only when new issues are actually found.
+
+Where Jira can reach the deployment (OpenHands Cloud and Enterprise), the skill
+can set up an event-based automation instead of this poller: Jira pushes label
+events through a webhook, which `scripts/setup_webhook.py` registers in both
+OpenHands and Jira. See "Event-Based Alternative" in `SKILL.md`.
 
 ## Prerequisites
 

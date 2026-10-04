@@ -94,6 +94,9 @@ def test_new_subject_uses_selected_profile_and_persists_mapping(monkeypatch):
         "subject": "repo:issue:7",
         "conversation_id": result["conversation_id"],
         "delivery": "revision-1",
+        # A caller with no revision identity records an empty head, which keeps
+        # the dedupe keyed on `delivery` alone.
+        "head": "",
     }
 
 
@@ -177,6 +180,89 @@ def test_same_delivery_resumes_only_inactive_conversation(
         conversation.run.assert_not_called()
 
 
+def test_new_delivery_on_a_running_same_head_is_not_a_second_review(monkeypatch):
+    """A fresh trigger for a head already under review must not start a review.
+
+    This is the duplicate the trigger-keyed delivery alone allowed: a second
+    review request (or a label re-applied after the bot's own handoff) produces a
+    new delivery key, which would send a new turn and publish a second review of
+    the head an in-flight conversation is already reviewing.
+    """
+    state = {
+        _state_key("repo:pr:9"): {
+            "subject": "repo:pr:9",
+            "conversation_id": "22222222-2222-4222-8222-222222222222",
+            "delivery": "42:head-2",
+            "head": "head-2",
+        }
+    }
+    _fake_kv(monkeypatch, state)
+    monkeypatch.setattr(agent_conversation, "_register_tools", lambda: None)
+    workspace = MagicMock()
+    workspace.__enter__.return_value = workspace
+    workspace.get_secrets.return_value = {}
+    monkeypatch.setattr(
+        agent_conversation, "RemoteWorkspace", lambda **kwargs: workspace
+    )
+    conversation = MagicMock()
+    conversation.state.execution_status = ConversationExecutionStatus.RUNNING
+    monkeypatch.setattr(
+        agent_conversation.RemoteConversation,
+        "attach",
+        MagicMock(return_value=conversation),
+    )
+
+    with _dispatcher(monkeypatch) as dispatcher:
+        result = dispatcher.deliver("repo:pr:9", "43:head-2", "again", head="head-2")
+
+    assert result["disposition"] == "in_progress"
+    conversation.send_message.assert_not_called()
+    conversation.run.assert_not_called()
+    # The revision the live turn is working on is left recorded, not overwritten
+    # by the trigger that arrived beside it.
+    assert state[_state_key("repo:pr:9")]["delivery"] == "42:head-2"
+
+
+def test_new_delivery_on_a_running_new_head_still_sends_a_turn(monkeypatch):
+    """A moved head is new work, so the running conversation gets the new turn."""
+    state = {
+        _state_key("repo:pr:9"): {
+            "subject": "repo:pr:9",
+            "conversation_id": "22222222-2222-4222-8222-222222222222",
+            "delivery": "42:head-1",
+            "head": "head-1",
+        }
+    }
+    _fake_kv(monkeypatch, state)
+    monkeypatch.setattr(agent_conversation, "_register_tools", lambda: None)
+    workspace = MagicMock()
+    workspace.__enter__.return_value = workspace
+    workspace.get_secrets.return_value = {}
+    monkeypatch.setattr(
+        agent_conversation, "RemoteWorkspace", lambda **kwargs: workspace
+    )
+    conversation = MagicMock()
+    conversation.state.execution_status = ConversationExecutionStatus.RUNNING
+    monkeypatch.setattr(
+        agent_conversation.RemoteConversation,
+        "attach",
+        MagicMock(return_value=conversation),
+    )
+
+    with _dispatcher(monkeypatch) as dispatcher:
+        result = dispatcher.deliver("repo:pr:9", "43:head-2", "next", head="head-2")
+
+    assert result["disposition"] == "resumed"
+    conversation.send_message.assert_called_once_with("next")
+    conversation.run.assert_called_once_with(blocking=False)
+    assert state[_state_key("repo:pr:9")] == {
+        "subject": "repo:pr:9",
+        "conversation_id": result["conversation_id"],
+        "delivery": "43:head-2",
+        "head": "head-2",
+    }
+
+
 def test_subjects_use_independent_kv_records(monkeypatch):
     state = {}
     _fake_kv(monkeypatch, state)
@@ -209,3 +295,129 @@ def test_subjects_use_independent_kv_records(monkeypatch):
         _state_key("repo:issue:7"),
         _state_key("repo:issue:8"),
     }
+
+
+# --- OpenHands Cloud and Enterprise: conversations go through the OpenHands API
+
+
+class _FakeCloud:
+    """The OpenHands API's conversations, as the dispatcher uses them."""
+
+    def __init__(self, conversation=None):
+        self.conversation = conversation
+        self.started = []
+        self.sent = []
+
+    def get(self, conversation_id):
+        return self.conversation
+
+    def start(self, conversation_id, profile_id, title, prompt):
+        self.started.append({"id": str(conversation_id), "profile": str(profile_id)})
+
+    def send(self, conversation, prompt):
+        self.sent.append(prompt)
+
+    def run(self, conversation):
+        pass
+
+
+def _cloud_dispatcher(monkeypatch, cloud):
+    monkeypatch.delenv("AGENT_SERVER_URL", raising=False)
+    monkeypatch.setenv("SESSION_API_KEY", "session")
+    monkeypatch.setenv(
+        "AUTOMATION_AGENT_PROFILE_ID", "11111111-1111-4111-8111-111111111111"
+    )
+    monkeypatch.setenv(
+        "AUTOMATION_EVENT_PAYLOAD", json.dumps({"automation_id": "automation-1"})
+    )
+    monkeypatch.setattr(agent_conversation, "CloudConversations", lambda: cloud)
+    return agent_conversation.AgentConversationDispatcher()
+
+
+def test_cloud_run_starts_a_new_subject_with_the_selected_profile(monkeypatch):
+    # Arrange
+    state = {}
+    _fake_kv(monkeypatch, state)
+    cloud = _FakeCloud()
+
+    # Act
+    with _cloud_dispatcher(monkeypatch, cloud) as dispatcher:
+        result = dispatcher.deliver("repo:pr:7", "revision-1", "review it")
+
+    # Assert
+    assert result["disposition"] == "created"
+    [started] = cloud.started
+    assert started["profile"] == "11111111-1111-4111-8111-111111111111"
+    assert state[_state_key("repo:pr:7")]["conversation_id"] == started["id"]
+
+
+def test_cloud_run_does_not_start_a_second_conversation_while_one_is_starting(
+    monkeypatch,
+):
+    # Arrange - the first delivery's conversation is not listed by the API yet
+    state = {}
+    _fake_kv(monkeypatch, state)
+    cloud = _FakeCloud()
+    with _cloud_dispatcher(monkeypatch, cloud) as dispatcher:
+        dispatcher.deliver("repo:pr:7", "revision-1", "review it", head="sha-1")
+        recorded = dict(state[_state_key("repo:pr:7")])
+
+        # Act - a new revision arrives before it is
+        result = dispatcher.deliver(
+            "repo:pr:7", "revision-2", "review again", head="sha-2"
+        )
+
+    # Assert - nothing is started, and the record is left for the next trigger
+    assert result["disposition"] == "in_progress"
+    assert len(cloud.started) == 1
+    assert state[_state_key("repo:pr:7")] == recorded
+
+
+def test_cloud_run_sends_a_new_revision_to_the_subjects_conversation(monkeypatch):
+    # Arrange
+    state = {
+        _state_key("repo:pr:7"): {
+            "conversation_id": "22222222-2222-4222-8222-222222222222",
+            "delivery": "revision-1",
+            "head": "sha-1",
+        }
+    }
+    _fake_kv(monkeypatch, state)
+    cloud = _FakeCloud({"sandbox_status": "RUNNING", "execution_status": "idle"})
+
+    # Act
+    with _cloud_dispatcher(monkeypatch, cloud) as dispatcher:
+        result = dispatcher.deliver(
+            "repo:pr:7", "revision-2", "review again", head="sha-2"
+        )
+
+    # Assert
+    assert result["disposition"] == "resumed"
+    assert cloud.sent == ["review again"]
+    assert cloud.started == []
+
+
+def test_cloud_run_replaces_a_conversation_whose_sandbox_is_gone(monkeypatch):
+    # Arrange
+    gone = "22222222-2222-4222-8222-222222222222"
+    state = {
+        _state_key("repo:pr:7"): {
+            "conversation_id": gone,
+            "delivery": "revision-1",
+            "head": "sha-1",
+        }
+    }
+    _fake_kv(monkeypatch, state)
+    cloud = _FakeCloud({"sandbox_status": "MISSING", "execution_status": None})
+
+    # Act
+    with _cloud_dispatcher(monkeypatch, cloud) as dispatcher:
+        result = dispatcher.deliver(
+            "repo:pr:7", "revision-2", "review again", head="sha-2"
+        )
+
+    # Assert - the API does not start an id twice, so the subject gets a new one
+    assert result["disposition"] == "created"
+    [started] = cloud.started
+    assert started["id"] != gone
+    assert state[_state_key("repo:pr:7")]["conversation_id"] == started["id"]
