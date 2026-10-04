@@ -27,7 +27,7 @@ text up and keep the substance.
 
 ## Core rules
 
-- **Short sentences.** Aim for 20 words or fewer, and shorter for instructions.
+- **Prefer short sentences.** Aim for 20 words or fewer, particularly for instructions.
 - **One idea per sentence, one topic per paragraph.** Split a sentence that carries two ideas.
 - **Active voice.** Write "Run the tests", not "The tests should be run".
 - **Plain, consistent words.** Prefer a common word over a fancy one. Use one word for one idea. Do not switch synonyms for the same thing mid-text.
