@@ -36,7 +36,7 @@ text up and keep the substance.
 
 ## The hard boundary: prose, not code
 
-This is the rule that keeps the skill safe. A controlled *English* vocabulary
+A controlled *English* vocabulary
 must never bleed into the code the agent writes.
 
 - **Do not** simplify or rename variables, functions, types, files, config keys, CLI flags, API fields, or error strings to obey "approved words". Code needs exact, domain-precise names.
