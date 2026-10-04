@@ -32,6 +32,15 @@ curl -o .github/workflows/release-notes.yml \
   https://raw.githubusercontent.com/OpenHands/extensions/main/plugins/release-notes/workflows/release-notes.yml
 ```
 
+PowerShell equivalent:
+
+```powershell
+New-Item -ItemType Directory -Force .github\workflows | Out-Null
+Invoke-WebRequest `
+  -Uri https://raw.githubusercontent.com/OpenHands/extensions/main/plugins/release-notes/workflows/release-notes.yml `
+  -OutFile .github\workflows\release-notes.yml
+```
+
 Configure required secrets (see the README for details).
 
 ### Manual Invocation

@@ -26,12 +26,7 @@
       },
       "http": {
         "apiBaseUrl": "https://sheets.googleapis.com",
-        "defaultTool": {
-          "name": "get_spreadsheet",
-          "description": "Fetch spreadsheet metadata and sheets by ID.",
-          "method": "GET",
-          "path": "/v4/spreadsheets/{spreadsheetId}"
-        }
+        "openApiUrl": "https://api.apis.guru/v2/specs/googleapis.com/sheets/v4/openapi.json"
       }
     }
   ]

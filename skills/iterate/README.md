@@ -15,7 +15,10 @@ or a blocker requires human help.
 2. **Evaluate** what to do: fix CI failures, address review feedback, retry
    flaky checks, or wait.
 3. **Fix and push** — then loop back to step 1.
-4. **Stop** when the PR is merge-ready, closed, or blocked.
+4. **Refresh `.pr/` artifacts** — if the PR carries generated artifacts in a
+   `.pr/` folder and the agent can tell how they were made, it regenerates any
+   that the code changes made stale.
+5. **Stop** when the PR is merge-ready, closed, or blocked.
 
 No scripts — the agent is the orchestration loop, using only standard `gh` CLI.
 

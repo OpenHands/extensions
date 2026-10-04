@@ -20,6 +20,8 @@ sudo dockerd > /tmp/docker.log 2>&1 &
 sleep 5
 ```
 
+On Windows, start Docker Desktop or the Docker service instead of running `sudo dockerd`; then run Docker commands from PowerShell without `sudo`.
+
 ## Verifying Docker Installation
 
 To verify Docker is working correctly, run the hello-world container:
@@ -27,3 +29,5 @@ To verify Docker is working correctly, run the hello-world container:
 ```bash
 sudo docker run hello-world
 ```
+
+PowerShell equivalent after Docker Desktop is running: `docker run hello-world`.

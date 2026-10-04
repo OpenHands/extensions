@@ -51,6 +51,8 @@ Or scan all five at once:
 for s in scripts/scan_*.sh; do bash "$s" /path/to/repo; echo; done
 ```
 
+On Windows, run these `.sh` helpers from Git Bash or WSL and pass a path that environment can read. Native PowerShell cannot execute the shell scripts directly.
+
 **Important**: The scripts are helpers, not scorers.  They find files and
 patterns but do not evaluate quality.  Many features require judgment that only
 reading the actual files can provide — for example, whether a README includes

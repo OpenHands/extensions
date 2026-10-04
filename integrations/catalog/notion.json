@@ -8,12 +8,24 @@
   ],
   "appUrl": "https://www.notion.so",
   "docsUrl": "https://developers.notion.com/docs/mcp",
-  "notes": "",
   "popularityRank": 82,
   "connectionOptions": [
     {
       "id": "oauth",
       "provider": "http",
+      "connectionModel": {
+        "principalType": "user",
+        "credentialScope": "resource",
+        "resourceType": "workspace",
+        "resourceCardinality": "one",
+        "selectionMode": "automatic",
+        "identityMapping": {
+          "source": "oauth_token_response",
+          "externalPrincipalIdPath": "owner.user.id",
+          "externalResourceIdPath": "workspace_id",
+          "resourceNamePath": "workspace_name"
+        }
+      },
       "auth": {
         "strategy": "oauth2",
         "oauth": {
@@ -24,13 +36,7 @@
       },
       "http": {
         "apiBaseUrl": "https://api.notion.com",
-        "openApiUrl": "https://developers.notion.com/openapi.json",
-        "defaultTool": {
-          "name": "post_search",
-          "description": "Search pages and databases in the connected Notion workspace.",
-          "method": "POST",
-          "path": "/v1/search"
-        }
+        "openApiUrl": "https://developers.notion.com/openapi.json"
       }
     },
     {
@@ -46,7 +52,7 @@
         ],
         "envFields": [
           {
-            "key": "NOTION_API_KEY",
+            "key": "NOTION_TOKEN",
             "label": "Internal integration token",
             "type": "password",
             "placeholder": "ntn_...",

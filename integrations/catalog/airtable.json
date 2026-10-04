@@ -12,30 +12,6 @@
   "popularityRank": 17,
   "connectionOptions": [
     {
-      "id": "oauth",
-      "provider": "http",
-      "auth": {
-        "strategy": "oauth2",
-        "oauth": {
-          "authorizationUrl": "https://airtable.com/oauth2/v1/authorize",
-          "tokenUrl": "https://airtable.com/oauth2/v1/token",
-          "scopes": [
-            "schema.bases:read",
-            "data.records:read"
-          ]
-        }
-      },
-      "http": {
-        "apiBaseUrl": "https://api.airtable.com/v0",
-        "defaultTool": {
-          "name": "list_bases",
-          "description": "List Airtable bases the connected user granted access to.",
-          "method": "GET",
-          "path": "/meta/bases"
-        }
-      }
-    },
-    {
       "id": "api",
       "provider": "mcp",
       "transport": {

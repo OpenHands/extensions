@@ -14,6 +14,7 @@ triggers:
 # SSH Skill
 
 This skill provides capabilities for establishing and managing SSH connections to remote machines.
+Windows PowerShell equivalents for SSH config creation, key paths, ssh-agent, and permissions are in `references/windows.md`.
 
 ## Capabilities
 

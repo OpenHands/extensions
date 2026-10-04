@@ -71,14 +71,14 @@ Construct a prompt that includes:
 
 ### Step 4 — Create the automation
 
-Read the Automation backend URL and auth from `<RUNTIME_SERVICES>`:
-- Use the **Automation backend** `url_from_agent` as `OPENHANDS_HOST`
-- Auth: `X-Session-API-Key: $OPENHANDS_AUTOMATION_API_KEY`
+Set `OPENHANDS_HOST` and `AUTH_HEADER` for the request below:
+- **OpenHands Cloud or Enterprise** - a `<HOST>` value is in your system prompt: use it as `OPENHANDS_HOST`, with `AUTH_HEADER="Authorization: Bearer $OPENHANDS_API_KEY"`
+- **Local Agent Canvas** - an **Automation backend** is listed in `<RUNTIME_SERVICES>`: use its `url_from_agent` as `OPENHANDS_HOST`, with `AUTH_HEADER="X-Session-API-Key: $OPENHANDS_AUTOMATION_API_KEY"`
 
 Use the **prompt preset** endpoint:
 ```bash
 curl -s -X POST "${OPENHANDS_HOST}/api/automation/v1/preset/prompt" \
-  -H "X-Session-API-Key: $OPENHANDS_AUTOMATION_API_KEY" \
+  -H "$AUTH_HEADER" \
   -H "Content-Type: application/json" \
   -d '{
     "name": "Research Brief Writer",
@@ -86,6 +86,8 @@ curl -s -X POST "${OPENHANDS_HOST}/api/automation/v1/preset/prompt" \
     "trigger": {"type": "cron", "schedule": "<schedule>", "timezone": "<tz>"}
   }'
 ```
+
+PowerShell note: use `curl.exe` for this exact flag syntax, and replace `${OPENHANDS_HOST}` / `$AUTH_HEADER` with `$env:OPENHANDS_HOST` / `$env:AUTH_HEADER` if running it natively.
 
 ### Step 5 — Confirm
 

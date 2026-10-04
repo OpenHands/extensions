@@ -1,0 +1,36 @@
+{
+  "id": "superhuman-mail",
+  "name": "Superhuman Mail",
+  "description": "Search, read, draft, and send email via Superhuman's hosted MCP server.",
+  "categories": [
+    "Communication",
+    "Email"
+  ],
+  "appUrl": "https://superhuman.com",
+  "docsUrl": "https://github.com/superhuman/mcp-mail",
+  "notes": "OAuth is handled by the Superhuman MCP server itself (mcp-remote). No client credentials required.",
+  "connectionOptions": [
+    {
+      "id": "oauth",
+      "provider": "mcp",
+      "transport": {
+        "kind": "shttp",
+        "url": "https://mcp.mail.superhuman.com/mcp"
+      },
+      "auth": {
+        "strategy": "oauth2",
+        "oauth": {
+          "clientAuthentication": "none"
+        }
+      }
+    }
+  ],
+  "iconBg": "#FF5C28",
+  "logoUrl": "https://cdn.simpleicons.org/superhuman/FFFFFF",
+  "keywords": [
+    "email",
+    "mail",
+    "superhuman",
+    "inbox"
+  ]
+}

@@ -13,6 +13,8 @@ PdfLatex is a tool that converts Latex sources into PDF. This is specifically ve
 apt-get install texlive-latex-base
 ```
 
+On Windows, install MiKTeX or TeX Live with the native installer or a package manager such as `winget`. The `apt-get` commands only work in Linux or WSL.
+
 * Also install the recommended and extra fonts to avoid running into errors, when trying to use pdflatex on latex files with more fonts.
 
 ```

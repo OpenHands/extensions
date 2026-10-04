@@ -12,6 +12,7 @@ triggers:
 This document provides instructions for installing Swift on Debian 12 (Bookworm).
 
 > This setup is intended for non-UI development tasks on Swift on Linux.
+> On Windows, run these Debian commands inside WSL2 or a Linux container. For native Windows Swift, use the Windows toolchain from Swift.org instead.
 
 ## Prerequisites
 

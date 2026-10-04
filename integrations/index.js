@@ -7,6 +7,7 @@
  */
 import { INTEGRATION_CATALOG_ENTRIES } from "./catalog-index.js";
 
+const clone = (value) => JSON.parse(JSON.stringify(value));
 const INTEGRATIONS = INTEGRATION_CATALOG_ENTRIES;
 const INTEGRATION_BY_ID = new Map(INTEGRATIONS.map((entry) => [entry.id, entry]));
 
@@ -17,18 +18,25 @@ const entrySupportsOauth = (entry) =>
   entry.connectionOptions.some((option) => option.auth?.strategy === "oauth2");
 
 export const listIntegrationCatalog = (filter) => {
-  if (!filter) return INTEGRATIONS;
-  const { mcp, oauth } = filter;
-  if (mcp === undefined && oauth === undefined) return INTEGRATIONS;
-  return INTEGRATIONS.filter((entry) => {
-    const mcpOk = mcp === undefined || entrySupportsMcp(entry) === mcp;
-    const oauthOk = oauth === undefined || entrySupportsOauth(entry) === oauth;
-    return mcpOk && oauthOk;
-  });
+  const entries =
+    !filter || (filter.mcp === undefined && filter.oauth === undefined)
+      ? INTEGRATIONS
+      : INTEGRATIONS.filter((entry) => {
+          const mcpOk =
+            filter.mcp === undefined || entrySupportsMcp(entry) === filter.mcp;
+          const oauthOk =
+            filter.oauth === undefined ||
+            entrySupportsOauth(entry) === filter.oauth;
+          return mcpOk && oauthOk;
+        });
+  return clone(entries);
 };
 
-export const getIntegrationCatalogEntry = (id) => INTEGRATION_BY_ID.get(id);
+export const getIntegrationCatalogEntry = (id) => {
+  const entry = INTEGRATION_BY_ID.get(id);
+  return entry ? clone(entry) : undefined;
+};
 
-export const INTEGRATION_CATALOG = INTEGRATIONS;
+export const INTEGRATION_CATALOG = clone(INTEGRATIONS);
 
 export default INTEGRATION_CATALOG;

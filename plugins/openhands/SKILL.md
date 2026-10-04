@@ -31,6 +31,12 @@ This plugin provides a unified entry point and the CLI integration script.
 command -v openhands &>/dev/null && echo "CLI available" || echo "CLI not found"
 ```
 
+PowerShell check:
+
+```powershell
+if (Get-Command openhands -ErrorAction SilentlyContinue) { "CLI available" } else { "CLI not found" }
+```
+
 2. **If CLI is available**, use it — it manages auth and API keys automatically.
 3. **If CLI is not available**, check for an API key:
    - Preferred env var: `OPENHANDS_CLOUD_API_KEY`
@@ -49,6 +55,7 @@ command -v openhands &>/dev/null && echo "CLI available" || echo "CLI not found"
 ```
 
 The script checks for the CLI, installs it if needed, sends the task, and opens the resulting conversation URL.
+On Windows, run this POSIX shell script from Git Bash or WSL (`bash scripts/run.sh "Investigate flaky tests in tests/test_api.py"`) unless a native PowerShell launcher is available.
 
 If the script exits with code `2` (`AUTH_REQUIRED`), ask the user to complete authentication in the browser, then re-run.
 

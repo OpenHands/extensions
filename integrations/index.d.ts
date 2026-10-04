@@ -3,11 +3,11 @@ export type MarketplaceFieldType = "text" | "password";
 export interface MarketplaceField {
   key: string;
   label: string;
-  type?: MarketplaceFieldType;
+  type: MarketplaceFieldType;
   placeholder?: string;
   helperText?: string;
   helperLink?: string;
-  required?: boolean;
+  required: boolean;
 }
 
 export type IntegrationTransport =
@@ -15,11 +15,35 @@ export type IntegrationTransport =
       kind: "shttp";
       url: string;
       apiKeyOptional?: boolean;
+      /**
+       * Named request headers the user must supply (e.g. Datadog's
+       * `DD-API-KEY` / `DD-APPLICATION-KEY`). Values are sent verbatim as
+       * headers on every MCP request. The direct analog of stdio's
+       * `envFields`: each entry renders one input in the install modal,
+       * `type: "password"` entries are secret-saved by default, and
+       * `required` entries are validated before submit. Composes with the
+       * `api_key`/`bearer`/`basic` auth strategies (whose Bearer token is
+       * folded into `Authorization` separately); a header field with
+       * `key: "Authorization"` is redundant and should be avoided.
+       */
+      headerFields?: MarketplaceField[];
+      /**
+       * When true, the install modal renders the URL as an editable input
+       * pre-filled with `url` instead of read-only. Use for servers whose
+       * host is region/account-specific (e.g. Datadog's
+       * `https://mcp.<site>.datadoghq.com/v1/mcp`); pair with the entry's
+       * `installHint` to tell users what to change.
+       */
+      urlEditable?: boolean;
     }
   | {
       kind: "sse";
       url: string;
       apiKeyOptional?: boolean;
+      /** See {@link IntegrationTransport} `shttp` `headerFields`. */
+      headerFields?: MarketplaceField[];
+      /** See {@link IntegrationTransport} `shttp` `urlEditable`. */
+      urlEditable?: boolean;
     }
   | {
       kind: "stdio";
@@ -66,18 +90,54 @@ export interface IntegrationAuthConfig {
   oauth?: IntegrationOAuthConfig;
 }
 
-export interface IntegrationHttpDefaultTool {
-  name: string;
-  description?: string;
-  method?: string;
-  path?: string;
-  scopes?: string[];
-}
-
 export interface IntegrationHttpConfig {
   apiBaseUrl?: string;
   openApiUrl?: string;
-  defaultTool?: IntegrationHttpDefaultTool;
+}
+
+export type IntegrationPrincipalType =
+  | "user"
+  | "bot"
+  | "service_account"
+  | "application";
+
+export type IntegrationCredentialScope =
+  | "account"
+  | "tenant"
+  | "organization"
+  | "resource";
+
+export type IntegrationIdentitySource =
+  | "oauth_token_response"
+  | "access_token_claims"
+  | "identity_api";
+
+export interface IntegrationIdentityMapping {
+  source: IntegrationIdentitySource;
+  endpoint?: string;
+  externalPrincipalIdPath: string;
+  externalTenantIdPath?: string;
+  externalResourceIdPath?: string;
+  resourceNamePath?: string;
+  resourceUrlPath?: string;
+}
+
+export interface IntegrationResourceDiscovery {
+  endpoint: string;
+  itemsPath?: string;
+  externalResourceIdPath: string;
+  resourceNamePath?: string;
+  resourceUrlPath?: string;
+}
+
+export interface IntegrationConnectionModel {
+  principalType: IntegrationPrincipalType;
+  credentialScope: IntegrationCredentialScope;
+  resourceType: string;
+  resourceCardinality: "one" | "many";
+  selectionMode: "automatic" | "post_auth" | "runtime";
+  identityMapping?: IntegrationIdentityMapping;
+  resourceDiscovery?: IntegrationResourceDiscovery;
 }
 
 export interface IntegrationConnectionOption {
@@ -86,6 +146,7 @@ export interface IntegrationConnectionOption {
   transport?: IntegrationTransport;
   http?: IntegrationHttpConfig;
   auth: IntegrationAuthConfig;
+  connectionModel?: IntegrationConnectionModel;
 }
 
 
@@ -95,7 +156,7 @@ export interface IntegrationCatalogEntry {
   description: string;
   categories?: string[];
   appUrl?: string;
-  docsUrl?: string;
+  docsUrl: string;
   notes?: string;
   iconBg?: string;
   iconColor?: string;
@@ -122,11 +183,12 @@ export const INTEGRATION_CATALOG: IntegrationCatalogEntry[];
 /**
  * Return the full integration catalog, optionally filtered by connector type.
  * Reads the generated static import index over `integrations/catalog/<id>.json`.
- * Returns the cached array; callers must treat it as read-only.
+ * Returns an independent copy, matching the Python read API.
  */
 export function listIntegrationCatalog(
   filter?: IntegrationCatalogFilter,
 ): IntegrationCatalogEntry[];
+/** Return one integration catalog entry by id as an independent copy. */
 export function getIntegrationCatalogEntry(
   id: string,
 ): IntegrationCatalogEntry | undefined;

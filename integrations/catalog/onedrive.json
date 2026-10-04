@@ -14,6 +14,19 @@
     {
       "id": "oauth",
       "provider": "http",
+      "connectionModel": {
+        "principalType": "user",
+        "credentialScope": "tenant",
+        "resourceType": "tenant",
+        "resourceCardinality": "one",
+        "selectionMode": "automatic",
+        "identityMapping": {
+          "source": "access_token_claims",
+          "externalPrincipalIdPath": "oid",
+          "externalTenantIdPath": "tid",
+          "externalResourceIdPath": "tid"
+        }
+      },
       "auth": {
         "strategy": "oauth2",
         "oauth": {
@@ -26,12 +39,7 @@
       },
       "http": {
         "apiBaseUrl": "https://graph.microsoft.com/v1.0",
-        "defaultTool": {
-          "name": "list_drive_items",
-          "description": "List OneDrive items in the root folder.",
-          "method": "GET",
-          "path": "/me/drive/root/children"
-        }
+        "openApiUrl": "https://raw.githubusercontent.com/microsoftgraph/msgraph-metadata/master/openapi/v1.0/openapi.yaml"
       }
     }
   ]

@@ -22,7 +22,8 @@ Then configure the required secrets (see [Installation](#installation) below).
 - **Inline Code Comments**: Posts review comments directly on specific lines of code
 - **Unified Review Style**: Rigorous code review combining pragmatic engineering analysis with data structure and simplicity focus
 - **A/B Testing**: Support for testing multiple LLM models
-- **Review Context Awareness**: Considers previous reviews and unresolved threads
+- **Review Context Awareness**: Considers linked issue acceptance criteria,
+  top-level PR discussion, previous reviews, and unresolved threads
 - **Evidence Enforcement**: Optional check that PR descriptions include concrete end-to-end proof the code works, not just test output
 - **Sub-Agent Delegation**: Split large PR reviews across multiple sub-agents, one per file, then consolidate findings (see [Known Limitations](#known-limitations-sub-agent-delegation))
 - **Observability**: Optional Laminar integration for tracing and evaluation

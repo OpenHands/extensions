@@ -13,25 +13,30 @@
   "connectionOptions": [
     {
       "id": "oauth",
-      "provider": "http",
+      "provider": "mcp",
       "auth": {
         "strategy": "oauth2",
         "oauth": {
-          "authorizationUrl": "https://linear.app/oauth/authorize",
-          "tokenUrl": "https://api.linear.app/oauth/token",
+          "authorizationUrl": "https://mcp.linear.app/authorize",
+          "tokenUrl": "https://mcp.linear.app/token",
+          "registrationUrl": "https://mcp.linear.app/register",
           "scopes": [
-            "read"
-          ]
+            "read",
+            "write"
+          ],
+          "pkce": true,
+          "clientAuthentication": "none",
+          "additionalAuthorizationParams": {
+            "resource": "https://mcp.linear.app/mcp"
+          },
+          "additionalTokenParams": {
+            "resource": "https://mcp.linear.app/mcp"
+          }
         }
       },
-      "http": {
-        "apiBaseUrl": "https://api.linear.app",
-        "defaultTool": {
-          "name": "list_issues",
-          "description": "Query issues from Linear via GraphQL.",
-          "method": "POST",
-          "path": "/graphql"
-        }
+      "transport": {
+        "kind": "shttp",
+        "url": "https://mcp.linear.app/mcp"
       }
     },
     {
@@ -47,7 +52,7 @@
         "apiKeyOptional": true,
         "credentialLabel": "Linear API key",
         "credentialPlaceholder": "Paste your Linear API key",
-        "credentialHelp": "Optional when the endpoint accepts your OAuth session; otherwise sent as Authorization: Bearer <token>."
+        "credentialHelp": "Create a personal API key (grant at least read access) under Security & access in [Linear settings](https://linear.app/settings/account/security). Sent as Authorization: Bearer <token>; optional when the endpoint accepts your OAuth session."
       }
     }
   ],
@@ -59,5 +64,5 @@
     "tasks",
     "tickets"
   ],
-  "installHint": "Authenticate with a Linear API key (Linear \u2192 Settings \u2192 Security & access) \u2014 sent as a Bearer token. Optional when the endpoint accepts your OAuth session."
+  "installHint": "Prefer the OAuth MCP connection for Linear. The MCP server supports OAuth 2.1 with dynamic client registration at mcp.linear.app; a bearer-token MCP option remains available for API-key or existing OAuth-token workflows."
 }

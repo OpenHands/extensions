@@ -44,6 +44,7 @@ https://spark.apache.org/docs/latest/migration-guide.html
 - [ ] Identify target Spark version
 - [ ] Search for deprecated APIs: `grep -rn 'import org.apache.spark' --include='*.scala' --include='*.java' --include='*.py'`
 - [ ] List all Spark config properties: `grep -rn 'spark\.' --include='*.conf' --include='*.properties' --include='*.scala' --include='*.java' --include='*.py' | grep -v 'test'`
+- [ ] On Windows PowerShell, use `Get-ChildItem -Recurse -Include *.scala,*.java,*.py | Select-String 'import org.apache.spark'` and adjust the extensions/pattern for config searches.
 - [ ] Check for custom `SparkSession` or `SparkContext` extensions
 - [ ] Identify connector dependencies (Hive, Kafka, Cassandra, Delta, Iceberg)
 - [ ] Document findings in `spark_upgrade_impact.md`

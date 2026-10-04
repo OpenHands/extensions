@@ -37,6 +37,15 @@ export LLM_MODEL="anthropic/claude-3-5-sonnet-20241022"
 uv run python -m lc_sdk_examples.cobol_modernization --src-path /path/to/cobol/project
 ```
 
+PowerShell equivalent for the environment setup:
+
+```powershell
+$env:LLM_API_KEY = "your-api-key"
+$env:LLM_MODEL = "anthropic/claude-3-5-sonnet-20241022"
+
+uv run python -m lc_sdk_examples.cobol_modernization --src-path C:\path\to\cobol\project
+```
+
 ## Workflow Phases
 
 ### Phase 1: Build Setup

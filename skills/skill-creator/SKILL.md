@@ -1,11 +1,12 @@
 ---
 name: skill-creator
-description: This skill should be used when the user wants to "create a skill", "write a new skill", "improve skill description", "organize skill content", or needs guidance on skill structure, progressive disclosure, or skill development best practices.
+description: This skill should be used when the user wants to "add a skill", "create a skill", "make a new skill", "write a new skill", "improve skill description", "organize skill content", or needs guidance on skill structure, progressive disclosure, or skill development best practices. Use this (not add-skill) when authoring a new skill from scratch rather than importing one from a GitHub URL.
 ---
 
 # Skill Creator
 
 This skill provides guidance for creating effective skills.
+Windows PowerShell equivalents for the Unix shell commands used in examples are in `references/windows.md`.
 
 ## About Skills
 
