@@ -187,7 +187,7 @@ class PullRequestReviewer(GitHubRepository):
             return pr if (author or "").lower() == self.trigger_reviewer else None
         return None
 
-    def _prompt(self, pr, trigger, label=None, delivery_key=None):
+    def _prompt(self, pr, trigger, label=None, delivery_key=None, conversation_id=None):
         number = pr["number"]
         sha = pr["head"]["sha"]
         token = self.token_name
@@ -219,6 +219,7 @@ class PullRequestReviewer(GitHubRepository):
             workspace_instructions=workspace,
             github_token_secret=token,
             trigger_description=trigger_description,
+            conversation_id=conversation_id,
         )
         if label:
             moved_head_instruction = (
@@ -309,12 +310,15 @@ class PullRequestReviewer(GitHubRepository):
         ]
         if not completed:
             return False
+        self._annotate_llm_provenance(pr, completed)
         approved = None
         maintainer_decision = False
         for review in sorted(
             completed, key=lambda item: item["submitted_at"], reverse=True
         ):
-            body = (review.get("body") or "").rstrip()
+            # The verdict ends the agent's text; the provenance footer the
+            # automation appends after it is not part of the verdict.
+            body = workflow._without_llm_provenance(review.get("body") or "")
             if body.endswith("✅ APPROVED"):
                 approved = True
                 break
@@ -369,6 +373,41 @@ class PullRequestReviewer(GitHubRepository):
                 "DELETE", f"/issues/{pr['number']}/labels/{quote(label, safe='')}"
             )
         return True
+
+    def _annotate_llm_provenance(self, pr, reviews):
+        """Append the LLM profile and model to this automation's own reviews.
+
+        The footer describes the conversation that published the review, read
+        back from that conversation rather than from current settings, so a
+        reused conversation reports the LLM it actually runs. Login, head, and
+        time cannot tell two automations sharing a bot account apart, so a
+        review is annotated only when its single run marker names the
+        conversation this automation records for the pull request. Any other
+        review, including one by an overlapping run, is left as it is.
+        """
+        if not any(
+            workflow._REVIEW_RUN_MARKER_RE.search(review.get("body") or "")
+            for review in reviews
+        ):
+            return
+        repository_id = self.gh("GET", "")["id"]
+        conversation_id = self.dispatcher.subject_conversation(
+            f"{repository_id}:pr:{pr['number']}"
+        )
+        own = workflow._own_reviews(reviews, conversation_id)
+        if not own:
+            return
+        provenance = self.dispatcher.llm_provenance(conversation_id)
+        if provenance is None:
+            return
+        for review in own:
+            body = workflow._with_llm_provenance(review.get("body") or "", *provenance)
+            if body != review.get("body"):
+                self.gh(
+                    "PUT",
+                    f"/pulls/{pr['number']}/reviews/{review['id']}",
+                    {"body": body},
+                )
 
     @staticmethod
     def _check_app_identity(run):
@@ -1029,7 +1068,11 @@ class PullRequestReviewer(GitHubRepository):
         result = self.dispatcher.deliver(
             subject=f"{repository_id}:pr:{pr['number']}",
             delivery=delivery_key or f"{trigger['id']}:{sha}",
-            prompt=self._prompt(pr, trigger, trigger_label, delivery_key),
+            # The dispatcher names the conversation it delivers to, so the
+            # prompt can carry that conversation's review marker.
+            prompt=lambda conversation_id: self._prompt(
+                pr, trigger, trigger_label, delivery_key, conversation_id
+            ),
             head=sha,
         )
         print(

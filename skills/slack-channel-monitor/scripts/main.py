@@ -1061,10 +1061,13 @@ def _check_conversation_completion(
             )
         else:
             summary = final if final else "Success (no message available)."
+        # The values recorded when this script started the conversation; a
+        # thread follow-up reuses it, so they still describe its LLM. A record
+        # written before provenance was tracked cannot name either value.
         summary = _with_llm_provenance(
             summary,
-            rec.get("llm_profile", "default"),
-            rec.get("llm_model", "unknown"),
+            rec.get("llm_profile") or "unknown",
+            rec.get("llm_model") or "unknown",
         )
 
         ts_back = post_message(slack_token, channel_id, summary, thread_ts=thread_ts)

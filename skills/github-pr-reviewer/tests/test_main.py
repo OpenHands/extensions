@@ -255,7 +255,7 @@ class TestState(_CheckoutTestCase):
 # ── Review verification ────────────────────────────────────────────────────────
 
 
-class TestMatchingReviewExists(unittest.TestCase):
+class TestPublishedReviews(unittest.TestCase):
     def setUp(self):
         self._login = main._AUTH_LOGIN
         main._AUTH_LOGIN = "review-bot"
@@ -265,7 +265,7 @@ class TestMatchingReviewExists(unittest.TestCase):
 
     def _exists(self, reviews):
         with patch.object(main, "_github_paginate", return_value=reviews):
-            return main._matching_review_exists("token", "owner/repo", 7, "abc123")
+            return bool(main._published_reviews("token", "owner/repo", 7, "abc123"))
 
     def test_true_for_our_review_at_this_commit(self):
         self.assertTrue(self._exists([{"user": {"login": "Review-Bot"}, "commit_id": "abc123", "state": "COMMENTED"}]))
@@ -279,7 +279,7 @@ class TestMatchingReviewExists(unittest.TestCase):
     def test_listing_failure_is_reported_to_the_caller(self):
         with patch.object(main, "_github_paginate", side_effect=RuntimeError("boom")):
             with self.assertRaises(RuntimeError):
-                main._matching_review_exists("token", "owner/repo", 7, "abc123")
+                main._published_reviews("token", "owner/repo", 7, "abc123")
 
 
 # ── Claiming a label event before the review starts ────────────────────────────
@@ -659,22 +659,22 @@ class TestLlmProvenance(unittest.TestCase):
         self.assertEqual(profile, "default")
         self.assertEqual(model, "anthropic/claude-sonnet-4-6")
 
-    def test_review_prompt_requires_the_shared_provenance_footer(self):
+    def test_review_prompt_names_its_conversation_marker(self):
         prompt = main._build_review_prompt(
             "owner/repo",
             TestRepoReviewGuide()._pr(),
             "0123456789abcdef",
             {"id": "1", "created_at": "t"},
-            llm_profile="review-profile",
-            llm_model="anthropic/claude-sonnet-4-6",
             workspace_instructions="Check out the exact PR head before reviewing.",
             github_token_secret="FACTORY_GITHUB_REVIEWER_TOKEN",
+            conversation_id="conv-1",
         )
 
-        self.assertIn(
-            "LLM profile: `review-profile` · Model: `anthropic/claude-sonnet-4-6`",
-            prompt,
-        )
+        # The agent copies the marker; the script, not the agent, appends the
+        # provenance footer to the review that carries it.
+        self.assertIn("`<!-- openhands-review-run: conv-1 -->`", prompt)
+        self.assertIn("do not write that footer yourself", prompt)
+        self.assertNotIn("LLM profile:", prompt)
         self.assertIn("Check out the exact PR head before reviewing.", prompt)
         self.assertIn("FACTORY_GITHUB_REVIEWER_TOKEN", prompt)
         self.assertNotIn("The workspace is already the repository root", prompt)
@@ -694,7 +694,7 @@ class TestLlmProvenance(unittest.TestCase):
             patch.object(main.time, "time", return_value=100.0),
             patch.object(main, "conversation_status", return_value="finished"),
             patch.object(main, "conversation_final_response", return_value="Review body"),
-            patch.object(main, "_matching_review_exists", return_value=False),
+            patch.object(main, "_published_reviews", return_value=[]),
             patch.object(main, "_post_github_comment") as post_comment,
         ):
             main._check_conversation_completion(

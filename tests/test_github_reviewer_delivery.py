@@ -158,7 +158,7 @@ def test_reviewer_submits_each_labeled_exact_head(tmp_path, monkeypatch):
 
     assert submit.call_args.kwargs["subject"] == "99:pr:2"
     assert submit.call_args.kwargs["delivery"] == "7:head-2"
-    prompt = submit.call_args.kwargs["prompt"]
+    prompt = submit.call_args.kwargs["prompt"]("conversation")
     assert "publish the review directly to GitHub" in prompt
     assert "Do not create commit statuses or Checks" in prompt
     assert "FACTORY_GITHUB_REVIEWER_TOKEN" in prompt
@@ -197,7 +197,7 @@ def test_reviewer_prompt_forbids_republishing_an_unchanged_reviewed_head(
 
     run.run()
 
-    prompt = submit.call_args.kwargs["prompt"]
+    prompt = submit.call_args.kwargs["prompt"]("conversation")
     assert "already published a review on `head-2`" in prompt
     assert "no one else has commented since that review" in prompt
     assert "Review the head again only when the head has moved" in prompt
@@ -226,8 +226,9 @@ def test_reviewer_submits_requested_exact_head(tmp_path, monkeypatch, draft):
     call = run.dispatcher.deliver.call_args.kwargs
     assert call["subject"] == "99:pr:2"
     assert call["delivery"] == "42:head-2"
-    assert "latest review request for `all-hands-bot` event 42" in call["prompt"]
-    assert "new head requires another reviewer request" in call["prompt"]
+    prompt = call["prompt"]("conversation")
+    assert "latest review request for `all-hands-bot` event 42" in prompt
+    assert "new head requires another reviewer request" in prompt
 
 
 def _real_dispatcher(dispatcher_class, monkeypatch, conversation):
@@ -1800,7 +1801,9 @@ def test_reviewer_scheduled_scan_reviews_an_outstanding_request(tmp_path, monkey
     run.dispatcher.deliver.assert_called_once()
     call = run.dispatcher.deliver.call_args.kwargs
     assert call["delivery"] == "42:head-2"
-    assert "latest review request for `all-hands-bot` event 42" in call["prompt"]
+    assert "latest review request for `all-hands-bot` event 42" in call["prompt"](
+        "conversation"
+    )
 
 
 @pytest.mark.parametrize("draft", [False, True])
@@ -1864,7 +1867,9 @@ def test_reviewer_scheduled_scan_reviews_an_unrequested_green_pr(
     call = run.dispatcher.deliver.call_args.kwargs
     assert call["subject"] == "99:pr:3"
     assert call["delivery"] == "scan:owner/repo:3:head-3"
-    assert "scheduled scan of open, non-draft pull requests" in call["prompt"]
+    assert "scheduled scan of open, non-draft pull requests" in call["prompt"](
+        "conversation"
+    )
 
 
 def test_reviewer_scheduled_scan_skips_a_pr_with_a_current_head_review(
@@ -2010,7 +2015,9 @@ class _DedupeDispatcher:
 
     def deliver(self, *, subject, delivery, prompt, head=""):
         self.calls.append((subject, delivery))
-        self.prompts.append(prompt)
+        # The worker's prompt names the receiving conversation, so render it
+        # the way the real dispatcher does.
+        self.prompts.append(prompt(subject))
         self.heads.append(head)
         if self.seen.get(subject) == delivery:
             return {"disposition": "deduplicated", "conversation_id": subject}

@@ -66,10 +66,13 @@ This skill is activated by:
   assertions, generated mockups, and reconstructed captures cannot substitute.
   Missing evidence yields a COMMENT review that names the gap, so no approval
   and no maintainer handoff
-- Shows the selected LLM profile and actual model in every published review or fallback
-  result
-- Verifies and repairs the provenance footer on submitted reviews; publication
-  failures remain pending for retry
+- Ends each published review, fallback comment, and error comment with the LLM
+  profile and model of the conversation that wrote it:
+  `LLM profile: <profile> · Model: <model>`. The deterministic script appends
+  the footer, never the agent, and only to a review whose hidden run marker
+  names that conversation, so automations that share a bot account and review
+  the same head cannot relabel each other's reviews. A failed lookup or edit is
+  reported as a failure, never skipped, so the next scan or poll retries it
 - Posts acknowledgement comments with AI disclosure
 - Configurable review tone and polling schedule
 - Optional human handoff after an exact-head approval. The scanner ranks the
@@ -80,13 +83,20 @@ This skill is activated by:
 
 ## Prerequisites
 
-The automation's selected profile (`AUTOMATION_MODEL`) is resolved for each new
-conversation. If it is unset or the profile was deleted, the script uses the
-server's concrete default LLM settings and labels the result `default`.
-Other profile errors stop creation instead of silently choosing another model.
-Provider-linked profiles require an Agent Server version that resolves provider
-credentials on authenticated plaintext profile reads; older servers produce an
-explicit upgrade error. The script never activates a profile globally.
+The catalog worker starts each review conversation from the automation's
+agent profile, which the server resolves. Its footer reads the model back from
+that conversation, so a reused conversation reports the LLM it actually runs,
+and takes the LLM profile name from the agent profile while it is still at its
+launch revision (`unknown` once the profile has been edited since).
+
+The manual upload flow builds the agent itself. It resolves the automation's
+selected LLM profile (`AUTOMATION_MODEL`) for each new conversation. If it is
+unset or the profile was deleted, the script uses the server's concrete default
+LLM settings and labels the result `default`. Other profile errors stop creation
+instead of silently choosing another model. Provider-linked profiles require an
+Agent Server version that resolves provider credentials on authenticated
+plaintext profile reads; older servers produce an explicit upgrade error. The
+script never activates a profile globally.
 
 Set `GITHUB_PERSONAL_ACCESS_TOKEN` in OpenHands Settings -> Secrets. The token
 must be able to read the repositories and their contents, read issue events,
