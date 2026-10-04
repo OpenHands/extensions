@@ -83,19 +83,23 @@ If the PR has frontend work, run the affected screens from the branch's final
 state and record what a reviewer would otherwise have to imagine from the diff.
 The goal: the change can be reviewed **by observation, not by reading code.**
 
-1. **Screenshot each relevant state** of every affected screen — whichever
+1. **Screenshot each relevant state** of every affected screen - whichever
    apply: *empty*, *loading*, *error*, and *populated*. Skip states the screen
    genuinely cannot reach.
-2. **Record a GIF (or short video) of the key interaction end to end** — the
-   main flow the PR changes, driven the way a user would (e.g. via Playwright's
-   video/tracing or a screen recorder).
-3. **Where behavior changes, capture before/after** — the same state/interaction
-   on the base branch and on the PR branch, side by side, so the delta is
+2. **Record the key interaction end to end** - the main flow the PR changes,
+   driven the way a user would. Prefer a GIF: GitHub renders a GIF inline from
+   an image link, but only links a video file.
+3. **Where behavior changes, capture before/after** - the same state or
+   interaction on the base branch and on the PR branch, so the delta is
    visible.
-4. **Attach it all to the PR.** Embed the images and GIF directly in the QA
-   report so they render inline. If your environment can't upload attachments
-   through the API, commit the media to the branch under `.pr/` and reference
-   them by their raw URLs. Label each clearly (screen → state, or before/after).
+4. **Attach it to the report.** Embed the images and GIF in the QA report so
+   they render inline, and label each one (screen and state, or before/after).
+   Do not push commits to the PR branch to host media: that changes the head
+   you are verifying, and the shipped QA workflow has read-only access to
+   repository contents. If you cannot upload media where the report is posted,
+   save the files where the run keeps its artifacts (the `qa-changes` GitHub
+   Action uploads the workspace's `output/` directory), say where to find
+   them, and describe in text what each capture shows.
 
 Keep it proportional: capture the screens the PR actually touches, not the whole
 app. If you cannot render a screen (missing data, an unreachable state, no
@@ -208,10 +212,11 @@ prior state rather than reproducing a failure.}
 
 <details><summary>Visual Evidence</summary>
 
-{Frontend PRs only. Embed the screenshots (per screen → state: empty,
-loading, error, populated) and the GIF/video of the key interaction so
-they render inline. Where behavior changed, show before/after. Label
-each clearly. Omit this section entirely for non-frontend PRs.}
+{Frontend PRs only. Embed the screenshots (per screen and state: empty,
+loading, error, populated) and the GIF of the key interaction so they
+render inline, or say where the captures are stored if they could not be
+uploaded. Where behavior changed, show before/after. Label each clearly.
+Omit this section entirely for non-frontend PRs.}
 
 </details>
 
