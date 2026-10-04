@@ -15,7 +15,7 @@ from pathlib import Path
 from typing import Any
 
 SENSITIVE_NAME = re.compile(
-    r"(?:^|[-_.])(auth|cookie|credential|secret|token|api[-_]?key|env)(?:[-_.]|$)",
+    r"(?:^|[-_.])(auth|cookies?|credentials?|secrets?|tokens?|api[-_]?keys?|env)(?:[-_.]|$)",
     re.IGNORECASE,
 )
 FAILURE_WORDS = re.compile(
@@ -32,7 +32,15 @@ ERROR_KEYS = (
     "code",
     "detail",
 )
-CONTAINER_KEYS = ("events", "messages", "actions", "history", "items", "results")
+CONTAINER_KEYS = (
+    "events",
+    "messages",
+    "actions",
+    "history",
+    "items",
+    "results",
+    "observation",
+)
 FAILURE_CATEGORIES = {"auth", "quota", "rate_limit", "internal"}
 
 
@@ -80,6 +88,11 @@ def read_values(path: Path) -> list[Any]:
 
 
 def classify_failure(record: dict[str, Any]) -> str | None:
+    if record.get("is_error") is True:
+        return "tool error"
+    exit_code = record.get("exit_code")
+    if isinstance(exit_code, int) and not isinstance(exit_code, bool) and exit_code != 0:
+        return "exit code"
     classification = record.get("classification")
     if record.get("kind") == "ConversationErrorEvent" and isinstance(
         classification, dict
@@ -103,6 +116,10 @@ def classify_failure(record: dict[str, Any]) -> str | None:
 
 
 def action_name(record: dict[str, Any]) -> str | None:
+    # SDK ObservationEvent records repeat the ActionEvent's tool_name. Count
+    # only the action side so one tool invocation contributes once.
+    if record.get("kind") == "ObservationEvent":
+        return None
     for key in ACTION_KEYS:
         if key not in record:
             continue

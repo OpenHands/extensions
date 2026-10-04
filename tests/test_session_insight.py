@@ -61,6 +61,16 @@ def test_excludes_credential_like_files_and_values(tmp_path):
     safe.write_text(event * 3, encoding="utf-8")
     secret = tmp_path / "sessions" / "auth-token.json"
     secret.write_text('{"token":"also-must-not-render"}', encoding="utf-8")
+    for name in (
+        "credentials.json",
+        "secrets.json",
+        "tokens.json",
+        "cookies.json",
+        "api_keys.json",
+    ):
+        (tmp_path / "sessions" / name).write_text(
+            '{"tool_name":"must-not-count"}', encoding="utf-8"
+        )
 
     result = run_report(tmp_path, safe.parent)
 
@@ -69,6 +79,44 @@ def test_excludes_credential_like_files_and_values(tmp_path):
     assert "must-not-render" not in report
     assert "auth-token.json" not in report
     assert "command" in report
+
+
+def test_reads_real_sdk_action_and_observation_events_once(tmp_path):
+    session = tmp_path / "conversation"
+    session.mkdir()
+    (session / "action.json").write_text(
+        json.dumps(
+            {
+                "kind": "ActionEvent",
+                "tool_name": "execute_bash",
+                "action": {"command": "false"},
+            }
+        ),
+        encoding="utf-8",
+    )
+    (session / "observation.json").write_text(
+        json.dumps(
+            {
+                "kind": "ObservationEvent",
+                "tool_name": "execute_bash",
+                "observation": {
+                    "is_error": True,
+                    "exit_code": 1,
+                    "content": "command failed",
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    result = run_report(tmp_path, session)
+
+    assert result.returncode == 0
+    summary = json.loads(result.stdout)
+    assert summary["failure_signals"] == 1
+    report = (tmp_path / "usage" / "report.html").read_text(encoding="utf-8")
+    assert "tool error" in report
+    assert "execute_bash" not in report  # One call is below the repetitive threshold.
 
 
 def test_no_records_exits_without_creating_report(tmp_path):
