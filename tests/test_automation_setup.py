@@ -625,6 +625,25 @@ def _iter_strings(node):
         yield node
 
 
+def _scenario_template_versions(bundle: dict) -> set[str]:
+    """Every template version a fixture pins, wherever it appears."""
+    versions = set()
+
+    def walk(node) -> None:
+        if isinstance(node, dict):
+            template = node.get("template")
+            if isinstance(template, dict) and "version" in template:
+                versions.add(template["version"])
+            for value in node.values():
+                walk(value)
+        elif isinstance(node, list):
+            for item in node:
+                walk(item)
+
+    walk(bundle["scenarios"])
+    return versions
+
+
 def _scenarios(kind: str):
     """Every fixture scenario carrying the given block, as test params."""
     for path in sorted(FIXTURE_DIR.glob("*.json")):
@@ -654,6 +673,21 @@ def test_schema_file_is_valid_draft_2020_12() -> None:
     Draft202012Validator.check_schema(_SCHEMA)
 
 
+def test_schema_allows_event_filter_on_script_bundle() -> None:
+    entry = deepcopy(_load(CATALOG_DIR / "github-pr-reviewer" / "manifest.json"))
+    entry["setup"]["form"]["triggers"]["event"] = {
+        "on": {
+            "type": "event-type",
+            "label": "Event type",
+            "help": "GitHub event that starts the bundled script.",
+            "required": True,
+        }
+    }
+    entry["setup"]["filter"] = "repository.full_name == 'owner/repo'"
+
+    assert list(VALIDATOR.iter_errors(entry)) == []
+
+
 def test_schema_rejects_content_a_setup_block_must_never_carry() -> None:
     """The format constraints are the trust boundary, so they are asserted here.
 
@@ -676,9 +710,9 @@ def test_schema_rejects_content_a_setup_block_must_never_carry() -> None:
     rejected.append(("{{env.GITHUB_TOKEN}}", with_unknown_placeholder))
 
     with_secret_value = deepcopy(entry)
-    with_secret_value["requires"]["integrations"]["github"]["value"] = (
-        "ghp_notarealtokenvalue00"
-    )
+    with_secret_value["requires"]["integrations"]["github"] = {
+        "value": "ghp_notarealtokenvalue00"
+    }
     rejected.append(("value", with_secret_value))
 
     with_repeated_identity = deepcopy(entry)
@@ -770,6 +804,31 @@ def test_multi_action_fixture_scenarios_name_the_selected_variant(
         if not ({"preflight", "create"} & set(scenario)):
             continue
         assert scenario.get("selectedAction") in actions, scenario["id"]
+
+
+@pytest.mark.parametrize("fixture_path", list(_fixture_bundles()))
+def test_fixture_template_versions_match_the_entry_to_pin_the_bump(
+    fixture_path: Path,
+) -> None:
+    """A fixture pins the template version the host will send, so it moves with
+    the entry. Pinning a stale version passes until the version is bumped, and
+    then every scenario in the fixture fails at once - the bump, not the
+    behavior, is what changed."""
+    bundle = _load(fixture_path)
+    entry = _entry_for(bundle)
+
+    expected = set()
+    if "version" in entry:
+        expected.add(entry["version"])
+    if "version" in entry.get("setup", {}).get("bundle", {}):
+        expected.add(entry["setup"]["bundle"]["version"])
+
+    pinned = _scenario_template_versions(bundle)
+
+    assert pinned <= expected, (
+        f"{fixture_path.stem}: fixture pins template version(s) {sorted(pinned)} "
+        f"but {entry['id']} declares {sorted(expected)}"
+    )
 
 
 @pytest.mark.parametrize("entry_path", list(_setup_paths()))

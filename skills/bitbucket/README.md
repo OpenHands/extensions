@@ -3,6 +3,8 @@
 Bitbucket integration **hub** skill. It detects whether the repository is on Bitbucket
 Cloud or Bitbucket Data Center and directs the agent to the matching detailed skill.
 
+Authenticated Bitbucket MCP tools are preferred when available, detected generically by tool availability rather than a particular server name. The hub still routes to Cloud or Data Center, and the documented token and direct API paths remain the fallback when MCP tools are unavailable or raw API or `curl` access is explicitly needed.
+
 ## Triggers
 
 This skill is activated by the following keywords:
