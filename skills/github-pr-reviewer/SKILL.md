@@ -195,7 +195,7 @@ it: a screenshot, screen recording, or equivalent capture of the running app
 that exercises the production-facing path. Unit tests, CSS-token or contract
 assertions, generated mockups, and reconstructed captures may support the review
 but cannot substitute for that evidence. When the required evidence is missing,
-the reviewer publishes one `event: COMMENT` review naming exactly what is
+you must publish one `event: COMMENT` review naming exactly what is
 missing and ends with `🔄 CHANGES REQUESTED`, so approval is withheld and the
 deterministic maintainer handoff does not fire. Non-UI changes keep the existing
 requirement of the real command and its observed output, with tests insufficient
