@@ -2945,8 +2945,80 @@ def test_mixed_event_and_scheduled_share_one_cap(tmp_path, monkeypatch):
         101,
     )
     _run_scan(scheduled, [scheduled_run])
-    # Still just the one conversation from the event; the scan was deferred.
+    # Still just the one conversation from the event: the scan's pre-filter saw
+    # the cap full and launched nothing.
     assert create.call_count == 1
+
+
+def test_a_scheduled_launch_behind_a_stale_count_is_refused_by_admission(
+    tmp_path, monkeypatch, capsys
+):
+    """An event that takes the last slot after the scan counted is still seen.
+
+    The scan reads the in-flight count once, before its drain. An event that
+    reserves the deployment's only slot between that read and the drain's
+    launch makes the count stale, so the pre-filter lets the scheduled candidate
+    through; the dispatcher's atomic admission must refuse it at launch, so the
+    two paths together never exceed the cap.
+    """
+    module, run = _reviewer(tmp_path, monkeypatch)
+    conversation = MagicMock()
+    dispatcher, attach, state, create = _capped_dispatcher(
+        module.AgentConversationDispatcher, monkeypatch, conversation, max_in_flight=1
+    )
+    _force_create(module, attach)
+    dispatcher._execution_status = lambda cid: "running"
+    run.dispatcher = dispatcher
+
+    scheduled_dir = tmp_path / "scheduled"
+    scheduled_dir.mkdir()
+    scheduled, (scheduled_run,) = _scan_reviewers(
+        scheduled_dir, monkeypatch, ["owner/one"], max_new=5, max_in_flight=1
+    )
+    scheduled_run.dispatcher = dispatcher
+    _wire_scan(
+        scheduled_run,
+        [_unrequested_pr(5, "head-5", created_at="2026-01-01T00:00:00Z")],
+        101,
+    )
+
+    count = dispatcher.in_flight
+
+    def count_then_lose_the_slot_to_an_event():
+        live = count()
+        _event(monkeypatch)
+        pr = _event_pr(2, "head-2")
+        run.gh = Mock(side_effect=[{"id": 99}, pr])
+        run.gh_pages = _event_pages(pr, module)
+        run.run()
+        monkeypatch.delenv("AUTOMATION_EVENT_PAYLOAD")
+        return live
+
+    dispatcher.in_flight = count_then_lose_the_slot_to_an_event
+
+    with dispatcher:
+        _run_scan(scheduled, [scheduled_run])
+
+    # Only the event's conversation was created, and it alone holds the slot.
+    assert create.call_count == 1
+    assert len(state[dispatcher_module(module)._IN_FLIGHT_KEY]) == 1
+    # The scheduled candidate reached the dispatcher and was deferred there,
+    # leaving no delivery record, so a later scan retries it.
+    logged = [
+        json.loads(line)
+        for line in capsys.readouterr().out.splitlines()
+        if line.startswith("{")
+    ]
+    dispositions = {
+        entry["pr"]: entry["disposition"] for entry in logged if "disposition" in entry
+    }
+    assert dispositions == {2: "created", 5: "deferred"}
+    subjects = [
+        value["subject"]
+        for key, value in state.items()
+        if key.startswith("agent-conversation-")
+    ]
+    assert subjects == ["99:pr:2"]
 
 
 # --------------------------------------------------------------------------- #
