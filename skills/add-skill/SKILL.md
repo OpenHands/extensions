@@ -12,9 +12,10 @@ Import skills from GitHub repositories into the current workspace.
 When a user requests to add a skill from a GitHub URL:
 
 1. **Parse the URL** to extract repository owner, name, and skill path
-2. **Fetch the skill** using the bundled script:
+2. **Fetch the skill** using the bundled script. Run it from this skill's
+   directory (the directory containing this SKILL.md file):
    ```bash
-   python3 <this-skill-path>/scripts/fetch_skill.py "<github-url>" "<workspace-path>"
+   python3 scripts/fetch_skill.py "<github-url>" "<workspace-path>"
    ```
 3. **Verify** that SKILL.md exists in the destination
 4. **Inform the user** the skill is now available
@@ -44,6 +45,8 @@ Response: "✅ Added `codereview` to your workspace. The skill is now available.
 
 ## Notes
 
+- Installs workspace-locally into `<workspace>/.agents/skills/<skill-name>/`,
+  not globally; that workspace is where the skill becomes available
 - Creates `.agents/skills/` directory if it doesn't exist
 - Uses `GITHUB_TOKEN` for authentication (required for private repos)
 - Warns before overwriting existing skills with the same name

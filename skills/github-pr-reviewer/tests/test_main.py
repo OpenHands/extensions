@@ -530,6 +530,114 @@ class TestRepoReviewGuide(unittest.TestCase):
         self.assertIn("CONTRIBUTING.md", prompt)
         self.assertIn("nested `AGENTS.md`", prompt)
 
+    def test_prompt_uses_native_approval_for_a_clean_review(self):
+        prompt = main._build_review_prompt(
+            "owner/repo",
+            self._pr(),
+            "0123456789abcdef",
+            {"id": "1", "created_at": "t"},
+        )
+
+        self.assertIn("`event: APPROVE`", prompt)
+        self.assertIn("otherwise use `event: COMMENT`", prompt)
+        self.assertIn("Never use `REQUEST_CHANGES`", prompt)
+        self.assertIn("native GitHub review is the only result channel", prompt)
+        self.assertIn("Do not create commit statuses or Checks", prompt)
+        self.assertIn("Do not add speculative or out-of-scope notes", prompt)
+        self.assertIn("forbids the configured bot from approving its own PR", prompt)
+
+    def test_prompt_requires_live_ui_evidence_before_approval(self):
+        prompt = main._build_review_prompt(
+            "owner/repo",
+            self._pr(),
+            "0123456789abcdef",
+            {"id": "1", "created_at": "t"},
+        )
+
+        # The gate sits after the finding-quality rules and before the review is
+        # published, so a missing capture is a blocking finding, not a note.
+        gate = prompt.index("LIVE EVIDENCE GATE")
+        self.assertLess(prompt.index("Ground every finding"), gate)
+        self.assertLess(gate, prompt.index("Publish one review"))
+        self.assertIn("user-visible UI behavior", prompt)
+        self.assertIn("real running application", prompt)
+        self.assertIn("production-facing path", prompt)
+        self.assertIn("CSS-token", prompt)
+        self.assertIn("generated mockups", prompt)
+        self.assertIn("reconstructed", prompt)
+        self.assertIn("never substitute for the required live evidence", prompt)
+        self.assertIn("names exactly which live evidence is missing", prompt)
+        self.assertIn("`🔄 CHANGES REQUESTED`", prompt)
+
+    def test_prompt_requires_refreshing_mutable_github_state(self):
+        """A resumed conversation must not trust an earlier turn's observations."""
+        prompt = main._build_review_prompt(
+            "owner/repo",
+            self._pr(),
+            "0123456789abcdef",
+            {"id": "1", "created_at": "t"},
+        )
+
+        assert "CURRENT STATE" in prompt
+        for surface in (
+            "still matches the Head SHA",
+            "current PR title and body",
+            "current review comments and threads",
+            "current review requests",
+            "GitHub Actions check results",
+            "body and labels of every linked issue",
+        ):
+            self.assertIn(surface, prompt)
+        # The readiness case from the report: a linked issue gaining a label.
+        self.assertIn("ready-for-dev", prompt)
+
+    def test_prompt_forbids_repeating_an_earlier_observation(self):
+        prompt = main._build_review_prompt(
+            "owner/repo",
+            self._pr(),
+            "0123456789abcdef",
+            {"id": "1", "created_at": "t"},
+        )
+
+        self.assertIn("fresh review", prompt)
+        self.assertIn("re-established now", prompt)
+        self.assertIn(
+            "never repeat an earlier finding, verdict, or "
+            "label/priority claim",
+            prompt,
+        )
+
+    def test_prompt_refreshes_state_before_the_scope_gate_and_keeps_analysis(self):
+        prompt = main._build_review_prompt(
+            "owner/repo",
+            self._pr(),
+            "0123456789abcdef",
+            {"id": "1", "created_at": "t"},
+        )
+
+        # The refresh precedes the verdict-shaping steps, while the repository
+        # analysis the conversation already did stays part of the workflow.
+        self.assertLess(prompt.index("CURRENT STATE"), prompt.index("SCOPE GATE"))
+        self.assertLess(prompt.index("CURRENT STATE"), prompt.index("MUST read"))
+        self.assertIn("useful background", prompt)
+        self.assertIn("AGENTS.md", prompt)
+
+    def test_prompt_scope_gate_stops_before_the_technical_review(self):
+        prompt = main._build_review_prompt(
+            "owner/repo",
+            self._pr(),
+            "0123456789abcdef",
+            {"id": "1", "created_at": "t"},
+        )
+
+        gate = prompt.index("SCOPE GATE")
+        self.assertLess(gate, prompt.index("Inspect the PR discussion"))
+        self.assertLess(gate, prompt.index("Ground every finding"))
+        self.assertIn("before inspecting changed files, reading the diff, or running", prompt)
+        self.assertIn("scope categories and ownership boundaries", prompt)
+        self.assertIn("continue the technical review unchanged", prompt)
+        self.assertIn("move repositories, close, or receive a maintainer decision", prompt)
+
 
 class TestLlmProvenance(unittest.TestCase):
     def test_default_settings_match_agent_and_display_metadata(self):
