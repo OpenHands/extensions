@@ -51,11 +51,13 @@ This skill is activated by:
   outstanding reviewer requests first and reaching the rest on later scans
 - Counts the review conversations still running from earlier scans and starts no
   more than a configurable global in-flight cap allows (default 4), so a
-  sustained backlog cannot accumulate Docker runtimes across scans. The cap is
-  enforced by an atomic reservation in the dispatcher, so it also bounds a burst
-  of simultaneous reviewer requests on the event path; a refused delivery is
-  deferred without consuming the GitHub request, and a completed, errored, stale,
-  or missing conversation releases its capacity for the next scan
+  sustained backlog cannot accumulate Docker runtimes on a local Agent Canvas, or
+  sandboxes on OpenHands Cloud, across scans. The cap is enforced by an atomic
+  reservation in the dispatcher, so it also bounds a burst of simultaneous
+  reviewer requests on the event path; a refused delivery is deferred without
+  consuming the GitHub request, and a completed, errored, stale, or missing
+  conversation (or a paused Cloud sandbox) releases its capacity for the next
+  scan
 - Processes each review request or label application idempotently
 - Supports re-review by requesting the bot again or re-applying the label. Each
   explicit request refreshes mutable GitHub state (head, PR body, reviews,

@@ -46,7 +46,10 @@ _TERMINAL_EXECUTION_STATUSES = frozenset({"finished", "error", "stuck"})
 # concurrent admission that reads the registry in that window would otherwise
 # prune the reservation as "gone", freeing a slot that is about to be used and
 # letting the deployment overshoot its cap. Once the grace has passed, a 404
-# really is a conversation that no longer exists and the slot is released.
+# really is a conversation that no longer exists and the slot is released. On
+# OpenHands Cloud and Enterprise the OpenHands API lists a conversation only once
+# its sandbox is up, so a reservation there is held for the longer
+# `_CLOUD_START_GRACE_SECONDS` that delivery already allows a start.
 _PENDING_GRACE_SECONDS = 3 * 60
 # A conditional write that loses a race is retried against a fresh read. The
 # store versions the whole state document, not one key, so an unrelated write by
@@ -57,13 +60,18 @@ _PENDING_GRACE_SECONDS = 3 * 60
 _KV_CAS_ATTEMPTS = 8
 _KV_CAS_BACKOFF_SECONDS = 0.05
 
-
 # How long a conversation the OpenHands API was asked to start may take to
 # appear before the start is taken to have failed and is made again.
 _CLOUD_START_GRACE_SECONDS = 10 * 60
 # How long to wait for a paused conversation's sandbox to come back up.
 _CLOUD_RESUME_TIMEOUT_SECONDS = 120
 _CLOUD_POLL_SECONDS = 3
+# A Cloud conversation whose sandbox is paused or gone runs nothing, whatever its
+# last execution status said, so it holds no in-flight slot. Waking it again is
+# new work, and the delivery that wakes it is admitted again.
+_CLOUD_STOPPED_SANDBOX_STATUSES = frozenset({"PAUSED", "ERROR", "MISSING"})
+# What `_execution_status` reports for such a conversation.
+_SANDBOX_STOPPED = "sandbox_stopped"
 
 
 class KVConflictError(RuntimeError):
@@ -241,7 +249,9 @@ class AgentConversationDispatcher:
         # every launch path converges: a scheduled scan's drain and an
         # event-triggered delivery both start conversations through `deliver`,
         # so gating here is what makes admission atomic and impossible to
-        # bypass by choosing the other path. None means "no cap": a tracked
+        # bypass by choosing the other path. It applies on a local Agent Canvas
+        # and on OpenHands Cloud and Enterprise alike, because each conversation
+        # holds a runtime of its own on either. None means "no cap": a tracked
         # dispatcher used without one records conversations but never refuses.
         self.max_in_flight = max_in_flight
 
@@ -339,6 +349,12 @@ class AgentConversationDispatcher:
         take a turn - its start never completed, or its sandbox is gone - and a
         fresh id from then on, because the API does not start an id twice. The
         KV record carries whichever is current.
+
+        Every branch that starts work - a new conversation, a turn run on an
+        idle one, or a revision sent to one whose sandbox may be paused - first
+        reserves an in-flight slot, under the id that will actually run. A
+        refusal is reported as `deferred` against the subject's current id, and
+        nothing is started.
         """
         current_id = record.get("conversation_id") or conversation_id
         conversation = self._cloud.get(current_id)
@@ -358,7 +374,13 @@ class AgentConversationDispatcher:
 
         if conversation is None:
             new_id = uuid4() if record else conversation_id
-            self._cloud.start(new_id, self.profile_id, subject, prompt)
+            if not self._admit(str(new_id), subject):
+                return "deferred", current_id
+            try:
+                self._cloud.start(new_id, self.profile_id, subject, prompt)
+            except Exception:
+                self._release_failed_launch(new_id)
+                raise
             return "created", new_id
 
         status = conversation.get("execution_status")
@@ -366,9 +388,13 @@ class AgentConversationDispatcher:
             return "in_progress", current_id
         if same_delivery:
             if status in ("idle", "paused"):
+                if not self._admit(str(current_id), subject):
+                    return "deferred", current_id
                 self._cloud.run(conversation)
                 return "resumed", current_id
             return "deduplicated", current_id
+        if not self._admit(str(current_id), subject):
+            return "deferred", current_id
         self._cloud.send(conversation, prompt)
         return "resumed", current_id
 
@@ -407,12 +433,7 @@ class AgentConversationDispatcher:
                     visualizer=None,
                 )
             except Exception:
-                # The runtime never came up, so the reservation must not hold a
-                # slot until it ages out. Releasing must not mask the real error.
-                try:
-                    self.release(str(conversation_id))
-                except Exception:  # noqa: BLE001 - the original error is the news
-                    pass
+                self._release_failed_launch(conversation_id)
                 raise
             disposition = "created"
         try:
@@ -457,18 +478,21 @@ class AgentConversationDispatcher:
     def _prune(self, registry: dict) -> dict:
         """Return only the registry entries that still hold a runtime.
 
-        An entry whose conversation reached a terminal status releases its slot.
-        An entry the agent server no longer has releases it too, but only once
-        the reservation is older than `_PENDING_GRACE_SECONDS`: a slot is
-        reserved just before its conversation is created, so in that window a
-        404 means "not created yet", not "gone", and freeing it would let a
-        concurrent admission overshoot the cap. An entry older than the
-        abandonment window releases its slot without a status read, so a scan
-        that died before recording a completion does not park a slot forever. An
-        entry whose status cannot be read is kept live, so a transient failure
-        never lets the deployment overshoot.
+        An entry whose conversation reached a terminal status releases its slot,
+        and so does a Cloud conversation whose sandbox is paused or gone. An
+        entry the server no longer has releases it too, but only once the
+        reservation is older than the start grace (`_PENDING_GRACE_SECONDS`, or
+        `_CLOUD_START_GRACE_SECONDS` on Cloud): a slot is reserved just before
+        its conversation is created, so in that window a 404 means "not created
+        yet", not "gone", and freeing it would let a concurrent admission
+        overshoot the cap. An entry older than the abandonment window releases
+        its slot without a status read, so a scan that died before recording a
+        completion does not park a slot forever. An entry whose status cannot be
+        read is kept live, so a transient failure never lets the deployment
+        overshoot.
         """
         now = time.time()
+        grace = _CLOUD_START_GRACE_SECONDS if self._cloud else _PENDING_GRACE_SECONDS
         live = {}
         for conversation_id, entry in registry.items():
             started_at = entry.get("started_at") if isinstance(entry, dict) else None
@@ -484,10 +508,10 @@ class AgentConversationDispatcher:
                 live[conversation_id] = entry
                 continue
             if status is None:
-                if started_at and now - started_at <= _PENDING_GRACE_SECONDS:
+                if started_at and now - started_at <= grace:
                     live[conversation_id] = entry
                 continue
-            if status in _TERMINAL_EXECUTION_STATUSES:
+            if status in _TERMINAL_EXECUTION_STATUSES or status == _SANDBOX_STOPPED:
                 continue
             live[conversation_id] = entry
         return live
@@ -552,8 +576,7 @@ class AgentConversationDispatcher:
         deployment is at capacity. A dispatcher that is not tracking, or has no
         configured cap, always admits.
         """
-        if self._workspace is None:
-            raise RuntimeError("AgentConversationDispatcher must be used as a context")
+        self._require_context()
         if not self._track_in_flight or self.max_in_flight is None:
             return True
         if self.max_in_flight <= 0:
@@ -633,7 +656,19 @@ class AgentConversationDispatcher:
         A WebSocket subscription is not needed to ask, so this reads the REST
         endpoint directly rather than attaching, which keeps the count cheap
         even when several conversations are live.
+
+        On OpenHands Cloud and Enterprise the OpenHands API is asked instead. A
+        conversation whose sandbox is paused or gone reports `_SANDBOX_STOPPED`,
+        and one whose sandbox is still starting has no execution status yet but
+        already holds a runtime, so it reports `starting`.
         """
+        if self._cloud:
+            conversation = self._cloud.get(conversation_id)
+            if conversation is None:
+                return None
+            if conversation.get("sandbox_status") in _CLOUD_STOPPED_SANDBOX_STATUSES:
+                return _SANDBOX_STOPPED
+            return conversation.get("execution_status") or "starting"
         assert self._workspace is not None
         response = self._workspace.client.get(
             f"/api/conversations/{conversation_id}"
@@ -660,8 +695,7 @@ class AgentConversationDispatcher:
         back to its own per-run bound rather than read the empty registry as
         "nothing is running".
         """
-        if self._workspace is None:
-            raise RuntimeError("AgentConversationDispatcher must be used as a context")
+        self._require_context()
         if not self._track_in_flight:
             return None
         value, version = _kv_read(_IN_FLIGHT_KEY)
@@ -686,6 +720,25 @@ class AgentConversationDispatcher:
             return registry
 
         self._update_registry(drop)
+
+    def _release_failed_launch(self, conversation_id) -> None:
+        """Free the slot reserved for a launch that raised.
+
+        The runtime never came up, so the reservation must not hold a slot until
+        it ages out. Releasing must not mask the launch's own error.
+        """
+        try:
+            self.release(str(conversation_id))
+        except Exception:  # noqa: BLE001 - the original error is the news
+            pass
+
+    def _require_context(self) -> None:
+        """Refuse use outside `with`, where a local run has no Agent Server yet.
+
+        A Cloud run speaks the OpenHands API and needs no workspace to be open.
+        """
+        if not self._cloud and self._workspace is None:
+            raise RuntimeError("AgentConversationDispatcher must be used as a context")
 
 
 def _kv_value(key: str):

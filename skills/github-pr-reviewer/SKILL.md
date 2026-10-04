@@ -205,10 +205,21 @@ bound; set it to at least `MAX_NEW_PER_RUN` to let each scan use its full quota.
   conversation is started and no delivery record is written, so the GitHub review
   request is not consumed and the next scheduled scan retries it once capacity
   frees. The drain stops at the first deferral, since nothing behind it could be
-  admitted either.
+  admitted either. As with a waiting-on-checks outcome, an automation that runs
+  only on the event trigger has no scheduled scan to retry a deferred request,
+  so it waits for a new review request.
 - The count spans every repository, matching the per-scan bound's scope.
+- The cap applies wherever the automation runs. On a local Agent Canvas the
+  dispatcher reads each conversation's status from the Agent Server. On OpenHands
+  Cloud and Enterprise every review conversation runs in a sandbox of its own,
+  so the same admission bounds them, reading each conversation from the
+  OpenHands API: a conversation whose sandbox is paused, errored, or missing
+  holds no slot, and waking it for a new revision is admitted again. A Cloud
+  start may take minutes to appear in the API, so its reservation is held for
+  the same ten-minute start grace the dispatcher already allows before
+  restarting a conversation that never appeared.
 - A conversation releases its slot when it reaches a terminal status
-  (`finished`, `error`, `stuck`), or when the agent server no longer has it. A
+  (`finished`, `error`, `stuck`), or when the server no longer has it. A
   slot reserved just before its conversation is created is held for a short grace
   window before a 404 is believed, so a concurrent admission that reads the
   registry while the conversation is still being created cannot free a slot that

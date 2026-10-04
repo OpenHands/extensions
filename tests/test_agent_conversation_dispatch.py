@@ -745,7 +745,7 @@ class _FakeCloud:
         pass
 
 
-def _cloud_dispatcher(monkeypatch, cloud):
+def _cloud_dispatcher(monkeypatch, cloud, **options):
     monkeypatch.delenv("AGENT_SERVER_URL", raising=False)
     monkeypatch.setenv("SESSION_API_KEY", "session")
     monkeypatch.setenv(
@@ -755,7 +755,7 @@ def _cloud_dispatcher(monkeypatch, cloud):
         "AUTOMATION_EVENT_PAYLOAD", json.dumps({"automation_id": "automation-1"})
     )
     monkeypatch.setattr(agent_conversation, "CloudConversations", lambda: cloud)
-    return agent_conversation.AgentConversationDispatcher()
+    return agent_conversation.AgentConversationDispatcher(**options)
 
 
 def test_cloud_run_starts_a_new_subject_with_the_selected_profile(monkeypatch):
@@ -845,3 +845,229 @@ def test_cloud_run_replaces_a_conversation_whose_sandbox_is_gone(monkeypatch):
     [started] = cloud.started
     assert started["id"] != gone
     assert state[_state_key("repo:pr:7")]["conversation_id"] == started["id"]
+
+
+# --- The in-flight cap on OpenHands Cloud and Enterprise: every Cloud
+# conversation holds a sandbox of its own, so the same admission gate bounds
+# them, reading each conversation's state from the OpenHands API.
+
+
+class _FakeCloudFleet(_FakeCloud):
+    """Several OpenHands API conversations, each looked up by its own id."""
+
+    def __init__(self, conversations=None):
+        super().__init__()
+        self.conversations = conversations or {}
+        self.ran = []
+
+    def get(self, conversation_id):
+        return self.conversations.get(str(conversation_id))
+
+    def run(self, conversation):
+        self.ran.append(conversation)
+
+
+_RUNNING = {"sandbox_status": "RUNNING", "execution_status": "running"}
+
+
+def _reserved(*conversation_ids, age=0):
+    """Registry entries for conversations whose slots were reserved `age` ago."""
+    started_at = agent_conversation.time.time() - age
+    return {cid: {"subject": cid, "started_at": started_at} for cid in conversation_ids}
+
+
+def _capped_cloud_dispatcher(monkeypatch, cloud, max_in_flight):
+    return _cloud_dispatcher(
+        monkeypatch, cloud, track_in_flight=True, max_in_flight=max_in_flight
+    )
+
+
+def test_cloud_run_defers_a_new_subject_at_the_in_flight_cap(monkeypatch):
+    # Arrange - two Cloud conversations are running under a cap of two
+    state = {agent_conversation._IN_FLIGHT_KEY: _reserved("conv-1", "conv-2")}
+    _fake_kv(monkeypatch, state)
+    cloud = _FakeCloudFleet({"conv-1": _RUNNING, "conv-2": _RUNNING})
+
+    # Act
+    with _capped_cloud_dispatcher(monkeypatch, cloud, 2) as dispatcher:
+        result = dispatcher.deliver("repo:pr:7", "revision-1", "review it")
+
+    # Assert - nothing starts and no delivery record is written, so the
+    # triggering request is left for a later scan
+    assert result["disposition"] == "deferred"
+    assert cloud.started == []
+    assert _state_key("repo:pr:7") not in state
+    assert set(state[agent_conversation._IN_FLIGHT_KEY]) == {"conv-1", "conv-2"}
+
+
+def test_cloud_run_reserves_the_slot_under_the_id_it_starts(monkeypatch):
+    # Arrange - the subject's tracked conversation lost its sandbox, which frees
+    # its slot, and a replacement needs a fresh id
+    gone = "22222222-2222-4222-8222-222222222222"
+    state = {
+        _state_key("repo:pr:7"): {
+            "conversation_id": gone,
+            "delivery": "revision-1",
+            "head": "sha-1",
+        },
+        agent_conversation._IN_FLIGHT_KEY: _reserved(gone),
+    }
+    _fake_kv(monkeypatch, state)
+    cloud = _FakeCloudFleet(
+        {gone: {"sandbox_status": "MISSING", "execution_status": None}}
+    )
+
+    # Act
+    with _capped_cloud_dispatcher(monkeypatch, cloud, 1) as dispatcher:
+        result = dispatcher.deliver(
+            "repo:pr:7", "revision-2", "review again", head="sha-2"
+        )
+
+    # Assert - the slot belongs to the conversation that actually runs
+    [started] = cloud.started
+    assert result == {"disposition": "created", "conversation_id": started["id"]}
+    assert list(state[agent_conversation._IN_FLIGHT_KEY]) == [started["id"]]
+
+
+@pytest.mark.parametrize(
+    ("delivery", "conversation"),
+    [
+        # A new revision would wake the paused sandbox and send it a turn.
+        ("revision-2", {"sandbox_status": "PAUSED", "execution_status": None}),
+        # The same revision would run the idle conversation's next turn.
+        ("revision-1", {"sandbox_status": "RUNNING", "execution_status": "idle"}),
+    ],
+)
+def test_cloud_run_defers_resuming_a_subject_at_the_cap(
+    monkeypatch, delivery, conversation
+):
+    # Arrange - another conversation holds the only slot
+    current = "22222222-2222-4222-8222-222222222222"
+    record = {"conversation_id": current, "delivery": "revision-1", "head": "sha-1"}
+    state = {
+        _state_key("repo:pr:7"): dict(record),
+        agent_conversation._IN_FLIGHT_KEY: _reserved("conv-1"),
+    }
+    _fake_kv(monkeypatch, state)
+    cloud = _FakeCloudFleet({"conv-1": _RUNNING, current: conversation})
+
+    # Act
+    with _capped_cloud_dispatcher(monkeypatch, cloud, 1) as dispatcher:
+        result = dispatcher.deliver("repo:pr:7", delivery, "review", head="sha-2")
+
+    # Assert - the subject is neither woken nor run, and its record is untouched
+    assert result == {"disposition": "deferred", "conversation_id": current}
+    assert cloud.sent == []
+    assert cloud.ran == []
+    assert state[_state_key("repo:pr:7")] == record
+
+
+@pytest.mark.parametrize(
+    ("conversation", "expected"),
+    [
+        (_RUNNING, 1),
+        ({"sandbox_status": "STARTING", "execution_status": None}, 1),
+        ({"sandbox_status": "RUNNING", "execution_status": "idle"}, 1),
+        ({"sandbox_status": "RUNNING", "execution_status": "finished"}, 0),
+        ({"sandbox_status": "RUNNING", "execution_status": "error"}, 0),
+        ({"sandbox_status": "PAUSED", "execution_status": None}, 0),
+        ({"sandbox_status": "ERROR", "execution_status": None}, 0),
+        ({"sandbox_status": "MISSING", "execution_status": None}, 0),
+    ],
+)
+def test_a_cloud_conversation_holds_capacity_only_while_it_can_run(
+    monkeypatch, conversation, expected
+):
+    # Arrange
+    state = {agent_conversation._IN_FLIGHT_KEY: _reserved("conv-1")}
+    _fake_kv(monkeypatch, state)
+    cloud = _FakeCloudFleet({"conv-1": conversation})
+
+    # Act - a Cloud run opens no workspace, and the count still works
+    with _capped_cloud_dispatcher(monkeypatch, cloud, 4) as dispatcher:
+        count = dispatcher.in_flight()
+
+    # Assert
+    assert count == expected
+
+
+@pytest.mark.parametrize(
+    ("age", "expected"),
+    [
+        # Past the local grace, but the API may still be bringing it up.
+        (agent_conversation._PENDING_GRACE_SECONDS + 60, 1),
+        # Past the Cloud start grace, a start that never appeared is gone.
+        (agent_conversation._CLOUD_START_GRACE_SECONDS + 1, 0),
+    ],
+)
+def test_an_unlisted_cloud_start_holds_its_slot_for_the_cloud_start_grace(
+    monkeypatch, age, expected
+):
+    # Arrange - the API does not list the reserved conversation yet
+    state = {agent_conversation._IN_FLIGHT_KEY: _reserved("conv-1", age=age)}
+    _fake_kv(monkeypatch, state)
+    cloud = _FakeCloudFleet({})
+
+    # Act
+    with _capped_cloud_dispatcher(monkeypatch, cloud, 4) as dispatcher:
+        count = dispatcher.in_flight()
+
+    # Assert
+    assert count == expected
+
+
+def test_a_failed_cloud_start_releases_the_reserved_slot(monkeypatch):
+    # Arrange
+    state = {}
+    _fake_kv(monkeypatch, state)
+    cloud = _FakeCloudFleet({})
+
+    def refuse(*args):
+        raise RuntimeError("boom")
+
+    cloud.start = refuse
+
+    # Act
+    with _capped_cloud_dispatcher(monkeypatch, cloud, 1) as dispatcher:
+        with pytest.raises(RuntimeError, match="boom"):
+            dispatcher.deliver("repo:pr:7", "revision-1", "review it")
+
+    # Assert - the slot is free again and no delivery was recorded
+    assert state[agent_conversation._IN_FLIGHT_KEY] == {}
+    assert _state_key("repo:pr:7") not in state
+
+
+def test_a_burst_of_cloud_deliveries_starts_exactly_the_cap(monkeypatch):
+    # Arrange - ten subjects arrive at once under a cap of two, and the API
+    # lists none of the started conversations yet
+    import threading
+
+    state = {}
+    _fake_kv(monkeypatch, state)
+    cloud = _FakeCloudFleet({})
+    dispatcher = _capped_cloud_dispatcher(monkeypatch, cloud, 2)
+    results = []
+    lock = threading.Lock()
+
+    def deliver(subject):
+        with dispatcher as active:
+            result = active.deliver(subject, "revision-1", "review it")
+        with lock:
+            results.append(result["disposition"])
+
+    # Act
+    threads = [
+        threading.Thread(target=deliver, args=(f"repo:pr:{n}",)) for n in range(10)
+    ]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+
+    # Assert
+    assert results.count("created") == 2
+    assert results.count("deferred") == 8
+    assert len(cloud.started) == 2
+    assert set(state[agent_conversation._IN_FLIGHT_KEY]) == {
+        started["id"] for started in cloud.started
+    }
