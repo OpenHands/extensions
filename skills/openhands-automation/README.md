@@ -16,19 +16,21 @@ This skill is activated by keywords:
 
 ## Features
 
-- **Prompt-based creation**: Create automations from a natural language prompt (recommended)
+- **Prompt-based creation**: Create automations from a natural language prompt, for tasks that benefit from agent reasoning
+- **Custom scripts**: Run your own code, with or without an LLM — the cheaper, more reliable fit for deterministic tasks (fixed data, scheduled HTTP calls, templated messages), and for custom dependencies or full control (see [references/custom-automation.md](references/custom-automation.md))
 - **Event-triggered automations**: Trigger on GitHub events (PR opened, issue commented, push, etc.)
 - **Custom webhooks**: Register webhooks for any service (Stripe, Slack, Linear, etc.)
 - **JMESPath filters**: Match events based on payload content (labels, mentions, repos)
 - **Automation management**: List, update, enable/disable, and delete automations
 - **Manual dispatch**: Trigger automation runs on-demand
-- **Custom automations**: For advanced users who need full control (see [references/custom-automation.md](references/custom-automation.md))
 
 ## API Base URL
 
 Use an explicitly provided host first. When a local Agent Canvas automation server is running and no host is provided, use `http://localhost:8001/api/automation/v1`. Otherwise use the cloud default: `https://app.all-hands.dev/api/automation/v1`.
 
 ## Quick Start
+
+The examples below use the prompt preset, which suits tasks that need reasoning or judgment. For a deterministic task that needs no LLM, use a custom script instead — see the *Custom Script Example (No LLM)* in [SKILL.md](SKILL.md).
 
 ### Cron-Triggered Automation
 
@@ -81,9 +83,9 @@ curl -X POST "https://app.all-hands.dev/api/automation/v1/preset/prompt" \
   }'
 ```
 
-The service handles SDK code generation, tarball packaging, upload, and automation creation automatically.
+For preset automations, the service handles SDK code generation, tarball packaging, upload, and automation creation automatically.
 
 ## See Also
 
 - [SKILL.md](SKILL.md) — Full API reference, agent behavior rules, event keys, filters, and examples
-- [references/custom-automation.md](references/custom-automation.md) — Reference for custom automations with user-provided SDK scripts
+- [references/custom-automation.md](references/custom-automation.md) — Reference for custom automations with user-provided scripts, SDK-based or deterministic (no LLM)

@@ -5,6 +5,10 @@ triggers:
 - github
 ---
 
+## Connection selection
+
+Use authenticated GitHub MCP tools first when they are available in the agent's environment. Detect this by tool availability, without depending on a particular MCP server name. Use the token and direct API instructions below only when GitHub MCP tools are unavailable or when raw API or `curl` access is explicitly needed.
+
 You have access to an environment variable, `GITHUB_TOKEN`, which allows you to interact with
 the GitHub API.
 

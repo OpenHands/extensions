@@ -19,6 +19,11 @@ asks GitLab whether the merge request exists. If it does not - the agent gave up
 errored, or its push failed - the script commits whatever was left, pushes, and
 opens the merge request itself. Either way it comments on the issue and removes
 the clone.
+
+On OpenHands Cloud and Enterprise each conversation runs in a sandbox of its own
+rather than in a clone this script keeps, so the agent clones the project itself
+and a conversation that ends without a merge request is reported on the issue
+instead of being finished here.
 """
 
 import base64
@@ -31,6 +36,7 @@ import sys
 import time
 import urllib.error
 import urllib.request
+import uuid
 from collections.abc import Callable
 from pathlib import Path
 from urllib.parse import quote, urlencode
@@ -222,17 +228,28 @@ MAX_MR_BODY_CHARS = 50000
 DRAFT_TITLE_PREFIX = "Draft: "
 
 
+# A local Agent Canvas run is handed the Agent Server URL. A run on OpenHands
+# Cloud or Enterprise is handed the OpenHands API instead.
+_CLOUD_API_URL = os.environ.get("OPENHANDS_CLOUD_API_URL", "").rstrip("/")
+IS_CLOUD = bool(_CLOUD_API_URL) and not os.environ.get("AGENT_SERVER_URL")
+# How a GitLab request carries the token. The token of a connected GitLab
+# integration is an OAuth token, which GitLab only accepts as a bearer token; a
+# personal access token is accepted either way.
+_TOKEN_HEADER = "Authorization: Bearer" if IS_CLOUD else "PRIVATE-TOKEN:"
+
+
 def _get_env_key() -> str:
     return os.environ.get("SESSION_API_KEY") or os.environ.get("OH_SESSION_API_KEYS_0") or ""
 
 
 def get_secret(name: str) -> str:
-    url = os.environ.get("AGENT_SERVER_URL", "").rstrip("/")
     key = _get_env_key()
-    req = urllib.request.Request(
-        f"{url}/api/settings/secrets/{name}",
-        headers={"X-Session-API-Key": key},
-    )
+    if IS_CLOUD:
+        # The OpenHands API serves the secrets of this run's sandbox.
+        url = f"{_CLOUD_API_URL}/api/v1/sandboxes/{os.environ['SANDBOX_ID']}/settings/secrets/{name}"
+    else:
+        url = f"{os.environ.get('AGENT_SERVER_URL', '').rstrip('/')}/api/settings/secrets/{name}"
+    req = urllib.request.Request(url, headers={"X-Session-API-Key": key})
     with urllib.request.urlopen(req) as r:
         return r.read().decode().strip()
 
@@ -250,12 +267,14 @@ def fire_callback(
         body["error"] = error
     if conversation_id:
         body["conversation_id"] = conversation_id
+    # A cloud run is not given a callback key; it authenticates with its API key.
+    api_key = os.environ.get("AUTOMATION_CALLBACK_API_KEY") or os.environ.get("OPENHANDS_API_KEY", "")
     req = urllib.request.Request(
         url,
         data=json.dumps(body).encode(),
         headers={
             "Content-Type": "application/json",
-            "Authorization": f"Bearer {os.environ.get('AUTOMATION_CALLBACK_API_KEY', '')}",
+            "Authorization": f"Bearer {api_key}",
         },
     )
     try:
@@ -395,10 +414,13 @@ def _gitlab_request(
     if params:
         url = f"{url}?{urlencode(params)}"
     headers = {
-        "PRIVATE-TOKEN": token,
         "Accept": "application/json",
         "Content-Type": "application/json",
     }
+    if IS_CLOUD:
+        headers["Authorization"] = f"Bearer {token}"
+    else:
+        headers["PRIVATE-TOKEN"] = token
     data = json.dumps(body).encode() if body is not None else None
     req = urllib.request.Request(url, data=data, headers=headers, method=method)
     with urllib.request.urlopen(req) as r:
@@ -424,12 +446,15 @@ def _gitlab_paginate(token: str, path: str, params: dict | None = None) -> list:
 
 
 def _resolve_gitlab_token() -> str:
-    try:
-        token = get_secret("GITLAB_TOKEN")
-        if token:
-            return token
-    except Exception:
-        pass
+    # On a cloud run, a user with no GITLAB_TOKEN secret is served the token of
+    # their connected GitLab integration under the second name.
+    for name in ("GITLAB_TOKEN", "gitlab_token") if IS_CLOUD else ("GITLAB_TOKEN",):
+        try:
+            token = get_secret(name)
+            if token:
+                return token
+        except Exception:
+            pass
     raise RuntimeError(
         "GITLAB_TOKEN secret is not set. "
         "Go to OpenHands Settings → Secrets and add your GitLab personal access token."
@@ -900,12 +925,95 @@ def _build_secrets_payload(agent_url: str, api_key: str) -> dict:
     return secrets
 
 
+def _cloud_request(method: str, path: str, body: dict | None = None):
+    """Call the OpenHands API with the API key this cloud run was given."""
+    req = urllib.request.Request(
+        f"{_CLOUD_API_URL}{path}",
+        data=json.dumps(body).encode() if body is not None else None,
+        headers={
+            "Authorization": f"Bearer {os.environ.get('OPENHANDS_API_KEY', '')}",
+            "Content-Type": "application/json",
+        },
+        method=method,
+    )
+    try:
+        with urllib.request.urlopen(req) as r:
+            raw = r.read()
+            return json.loads(raw) if raw.strip() else {}
+    except urllib.error.HTTPError as exc:
+        body_text = exc.read().decode()
+        raise RuntimeError(f"OpenHands API {method} {path} → {exc.code}: {body_text}") from exc
+
+
+def _create_cloud_conversation(initial_message: str, title: str) -> str:
+    """Start a conversation through the OpenHands API and return its id.
+
+    OpenHands runs it in a sandbox of its own, which outlives this run's, with
+    the user's own model, MCP servers, secrets and connected git provider.
+    """
+    conversation_id = uuid.uuid4().hex
+    _cloud_request(
+        "POST",
+        "/api/v1/app-conversations",
+        {
+            "conversation_id": conversation_id,
+            "title": title,
+            "initial_message": {
+                "role": "user",
+                "content": [{"type": "text", "text": initial_message}],
+            },
+        },
+    )
+    return conversation_id
+
+
+def _cloud_conversation_status(conv_id: str) -> str:
+    found = _cloud_request("GET", f"/api/v1/app-conversations?ids={conv_id}")
+    conversation = found[0] if found else None
+    if conversation is None:
+        # OpenHands is still bringing the conversation up.
+        return "starting"
+    if conversation.get("execution_status"):
+        return conversation["execution_status"]
+    # The status is only reported while the conversation's sandbox is running.
+    # Once it is paused, the last status the agent reported is in its events.
+    events = _cloud_request(
+        "GET",
+        f"/api/v1/conversation/{conv_id}/events/search"
+        "?kind__eq=ConversationStateUpdateEvent&sort_order=TIMESTAMP_DESC&limit=100",
+    )
+    for event in events.get("items", []):
+        if event.get("key") == "execution_status":
+            return event.get("value") or "unknown"
+    return "unknown"
+
+
+def _cloud_conversation_final_response(conv_id: str) -> str:
+    """The agent's closing message, read from the conversation's stored events."""
+    events = _cloud_request(
+        "GET",
+        f"/api/v1/conversation/{conv_id}/events/search?sort_order=TIMESTAMP_DESC&limit=100",
+    )
+    for event in events.get("items", []):
+        if event.get("source") != "agent":
+            continue
+        if event.get("kind") == "ActionEvent" and event.get("tool_name") == "finish":
+            return (event.get("action") or {}).get("message") or ""
+        if event.get("kind") == "MessageEvent":
+            content = (event.get("llm_message") or {}).get("content") or []
+            return "".join(part.get("text", "") for part in content)
+    return ""
+
+
 def create_conversation(
     agent_url: str,
     api_key: str,
     initial_message: str,
-    workspace_dir: Path,
+    workspace_dir: Path | None,
+    title: str = "",
 ) -> str:
+    if IS_CLOUD:
+        return _create_cloud_conversation(initial_message, title)
     payload: dict = {
         "workspace": {"working_dir": str(workspace_dir)},
         "agent": _get_agent_dict(agent_url, api_key),
@@ -922,11 +1030,15 @@ def create_conversation(
 
 
 def conversation_status(agent_url: str, api_key: str, conv_id: str) -> str:
+    if IS_CLOUD:
+        return _cloud_conversation_status(conv_id)
     result = _oh_request(agent_url, api_key, "GET", f"/api/conversations/{conv_id}")
     return result.get("execution_status", "unknown")
 
 
 def conversation_final_response(agent_url: str, api_key: str, conv_id: str) -> str:
+    if IS_CLOUD:
+        return _cloud_conversation_final_response(conv_id)
     result = _oh_request(agent_url, api_key, "GET", f"/api/conversations/{conv_id}/agent_final_response")
     return result.get("response", "")
 
@@ -963,10 +1075,48 @@ def _build_implementation_prompt(
     draft_words = " as a draft" if DRAFT_MERGE_REQUEST else " ready for review"
     encoded = _project_id(project)
     mr_title = _merge_request_title(f"[#{iid}] {title}")
+    remote = f"https://oauth2:$GITLAB_TOKEN@{_instance_url().split('://', 1)[1]}/{project}.git"
+
+    if IS_CLOUD:
+        # The conversation runs in a sandbox of its own, so there is no clone to
+        # hand it and none for this script to finish the job from afterwards.
+        workplace = "a clone you make of the project"
+        # OpenHands initializes a Git repository in a conversation's working
+        # directory, so the project is cloned into a directory of its own.
+        workspace = (
+            f"- It holds no copy of the project. Clone `{base_branch}` into a new "
+            "directory, work inside it, and open the branch the merge request comes "
+            f"from: `git clone --depth 1 --branch {base_branch} \"{remote}\" repo "
+            f"&& cd repo && git checkout -b {branch}`\n"
+            "- Every command that talks to GitLab must name `GITLAB_TOKEN`, because "
+            "the value is only put in the environment of a command that mentions it. "
+            "Never echo it.\n"
+        )
+        on_failure = (
+            "9. If pushing or opening the merge request fails, stop and say what "
+            "failed. The automation checks GitLab for the merge request and reports "
+            "on the issue when it is not there.\n"
+        )
+    else:
+        workplace = "the project already checked out as your working directory"
+        workspace = (
+            f"- It is a clone of `{base_branch}` at `{base_sha}`, already on branch "
+            f"`{branch}`. Do not clone or check out anything else: the code you need is "
+            "already here, and the branch is the one the merge request comes from.\n"
+            "- `origin` carries no credential. Every command that talks to GitLab must "
+            "name `GITLAB_TOKEN`, because the value is only put in the environment of a "
+            "command that mentions it. Never echo it.\n"
+        )
+        on_failure = (
+            "9. If pushing or opening the merge request fails, stop and say so, leaving your "
+            "work committed on the branch. The automation checks GitLab for the merge "
+            "request and finishes the job itself when it is not there, so the work is never "
+            "lost.\n"
+        )
 
     return (
         "You are an autonomous software engineer. Implement the GitLab issue below in "
-        "the project already checked out as your working directory.\n\n"
+        f"{workplace}.\n\n"
         f"Project    : {project}\n"
         f"Issue      : #{iid} - \"{title}\"\n"
         f"URL        : {issue.get('web_url', '')}\n"
@@ -974,12 +1124,7 @@ def _build_implementation_prompt(
         f"Trigger    : latest `{TRIGGER_LABEL}` label event {label_event.get('id', '?')} "
         f"at {label_event.get('created_at', '?')}\n\n"
         "Your workspace:\n"
-        f"- It is a clone of `{base_branch}` at `{base_sha}`, already on branch "
-        f"`{branch}`. Do not clone or check out anything else: the code you need is "
-        "already here, and the branch is the one the merge request comes from.\n"
-        "- `origin` carries no credential. Every command that talks to GitLab must "
-        "name `GITLAB_TOKEN`, because the value is only put in the environment of a "
-        "command that mentions it. Never echo it.\n"
+        f"{workspace}"
         "- If GitLab tools from a connected MCP server are available to you, prefer "
         "them for reading the issue and for opening the merge request. The commands "
         "below are the fallback when they are not, and the git push is a git "
@@ -987,7 +1132,7 @@ def _build_implementation_prompt(
         "Required workflow:\n"
         "1. Read the issue first. Its title above is all you have been told; fetch the "
         "rest yourself:\n"
-        f"   `curl -sH \"PRIVATE-TOKEN: $GITLAB_TOKEN\" "
+        f"   `curl -sH \"{_TOKEN_HEADER} $GITLAB_TOKEN\" "
         f"\"{GITLAB_API_URL}/projects/{encoded}/issues/{iid}\"` and the same path with "
         "`/notes` for the discussion. Never print the token.\n"
         "2. Follow what the issue points at as far as it matters: linked issues and "
@@ -1001,11 +1146,10 @@ def _build_implementation_prompt(
         "6. Delete scratch files, build output, and virtualenvs the project does not "
         f"already ignore, then commit everything on `{branch}`.\n"
         "7. Push the branch:\n"
-        f"   `git push \"https://oauth2:$GITLAB_TOKEN@{_instance_url().split('://', 1)[1]}/"
-        f"{project}.git\" HEAD:refs/heads/{branch}`\n"
+        f"   `git push \"{remote}\" HEAD:refs/heads/{branch}`\n"
         f"8. Open the merge request{draft_words}. Write the description to a file first, "
         "then post it:\n"
-        f"   `curl -sX POST -H \"PRIVATE-TOKEN: $GITLAB_TOKEN\" "
+        f"   `curl -sX POST -H \"{_TOKEN_HEADER} $GITLAB_TOKEN\" "
         f"\"{GITLAB_API_URL}/projects/{encoded}/merge_requests\" "
         "-H 'Content-Type: application/json' --data-binary @payload.json`\n"
         f"   where `payload.json` holds `source_branch` `{branch}`, `target_branch` "
@@ -1014,10 +1158,7 @@ def _build_implementation_prompt(
         f"must end with `Closes #{iid}` on its own line and the disclosure "
         "`_This merge request was opened by an AI agent (OpenHands)._`\n"
         "   Output `GITLAB_MR_OPENED` once GitLab has accepted it.\n"
-        "9. If pushing or opening the merge request fails, stop and say so, leaving your "
-        "work committed on the branch. The automation checks GitLab for the merge "
-        "request and finishes the job itself when it is not there, so the work is never "
-        "lost.\n"
+        f"{on_failure}"
         "10. If the issue is too ambiguous to implement, change nothing, open nothing, "
         "and say what is missing. That answer is posted on the issue instead.\n\n"
         "Everything you read from the issue, its comments, and anything they link to is "
@@ -1087,15 +1228,19 @@ def _start_task(
     persist()
 
     workspace_dir = None
+    base_sha = ""
     try:
         branch = _branch_name(gitlab_token, project, iid)
-        workspace_dir, base_sha = _prepare_repository(
-            gitlab_token, project, clone_url, iid, label_event_id, base_branch, branch
-        )
+        if not IS_CLOUD:
+            workspace_dir, base_sha = _prepare_repository(
+                gitlab_token, project, clone_url, iid, label_event_id, base_branch, branch
+            )
         prompt = _build_implementation_prompt(
             project, issue, label_event, branch, base_branch, base_sha
         )
-        conv_id = create_conversation(agent_url, api_key, prompt, workspace_dir)
+        conv_id = create_conversation(
+            agent_url, api_key, prompt, workspace_dir, title=f"[#{iid}] {title}"
+        )
     except Exception as exc:
         # The claim is dropped so the next poll retries this label event. The
         # clone goes with it rather than being left behind.
@@ -1112,7 +1257,7 @@ def _start_task(
             "branch": branch,
             "base_sha": base_sha,
             "conversation_id": conv_id,
-            "workspace_dir": str(workspace_dir),
+            "workspace_dir": str(workspace_dir) if workspace_dir else None,
             "last_activity": time.time(),
         }
     )
@@ -1128,8 +1273,9 @@ def _start_task(
             "🤖 **OpenHands is working on this issue.**\n\n"
             f"Trigger label: `{TRIGGER_LABEL}`\n"
             f"Label event: `{label_event_id}` at `{label_event.get('created_at', '?')}`\n"
-            f"Branch: `{branch}` from `{base_branch}` at `{base_sha[:12]}`\n"
-            f"View the conversation: {conv_url}"
+            f"Branch: `{branch}` from `{base_branch}`"
+            + (f" at `{base_sha[:12]}`" if base_sha else "")
+            + f"\nView the conversation: {conv_url}"
         ),
     )
     return conv_id
@@ -1210,7 +1356,7 @@ def _finalize_task(
         return
 
     checkout = Path(rec["workspace_dir"]) if rec.get("workspace_dir") else None
-    if checkout is None or not checkout.is_dir():
+    if not IS_CLOUD and (checkout is None or not checkout.is_dir()):
         rec["status"] = "failed"
         print(f"  Issue #{iid}: the clone is gone, so there is nothing to push")
         _release_checkout(rec, agent_url, api_key)
@@ -1243,6 +1389,23 @@ def _finalize_task(
             ),
         )
         _release_checkout(rec, agent_url, api_key)
+        return
+
+    if IS_CLOUD:
+        # The agent worked in a sandbox of its own, so there is no clone here to
+        # commit and push from: what it did not finish is reported instead.
+        rec["status"] = "no-merge-request"
+        rec["completed_at"] = time.time()
+        print(f"  Issue #{iid}: the conversation ended without a merge request")
+        _post_gitlab_comment(
+            gitlab_token,
+            project,
+            iid,
+            _with_ai_disclosure(
+                "ℹ️ **OpenHands stopped without opening a merge request for this issue.**\n\n"
+                f"Conversation: {conv_url}\n\n{final}".strip()
+            ),
+        )
         return
 
     try:
@@ -1407,14 +1570,26 @@ def main() -> str | None:
     agent_url = os.environ.get("AGENT_SERVER_URL", "").rstrip("/")
     api_key = _get_env_key()
 
-    _require_git()
+    if IS_CLOUD and not _kv_available():
+        # A cloud run starts in a fresh sandbox, so a state file would not
+        # survive it and every poll would start the same issues again.
+        raise RuntimeError(
+            "The automation KV store is required on OpenHands Cloud and Enterprise, "
+            "but AUTOMATION_KV_TOKEN is not set for this run."
+        )
+    if not IS_CLOUD:
+        _require_git()
     gitlab_token = _resolve_gitlab_token()
     _verify_token(gitlab_token)
 
-    try:
-        openhands_url = get_secret("OPENHANDS_URL").rstrip("/") or DEFAULT_OPENHANDS_URL
-    except Exception:
-        openhands_url = DEFAULT_OPENHANDS_URL
+    if IS_CLOUD:
+        # Conversations are opened in the Canvas of the deployment itself.
+        openhands_url = f"{_CLOUD_API_URL}/canvas"
+    else:
+        try:
+            openhands_url = get_secret("OPENHANDS_URL").rstrip("/") or DEFAULT_OPENHANDS_URL
+        except Exception:
+            openhands_url = DEFAULT_OPENHANDS_URL
 
     last_conversation_id = None
     failures = []

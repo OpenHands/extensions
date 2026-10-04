@@ -33,6 +33,7 @@ from pathlib import Path
 import time
 import urllib.error
 import urllib.request
+from urllib.parse import quote
 from datetime import datetime, timedelta, timezone
 
 from github_client import github_request as _github_request
@@ -394,11 +395,41 @@ def _fetch_settings(agent_url: str, api_key: str) -> dict:
         raise RuntimeError(f"GET /api/settings failed: {exc.code}") from exc
 
 
+def _fetch_profile_llm(agent_url: str, api_key: str, profile: str) -> dict | None:
+    """Fetch one LLM profile's config, or None when it no longer exists.
+
+    Uses X-Expose-Secrets: plaintext so the config carries a real api_key,
+    mirroring _fetch_settings. Only 404 falls back; other errors raise.
+    """
+    req = urllib.request.Request(
+        f"{agent_url}/api/profiles/{quote(profile, safe='')}",
+        headers={"X-Session-API-Key": api_key, "X-Expose-Secrets": "plaintext"},
+    )
+    try:
+        with urllib.request.urlopen(req) as r:
+            return json.loads(r.read())["config"]
+    except urllib.error.HTTPError as exc:
+        if exc.code == 404:
+            print(f"profile {profile!r} not found; falling back to active profile")
+            return None
+        raise
+
+
 def _get_agent_dict(agent_url: str, api_key: str) -> dict:
-    """Fetch configured agent settings for conversation creation."""
+    """Fetch configured agent settings for conversation creation.
+
+    When AUTOMATION_MODEL names an LLM profile, resolve that profile instead
+    of the active one so the automation runs on its configured model.
+    """
     data = _fetch_settings(agent_url, api_key)
     agent_settings = data.get("agent_settings", {})
     llm = agent_settings.get("llm", {})
+    profile = os.environ.get("AUTOMATION_MODEL")
+    if profile:
+        profile_llm = _fetch_profile_llm(agent_url, api_key, profile)
+        if profile_llm is not None:
+            llm = profile_llm
+            llm["usage_id"] = f"profile:{profile}"
     # settings["agent_settings"]["agent"] reflects the full-app agent registry
     # (e.g. "CodeActAgent", "BrowsingAgent").  The automation SDK is a separate
     # runtime whose only valid kind is "Agent" — never forward that value.

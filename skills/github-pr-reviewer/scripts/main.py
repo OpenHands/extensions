@@ -51,6 +51,12 @@ REVIEW_STYLE_INSTRUCTIONS = ""
 # than relying on the spawned agent's skill activation. Set to "" to disable.
 REPO_REVIEW_GUIDE_PATH = ".agents/skills/custom-codereview-guide.md"
 DEFAULT_OPENHANDS_URL = "http://localhost:8000"
+# The most new review conversations one scheduled scan may start, counted across
+# every configured repository rather than per repository. The scheduled scan
+# drains outstanding reviewer requests in oldest-request order, so a small bound
+# keeps a first scan over a large backlog from starting an agent for every
+# eligible pull request at once.
+MAX_NEW_PER_RUN = 2
 
 # A review that ends with this marker is a scope stop: the reviewer found the
 # change out of scope, or needing a product/architecture decision, before the
@@ -69,6 +75,7 @@ _CONFIG_TYPES: dict[str, type] = {
     "review_tone": str,
     "review_style_instructions": str,
     "repo_review_guide_path": str,
+    "max_new_per_run": int,
     "openhands_url": str,
 }
 
@@ -95,7 +102,11 @@ def load_config(directory: Path | None = None) -> dict:
         if key not in raw:
             continue
         value = raw[key]
-        if not isinstance(value, expected):
+        # bool is an int in Python, so an unguarded int check would accept
+        # `"max_new_per_run": true` and then start `True` conversations.
+        if not isinstance(value, expected) or (
+            expected is int and isinstance(value, bool)
+        ):
             raise SystemExit(
                 f"{CONFIG_FILENAME}: {key} must be {expected.__name__}, "
                 f"got {type(value).__name__}"
@@ -105,6 +116,10 @@ def load_config(directory: Path | None = None) -> dict:
         ):
             raise SystemExit(
                 f'{CONFIG_FILENAME}: repos must be a non-empty list of "owner/repo" strings'
+            )
+        if key == "max_new_per_run" and value < 1:
+            raise SystemExit(
+                f"{CONFIG_FILENAME}: max_new_per_run must be at least 1"
             )
         config[key] = value
     return config
@@ -150,6 +165,7 @@ TRIGGER_LABEL = _CONFIG.get("trigger_label", TRIGGER_LABEL)
 REVIEW_TONE = _CONFIG.get("review_tone", REVIEW_TONE)
 REVIEW_STYLE_INSTRUCTIONS = _CONFIG.get("review_style_instructions", REVIEW_STYLE_INSTRUCTIONS)
 REPO_REVIEW_GUIDE_PATH = _CONFIG.get("repo_review_guide_path", REPO_REVIEW_GUIDE_PATH)
+MAX_NEW_PER_RUN = _CONFIG.get("max_new_per_run", MAX_NEW_PER_RUN)
 DEFAULT_OPENHANDS_URL = _CONFIG.get("openhands_url", DEFAULT_OPENHANDS_URL)
 
 DONE_DEBOUNCE = 15
@@ -793,13 +809,25 @@ def _build_review_prompt(
         f"\nPR Description:\n---\n{body}\n---\n\n"
         "Required workflow:\n"
         f"1. {workspace}\n"
-        "2. Before reviewing, you MUST read the repository's own guidance to understand the repo first.\n"
+        "2. CURRENT STATE - treat this request as a fresh review, never a continuation of "
+        "earlier observations. Before the scope gate and before deciding any verdict, re-fetch "
+        "the current mutable GitHub state for this pull request and act only on what you read "
+        "now: whether the exact head still matches the Head SHA above, the current PR title and "
+        "body, the current review comments and threads, the current review requests, the current "
+        "GitHub Actions check results for that head, and the current body and labels of every "
+        "linked issue the PR references - a linked issue may have gained or lost a readiness "
+        "label (for example `ready-for-dev`) or changed priority since an earlier turn. If an "
+        "earlier turn in this conversation reviewed this PR or its linked issues, that analysis "
+        "and the repository guidance you read remain useful background, but every mutable fact "
+        "above must be re-established now; never repeat an earlier finding, verdict, or "
+        "label/priority claim that the state you just read does not support.\n"
+        f"   Use `gh` or GitHub REST API calls with `{github_token_secret}`; never print secret values.\n"
+        "3. Before reviewing, you MUST read the repository's own guidance to understand the repo first.\n"
         "   Read `AGENTS.md` at the repository root (and any nested `AGENTS.md` covering the "
         "changed files), plus other relevant docs when present - e.g. `CONTRIBUTING.md`, "
         "`CLAUDE.md`, `.cursorrules`, and any review or coding-guideline docs. Apply that "
         "guidance to your review.\n"
-        f"   Use `gh` or GitHub REST API calls with `{github_token_secret}`; never print secret values.\n"
-        "3. SCOPE GATE - before inspecting changed files, reading the diff, or running any test, "
+        "4. SCOPE GATE - before inspecting changed files, reading the diff, or running any test, "
         "use the repository guidance above (its scope categories and ownership boundaries) to decide "
         "whether this change belongs in this repository and has the product/architecture direction "
         "it needs. If it does, continue the technical review unchanged. If it does not, or needs a "
@@ -810,16 +838,16 @@ def _build_review_prompt(
         "only if the evidence supports it. Do not run tests or report implementation findings. This "
         "outcome is not an approval, and its body ends with the verdict on its own line: "
         f"`{MAINTAINER_DECISION_VERDICT}`.\n"
-        "4. Otherwise continue the technical review. Inspect the PR discussion, existing review "
+        "5. Otherwise continue the technical review. Inspect the PR discussion, existing review "
         "comments, changed files, and the diff, together with the surrounding code in the workspace.\n"
-        "5. Ground every finding in the workspace code. Before using an inline location, verify that "
+        "6. Ground every finding in the workspace code. Before using an inline location, verify that "
         "the path and line are part of this pull request's diff. Compare every changed branch with "
         "the base behavior, including side effects outside the reported bug; a revision, event, or "
         "delivery identifier proves only the inputs it actually includes, not that unrelated profile, "
         "credential, configuration, or external state stayed unchanged. Do not add speculative or "
         "out-of-scope notes: every blocking or non-blocking observation must identify demonstrated "
         "behavior on the current head and explain why it matters to the merge decision.\n"
-        "6. LIVE EVIDENCE GATE - if the change alters user-visible UI behavior and the repository "
+        "7. LIVE EVIDENCE GATE - if the change alters user-visible UI behavior and the repository "
         "guidance requires live evidence for it, you must not approve unless that evidence is from a "
         "real running application and exercises the production-facing path. Live evidence means a "
         "screenshot, screen recording, or equivalent capture of the running app, not the source, a "
@@ -832,8 +860,8 @@ def _build_review_prompt(
         "a blocking finding, not a note, and never let a passing test suite stand in for the missing "
         "capture. A UI change that does supply compliant live evidence, and any non-UI change "
         "(backend, API, CLI, script) that follows the existing requirement of the real command and "
-        "its observed output, continues to step 7.\n"
-        f"7. Publish one review with `POST /repos/{repo}/pulls/{number}/reviews`, using "
+        "its observed output, continues to step 8.\n"
+        f"8. Publish one review with `POST /repos/{repo}/pulls/{number}/reviews`, using "
         "`commit_id` equal to the Head SHA above. Use `event: APPROVE` when there are "
         "no material findings; otherwise use `event: COMMENT`. Never use "
         "`REQUEST_CHANGES`.\n"
@@ -844,19 +872,19 @@ def _build_review_prompt(
         "   Put the overall assessment in `body`, and each line-specific finding in the `comments` "
         "array with `path`, `line`, `side: RIGHT`, and `body`.\n"
         "   Only create inline comments for actionable findings; do not open praise or nitpick threads.\n"
-        "8. If a finding cannot be attached to a changed line, put it in the review body instead. "
+        "9. If a finding cannot be attached to a changed line, put it in the review body instead. "
         "If the API rejects the inline positions, retry with every finding in the body and no `comments` array. "
         "If GitHub forbids the configured bot from approving its own PR, retry the clean review with "
         "`event: COMMENT` and keep the approved verdict.\n"
-        "9. Begin the review body with this disclosure: "
+        "10. Begin the review body with this disclosure: "
         "`_This review was posted by an AI agent (OpenHands)._`\n"
-        "10. End the review body with a verdict on its own line: either `✅ APPROVED` "
+        "11. End the review body with a verdict on its own line: either `✅ APPROVED` "
         "or `🔄 CHANGES REQUESTED`.\n"
-        "11. If there are no material issues, still publish a review saying so, with the "
+        "12. If there are no material issues, still publish a review saying so, with the "
         "disclosure and the verdict.\n"
         f"\nReview instructions:\n{tone}{extra}{guide_section}\n\n"
         "After GitHub accepts the review, output exactly `GITHUB_REVIEW_POSTED`. "
-        "If publishing still fails after the fallback in step 8, output the complete review text "
+        "If publishing still fails after the fallback in step 9, output the complete review text "
         "so it can be posted as a comment instead."
     )
 
