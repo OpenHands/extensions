@@ -71,8 +71,10 @@ This skill is activated by:
   `LLM profile: <profile> · Model: <model>`. The deterministic script appends
   the footer, never the agent, and only to a review whose hidden run marker
   names that conversation, so automations that share a bot account and review
-  the same head cannot relabel each other's reviews. A failed lookup or edit is
-  reported as a failure, never skipped, so the next scan or poll retries it
+  the same head cannot relabel each other's reviews. The catalog worker stamps
+  a review once and keeps that footer if the agent profile changes later; a
+  failed lookup is logged and never holds up the verdict or maintainer handoff.
+  The manual upload flow retries a failed lookup or edit on its next poll
 - Posts acknowledgement comments with AI disclosure
 - Configurable review tone and polling schedule
 - Optional human handoff after an exact-head approval. The scanner ranks the

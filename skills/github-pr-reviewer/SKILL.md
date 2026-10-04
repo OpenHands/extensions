@@ -213,7 +213,10 @@ The catalog worker reads the values back from the marked conversation: the
 model it runs, and the LLM profile its agent profile referenced at launch
 (`unknown` once that agent profile has been edited). It never substitutes the
 scanner's own settings, and a reused conversation keeps reporting the LLM it
-was launched with. The completion handler reads the verdict above the footer.
+was launched with. A review is stamped once, so a later agent profile edit
+cannot rewrite its footer, and a provenance failure is logged without holding
+up the verdict or the maintainer handoff. The completion handler reads the
+verdict above the footer.
 
 The script prepares each review's workspace before the agent starts: the pull
 request's head commit is downloaded as a tarball and extracted to a directory of

@@ -829,3 +829,73 @@ def test_worker_reads_the_verdict_above_the_provenance_footer(shipped, monkeypat
     assert run._finish_completed_review(repository.pr, TRIGGER) is True
     assert handoffs == [["alice", "bob"]]
     assert repository.writes == []
+
+
+def test_a_stamped_footer_is_kept_after_the_agent_profile_changes(
+    shipped, monkeypatch
+):
+    """Provenance is recorded once; a later profile edit cannot rewrite it."""
+    repository = _Repository()
+    with _AgentServer() as server:
+        with _dispatcher(shipped, monkeypatch, server, "automation-a") as dispatcher:
+            run = _pr_reviewer(shipped, dispatcher, repository)
+            conversation_id = run._start_review(
+                99, repository.pr, TRIGGER, "head-2", None
+            )["conversation_id"]
+            server.add(conversation_id, "anthropic/claude-sonnet-4-5")
+            repository.publish(_review_text(shipped.sent[conversation_id][0]))
+            run._finish_completed_review(repository.pr, TRIGGER)
+            stamped = repository.reviews[0]["body"]
+            # The agent profile now points at another LLM profile, so a fresh
+            # read would name the profile `unknown`.
+            server.profiles[0].update(revision=4, llm_profile_ref="review-gpt")
+
+            run._finish_completed_review(repository.pr, TRIGGER)
+
+    assert stamped.endswith(
+        "LLM profile: `review-sonnet` · Model: `anthropic/claude-sonnet-4-5`"
+    )
+    assert len(repository.writes) == 1
+    assert repository.reviews[0]["body"] == stamped
+
+
+def test_a_provenance_failure_never_blocks_the_verdict_or_handoff(
+    shipped, monkeypatch, capsys
+):
+    repository = _Repository()
+    repository.publish(
+        f"{DISCLOSURE}\n<!-- openhands-review-run: {CONV_A} -->\n\n"
+        "Looks correct.\n\n✅ APPROVED"
+    )
+
+    class Unavailable:
+        def subject_conversation(self, subject):
+            return CONV_A
+
+        def llm_provenance(self, conversation_id):
+            raise RuntimeError("agent server unavailable")
+
+    run = _pr_reviewer(shipped, Unavailable(), repository)
+    run.config["maintainers"] = "alice,bob"
+    handoffs = []
+    monkeypatch.setattr(
+        shipped.module,
+        "request_maintainer_review",
+        lambda _run, pr, maintainers: handoffs.append(maintainers) or "alice",
+    )
+
+    assert run._finish_completed_review(repository.pr, TRIGGER) is True
+    assert handoffs == [["alice", "bob"]]
+    assert repository.writes == []
+    logged = [
+        json.loads(line)
+        for line in capsys.readouterr().out.splitlines()
+        if "llm_provenance_error" in line
+    ]
+    assert logged == [
+        {
+            "repository": "owner/repo",
+            "pr": 2,
+            "llm_provenance_error": "RuntimeError: agent server unavailable",
+        }
+    ]

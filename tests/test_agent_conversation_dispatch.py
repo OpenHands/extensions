@@ -662,3 +662,28 @@ def test_local_llm_provenance_of_a_missing_conversation(monkeypatch, status):
     else:
         with pytest.raises(HTTPError):
             dispatcher.llm_provenance("conversation")
+
+
+def test_cloud_error_retry_renders_the_prompt_for_its_conversation(monkeypatch):
+    """A retried delivery still names the conversation it is sent to."""
+    current = "22222222-2222-4222-8222-222222222222"
+    state = {
+        _state_key("repo:pr:7"): {
+            "conversation_id": current,
+            "delivery": "revision-1",
+            "head": "sha-1",
+        }
+    }
+    _fake_kv(monkeypatch, state)
+    cloud = _FakeCloud({"sandbox_status": "RUNNING", "execution_status": "error"})
+
+    with _cloud_dispatcher(monkeypatch, cloud) as dispatcher:
+        result = dispatcher.deliver(
+            "repo:pr:7",
+            "revision-1",
+            lambda conversation_id: f"review as {conversation_id}",
+            head="sha-1",
+        )
+
+    assert result["disposition"] == "retried"
+    assert cloud.sent == [f"review as {current}"]
