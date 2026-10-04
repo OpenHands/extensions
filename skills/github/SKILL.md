@@ -47,16 +47,16 @@ IMPORTANT:
 Only merge if the user asks you to, without ambiguity.
 
 GitHub released an async merge API in October 2026; it is now the
-recommended way to merge PRs programmatically, and the only API that supports stacked PRs and merge queues.
+recommended way to merge PRs programmatically, and the only merge API that supports stacked PRs. It can also add a PR to a merge queue.
 Prefer it over `PUT .../pulls/{n}/merge` and the GraphQL `mergePullRequest` mutation.
 A GitHub MCP merge tool may still use the older synchronous endpoint; for stacked PRs or merge queues, use the calls below.
 Docs: https://docs.github.com/en/rest/pulls/pulls#merge-a-pull-request-asynchronously
 
-1. Request the merge (`merge_action`: `default` uses the merge queue if the branch has one, else merges directly; or `direct_merge` / `merge_queue`):
+1. Request the merge (`merge_action`: `default` uses the merge queue if the branch has one, else merges directly; or `direct_merge` / `merge_queue`). `merge_method`, `commit_title` and `commit_message` apply only to direct merges:
 ```bash
 gh api -X PUT repos/<OWNER>/<REPO>/pulls/<PR_NUMBER>/merge-async -f merge_method=squash -f sha=<HEAD_SHA>
 ```
-2. A `202` returns `details.uuid`; poll it until `status` is no longer `pending`:
+2. A `202` returns `details.uuid`; poll it every few seconds until `status` is no longer `pending`:
 ```bash
 gh api repos/<OWNER>/<REPO>/pulls/<PR_NUMBER>/merge-async/<UUID>
 ```
