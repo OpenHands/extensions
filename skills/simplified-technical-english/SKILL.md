@@ -48,7 +48,7 @@ and add a short plain-English gloss beside it.
 
 ## When to use it
 
-- The reader is a non-native English speaker, or asked for plainer text.
+- The user asked for plain or simple or clear text.
 - Instructions where a misread is costly (ops, deploys, security steps).
 - Long or dense explanations that need to be scannable.
 
