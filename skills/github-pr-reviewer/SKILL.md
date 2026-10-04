@@ -189,7 +189,7 @@ handler recognizes the verdict and requests one configured maintainer through th
 same handoff used after an approval. An in-scope change continues the existing
 review unchanged.
 
-Before approving a change to user-visible UI behavior, the prompt requires live
+Before approving a change to user-visible UI behavior, you must require live
 evidence from a real running application when the repository's guidance demands
 it: a screenshot, screen recording, or equivalent capture of the running app
 that exercises the production-facing path. Unit tests, CSS-token or contract
