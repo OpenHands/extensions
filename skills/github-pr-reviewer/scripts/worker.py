@@ -27,6 +27,11 @@ from maintainer_handoff import (
 # every current-head check and workflow run, so a red head still blocks.
 CHECK_GATE_MARKER = "<!-- openhands-review-gate:"
 NON_BLOCKING_CHECK_CONCLUSIONS = frozenset({"success", "neutral", "skipped"})
+# GitHub parks a fork head's workflow runs at this conclusion until a maintainer
+# approves them. Such a run is waiting on a person, not failing, so the gate
+# lists it as waiting with this note and its explanation asks for the approval.
+AWAITING_APPROVAL_CONCLUSION = "action_required"
+AWAITING_APPROVAL_NOTE = " (awaiting maintainer approval)"
 # The gate is deterministic; this disclosure is what tells a reader no model ran.
 WORKFLOW_DISCLOSURE = "no AI was used to generate this comment"
 
@@ -98,7 +103,8 @@ class ReviewIntake:
                     flush=True,
                 )
                 continue
-            if result["disposition"] == "created":
+            # A retried conversation runs again, so it uses a slot like a new one.
+            if result["disposition"] in ("created", "retried"):
                 self._started += 1
         if failures:
             raise RuntimeError(
@@ -507,16 +513,19 @@ class PullRequestReviewer(GitHubRepository):
 
         A completed run whose conclusion is neither blocking nor explicitly
         non-blocking fails closed, so an unknown conclusion cannot silently
-        approve a PR. A run that has not completed means waiting, never
-        approval.
+        approve a PR. A run that has not completed, or one awaiting a
+        maintainer's approval to run, means waiting, never approval.
         """
         blocking, pending = [], []
         for run in reporters:
             name = run.get("name") or "unnamed check"
             status = (run.get("status") or "").lower()
+            conclusion = (run.get("conclusion") or "").lower()
             if status != "completed":
                 pending.append(name)
-            elif (run.get("conclusion") or "").lower() in NON_BLOCKING_CHECK_CONCLUSIONS:
+            elif conclusion == AWAITING_APPROVAL_CONCLUSION:
+                pending.append(f"{name}{AWAITING_APPROVAL_NOTE}")
+            elif conclusion in NON_BLOCKING_CHECK_CONCLUSIONS:
                 continue
             else:
                 blocking.append(name)
@@ -675,10 +684,10 @@ class PullRequestReviewer(GitHubRepository):
         short = sha[:12]
         listed = "\n".join(f"- `{name}`" for name in names)
         if state == "blocked":
-            heading = "### ⚠️ Review paused: current-head checks failed"
+            heading = "### ⚠️ Review paused: current-head checks did not pass"
             lead = (
-                f"The current head `{short}` has failing checks, so no review "
-                "conversation was started:"
+                f"The current head `{short}` has checks that did not pass, so no "
+                "review conversation was started:"
             )
             action = (
                 "Fix the checks above and push. The scheduled scan then starts "
@@ -689,6 +698,25 @@ class PullRequestReviewer(GitHubRepository):
                 f"`{self.trigger_reviewer}` again: GitHub will not accept a "
                 "second request while the first is still outstanding. The review "
                 "starts on the updated head."
+            )
+        elif any(name.endswith(AWAITING_APPROVAL_NOTE) for name in names):
+            heading = "### ⏳ Review waiting on workflow approval"
+            lead = (
+                f"The current head `{short}` has workflow runs that GitHub holds "
+                "until a maintainer approves them, or checks that have not "
+                "finished, so no review conversation was started:"
+            )
+            action = (
+                "A maintainer needs to approve the workflow runs marked above. "
+                "The scheduled scan retries once every check on the head reports "
+                "a conclusion."
+                if scheduled
+                else "A maintainer needs to approve the workflow runs marked "
+                "above. Once every check on the head reports a conclusion, "
+                f"remove the outstanding `{self.trigger_reviewer}` request and "
+                f"request `{self.trigger_reviewer}` again: GitHub will not "
+                "accept a second request while the first is still outstanding. "
+                "That starts the review."
             )
         else:
             heading = "### ⏳ Review waiting on checks"
