@@ -3,9 +3,9 @@ name: simplified-technical-english
 description: >
   Write explanations and chat in the style of ASD-STE100 Simplified Technical
   English: short active sentences, one idea each, plain approved words. Use this
-  when the reader benefits from maximum clarity: non-native English readers,
-  safety- or ops-critical instructions, or any reply that should be easy to read
-  the first time. Applies to PROSE ONLY; it must never change code, identifiers,
+  when the reader benefits from maximum clarity: summaries, PR descriptions,
+  safety- or ops-critical instructions, or any comment or reply that should be easy 
+  to read the first time. Applies to PROSE ONLY; it must never change code, identifiers,
   APIs, or commit messages.
 license: MIT
 triggers:
