@@ -1088,6 +1088,38 @@ def test_reviewer_waits_for_a_workflow_run_that_has_not_finished(
     assert "`Tests`" in body
 
 
+
+def test_reviewer_waits_on_a_fork_workflow_run_awaiting_approval(
+    tmp_path, monkeypatch
+):
+    """On a fork head, GitHub parks the workflow run itself at action_required
+    and creates no check runs until a maintainer approves it."""
+    _module, run = _reviewer(tmp_path, monkeypatch)
+    pr = _labeled_pr()
+    run.gh_pages = _gate_pages(pr, [])
+    run.gh = Mock(side_effect=[{"id": 99}, pr, {"id": 1234}])
+    run.workflow_runs = lambda sha: [
+        _workflow_run(
+            "Tests",
+            "completed",
+            "action_required",
+            run_id=4,
+            suite_id=4004,
+            workflow_id=236324519,
+            sha=sha,
+        )
+    ]
+
+    run.run()
+
+    run.dispatcher.deliver.assert_not_called()
+    posted = [call for call in _gate_comment_calls(run) if call.args[0] == "POST"]
+    assert len(posted) == 1
+    body = posted[0].args[2]["body"]
+    assert "<!-- openhands-review-gate:waiting:head-2 -->" in body
+    assert "`Tests (awaiting maintainer approval)`" in body
+    assert "A maintainer needs to approve the workflow runs" in body
+
 def test_reviewer_ignores_workflow_runs_from_an_obsolete_head(
     tmp_path, monkeypatch
 ):
@@ -2823,3 +2855,26 @@ def test_scan_reads_every_pull_request_but_starts_only_the_quota(
     ]
     assert len(full_reads) == 40
     assert _examined(one) == [1, 2, 3, 4, 5]
+
+
+def test_a_retried_conversation_uses_a_launch_slot(tmp_path, monkeypatch):
+    """Retrying errored reviews must not bypass the per-scan launch bound."""
+    module = worker("github-pr-reviewer", tmp_path, monkeypatch)
+    intake = module.ReviewIntake()
+    started = []
+    for number in (1, 2, 3):
+        intake.register(
+            {
+                "priority": 1,
+                "created_at": f"2026-01-0{number}T00:00:00Z",
+                "repository": "owner/repo",
+                "number": number,
+                "config": {"max_new_per_run": 1},
+                "start": lambda number=number: started.append(number)
+                or {"disposition": "retried", "conversation_id": str(number)},
+            }
+        )
+
+    intake.drain()
+
+    assert started == [1]

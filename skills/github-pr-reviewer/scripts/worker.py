@@ -103,7 +103,8 @@ class ReviewIntake:
                     flush=True,
                 )
                 continue
-            if result["disposition"] == "created":
+            # A retried conversation runs again, so it uses a slot like a new one.
+            if result["disposition"] in ("created", "retried"):
                 self._started += 1
         if failures:
             raise RuntimeError(

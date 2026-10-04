@@ -300,6 +300,9 @@ class AgentConversationDispatcher:
             if status == "error" and can_retry:
                 # The delivery matched but its conversation died before the work
                 # finished, so send the revision again rather than strand it.
+                # The API reports an execution status only while the sandbox
+                # runs, so an errored conversation whose sandbox was already
+                # paused is not seen here and keeps reporting deduplicated.
                 self._cloud.send(conversation, prompt)
                 return "retried", current_id
             return "deduplicated", current_id
