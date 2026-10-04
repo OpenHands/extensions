@@ -386,7 +386,7 @@ For state between runs (last alert time, last seen event), use the KV store help
 
 ## Polling as a Webhook Alternative
 
-When the deployment cannot receive inbound webhook traffic (see rule 5), use a cron-triggered automation that calls the external service’s API on a schedule to check for new events.
+When the deployment cannot receive inbound webhook traffic (see rule 4), use a cron-triggered automation that calls the external service’s API on a schedule to check for new events.
 
 ### Polling vs. Webhooks at a Glance
 
