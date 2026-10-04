@@ -71,6 +71,15 @@
             { "value": "schedule", "label": "Scheduled" },
             { "value": "event", "label": "Event-driven" }
           ]
+        },
+        {
+          "id": "created_by",
+          "label": "Filter by creator",
+          "options": [
+            { "value": "all", "label": "Anyone" },
+            { "value": "me", "label": "Me" },
+            { "value": "others", "label": "Others" }
+          ]
         }
       ],
       "sort": {

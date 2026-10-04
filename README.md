@@ -1,7 +1,7 @@
 # OpenHands Extensions
 
 This repository is the **public extensions registry** for [OpenHands](https://github.com/OpenHands/OpenHands).
-It contains reusable, shareable skills and plugins that customize agent behavior.
+It contains reusable, shareable skills, plugins, and Agent Canvas Apps that customize agent behavior and interfaces.
 
 - Skills overview docs: https://docs.openhands.dev/overview/skills
 - SDK skill guide: https://docs.openhands.dev/sdk/guides/skill
@@ -9,7 +9,7 @@ It contains reusable, shareable skills and plugins that customize agent behavior
 
 ## Repository boundaries
 
-`OpenHands/extensions` is the public registry for reusable skills, plugins, automations, and integrations. [`OpenHands/software-agent-sdk`](https://github.com/OpenHands/software-agent-sdk) owns Agent Server execution and the canonical API, [`OpenHands/typescript-client`](https://github.com/OpenHands/typescript-client) owns typed browser access to that API, [`OpenHands/OpenHands`](https://github.com/OpenHands/OpenHands) owns Agent Canvas UI, and [`OpenHands/automation`](https://github.com/OpenHands/automation) owns scheduling, webhooks, run history, dispatch, and sandbox lifecycle orchestration.
+`OpenHands/extensions` is the public registry for reusable skills, plugins, automations, and integrations. [`OpenHands/software-agent-sdk`](https://github.com/OpenHands/software-agent-sdk) owns Agent Server execution, the canonical API, and typed browser access to it under `clients/typescript/`, [`OpenHands/OpenHands`](https://github.com/OpenHands/OpenHands) owns Agent Canvas UI, and [`OpenHands/automation`](https://github.com/OpenHands/automation) owns scheduling, webhooks, run history, dispatch, and sandbox lifecycle orchestration.
 
 Put reusable extension artifacts here rather than in application repositories. If a PR is opened in the wrong repository, close and move it to the repository that owns the change.
 
@@ -35,6 +35,10 @@ They live under `plugins/`, **one directory per plugin**:
 - `plugins/<plugin-name>/scripts/` — utility scripts
 
 Browse available plugins in [`plugins/`](plugins/).
+
+### Apps
+
+Apps are installable interfaces that bring dashboards, internal tools, and workflows directly into Agent Canvas without requiring a fork. They are powered by the beta Canvas Extensions API. Browse [`apps/`](apps/) and read its package conventions before contributing. Enabling an App executes trusted JavaScript in the Agent Canvas browser context and permits authenticated requests to the active Agent Server, so review its source and resolved revision first. Apps are distinct from skills and plugins: they provide Canvas interfaces rather than agent instructions or capabilities.
 
 ### NPM Package
 
@@ -96,7 +100,7 @@ The JS and Python versions are kept in lock-step by `release-please` and guarded
 ## Extensions Catalog
 
 <!-- BEGIN AUTO-GENERATED CATALOG -->
-This repository contains **2 marketplace(s)** with **72 extensions** (62 skills, 10 plugins).
+This repository contains **2 marketplace(s)** with **76 extensions** (65 skills, 11 plugins).
 
 ### large-codebase
 
@@ -115,7 +119,7 @@ OpenHands skills for interacting, improving, and refactoring large codebases
 
 Official skills and plugins for OpenHands — the open-source AI software engineer.
 
-**68 extensions** (60 skills, 8 plugins)
+**72 extensions** (63 skills, 9 plugins)
 
 | Name | Type | Description | Commands |
 |------|------|-------------|----------|
@@ -128,6 +132,7 @@ Official skills and plugins for OpenHands — the open-source AI software engine
 | bitbucket | skill | Bitbucket integration hub. Detects whether the repository is on Bitbucket Cloud or Bitbucket Data Center and directs ... | — |
 | bitbucket-cloud | skill | Bitbucket Cloud (bitbucket.org) specifics — authenticate with BITBUCKET_TOKEN, use the REST API v2, workspace/repo_sl... | — |
 | bitbucket-data-center | skill | Bitbucket Data Center (self-hosted Bitbucket Server) specifics — authenticate with BITBUCKET_DATA_CENTER_TOKEN, use t... | — |
+| canvas-extension-api | skill | Build and validate Apps for Agent Canvas using the supported Canvas Extensions API v1 routed-page contract. | — |
 | city-weather | plugin | Get current weather, time, and precipitation forecast for any city using the free Open-Meteo API. Provides slash comm... | — |
 | code-review | skill | Rigorous code review focusing on data structures, simplicity, security, pragmatism, and risk/safety evaluation. Provi... | `/codereview`, `/codereview-roasted` |
 | code-simplifier | skill | Simplifies and refines code across three dimensions - code reuse, code quality, and efficiency - while preserving all... | `/simplify` |
@@ -147,6 +152,7 @@ Official skills and plugins for OpenHands — the open-source AI software engine
 | github-pr-review | skill | Post structured PR reviews to GitHub with inline comments/suggestions in a single API call. | `/github-pr-review` |
 | github-pr-reviewer | skill | Create an automation that reviews GitHub pull requests when they are opened or updated. Inspects the diff, changed fi... | `/pr-reviewer:setup` |
 | github-repo-monitor | skill | Create a cron automation that polls a GitHub repository for issue and PR comments containing a configurable trigger p... | `/github-monitor:poll` |
+| github-stale-ci-pr-closer | skill | Warn and close abandoned pull requests whose required CI remains failing. | `/github-stale-ci-pr-closer` |
 | gitlab | skill | Interact with GitLab repositories, merge requests, and APIs using the GITLAB_TOKEN environment variable. Use when wor... | — |
 | gitlab-issue-to-mr | skill | Create an automation that implements GitLab issues when a configurable trigger label is applied. Clones the default b... | `/issue-to-mr:setup` |
 | incident-retrospective | skill | Create an automation that drafts incident retrospectives by gathering incident-channel messages from Slack, collectin... | `/incident-retro:setup` |
@@ -174,6 +180,7 @@ Official skills and plugins for OpenHands — the open-source AI software engine
 | qa-changes | plugin | Validate pull request changes by actually running the code — setting up the environment, exercising changed behavior,... | — |
 | release-notes | plugin | Generate consistent, well-structured release notes from git history. Produces categorized changelog with breaking cha... | `/release-notes` |
 | research-brief | skill | Create a recurring automation that researches a topic using Tavily web search and publishes a structured brief to Not... | `/research-brief:setup` |
+| runtime-api-configs | plugin | Manage warm sandbox pools on OpenHands Enterprise from a Python CLI: list, template, save, and delete warm runtime co... | — |
 | security | skill | Security best practices for secure coding, authentication, authorization, and data protection. Use when developing fe... | — |
 | skill-creator | skill | Guide for creating effective skills. This skill should be used when users want to create a new skill (or update an ex... | — |
 | slack-channel-monitor | skill | Create a cron automation that polls up to 10 Slack channels every minute and starts an OpenHands conversation when a ... | `/slack-monitor:poll` |
@@ -184,6 +191,7 @@ Official skills and plugins for OpenHands — the open-source AI software engine
 | theme-factory | skill | Toolkit for styling artifacts with a theme. These artifacts can be slides, docs, reportings, HTML landing pages, etc.... | — |
 | ticket-to-code-change | skill | Set up Jira or Linear ticket-to-code-change automations for GitHub, GitLab, and Bitbucket. | `/ticket-to-code-change:setup` |
 | upstream-fork-sync | skill | Keep a long-lived fork in sync with its upstream. Creates a cron automation that fetches upstream changes, rebases lo... | `/upstream-fork-sync:setup` |
+| use-jev | skill | Use Jev, a general classifier, for typed choices, scores, and yes/no probabilities in software. | — |
 | uv | skill | Common project, dependency, and environment operations using uv. | — |
 | vercel | skill | Deploy and manage applications on Vercel, including preview deployments and deployment protection. | — |
 | vulnerability-remediation | plugin | Automated security vulnerability scanning and AI-powered remediation. Scans repositories, skips when no issues found,... | — |

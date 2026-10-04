@@ -82,6 +82,7 @@ print("All done!")
 - [API-based Sandbox](https://docs.openhands.dev/sdk/guides/agent-server/api-sandbox.md): Connect to hosted API-based agent server for fully managed infrastructure.
 - [Apptainer Sandbox](https://docs.openhands.dev/sdk/guides/agent-server/apptainer-sandbox.md): Run agent server in rootless Apptainer containers for HPC and shared computing environments.
 - [Ask Agent Questions](https://docs.openhands.dev/sdk/guides/convo-ask-agent.md): Get sidebar replies from the agent during conversation execution without interrupting the main flow.
+- [Ask Oracle](https://docs.openhands.dev/sdk/guides/agent-ask-oracle.md): Let an agent consult a saved Oracle LLM profile for stateless second-opinion advice.
 - [Assign Reviews](https://docs.openhands.dev/sdk/guides/github-workflows/assign-reviews.md): Automate PR management with intelligent reviewer assignment and workflow notifications using OpenHands Agent
 - [Browser Session Recording](https://docs.openhands.dev/sdk/guides/browser-session-recording.md): Record and replay your agent's browser sessions using rrweb.
 - [Browser Use](https://docs.openhands.dev/sdk/guides/agent-browser-use.md): Enable web browsing and interaction capabilities for your agent.
@@ -117,7 +118,7 @@ print("All done!")
 - [Model Context Protocol](https://docs.openhands.dev/sdk/guides/mcp.md): Model Context Protocol (MCP) enables dynamic tool integration from external servers. Agents can discover and use MCP-provided tools automatically.
 - [Model Routing](https://docs.openhands.dev/sdk/guides/llm-routing.md): Route agent's LLM requests to different models.
 - [Observability & Tracing](https://docs.openhands.dev/sdk/guides/observability.md): Enable OpenTelemetry tracing to monitor and debug your agent's execution with tools like Laminar, MLflow, Honeycomb, or any OTLP-compatible backend.
-- [OpenAI-Compatible Endpoint](https://docs.openhands.dev/sdk/guides/agent-server/openai-gateway.md): Call an OpenHands agent-server through the OpenAI Chat Completions protocol.
+- [OpenAI-Compatible Endpoint](https://docs.openhands.dev/sdk/guides/agent-server/openai-gateway.md): Call an OpenHands agent-server through the OpenAI Chat Completions or Responses protocol.
 - [OpenHands Cloud Workspace](https://docs.openhands.dev/sdk/guides/agent-server/cloud-workspace.md): Connect to OpenHands Cloud for fully managed sandbox environments with optional SaaS credential inheritance.
 - [Overview](https://docs.openhands.dev/sdk/guides/agent-server/overview.md): Run agents on remote servers with isolated workspaces for production deployments.
 - [Parallel Tool Execution](https://docs.openhands.dev/sdk/guides/parallel-tool-execution.md): Execute multiple tools concurrently within a single LLM response to improve throughput for independent operations.
@@ -131,6 +132,7 @@ print("All done!")
 - [Security & Action Confirmation](https://docs.openhands.dev/sdk/guides/security.md): Control agent action execution through confirmation policy and security analyzer.
 - [Send Message While Running](https://docs.openhands.dev/sdk/guides/convo-send-message-while-running.md): Interrupt running agents to provide additional context or corrections.
 - [Software Agent SDK](https://docs.openhands.dev/sdk.md): Build AI agents that write software. A clean, modular SDK with production-ready tools.
+- [Structured Output](https://docs.openhands.dev/sdk/guides/structured-output.md): Attach a schema to any tool so the LLM returns typed, validated fields alongside the tool's own arguments.
 - [Stuck Detector](https://docs.openhands.dev/sdk/guides/agent-stuck-detector.md): Detect and handle stuck agents automatically with timeout mechanisms.
 - [Task Tool Set](https://docs.openhands.dev/sdk/guides/task-tool-set.md): Delegate complex work to specialized sub-agents that run synchronously and return results to the parent agent.
 - [Theory of Mind (TOM) Agent](https://docs.openhands.dev/sdk/guides/agent-tom-agent.md): Enable your agent to understand user intent and preferences through Theory of Mind capabilities, providing personalized guidance based on user modeling.
@@ -199,6 +201,7 @@ Source: [`examples/`](https://github.com/OpenHands/software-agent-sdk/tree/main/
 - [`56_structured_output.py`](https://github.com/OpenHands/software-agent-sdk/blob/main/examples/01_standalone_sdk/56_structured_output.py)
 - [`57_prompt_hooks`](https://github.com/OpenHands/software-agent-sdk/tree/main/examples/01_standalone_sdk/57_prompt_hooks)
 - [`58_ask_oracle_tool`](https://github.com/OpenHands/software-agent-sdk/tree/main/examples/01_standalone_sdk/58_ask_oracle_tool)
+- [`59_route_task_to_model.py`](https://github.com/OpenHands/software-agent-sdk/blob/main/examples/01_standalone_sdk/59_route_task_to_model.py)
 
 ### [`02_remote_agent_server/`](https://github.com/OpenHands/software-agent-sdk/tree/main/examples/02_remote_agent_server)
 

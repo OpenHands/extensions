@@ -270,12 +270,13 @@ falling back to its built-in defaults when the manifest is absent or fails admis
   captions it: `overview.tiles[].metric` names a host-computed value (`automations`, `needs-attention`,
   `total-runs`, `average-duration`), filter option values name host predicates (`status`: enabled /
   latest-run-failed / disabled; `trigger`: `event` matches event-triggered automations, `schedule`
-  everything else), `sort` values name host comparators, and `insights` captions the host's run-health
-  states and per-automation stats. The health precedence, the run sampling, the value formatting, the
-  relative-time rendering, and the filtered-empty state with its reset button are the host's - a manifest
-  cannot redefine them, only relabel what appears. Tile `detail` copy is plain substitution over the
-  metric's placeholder namespace (only the `automations` metric exposes `{{active}}`); `zeroDetail`
-  replaces `detail` while the value is zero.
+  everything else; `created_by`: `me` matches automations the signed-in user created, `others` everything
+  else, and the host decides where it is shown), `sort` values name host comparators, and `insights`
+  captions the host's run-health states and per-automation stats. The health precedence, the run
+  sampling, the value formatting, the relative-time rendering, and the filtered-empty state with its reset
+  button are the host's - a manifest cannot redefine them, only relabel what appears. Tile `detail` copy is
+  plain substitution over the metric's placeholder namespace (only the `automations` metric exposes
+  `{{active}}`); `zeroDetail` replaces `detail` while the value is zero.
 - **`docsUrl`** - the automations documentation link, prefix-pinned to docs.openhands.dev by schema.
 - **`attributes`** - the input surface of an existing Automation: which attributes can be set after
   creation, keyed by the runtime-model property the host sends (`name`, `prompt`, `model`, `timeout`,

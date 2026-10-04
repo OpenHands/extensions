@@ -8,6 +8,12 @@ your topics and write a short digest.
 makes it the automation to run first, before deciding what access you are
 willing to hand over.
 
+On a local Agent Canvas the conversation that writes the digest is also started
+with no secrets and no MCP servers. On OpenHands Cloud and Enterprise it is
+started through the OpenHands API with your own settings, so it holds your
+secrets and MCP servers like any conversation you start there, while reading
+feed text nobody vetted.
+
 ## Trigger
 
 This skill is activated by:

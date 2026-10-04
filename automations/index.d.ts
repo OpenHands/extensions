@@ -309,6 +309,7 @@ export type AutomationStatusFilterValue =
   | "failing"
   | "disabled";
 export type AutomationTriggerFilterValue = "all" | "schedule" | "event";
+export type AutomationCreatedByFilterValue = "all" | "me" | "others";
 
 /**
  * A filter dropdown. Values name predicates the host implements; the manifest
@@ -327,9 +328,16 @@ export interface AutomationTriggerFilter {
   options: { value: AutomationTriggerFilterValue; label: string }[];
 }
 
+export interface AutomationCreatedByFilter {
+  id: "created_by";
+  label: string;
+  options: { value: AutomationCreatedByFilterValue; label: string }[];
+}
+
 export type AutomationDashboardFilter =
   | AutomationStatusFilter
-  | AutomationTriggerFilter;
+  | AutomationTriggerFilter
+  | AutomationCreatedByFilter;
 
 /** A comparator the host implements, named from a closed set. */
 export type AutomationSortValue = "last-run" | "runs" | "name";
