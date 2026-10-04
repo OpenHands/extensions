@@ -47,7 +47,7 @@ The agent server typically runs inside a **sandbox** (a Docker or Kubernetes con
 | Variable | Availability | Description |
 |---|---|---|
 | `RUNTIME_URL` | Ambient in cloud environments | Public-facing URL of the **agent server** sandbox. Use this to determine whether external webhook delivery is possible — if unset or local, webhooks cannot be received. The automation service may run at a separate URL (see Determining the API Host). |
-| `AGENT_SERVER_URL` | Injected into scripts at run time only | Internal URL of the agent server. Available inside script execution context; **not** an ambient environment variable outside of a running script. |
+| `AGENT_SERVER_URL` | Injected into scripts at run time, local Agent Canvas only | Internal URL of the agent server. Available inside script execution context; **not** an ambient environment variable outside of a running script, and not set on OpenHands Cloud or Enterprise. |
 | `OPENHANDS_HOST` | Shell convention only — set manually | Base URL for the automation service API. **Not a real environment variable.** Set it from an explicit host, a detected local Agent Canvas server, or the cloud default. Used in all `curl` examples throughout this skill. |
 
 > **⚠️ CRITICAL — Agent behavior rules:**
@@ -77,17 +77,22 @@ The agent server typically runs inside a **sandbox** (a Docker or Kubernetes con
 
 ### No-LLM Script Helpers
 
-When building a deterministic custom script, these two stdlib-only functions are required. Copy them verbatim — they use `AGENT_SERVER_URL` and `SESSION_API_KEY` injected by the automation service.
+When building a deterministic custom script, these two stdlib-only functions are required. Copy them verbatim - they use variables injected by the automation service: `SESSION_API_KEY`, plus `AGENT_SERVER_URL` on a local Agent Canvas or `OPENHANDS_CLOUD_API_URL` and `SANDBOX_ID` on OpenHands Cloud and Enterprise.
 
 ```python
 import json, os, urllib.request
 
 def get_secret(name):
-    """Fetch a named secret stored in the agent server."""
+    """Fetch a named secret: from the agent server when AGENT_SERVER_URL is set, else from the OpenHands API."""
     url = os.environ.get("AGENT_SERVER_URL", "").rstrip("/")
     key = os.environ.get("SESSION_API_KEY") or os.environ.get("OH_SESSION_API_KEYS_0", "")
+    if url:  # local Agent Canvas
+        url = f"{url}/api/settings/secrets/{name}"
+    else:  # OpenHands Cloud / Enterprise
+        api = os.environ["OPENHANDS_CLOUD_API_URL"].rstrip("/")
+        url = f"{api}/api/v1/sandboxes/{os.environ['SANDBOX_ID']}/settings/secrets/{name}"
     with urllib.request.urlopen(urllib.request.Request(
-        f"{url}/api/settings/secrets/{name}", headers={"X-Session-API-Key": key}
+        url, headers={"X-Session-API-Key": key}
     )) as r:
         return r.read().decode().strip()
 
@@ -498,6 +503,7 @@ For services other than GitHub (Linear, Stripe, Slack, etc.), register a custom 
 
 > **Agent behavior:**
 > - **Always provide the curl request** to the user — do not attempt to register webhooks yourself.
+>   The exception is a service skill that ships a setup script for its webhook, such as `jira-issue-to-pr`: the script registers both sides and keeps the signing secret out of the conversation, so run it as that skill describes.
 > - **Ask the user:** "Do you have a webhook signing secret from [service], or should the system generate one?"
 >   - If they have one → include `webhook_secret` in the request
 >   - If not → omit it; the response will contain a generated secret they must configure in their service
@@ -619,11 +625,67 @@ curl -X POST "${OPENHANDS_HOST}/api/automation/v1/preset/prompt" \
   }'
 ```
 
+### Custom Webhook Example: Jira Cloud
+
+Jira Cloud sends webhooks with:
+- Signature header: `X-Hub-Signature` (`sha256=` followed by the hex HMAC-SHA256 of the body), sent only when the webhook has a secret
+- Event type in payload: `webhookEvent` field (e.g., `jira:issue_created`, `jira:issue_updated`)
+- Labels as plain strings: `issue.fields.labels` is `["create-pr"]`, not a list of objects, so `issue.fields.labels[].name` matches nothing
+- On an update, a `changelog.items` list naming each changed `field`
+
+Only a webhook a Jira admin registers (Jira settings → System → WebHooks, or the REST API) can carry a secret. The "Send web request" action of a Jira Automation rule cannot sign its request, so it cannot deliver to a custom webhook.
+
+When the user can supply the API token of a Jira administrator, `scripts/setup_webhook.py` in the `jira-issue-to-pr` skill registers the webhook on both sides for them, replacing step 1 and the Jira configuration below. Done by hand:
+
+```bash
+# 1. Register the Jira webhook
+#    - Use "X-Hub-Signature" as the signature header
+#    - Use "webhookEvent" to extract the event type from the payload
+#    - Omit webhook_secret to have one generated, or pass the one Jira generated
+curl -X POST "${OPENHANDS_HOST}/api/automation/v1/webhooks" \
+  -H "Authorization: Bearer ${OPENHANDS_API_KEY}" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Jira Cloud",
+    "source": "jira",
+    "event_key_expr": "webhookEvent",
+    "signature_header": "X-Hub-Signature"
+  }'
+
+# Response includes webhook_url and the generated webhook_secret - configure both in Jira:
+# Jira settings → System → WebHooks → Create a WebHook → paste the webhook_url and the
+# secret, then select the issue events. A JQL filter such as `labels = create-pr` keeps
+# unrelated issues from being sent at all.
+
+# 2. Create an automation for issues that receive a label
+#    The filter matches an issue created with the label and an update that changes the
+#    labels of an issue carrying it. Without the changelog check, every later edit of a
+#    labelled issue would start another run. It still fires when another label is added
+#    to or removed from an issue that carries the label, so have the prompt skip an
+#    issue that already has a pull request.
+curl -X POST "${OPENHANDS_HOST}/api/automation/v1/preset/prompt" \
+  -H "Authorization: Bearer ${OPENHANDS_API_KEY}" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Jira Issues Labelled create-pr",
+    "prompt": "A Jira issue received the create-pr label. Read the issue from the event payload and open a pull request for it.",
+    "trigger": {
+      "type": "event",
+      "source": "jira",
+      "on": ["jira:issue_created", "jira:issue_updated"],
+      "filter": "contains(issue.fields.labels, '\''create-pr'\'') && (webhookEvent == '\''jira:issue_created'\'' || length(changelog.items[?field == '\''labels'\''] || `[]`) > `0`)"
+    }
+  }'
+```
+
+An unsigned request to the webhook URL answers `401 Missing signature header: X-Hub-Signature`; that is the webhook working, not a fault. `404 Unknown webhook source` means no webhook with that source is registered for the organization in the URL.
+
 ### Common Signature Headers by Service
 
 | Service | Signature Header | Event Key Expression |
 |---------|-----------------|---------------------|
 | Linear | `Linear-Signature` | `type` |
+| Jira Cloud | `X-Hub-Signature` | `webhookEvent` |
 | Stripe | `Stripe-Signature` | `type` |
 | Slack | `X-Slack-Signature` | `type` |
 | Twilio | `X-Twilio-Signature` | `type` |

@@ -107,6 +107,20 @@
       ]
     },
     {
+      "name": "canvas-extension-api",
+      "source": "./skills/canvas-extension-api",
+      "description": "Build and validate Apps for Agent Canvas using the supported Canvas Extensions API v1 routed-page contract.",
+      "category": "agent-authoring",
+      "defaultEnabled": true,
+      "keywords": [
+        "agent-canvas",
+        "canvas-app",
+        "canvas-extension",
+        "register-page",
+        "app-development"
+      ]
+    },
+    {
       "name": "openhands-sdk",
       "source": "./skills/openhands-sdk",
       "description": "Reference skill for the OpenHands Software Agent SDK - build AI agents with custom tools, LLM configuration, conversations, sub-agent delegation, MCP integration, security, and persistence.",
@@ -528,6 +542,20 @@
       ]
     },
     {
+      "name": "runtime-api-configs",
+      "source": "./plugins/runtime-api-configs",
+      "description": "Manage warm sandbox pools on OpenHands Enterprise from a Python CLI: list, template, save, and delete warm runtime configurations against the runtime-api, and bootstrap credentials from Kubernetes secrets. Standard-library only, runs anywhere python3 is available.",
+      "category": "environment",
+      "keywords": [
+        "openhands-enterprise",
+        "runtime-api",
+        "warm-runtime-config",
+        "warm-pool",
+        "custom-sandbox-image",
+        "admin"
+      ]
+    },
+    {
       "name": "security",
       "source": "./skills/security",
       "description": "Security best practices for secure coding, authentication, authorization, and data protection. Use when developing features that handle sensitive data, user authentication, or require security review.",
@@ -885,6 +913,22 @@
       "source": "./skills/github-delivery-watchdog",
       "description": "Periodically check pull requests and merge only current heads with independent review, tests, and passing CI.",
       "category": "automations"
+    },
+    {
+      "name": "github-stale-ci-pr-closer",
+      "source": "./skills/github-stale-ci-pr-closer",
+      "description": "Warn and close abandoned pull requests whose required CI remains failing.",
+      "category": "automations"
+    },
+    {
+      "name": "use-jev",
+      "source": "./skills/use-jev",
+      "description": "Use Jev, a general classifier, for typed choices, scores, and yes/no probabilities in software.",
+      "category": "integrations",
+      "keywords": [
+        "jev",
+        "classification"
+      ]
     }
   ]
 }
