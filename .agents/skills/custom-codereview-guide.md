@@ -88,6 +88,37 @@ package manager and runtime used by the extension. Temporary git pins and
 unreleased package APIs are blockers for merge unless the PR is an explicit,
 coordinated stack that will replace them before release.
 
+### Design context for deep changes
+
+A diff shows edits, not always the design. Expect concise design context when a
+reviewer cannot judge a change from the diff in a few minutes: a new or changed
+skill, plugin, automation, integration contract, or manifest schema; a new
+subsystem, migration, or cross-cutting refactor; a behavior change in shared
+loading, validation, discovery, or execution; or a large diff whose intent is
+hard to hold once generated files, lockfiles, snapshots, vendored code, and
+mechanical churn are set aside. Typos, one-line guards, dependency bumps, small
+documentation edits, and localized fixes need none. Line count is a signal,
+never a gate by itself.
+
+Design context is an available design-doc artifact or a durable write-up in the
+PR description that states the intent, the important before/after behavior or
+contract shape, compatibility and risk, and grounded code references. When a
+deep change lacks it, weigh the gap by risk:
+
+- **HIGH** risk: do not approve; submit a COMMENT review that asks for design
+  context before a human merge decision.
+- **MEDIUM** risk: withhold approval only when reconstructing the design from
+  the diff would materially slow or weaken the review.
+- **LOW** risk: never block on missing design context alone.
+
+Approving a same-repository PR removes its `.pr/` directory. If a temporary
+`.pr/` page is the only design explanation, submit a COMMENT review instead of
+approving, so the page remains for the human maintainer's decision, unless the
+PR description already carries the durable equivalent.
+
+Design context aids review; it does not excuse correctness, security,
+architecture, or repository-ownership problems.
+
 ## Evidence and comment discipline
 
 Evidence should exercise the extension as users invoke it: run the command, hook,
