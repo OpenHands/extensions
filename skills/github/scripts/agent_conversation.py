@@ -72,6 +72,11 @@ _CLOUD_POLL_SECONDS = 3
 _CLOUD_STOPPED_SANDBOX_STATUSES = frozenset({"PAUSED", "ERROR", "MISSING"})
 # What `_execution_status` reports for such a conversation.
 _SANDBOX_STOPPED = "sandbox_stopped"
+# How many times a matched delivery whose conversation ended in ERROR is sent
+# again. The delivery key never changes for a stable subject, so without a
+# retry its work is stranded; without a bound, a conversation that fails the
+# same way every time would be re-run on every scan.
+_MAX_ERROR_RETRIES = 2
 
 
 class KVConflictError(RuntimeError):
@@ -297,14 +302,28 @@ class AgentConversationDispatcher:
 
         same_delivery = record.get("delivery") == delivery
         same_head = bool(head) and record.get("head") == head
+        # Error retries count against one delivery; a new delivery starts over.
+        error_retries = int(record.get("error_retries") or 0) if same_delivery else 0
+        can_retry = error_retries < _MAX_ERROR_RETRIES
 
         if self._cloud:
             disposition, conversation_id = self._deliver_cloud(
-                record, conversation_id, subject, prompt, same_delivery, same_head
+                record,
+                conversation_id,
+                subject,
+                prompt,
+                same_delivery,
+                same_head,
+                can_retry,
             )
         else:
             disposition = self._deliver_local(
-                conversation_id, subject, prompt, same_delivery, same_head
+                conversation_id,
+                subject,
+                prompt,
+                same_delivery,
+                same_head,
+                can_retry,
             )
 
         if disposition == "deferred":
@@ -333,6 +352,10 @@ class AgentConversationDispatcher:
         }
         if disposition == "created" and self._cloud:
             new_record["started_at"] = time.time()
+        if disposition == "retried":
+            error_retries += 1
+        if error_retries:
+            new_record["error_retries"] = error_retries
         _kv_put(state_key, new_record)
         self._remember(str(conversation_id), subject)
         return {
@@ -341,7 +364,14 @@ class AgentConversationDispatcher:
         }
 
     def _deliver_cloud(
-        self, record, conversation_id, subject, prompt, same_delivery, same_head
+        self,
+        record,
+        conversation_id,
+        subject,
+        prompt,
+        same_delivery,
+        same_head,
+        can_retry,
     ):
         """Deliver through the OpenHands API; return the disposition and the id.
 
@@ -392,6 +422,14 @@ class AgentConversationDispatcher:
                     return "deferred", current_id
                 self._cloud.run(conversation)
                 return "resumed", current_id
+            if status == "error" and can_retry:
+                # The delivery matched but its conversation died before the work
+                # finished, so send the revision again rather than strand it.
+                # The API reports an execution status only while the sandbox
+                # runs, so an errored conversation whose sandbox was already
+                # paused is not seen here and keeps reporting deduplicated.
+                self._cloud.send(conversation, prompt)
+                return "retried", current_id
             return "deduplicated", current_id
         if not self._admit(str(current_id), subject):
             return "deferred", current_id
@@ -399,7 +437,7 @@ class AgentConversationDispatcher:
         return "resumed", current_id
 
     def _deliver_local(
-        self, conversation_id, subject, prompt, same_delivery, same_head
+        self, conversation_id, subject, prompt, same_delivery, same_head, can_retry
     ) -> str:
         if self._workspace is None:
             raise RuntimeError("AgentConversationDispatcher must be used as a context")
@@ -459,6 +497,18 @@ class AgentConversationDispatcher:
                             return "deferred"
                         conversation.update_secrets(self._secrets)
                         conversation.run(blocking=False)
+                    elif (
+                        conversation.state.execution_status
+                        == ConversationExecutionStatus.ERROR
+                        and can_retry
+                    ):
+                        # The delivery matched but its conversation died before
+                        # the work finished, so send the revision again rather
+                        # than strand it.
+                        conversation.update_secrets(self._secrets)
+                        conversation.send_message(prompt)
+                        conversation.run(blocking=False)
+                        disposition = "retried"
                     else:
                         disposition = "deduplicated"
                 else:

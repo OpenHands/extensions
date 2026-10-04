@@ -27,6 +27,11 @@ from maintainer_handoff import (
 # every current-head check and workflow run, so a red head still blocks.
 CHECK_GATE_MARKER = "<!-- openhands-review-gate:"
 NON_BLOCKING_CHECK_CONCLUSIONS = frozenset({"success", "neutral", "skipped"})
+# GitHub parks a fork head's workflow runs at this conclusion until a maintainer
+# approves them. Such a run is waiting on a person, not failing, so the gate
+# lists it as waiting with this note and its explanation asks for the approval.
+AWAITING_APPROVAL_CONCLUSION = "action_required"
+AWAITING_APPROVAL_NOTE = " (awaiting maintainer approval)"
 # The gate is deterministic; this disclosure is what tells a reader no model ran.
 WORKFLOW_DISCLOSURE = "no AI was used to generate this comment"
 
@@ -149,7 +154,8 @@ class ReviewIntake:
                 # The dispatcher's atomic reservation found the deployment at
                 # capacity, so nothing else in this scan can start either.
                 break
-            if result["disposition"] == "created":
+            # A retried conversation runs again, so it uses a slot like a new one.
+            if result["disposition"] in ("created", "retried"):
                 self._started += 1
         if failures:
             raise RuntimeError(
@@ -367,7 +373,7 @@ class PullRequestReviewer(GitHubRepository):
             f"second result.{self_review_note}"
         )
 
-    def _finish_completed_review(self, pr, trigger, label=None):
+    def _finish_completed_review(self, pr, trigger, label=None, submitted_review=None):
         """Complete an exact-head review, including an optional human handoff.
 
         `trigger` is the event the current work is keyed on. It is None for an
@@ -375,7 +381,11 @@ class PullRequestReviewer(GitHubRepository):
         is the whole key, so any submitted review by this account on the current
         head is the completion of that work. That is what lets an unrequested
         review the scan started be reconciled and handed off on a later scan
-        instead of being restarted.
+        instead of being restarted. `submitted_review` is the review a
+        `submitted` delivery reports. It can predate the latest
+        `review_requested` event, so it is found by id rather than by the
+        trigger window; this account's later reviews of the head still count, so
+        a newer verdict supersedes it. A dismissed review completes nothing.
         """
         head_sha = pr["head"]["sha"]
         if trigger is not None:
@@ -383,14 +393,35 @@ class PullRequestReviewer(GitHubRepository):
         else:
             triggered_at = ""
         reviews = self.gh_pages(f"/pulls/{pr['number']}/reviews")
-        completed = [
+        mine = [
             review
             for review in reviews
             if review.get("commit_id") == head_sha
             and ((review.get("user") or {}).get("login") or "").lower()
             == self.github_login.lower()
-            and (review.get("submitted_at") or "") > triggered_at
+            and (review.get("state") or "").upper() != "DISMISSED"
         ]
+        if submitted_review and submitted_review.get("id") is not None:
+            reported = next(
+                (review for review in mine if review.get("id") == submitted_review["id"]),
+                None,
+            )
+            reported_at = (reported or {}).get("submitted_at") or ""
+            completed = (
+                []
+                if reported is None
+                else [
+                    review
+                    for review in mine
+                    if (review.get("submitted_at") or "") >= reported_at
+                ]
+            )
+        else:
+            completed = [
+                review
+                for review in mine
+                if (review.get("submitted_at") or "") > triggered_at
+            ]
         if not completed:
             return False
         approved = None
@@ -566,16 +597,19 @@ class PullRequestReviewer(GitHubRepository):
 
         A completed run whose conclusion is neither blocking nor explicitly
         non-blocking fails closed, so an unknown conclusion cannot silently
-        approve a PR. A run that has not completed means waiting, never
-        approval.
+        approve a PR. A run that has not completed, or one awaiting a
+        maintainer's approval to run, means waiting, never approval.
         """
         blocking, pending = [], []
         for run in reporters:
             name = run.get("name") or "unnamed check"
             status = (run.get("status") or "").lower()
+            conclusion = (run.get("conclusion") or "").lower()
             if status != "completed":
                 pending.append(name)
-            elif (run.get("conclusion") or "").lower() in NON_BLOCKING_CHECK_CONCLUSIONS:
+            elif conclusion == AWAITING_APPROVAL_CONCLUSION:
+                pending.append(f"{name}{AWAITING_APPROVAL_NOTE}")
+            elif conclusion in NON_BLOCKING_CHECK_CONCLUSIONS:
                 continue
             else:
                 blocking.append(name)
@@ -734,10 +768,10 @@ class PullRequestReviewer(GitHubRepository):
         short = sha[:12]
         listed = "\n".join(f"- `{name}`" for name in names)
         if state == "blocked":
-            heading = "### ⚠️ Review paused: current-head checks failed"
+            heading = "### ⚠️ Review paused: current-head checks did not pass"
             lead = (
-                f"The current head `{short}` has failing checks, so no review "
-                "conversation was started:"
+                f"The current head `{short}` has checks that did not pass, so no "
+                "review conversation was started:"
             )
             action = (
                 "Fix the checks above and push. The scheduled scan then starts "
@@ -748,6 +782,25 @@ class PullRequestReviewer(GitHubRepository):
                 f"`{self.trigger_reviewer}` again: GitHub will not accept a "
                 "second request while the first is still outstanding. The review "
                 "starts on the updated head."
+            )
+        elif any(name.endswith(AWAITING_APPROVAL_NOTE) for name in names):
+            heading = "### ⏳ Review waiting on workflow approval"
+            lead = (
+                f"The current head `{short}` has workflow runs that GitHub holds "
+                "until a maintainer approves them, or checks that have not "
+                "finished, so no review conversation was started:"
+            )
+            action = (
+                "A maintainer needs to approve the workflow runs marked above. "
+                "The scheduled scan retries once every check on the head reports "
+                "a conclusion."
+                if scheduled
+                else "A maintainer needs to approve the workflow runs marked "
+                "above. Once every check on the head reports a conclusion, "
+                f"remove the outstanding `{self.trigger_reviewer}` request and "
+                f"request `{self.trigger_reviewer}` again: GitHub will not "
+                "accept a second request while the first is still outstanding. "
+                "That starts the review."
             )
         else:
             heading = "### ⏳ Review waiting on checks"
@@ -942,6 +995,11 @@ class PullRequestReviewer(GitHubRepository):
         for candidate in prs:
             try:
                 pr = self.gh("GET", f"/pulls/{candidate['number']}")
+                submitted_review = (
+                    payload.get("review")
+                    if event_mode and payload.get("action") == "submitted"
+                    else None
+                )
                 has_label = label in {
                     item["name"] for item in pr.get("labels", [])
                 }
@@ -978,7 +1036,11 @@ class PullRequestReviewer(GitHubRepository):
                     delivery_key = self._unrequested_head(pr)
                     unrequested_candidate = True
                 if trigger is None and delivery_key is None:
-                    continue
+                    # A submitted review is its own completion signal: its
+                    # request can predate the issue-event window, and that
+                    # review must still be reconciled.
+                    if submitted_review is None:
+                        continue
                 # A head this account already reviewed, with no clarifying
                 # comment since, is done: another conversation would publish a
                 # second review of identical code. This must come before the
@@ -1002,7 +1064,7 @@ class PullRequestReviewer(GitHubRepository):
                         ),
                         flush=True,
                     )
-                    if trigger is not None:
+                    if trigger is not None or submitted_review is not None:
                         # Reconcile the completed review (clearing the label and
                         # running the maintainer handoff) where the review is
                         # this trigger's result. When it predates the trigger -
@@ -1011,7 +1073,7 @@ class PullRequestReviewer(GitHubRepository):
                         # otherwise the label stays and every later scan re-reads
                         # this head and re-logs with no effect.
                         if not self._finish_completed_review(
-                            pr, trigger, trigger_label
+                            pr, trigger, trigger_label, submitted_review
                         ) and trigger_label:
                             self.gh(
                                 "DELETE",
@@ -1020,7 +1082,7 @@ class PullRequestReviewer(GitHubRepository):
                             )
                     continue
                 if delivery_key is None and self._finish_completed_review(
-                    pr, trigger, trigger_label
+                    pr, trigger, trigger_label, submitted_review
                 ):
                     continue
                 if event_mode and payload.get("action") == "submitted":
