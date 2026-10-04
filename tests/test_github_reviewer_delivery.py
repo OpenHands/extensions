@@ -166,12 +166,48 @@ def test_reviewer_submits_each_labeled_exact_head(tmp_path, monkeypatch):
     assert "GIT_TERMINAL_PROMPT=0" in prompt
     assert "Never paste JSON artifacts" in prompt
     assert "stop immediately" in prompt
+    # The prompt carries the dedup rule as well as the worker enforcing it: the
+    # agent is the one that reads GitHub before publishing, so it must be told
+    # not to publish a second review of a head it already reviewed.
+    assert "do NOT publish a second review" in prompt
+    assert "currently underway for this head" in prompt
 
 
-def test_reviewer_submits_requested_exact_head(tmp_path, monkeypatch):
+def test_reviewer_prompt_forbids_republishing_an_unchanged_reviewed_head(
+    tmp_path, monkeypatch
+):
+    """The reviewer prompt names the head and the no-clarification condition."""
+    module, run = _reviewer(tmp_path, monkeypatch)
+    pr = {
+        "number": 2,
+        "head": {"sha": "head-2"},
+        "labels": [{"name": "openhands-review"}],
+    }
+    run.gh_pages = lambda path: [pr]
+    run.gh = Mock(side_effect=[{"id": 99}, pr])
+    monkeypatch.setattr(
+        module.workflow,
+        "_latest_trigger_label_event",
+        lambda *args: {"id": 7, "created_at": "now"},
+    )
+    submit = Mock(
+        return_value={"disposition": "created", "conversation_id": "conversation"}
+    )
+    run.dispatcher.deliver = submit
+
+    run.run()
+
+    prompt = submit.call_args.kwargs["prompt"]
+    assert "already published a review on `head-2`" in prompt
+    assert "no one else has commented since that review" in prompt
+    assert "Review the head again only when the head has moved" in prompt
+
+
+@pytest.mark.parametrize("draft", [False, True])
+def test_reviewer_submits_requested_exact_head(tmp_path, monkeypatch, draft):
     _module, run = _reviewer(tmp_path, monkeypatch)
     _event(monkeypatch)
-    pr = {"number": 2, "head": {"sha": "head-2"}, "labels": []}
+    pr = {"number": 2, "head": {"sha": "head-2"}, "labels": [], "draft": draft}
     request = {
         "id": 42,
         "event": "review_requested",
@@ -374,7 +410,16 @@ def test_reviewer_submitted_review_on_superseded_head_does_not_dispatch(
     handoff.assert_not_called()
 
 
-def test_reviewer_redelivers_when_review_predates_latest_label(tmp_path, monkeypatch):
+def test_reviewer_does_not_redeliver_a_label_for_an_already_reviewed_head(
+    tmp_path, monkeypatch
+):
+    """A re-applied label on an unchanged, already-reviewed head is not new work.
+
+    The label event predates the existing review, so `_finish_completed_review`
+    would not treat the review as this event's result and the old code dispatched
+    a second review of identical code. A review on the current head with nothing
+    posted after it is already the answer, whatever trigger arrives next.
+    """
     _module, run = _reviewer(tmp_path, monkeypatch)
     pr = {
         "number": 2,
@@ -386,6 +431,42 @@ def test_reviewer_redelivers_when_review_predates_latest_label(tmp_path, monkeyp
         if path.startswith("/pulls?")
         else _reviews(submitted_at="2025-12-31T00:00:00Z")
     )
+    run.gh = Mock(side_effect=[{"id": 99}, pr, pr])
+    run.dispatcher.deliver.return_value = {
+        "disposition": "continued",
+        "conversation_id": "conversation",
+    }
+
+    run.run()
+
+    run.dispatcher.deliver.assert_not_called()
+
+
+def test_reviewer_redelivers_a_label_when_a_human_clarified_since(
+    tmp_path, monkeypatch
+):
+    """A comment from someone else after the review makes the head reviewable."""
+    _module, run = _reviewer(tmp_path, monkeypatch)
+    pr = {
+        "number": 2,
+        "head": {"sha": "head-2"},
+        "labels": [{"name": "openhands-review"}],
+    }
+
+    def pages(path):
+        if path.startswith("/pulls?"):
+            return [pr]
+        if path.endswith("/comments"):
+            return [
+                {
+                    "body": "I added the missing test you asked for.",
+                    "created_at": "2026-01-02T00:00:00Z",
+                    "user": {"login": "neubig"},
+                }
+            ]
+        return _reviews(submitted_at="2025-12-31T00:00:00Z")
+
+    run.gh_pages = pages
     run.gh = Mock(side_effect=[{"id": 99}, pr])
     run.dispatcher.deliver.return_value = {
         "disposition": "continued",
@@ -396,6 +477,130 @@ def test_reviewer_redelivers_when_review_predates_latest_label(tmp_path, monkeyp
 
     run.dispatcher.deliver.assert_called_once()
     assert run.dispatcher.deliver.call_args.kwargs["delivery"] == "7:head-2"
+    assert run.dispatcher.deliver.call_args.kwargs["head"] == "head-2"
+
+
+def test_reviewer_does_not_re_review_a_head_after_a_repeat_request(
+    tmp_path, monkeypatch
+):
+    """The extensions#698 sequence: repeat requests must not review twice.
+
+    A review landed on `head-2`; a second review request arrived for the same
+    head with no clarifying comment in between. The old trigger-keyed delivery
+    started another conversation and published a second review of identical
+    code (three APPROVED reviews on one head in production). The head is now
+    the guard: an unchanged head with nothing posted after the review is done.
+    """
+    _module, run = _reviewer(tmp_path, monkeypatch)
+    pr = _requested_pr(2, "head-2")
+    run.check_runs = lambda sha: _checks(("ci", "completed", "success"), sha=sha)
+    submitted = Mock(
+        return_value={"disposition": "created", "conversation_id": "first"}
+    )
+    run.dispatcher.deliver = submitted
+
+    # First request: no review exists yet, so the review is dispatched.
+    run.gh_pages = _request_pages(pr, _review_request_event(42), [])
+    run.gh = Mock(side_effect=[{"id": 99}, pr])
+    _event(monkeypatch)
+    run.run()
+    assert submitted.call_count == 1
+
+    # Second request for the same head, and the review is now on GitHub with no
+    # comment after it: the repeat request starts nothing. The review predates
+    # this request (the #698 ordering), so `_finish_completed_review` alone would
+    # not recognize it as this request's result and the old code dispatched again.
+    reviewed = _reviews(
+        sha="head-2", submitted_at="2026-01-02T00:00:00Z"
+    )
+    later_request = {**_review_request_event(43), "created_at": "2026-01-03T00:00:00Z"}
+
+    def pages(path):
+        if path.startswith("/pulls?"):
+            return [pr]
+        if path.endswith("/events"):
+            return [later_request]
+        if path.endswith("/reviews"):
+            return reviewed
+        return []
+
+    run.gh_pages = pages
+    run.gh = Mock(side_effect=[{"id": 99}, pr, pr])
+    _event(monkeypatch)
+    run.run()
+
+    assert submitted.call_count == 1
+
+
+def test_reviewer_rereviews_a_head_after_a_dismissed_review(
+    tmp_path, monkeypatch
+):
+    """A dismissed review does not stand: the head is reviewable again.
+
+    GitHub keeps a dismissed review in /pulls/{n}/reviews with its commit_id and
+    state "DISMISSED". Counting it as a standing review would suppress every
+    later review of that head forever, because no other condition clears it. A
+    maintainer who dismisses the verdict and re-requests review is asking for a
+    fresh look, so the guard must skip dismissed reviews.
+    """
+    _module, run = _reviewer(tmp_path, monkeypatch)
+    pr = {
+        "number": 2,
+        "head": {"sha": "head-2"},
+        "labels": [{"name": "openhands-review"}],
+    }
+
+    def pages(path):
+        if path.startswith("/pulls?"):
+            return [pr]
+        reviews = _reviews(submitted_at="2025-12-31T00:00:00Z")
+        reviews[0]["state"] = "DISMISSED"
+        return reviews
+
+    run.gh_pages = pages
+    run.gh = Mock(side_effect=[{"id": 99}, pr])
+    run.dispatcher.deliver.return_value = {
+        "disposition": "continued",
+        "conversation_id": "conversation",
+    }
+
+    run.run()
+
+    run.dispatcher.deliver.assert_called_once()
+
+
+def test_reviewer_clears_the_label_when_the_review_predates_the_trigger(
+    tmp_path, monkeypatch
+):
+    """The guard must clear the label, not leave a scan re-reading forever.
+
+    A review predating the re-applied label yields no `completed` entry in
+    `_finish_completed_review`, so that call returns before its label DELETE.
+    Without clearing the label here the label stays and every later scan re-reads
+    this head and re-logs `review-already-published` with no effect.
+    """
+    _module, run = _reviewer(tmp_path, monkeypatch)
+    pr = {
+        "number": 2,
+        "head": {"sha": "head-2"},
+        "labels": [{"name": "openhands-review"}],
+    }
+    run.gh_pages = lambda path: (
+        [pr]
+        if path.startswith("/pulls?")
+        else _reviews(submitted_at="2025-12-31T00:00:00Z")
+    )
+    run.gh = Mock(side_effect=[{"id": 99}, pr, pr])
+
+    run.run()
+
+    run.dispatcher.deliver.assert_not_called()
+    deleted = [
+        call.args[1]
+        for call in run.gh.call_args_list
+        if call.args[0] == "DELETE"
+    ]
+    assert "/issues/2/labels/openhands-review" in deleted
 
 
 def test_reviewer_does_not_trust_another_reviewers_verdict(tmp_path, monkeypatch):
@@ -1162,13 +1367,7 @@ def test_reviewer_falls_back_to_every_check_when_required_signal_is_unavailable(
     assert "<!-- openhands-review-gate:blocked:head-2 -->" in posted[0].args[2]["body"]
 
 
-def test_reviewer_waits_on_an_action_required_run(tmp_path, monkeypatch):
-    """A fork head parked at action_required is waiting, not failing.
-
-    GitHub sets this conclusion on a fork head's workflows until a maintainer
-    approves them; the check runs those workflows would create do not exist yet.
-    Reading it as a failure misreports a head that only awaits approval as red.
-    """
+def test_reviewer_fails_closed_on_an_unknown_conclusion(tmp_path, monkeypatch):
     _module, run = _reviewer(tmp_path, monkeypatch)
     pr = _labeled_pr()
     run.gh_pages = _gate_pages(pr, [])
@@ -1183,7 +1382,7 @@ def test_reviewer_waits_on_an_action_required_run(tmp_path, monkeypatch):
         for call in _gate_comment_calls(run)
         if call.args[0] == "POST"
     ][0]
-    assert "<!-- openhands-review-gate:waiting:head-2 -->" in body
+    assert "<!-- openhands-review-gate:blocked:head-2 -->" in body
 
 
 def test_reviewer_does_not_duplicate_the_gate_comment_for_the_same_head(
@@ -1571,10 +1770,11 @@ def _request_pages(pr, request, comments):
     )
 
 
-def test_reviewer_scheduled_scan_reviews_an_outstanding_request(tmp_path, monkeypatch):
+@pytest.mark.parametrize("draft", [False, True])
+def test_reviewer_scheduled_scan_reviews_an_outstanding_request(tmp_path, monkeypatch, draft):
     """A request made before CI finished is reviewed once the head is green."""
     _module, run = _reviewer(tmp_path, monkeypatch)
-    pr = _requested_pr()
+    pr = _requested_pr(draft=draft)
     state = {"runs": _checks(("slow-e2e", "queued", None), sha="head-2")}
     run.check_runs = lambda sha: state["runs"]
     run.gh_pages = _request_pages(pr, _review_request_event(), [])
@@ -1603,12 +1803,13 @@ def test_reviewer_scheduled_scan_reviews_an_outstanding_request(tmp_path, monkey
     assert "latest review request for `all-hands-bot` event 42" in call["prompt"]
 
 
+@pytest.mark.parametrize("draft", [False, True])
 def test_reviewer_repeated_scans_do_not_duplicate_a_requested_review(
-    tmp_path, monkeypatch
+    tmp_path, monkeypatch, draft
 ):
     """Two scans over one outstanding request produce one stable delivery key."""
     _module, run = _reviewer(tmp_path, monkeypatch)
-    pr = _requested_pr()
+    pr = _requested_pr(draft=draft)
     run.check_runs = lambda sha: _checks(("ci", "completed", "success"), sha=sha)
     run.dispatcher.deliver.return_value = {
         "disposition": "created",
@@ -1627,11 +1828,12 @@ def test_reviewer_repeated_scans_do_not_duplicate_a_requested_review(
     assert deliveries == {"42:head-2"}
 
 
-def test_reviewer_scheduled_scan_ignores_a_draft_with_a_request(
+def test_reviewer_scheduled_scan_ignores_a_draft_requested_from_someone_else(
     tmp_path, monkeypatch
 ):
     _module, run = _reviewer(tmp_path, monkeypatch)
     pr = _requested_pr(draft=True)
+    pr["requested_reviewers"] = [{"login": "another-reviewer"}]
     run.gh_pages = lambda path: [pr]
     run.gh = Mock(return_value={"id": 99})
 
@@ -1795,17 +1997,21 @@ class _DedupeDispatcher:
     reproduces only the contract the worker relies on: a delivery keyed by
     (subject, delivery) starts one conversation and reports `created` once, then
     reports `deduplicated` for the same key. That is what lets a repeat scan
-    reuse a conversation without spending another intake slot.
+    reuse a conversation without spending another intake slot. It also records
+    the head the caller named, which the worker's own pre-dispatch guard uses to
+    suppress a second review of an unchanged head.
     """
 
     def __init__(self):
         self.seen = {}
+        self.heads = []
         self.calls = []
         self.prompts = []
 
-    def deliver(self, *, subject, delivery, prompt):
+    def deliver(self, *, subject, delivery, prompt, head=""):
         self.calls.append((subject, delivery))
         self.prompts.append(prompt)
+        self.heads.append(head)
         if self.seen.get(subject) == delivery:
             return {"disposition": "deduplicated", "conversation_id": subject}
         self.seen[subject] = delivery
@@ -2083,7 +2289,7 @@ def test_a_failing_dispatch_is_reported_without_consuming_a_slot_or_aborting(
         101,
     )
 
-    def deliver(*, subject, delivery, prompt):
+    def deliver(*, subject, delivery, prompt, head=""):
         if subject == "101:pr:5":
             raise RuntimeError("agent server unavailable")
         one.dispatcher.seen[subject] = delivery
@@ -2480,30 +2686,8 @@ def test_unrequested_scan_marks_a_self_authored_pr_for_the_comment_verdict(
 
 
 # --------------------------------------------------------------------------- #
-# Bounded rotating scan window: each scheduled scan examines a bounded slice of
-# the unrequested backlog, remembers its position in the Automation KV store, and
-# resumes there on the next scan. Explicit requests are never subject to it.
+# Comprehensive scheduled scan: inspect the backlog, cap only review launches.
 # --------------------------------------------------------------------------- #
-
-
-def _kv_store(module, monkeypatch):
-    """Back the scan cursor with an in-memory stand-in for the Automation KV store.
-
-    The real store is an HTTP service; this reproduces the contract the cursor
-    relies on - a per-key `GET` that misses with None and a `PUT` that replaces
-    the value - so the shipped `ScanCursor` persists and reloads through it.
-    """
-    values = {}
-    monkeypatch.setattr(module.workflow, "_kv_available", lambda: True)
-    monkeypatch.setattr(
-        module.workflow, "_kv_get", lambda key: values.get(key)
-    )
-
-    def put(key, value):
-        values[key] = value
-
-    monkeypatch.setattr(module.workflow, "_kv_set", put)
-    return values
 
 
 def _many_unrequested(count, *, checks=()):
@@ -2524,74 +2708,37 @@ def _examined(run):
     return [int(subject.split(":")[-1]) for subject, _ in run.dispatcher.calls]
 
 
-def test_scan_examines_a_bounded_rotating_window_of_unrequested_prs(
+def test_scan_skips_blocked_heads_until_it_fills_the_review_quota(
     tmp_path, monkeypatch
 ):
-    """Each scan covers the next slice, so the whole backlog is reached in turn."""
-    module, (one,) = _scan_reviewers(tmp_path, monkeypatch, ["owner/one"], max_new=5)
-    monkeypatch.setattr(module, "SCAN_WINDOW", 2)
-    _kv_store(module, monkeypatch)
-    _wire_scan(one, _many_unrequested(5), 101)
+    """The quota limits launches, not how many backlog entries are inspected.
 
-    _run_scan(module, [one])
-    assert _examined(one) == [1, 2]
-
-    _run_scan(module, [one])
-    assert _examined(one)[-2:] == [3, 4]
-
-    _run_scan(module, [one])
-    assert _examined(one)[-1:] == [5]
-
-    # Past the end the window wraps, so the backlog keeps rotating.
-    _run_scan(module, [one])
-    assert _examined(one)[-2:] == [1, 2]
-
-
-def test_the_scan_position_is_persisted_per_repository_in_the_kv_store(
-    tmp_path, monkeypatch
-):
-    """The cursor is written under a per-repository key, so a later run resumes.
-
-    A cron run is a fresh process, so the only way the window survives is the
-    Automation KV store; this pins the key and the value the next scan reads.
+    Ten blocked heads at the front of the backlog must not consume the ten-review
+    launch quota or prevent the ten green heads behind them from being reviewed.
     """
-    module, (one,) = _scan_reviewers(tmp_path, monkeypatch, ["owner/one"], max_new=5)
-    monkeypatch.setattr(module, "SCAN_WINDOW", 2)
-    values = _kv_store(module, monkeypatch)
-    _wire_scan(one, _many_unrequested(5), 101)
+    module, (one,) = _scan_reviewers(tmp_path, monkeypatch, ["owner/one"], max_new=10)
+    blocked = [
+        _unrequested_pr(
+            number,
+            f"head-{number}",
+            created_at=f"2026-01-{number:02d}T00:00:00Z",
+            checks=(("ci", "completed", "failure"),),
+        )
+        for number in range(1, 11)
+    ]
+    green = [
+        _unrequested_pr(
+            number,
+            f"head-{number}",
+            created_at=f"2026-01-{number:02d}T00:00:00Z",
+        )
+        for number in range(11, 21)
+    ]
+    _wire_scan(one, blocked + green, 101)
 
     _run_scan(module, [one])
 
-    assert values == {"review-scan:owner__one": {"cursor": 2}}
-
-
-def test_explicit_requests_are_examined_regardless_of_the_rotation_window(
-    tmp_path, monkeypatch
-):
-    """An explicit request is never skipped because the window sits elsewhere.
-
-    The cursor points at the last unrequested PR, but the explicit request on
-    PR #1 is still examined and dispatched, because a caller asked for it.
-    """
-    module, (one,) = _scan_reviewers(tmp_path, monkeypatch, ["owner/one"], max_new=5)
-    monkeypatch.setattr(module, "SCAN_WINDOW", 1)
-    values = _kv_store(module, monkeypatch)
-    # Only PR #1 holds a request; the rest are unrequested and the window sits on
-    # the last of them, so the request must still be examined.
-    _wire_scan(
-        one,
-        [_eligible_pr(1, "head-1", 100, "2026-01-01T00:00:00Z")]
-        + _many_unrequested(4)[1:],
-        101,
-    )
-    values["review-scan:owner__one"] = {"cursor": 2}
-
-    _run_scan(module, [one])
-
-    assert one.dispatcher.seen == {
-        "101:pr:1": "100:head-1",
-        "101:pr:4": "scan:owner/one:4:head-4",
-    }
+    assert _examined(one) == list(range(11, 21))
 
 
 def test_unrequested_red_and_pending_prs_post_no_gate_comments(
@@ -2604,7 +2751,6 @@ def test_unrequested_red_and_pending_prs_post_no_gate_comments(
     managed explanation.
     """
     module, (one,) = _scan_reviewers(tmp_path, monkeypatch, ["owner/one"], max_new=5)
-    monkeypatch.setattr(module, "SCAN_WINDOW", 20)
     _wire_scan(
         one,
         [
@@ -2629,36 +2775,20 @@ def test_unrequested_red_and_pending_prs_post_no_gate_comments(
     assert one.dispatcher.seen == {"101:pr:7": "scan:owner/one:7:head-7"}
 
 
-def test_scan_reads_a_bounded_number_of_pull_requests_per_repository(
+def test_scan_reads_every_pull_request_but_starts_only_the_quota(
     tmp_path, monkeypatch
 ):
-    """A scan reads one list page plus at most one head per examined candidate.
-
-    A full scan would issue one full pull read per open PR - the API cost that
-    made the canary time out. With a window of 10 over 40 PRs, only the 10 in the
-    window are read.
-    """
+    """Classification is comprehensive while launches remain bounded."""
     module, (one,) = _scan_reviewers(tmp_path, monkeypatch, ["owner/one"], max_new=5)
-    monkeypatch.setattr(module, "SCAN_WINDOW", 10)
-    _kv_store(module, monkeypatch)
     _wire_scan(one, _many_unrequested(40), 101)
-
-    list_reads = []
-    original_pages = one.gh_pages
-
-    def counting_pages(path):
-        if path.startswith("/pulls?"):
-            list_reads.append(path)
-        return original_pages(path)
-
-    one.gh_pages = counting_pages
     one.gh = Mock(side_effect=one.gh)
 
     _run_scan(module, [one])
 
     full_reads = [
-        call for call in one.gh.call_args_list
+        call
+        for call in one.gh.call_args_list
         if call.args[0] == "GET" and str(call.args[1]).startswith("/pulls/")
     ]
-    assert len(list_reads) == 1
-    assert len(full_reads) == 10
+    assert len(full_reads) == 40
+    assert _examined(one) == [1, 2, 3, 4, 5]

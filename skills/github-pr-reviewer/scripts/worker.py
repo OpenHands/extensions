@@ -27,14 +27,6 @@ from maintainer_handoff import (
 # every current-head check and workflow run, so a red head still blocks.
 CHECK_GATE_MARKER = "<!-- openhands-review-gate:"
 NON_BLOCKING_CHECK_CONCLUSIONS = frozenset({"success", "neutral", "skipped"})
-# A completed run with this conclusion has not finished its work: GitHub
-# parks a fork head's workflows here until a maintainer approves them, so
-# it is pending, not failing. See _classify_runs.
-# How many unrequested heads one scheduled scan examines, per repository. Each
-# one costs a review read plus the exact-head check/workflow reads, so an
-# unbounded scan spends the whole run's API budget in the largest repository.
-# The window rotates by this many PRs per scan, so the backlog is still covered.
-SCAN_WINDOW = 10
 # The gate is deterministic; this disclosure is what tells a reader no model ran.
 WORKFLOW_DISCLOSURE = "no AI was used to generate this comment"
 
@@ -114,56 +106,6 @@ class ReviewIntake:
                 + ", ".join(f"#{number}" for number in failures)
             )
 
-
-class ScanCursor:
-    """The per-repository position of the rotating unrequested-PR window.
-
-    Classifying one unrequested head costs a review read, a check-run read, and
-    a workflow-run read, so a scan that examined every open PR spent the API
-    budget on the largest repository alone. The scan instead examines a bounded
-    slice of the unrequested backlog and remembers where the slice ended, in the
-    automation service's own KV store - the same facility `main.py` already uses
-    for review state, reached with the same `AUTOMATION_KV_TOKEN` and
-    `AUTOMATION_API_URL`, so no new secret or store is introduced. The next scan
-    resumes past that point, so the whole backlog is covered fairly over several
-    scans.
-
-    When the KV store is unavailable (a local run, or the tests) the position is
-    kept in memory, so the scan still rotates within the run and nothing else
-    about it changes. A KV read or write failure is not fatal: a scan position is
-    not worth aborting reviews over, so the in-memory position is used instead.
-    """
-
-    def __init__(self, repository):
-        self._key = f"review-scan:{workflow._repo_slug(repository)}"
-        self._memory = 0
-
-    def position(self, total):
-        """The stored cursor, reduced to a valid offset into `total` items."""
-        return self._read() % total if total else 0
-
-    def advance(self, cursor):
-        """Record where the next scan's window starts."""
-        self._memory = cursor
-        if not workflow._kv_available():
-            return
-        try:
-            workflow._kv_set(self._key, {"cursor": cursor})
-        except Exception as exc:  # noqa: BLE001 - a cursor is not worth failing a scan
-            print(f"  Warning: scan cursor write failed ({exc})")
-
-    def _read(self):
-        if not workflow._kv_available():
-            return self._memory
-        try:
-            data = workflow._kv_get(self._key) or {}
-        except Exception as exc:  # noqa: BLE001 - fall back to the in-memory cursor
-            print(f"  Warning: scan cursor read failed ({exc})")
-            return self._memory
-        try:
-            return int(data.get("cursor") or 0)
-        except (TypeError, ValueError):
-            return self._memory
 
 
 class PullRequestReviewer(GitHubRepository):
@@ -318,6 +260,16 @@ class PullRequestReviewer(GitHubRepository):
             "- Inspect the current GitHub Actions results for the exact head and run "
             "the repository's appropriate focused tests in the workspace. Do not "
             "modify tracked files.\n"
+            "- Before publishing anything, read the PR's existing reviews and "
+            "comments on GitHub. If this account has already published a review on "
+            f"`{sha}` and no one else has commented since that review, do NOT "
+            "publish a second review and do NOT start another review pass: another "
+            "review of identical code is a duplicate. Report the earlier verdict as "
+            "still current and stop. Review the head again only when the head has "
+            "moved, or when a comment from someone other than this account was "
+            "posted after the earlier review.\n"
+            "- If a review by this account is currently underway for this head, wait "
+            "for it instead of starting a second one.\n"
             f"- Re-read {self.repository} PR #{number} immediately before reporting. "
             "Confirm its current body, labels, review threads, and the head's check "
             "results, and re-read every linked issue's current body and labels: an "
@@ -537,17 +489,9 @@ class PullRequestReviewer(GitHubRepository):
         for run in reporters:
             name = run.get("name") or "unnamed check"
             status = (run.get("status") or "").lower()
-            conclusion = (run.get("conclusion") or "").lower()
-            if status == "completed" and conclusion == "action_required":
-                # A fork head's workflows sit at `action_required` until a
-                # maintainer approves them, and the check runs they would create
-                # do not exist yet. Counting that as a failure misreports a head
-                # only awaiting approval as red and stalls it indefinitely, so
-                # treat it as waiting: the head is re-evaluated once approved.
+            if status != "completed":
                 pending.append(name)
-            elif status != "completed":
-                pending.append(name)
-            elif conclusion in NON_BLOCKING_CHECK_CONCLUSIONS:
+            elif (run.get("conclusion") or "").lower() in NON_BLOCKING_CHECK_CONCLUSIONS:
                 continue
             else:
                 blocking.append(name)
@@ -706,10 +650,10 @@ class PullRequestReviewer(GitHubRepository):
         short = sha[:12]
         listed = "\n".join(f"- `{name}`" for name in names)
         if state == "blocked":
-            heading = "### ⚠️ Review paused: current-head checks did not pass"
+            heading = "### ⚠️ Review paused: current-head checks failed"
             lead = (
-                f"The current head `{short}` has checks that did not pass, so no "
-                "review conversation was started:"
+                f"The current head `{short}` has failing checks, so no review "
+                "conversation was started:"
             )
             action = (
                 "Fix the checks above and push. The scheduled scan then starts "
@@ -756,7 +700,7 @@ class PullRequestReviewer(GitHubRepository):
         `explain` is False for an unrequested candidate: a PR nobody asked about
         that is merely red or pending gets no managed comment. Announcing a
         blocked or waiting head for every open PR is what produced the comment
-        storm the rotating window is bounded against, and the managed comment is
+        storm that full-backlog scans must avoid, and the managed comment is
         the answer to an explicit request or trigger label. The gate still
         classifies the head, so a red or pending unrequested head is skipped
         without starting an agent.
@@ -776,14 +720,12 @@ class PullRequestReviewer(GitHubRepository):
         return state, sha
 
     def _outstanding_review_request(self, pr):
-        """Whether an open, non-draft PR still holds a request for the reviewer.
+        """Whether an open PR, including a draft, still requests this reviewer.
 
         The list endpoint already answers this: `requested_reviewers` is the live
         set, so a review that was submitted, or a request that was withdrawn, is
-        simply absent. Drafts are excluded because a draft is not reviewable.
+        simply absent. An explicit request opts a draft into review.
         """
-        if pr.get("draft"):
-            return False
         return any(
             (item.get("login") or "").lower() == self.trigger_reviewer
             for item in pr.get("requested_reviewers") or []
@@ -805,6 +747,66 @@ class PullRequestReviewer(GitHubRepository):
             for review in self.gh_pages(f"/pulls/{number}/reviews")
         )
 
+    def _clarified_since(self, number, submitted_at):
+        """Whether a human clarified the pull request after a review.
+
+        A comment by someone other than the reviewer accounts is the one thing
+        that makes reviewing an unchanged head worth another conversation: the
+        author answered a finding, so the earlier verdict no longer speaks to
+        the current state. Any other account (an author, a maintainer, a
+        different bot workflow posting a new result) counts, and the reviewer
+        account's own comments are excluded so its "reviewing now" and verdict
+        comments cannot re-trigger it.
+        """
+        if not submitted_at:
+            return False
+        for comment in self.gh_pages(f"/issues/{number}/comments"):
+            login = ((comment.get("user") or {}).get("login") or "").lower()
+            if login in {"", self.github_login.lower(), self.trigger_reviewer}:
+                continue
+            if (comment.get("created_at") or "") > submitted_at:
+                return True
+        return False
+
+    def _reviewed_current_head_without_clarification(self, number, sha):
+        """Whether the current head is already reviewed and nothing has changed.
+
+        A review on this exact head, followed by no clarifying comment from
+        anyone else, means another conversation would publish a second review of
+        the same code — the same verdict twice, spending a runtime to repeat it.
+        The head advancing, or any human comment arriving afterwards, makes the
+        head eligible again under the normal rules.
+
+        Returns the reviewed head's latest submission time (for the log line) or
+        None when the head should be reviewed.
+        """
+        if not sha:
+            return None
+        submitted_at = ""
+        for review in self.gh_pages(f"/pulls/{number}/reviews"):
+            if review.get("commit_id") != sha:
+                continue
+            if ((review.get("user") or {}).get("login") or "").lower() != (
+                self.github_login.lower()
+            ):
+                continue
+            # A dismissal removes the review's standing, exactly as
+            # maintainer_handoff._reviewer_states treats it: a maintainer who
+            # dismisses this account's verdict and re-requests a review on the
+            # same head is asking for a fresh look, not repeating a completed
+            # one. Keeping the dismissed review here would suppress that review
+            # permanently, because nothing else makes an unchanged head eligible.
+            if (review.get("state") or "").upper() == "DISMISSED":
+                continue
+            when = review.get("submitted_at") or ""
+            if when > submitted_at:
+                submitted_at = when
+        if not submitted_at:
+            return None
+        if self._clarified_since(number, submitted_at):
+            return None
+        return submitted_at
+
     def _unrequested_head(self, pr):
         """The current-head delivery key for an unrequested PR, or None.
 
@@ -815,56 +817,25 @@ class PullRequestReviewer(GitHubRepository):
         sha = pr["head"]["sha"]
         return f"scan:{self.repository}:{pr['number']}:{sha}"
 
-    @property
-    def _scan_cursor(self):
-        """This repository's scan position, created lazily like the intake."""
-        cursor = self.__dict__.get("_cursor")
-        if cursor is None:
-            cursor = self.__dict__["_cursor"] = ScanCursor(self.repository)
-        return cursor
+    def _scan_candidates(self, prs, label):
+        """Return every potentially reviewable PR in the scheduled backlog.
 
-    def _explicit_candidate(self, pr, label):
-        """Whether a PR was explicitly requested by a caller.
-
-        An explicit `all-hands-bot` review request or a trigger label is a
-        caller's decision, so it is never subject to the rotating window: every
-        explicit candidate is examined on every scan, whatever the stored scan
-        position is.
+        The scan must classify the whole backlog so blocked, pending, draft, or
+        already-reviewed heads cannot hide eligible heads behind an inspection
+        window. The shared ReviewIntake applies the configured maximum only when
+        conversations are launched.
         """
-        if label in {item["name"] for item in pr.get("labels", [])}:
-            return True
-        return self._outstanding_review_request(pr)
-
-    def _rotating_window(self, prs, label):
-        """The explicit candidates plus a bounded slice of the unrequested ones.
-
-        Classifying an unrequested head costs a review read and the exact-head
-        check/workflow reads, so examining every open PR in one scan is what let
-        a single run exhaust the API budget and post a managed gate comment for
-        every red or pending head. The unrequested backlog is therefore examined
-        a bounded `SCAN_WINDOW` at a time, starting where the previous scan
-        stopped (the per-repository position in the Automation KV store), so
-        successive scans rotate through the whole backlog. Explicit candidates
-        are always included, so a request is never delayed behind the window.
-        """
-        explicit, unrequested = [], []
+        candidates = []
         for pr in prs:
-            if pr.get("draft") and label not in {
-                item["name"] for item in pr.get("labels", [])
-            } and not self._outstanding_review_request(pr):
-                # A draft that is neither labeled nor requested is not reviewable
-                # by the unrequested path either, so drop it before the full read.
+            labels = {item["name"] for item in pr.get("labels", [])}
+            if (
+                pr.get("draft")
+                and label not in labels
+                and not self._outstanding_review_request(pr)
+            ):
                 continue
-            if self._explicit_candidate(pr, label):
-                explicit.append(pr)
-            else:
-                unrequested.append(pr)
-        if not unrequested:
-            return explicit
-        start = self._scan_cursor.position(len(unrequested))
-        window = unrequested[start : start + SCAN_WINDOW]
-        self._scan_cursor.advance(start + len(window))
-        return explicit + window
+            candidates.append(pr)
+        return candidates
 
     def run(self):
         repository_id = self.gh("GET", "")["id"]
@@ -872,7 +843,7 @@ class PullRequestReviewer(GitHubRepository):
         payload = self._event_payload()
         event_mode = payload is not None
         if not event_mode:
-            prs = self._rotating_window(
+            prs = self._scan_candidates(
                 self.gh_pages("/pulls?state=open&sort=updated&direction=asc"), label
             )
         else:
@@ -923,6 +894,46 @@ class PullRequestReviewer(GitHubRepository):
                     delivery_key = self._unrequested_head(pr)
                     unrequested_candidate = True
                 if trigger is None and delivery_key is None:
+                    continue
+                # A head this account already reviewed, with no clarifying
+                # comment since, is done: another conversation would publish a
+                # second review of identical code. This must come before the
+                # delivery dispatch, because a fresh trigger (a new review
+                # request, or a label re-applied after the bot's own handoff)
+                # produces a new delivery key that would otherwise start a
+                # second review on an unchanged head.
+                already = self._reviewed_current_head_without_clarification(
+                    pr["number"], pr["head"]["sha"]
+                )
+                if already:
+                    print(
+                        json.dumps(
+                            {
+                                "repository": self.repository,
+                                "pr": pr["number"],
+                                "head_sha": pr["head"]["sha"],
+                                "disposition": "review-already-published",
+                                "reviewed_at": already,
+                            }
+                        ),
+                        flush=True,
+                    )
+                    if trigger is not None:
+                        # Reconcile the completed review (clearing the label and
+                        # running the maintainer handoff) where the review is
+                        # this trigger's result. When it predates the trigger -
+                        # the #698 ordering, a re-applied label - there is no
+                        # completion to reconcile, so clear the label directly:
+                        # otherwise the label stays and every later scan re-reads
+                        # this head and re-logs with no effect.
+                        if not self._finish_completed_review(
+                            pr, trigger, trigger_label
+                        ) and trigger_label:
+                            self.gh(
+                                "DELETE",
+                                f"/issues/{pr['number']}/labels/"
+                                f"{quote(trigger_label, safe='')}",
+                            )
                     continue
                 if delivery_key is None and self._finish_completed_review(
                     pr, trigger, trigger_label
@@ -1019,6 +1030,7 @@ class PullRequestReviewer(GitHubRepository):
             subject=f"{repository_id}:pr:{pr['number']}",
             delivery=delivery_key or f"{trigger['id']}:{sha}",
             prompt=self._prompt(pr, trigger, trigger_label, delivery_key),
+            head=sha,
         )
         print(
             json.dumps(
