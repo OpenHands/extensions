@@ -97,9 +97,11 @@ The goal: the change can be reviewed **by observation, not by reading code.**
    Do not push commits to the PR branch to host media: that changes the head
    you are verifying, and the shipped QA workflow has read-only access to
    repository contents. If you cannot upload media where the report is posted,
-   save the files where the run keeps its artifacts (the `qa-changes` GitHub
-   Action uploads the workspace's `output/` directory), say where to find
-   them, and describe in text what each capture shows.
+   save the files where the run keeps its artifacts, say where to find them,
+   and describe in text what each capture shows. In the `qa-changes` GitHub
+   Action that is `$GITHUB_WORKSPACE/output/`, the parent of the PR checkout
+   you work in, which the action uploads as the `openhands-qa-changes-logs`
+   artifact; a relative `output/` inside the checkout is not uploaded.
 
 Keep it proportional: capture the screens the PR actually touches, not the whole
 app. If you cannot render a screen (missing data, an unreachable state, no
