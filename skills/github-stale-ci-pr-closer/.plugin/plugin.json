@@ -1,0 +1,9 @@
+{
+  "name": "github-stale-ci-pr-closer",
+  "version": "1.0.0",
+  "description": "Warn and close abandoned pull requests whose required CI remains failing.",
+  "author": {
+    "name": "OpenHands"
+  },
+  "license": "MIT"
+}

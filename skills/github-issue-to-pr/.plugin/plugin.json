@@ -1,0 +1,19 @@
+{
+  "name": "github-issue-to-pr",
+  "version": "1.0.0",
+  "description": "Create an automation that implements GitHub issues when a configurable trigger label is applied. It clones the default branch, starts one OpenHands conversation per label event, then commits, pushes, and opens the pull request itself, without ever handing the agent a GitHub credential.",
+  "author": {
+    "name": "OpenHands",
+    "email": "contact@all-hands.dev"
+  },
+  "homepage": "https://github.com/OpenHands/extensions",
+  "repository": "https://github.com/OpenHands/extensions",
+  "license": "MIT",
+  "keywords": [
+    "github",
+    "issue",
+    "pull-request",
+    "automation",
+    "integration"
+  ]
+}

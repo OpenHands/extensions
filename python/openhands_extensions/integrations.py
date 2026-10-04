@@ -14,10 +14,13 @@ from importlib import resources
 from pathlib import Path
 from typing import Any, Iterable
 
+from .integration_models import IntegrationCatalogEntry
+
+
 __all__ = [
     "INTEGRATION_CATALOG_SNAPSHOT",
-    "get_integration_catalog_entry",
-    "list_integration_catalog",
+    "get_integration_catalog_entry_model",
+    "list_integration_catalog_models",
 ]
 
 
@@ -45,7 +48,14 @@ def _read_json(path: Any) -> dict[str, Any]:
 def _integrations() -> tuple[dict[str, Any], ...]:
     entries = [_read_json(path) for path in _catalog_files()]
     entries.sort(
-        key=lambda entry: (-(entry.get("popularityRank") if entry.get("popularityRank") is not None else -1), entry["id"]),
+        key=lambda entry: (
+            -(
+                entry.get("popularityRank")
+                if entry.get("popularityRank") is not None
+                else -1
+            ),
+            entry["id"],
+        ),
     )
     return tuple(entries)
 
@@ -56,7 +66,9 @@ def _integration_by_id() -> dict[str, dict[str, Any]]:
 
 
 def _entry_supports_mcp(entry: dict[str, Any]) -> bool:
-    return any(option.get("provider") == "mcp" for option in entry.get("connectionOptions", []))
+    return any(
+        option.get("provider") == "mcp" for option in entry.get("connectionOptions", [])
+    )
 
 
 def _entry_supports_oauth(entry: dict[str, Any]) -> bool:
@@ -66,11 +78,11 @@ def _entry_supports_oauth(entry: dict[str, Any]) -> bool:
     )
 
 
-def list_integration_catalog(
+def _list_catalog_entries(
     mcp: bool | None = None,
     oauth: bool | None = None,
 ) -> list[dict[str, Any]]:
-    """Return the integration catalog, optionally filtered by connector type."""
+    """Return raw catalog dictionaries, optionally filtered by connector type."""
     result = []
     for entry in _integrations():
         if mcp is not None and _entry_supports_mcp(entry) != mcp:
@@ -81,10 +93,31 @@ def list_integration_catalog(
     return result
 
 
-def get_integration_catalog_entry(id: str) -> dict[str, Any] | None:
-    """Return one integration catalog entry by id, or ``None``."""
+def list_integration_catalog_models(
+    mcp: bool | None = None,
+    oauth: bool | None = None,
+) -> list[IntegrationCatalogEntry]:
+    """Return typed, validated integration catalog entries.
+
+    This is the supported Python contract for reading the catalog. The raw
+    dictionary accessors it replaced were removed in v0.12.0.
+    """
+    return [
+        IntegrationCatalogEntry.model_validate(entry)
+        for entry in _list_catalog_entries(mcp=mcp, oauth=oauth)
+    ]
+
+
+def _get_catalog_entry(id: str) -> dict[str, Any] | None:
+    """Return one raw catalog dictionary by id, or ``None``."""
     entry = _integration_by_id().get(id)
     return copy.deepcopy(entry) if entry is not None else None
+
+
+def get_integration_catalog_entry_model(id: str) -> IntegrationCatalogEntry | None:
+    """Return one typed catalog entry, or ``None`` when it does not exist."""
+    entry = _get_catalog_entry(id)
+    return IntegrationCatalogEntry.model_validate(entry) if entry is not None else None
 
 
 INTEGRATION_CATALOG_SNAPSHOT: dict[str, Any] = {

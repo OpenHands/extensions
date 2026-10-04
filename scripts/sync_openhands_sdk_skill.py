@@ -25,6 +25,7 @@ from pathlib import Path
 
 SKILL_PATH = Path(__file__).resolve().parent.parent / "skills" / "openhands-sdk" / "SKILL.md"
 LLMS_TXT_URL = "https://docs.openhands.dev/llms.txt"
+SDK_URL_PREFIX = "https://docs.openhands.dev/sdk/"
 GH_API = "https://api.github.com/repos/OpenHands/software-agent-sdk/contents/examples"
 GH_RAW = "https://raw.githubusercontent.com/OpenHands/software-agent-sdk/main"
 GH_BROWSE = "https://github.com/OpenHands/software-agent-sdk/blob/main/examples"
@@ -90,18 +91,20 @@ def _fetch_or(url: str, fallback, **kw):
 # -- llms.txt parsing --
 
 def parse_sdk_entries(llms_txt: str) -> list[dict]:
-    """Extract entries from the 'OpenHands Software Agent SDK' section."""
-    entries, in_section = [], False
-    for line in llms_txt.splitlines():
-        stripped = line.strip()
-        if stripped == "## OpenHands Software Agent SDK":
-            in_section = True
-            continue
-        if in_section and line.startswith("## "):
-            break
-        if in_section and (m := _ENTRY_RE.match(stripped)):
-            entries.append(m.groupdict())
-    return entries
+    """Extract entries for the OpenHands Software Agent SDK.
+
+    The docs index (llms.txt) no longer groups entries under an
+    "OpenHands Software Agent SDK" heading, so select entries by their
+    canonical URL prefix instead. Sort by title (case-insensitively) to
+    keep the generated skill stable across runs.
+    """
+    entries = [
+        m.groupdict()
+        for line in llms_txt.splitlines()
+        if (m := _ENTRY_RE.match(line.strip()))
+        and m.group("url").startswith(SDK_URL_PREFIX)
+    ]
+    return sorted(entries, key=lambda e: e["title"].lower())
 
 
 # -- content builders --
@@ -123,7 +126,7 @@ def build_classes_table(entries: list[dict]) -> str:
 def build_api_refs(entries: list[dict]) -> str:
     return ", ".join(
         f"[`{e['title']}`]({e['url']})"
-        for e in entries if "/api-reference/" in e["url"]
+        for e in entries if "/sdk/api-reference/" in e["url"]
     )
 
 

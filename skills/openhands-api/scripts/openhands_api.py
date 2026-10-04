@@ -129,6 +129,19 @@ class OpenHandsAPI:
         items = self.app_conversations_get_batch(ids=[conversation_id])
         return items[0] if items else None
 
+    def app_conversation_ui_url(self, conversation_id: str) -> str:
+        """Browser link that opens the conversation in Agent Canvas.
+
+        Share this link with users. `conversation_url` on the conversation record is
+        the sandbox's agent-server API, not a page a user can open.
+        """
+        conversation = self.app_conversation_get(conversation_id) or {}
+        # Servers that predate `conversation_ui_url` serve Agent Canvas at /canvas.
+        return (
+            conversation.get("conversation_ui_url")
+            or f"{self.base_url}/canvas/conversations/{conversation_id}"
+        )
+
     def sandboxes_search(self, *, limit: int = 20) -> dict[str, Any]:
         limit = max(1, int(limit))
         r = self._client.get(f"{self.api_v1_url}/sandboxes/search", params={"limit": limit})

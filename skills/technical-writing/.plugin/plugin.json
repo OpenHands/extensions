@@ -1,0 +1,15 @@
+{
+  "name": "technical-writing",
+  "version": "1.0.0",
+  "description": "Write and revise technical explanations in flowing, direct, conversational prose that stays concise without becoming fragmented or vague.",
+  "author": {
+    "name": "OpenHands",
+    "email": "contact@all-hands.dev"
+  },
+  "homepage": "https://github.com/OpenHands/extensions",
+  "repository": "https://github.com/OpenHands/extensions",
+  "license": "MIT",
+  "keywords": [
+    "technical-writing"
+  ]
+}

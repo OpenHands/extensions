@@ -7,18 +7,24 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def load_catalog_entries(relative_path: str):
+def load_catalog_entries(relative_path: str, pattern: str = "*.json"):
+    """Integrations are `<id>.json`; automations are `<id>/manifest.json`."""
     entries = []
-    for entry_path in sorted((ROOT / relative_path).glob("*.json")):
+    for entry_path in sorted((ROOT / relative_path).glob(pattern)):
         entry = json.loads(entry_path.read_text())
-        assert entry["id"] == entry_path.stem
+        expected_id = (
+            entry_path.parent.name
+            if entry_path.name == "manifest.json"
+            else entry_path.stem
+        )
+        assert entry["id"] == expected_id
         entries.append(entry)
     return entries
 
 
-def test_catalog_ids_are_unique_and_automations_reference_existing_integrations():
+def test_catalog_ids_are_unique_and_automations_reference_things_that_exist():
     integrations = load_catalog_entries("integrations/catalog")
-    automations = load_catalog_entries("automations/catalog")
+    automations = load_catalog_entries("automations/catalog", "*/manifest.json")
 
     integration_ids = [entry["id"] for entry in integrations]
     automation_ids = [entry["id"] for entry in automations]
@@ -28,11 +34,18 @@ def test_catalog_ids_are_unique_and_automations_reference_existing_integrations(
 
     known_integration_ids = set(integration_ids)
     for automation in automations:
-        assert automation["requiredIntegrationIds"]
-        missing_ids = (
-            set(automation["requiredIntegrationIds"]) - known_integration_ids
+        # May be empty: an automation that needs nothing connected says so with
+        # an empty object rather than by leaving the key out. What it may not do
+        # is name an integration that does not exist.
+        required = automation["requires"]["integrations"]
+        assert set(required) - known_integration_ids == set()
+
+        # The launch command is looked up from this skill rather than stored on
+        # the entry, so a broken link is a card that launches nothing.
+        skill = automation.get("skill", automation["id"])
+        assert (ROOT / "skills" / skill / "SKILL.md").is_file(), (
+            f"{automation['id']}: skill '{skill}' has no SKILL.md"
         )
-        assert missing_ids == set()
 
 
 def test_catalog_entries_have_required_fields():
@@ -63,10 +76,9 @@ def test_catalog_entries_have_required_fields():
                 else:
                     assert option["transport"]["url"].startswith("https://")
 
-    for entry in load_catalog_entries("automations/catalog"):
+    for entry in load_catalog_entries("automations/catalog", "*/manifest.json"):
         assert entry["id"]
         assert entry["name"]
-        assert entry["prompt"]
         assert entry["exampleImplementation"]
         assert isinstance(entry["popularityRank"], int)
         assert isinstance(entry["estimatedSetupMinutes"], int)
@@ -95,6 +107,21 @@ def test_remote_no_auth_mcp_entries_are_intentionally_public():
     assert actual == public_remote_mcp_ids
 
 
+def test_datadog_mcp_uses_documented_api_key_headers():
+    datadog = next(
+        entry
+        for entry in load_catalog_entries("integrations/catalog")
+        if entry["id"] == "datadog"
+    )
+    api_option = next(
+        option for option in datadog["connectionOptions"] if option["id"] == "api"
+    )
+
+    assert [
+        field["key"] for field in api_option["transport"]["headerFields"]
+    ] == ["DD-API-KEY", "DD-APPLICATION-KEY"]
+
+
 def test_credential_fields_have_helper_text_and_link():
     """All password fields must have helperText plus a link (either a helperLink field or a
     markdown link embedded in helperText) so users know how to get credentials."""
@@ -119,6 +146,49 @@ def test_credential_fields_have_helper_text_and_link():
                             f"{entry['id']}: password field '{field_key}' must have a helperLink "
                             f"or a markdown link in helperText"
                         )
+
+
+def test_posthog_catalog_prefers_oauth_with_safe_mcp_defaults():
+    posthog = next(
+        entry for entry in load_catalog_entries("integrations/catalog")
+        if entry["id"] == "posthog"
+    )
+
+    assert [option["id"] for option in posthog["connectionOptions"]] == [
+        "oauth",
+        "api-key",
+    ]
+
+    oauth = posthog["connectionOptions"][0]
+    assert oauth["provider"] == "mcp"
+    assert oauth["transport"] == {
+        "kind": "shttp",
+        "url": "https://mcp.posthog.com/mcp?readonly=true",
+        "urlEditable": True,
+    }
+    oauth_config = oauth["auth"]["oauth"]
+    assert oauth_config["authorizationUrl"] == (
+        "https://oauth.posthog.com/oauth/authorize/"
+    )
+    assert oauth_config["tokenUrl"] == "https://oauth.posthog.com/oauth/token/"
+    assert oauth_config["registrationUrl"] == (
+        "https://oauth.posthog.com/oauth/register/"
+    )
+    assert oauth_config["pkce"] is True
+    assert oauth_config["clientAuthentication"] == "none"
+    assert oauth_config["additionalAuthorizationParams"] == {
+        "resource": "https://mcp.posthog.com/mcp"
+    }
+    assert oauth_config["additionalTokenParams"] == {
+        "resource": "https://mcp.posthog.com/mcp"
+    }
+    assert "query:read" in oauth_config["scopes"]
+    assert all(not scope.endswith(":write") for scope in oauth_config["scopes"])
+
+    api_key = posthog["connectionOptions"][1]
+    assert api_key["auth"]["strategy"] == "bearer"
+    assert api_key["auth"]["credentialSecretName"] == "POSTHOG_PERSONAL_API_KEY"
+    assert api_key["auth"]["saveCredentialAsSecretByDefault"] is True
 
 
 def test_node_package_exports_catalogs():
@@ -156,3 +226,70 @@ def test_http_connectors_have_openapi_url():
                 if not url or not url.startswith("https://"):
                     offenders.append(f"{entry['id']}.{option['id']}")
     assert not offenders, f"HTTP options missing openApiUrl: {offenders}"
+
+
+def _installable_option(entry):
+    """First option a local Agent Canvas install can use — the GUI filters out
+    provider-OAuth options (isLocallyInstallableMcpOption in agent-canvas)."""
+    for option in entry["connectionOptions"]:
+        if option["auth"]["strategy"] != "oauth2":
+            return option
+    raise AssertionError(f"{entry['id']}: no locally installable connection option")
+
+
+def test_daily_workflow_entries_are_locally_installable():
+    """GitHub, Linear, and Slack back the daily-workflow release (OSS-5193):
+    each must keep a non-OAuth MCP option that local Agent Canvas can install,
+    with the connectivity details its Test-connection probe relies on."""
+    entries = {e["id"]: e for e in load_catalog_entries("integrations/catalog")}
+
+    for entry_id, option_id in (("github", "api"), ("linear", "api-key"), ("slack", "api")):
+        entry = entries[entry_id]
+        assert entry["docsUrl"].startswith("https://")
+        option = _installable_option(entry)
+        assert option["id"] == option_id
+        assert option["provider"] == "mcp"
+
+    github = _installable_option(entries["github"])
+    assert github["transport"]["kind"] == "shttp"
+    assert github["transport"]["url"] == "https://api.githubcopilot.com/mcp/"
+    assert github["auth"]["credentialSecretName"] == "GITHUB_PERSONAL_ACCESS_TOKEN"
+
+    linear = _installable_option(entries["linear"])
+    assert linear["transport"]["kind"] == "shttp"
+    assert linear["transport"]["url"] == "https://mcp.linear.app/mcp"
+
+    slack = _installable_option(entries["slack"])
+    assert slack["transport"]["kind"] == "stdio"
+    assert slack["transport"]["command"] == "npx"
+    required_env = {
+        field["key"] for field in slack["transport"]["envFields"] if field.get("required")
+    }
+    assert required_env == {"SLACK_TEAM_ID", "SLACK_BOT_TOKEN"}
+
+
+def test_daily_workflow_entries_state_scopes_and_setup_paths():
+    """The locally installable options must state the required scopes and link a
+    public setup path (OSS-5193). The OAuth options' scope lists never reach a
+    local Canvas install, so this metadata has to live on these options."""
+    entries = {e["id"]: e for e in load_catalog_entries("integrations/catalog")}
+
+    github_help = _installable_option(entries["github"])["auth"]["credentialHelp"]
+    assert re.search(r"\brepo\b", github_help)
+    assert "read:user" in github_help
+    assert re.search(r"\[.+?\]\(https://github\.com/settings[^)]*\)", github_help)
+
+    linear_help = _installable_option(entries["linear"])["auth"]["credentialHelp"]
+    assert "Bearer" in linear_help
+    assert re.search(r"\[.+?\]\(https://linear\.app/settings[^)]*\)", linear_help)
+
+    slack_hint = entries["slack"]["installHint"]
+    for scope in (
+        "channels:history",
+        "channels:read",
+        "chat:write",
+        "reactions:write",
+        "users:read",
+        "users.profile:read",
+    ):
+        assert scope in slack_hint, f"slack installHint missing bot scope {scope}"

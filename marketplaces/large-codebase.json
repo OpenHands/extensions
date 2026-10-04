@@ -14,7 +14,7 @@
       "name": "add-javadoc",
       "source": "./skills/add-javadoc",
       "description": "Add comprehensive JavaDoc documentation to Java classes and methods. Use when documenting Java code, adding API documentation, or improving code documentation.",
-      "category": "documentation",
+      "category": "code-quality",
       "keywords": [
         "javadoc",
         "java",
@@ -52,7 +52,7 @@
       "name": "spark-version-upgrade",
       "source": "./skills/spark-version-upgrade",
       "description": "Upgrade Apache Spark applications between major versions (2.x→3.x, 3.x→4.x). Covers build files, deprecated APIs, configuration changes, SQL/DataFrame updates, and test validation.",
-      "category": "development",
+      "category": "environment",
       "keywords": [
         "spark",
         "upgrade",

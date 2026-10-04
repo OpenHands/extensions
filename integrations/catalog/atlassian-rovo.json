@@ -1,0 +1,44 @@
+{
+  "id": "atlassian-rovo",
+  "name": "Atlassian Rovo",
+  "description": "Search, create, and update Jira issues, Confluence pages, Bitbucket repos, and Jira Service Management tickets - all through Atlassian's official hosted MCP server, powered by your Teamwork Graph.",
+  "categories": [
+    "Project management",
+    "Documentation",
+    "Engineering"
+  ],
+  "appUrl": "https://www.atlassian.com/rovo",
+  "docsUrl": "https://support.atlassian.com/atlassian-rovo-mcp-server/docs/getting-started-with-the-atlassian-remote-mcp-server/",
+  "notes": "OAuth 2.1 is handled entirely by the Atlassian Rovo MCP server. No client credentials required - sign in with your Atlassian account when the authentication flow starts.",
+  "iconBg": "#0052CC",
+  "logoUrl": "https://cdn.simpleicons.org/atlassian/FFFFFF",
+  "keywords": [
+    "atlassian",
+    "rovo",
+    "jira",
+    "confluence",
+    "bitbucket",
+    "jsm",
+    "tickets",
+    "wiki",
+    "issues",
+    "sprint",
+    "mcp"
+  ],
+  "connectionOptions": [
+    {
+      "id": "oauth",
+      "provider": "mcp",
+      "transport": {
+        "kind": "shttp",
+        "url": "https://mcp.atlassian.com/v1/mcp/authv2"
+      },
+      "auth": {
+        "strategy": "oauth2",
+        "oauth": {
+          "clientAuthentication": "none"
+        }
+      }
+    }
+  ]
+}

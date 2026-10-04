@@ -45,7 +45,8 @@ that don't exist.
 1. Push and ensure a draft PR exists.
 2. Poll each present verification layer.
 3. Decide: all passed? fix needed? wait?
-4. If fix needed — fix, commit, push, re-request review from bots, go to 2.
+4. If fix needed — fix, refresh any `.pr/` artifacts affected (see below),
+   commit, push, re-request review from bots, go to 2.
 5. If waiting — sleep per polling cadence, go to 2.
 6. If all present layers passed on the *current* SHA — mark PR ready, done.
 
@@ -346,12 +347,31 @@ Stop **only** when:
 - PR is green but blocked on review approval (`REVIEW_REQUIRED`); continue
   polling and surface new review comments without asking for confirmation.
 
+## Keep `.pr/` artifacts fresh
+
+By convention, a PR may carry generated artifacts (diagrams, reports, generated
+docs, fixtures) in a `.pr/` folder. These are derived from the code, so they go
+stale when you push fixes.
+
+After each fix — and before marking the PR ready — check `.pr/`:
+
+1. If there's no `.pr/` folder or it's empty, skip this entirely.
+2. For each artifact, work out how it was generated (a script, a documented
+   command, a comment in the file, or the PR/commit history).
+3. If you can figure out how — and the code it derives from changed — regenerate
+   it and commit the update, so the artifact matches the latest code.
+4. If you can't tell how it was generated, leave it alone. Don't guess.
+
+The rule is simple: if you know how an artifact was made and the code moved on,
+keep it up to date; otherwise don't touch it.
+
 ## When done — mark PR ready
 
 Once all present verification layers pass on the current SHA:
 
 1. Verify all review threads are resolved (zero unresolved remaining).
-2. Convert the draft PR to ready for review:
+2. Ensure `.pr/` artifacts are up to date with the latest code (see above).
+3. Convert the draft PR to ready for review:
 
 ```bash
 gh pr ready
