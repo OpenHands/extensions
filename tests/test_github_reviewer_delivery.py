@@ -17,9 +17,11 @@ def _reviews(
     submitted_at="2026-01-02T00:00:00Z",
     sha="head-2",
     login="all-hands-bot",
+    review_id=None,
 ):
     return [
         {
+            "id": review_id,
             "body": f"Review body\n\n{verdict}",
             "commit_id": sha,
             "submitted_at": submitted_at,
@@ -114,7 +116,9 @@ def _workflow_run(
     }
 
 
-def _event(monkeypatch, *, action="review_requested", login="all-hands-bot"):
+def _event(
+    monkeypatch, *, action="review_requested", login="all-hands-bot", review_id=None
+):
     payload = {
         "action": action,
         "repository": {"full_name": "owner/repo"},
@@ -124,6 +128,8 @@ def _event(monkeypatch, *, action="review_requested", login="all-hands-bot"):
         payload["requested_reviewer"] = {"login": login}
     else:
         payload["review"] = {"user": {"login": login}}
+        if review_id is not None:
+            payload["review"]["id"] = review_id
     monkeypatch.setenv(
         "AUTOMATION_EVENT_PAYLOAD",
         json.dumps({"automation_id": "automation", "event": {"payload": payload}}),
@@ -357,6 +363,191 @@ def test_reviewer_event_hands_positive_review_to_maintainer(tmp_path, monkeypatc
     handoff.assert_called_once_with(run, pr, ["neubig", "VascoSch92"])
     assert all(call.args[0] != "DELETE" for call in run.gh.call_args_list)
     run.dispatcher.deliver.assert_not_called()
+
+
+def test_reviewer_delayed_submitted_event_completes_prior_request(
+    tmp_path, monkeypatch
+):
+    """The review a submitted delivery reports can predate the latest
+    `review_requested` event, and it still completes that work."""
+    module, run = _reviewer(tmp_path, monkeypatch)
+    _event(monkeypatch, action="submitted", review_id=555)
+    run.config["maintainers"] = "neubig, VascoSch92"
+    pr = {"number": 2, "head": {"sha": "head-2"}, "labels": []}
+    request = {
+        "id": 42,
+        "event": "review_requested",
+        "created_at": "2026-01-03T00:00:00Z",
+        "requested_reviewer": {"login": "all-hands-bot"},
+    }
+    run.gh = Mock(side_effect=[{"id": 99}, pr, pr])
+    run.gh_pages = lambda path: (
+        [request]
+        if path.endswith("/events")
+        else _reviews(submitted_at="2026-01-01T00:00:00Z", review_id=555)
+    )
+    handoff = Mock(return_value="VascoSch92")
+    monkeypatch.setattr(module, "request_maintainer_review", handoff)
+
+    run.run()
+
+    handoff.assert_called_once_with(run, pr, ["neubig", "VascoSch92"])
+    run.dispatcher.deliver.assert_not_called()
+
+
+def test_reviewer_submitted_event_completes_without_request_event(
+    tmp_path, monkeypatch
+):
+    """A review whose request is outside the issue-event window still completes
+    through its own submitted delivery."""
+    module, run = _reviewer(tmp_path, monkeypatch)
+    _event(monkeypatch, action="submitted", review_id=555)
+    run.config["maintainers"] = "neubig"
+    pr = {"number": 2, "head": {"sha": "head-2"}, "labels": []}
+    run.gh = Mock(side_effect=[{"id": 99}, pr, pr])
+    run.gh_pages = lambda path: (
+        [] if path.endswith("/events") else _reviews(review_id=555)
+    )
+    handoff = Mock(return_value="neubig")
+    monkeypatch.setattr(module, "request_maintainer_review", handoff)
+
+    run.run()
+
+    handoff.assert_called_once_with(run, pr, ["neubig"])
+    run.dispatcher.deliver.assert_not_called()
+
+
+def test_reviewer_submitted_event_matches_only_the_reported_review(
+    tmp_path, monkeypatch
+):
+    """Another decisive review on the head is not the one the delivery reports."""
+    module, run = _reviewer(tmp_path, monkeypatch)
+    _event(monkeypatch, action="submitted", review_id=556)
+    run.config["maintainers"] = "neubig"
+    pr = {"number": 2, "head": {"sha": "head-2"}, "labels": []}
+    request = {
+        "id": 42,
+        "event": "review_requested",
+        "created_at": "2026-01-01T00:00:00Z",
+        "requested_reviewer": {"login": "all-hands-bot"},
+    }
+    run.gh = Mock(side_effect=[{"id": 99}, pr])
+    run.gh_pages = lambda path: (
+        [request] if path.endswith("/events") else _reviews(review_id=555)
+    )
+    handoff = Mock()
+    monkeypatch.setattr(module, "request_maintainer_review", handoff)
+
+    run.run()
+
+    handoff.assert_not_called()
+    run.dispatcher.deliver.assert_not_called()
+
+
+
+def test_reviewer_delayed_submitted_approval_yields_to_a_newer_verdict(
+    tmp_path, monkeypatch
+):
+    """A late delivery for an earlier approval does not hand off when this
+    account has since requested changes on the same head."""
+    module, run = _reviewer(tmp_path, monkeypatch)
+    _event(monkeypatch, action="submitted", review_id=555)
+    run.config["maintainers"] = "neubig"
+    pr = {"number": 2, "head": {"sha": "head-2"}, "labels": []}
+    request = {
+        "id": 42,
+        "event": "review_requested",
+        "created_at": "2026-01-03T00:00:00Z",
+        "requested_reviewer": {"login": "all-hands-bot"},
+    }
+    reviews = _reviews(submitted_at="2026-01-02T00:00:00Z", review_id=555) + _reviews(
+        verdict="🔄 CHANGES REQUESTED",
+        submitted_at="2026-01-04T00:00:00Z",
+        review_id=556,
+    )
+    run.gh = Mock(side_effect=[{"id": 99}, pr, pr])
+    run.gh_pages = lambda path: [request] if path.endswith("/events") else reviews
+    handoff = Mock()
+    monkeypatch.setattr(module, "request_maintainer_review", handoff)
+
+    run.run()
+
+    handoff.assert_not_called()
+    run.dispatcher.deliver.assert_not_called()
+
+
+def test_reviewer_submitted_event_ignores_a_dismissed_review(tmp_path, monkeypatch):
+    module, run = _reviewer(tmp_path, monkeypatch)
+    _event(monkeypatch, action="submitted", review_id=555)
+    run.config["maintainers"] = "neubig"
+    pr = {"number": 2, "head": {"sha": "head-2"}, "labels": []}
+    reviews = _reviews(review_id=555)
+    reviews[0]["state"] = "DISMISSED"
+    run.gh = Mock(side_effect=[{"id": 99}, pr, pr])
+    run.gh_pages = lambda path: [] if path.endswith("/events") else reviews
+    handoff = Mock()
+    monkeypatch.setattr(module, "request_maintainer_review", handoff)
+
+    run.run()
+
+    handoff.assert_not_called()
+    run.dispatcher.deliver.assert_not_called()
+
+def test_reviewer_delayed_submitted_event_without_roster_is_a_noop(
+    tmp_path, monkeypatch
+):
+    module, run = _reviewer(tmp_path, monkeypatch)
+    _event(monkeypatch, action="submitted", review_id=555)
+    pr = {"number": 2, "head": {"sha": "head-2"}, "labels": []}
+    request = {
+        "id": 42,
+        "event": "review_requested",
+        "created_at": "2026-01-03T00:00:00Z",
+        "requested_reviewer": {"login": "all-hands-bot"},
+    }
+    run.gh = Mock(side_effect=[{"id": 99}, pr, pr])
+    run.gh_pages = lambda path: (
+        [request]
+        if path.endswith("/events")
+        else _reviews(submitted_at="2026-01-01T00:00:00Z", review_id=555)
+    )
+    handoff = Mock()
+    monkeypatch.setattr(module, "request_maintainer_review", handoff)
+
+    run.run()
+
+    handoff.assert_not_called()
+    run.dispatcher.deliver.assert_not_called()
+
+
+def test_reviewer_subsequent_review_request_for_new_head_starts_new_review(
+    tmp_path, monkeypatch
+):
+    """A completed review of an earlier head does not swallow a later explicit
+    request once the head has moved."""
+    _module, run = _reviewer(tmp_path, monkeypatch)
+    _event(monkeypatch)
+    pr = {"number": 2, "head": {"sha": "head-3"}, "labels": []}
+    request = {
+        "id": 43,
+        "event": "review_requested",
+        "created_at": "2026-01-03T00:00:00Z",
+        "requested_reviewer": {"login": "all-hands-bot"},
+    }
+    run.gh = Mock(side_effect=[{"id": 99}, pr])
+    run.gh_pages = lambda path: (
+        [request]
+        if path.endswith("/events")
+        else _reviews(sha="head-2", submitted_at="2026-01-02T00:00:00Z", review_id=555)
+    )
+    run.dispatcher.deliver.return_value = {
+        "disposition": "created",
+        "conversation_id": "conversation",
+    }
+
+    run.run()
+
+    assert run.dispatcher.deliver.call_args.kwargs["delivery"] == "43:head-3"
 
 
 def test_reviewer_submitted_non_decisive_review_does_not_dispatch(
@@ -1089,6 +1280,38 @@ def test_reviewer_waits_for_a_workflow_run_that_has_not_finished(
     assert "`Tests`" in body
 
 
+
+def test_reviewer_waits_on_a_fork_workflow_run_awaiting_approval(
+    tmp_path, monkeypatch
+):
+    """On a fork head, GitHub parks the workflow run itself at action_required
+    and creates no check runs until a maintainer approves it."""
+    _module, run = _reviewer(tmp_path, monkeypatch)
+    pr = _labeled_pr()
+    run.gh_pages = _gate_pages(pr, [])
+    run.gh = Mock(side_effect=[{"id": 99}, pr, {"id": 1234}])
+    run.workflow_runs = lambda sha: [
+        _workflow_run(
+            "Tests",
+            "completed",
+            "action_required",
+            run_id=4,
+            suite_id=4004,
+            workflow_id=236324519,
+            sha=sha,
+        )
+    ]
+
+    run.run()
+
+    run.dispatcher.deliver.assert_not_called()
+    posted = [call for call in _gate_comment_calls(run) if call.args[0] == "POST"]
+    assert len(posted) == 1
+    body = posted[0].args[2]["body"]
+    assert "<!-- openhands-review-gate:waiting:head-2 -->" in body
+    assert "`Tests (awaiting maintainer approval)`" in body
+    assert "A maintainer needs to approve the workflow runs" in body
+
 def test_reviewer_ignores_workflow_runs_from_an_obsolete_head(
     tmp_path, monkeypatch
 ):
@@ -1373,7 +1596,9 @@ def test_reviewer_fails_closed_on_an_unknown_conclusion(tmp_path, monkeypatch):
     pr = _labeled_pr()
     run.gh_pages = _gate_pages(pr, [])
     run.gh = Mock(side_effect=[{"id": 99}, pr, {"id": 1234}])
-    run.check_runs = lambda sha: _checks(("mystery", "completed", "action_required"), sha=sha)
+    run.check_runs = lambda sha: _checks(
+        ("mystery", "completed", "some_new_conclusion"), sha=sha
+    )
 
     run.run()
 
@@ -1385,6 +1610,35 @@ def test_reviewer_fails_closed_on_an_unknown_conclusion(tmp_path, monkeypatch):
     ][0]
     assert "<!-- openhands-review-gate:blocked:head-2 -->" in body
 
+
+
+def test_reviewer_waits_on_a_run_awaiting_maintainer_approval(tmp_path, monkeypatch):
+    """A fork head parked at action_required is waiting on a maintainer.
+
+    GitHub sets this conclusion on a fork head's workflow runs until a
+    maintainer approves them. That is not a failure, and the explanation must
+    ask for the approval rather than say no action is needed.
+    """
+    _module, run = _reviewer(tmp_path, monkeypatch)
+    pr = _labeled_pr()
+    run.gh_pages = _gate_pages(pr, [])
+    run.gh = Mock(side_effect=[{"id": 99}, pr, {"id": 1234}])
+    run.check_runs = lambda sha: _checks(
+        ("tests", "completed", "action_required"), sha=sha
+    )
+
+    run.run()
+
+    run.dispatcher.deliver.assert_not_called()
+    body = [
+        call.args[2]["body"]
+        for call in _gate_comment_calls(run)
+        if call.args[0] == "POST"
+    ][0]
+    assert "<!-- openhands-review-gate:waiting:head-2 -->" in body
+    assert "`tests (awaiting maintainer approval)`" in body
+    assert "A maintainer needs to approve the workflow runs" in body
+    assert "No action is needed" not in body
 
 def test_reviewer_does_not_duplicate_the_gate_comment_for_the_same_head(
     tmp_path, monkeypatch
@@ -2799,3 +3053,26 @@ def test_scan_reads_every_pull_request_but_starts_only_the_quota(
     ]
     assert len(full_reads) == 40
     assert _examined(one) == [1, 2, 3, 4, 5]
+
+
+def test_a_retried_conversation_uses_a_launch_slot(tmp_path, monkeypatch):
+    """Retrying errored reviews must not bypass the per-scan launch bound."""
+    module = worker("github-pr-reviewer", tmp_path, monkeypatch)
+    intake = module.ReviewIntake()
+    started = []
+    for number in (1, 2, 3):
+        intake.register(
+            {
+                "priority": 1,
+                "created_at": f"2026-01-0{number}T00:00:00Z",
+                "repository": "owner/repo",
+                "number": number,
+                "config": {"max_new_per_run": 1},
+                "start": lambda number=number: started.append(number)
+                or {"disposition": "retried", "conversation_id": str(number)},
+            }
+        )
+
+    intake.drain()
+
+    assert started == [1]

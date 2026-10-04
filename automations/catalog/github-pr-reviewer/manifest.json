@@ -1,6 +1,6 @@
 {
   "id": "github-pr-reviewer",
-  "version": "1.10.0",
+  "version": "1.9.2",
   "name": "GitHub code review",
   "category": "Code review",
   "description": "Review requested pull-request heads, resume an outstanding reviewer request on a schedule once its checks are green, classify all open non-draft pull requests that nobody requested and review eligible green heads, drain the backlog oldest-first under a small per-scan new-conversation bound, record exact-head decisions, stop early on out-of-scope changes, and optionally request a code-aware human maintainer after approval or a maintainer-decision scope stop.",
@@ -135,7 +135,7 @@
       }
     },
     "bundle": {
-      "version": "1.10.0",
+      "version": "1.9.2",
       "entrypoint": "python3 worker.py",
       "timeout": 300,
       "files": {
