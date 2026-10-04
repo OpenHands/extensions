@@ -42,3 +42,5 @@ Here are some instructions for pushing, but ONLY do this if the user asks you to
 git remote -v && git branch # to find the current org, repo and branch
 git checkout -b create-widget && git add . && git commit -m "Create widget" && git push -u origin create-widget
 ```
+
+When asked to merge a pull request, the skill uses GitHub's async merge API (`PUT /repos/{owner}/{repo}/pulls/{pull_number}/merge-async`, then poll the returned UUID). It supports stacked PRs and merge queues. Docs: https://docs.github.com/en/rest/pulls/pulls#merge-a-pull-request-asynchronously
