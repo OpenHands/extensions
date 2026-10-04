@@ -43,7 +43,10 @@ git checkout -b create-widget && git add . && git commit -m "Create widget" && g
 
 ## Merging Pull Requests (async merge API)
 
-Only merge if the user asks you to. GitHub released an async merge API in October 2026; it is now the
+IMPORTANT:
+Only merge if the user asks you to, without ambiguity.
+
+GitHub released an async merge API in October 2026; it is now the
 recommended way to merge PRs programmatically, and the only API that supports stacked PRs and merge queues.
 Prefer it over `PUT .../pulls/{n}/merge` and the GraphQL `mergePullRequest` mutation.
 A GitHub MCP merge tool may still use the older synchronous endpoint; for stacked PRs or merge queues, use the calls below.
