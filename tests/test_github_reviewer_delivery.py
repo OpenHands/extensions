@@ -1372,7 +1372,9 @@ def test_reviewer_fails_closed_on_an_unknown_conclusion(tmp_path, monkeypatch):
     pr = _labeled_pr()
     run.gh_pages = _gate_pages(pr, [])
     run.gh = Mock(side_effect=[{"id": 99}, pr, {"id": 1234}])
-    run.check_runs = lambda sha: _checks(("mystery", "completed", "action_required"), sha=sha)
+    run.check_runs = lambda sha: _checks(
+        ("mystery", "completed", "some_new_conclusion"), sha=sha
+    )
 
     run.run()
 
@@ -1384,6 +1386,35 @@ def test_reviewer_fails_closed_on_an_unknown_conclusion(tmp_path, monkeypatch):
     ][0]
     assert "<!-- openhands-review-gate:blocked:head-2 -->" in body
 
+
+
+def test_reviewer_waits_on_a_run_awaiting_maintainer_approval(tmp_path, monkeypatch):
+    """A fork head parked at action_required is waiting on a maintainer.
+
+    GitHub sets this conclusion on a fork head's workflow runs until a
+    maintainer approves them. That is not a failure, and the explanation must
+    ask for the approval rather than say no action is needed.
+    """
+    _module, run = _reviewer(tmp_path, monkeypatch)
+    pr = _labeled_pr()
+    run.gh_pages = _gate_pages(pr, [])
+    run.gh = Mock(side_effect=[{"id": 99}, pr, {"id": 1234}])
+    run.check_runs = lambda sha: _checks(
+        ("tests", "completed", "action_required"), sha=sha
+    )
+
+    run.run()
+
+    run.dispatcher.deliver.assert_not_called()
+    body = [
+        call.args[2]["body"]
+        for call in _gate_comment_calls(run)
+        if call.args[0] == "POST"
+    ][0]
+    assert "<!-- openhands-review-gate:waiting:head-2 -->" in body
+    assert "`tests (awaiting maintainer approval)`" in body
+    assert "A maintainer needs to approve the workflow runs" in body
+    assert "No action is needed" not in body
 
 def test_reviewer_does_not_duplicate_the_gate_comment_for_the_same_head(
     tmp_path, monkeypatch

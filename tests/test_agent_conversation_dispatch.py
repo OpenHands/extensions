@@ -263,6 +263,91 @@ def test_new_delivery_on_a_running_new_head_still_sends_a_turn(monkeypatch):
     }
 
 
+def _errored_local_conversation(monkeypatch):
+    monkeypatch.setattr(agent_conversation, "_register_tools", lambda: None)
+    workspace = MagicMock()
+    workspace.__enter__.return_value = workspace
+    workspace.get_secrets.return_value = {}
+    monkeypatch.setattr(
+        agent_conversation, "RemoteWorkspace", lambda **kwargs: workspace
+    )
+    conversation = MagicMock()
+    conversation.state.execution_status = ConversationExecutionStatus.ERROR
+    monkeypatch.setattr(
+        agent_conversation.RemoteConversation,
+        "attach",
+        MagicMock(return_value=conversation),
+    )
+    return conversation
+
+
+def test_errored_conversation_retries_its_delivery(monkeypatch):
+    """A matched delivery whose conversation died is retried, not deduplicated.
+
+    The delivery string never changes for a stable subject, so treating ERROR as
+    "deduplicated" would strand that subject forever with its work unfinished.
+    """
+    state = {
+        _state_key("repo:pr:9"): {
+            "subject": "repo:pr:9",
+            "conversation_id": "22222222-2222-4222-8222-222222222222",
+            "delivery": "head-1",
+        }
+    }
+    _fake_kv(monkeypatch, state)
+    conversation = _errored_local_conversation(monkeypatch)
+
+    with _dispatcher(monkeypatch) as dispatcher:
+        result = dispatcher.deliver("repo:pr:9", "head-1", "old")
+
+    assert result["disposition"] == "retried"
+    conversation.update_secrets.assert_called_once_with(dispatcher._secrets)
+    conversation.send_message.assert_called_once_with("old")
+    conversation.run.assert_called_once_with(blocking=False)
+    assert state[_state_key("repo:pr:9")]["error_retries"] == 1
+
+
+def test_errored_conversation_stops_retrying_after_the_bound(monkeypatch):
+    """A conversation that keeps failing is not re-run on every scan."""
+    state = {
+        _state_key("repo:pr:9"): {
+            "subject": "repo:pr:9",
+            "conversation_id": "22222222-2222-4222-8222-222222222222",
+            "delivery": "head-1",
+            "error_retries": agent_conversation._MAX_ERROR_RETRIES,
+        }
+    }
+    _fake_kv(monkeypatch, state)
+    conversation = _errored_local_conversation(monkeypatch)
+
+    with _dispatcher(monkeypatch) as dispatcher:
+        result = dispatcher.deliver("repo:pr:9", "head-1", "old")
+
+    assert result["disposition"] == "deduplicated"
+    conversation.send_message.assert_not_called()
+    conversation.run.assert_not_called()
+
+
+def test_new_delivery_resets_the_error_retry_count(monkeypatch):
+    state = {
+        _state_key("repo:pr:9"): {
+            "subject": "repo:pr:9",
+            "conversation_id": "22222222-2222-4222-8222-222222222222",
+            "delivery": "head-1",
+            "error_retries": agent_conversation._MAX_ERROR_RETRIES,
+        }
+    }
+    _fake_kv(monkeypatch, state)
+    conversation = _errored_local_conversation(monkeypatch)
+
+    with _dispatcher(monkeypatch) as dispatcher:
+        result = dispatcher.deliver("repo:pr:9", "head-2", "new")
+
+    assert result["disposition"] == "resumed"
+    conversation.send_message.assert_called_once_with("new")
+    assert "error_retries" not in state[_state_key("repo:pr:9")]
+
+
 def test_subjects_use_independent_kv_records(monkeypatch):
     state = {}
     _fake_kv(monkeypatch, state)
@@ -421,3 +506,48 @@ def test_cloud_run_replaces_a_conversation_whose_sandbox_is_gone(monkeypatch):
     [started] = cloud.started
     assert started["id"] != gone
     assert state[_state_key("repo:pr:7")]["conversation_id"] == started["id"]
+
+
+def test_cloud_run_retries_a_delivery_whose_conversation_errored(monkeypatch):
+    # Arrange
+    state = {
+        _state_key("repo:pr:7"): {
+            "conversation_id": "22222222-2222-4222-8222-222222222222",
+            "delivery": "revision-1",
+            "head": "sha-1",
+        }
+    }
+    _fake_kv(monkeypatch, state)
+    cloud = _FakeCloud({"sandbox_status": "RUNNING", "execution_status": "error"})
+
+    # Act
+    with _cloud_dispatcher(monkeypatch, cloud) as dispatcher:
+        result = dispatcher.deliver("repo:pr:7", "revision-1", "review it", head="sha-1")
+
+    # Assert
+    assert result["disposition"] == "retried"
+    assert cloud.sent == ["review it"]
+    assert cloud.started == []
+    assert state[_state_key("repo:pr:7")]["error_retries"] == 1
+
+
+def test_cloud_run_stops_retrying_an_errored_delivery_after_the_bound(monkeypatch):
+    # Arrange
+    state = {
+        _state_key("repo:pr:7"): {
+            "conversation_id": "22222222-2222-4222-8222-222222222222",
+            "delivery": "revision-1",
+            "head": "sha-1",
+            "error_retries": agent_conversation._MAX_ERROR_RETRIES,
+        }
+    }
+    _fake_kv(monkeypatch, state)
+    cloud = _FakeCloud({"sandbox_status": "RUNNING", "execution_status": "error"})
+
+    # Act
+    with _cloud_dispatcher(monkeypatch, cloud) as dispatcher:
+        result = dispatcher.deliver("repo:pr:7", "revision-1", "review it", head="sha-1")
+
+    # Assert
+    assert result["disposition"] == "deduplicated"
+    assert cloud.sent == []
