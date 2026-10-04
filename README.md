@@ -1,7 +1,7 @@
 # OpenHands Extensions
 
 This repository is the **public extensions registry** for [OpenHands](https://github.com/OpenHands/OpenHands).
-It contains reusable, shareable skills and plugins that customize agent behavior.
+It contains reusable, shareable skills, plugins, and Agent Canvas Apps that customize agent behavior and interfaces.
 
 - Skills overview docs: https://docs.openhands.dev/overview/skills
 - SDK skill guide: https://docs.openhands.dev/sdk/guides/skill
@@ -35,6 +35,10 @@ They live under `plugins/`, **one directory per plugin**:
 - `plugins/<plugin-name>/scripts/` — utility scripts
 
 Browse available plugins in [`plugins/`](plugins/).
+
+### Apps
+
+Apps are installable interfaces that bring dashboards, internal tools, and workflows directly into Agent Canvas without requiring a fork. They are powered by the beta Canvas Extensions API. Browse [`apps/`](apps/) and read its package conventions before contributing. Enabling an App executes trusted JavaScript in the Agent Canvas browser context and permits authenticated requests to the active Agent Server, so review its source and resolved revision first. Apps are distinct from skills and plugins: they provide Canvas interfaces rather than agent instructions or capabilities.
 
 ### NPM Package
 
@@ -96,7 +100,7 @@ The JS and Python versions are kept in lock-step by `release-please` and guarded
 ## Extensions Catalog
 
 <!-- BEGIN AUTO-GENERATED CATALOG -->
-This repository contains **2 marketplace(s)** with **74 extensions** (64 skills, 10 plugins).
+This repository contains **2 marketplace(s)** with **77 extensions** (66 skills, 11 plugins).
 
 ### large-codebase
 
@@ -115,7 +119,7 @@ OpenHands skills for interacting, improving, and refactoring large codebases
 
 Official skills and plugins for OpenHands — the open-source AI software engineer.
 
-**70 extensions** (62 skills, 8 plugins)
+**73 extensions** (64 skills, 9 plugins)
 
 | Name | Type | Description | Commands |
 |------|------|-------------|----------|
@@ -176,7 +180,9 @@ Official skills and plugins for OpenHands — the open-source AI software engine
 | qa-changes | plugin | Validate pull request changes by actually running the code — setting up the environment, exercising changed behavior,... | — |
 | release-notes | plugin | Generate consistent, well-structured release notes from git history. Produces categorized changelog with breaking cha... | `/release-notes` |
 | research-brief | skill | Create a recurring automation that researches a topic using Tavily web search and publishes a structured brief to Not... | `/research-brief:setup` |
+| runtime-api-configs | plugin | Manage warm sandbox pools on OpenHands Enterprise from a Python CLI: list, template, save, and delete warm runtime co... | — |
 | security | skill | Security best practices for secure coding, authentication, authorization, and data protection. Use when developing fe... | — |
+| simplified-technical-english | skill | Write explanations and chat in the style of ASD-STE100 Simplified Technical English: short active sentences, one idea... | — |
 | skill-creator | skill | Guide for creating effective skills. This skill should be used when users want to create a new skill (or update an ex... | — |
 | slack-channel-monitor | skill | Create a cron automation that polls up to 10 Slack channels every minute and starts an OpenHands conversation when a ... | `/slack-monitor:poll` |
 | slack-standup-digest | skill | Create an automation that generates an async standup digest from Slack. Searches selected channels for messages since... | `/standup-digest:setup` |
@@ -186,6 +192,7 @@ Official skills and plugins for OpenHands — the open-source AI software engine
 | theme-factory | skill | Toolkit for styling artifacts with a theme. These artifacts can be slides, docs, reportings, HTML landing pages, etc.... | — |
 | ticket-to-code-change | skill | Set up Jira or Linear ticket-to-code-change automations for GitHub, GitLab, and Bitbucket. | `/ticket-to-code-change:setup` |
 | upstream-fork-sync | skill | Keep a long-lived fork in sync with its upstream. Creates a cron automation that fetches upstream changes, rebases lo... | `/upstream-fork-sync:setup` |
+| use-jev | skill | Use Jev, a general classifier, for typed choices, scores, and yes/no probabilities in software. | — |
 | uv | skill | Common project, dependency, and environment operations using uv. | — |
 | vercel | skill | Deploy and manage applications on Vercel, including preview deployments and deployment protection. | — |
 | vulnerability-remediation | plugin | Automated security vulnerability scanning and AI-powered remediation. Scans repositories, skips when no issues found,... | — |

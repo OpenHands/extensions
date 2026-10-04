@@ -121,7 +121,7 @@
                 "maintainers": "",
                 "trigger_reviewer": "all-hands-bot",
                 "max_new_per_run": 2,
-                  "max_in_flight": 4
+                "max_in_flight": 4
               }
             }
           }
@@ -271,7 +271,7 @@
                 "maintainers": "",
                 "trigger_reviewer": "all-hands-bot",
                 "max_new_per_run": 2,
-                  "max_in_flight": 4
+                "max_in_flight": 4
               }
             }
           }
@@ -465,7 +465,7 @@
                 "maintainers": "",
                 "trigger_reviewer": "all-hands-bot",
                 "max_new_per_run": 2,
-                  "max_in_flight": 4
+                "max_in_flight": 4
               }
             }
           }
@@ -563,7 +563,7 @@
                 "maintainers": "",
                 "trigger_reviewer": "all-hands-bot",
                 "max_new_per_run": 2,
-                  "max_in_flight": 4
+                "max_in_flight": 4
               }
             },
             "repos": [

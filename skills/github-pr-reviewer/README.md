@@ -24,6 +24,8 @@ This skill is activated by:
   red or pending; the CI gate applies to scheduled discovery
 - Ignores checks and workflow runs recorded for an obsolete head, so a stale
   failure cannot block the push that fixed it
+- Explicit reviewer requests include draft PRs in both event mode and scheduled
+  scans; drafts without a request or trigger label remain excluded
 - Resumes an outstanding reviewer request on the next scheduled scan once the
   requested head's checks are green, so a request that arrives during CI is not
   lost; the explicit-request event path is kept for event-only deployments
@@ -31,10 +33,9 @@ This skill is activated by:
   their current head is green and carries no review yet, keyed by
   repository/PR/head so a repeat scan never duplicates a conversation or review
   and a changed head becomes eligible again
-- Examines a bounded, rotating window of that unrequested backlog per scan
-  (10 PRs per repository), remembering its position in the Automation KV store so
-  the next scan resumes past it; explicit requests and trigger labels are always
-  examined, never skipped behind the window
+- Examines the whole unrequested backlog on each scheduled scan, while the
+  global `max_new_per_run` quota limits only newly created review conversations;
+  blocked or pending heads consume no launch slot
 - Posts no managed gate comment for an unrequested PR that is merely red or
   pending - the comment answers an explicit request, so a scan over a large
   backlog cannot storm the PRs with comments
@@ -67,6 +68,11 @@ This skill is activated by:
   checkout when the review ends, so nothing accumulates between runs
 - Publishes a real pull request review, with inline comments where a finding
   maps to a changed line, and verifies on GitHub that it landed
+- Requires live evidence from the real app before approving a user-visible UI
+  change when the repository's guidance demands it: unit tests, CSS-token
+  assertions, generated mockups, and reconstructed captures cannot substitute.
+  Missing evidence yields a COMMENT review that names the gap, so no approval
+  and no maintainer handoff
 - Posts acknowledgement comments with AI disclosure
 - Configurable review tone and polling schedule
 - Optional human handoff after an exact-head approval. The scanner ranks the

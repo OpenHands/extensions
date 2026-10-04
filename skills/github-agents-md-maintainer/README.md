@@ -24,6 +24,13 @@ This skill is activated by:
 - Opens draft pull requests by default, titled `docs: update AGENTS.md` or
   `docs: add AGENTS.md`
 
+On OpenHands Cloud and Enterprise the conversation is started through the
+OpenHands API in a sandbox of its own, with the user's own settings. The agent
+clones the repository itself, and a conversation that ends without a pull
+request is recorded as unfinished: the script has no clone to open one from. A
+user with no `GITHUB_PERSONAL_ACCESS_TOKEN` secret is served the token of their
+connected GitHub integration instead.
+
 ## What the agent is asked to do
 
 Read the repository - layout, the build, test, lint and format commands as they
