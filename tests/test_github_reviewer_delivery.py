@@ -443,6 +443,55 @@ def test_reviewer_submitted_event_matches_only_the_reported_review(
     run.dispatcher.deliver.assert_not_called()
 
 
+
+def test_reviewer_delayed_submitted_approval_yields_to_a_newer_verdict(
+    tmp_path, monkeypatch
+):
+    """A late delivery for an earlier approval does not hand off when this
+    account has since requested changes on the same head."""
+    module, run = _reviewer(tmp_path, monkeypatch)
+    _event(monkeypatch, action="submitted", review_id=555)
+    run.config["maintainers"] = "neubig"
+    pr = {"number": 2, "head": {"sha": "head-2"}, "labels": []}
+    request = {
+        "id": 42,
+        "event": "review_requested",
+        "created_at": "2026-01-03T00:00:00Z",
+        "requested_reviewer": {"login": "all-hands-bot"},
+    }
+    reviews = _reviews(submitted_at="2026-01-02T00:00:00Z", review_id=555) + _reviews(
+        verdict="🔄 CHANGES REQUESTED",
+        submitted_at="2026-01-04T00:00:00Z",
+        review_id=556,
+    )
+    run.gh = Mock(side_effect=[{"id": 99}, pr, pr])
+    run.gh_pages = lambda path: [request] if path.endswith("/events") else reviews
+    handoff = Mock()
+    monkeypatch.setattr(module, "request_maintainer_review", handoff)
+
+    run.run()
+
+    handoff.assert_not_called()
+    run.dispatcher.deliver.assert_not_called()
+
+
+def test_reviewer_submitted_event_ignores_a_dismissed_review(tmp_path, monkeypatch):
+    module, run = _reviewer(tmp_path, monkeypatch)
+    _event(monkeypatch, action="submitted", review_id=555)
+    run.config["maintainers"] = "neubig"
+    pr = {"number": 2, "head": {"sha": "head-2"}, "labels": []}
+    reviews = _reviews(review_id=555)
+    reviews[0]["state"] = "DISMISSED"
+    run.gh = Mock(side_effect=[{"id": 99}, pr, pr])
+    run.gh_pages = lambda path: [] if path.endswith("/events") else reviews
+    handoff = Mock()
+    monkeypatch.setattr(module, "request_maintainer_review", handoff)
+
+    run.run()
+
+    handoff.assert_not_called()
+    run.dispatcher.deliver.assert_not_called()
+
 def test_reviewer_delayed_submitted_event_without_roster_is_a_noop(
     tmp_path, monkeypatch
 ):

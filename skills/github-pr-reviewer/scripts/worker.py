@@ -283,19 +283,6 @@ class PullRequestReviewer(GitHubRepository):
             f"second result.{self_review_note}"
         )
 
-    @staticmethod
-    def _review_completes_request(review, triggered_at, submitted_review):
-        """Whether `review` closes the work the current run is keyed on.
-
-        A `pull_request_review.submitted` delivery names the review it reports,
-        and that review can predate the latest `review_requested` event, so the
-        reported review is matched by id regardless of timing. Every other run
-        keeps the trigger-time window.
-        """
-        if submitted_review and submitted_review.get("id") is not None:
-            return review.get("id") == submitted_review["id"]
-        return (review.get("submitted_at") or "") > triggered_at
-
     def _finish_completed_review(self, pr, trigger, label=None, submitted_review=None):
         """Complete an exact-head review, including an optional human handoff.
 
@@ -305,8 +292,10 @@ class PullRequestReviewer(GitHubRepository):
         head is the completion of that work. That is what lets an unrequested
         review the scan started be reconciled and handed off on a later scan
         instead of being restarted. `submitted_review` is the review a
-        `submitted` delivery reports; when present, only that review completes
-        the work.
+        `submitted` delivery reports. It can predate the latest
+        `review_requested` event, so it is found by id rather than by the
+        trigger window; this account's later reviews of the head still count, so
+        a newer verdict supersedes it. A dismissed review completes nothing.
         """
         head_sha = pr["head"]["sha"]
         if trigger is not None:
@@ -314,14 +303,35 @@ class PullRequestReviewer(GitHubRepository):
         else:
             triggered_at = ""
         reviews = self.gh_pages(f"/pulls/{pr['number']}/reviews")
-        completed = [
+        mine = [
             review
             for review in reviews
             if review.get("commit_id") == head_sha
             and ((review.get("user") or {}).get("login") or "").lower()
             == self.github_login.lower()
-            and self._review_completes_request(review, triggered_at, submitted_review)
+            and (review.get("state") or "").upper() != "DISMISSED"
         ]
+        if submitted_review and submitted_review.get("id") is not None:
+            reported = next(
+                (review for review in mine if review.get("id") == submitted_review["id"]),
+                None,
+            )
+            reported_at = (reported or {}).get("submitted_at") or ""
+            completed = (
+                []
+                if reported is None
+                else [
+                    review
+                    for review in mine
+                    if (review.get("submitted_at") or "") >= reported_at
+                ]
+            )
+        else:
+            completed = [
+                review
+                for review in mine
+                if (review.get("submitted_at") or "") > triggered_at
+            ]
         if not completed:
             return False
         approved = None
