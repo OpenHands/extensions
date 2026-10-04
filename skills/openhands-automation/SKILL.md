@@ -328,7 +328,12 @@ CHANNEL = "C12345678"
 def get_secret(name):
     url = os.environ.get("AGENT_SERVER_URL", "").rstrip("/")
     key = os.environ.get("SESSION_API_KEY") or os.environ.get("OH_SESSION_API_KEYS_0", "")
-    req = urllib.request.Request(f"{url}/api/settings/secrets/{name}",
+    if url:  # local Agent Canvas
+        url = f"{url}/api/settings/secrets/{name}"
+    else:  # OpenHands Cloud / Enterprise
+        api = os.environ["OPENHANDS_CLOUD_API_URL"].rstrip("/")
+        url = f"{api}/api/v1/sandboxes/{os.environ['SANDBOX_ID']}/settings/secrets/{name}"
+    req = urllib.request.Request(url,
         headers={"X-Session-API-Key": key})
     with urllib.request.urlopen(req) as r:
         return r.read().decode().strip()
