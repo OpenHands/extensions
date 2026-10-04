@@ -9,7 +9,7 @@ from openhands.sdk.conversation.state import ConversationExecutionStatus
 from openhands.sdk.secret import LookupSecret
 
 
-def _dispatcher(monkeypatch):
+def _dispatcher(monkeypatch, **options):
     monkeypatch.setenv("AGENT_SERVER_URL", "http://agent")
     monkeypatch.setenv("SESSION_API_KEY", "session")
     monkeypatch.setenv(
@@ -18,7 +18,7 @@ def _dispatcher(monkeypatch):
     monkeypatch.setenv(
         "AUTOMATION_EVENT_PAYLOAD", json.dumps({"automation_id": "automation-1"})
     )
-    return agent_conversation.AgentConversationDispatcher()
+    return agent_conversation.AgentConversationDispatcher(**options)
 
 
 def _state_key(subject):
@@ -380,6 +380,83 @@ def test_new_delivery_resets_the_error_retry_count(monkeypatch):
 
     assert result["disposition"] == "resumed"
     conversation.send_message.assert_called_once_with("new")
+    assert "error_retries" not in state[_state_key("repo:pr:9")]
+
+
+def test_an_errored_conversation_is_not_retried_past_the_in_flight_cap(monkeypatch):
+    """A retry runs the conversation again, so it waits for a slot like a start.
+
+    Deferring leaves the delivery record as it was: the retry is neither lost
+    nor counted against its bound, and a later scan retries it once a slot frees.
+    """
+    record = {
+        "subject": "repo:pr:9",
+        "conversation_id": "22222222-2222-4222-8222-222222222222",
+        "delivery": "head-1",
+        "error_retries": 1,
+    }
+    live = {
+        "conv-1": {"subject": "repo:pr:1", "started_at": agent_conversation.time.time()}
+    }
+    state = {
+        _state_key("repo:pr:9"): dict(record),
+        agent_conversation._IN_FLIGHT_KEY: dict(live),
+    }
+    _fake_kv(monkeypatch, state)
+    conversation = _errored_local_conversation(monkeypatch)
+
+    with _dispatcher(monkeypatch, track_in_flight=True, max_in_flight=1) as dispatcher:
+        dispatcher._execution_status = lambda cid: (
+            "running" if cid == "conv-1" else "error"
+        )
+        result = dispatcher.deliver("repo:pr:9", "head-1", "old")
+
+    assert result["disposition"] == "deferred"
+    conversation.send_message.assert_not_called()
+    conversation.run.assert_not_called()
+    assert state[_state_key("repo:pr:9")] == record
+    assert state[agent_conversation._IN_FLIGHT_KEY] == live
+
+
+def test_an_errored_conversation_retried_under_the_cap_holds_a_slot(monkeypatch):
+    state = {
+        _state_key("repo:pr:9"): {
+            "subject": "repo:pr:9",
+            "conversation_id": "22222222-2222-4222-8222-222222222222",
+            "delivery": "head-1",
+        }
+    }
+    _fake_kv(monkeypatch, state)
+    _errored_local_conversation(monkeypatch)
+
+    with _dispatcher(monkeypatch, track_in_flight=True, max_in_flight=1) as dispatcher:
+        result = dispatcher.deliver("repo:pr:9", "head-1", "old")
+
+    assert result["disposition"] == "retried"
+    assert list(state[agent_conversation._IN_FLIGHT_KEY]) == [
+        result["conversation_id"]
+    ]
+    assert state[_state_key("repo:pr:9")]["error_retries"] == 1
+
+
+def test_a_retry_that_fails_to_start_releases_its_slot(monkeypatch):
+    state = {
+        _state_key("repo:pr:9"): {
+            "subject": "repo:pr:9",
+            "conversation_id": "22222222-2222-4222-8222-222222222222",
+            "delivery": "head-1",
+        }
+    }
+    _fake_kv(monkeypatch, state)
+    conversation = _errored_local_conversation(monkeypatch)
+    conversation.send_message.side_effect = RuntimeError("boom")
+
+    with _dispatcher(monkeypatch, track_in_flight=True, max_in_flight=1) as dispatcher:
+        with pytest.raises(RuntimeError, match="boom"):
+            dispatcher.deliver("repo:pr:9", "head-1", "old")
+
+    # The slot is free again, and the failed attempt was not recorded.
+    assert state[agent_conversation._IN_FLIGHT_KEY] == {}
     assert "error_retries" not in state[_state_key("repo:pr:9")]
 
 
@@ -1165,6 +1242,65 @@ def test_a_failed_cloud_start_releases_the_reserved_slot(monkeypatch):
     # Assert - the slot is free again and no delivery was recorded
     assert state[agent_conversation._IN_FLIGHT_KEY] == {}
     assert _state_key("repo:pr:7") not in state
+
+
+def test_cloud_run_does_not_retry_an_errored_delivery_past_the_cap(monkeypatch):
+    # Arrange - the subject's conversation errored while its sandbox still
+    # runs, and another conversation holds the only slot
+    current = "22222222-2222-4222-8222-222222222222"
+    record = {
+        "conversation_id": current,
+        "delivery": "revision-1",
+        "head": "sha-1",
+        "error_retries": 1,
+    }
+    state = {
+        _state_key("repo:pr:7"): dict(record),
+        agent_conversation._IN_FLIGHT_KEY: _reserved("conv-1"),
+    }
+    _fake_kv(monkeypatch, state)
+    errored = {"sandbox_status": "RUNNING", "execution_status": "error"}
+    cloud = _FakeCloudFleet({"conv-1": _RUNNING, current: errored})
+
+    # Act
+    with _capped_cloud_dispatcher(monkeypatch, cloud, 1) as dispatcher:
+        result = dispatcher.deliver(
+            "repo:pr:7", "revision-1", "review it", head="sha-1"
+        )
+
+    # Assert - nothing is sent, and the retry is not counted against its bound
+    assert result == {"disposition": "deferred", "conversation_id": current}
+    assert cloud.sent == []
+    assert state[_state_key("repo:pr:7")] == record
+
+
+def test_a_failed_cloud_retry_releases_its_slot(monkeypatch):
+    # Arrange
+    current = "22222222-2222-4222-8222-222222222222"
+    state = {
+        _state_key("repo:pr:7"): {
+            "conversation_id": current,
+            "delivery": "revision-1",
+            "head": "sha-1",
+        }
+    }
+    _fake_kv(monkeypatch, state)
+    errored = {"sandbox_status": "RUNNING", "execution_status": "error"}
+    cloud = _FakeCloudFleet({current: errored})
+
+    def refuse(conversation, prompt):
+        raise RuntimeError("boom")
+
+    cloud.send = refuse
+
+    # Act
+    with _capped_cloud_dispatcher(monkeypatch, cloud, 1) as dispatcher:
+        with pytest.raises(RuntimeError, match="boom"):
+            dispatcher.deliver("repo:pr:7", "revision-1", "review it", head="sha-1")
+
+    # Assert - the slot is free again, and the failed attempt was not recorded
+    assert state[agent_conversation._IN_FLIGHT_KEY] == {}
+    assert "error_retries" not in state[_state_key("repo:pr:7")]
 
 
 def test_a_burst_of_cloud_deliveries_starts_exactly_the_cap(monkeypatch):

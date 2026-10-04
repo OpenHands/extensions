@@ -329,7 +329,8 @@ class AgentConversationDispatcher:
         if disposition == "deferred":
             # The deployment is at its in-flight cap: nothing was started and no
             # delivery record is written, so the caller's request is left
-            # unconsumed for a later scan to retry.
+            # unconsumed for a later scan to retry, and a deferred error retry
+            # does not spend one of its bounded attempts.
             return {
                 "disposition": disposition,
                 "conversation_id": str(conversation_id),
@@ -381,10 +382,10 @@ class AgentConversationDispatcher:
         KV record carries whichever is current.
 
         Every branch that starts work - a new conversation, a turn run on an
-        idle one, or a revision sent to one whose sandbox may be paused - first
-        reserves an in-flight slot, under the id that will actually run. A
-        refusal is reported as `deferred` against the subject's current id, and
-        nothing is started.
+        idle one, a retry of an errored one, or a revision sent to one whose
+        sandbox may be paused - first reserves an in-flight slot, under the id
+        that will actually run. A refusal is reported as `deferred` against the
+        subject's current id, and nothing is started.
         """
         current_id = record.get("conversation_id") or conversation_id
         conversation = self._cloud.get(current_id)
@@ -428,7 +429,14 @@ class AgentConversationDispatcher:
                 # The API reports an execution status only while the sandbox
                 # runs, so an errored conversation whose sandbox was already
                 # paused is not seen here and keeps reporting deduplicated.
-                self._cloud.send(conversation, prompt)
+                # Running it again starts work, so it needs a slot too.
+                if not self._admit(str(current_id), subject):
+                    return "deferred", current_id
+                try:
+                    self._cloud.send(conversation, prompt)
+                except Exception:
+                    self._release_failed_launch(current_id)
+                    raise
                 return "retried", current_id
             return "deduplicated", current_id
         if not self._admit(str(current_id), subject):
@@ -504,10 +512,18 @@ class AgentConversationDispatcher:
                     ):
                         # The delivery matched but its conversation died before
                         # the work finished, so send the revision again rather
-                        # than strand it.
-                        conversation.update_secrets(self._secrets)
-                        conversation.send_message(prompt)
-                        conversation.run(blocking=False)
+                        # than strand it. Running it again starts work, so it
+                        # needs a slot too, and a retry that fails to start
+                        # gives the slot back.
+                        if not self._admit(str(conversation_id), subject):
+                            return "deferred"
+                        try:
+                            conversation.update_secrets(self._secrets)
+                            conversation.send_message(prompt)
+                            conversation.run(blocking=False)
+                        except Exception:
+                            self._release_failed_launch(conversation_id)
+                            raise
                         disposition = "retried"
                     else:
                         disposition = "deduplicated"

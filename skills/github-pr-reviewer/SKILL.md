@@ -190,13 +190,15 @@ smaller. A cap below `MAX_NEW_PER_RUN` simply binds tighter than the per-scan
 bound; set it to at least `MAX_NEW_PER_RUN` to let each scan use its full quota.
 
 - The authoritative admission is atomic and lives in the dispatcher, at the
-  moment a conversation is created or resumed. A scan's earlier read is only a
-  pre-filter: it makes the drain stop early, but it is a read-count-then-start
-  sequence and would race a second automation run. The dispatcher therefore
-  reserves the slot through a conditional read-modify-write of the registry in
-  the Automation KV store (the store's optimistic `if_version` check, with `nx`
-  for the first write), retrying a lost race against fresh state. Two concurrent
-  runs cannot both observe one free slot and both start a runtime.
+  moment a conversation is created, resumed, sent a new revision, or retried
+  after it ended in an error; a deferred retry does not spend one of its bounded
+  retry attempts. A scan's earlier read is only a pre-filter: it makes the drain
+  stop early, but it is a read-count-then-start sequence and would race a second
+  automation run. The dispatcher therefore reserves the slot through a
+  conditional read-modify-write of the registry in the Automation KV store (the
+  store's optimistic `if_version` check, with `nx` for the first write),
+  retrying a lost race against fresh state. Two concurrent runs cannot both
+  observe one free slot and both start a runtime.
 - Because the gate is in the dispatcher, every launch path passes through it -
   the scheduled drain **and** the `review_requested` event path. A burst of
   simultaneous reviewer requests is admitted up to the cap and refused past it,
