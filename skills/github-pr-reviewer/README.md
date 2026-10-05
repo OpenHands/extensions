@@ -96,3 +96,50 @@ can instead use a configured label and re-apply it for another review.
 ## See Also
 
 - [SKILL.md](SKILL.md) - Full setup workflow reference
+
+## Opt-in worker-owned structured publication
+
+`structured_publication: true` replaces direct agent publication in `worker.py`
+with a JSON final-response artifact. The worker validates `head_sha`,
+`code_assessment` (`clean`, `material_findings`, `inconclusive`),
+`merge_readiness` (`ready`, `blocked`, `unknown`), summary, findings, and evidence.
+It derives the event and footer. Only clean, ready artifacts approve;
+self-authored clean reviews use COMMENT. Clean-but-blocked is not a code defect.
+Findings currently appear in the body, not inline threads. Legacy is the default.
+
+Deployment prerequisites (not automatically provisioned):
+
+- Include `publication.py` in the bundle and run a periodic scan alongside event
+  intake. Both paths reconcile finished conversations before selecting new work.
+- Set `REVIEW_COORDINATION_AUTOMATION_ID` to one common namespace for both
+  automations, `REVIEW_COORDINATION_API_KEY` to a user-authorized automation API
+  key, and `AUTOMATION_API_URL`. The API must support `automation_id` user auth,
+  metadata versions, create-if-absent, and conditional version writes. A run's
+  automation-scoped KV JWT is **not** sufficient. Unsupported APIs fail closed.
+- Configure `review_read_token_secret` and `review_profile_read_only: true` only
+  after independently verifying profile/sandbox isolation. The flag is an
+  operator assertion, **not enforced credential isolation**. Agents must have
+  only read-only GitHub access, no publisher/coordination credentials and no
+  write-capable MCP tools. Do not put the coordination key in the agent profile.
+- Verify the deployed Agent Server supports conversation execution status and
+  `/api/conversations/{id}/agent_final_response` returning `response`. Only
+  `finished` results are consumed; there is no workspace-file transport.
+- Enable `scan_window: true` for the VM's rotating ten-unrequested-PR discovery
+  window. Explicit candidates bypass it. Linked low-priority closing issues
+  suppress automatic maintainer handoff.
+
+Leases protect the common repository/PR/reviewer subject. Head, latest request
+and label events, and latest non-bot clarification identify generations across
+triggers. Intent precedes POST. Lost responses or receipt writes are reconciled
+by exact marker, account and head; an empty read never causes reposting.
+Completed and rejected generations are retained. Missing/error starts are
+quarantined; invalid/stale artifacts are retired until new work arrives.
+Handoff intent is retained too: a crash during handoff needs operator
+reconciliation. Inspect shared `review-work-*` records before manual repair.
+Never delete uncertain POST intents merely because a review is not yet visible.
+
+This is **not exactly-once GitHub publication**: GitHub has no external fencing
+or conditional-head review POST. The worker pins `commit_id` and rechecks the
+head before posting, but a concurrent push can still race the POST. Structural
+validation does not prove natural-language evidence claims. Keep the feature
+disabled until deployment prerequisites are verified.

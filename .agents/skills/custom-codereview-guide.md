@@ -27,7 +27,38 @@ Cross-repository work is acceptable when this PR contains only the
 extensions-owned portion and relies on public interfaces from the owning
 repository.
 
-## Blocking checkpoints
+## Issue triage: ownership and scope
+
+Read this guide during issue triage, but distinguish issue readiness from the
+implementation and merge checks below. An issue does not need tests for an
+unwritten fix, PR artifacts, or a demonstration of the eventual implementation.
+Use the issue, discussion, applicable AGENTS.md, and adjacent source to resolve
+reasonable ambiguity. Ask only questions not already answered by that evidence.
+
+For API-dependent failures, compare the extension's request with the provider at
+the reported or supported version, using dependency pins or deployment evidence
+rather than assuming upstream main. Incorrect instructions, request arguments,
+response parsing, and scanner policy belong here. Broken SDK/server contracts
+belong in software-agent-sdk; scheduling and run ownership in automation; product
+presentation in OpenHands. State necessary cross-repository adaptations and their
+order. An independent upstream defect is not automatically a blocker, and naming
+another owner does not authorize edits or duplicate tickets there.
+
+## Issue triage: relevant acceptance requirements
+
+Specify the smallest coherent behavioral outcome and explicit non-goals. Include
+only affected documented entrypoints, environments, and authorization boundaries.
+For scanners, distinguish discovering candidates, commenting, and dispatching;
+state which actions are allowed for ineligible candidates and after a cap is met.
+Do not expand passive discovery into unsolicited commenting.
+
+Use evidence appropriate to the symptom: visual evidence for visual behavior
+when needed, and logs, minimal reproductions, or failing tests for nonvisual
+behavior. Read linked discussion before requesting evidence again. Reconcile
+managed criteria with current human decisions and the authoritative readiness
+policy; surface conflicts rather than knowingly starting a label-removal loop.
+
+## Implementation review checkpoints
 
 ### Executable instructions and runtime parity
 
@@ -41,6 +72,17 @@ For a changed skill, plugin, hook, or automation, follow its documented entrypoi
 in a clean environment far enough to exercise the changed behavior. Keep local
 and cloud behavior identical unless the documentation names and explains a real
 platform capability difference.
+
+For provider-dependent changes, inspect the implementation at the supported
+version before inferring an API contract from mocks or local types. Distinguish
+static/helper tests, stubbed-service tests, and real integration evidence. If the
+version or runtime is unavailable, state the limitation rather than inventing a
+compatibility defect. Check source, shipped bundle, and deployed artifact
+separately when packaging is part of the change.
+
+For scanners, trace discovery, commenting, and dispatch as separate side effects.
+Check eligibility, authorization, caps, retry/no-op behavior, and recovery after
+publication. A launch cap does not implicitly authorize unlimited gate comments.
 
 ### Untrusted triggers and credentials
 
@@ -130,3 +172,13 @@ Do not comment on punctuation, preferred prose tone, optional DRY cleanup, or
 hypothetical non-standard configurations without a supported failure mode. Before
 raising a finding, verify that the referenced file and behavior are present in
 the current PR head and have not already been addressed in review history.
+
+## Review verdict and merge-readiness policy
+
+Separate material code findings from repository merge/evidence gates and optional
+follow-up work. A material finding cannot coexist with an approving final verdict.
+If code is sound but an applicable blocking gate is unmet, state that distinction
+and withhold merge-ready approval. GitHub self-review restrictions may require a
+COMMENT for a genuinely clean assessment; name that exception explicitly. Respect
+accepted scope and non-goals: demonstrate why a pre-existing limitation is exposed
+by this change before treating it as a blocker. Omit cosmetic or speculative notes.

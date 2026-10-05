@@ -1,284 +1,432 @@
-"""Contract tests for independent triage delivery."""
+"""Exercise shipped triage parsing, rendering, guards and delivery contracts."""
 
+import copy
+import importlib
+import sys
+from pathlib import Path
 from unittest.mock import Mock
+from urllib.parse import unquote
 
+import pytest
 from github_automation_helpers import worker
 
+SCRIPTS = Path(__file__).resolve().parents[1] / "skills/github-issue-triage/scripts"
 
-def _triage(tmp_path, monkeypatch, issues):
+
+@pytest.fixture
+def triage(tmp_path, monkeypatch):
+    # Until the parent updates the bundle manifest, load the same source helper.
+    monkeypatch.syspath_prepend(str(SCRIPTS))
+    monkeypatch.delitem(sys.modules, "triage_publication", raising=False)
     module = worker("github-issue-triage", tmp_path, monkeypatch)
-    cls = module.IssueTriage
-    run = object.__new__(cls)
+    publication = importlib.import_module("triage_publication")
+    run = object.__new__(module.IssueTriage)
     run.repository = "owner/repo"
+    run.config = {}
     run.token_name = "GITHUB_PERSONAL_ACCESS_TOKEN"
-    run.dispatcher = Mock()
-    run.open_issues = lambda: issues
-    run.dependencies_complete = lambda issue: True
-    run.gh = lambda method, path, body=None: {"id": 9876}
-    run.gh_pages = lambda path: []
-    return module, run
-
-
-def test_triage_submits_each_changed_issue_as_agent_work(tmp_path, monkeypatch):
-    issues = [
-        {"number": 2, "title": "Second", "body": "B", "labels": []},
-        {"number": 1, "title": "First", "body": "A", "labels": []},
-    ]
-    _module, run = _triage(tmp_path, monkeypatch, issues)
-    submit = Mock(
-        side_effect=lambda **kwargs: {
-            "disposition": "created",
-            "conversation_id": kwargs["subject"],
-        }
-    )
-    run.dispatcher.deliver = submit
-
-    run.run()
-
-    assert [call.kwargs["subject"] for call in submit.call_args_list] == [
-        "9876:issue:1",
-        "9876:issue:2",
-    ]
-    assert "Do not implement code" in submit.call_args_list[0].kwargs["prompt"]
-    assert "GITHUB_PERSONAL_ACCESS_TOKEN" in submit.call_args_list[0].kwargs["prompt"]
-    assert (
-        "The following comments and acceptance criteria were added by the "
-        "OpenHands AI agent." in submit.call_args_list[0].kwargs["prompt"]
-    )
-    assert (
-        "closest existing or adjacent implementation"
-        in submit.call_args_list[0].kwargs["prompt"]
-    )
-    assert "Add `ready-for-dev` only after" in submit.call_args_list[0].kwargs["prompt"]
-    assert (
-        "Do not invent acceptance criteria around an arbitrary choice"
-        in submit.call_args_list[0].kwargs["prompt"]
-    )
-    assert (
-        "ask only the focused follow-up questions needed to resolve it"
-        in submit.call_args_list[0].kwargs["prompt"]
-    )
-    prompt = submit.call_args_list[0].kwargs["prompt"]
-    assert "<!-- openhands-ai-triage:start -->" in prompt
-    assert "<!-- openhands-ai-triage:end -->" in prompt
-    assert "Do not post a triage comment" in prompt
-    assert "DECISION NEEDED" in prompt
-    assert "Leave the human-owned issue body unchanged" in prompt
-
-
-def test_triage_continues_after_one_submission_fails(tmp_path, monkeypatch):
-    issues = [
-        {"number": 1, "title": "First", "body": "A", "labels": []},
-        {"number": 2, "title": "Second", "body": "B", "labels": []},
-    ]
-    _module, run = _triage(tmp_path, monkeypatch, issues)
-    submit = Mock(
-        side_effect=[
-            RuntimeError("unavailable"),
-            {"disposition": "created", "conversation_id": "second"},
-        ]
-    )
-    run.dispatcher.deliver = submit
-
-    run.run()
-
-    assert [call.kwargs["subject"] for call in submit.call_args_list] == [
-        "9876:issue:1",
-        "9876:issue:2",
-    ]
-
-
-def test_triage_event_submits_only_the_named_issue(tmp_path, monkeypatch):
-    issues = [
-        {"number": 1, "title": "First", "body": "A", "labels": []},
-        {"number": 2, "title": "Second", "body": "B", "labels": []},
-    ]
-    _module, run = _triage(tmp_path, monkeypatch, issues)
-    monkeypatch.setenv(
-        "AUTOMATION_EVENT_PAYLOAD",
-        '{"event":{"payload":{"repository":{"full_name":"owner/repo"},'
-        '"issue":{"number":2}}}}',
-    )
+    run.dispatcher = Mock()  # Conversation service transport boundary.
     run.dispatcher.deliver.return_value = {
         "disposition": "created",
-        "conversation_id": "second",
+        "conversation_id": "test",
+    }
+    run.api = lambda *args: {"login": "triage-bot"}
+    run.gh = lambda *args: {"id": 9876}
+    run.gh_pages = lambda *args: []
+    run.dependencies_complete = lambda issue: True
+    return module, publication, run
+
+
+def issue():
+    return {
+        "number": 7,
+        "title": "Improve behavior",
+        "body": "Human request",
+        "state": "open",
+        "labels": [],
     }
 
-    run.run()
 
+def ready():
+    return {
+        "decision": "ready",
+        "priority": "low",
+        "scope": "Preserve API",
+        "non_goals": "No new backend",
+        "criteria": ["Saved settings still load"],
+        "questions": [],
+    }
+
+
+def decision():
+    return {
+        **ready(),
+        "decision": "decision_needed",
+        "criteria": [],
+        "questions": ["Which retention limit?"],
+    }
+
+
+def test_delivery_and_prompt(triage):
+    _, _, run = triage
+    run.open_issues = lambda: [{**issue(), "number": 2}, {**issue(), "number": 1}]
+    run.run()
+    calls = run.dispatcher.deliver.call_args_list
+    assert [c.kwargs["subject"] for c in calls] == ["9876:issue:1", "9876:issue:2"]
+    prompt = calls[0].kwargs["prompt"]
+    for text in (
+        "Do not implement code",
+        "custom-codereview-guide.md",
+        "affected version",
+        "software-agent-sdk",
+        "supersede stale",
+        "questions already answered",
+        "Issue readiness is separate",
+        "Legacy direct mode",
+        "Direct publication",
+    ):
+        assert text in prompt
+
+
+def test_event_scope_and_failure_isolation(triage, monkeypatch):
+    _, _, run = triage
+    run.open_issues = lambda: [{**issue(), "number": 1}, {**issue(), "number": 2}]
+    run.dispatcher.deliver.side_effect = [
+        RuntimeError("offline"),
+        {"disposition": "created", "conversation_id": "2"},
+    ]
+    run.run()
+    assert run.dispatcher.deliver.call_count == 2
+    run.dispatcher.deliver.reset_mock(side_effect=True)
+    monkeypatch.setenv(
+        "AUTOMATION_EVENT_PAYLOAD",
+        '{"event":{"payload":{"repository":{"full_name":"owner/repo"},"issue":{"number":2}}}}',
+    )
+    run.run()
     assert run.dispatcher.deliver.call_args.kwargs["subject"] == "9876:issue:2"
 
 
-def test_triage_event_skips_other_repositories(tmp_path, monkeypatch):
-    issues = [{"number": 1, "title": "First", "body": "A", "labels": []}]
-    _module, run = _triage(tmp_path, monkeypatch, issues)
-    monkeypatch.setenv(
-        "AUTOMATION_EVENT_PAYLOAD",
-        '{"event":{"payload":{"repository":{"full_name":"other/repo"},'
-        '"issue":{"number":1}}}}',
-    )
-
+def test_self_owned_output_no_loop_human_marker_not_ignored(triage):
+    _, p, run = triage
+    i = issue()
+    digest = p.fingerprint(i, [], "triage-bot")
+    i["body"], _ = p.render(i["body"], ready(), digest)
+    run.open_issues = lambda: [i]
     run.run()
-
     run.dispatcher.deliver.assert_not_called()
+    human = {
+        "id": 8,
+        "user": {"login": "human"},
+        "body": f"No, revise scope. <!-- triage-source:{digest} -->",
+    }
+    run.gh_pages = lambda path: [human]
+    run.run()
+    assert "No, revise scope" in run.dispatcher.deliver.call_args.kwargs["prompt"]
 
 
-def test_triage_checks_ready_issue_but_skips_blocked_and_unchanged_issues(
-    tmp_path, monkeypatch
-):
-    issues = [
-        {
-            "number": 1,
-            "title": "Ready",
-            "body": "",
-            "labels": [{"name": "ready-for-dev"}],
-        },
-        {"number": 2, "title": "Blocked", "body": "", "labels": []},
-        {"number": 3, "title": "Unchanged", "body": "", "labels": []},
-    ]
-    module, run = _triage(tmp_path, monkeypatch, issues)
-    run.dependencies_complete = lambda issue: issue["number"] != 2
-    unchanged_marker = module.hashlib.sha256(
-        module.json.dumps(
-            [module.TRIAGE_FORMAT_VERSION, "Unchanged", "", []], sort_keys=True
-        ).encode()
-    ).hexdigest()
-    run.gh_pages = lambda path: (
-        [
-            {
-                "id": 10,
-                "body": f"<!-- triage-source:{unchanged_marker} -->",
+@pytest.mark.parametrize(
+    "body",
+    [
+        "<!-- openhands-ai-triage:start -->",
+        "<!-- openhands-ai-triage:end -->",
+        "<!-- openhands-ai-triage:end --><!-- openhands-ai-triage:start -->",
+        "<!-- openhands-ai-triage:start --><!-- openhands-ai-triage:start --><!-- openhands-ai-triage:end -->",
+    ],
+)
+def test_ambiguous_markers_fail_closed(triage, body):
+    _, p, _ = triage
+    with pytest.raises(ValueError):
+        p.render(body, ready(), "a" * 64)
+
+
+def test_render_preserves_outside_bytes_and_is_idempotent(triage):
+    _, p, _ = triage
+    before, after = "Human  \n\n", "\n\nHuman conclusion  \n"
+    original = before + p.START + "stale" + p.END + after
+    body, comment = p.render(original, ready(), "a" * 64)
+    assert body.startswith(before) and body.endswith(after) and comment is None
+    assert p.render(body, ready(), "a" * 64)[0] == body
+    removed, comment = p.render(body, decision(), "a" * 64)
+    assert removed == before + after
+    assert "Acceptance Criteria" not in comment
+    assert "on behalf of" in comment
+
+
+@pytest.mark.parametrize(
+    "changes",
+    [
+        {"decision": "other"},
+        {"criteria": []},
+        {"questions": ["already answered"]},
+        {"scope": ""},
+        {"non_goals": "<!-- spoof -->"},
+        {"criteria": [3]},
+        {"extra": True},
+    ],
+)
+def test_parser_rejects_invalid_recommendations(triage, changes):
+    _, p, _ = triage
+    with pytest.raises(ValueError):
+        p.parse_recommendation({**ready(), **changes})
+
+
+class GitHubTransport:
+    """In-memory HTTP boundary; all triage algorithms above are real."""
+
+    repository = "owner/repo"
+
+    def __init__(self):
+        self.config = {}
+        self.issue = issue()
+        self.comments = []
+        self.writes = []
+        self.permission = "write"
+        self.sha = "a" * 40
+        self.reads = 0
+        self.change_on_read = None
+
+    def api(self, *args):
+        return {"login": "triage-bot"}
+
+    def gh_pages(self, path):
+        return copy.deepcopy(self.comments) if path.endswith("/comments") else []
+
+    def gh(self, method, path, body=None):
+        if method == "GET":
+            if path.startswith("/contents/"):
+                return {"sha": self.sha}
+            if path.endswith("/permission"):
+                return {"permission": self.permission}
+            self.reads += 1
+            if self.reads == self.change_on_read:
+                self.issue["body"] += " Human changed scope"
+            return copy.deepcopy(self.issue)
+        self.writes.append((method, path, body))
+        if path == "/issues/7" and method == "PATCH":
+            self.issue.update(body)
+        elif path == "/issues/7/labels":
+            self.issue["labels"] += [{"name": name} for name in body["labels"]]
+        elif "/labels/" in path and method == "DELETE":
+            self.issue["labels"] = [
+                l
+                for l in self.issue["labels"]
+                if l["name"] != unquote(path.split("/labels/")[1])
+            ]
+        elif path == "/issues/7/comments":
+            self.comments.append({"id": 100, "user": {"login": "triage-bot"}, **body})
+        elif path.startswith("/issues/comments/"):
+            number = int(path.rsplit("/", 1)[1])
+            if method == "DELETE":
+                self.comments = [c for c in self.comments if c["id"] != number]
+            else:
+                next(c for c in self.comments if c["id"] == number).update(body)
+        return {}
+
+
+def test_publish_ready_policy_and_noop(triage):
+    _, p, _ = triage
+    transport = GitHubTransport()
+    transport.config = {
+        "triage_readiness_policies": {
+            "owner/repo": {
+                "mode": "authorized-writers",
+                "files": {".github/workflows/issue-readiness-check.yml": transport.sha},
             }
-        ]
-        if path == "/issues/3/comments"
-        else []
+        }
+    }
+    digest = p.fingerprint(
+        transport.issue,
+        [],
+        "triage-bot",
+        policy=transport.config.get("triage_readiness_policies"),
     )
-    submit = Mock(return_value={"disposition": "created", "conversation_id": "ready"})
-    run.dispatcher.deliver = submit
-
-    run.run()
-
-    assert [call.kwargs["subject"] for call in submit.call_args_list] == [
-        "9876:issue:1"
-    ]
-
-
-def test_triage_passes_human_discussion_and_stale_bot_comment(tmp_path, monkeypatch):
-    issue = {
-        "number": 7,
-        "title": "Improve behavior",
-        "body": "Original request",
-        "labels": [{"name": "enhancement"}],
+    assert p.publish(transport, 7, digest, ready())["readiness_policy_allowed"]
+    assert {l["name"] for l in transport.issue["labels"]} == {
+        "ready-for-dev",
+        "priority:low",
     }
-    _module, run = _triage(tmp_path, monkeypatch, [issue])
-    run.gh_pages = lambda path: [
-        {
-            "id": 101,
-            "user": {"login": "maintainer"},
-            "created_at": "2026-09-18T00:00:00Z",
-            "updated_at": "2026-09-18T00:00:00Z",
-            "body": "Keep compatibility with saved configurations.",
-        },
-        {
-            "id": 102,
-            "user": {"login": "all-hands-bot"},
-            "created_at": "2026-09-18T00:01:00Z",
-            "updated_at": "2026-09-18T00:01:00Z",
-            "body": "Old triage\n<!-- triage-source:old -->",
-        },
-    ]
-    run.dispatcher.deliver.return_value = {
-        "disposition": "resumed",
-        "conversation_id": "triage",
-    }
-
-    run.run()
-
-    prompt = run.dispatcher.deliver.call_args.kwargs["prompt"]
-    assert '"author": "maintainer"' in prompt
-    assert "Keep compatibility with saved configurations." in prompt
-    assert '"id": 102' in prompt
-    assert "Old triage" not in prompt
-    assert "Delete prior comments listed as automated triage comments" in prompt
+    assert p.publish(transport, 7, digest, ready())["writes"] == 0
 
 
-def test_triage_ignores_managed_body_when_computing_delivery(tmp_path, monkeypatch):
-    original = "Human request\n\n### Desired Behavior\nKeep the API stable."
-    issue = {
-        "number": 7,
-        "title": "Improve behavior",
-        "body": original,
-        "labels": [{"name": "enhancement"}],
-    }
-    module, run = _triage(tmp_path, monkeypatch, [issue])
-    digest = module.hashlib.sha256(
-        module.json.dumps(
-            [module.TRIAGE_FORMAT_VERSION, "Improve behavior", original, []],
-            sort_keys=True,
-        ).encode()
-    ).hexdigest()
-    issue["body"] += (
-        "\n\n<!-- openhands-ai-triage:start -->\n"
-        "---\n## OpenHands AI triage\n"
-        "### Acceptance Criteria\n- [ ] Preserve behavior\n"
-        f"<!-- triage-source:{digest} -->\n"
-        "<!-- openhands-ai-triage:end -->"
+@pytest.mark.parametrize("mode", ["unknown", "policy_changed", "unauthorized"])
+def test_readiness_fail_closed_without_media_rules(triage, mode):
+    _, p, _ = triage
+    t = GitHubTransport()
+    t.issue["labels"] = [{"name": "ready-for-dev"}, {"name": "human-label"}]
+    if mode != "unknown":
+        t.config = {
+            "triage_readiness_policies": {
+                t.repository: {
+                    "mode": "authorized-writers",
+                    "files": {"policy.yml": "a" * 40},
+                }
+            }
+        }
+    if mode == "policy_changed":
+        t.sha = "b" * 40
+    if mode == "unauthorized":
+        t.permission = "read"
+    digest = p.fingerprint(
+        t.issue, [], "triage-bot", policy=t.config.get("triage_readiness_policies")
     )
+    assert not p.publish(t, 7, digest, ready())["readiness_policy_allowed"]
+    assert {l["name"] for l in t.issue["labels"]} == {
+        "human-label",
+        "priority:low",
+        "ready-for-dev",
+    }
 
-    run.run()
 
+@pytest.mark.parametrize("when", [1, 2])
+def test_reject_changed_inputs_before_any_write(triage, when):
+    _, p, _ = triage
+    t = GitHubTransport()
+    digest = p.fingerprint(
+        t.issue, [], "triage-bot", policy=t.config.get("triage_readiness_policies")
+    )
+    t.change_on_read = when
+    with pytest.raises(ValueError, match="changed"):
+        p.publish(t, 7, digest, ready())
+    assert not t.writes
+
+
+def test_decision_updates_only_owned_comments_and_noop(triage):
+    _, p, _ = triage
+    t = GitHubTransport()
+    human = {
+        "id": 1,
+        "user": {"login": "human"},
+        "body": "My decision <!-- triage-source:" + "b" * 64 + " -->",
+    }
+    t.comments = [
+        human,
+        {
+            "id": 2,
+            "user": {"login": "triage-bot"},
+            "body": "Old <!-- triage-source:" + "a" * 64 + " -->",
+        },
+    ]
+    digest = p.fingerprint(t.issue, t.comments, "triage-bot")
+    p.publish(t, 7, digest, decision())
+    assert t.comments[0] == human
+    assert len(t.comments) == 2 and "Decision needed" in t.comments[1]["body"]
+    assert p.publish(t, 7, digest, decision())["writes"] == 0
+
+
+def test_human_label_transitions_but_not_self_churn(triage):
+    _, p, run = triage
+    event = {
+        "id": 1,
+        "event": "unlabeled",
+        "label": {"name": "ready-for-dev"},
+        "actor": {"login": "human"},
+    }
+    run.gh_pages = lambda path: [event]
+    assert p.readiness_transitions(run, 7, "triage-bot")
+    event["actor"]["login"] = "triage-bot"
+    assert not p.readiness_transitions(run, 7, "triage-bot")
+    assert p.fingerprint(
+        issue(), [], "triage-bot", policy={"version": 1}
+    ) != p.fingerprint(issue(), [], "triage-bot", policy={"version": 2})
+
+
+def test_opt_in_configuration_fails_before_dispatch(triage, tmp_path):
+    _, _, run = triage
+    run.config = {"triage_publisher_path": "/missing"}
+    with pytest.raises(ValueError):
+        run.run()
     run.dispatcher.deliver.assert_not_called()
-    assert module.author_body(issue["body"]) == original
-
-
-def test_triage_reprocesses_legacy_comment_digest(tmp_path, monkeypatch):
-    issue = {"number": 7, "title": "Improve behavior", "body": "Request", "labels": []}
-    module, run = _triage(tmp_path, monkeypatch, [issue])
-    legacy_digest = module.hashlib.sha256(
-        module.json.dumps(["Improve behavior", "Request", []], sort_keys=True).encode()
-    ).hexdigest()
-    run.gh_pages = lambda path: [
-        {"id": 10, "body": f"<!-- triage-source:{legacy_digest} -->"}
-    ]
-    run.dispatcher.deliver.return_value = {
-        "disposition": "created",
-        "conversation_id": "triage",
+    publisher = tmp_path / "triage_publication.py"
+    publisher.write_text("# trusted helper")
+    config = tmp_path / "config.json"
+    config.write_text('{"repos": ["owner/repo"]}')
+    run.config = {
+        "triage_publisher_path": str(publisher),
+        "triage_publisher_config_path": str(config),
     }
-
+    with pytest.raises(ValueError, match="remote unsupported"):
+        run.run()
+    run.config["triage_publisher_workspace"] = "shared-host"
+    run.open_issues = lambda: [issue()]
     run.run()
-
-    run.dispatcher.deliver.assert_called_once()
-
-
-def test_triage_passes_only_human_owned_body_to_agent(tmp_path, monkeypatch):
-    issue = {
-        "number": 8,
-        "title": "Clarify behavior",
-        "body": (
-            "Original description\n\n"
-            "<!-- openhands-ai-triage:start -->\n"
-            "Old generated criteria\n"
-            "<!-- triage-source:old -->\n"
-            "<!-- openhands-ai-triage:end -->"
-        ),
-        "labels": [{"name": "enhancement"}],
-    }
-    _module, run = _triage(tmp_path, monkeypatch, [issue])
-    run.dispatcher.deliver.return_value = {
-        "disposition": "resumed",
-        "conversation_id": "triage",
-    }
-
-    run.run()
-
     prompt = run.dispatcher.deliver.call_args.kwargs["prompt"]
-    assert '"author_body": "Original description"' in prompt
-    assert '"managed_triage_section_present": true' in prompt
-    assert "Old generated criteria" not in prompt
+    assert str(publisher) in prompt
+    assert "Direct publication (legacy" not in prompt
 
 
-def test_incomplete_marker_pair_remains_human_owned(tmp_path, monkeypatch):
-    module, _run = _triage(tmp_path, monkeypatch, [])
-    body = "Human text\n<!-- openhands-ai-triage:start -->\nUnclosed text"
+def test_checker_self_updates_do_not_change_human_fingerprint(triage):
+    _, p, _ = triage
+    c = {
+        "id": 9,
+        "user": {"login": "github-actions[bot]"},
+        "body": "<!-- issue-readiness-check --> Old rule",
+        "updated_at": "one",
+    }
+    digest = p.fingerprint(issue(), [c], "triage-bot")
+    c["updated_at"] = "two"
+    c["body"] += " more output"
+    assert p.fingerprint(issue(), [c], "triage-bot") == digest
+    c["user"]["login"] = "human"
+    assert p.fingerprint(issue(), [c], "triage-bot") != digest
 
-    assert module.author_body(body) == body
+
+def test_closed_issue_and_mid_publication_change_abort(triage):
+    _, p, _ = triage
+    t = GitHubTransport()
+    digest = p.fingerprint(t.issue, [], "triage-bot")
+    t.issue["state"] = "closed"
+    with pytest.raises(ValueError, match="eligible"):
+        p.publish(t, 7, digest, ready())
+    assert not t.writes
+    t.issue["state"] = "open"
+    t.reads = 0
+    t.change_on_read = 3
+    with pytest.raises(ValueError, match="changed"):
+        p.publish(t, 7, digest, ready())
+    assert len(t.writes) == 1
+    assert "Human changed scope" in t.issue["body"]
+
+
+def test_partial_write_has_no_receipt_and_retry_finishes(triage):
+    _, p, run = triage
+    t = GitHubTransport()
+    digest = p.fingerprint(t.issue, [], "triage-bot")
+    original = t.gh
+
+    def fail_labels(method, path, body=None):
+        if method == "POST" and path.endswith("/labels"):
+            raise RuntimeError("transport interrupted")
+        return original(method, path, body)
+
+    t.gh = fail_labels
+    with pytest.raises(RuntimeError):
+        p.publish(t, 7, digest, ready())
+    assert "triage-source:" in t.issue["body"]
+    assert "triage-complete:" not in t.issue["body"]
+    run.config = {
+        "triage_publisher_path": "/trusted/publisher.py",
+        "triage_publisher_config_path": "/trusted/config.json",
+    }
+    run.gh_pages = t.gh_pages
+    run._submit(9876, t.issue, [t.issue])
+    run.dispatcher.deliver.assert_called_once()
+    t.gh = original
+    p.publish(t, 7, digest, ready())
+    assert "triage-complete:" in t.issue["body"]
+    assert p.publish(t, 7, digest, ready())["writes"] == 0
+
+
+def test_concurrent_labels_abort_before_write(triage):
+    _, p, _ = triage
+    t = GitHubTransport()
+    digest = p.fingerprint(t.issue, [], "triage-bot")
+    original = t.gh
+
+    def changed(method, path, body=None):
+        if method == "GET" and path == "/issues/7" and t.reads == 1:
+            t.issue["labels"].append({"name": "ready-for-dev"})
+        return original(method, path, body)
+
+    t.gh = changed
+    with pytest.raises(ValueError, match="changed"):
+        p.publish(t, 7, digest, ready())
+    assert not t.writes
