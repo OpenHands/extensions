@@ -31,8 +31,14 @@ const host = {
 await activate(host);
 const container = new Element("main");
 const dispose = await host.mount({ container });
-assert.equal(container.children[0].children[0].children[0].textContent, "VS Code setup");
-await container.children[0].children[0].children[3].children[0].click();
+const panel = container.children[0].children[0];
+assert.equal(panel.children[0].textContent, "Set up VS Code");
+assert.match(panel.children[1].textContent, /downloads and verifies the pinned editor package/);
+assert.equal(panel.children[2].children[1].textContent, "Backend status: Stopped");
+assert.equal(panel.children[3].children[1].placeholder, "Optional path to open in VS Code");
+assert.equal(panel.children[4].children[0].textContent, "Prepare and start");
+assert.match(panel.children[4].children[0].style.cssText, /background:#f3ce49/);
+await panel.children[4].children[0].click();
 assert.deepEqual(requests.slice(0, 3).map(({ method, path, body }) => [method, path, body]), [
   ["GET", "/api/canvas-extensions/installed/vscode/backend", undefined],
   ["POST", "/api/canvas-extensions/installed/vscode/backend/prepare", { revision: "artifact-revision" }],

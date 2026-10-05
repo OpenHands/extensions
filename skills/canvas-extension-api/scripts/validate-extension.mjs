@@ -62,7 +62,23 @@ if (manifest.backend !== undefined && manifest.backend !== null) {
         const label = `backend.artifacts[${platform}]`;
         if (!new Set(["linux-amd64", "linux-arm64"]).has(platform)) fail(`${label} uses an unsupported platform.`);
         if (!artifact || typeof artifact !== "object" || Array.isArray(artifact)) { fail(`${label} must be an object.`); continue; }
-        if (typeof artifact.path !== "string" || !artifact.path || artifact.path.startsWith("/") || artifact.path.split(/[\\/]/).includes("..") || !artifact.path.endsWith(".tar.gz")) fail(`${label}.path must be a contained relative .tar.gz path.`);
+        const hasPath = typeof artifact.path === "string" && artifact.path.length > 0;
+        const hasUrl = typeof artifact.url === "string" && artifact.url.length > 0;
+        if (hasPath === hasUrl) {
+          fail(`${label} must declare exactly one of path or url.`);
+        } else if (hasPath && (artifact.path.startsWith("/") || artifact.path.split(/[\\/]/).includes("..") || !artifact.path.endsWith(".tar.gz"))) {
+          fail(`${label}.path must be a contained relative .tar.gz path.`);
+        } else if (hasUrl) {
+          let url;
+          try { url = new URL(artifact.url); } catch { url = null; }
+          if (!url || url.protocol !== "https:" || url.username || url.password || url.hash || !url.pathname.endsWith(".tar.gz")) {
+            fail(`${label}.url must be a credential-free HTTPS .tar.gz URL.`);
+          }
+          if (artifact.strip_components !== undefined && (!Number.isInteger(artifact.strip_components) || artifact.strip_components < 0 || artifact.strip_components > 16)) {
+            fail(`${label}.strip_components must be an integer from 0 through 16.`);
+          }
+        }
+        if (hasPath && artifact.strip_components !== undefined && artifact.strip_components !== 0) fail(`${label}.strip_components is supported only for remote artifacts.`);
         if (typeof artifact.sha256 !== "string" || !/^[0-9a-f]{64}$/.test(artifact.sha256)) fail(`${label}.sha256 must be a lowercase SHA-256 checksum.`);
       }
     }

@@ -1,4 +1,4 @@
-"""Package the live issue example from this checkout, then deploy to a local stack.
+"""Rebuild the recorded live issue example, then deploy to a local stack.
 
 The original test used the same upload/create requests. Only its checkout,
 credential-file, profile and output paths have been made configurable here.
@@ -10,6 +10,7 @@ import io
 import json
 import os
 from pathlib import Path
+import subprocess
 import tarfile
 import urllib.request
 
@@ -22,20 +23,25 @@ def main():
     branch = root.parents[1]
     state = Path(os.environ["LIVE_TEST_STATE_DIR"])
     state.mkdir(parents=True, exist_ok=True)
-    python_files = {
-        "issue-worker.py": root / "issue-worker.py",
-        "agent_conversation.py": branch / "skills/github/scripts/agent_conversation.py",
-        "github_client.py": branch / "skills/github/scripts/github_client.py",
-        "reviewer_main.py": branch / "skills/github-pr-reviewer/scripts/main.py",
+    revision = json.loads((root / "live-evidence.json").read_text())["extensions_commit"]
+    sources = {
+        "agent_conversation.py": "skills/github/scripts/agent_conversation.py",
+        "github_client.py": "skills/github/scripts/github_client.py",
+        "reviewer_main.py": "skills/github-pr-reviewer/scripts/main.py",
     }
-    hashes = {name: hashlib.sha256(path.read_bytes()).hexdigest()
-              for name, path in python_files.items()}
+    python_files = {"issue-worker.py": (root / "issue-worker.py").read_bytes()}
+    for name, source in sources.items():
+        python_files[name] = subprocess.run(
+            ["git", "show", f"{revision}:{source}"], cwd=branch,
+            capture_output=True, check=True,
+        ).stdout
+    hashes = {name: hashlib.sha256(content).hexdigest()
+              for name, content in python_files.items()}
     if hashes != json.loads((root / "bundle-source-hashes.json").read_text()):
         raise RuntimeError("Example or branch helpers differ from the recorded live test")
     buffer = io.BytesIO()
     with tarfile.open(fileobj=buffer, mode="w:gz") as archive:
-        for name, path in python_files.items():
-            content = path.read_bytes()
+        for name, content in python_files.items():
             member = tarfile.TarInfo(name)
             member.size = len(content)
             member.mode = 0o644

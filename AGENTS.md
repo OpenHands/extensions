@@ -6,7 +6,7 @@ It contains **shareable skills and plugins** that can be loaded by OpenHands (CL
 
 ## Cross-Repository Boundaries
 
-This repository owns the public registry of reusable OpenHands skills, plugins, automations, and integrations. These extensions are consumed by OpenHands applications and SDK-based clients.
+This repository owns the public registry of reusable OpenHands skills, plugins, Agent Canvas Apps, automations, and integrations. These extensions are consumed by OpenHands applications and SDK-based clients.
 
 Related repositories have distinct responsibilities:
 
@@ -49,7 +49,12 @@ Before opening a PR:
   - `plugins/<plugin-name>/hooks/` — lifecycle hooks (optional)
   - `plugins/<plugin-name>/scripts/` — utility scripts (optional)
 
-There is no application code here; the primary artifacts are Markdown skill definitions and plugin configurations, which can contain `scripts/`, `hooks/` sub-directories.
+- `apps/` — a catalog of Agent Canvas Apps (beta), **one directory per app**.
+  - `apps/<app-name>/canvas-extension.json` — the App manifest (Canvas Extensions API v1)
+  - `apps/<app-name>/extension.js` — the browser ESM entrypoint exporting `activate(host)`
+  - `apps/catalog.json` — the registry catalog, exposed as `APPS_CATALOG` from `@openhands/extensions/apps`
+
+Most content is Markdown skill definitions and plugin configurations; the executable parts are plugin `scripts/` and `hooks/` plus the browser ESM App packages under `apps/`, each of which may ship its own `scripts/` and build sub-directories.
 
 ## How client code uses this repo
 

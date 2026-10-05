@@ -4,6 +4,7 @@ import json
 import sys
 from pathlib import Path
 from unittest.mock import MagicMock, Mock
+from urllib.error import HTTPError
 from uuid import NAMESPACE_URL, uuid5
 
 import pytest
@@ -342,7 +343,8 @@ def test_reviewer_ignores_request_for_another_reviewer(tmp_path, monkeypatch):
     run.dispatcher.deliver.assert_not_called()
 
 
-def test_reviewer_event_hands_positive_review_to_maintainer(tmp_path, monkeypatch):
+@pytest.mark.parametrize("missing_issue", [False, True])
+def test_reviewer_event_hands_positive_review_to_maintainer(tmp_path, monkeypatch, missing_issue):
     module, run = _reviewer(tmp_path, monkeypatch)
     _event(monkeypatch, action="submitted")
     run.config["maintainers"] = "neubig, VascoSch92"
@@ -353,7 +355,15 @@ def test_reviewer_event_hands_positive_review_to_maintainer(tmp_path, monkeypatc
         "created_at": "2026-01-01T00:00:00Z",
         "requested_reviewer": {"login": "all-hands-bot"},
     }
-    run.gh = Mock(side_effect=[{"id": 99}, pr, pr])
+    if missing_issue:
+        pr["body"] = "Fixes #7"
+
+    def gh(method, path, body=None):
+        if path == "/issues/7":
+            raise HTTPError(path, 404, "missing", {}, None)
+        return {"id": 99} if path == "" else pr
+
+    run.gh = Mock(side_effect=gh)  # GitHub transport boundary.
     run.gh_pages = lambda path: [request] if path.endswith("/events") else _reviews()
     handoff = Mock(return_value="VascoSch92")
     monkeypatch.setattr(module, "request_maintainer_review", handoff)
@@ -3076,3 +3086,55 @@ def test_a_retried_conversation_uses_a_launch_slot(tmp_path, monkeypatch):
     intake.drain()
 
     assert started == [1]
+
+
+@pytest.mark.parametrize("status", [404, 403, 500])
+def test_linked_issue_lookup_http_errors(tmp_path, monkeypatch, status):
+    _, run = _reviewer(tmp_path, monkeypatch)
+    def gh(method, path):
+        raise HTTPError(path, status, "unavailable", {}, None)
+    run.gh = gh
+    pr = {"body": "Fixes #7"}
+    if status == 404:
+        assert not run._linked_issue_is_low_priority(pr)
+    else:
+        with pytest.raises(HTTPError):
+            run._linked_issue_is_low_priority(pr)
+
+
+def test_missing_link_does_not_hide_low_priority_link(tmp_path, monkeypatch):
+    _, run = _reviewer(tmp_path, monkeypatch)
+    def gh(method, path):
+        if path == "/issues/7":
+            raise HTTPError(path, 404, "missing", {}, None)
+        return {"labels": [{"name": "priority:low"}]}
+    run.gh = gh
+    assert run._linked_issue_is_low_priority({"body": "Fixes #7, fixes #8"})
+
+
+def test_rotating_window_revisits_budget_deferred_heads(tmp_path, monkeypatch):
+    module, run = _reviewer(tmp_path, monkeypatch)
+    monkeypatch.setattr(module.workflow, "_kv_available", lambda: False)
+    prs = [{"number": n, "labels": []} for n in range(27)]
+    reviewed = set(range(10))
+    blocked = {10, 11}
+    visited = set()
+    started = []
+    for _ in range(30):
+        intake = module.ReviewIntake()
+        window = run._rotating_window(prs, "openhands-review")
+        visited.update(pr["number"] for pr in window)
+        for pr in window:
+            n = pr["number"]
+            if n in reviewed or n in blocked:
+                continue
+            def start(n=n):
+                reviewed.add(n)
+                started.append(n)
+                return {"disposition": "created"}
+            intake.register({"priority": 1, "created_at": "", "repository": run.repository,
+                          "number": n, "config": {"max_new_per_run": 2}, "start": start})
+        intake.drain()
+    assert visited == set(range(27))
+    assert set(started) == set(range(27)) - set(range(10)) - blocked
+    assert len(started) == len(set(started))

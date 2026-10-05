@@ -9,8 +9,10 @@ worker published [this GitHub comment](https://github.com/enyst/automation/issue
 ![The published comment showing its LLM profile and model](issue-comment.jpg)
 
 The tested extensions head was `b2f97183abd2717a0ff5f0f305d29965558cbcc1`.
-The subsequent commit adds only these temporary evidence artifacts and the design-page
-update. The source stack revisions are recorded in [revisions.json](revisions.json).
+The evidence commits added only temporary review artifacts and the design-page update.
+The later merge of upstream `25aa536a3c3203ba3ffabf4e13809d7613de7b73` keeps this
+record as evidence of the **2026-10-05 revision**, rather than claiming a new live run.
+The source stack revisions are recorded in [revisions.json](revisions.json).
 The Canvas, Agent Server and automation service used fresh isolated local state.
 `enyst/automation:main` was fast-forwarded to `OpenHands/automation:main` before testing.
 
@@ -61,10 +63,13 @@ This evidence should not be read as closing every runtime-parity review request.
 - [issue-worker.py](issue-worker.py) is the exact successful worker, byte for byte.
 - [provision-automation.py](provision-automation.py) uses the test's tarball upload and
   create/update requests, with local paths, profile ID and API URL made configurable.
+  It reads the three branch helpers from the recorded test commit with `git show`,
+  so it reproduces the historical test after upstream source changes are merged.
 - [local-github-relay.py](local-github-relay.py) uses the test's polling/signing loop,
   with credentials, state, destination and interval made configurable.
 - [bundle-source-hashes.json](bundle-source-hashes.json) records the four files
-  actually bundled. The provisioner refuses to package changed sources.
+  actually bundled. The provisioner refuses to package sources whose hashes differ
+  from that recorded run. The test commit must be available in the local Git clone.
 
 Reviewers can inspect the bundle without credentials or publication:
 

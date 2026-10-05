@@ -27,7 +27,32 @@ Cross-repository work is acceptable when this PR contains only the
 extensions-owned portion and relies on public interfaces from the owning
 repository.
 
-## Blocking checkpoints
+## Issue triage
+
+Issue readiness means the work is clear enough to start—not that the fix is
+complete. Do not require a PR, passing implementation tests, or before-and-after
+fix evidence. Reconsider readiness when new information leaves scope or expected
+behavior unresolved. Read the issue, linked discussion, applicable `AGENTS.md`,
+and adjacent source before asking questions.
+
+For API failures, compare the extension request with the provider's reported or
+supported version, not upstream main. Use dependency pins or deployment evidence.
+Instructions, request arguments, response parsing, and scanner policy belong
+here; use the ownership boundaries above for other failures. State required
+cross-repository changes and their order. An independent upstream defect need
+not block this work. Naming an owner does not authorize edits or duplicate tickets.
+
+Define the smallest useful outcome and explicit non-goals. Cover only affected
+entrypoints, environments, and permissions. For scanners, state whether discovery,
+commenting, and dispatch are allowed for ineligible candidates or after a cap.
+Discovery alone does not authorize unsolicited comments.
+
+Request visual evidence only when needed; otherwise use logs, minimal
+reproductions, or failing tests. Do not repeat answered questions. Match managed
+criteria to current human decisions and authoritative readiness policy. Report
+conflicts instead of repeatedly adding a label that policy removes.
+
+## Implementation review checkpoints
 
 ### Executable instructions and runtime parity
 
@@ -41,6 +66,16 @@ For a changed skill, plugin, hook, or automation, follow its documented entrypoi
 in a clean environment far enough to exercise the changed behavior. Keep local
 and cloud behavior identical unless the documentation names and explains a real
 platform capability difference.
+
+For provider changes, inspect the supported implementation; mocks and local types
+alone do not establish an API contract. Separate static/helper tests, tests with
+simulated services, and real integration evidence. If the version or runtime is
+unavailable, report that limit, not an assumed defect. For packaging changes,
+check source, shipped bundle, and deployed files separately.
+
+For scanners, check eligibility, permissions, caps, retries, unchanged runs, and
+recovery for each action listed under triage. A launch cap does not permit
+unlimited gate comments.
 
 ### Untrusted triggers and credentials
 
@@ -88,6 +123,37 @@ package manager and runtime used by the extension. Temporary git pins and
 unreleased package APIs are blockers for merge unless the PR is an explicit,
 coordinated stack that will replace them before release.
 
+### Design context for deep changes
+
+A diff shows edits, not always the design. Expect concise design context when a
+reviewer cannot judge a change from the diff in a few minutes: a new or changed
+skill, plugin, automation, integration contract, or manifest schema; a new
+subsystem, migration, or cross-cutting refactor; a behavior change in shared
+loading, validation, discovery, or execution; or a large diff whose intent is
+hard to hold once generated files, lockfiles, snapshots, vendored code, and
+mechanical churn are set aside. Typos, one-line guards, dependency bumps, small
+documentation edits, and localized fixes need none. Line count is a signal,
+never a gate by itself.
+
+Design context is an available design-doc artifact or a durable write-up in the
+PR description that states the intent, the important before/after behavior or
+contract shape, compatibility and risk, and grounded code references. When a
+deep change lacks it, weigh the gap by risk:
+
+- **HIGH** risk: do not approve; submit a COMMENT review that asks for design
+  context before a human merge decision.
+- **MEDIUM** risk: withhold approval only when reconstructing the design from
+  the diff would materially slow or weaken the review.
+- **LOW** risk: never block on missing design context alone.
+
+Approving a same-repository PR removes its `.pr/` directory. If a temporary
+`.pr/` page is the only design explanation, submit a COMMENT review instead of
+approving, so the page remains for the human maintainer's decision, unless the
+PR description already carries the durable equivalent.
+
+Design context aids review; it does not excuse correctness, security,
+architecture, or repository-ownership problems.
+
 ## Evidence and comment discipline
 
 Evidence should exercise the extension as users invoke it: run the command, hook,
@@ -99,3 +165,11 @@ Do not comment on punctuation, preferred prose tone, optional DRY cleanup, or
 hypothetical non-standard configurations without a supported failure mode. Before
 raising a finding, verify that the referenced file and behavior are present in
 the current PR head and have not already been addressed in review history.
+
+## Review verdict
+
+Do not approve material code defects or unmet blocking merge/evidence checks.
+Distinguish code defects from missing merge requirements and optional follow-up.
+If GitHub forbids self-approval of a clean PR, use COMMENT and explain why.
+Respect accepted scope and non-goals: block on a pre-existing limitation only if
+this change exposes it.

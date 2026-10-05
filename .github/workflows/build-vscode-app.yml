@@ -11,18 +11,18 @@ jobs:
   package:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
         with:
-          node-version: "20"
+          node-version: "24"
       - name: Build installable App package
         run: node apps/vscode/scripts/package.mjs
       - name: Validate package files
         run: |
           test -f dist/apps/vscode/canvas-extension.json
           test -f dist/apps/vscode/extension.js
-          test -f dist/apps/vscode/backend/openvscode-linux-amd64.tar.gz
-          test -f dist/apps/vscode/backend/openvscode-linux-arm64.tar.gz
+          test -f dist/apps/vscode/README.md
+          test -z "$(find dist/apps/vscode -type f -name '*.tar.gz' -print -quit)"
       - uses: actions/upload-artifact@v7
         with:
           name: vscode-app-${{ github.sha }}
