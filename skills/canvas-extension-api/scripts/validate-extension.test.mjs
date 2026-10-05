@@ -93,6 +93,55 @@ test("accepts a package-owned backend declaration", async () => {
   }
 });
 
+test("accepts checksum-pinned remote backend artifacts", async () => {
+  const root = await createApp("extension.js", {
+    backend: {
+      ...backend,
+      artifacts: {
+        "linux-amd64": {
+          url: "https://example.com/service.tar.gz",
+          sha256: "a".repeat(64),
+          strip_components: 1,
+        },
+      },
+    },
+  });
+  try {
+    const result = validate(root, "--dist");
+    assert.equal(result.status, 0, result.stderr);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("rejects insecure or ambiguous remote backend artifacts", async () => {
+  const artifacts = [
+    { url: "http://example.com/service.tar.gz", sha256: "a".repeat(64) },
+    {
+      path: "backend/service.tar.gz",
+      url: "https://example.com/service.tar.gz",
+      sha256: "a".repeat(64),
+    },
+    {
+      url: "https://example.com/service.tar.gz",
+      sha256: "a".repeat(64),
+      strip_components: 17,
+    },
+  ];
+  for (const artifact of artifacts) {
+    const root = await createApp("extension.js", {
+      backend: { ...backend, artifacts: { "linux-amd64": artifact } },
+    });
+    try {
+      const result = validate(root, "--dist");
+      assert.notEqual(result.status, 0);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  }
+});
+
+
 test("rejects a backend artifact path outside the package", async () => {
   const root = await createApp("extension.js", {
     backend: {

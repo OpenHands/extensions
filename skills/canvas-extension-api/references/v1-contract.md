@@ -48,8 +48,10 @@ interface CanvasExtensionManifest {
 interface CanvasExtensionBackend {
   schema_version: 1;
   artifacts: Partial<Record<"linux-amd64" | "linux-arm64", {
-    path: string;
+    path?: string;
+    url?: string;
     sha256: string;
+    strip_components?: number;
   }>>;
   argv: string[];
   health?: {
@@ -71,7 +73,7 @@ interface CanvasExtensionPageContribution {
 
 Required manifest fields are `schema_version`, `name`, `version`, and `entrypoint`. A useful page package also supplies `display_name`, `description`, and at least one `contributes.pages` entry. `backend` is optional: omitting it preserves a browser-only App or a manual/deployment-owned Sidecar.
 
-The managed-backend contract requires the stacked, unreleased Agent Server changes in [software-agent-sdk PR #5270](https://github.com/OpenHands/software-agent-sdk/pull/5270) at `ac7b322ddf7d2e0e90a3643c5e26d848236af9a3` and [PR #5272](https://github.com/OpenHands/software-agent-sdk/pull/5272) at `6d9c82973e765cce4843d6a2fb52f634efa64293`. Until a release containing both lands, those exact revisions are the minimum Agent Server implementation. Feature-detect `canvas_app_backend_bridge_v1` in `GET /server_info`; the same response must provide `app_backend_ingress_url`.
+The managed-backend contract requires the stacked, unreleased Agent Server changes in [software-agent-sdk PR #5270](https://github.com/OpenHands/software-agent-sdk/pull/5270) at `ac7b322ddf7d2e0e90a3643c5e26d848236af9a3` and [PR #5272](https://github.com/OpenHands/software-agent-sdk/pull/5272) at `6d9c82973e765cce4843d6a2fb52f634efa64293`. Remote artifact sources additionally require [software-agent-sdk PR #5503](https://github.com/OpenHands/software-agent-sdk/pull/5503). Until releases containing the needed changes land, those revisions or PR heads are the minimum Agent Server implementation. Feature-detect `canvas_app_backend_bridge_v1` in `GET /server_info`; the same response must provide `app_backend_ingress_url`.
 
 The minimum host is the Agent Canvas revision that adds the optional `host.appBackendView` helper specified under Host API 1 below — the frontend change in OpenHands/OpenHands#17641, which this document's PR lists as a merge prerequisite. No upstream release pins that helper yet, so there is no release number to name; until there is, the minimum host is exactly "the build whose `host.appBackendView` is present", and feature-detecting that helper is the only supported test. Absence is an actionable unsupported state, not a reason to guess an ingress port or read Canvas internals.
 
@@ -80,8 +82,9 @@ All references in this bundle to "the minimum host version documented in `v1-con
 For a managed backend:
 
 - Key `artifacts` only by `linux-amd64` or `linux-arm64`; one matching entry is sufficient.
-- Keep each artifact `path` package-relative, contained, and ending in `.tar.gz`.
-- Set `sha256` to exactly 64 lowercase hexadecimal characters.
+- Declare exactly one artifact source: either a package-relative, contained `.tar.gz` `path`, or a credential-free HTTPS `.tar.gz` `url`.
+- For remote archives, optionally set `strip_components` to an integer from 0 through 16; it defaults to 0 and is invalid for local paths.
+- Set `sha256` to exactly 64 lowercase hexadecimal characters. Remote downloads are accepted only when this digest matches.
 - Use a non-empty structured `argv`; `argv[0]` must resolve inside `{artifact_dir}`.
 - Use only `{artifact_dir}`, `{data_dir}`, and `{port}` placeholders.
 - Keep `health.path` root-relative. Defaults are `/health`, 30 seconds, and 0.1 seconds.
