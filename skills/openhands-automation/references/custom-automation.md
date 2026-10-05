@@ -249,6 +249,7 @@ uv pip install -q openhands-sdk openhands-workspace openhands-tools
 import os
 
 from openhands.sdk import Conversation
+from openhands.sdk.automation import automation_conversation_kwargs
 from openhands.tools.preset.default import get_default_agent
 from openhands.workspace import OpenHandsCloudWorkspace
 
@@ -266,12 +267,47 @@ with OpenHandsCloudWorkspace(
 ) as workspace:
     llm = workspace.get_llm()
     agent = get_default_agent(llm=llm, cli_mode=True)
-    conversation = Conversation(agent=agent, workspace=workspace)
+    conversation = Conversation(
+        agent=agent,
+        workspace=workspace,
+        **automation_conversation_kwargs(),
+    )
     conversation.send_message("Your automation prompt here")
     conversation.run()
     conversation.close()
 # OpenHandsCloudWorkspace.__exit__ fires the completion callback here.
 ```
+
+### Link automation conversations to run telemetry
+
+When an automation script starts a conversation, preserve the trace context that the automation service injected into the run. This links the conversation span to the triggering webhook, scheduler dispatch, and run record.
+
+- SDK conversations: pass `**automation_conversation_kwargs()` into every `Conversation(...)` call.
+- Direct agent-server API calls: merge `automation_observability_headers()` into the headers for each `POST /api/conversations` request.
+- If you add your own conversation tags, pass them through `conversation_tags={...}` instead of replacing the helper output.
+
+```python
+from openhands.sdk import Conversation
+from openhands.sdk.automation import (
+    automation_conversation_kwargs,
+    automation_observability_headers,
+)
+
+conversation = Conversation(
+    agent=agent,
+    workspace=workspace,
+    **automation_conversation_kwargs(),
+)
+
+headers = {
+    "X-Session-API-Key": api_key,
+    **automation_observability_headers(span_name="automation.conversation"),
+}
+# Use these headers when creating a backend conversation directly.
+# httpx.post(f"{agent_url}/api/conversations", headers=headers, json=payload)
+```
+
+The built-in prompt and plugin presets use this helper. Custom scripts should do the same for every new conversation so traces, observability metadata, and automation conversation tags stay attached.
 
 ### Selecting an LLM profile
 
@@ -299,13 +335,27 @@ Conversations started during a run remain accessible in the OpenHands UI after t
 
 ```python
 # Default: conversation persists after close (users can view/continue it)
-conversation = Conversation(agent=agent, workspace=workspace)
+conversation = Conversation(
+    agent=agent,
+    workspace=workspace,
+    **automation_conversation_kwargs(),
+)
 
 # Explicitly persist (same as default)
-conversation = Conversation(agent=agent, workspace=workspace, delete_on_close=False)
+conversation = Conversation(
+    agent=agent,
+    workspace=workspace,
+    delete_on_close=False,
+    **automation_conversation_kwargs(),
+)
 
 # Delete conversation resources on close
-conversation = Conversation(agent=agent, workspace=workspace, delete_on_close=True)
+conversation = Conversation(
+    agent=agent,
+    workspace=workspace,
+    delete_on_close=True,
+    **automation_conversation_kwargs(),
+)
 ```
 
 The agent server itself persists until it times out or is manually deleted; this is managed by the automation service, not by the workspace.
@@ -339,7 +389,11 @@ else:
     with OpenHandsCloudWorkspace(local_agent_server_mode=True, cloud_api_url=api_url, cloud_api_key=api_key) as workspace:
         llm = workspace.get_llm()
         agent = get_default_agent(llm=llm, cli_mode=True)
-        conversation = Conversation(agent=agent, workspace=workspace)
+        conversation = Conversation(
+            agent=agent,
+            workspace=workspace,
+            **automation_conversation_kwargs(),
+        )
         conversation.send_message(f"Investigate these alerts and open GitHub issues: {alerts}")
         conversation.run()
         conversation.close()
@@ -358,7 +412,11 @@ from openhands.sdk.conversation.state import ConversationExecutionStatus
 with OpenHandsCloudWorkspace(local_agent_server_mode=True, cloud_api_url=api_url, cloud_api_key=api_key) as workspace:
     llm = workspace.get_llm()
     agent = get_default_agent(llm=llm, cli_mode=True)
-    conversation = Conversation(agent=agent, workspace=workspace)
+    conversation = Conversation(
+        agent=agent,
+        workspace=workspace,
+        **automation_conversation_kwargs(),
+    )
     conversation.send_message("Run a long analysis task")
     # Conversation is now running asynchronously in the agent server.
 
@@ -404,7 +462,12 @@ stop_hook = HookConfig(
 with OpenHandsCloudWorkspace(local_agent_server_mode=True, cloud_api_url=api_url, cloud_api_key=api_key) as workspace:
     llm = workspace.get_llm()
     agent = get_default_agent(llm=llm, cli_mode=True)
-    conversation = Conversation(agent=agent, workspace=workspace, hook_config=stop_hook)
+    conversation = Conversation(
+        agent=agent,
+        workspace=workspace,
+        hook_config=stop_hook,
+        **automation_conversation_kwargs(),
+    )
     conversation.send_message("Do some long-running work")
     # Don't call run() — the conversation runs asynchronously.
     # When the agent stops, the stop hook will fire the callback.
@@ -765,6 +828,7 @@ import os
 import json
 
 from openhands.sdk import Conversation
+from openhands.sdk.automation import automation_conversation_kwargs
 from openhands.tools.preset.default import get_default_agent
 from openhands.workspace import OpenHandsCloudWorkspace
 
@@ -781,7 +845,11 @@ with OpenHandsCloudWorkspace(
 ) as workspace:
     llm = workspace.get_llm()
     agent = get_default_agent(llm=llm, cli_mode=True)
-    conversation = Conversation(agent=agent, workspace=workspace)
+    conversation = Conversation(
+        agent=agent,
+        workspace=workspace,
+        **automation_conversation_kwargs(),
+    )
     conversation.send_message("Generate a weekly status report")
     conversation.run()
     conversation.close()
