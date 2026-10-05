@@ -174,7 +174,7 @@ while read -r name image count; do
 done <<'EOF'
 php-web        ghcr.io/your-org/openhands-php:8.4-v2    3
 ruby-app       ghcr.io/your-org/openhands-ruby:3.3-v2   2
-node-monorepo  ghcr.io/your-org/openhands-node:20-v2    1
+node-monorepo  ghcr.io/your-org/openhands-node:24-v2    1
 EOF
 ```
 
