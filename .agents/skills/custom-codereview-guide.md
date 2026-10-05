@@ -52,6 +52,18 @@ reproductions, or failing tests. Do not repeat answered questions. Match managed
 criteria to current human decisions and authoritative readiness policy. Report
 conflicts instead of repeatedly adding a label that policy removes.
 
+### Cross-repository release dependencies
+
+If an issue or PR here cannot be finished until a change in another repository
+is released, add the matching label and link the upstream issue or PR. Remove
+the label once that release ships. These labels do not affect readiness.
+
+| Label | Waiting on a release of |
+|---|---|
+| `needs-sdk-release` | `OpenHands/software-agent-sdk` (SDK, Agent Server, TypeScript client) |
+| `needs-automation-release` | `OpenHands/automation` |
+| `needs-canvas-release` | `OpenHands/OpenHands` (Agent Canvas) |
+
 ## Implementation review checkpoints
 
 ### Executable instructions and runtime parity
