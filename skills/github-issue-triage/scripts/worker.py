@@ -239,10 +239,10 @@ class IssueTriage(GitHubRepository):
             publication_config.get("repos") or [publication_config.get("repository")]
         ):
             raise ValueError("Publisher config does not allow this repository")
-        if publication_config.get("triage_readiness_policies") != config.get(
-            "triage_readiness_policies"
-        ):
-            raise ValueError("Scanner and publisher policy configuration must match")
+        self.config = {
+            **config,
+            "triage_readiness_policies": publication_config.get("triage_readiness_policies"),
+        }
 
     def run(self):
         self._validate_publication_config()

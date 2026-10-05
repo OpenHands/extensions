@@ -5,6 +5,7 @@ import os
 import re
 import sys
 from functools import cached_property
+from urllib.error import HTTPError
 from urllib.parse import quote
 
 import main as workflow
@@ -360,7 +361,12 @@ class PullRequestReviewer(GitHubRepository):
             )
         }
         for number in numbers:
-            issue = self.gh("GET", f"/issues/{number}")
+            try:
+                issue = self.gh("GET", f"/issues/{number}")
+            except HTTPError as exc:
+                if exc.code != 404:
+                    raise
+                continue
             labels = {
                 (item.get("name") or "").casefold()
                 for item in issue.get("labels", [])

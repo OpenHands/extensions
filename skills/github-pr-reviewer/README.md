@@ -122,7 +122,9 @@ Keep disabled until you verify these prerequisites; setup is not automatic.
 - Set `review_read_token_secret` and `review_profile_read_only: true` only after
   independently verifying profile/sandbox isolation. This flag **does not enforce
   isolation**. Agents must have read-only GitHub access, no publisher/coordination
-  credentials, and no write-capable MCP tools. Never add the coordination key to
+  credentials, and no write-capable MCP tools. The separate read token needs
+  pull-request, repository-content, and linked-issue read access; the worker
+  also needs issue read access to check handoff priority. Never add the coordination key to
   the agent profile.
 - Verify Agent Server exposes execution status and
   `/api/conversations/{id}/agent_final_response` returning `response`. Only
@@ -140,8 +142,10 @@ identify a work version (generation) across triggers.
 Intent is recorded before POST. Lost responses/receipts trigger a search by
 exact marker, account, and head. **An empty search never
 permits retrying an uncertain POST.** Completed/rejected generations stay recorded.
-Missing/failed starts are held for inspection; invalid/stale results wait for new
-work. Handoff intent is retained: crashes during handoff require operator
+Missing/failed starts are held for inspection, including records left in
+`starting` after a crash. Inspect the recorded conversation ID and server status
+before repairing the record; do not blindly restart a possibly running agent.
+Invalid/stale results wait for new work. Handoff intent is retained: crashes during handoff require operator
 reconciliation. Inspect shared `review-work-*` records before manual repair.
 Never delete uncertain POST intents just because a review is not yet visible.
 

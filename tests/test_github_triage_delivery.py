@@ -2,6 +2,7 @@
 
 import copy
 import importlib
+import json
 import sys
 from pathlib import Path
 from unittest.mock import Mock
@@ -430,3 +431,27 @@ def test_concurrent_labels_abort_before_write(triage):
     with pytest.raises(ValueError, match="changed"):
         p.publish(t, 7, digest, ready())
     assert not t.writes
+
+
+def test_publisher_policy_is_scanner_fingerprint_source(triage, tmp_path):
+    _, p, run = triage
+    publisher = tmp_path / "publisher.py"
+    publisher.write_text("# trusted helper")
+    config = tmp_path / "publisher.json"
+    transport = GitHubTransport()
+    policy = {"owner/repo": {"mode": "authorized-writers", "files": {"policy.yml": transport.sha}}}
+    transport.config = {"repos": [run.repository], "triage_readiness_policies": policy}
+    config.write_text(json.dumps(transport.config))
+    run.config = {
+        "triage_publisher_path": str(publisher),
+        "triage_publisher_config_path": str(config),
+        "triage_publisher_workspace": "shared-host",
+    }
+    run.open_issues = lambda: [issue()]
+    run.run()
+    digest = p.fingerprint(transport.issue, [], "triage-bot", policy=policy)
+    assert digest in run.dispatcher.deliver.call_args.kwargs["prompt"]
+    assert p.publish(transport, 7, digest, ready())["readiness_policy_allowed"]
+    config.write_text(json.dumps({"repos": [run.repository]}))
+    run.run()
+    assert p.fingerprint(issue(), [], "triage-bot") in run.dispatcher.deliver.call_args.kwargs["prompt"]

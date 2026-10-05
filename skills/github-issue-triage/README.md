@@ -27,8 +27,9 @@ Bundle `worker.py`, `triage_publication.py`, `github_client.py`, and
    absolute file paths. Set both or neither; neither keeps legacy mode.
 2. Set `triage_publisher_workspace: "shared-host"` only after checking manually
    that the agent can access those paths. The flag asserts access; it does not
-   prove sandbox visibility. The scanner checks files and matching repository/
-   policy config before dispatch. Remote/container paths are unsupported. If the
+   prove sandbox visibility. The scanner checks files and the repository allowlist before dispatch, then
+   loads readiness policies from that same protected publisher config for its
+   input fingerprints. Do not duplicate policies in the scanner config. Remote/container paths are unsupported. If the
    agent cannot invoke the helper, stop; do not fall back to direct writes.
 3. Cloud conversations are unsupported: bundling does not provision their files,
    and the dispatcher cannot retrieve structured results from them.
