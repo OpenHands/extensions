@@ -45,5 +45,6 @@
         "strategy": "api_key"
       }
     }
-  ]
+  ],
+  "notes": "Content passed to scan_before_use and check_url leaves the sandbox and is sent to the IsMalicious API. This can include repository text or fetched pages. Only pass content you are permitted to share with this external service."
 }
