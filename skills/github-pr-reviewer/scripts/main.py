@@ -27,7 +27,6 @@ import urllib.request
 import uuid
 from collections.abc import Callable
 from pathlib import Path, PurePosixPath
-from urllib.parse import quote
 
 from github_client import github_request as _github_request
 from github_client import github_paginate as _github_paginate
@@ -606,11 +605,6 @@ def _oh_request(agent_url: str, api_key: str, method: str, path: str, body: dict
 
 
 def _fetch_settings(agent_url: str, api_key: str) -> dict:
-    """Fetch the concrete LLM config used to serialize the child agent.
-
-    Plaintext is returned only to this trusted script and sent straight back to
-    the same authenticated Agent Server in the conversation creation request.
-    """
     req = urllib.request.Request(
         f"{agent_url}/api/settings",
         headers={"X-Session-API-Key": api_key, "X-Expose-Secrets": "plaintext"},
@@ -619,60 +613,14 @@ def _fetch_settings(agent_url: str, api_key: str) -> dict:
         return json.loads(r.read())
 
 
-def _fetch_llm_profile(agent_url: str, api_key: str, profile_name: str) -> dict:
-    """Read a runnable named profile through the authenticated runtime API."""
-    req = urllib.request.Request(
-        f"{agent_url}/api/profiles/{quote(profile_name, safe='')}",
-        headers={"X-Session-API-Key": api_key, "X-Expose-Secrets": "plaintext"},
-    )
-    with urllib.request.urlopen(req) as response:
-        data = json.loads(response.read())
-    config = data.get("config") if isinstance(data, dict) else None
-    if (
-        not isinstance(config, dict)
-        or not isinstance(config.get("model"), str)
-        or not config["model"].strip()
-    ):
-        raise RuntimeError(
-            f"LLM profile {profile_name!r} returned no valid model configuration"
-        )
-    if config.get("provider_connection_id") and not config.get("api_key"):
-        raise RuntimeError(
-            f"LLM profile {profile_name!r} returned unresolved provider credentials; "
-            "update Agent Server to support linked-profile runtime reads"
-        )
-    return config
-
-
-def _get_agent_and_llm_provenance(
-    agent_url: str, api_key: str
-) -> tuple[dict, str, str]:
-    """Resolve the selected profile once for both the child agent and its footer."""
-    profile_name = os.environ.get("AUTOMATION_MODEL")
-    if profile_name:
-        try:
-            llm = _fetch_llm_profile(agent_url, api_key, profile_name)
-        except urllib.error.HTTPError as exc:
-            if exc.code != 404:
-                raise
-            print(f"LLM profile {profile_name!r} was not found; using default LLM settings")
-            profile_name = None
-    if not profile_name:
-        data = _fetch_settings(agent_url, api_key)
-        llm = data.get("agent_settings", {}).get("llm", {})
-        # The active-profile pointer can drift from these concrete settings.
-        # Do not claim that a named profile was loaded when it was not.
-        profile_name = "default"
-    model = llm.get("model") or "unknown"
-    return (
-        {
-            "kind": "Agent",
-            "llm": llm,
-            "tools": [{"name": "terminal"}, {"name": "file_editor"}],
-        },
-        profile_name,
-        model,
-    )
+def _get_agent_dict(agent_url: str, api_key: str) -> dict:
+    data = _fetch_settings(agent_url, api_key)
+    llm = data.get("agent_settings", {}).get("llm", {})
+    return {
+        "kind": "Agent",
+        "llm": llm,
+        "tools": [{"name": "terminal"}, {"name": "file_editor"}],
+    }
 
 
 def _get_mcp_config(agent_url: str, api_key: str) -> dict | None:
@@ -724,7 +672,7 @@ def create_conversation(
 ) -> str:
     payload: dict = {
         "workspace": {"working_dir": str(workspace_dir)},
-        "agent": agent or _get_agent_and_llm_provenance(agent_url, api_key)[0],
+        "agent": agent or _get_agent_dict(agent_url, api_key),
         "initial_message": {"content": [{"text": initial_message}]},
     }
     if conversation_id:
@@ -1046,9 +994,7 @@ def _process_review_request(
         repo_review_guide = _load_repo_review_guide(workspace_dir)
         if repo_review_guide:
             print(f"  Injected repo review guide for PR #{number}")
-        agent, llm_profile, llm_model = _get_agent_and_llm_provenance(
-            agent_url, api_key
-        )
+        agent = _get_agent_dict(agent_url, api_key)
         conv_id = str(uuid.uuid4())
         prompt = _build_review_prompt(
             repo,
@@ -1081,8 +1027,8 @@ def _process_review_request(
             "status": "active",
             "conversation_id": conv_id,
             "workspace_dir": str(workspace_dir),
-            "llm_profile": llm_profile,
-            "llm_model": llm_model,
+            "llm_profile": "default",
+            "llm_model": agent["llm"].get("model") or "unknown",
             "last_activity": time.time(),
         }
     )

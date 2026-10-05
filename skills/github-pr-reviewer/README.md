@@ -91,14 +91,10 @@ that conversation, so a reused conversation reports the LLM it actually runs,
 and takes the LLM profile name from the agent profile while it is still at its
 launch revision (`unknown` once the profile has been edited since).
 
-The manual upload flow builds the agent itself. It resolves the automation's
-selected LLM profile (`AUTOMATION_MODEL`) for each new conversation. If it is
-unset or the profile was deleted, the script uses the server's concrete default
-LLM settings and labels the result `default`. Other profile errors stop creation
-instead of silently choosing another model. Provider-linked profiles require an
-Agent Server version that resolves provider credentials on authenticated
-plaintext profile reads; older servers produce an explicit upgrade error. The
-script never activates a profile globally.
+The manual upload flow reports `default` and the concrete model from the
+server settings it already uses to start the conversation. That label describes
+the settings source; it does not infer a named profile from the active-profile
+pointer.
 
 Set `GITHUB_PERSONAL_ACCESS_TOKEN` in OpenHands Settings -> Secrets. The token
 must be able to read the repositories and their contents, read issue events,

@@ -54,25 +54,6 @@ def test_post_message_sends_markdown_text(monkeypatch):
     assert "mrkdwn" not in posted["body"]
 
 
-def test_default_settings_match_agent_and_display_metadata(monkeypatch):
-    monkeypatch.delenv("AUTOMATION_MODEL", raising=False)
-    helpers = load_slack_monitor_helpers()
-    llm = {"model": "anthropic/claude-sonnet-4-6", "api_key": "secret"}
-    settings = {
-        "active_profile": "slack-profile",
-        "agent_settings": {"llm": llm},
-    }
-    monkeypatch.setitem(helpers, "_fetch_settings", lambda *_: settings)
-
-    agent, profile, model = helpers["_get_agent_and_llm_provenance"](
-        "http://agent", "key"
-    )
-
-    assert agent["llm"] == llm
-    assert profile == "default"
-    assert model == "anthropic/claude-sonnet-4-6"
-
-
 def test_completed_response_includes_llm_provenance(monkeypatch):
     helpers = load_slack_monitor_helpers()
     monkeypatch.setattr(helpers["time"], "time", lambda: 100.0)

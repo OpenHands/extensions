@@ -81,7 +81,7 @@ Value: **ReviewRecord**
   "status": "active",
   "conversation_id": "550e8400-e29b-41d4-a716-446655440000",
   "workspace_dir": "/workspace/repositories/owner__repo/pr-42-0123456789ab",
-  "llm_profile": "review-profile",
+  "llm_profile": "default",
   "llm_model": "openai/review-model",
   "last_activity": 1717200000.0
 }
@@ -99,8 +99,9 @@ Value: **ReviewRecord**
 
 When a review becomes stale, `stale_reason` records the old and new head SHAs.
 When a review closes after posting, `completed_at` records the completion time.
-`llm_profile` and `llm_model` record the configuration used to start the
-conversation, including any fallback. They become the footer of each review
+`llm_profile` labels the server's default settings as `default`, and `llm_model`
+records the concrete model already used to start the conversation. They become
+the footer of each review
 whose hidden `<!-- openhands-review-run: {conversation_id} -->` marker names
 this record's `conversation_id`; no other review is edited. A record written
 before these fields existed reports both as `unknown`.

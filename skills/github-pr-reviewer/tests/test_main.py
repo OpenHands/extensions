@@ -307,8 +307,8 @@ class TestClaimBeforeReview(_CheckoutTestCase):
             patch.object(main, "_prepare_repository", side_effect=prepare),
             patch.object(
                 main,
-                "_get_agent_and_llm_provenance",
-                return_value=({"kind": "Agent"}, "review-profile", "review-model"),
+                "_get_agent_dict",
+                return_value={"kind": "Agent", "llm": {"model": "review-model"}},
             ),
             patch.object(main, "create_conversation", side_effect=create),
             patch.object(main, "_post_github_comment"),
@@ -338,7 +338,7 @@ class TestClaimBeforeReview(_CheckoutTestCase):
         rec = self.reviews[main._review_key(7, 4242)]
         self.assertEqual(rec["status"], "active")
         self.assertEqual(rec["conversation_id"], "conv-1")
-        self.assertEqual(rec["llm_profile"], "review-profile")
+        self.assertEqual(rec["llm_profile"], "default")
         self.assertEqual(rec["llm_model"], "review-model")
         self.assertEqual(self.snapshots[-1][main._review_key(7, 4242)]["status"], "active")
 
@@ -640,25 +640,6 @@ class TestRepoReviewGuide(unittest.TestCase):
 
 
 class TestLlmProvenance(unittest.TestCase):
-    def test_default_settings_match_agent_and_display_metadata(self):
-        llm = {"model": "anthropic/claude-sonnet-4-6", "api_key": "secret"}
-        settings = {
-            "active_profile": "review-profile",
-            "agent_settings": {"llm": llm},
-        }
-
-        with (
-            patch.dict(main.os.environ, {"AUTOMATION_MODEL": ""}),
-            patch.object(main, "_fetch_settings", return_value=settings),
-        ):
-            agent, profile, model = main._get_agent_and_llm_provenance(
-                "http://agent", "key"
-            )
-
-        self.assertEqual(agent["llm"], llm)
-        self.assertEqual(profile, "default")
-        self.assertEqual(model, "anthropic/claude-sonnet-4-6")
-
     def test_review_prompt_names_its_conversation_marker(self):
         prompt = main._build_review_prompt(
             "owner/repo",
