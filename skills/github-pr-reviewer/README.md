@@ -96,3 +96,60 @@ can instead use a configured label and re-apply it for another review.
 ## See Also
 
 - [SKILL.md](SKILL.md) - Full setup workflow reference
+
+## Opt-in worker publication
+
+Legacy agent publication is the default. With `structured_publication: true`,
+`worker.py` publishes the agent's JSON result, validating `head_sha`,
+`code_assessment` (`clean`, `material_findings`, `inconclusive`),
+`merge_readiness` (`ready`, `blocked`, `unknown`), summary, findings, and evidence.
+It chooses the event and footer. Only clean, ready results approve;
+clean self-reviews use COMMENT. Missing merge requirements are not code defects.
+**This mode puts findings in the body, not inline threads.**
+
+### Operator prerequisites
+
+Keep disabled until you verify these prerequisites; setup is not automatic.
+
+- Bundle `publication.py`. Run periodic scans alongside event intake. Both recover
+  finished conversations before selecting new work.
+- Set `REVIEW_COORDINATION_AUTOMATION_ID` to the same namespace for both automations,
+  plus `REVIEW_COORDINATION_API_KEY` (a user-authorized automation API key) and
+  `AUTOMATION_API_URL`. The API must support `automation_id` user auth, metadata
+  versions, create-if-absent, and writes conditional on the stored version. The
+  run's automation-scoped KV JWT (key-value storage token) is insufficient.
+  Unsupported APIs stop publication.
+- Set `review_read_token_secret` and `review_profile_read_only: true` only after
+  independently verifying profile/sandbox isolation. This flag **does not enforce
+  isolation**. Agents must have read-only GitHub access, no publisher/coordination
+  credentials, and no write-capable MCP tools. The separate read token needs
+  pull-request, repository-content, and linked-issue read access; the worker
+  also needs issue read access to check handoff priority. Never add the coordination key to
+  the agent profile.
+- Verify Agent Server exposes execution status and
+  `/api/conversations/{id}/agent_final_response` returning `response`. Only
+  `finished` results are used; no workspace-file transport is supported.
+- Set `scan_window: true` for the VM's rotating discovery window of ten unrequested
+  PRs. Explicit candidates bypass this window. Linked low-priority closing issues
+  suppress automatic maintainer handoff.
+
+### Recovery and limits
+
+Time-limited locks (leases) coordinate work for each repository/PR/reviewer.
+The head, latest request and label events, and latest non-bot clarification
+identify a work version (generation) across triggers.
+
+Intent is recorded before POST. Lost responses/receipts trigger a search by
+exact marker, account, and head. **An empty search never
+permits retrying an uncertain POST.** Completed/rejected generations stay recorded.
+Missing/failed starts are held for inspection, including records left in
+`starting` after a crash. Inspect the recorded conversation ID and server status
+before repairing the record; do not blindly restart a possibly running agent.
+Invalid/stale results wait for new work. Handoff intent is retained: crashes during handoff require operator
+reconciliation. Inspect shared `review-work-*` records before manual repair.
+Never delete uncertain POST intents just because a review is not yet visible.
+
+Publication is **not guaranteed exactly once**. GitHub cannot reject a review POST
+based on an expired lease or require the head to remain unchanged. The worker pins
+`commit_id` and rechecks the head, but a push can still race the POST. JSON validation
+cannot prove that written evidence claims are true.

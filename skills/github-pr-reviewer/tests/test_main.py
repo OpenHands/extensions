@@ -521,6 +521,9 @@ class TestRepoReviewGuide(unittest.TestCase):
         self.assertIn("AGENTS.md", prompt)
         self.assertIn("CONTRIBUTING.md", prompt)
         self.assertIn("nested `AGENTS.md`", prompt)
+        self.assertIn("supported dependency version", prompt)
+        self.assertIn("custom-codereview-guide.md", prompt)
+        self.assertIn("Never end with APPROVED", prompt)
 
     def test_prompt_uses_native_approval_for_a_clean_review(self):
         prompt = main._build_review_prompt(

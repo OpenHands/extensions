@@ -135,7 +135,7 @@
       }
     },
     "bundle": {
-      "version": "1.9.2",
+      "version": "1.10.0",
       "entrypoint": "python3 worker.py",
       "timeout": 300,
       "files": {
@@ -143,7 +143,8 @@
         "agent_conversation.py": "skills/github/scripts/agent_conversation.py",
         "github_client.py": "skills/github/scripts/github_client.py",
         "maintainer_handoff.py": "skills/github-pr-reviewer/scripts/maintainer_handoff.py",
-        "worker.py": "skills/github-pr-reviewer/scripts/worker.py"
+        "worker.py": "skills/github-pr-reviewer/scripts/worker.py",
+        "publication.py": "skills/github-pr-reviewer/scripts/publication.py"
       },
       "config": {
         "repos": "{{form.repositories}}",

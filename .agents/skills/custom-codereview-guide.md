@@ -27,7 +27,32 @@ Cross-repository work is acceptable when this PR contains only the
 extensions-owned portion and relies on public interfaces from the owning
 repository.
 
-## Blocking checkpoints
+## Issue triage
+
+Issue readiness means the work is clear enough to start—not that the fix is
+complete. Do not require a PR, passing implementation tests, or before-and-after
+fix evidence. Reconsider readiness when new information leaves scope or expected
+behavior unresolved. Read the issue, linked discussion, applicable `AGENTS.md`,
+and adjacent source before asking questions.
+
+For API failures, compare the extension request with the provider's reported or
+supported version, not upstream main. Use dependency pins or deployment evidence.
+Instructions, request arguments, response parsing, and scanner policy belong
+here; use the ownership boundaries above for other failures. State required
+cross-repository changes and their order. An independent upstream defect need
+not block this work. Naming an owner does not authorize edits or duplicate tickets.
+
+Define the smallest useful outcome and explicit non-goals. Cover only affected
+entrypoints, environments, and permissions. For scanners, state whether discovery,
+commenting, and dispatch are allowed for ineligible candidates or after a cap.
+Discovery alone does not authorize unsolicited comments.
+
+Request visual evidence only when needed; otherwise use logs, minimal
+reproductions, or failing tests. Do not repeat answered questions. Match managed
+criteria to current human decisions and authoritative readiness policy. Report
+conflicts instead of repeatedly adding a label that policy removes.
+
+## Implementation review checkpoints
 
 ### Executable instructions and runtime parity
 
@@ -41,6 +66,16 @@ For a changed skill, plugin, hook, or automation, follow its documented entrypoi
 in a clean environment far enough to exercise the changed behavior. Keep local
 and cloud behavior identical unless the documentation names and explains a real
 platform capability difference.
+
+For provider changes, inspect the supported implementation; mocks and local types
+alone do not establish an API contract. Separate static/helper tests, tests with
+simulated services, and real integration evidence. If the version or runtime is
+unavailable, report that limit, not an assumed defect. For packaging changes,
+check source, shipped bundle, and deployed files separately.
+
+For scanners, check eligibility, permissions, caps, retries, unchanged runs, and
+recovery for each action listed under triage. A launch cap does not permit
+unlimited gate comments.
 
 ### Untrusted triggers and credentials
 
@@ -130,3 +165,11 @@ Do not comment on punctuation, preferred prose tone, optional DRY cleanup, or
 hypothetical non-standard configurations without a supported failure mode. Before
 raising a finding, verify that the referenced file and behavior are present in
 the current PR head and have not already been addressed in review history.
+
+## Review verdict
+
+Do not approve material code defects or unmet blocking merge/evidence checks.
+Distinguish code defects from missing merge requirements and optional follow-up.
+If GitHub forbids self-approval of a clean PR, use COMMENT and explain why.
+Respect accepted scope and non-goals: block on a pre-existing limitation only if
+this change exposes it.
