@@ -1,6 +1,6 @@
 ---
 name: canvas-extension-api
-description: This skill should be used when the user asks to "create an OpenHands App", "scaffold a Canvas App", "build an app with the Canvas Extensions API", "build an Agent Canvas App", "bundle a single-file Canvas App", "build a Sidecar-backed Canvas App", "add onboarding for an App service", "add a custom interface to Agent Canvas", "validate an OpenHands App", or mentions Canvas Apps, Agent Canvas extensions, Blob-importable app bundles, registerPage, app pages, Sidecars, or canvas extension packages.
+description: This skill should be used when the user asks to "create an OpenHands App", "scaffold a Canvas App", "build an app with the Canvas Extensions API", "build an Agent Canvas App", "bundle a single-file Canvas App", "build a Sidecar-backed Canvas App", "add onboarding for an App service", "add a custom interface to Agent Canvas", "validate an OpenHands App", "make a Canvas App look native", "match Agent Canvas styles", "style a canvas extension", "reuse OpenHands design tokens", "add native Tailwind classes to an app", or mentions Canvas Apps, Agent Canvas extensions, Blob-importable app bundles, registerPage, app pages, Sidecars, or canvas extension packages.
 ---
 
 # Canvas Extensions API
@@ -195,6 +195,8 @@ Assume activation, mounting, and disposal may happen repeatedly during hot enabl
 
 Render within the supplied `container`; do not replace unrelated Canvas DOM. Scope CSS under an app-specific root class. Prefer Canvas CSS variables with sensible fallbacks rather than copying host implementation classes.
 
+Read `references/native-design.md` before styling an App page. It covers the core rule (reuse tokens, not host internals), the three implementation paths (dependency-free, Tailwind-bundled, existing CSS), the Tailwind v4 theme mapping to host variables, layout and density conventions, copy-ready component recipes, the raw scoped CSS alternative, and a mount-safe style helper. Treat it as the authoritative design reference for Apps.
+
 Provide:
 
 - semantic structure and headings inside the supplied container. Canvas already owns the outer `<main aria-label={page title}>`, so do not add a nested `main` or duplicate page landmark label;
@@ -281,5 +283,6 @@ Summarize:
 - `references/testing-and-installation.md` - test strategy, manual Canvas workflow, and installation coordinates.
 - `references/packaging-recipes.md` - one-file Vite, CSS, assets, Workers, and WASM rules.
 - `references/backend-safety.md` - authenticated requests, command safety, persistence, and prerequisite onboarding.
+- `references/native-design.md` - native Agent Canvas styling: token reuse, Tailwind mapping, layout, component recipes, scoped CSS, and style injection.
 - `references/acceptance-checklist.md` - automated checks and the local install/enable/reload lifecycle.
 - `scripts/validate-extension.mjs` - dependency-free static artifact validator for an App package directory.
