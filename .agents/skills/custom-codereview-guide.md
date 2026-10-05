@@ -29,9 +29,11 @@ repository.
 
 ## Issue triage
 
-Do not apply implementation or merge checks as issue entry requirements. An
-unwritten fix needs no tests, PR artifacts, or demo yet. Read the issue, linked
-discussion, applicable `AGENTS.md`, and adjacent source before asking questions.
+Issue readiness means the work is clear enough to start—not that the fix is
+complete. Do not require a PR, passing implementation tests, or before-and-after
+fix evidence. Reconsider readiness when new information leaves scope or expected
+behavior unresolved. Read the issue, linked discussion, applicable `AGENTS.md`,
+and adjacent source before asking questions.
 
 For API failures, compare the extension request with the provider's reported or
 supported version, not upstream main. Use dependency pins or deployment evidence.
