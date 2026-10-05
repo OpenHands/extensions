@@ -1,0 +1,695 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>LLM provenance in automation output · PR 547</title><style>
+:root{--fg:#22241f;--muted:#63675b;--subtle:#858a7d;--bg:#fafaf6;--card:#fff;--rule:#dddfd5;--accent:#b25216;--accent-soft:#fff1e5;--code:#f1f2ea;--mono:ui-monospace,SFMono-Regular,Menlo,monospace;--sans:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.6 var(--sans)}.wrap{display:grid;grid-template-columns:230px minmax(0,1fr);gap:38px;max-width:1280px;margin:auto;padding:40px 28px 90px}nav{position:sticky;top:28px;align-self:start;font-size:13px}nav ol{padding-left:20px}nav li{margin:12px 0}a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}header{border-bottom:1px solid var(--rule);padding-bottom:24px}.eyebrow{font-size:12px;text-transform:uppercase;letter-spacing:.12em;color:var(--accent);font-weight:700}h1{font-size:35px;line-height:1.16;margin:14px 0}h2{font-size:24px;line-height:1.25;margin:0 0 14px}p{margin:12px 0}section{padding-top:38px;scroll-margin-top:20px}.callout{border-left:4px solid var(--accent);padding:14px 18px;background:var(--accent-soft);margin:20px 0}.caption,.meta{color:var(--muted);font-size:13px}.src{font:12px var(--mono);overflow-wrap:anywhere}code,pre{font-family:var(--mono);background:var(--code)}code{font-size:.85em;padding:2px 4px}pre{padding:16px;font-size:12px;overflow:auto;max-height:450px}details{margin:14px 0;border:1px solid var(--rule);border-radius:5px}summary{padding:9px 12px;cursor:pointer;font-size:13px;color:var(--muted)}details ul{padding-right:12px}svg{display:block;width:100%;height:auto;margin-top:18px;border:1px solid var(--rule);border-radius:6px;background:var(--card)}svg .label{font:700 12px var(--sans);fill:var(--muted)}svg .existing{fill:var(--code);stroke:var(--subtle);stroke-dasharray:5 3}svg .added{fill:var(--accent-soft);stroke:var(--accent);stroke-width:2}svg .node{font:700 14px var(--mono);fill:var(--fg)}svg .detail{font:13px var(--sans);fill:var(--muted)}svg .location{font:11px var(--mono);fill:var(--subtle)}svg .arrow{fill:none;stroke-width:1.8;stroke-dasharray:5 3}svg .gray{stroke:var(--muted)}svg .orange{stroke:var(--accent)}table{border-collapse:collapse;width:100%;font-size:13px}th,td{padding:10px 8px;border-bottom:1px solid var(--rule);text-align:left;vertical-align:top}th{background:var(--code)}@media(max-width:850px){.wrap{grid-template-columns:1fr;padding:24px 18px;gap:18px}nav{position:static}nav ol{display:flex;flex-wrap:wrap;gap:4px 26px}nav li{margin:4px 0}h1{font-size:30px}}
+</style></head><body><div class="wrap"><nav><strong>PR 547 · Review guide</strong><ol><li><a href="#catalog">The catalog worker stamps the conversation’s own review</a></li><li><a href="#dispatcher">A prompt can name its receiving conversation</a></li><li><a href="#legacy">The manual reviewer records its existing model</a></li><li><a href="#slack">Slack adds a footer to the existing response</a></li><li><a href="#evidence">Regression evidence</a></li><li><a href="#support">Supporting changes</a></li></ol></nav><main><header><div class="eyebrow">Automation output · Display metadata</div><h1>Show which LLM produced the result</h1><p>GitHub reviews and Slack responses gain a concise profile and model footer. The catalog worker reads the conversation’s metadata; the manual scripts record the model they already launch.</p><div class="callout">★ The feature adds display metadata. The settings loaders and agent constructors in the manual reviewer and Slack script remain identical to main. The catalog metadata reader uses ordinary authenticated reads.</div><p><a class="src" href="https://github.com/OpenHands/extensions/blob/038dbfa13b5549d3ddf957d52a3e2097c2b4c616/skills/github-pr-reviewer/scripts/main.py#L615">skills/github-pr-reviewer/scripts/main.py:615</a> → <a class="src" href="https://github.com/OpenHands/extensions/blob/e3e361893c5f22ba5bea82660fe6a6531e7bfba8/skills/github-pr-reviewer/scripts/main.py#L616">skills/github-pr-reviewer/scripts/main.py:616</a><br><a class="src" href="https://github.com/OpenHands/extensions/blob/038dbfa13b5549d3ddf957d52a3e2097c2b4c616/skills/slack-channel-monitor/scripts/main.py#L508">skills/slack-channel-monitor/scripts/main.py:508</a> → <a class="src" href="https://github.com/OpenHands/extensions/blob/e3e361893c5f22ba5bea82660fe6a6531e7bfba8/skills/slack-channel-monitor/scripts/main.py#L509">skills/slack-channel-monitor/scripts/main.py:509</a><br><a class="src" href="https://github.com/OpenHands/extensions/blob/e3e361893c5f22ba5bea82660fe6a6531e7bfba8/skills/github/scripts/agent_conversation.py#L326">skills/github/scripts/agent_conversation.py:326</a></p><p class="meta">Before: 038dbfa1 · After code: e3e36189 · Temporary PR artifact; the repository workflow removes .pr/ on approval.</p></header><section id="catalog"><h2>1. The catalog worker stamps the conversation’s own review</h2><details><summary>Sources</summary><ul><li><a class="src" href="https://github.com/OpenHands/extensions/blob/e3e361893c5f22ba5bea82660fe6a6531e7bfba8/skills/github-pr-reviewer/scripts/worker.py#L1">skills/github-pr-reviewer/scripts/worker.py:1</a></li></ul></details><p>The completion handler adds a footer only to the review marked with its recorded conversation ID. It reads the model from that conversation and the LLM profile reference from the launching agent profile at the same revision. Already-stamped reviews keep their recorded footer.</p><svg viewBox="0 0 940 364" role="img" aria-labelledby="catalog-title catalog-desc">
+<title id="catalog-title">The catalog worker stamps the conversation’s own review</title><desc id="catalog-desc">Before is on the left, after on the right. Orange arrows identify the added display flow. Gray nodes keep existing behavior.</desc>
+<defs><marker id="catalog-gray" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 Z" fill="var(--muted)"/></marker><marker id="catalog-orange" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 Z" fill="var(--accent)"/></marker></defs>
+<text x="30" y="29" class="label">BEFORE · MAIN</text><text x="494" y="29" class="label">AFTER · THIS PR</text><g><a href="https://github.com/OpenHands/extensions/blob/038dbfa13b5549d3ddf957d52a3e2097c2b4c616/skills/github-pr-reviewer/scripts/worker.py#L1088"><rect class="existing" x="28" y="50" width="420" height="78" rx="6"/><text class="node" x="238" y="75" text-anchor="middle">_start_review()</text><text class="detail" x="238" y="97" text-anchor="middle">Deliver the review prompt</text><text class="location" x="238" y="116" text-anchor="middle">worker.py:1088</text></a></g><path class="arrow gray" d="M238 128 V154" marker-end="url(#catalog-gray)"/><g><a href="https://github.com/OpenHands/extensions/blob/038dbfa13b5549d3ddf957d52a3e2097c2b4c616/skills/github-pr-reviewer/scripts/worker.py#L292"><rect class="existing" x="28" y="155" width="420" height="78" rx="6"/><text class="node" x="238" y="180" text-anchor="middle">_finish_completed_review()</text><text class="detail" x="238" y="202" text-anchor="middle">Collect the completed review</text><text class="location" x="238" y="221" text-anchor="middle">worker.py:292</text></a></g><path class="arrow gray" d="M238 233 V259" marker-end="url(#catalog-gray)"/><g><a href="https://github.com/OpenHands/extensions/blob/038dbfa13b5549d3ddf957d52a3e2097c2b4c616/skills/github-pr-reviewer/scripts/worker.py#L292"><rect class="existing" x="28" y="260" width="420" height="78" rx="6"/><text class="node" x="238" y="285" text-anchor="middle">_finish_completed_review()</text><text class="detail" x="238" y="307" text-anchor="middle">Read the verdict and continue</text><text class="location" x="238" y="326" text-anchor="middle">worker.py:292</text></a></g><g><a href="https://github.com/OpenHands/extensions/blob/e3e361893c5f22ba5bea82660fe6a6531e7bfba8/skills/github-pr-reviewer/scripts/worker.py#L1145"><rect class="added" x="492" y="50" width="420" height="78" rx="6"/><text class="node" x="702" y="75" text-anchor="middle">_start_review()</text><text class="detail" x="702" y="97" text-anchor="middle">Include the receiving conversation’s marker</text><text class="location" x="702" y="116" text-anchor="middle">worker.py:1145</text></a></g><path class="arrow orange" d="M702 128 V154" marker-end="url(#catalog-orange)"/><g><a href="https://github.com/OpenHands/extensions/blob/e3e361893c5f22ba5bea82660fe6a6531e7bfba8/skills/github-pr-reviewer/scripts/worker.py#L420"><rect class="added" x="492" y="155" width="420" height="78" rx="6"/><text class="node" x="702" y="180" text-anchor="middle">_annotate_llm_provenance()</text><text class="detail" x="702" y="202" text-anchor="middle">Read metadata and append the footer</text><text class="location" x="702" y="221" text-anchor="middle">worker.py:420</text></a></g><path class="arrow orange" d="M702 233 V259" marker-end="url(#catalog-orange)"/><g><a href="https://github.com/OpenHands/extensions/blob/e3e361893c5f22ba5bea82660fe6a6531e7bfba8/skills/github-pr-reviewer/scripts/worker.py#L293"><rect class="added" x="492" y="260" width="420" height="78" rx="6"/><text class="node" x="702" y="285" text-anchor="middle">_finish_completed_review()</text><text class="detail" x="702" y="307" text-anchor="middle">Read the verdict above the footer</text><text class="location" x="702" y="326" text-anchor="middle">worker.py:293</text></a></g></svg><p class="caption">Fig 1 · Orange marks the added metadata and output flow. Each node links to its source revision.</p><p>Unreadable metadata is logged while completion continues. A changed launching profile yields <code>unknown</code> for the profile name and retains the conversation model. Sources: <a class="src" href="https://github.com/OpenHands/extensions/blob/e3e361893c5f22ba5bea82660fe6a6531e7bfba8/skills/github-pr-reviewer/scripts/worker.py#L293">skills/github-pr-reviewer/scripts/worker.py:293</a> · <a class="src" href="https://github.com/OpenHands/extensions/blob/e3e361893c5f22ba5bea82660fe6a6531e7bfba8/skills/github/scripts/agent_conversation.py#L282">skills/github/scripts/agent_conversation.py:282</a>.</p><details><summary>Code diff</summary><pre>diff --git a/skills/github-pr-reviewer/scripts/worker.py b/skills/github-pr-reviewer/scripts/worker.py
+index dfa7e4e..91c602c 100644
+--- a/skills/github-pr-reviewer/scripts/worker.py
++++ b/skills/github-pr-reviewer/scripts/worker.py
+@@ -193,7 +193,7 @@ class PullRequestReviewer(GitHubRepository):
+             return pr if (author or &quot;&quot;).lower() == self.trigger_reviewer else None
+         return None
+ 
+-    def _prompt(self, pr, trigger, label=None, delivery_key=None):
++    def _prompt(self, pr, trigger, label=None, delivery_key=None, conversation_id=None):
+         number = pr[&quot;number&quot;]
+         sha = pr[&quot;head&quot;][&quot;sha&quot;]
+         token = self.token_name
+@@ -225,6 +225,7 @@ class PullRequestReviewer(GitHubRepository):
+             workspace_instructions=workspace,
+             github_token_secret=token,
+             trigger_description=trigger_description,
++            conversation_id=conversation_id,
+         )
+         if label:
+             moved_head_instruction = (
+@@ -340,12 +341,27 @@ class PullRequestReviewer(GitHubRepository):
+             ]
+         if not completed:
+             return False
++        try:
++            self._annotate_llm_provenance(pr, completed)
++        except Exception as exc:  # noqa: BLE001 - provenance never blocks completion
++            print(
++                json.dumps(
++                    {
++                        &quot;repository&quot;: self.repository,
++                        &quot;pr&quot;: pr[&quot;number&quot;],
++                        &quot;llm_provenance_error&quot;: f&quot;{type(exc).__name__}: {exc}&quot;,
++                    }
++                ),
++                flush=True,
++            )
+         approved = None
+         maintainer_decision = False
+         for review in sorted(
+             completed, key=lambda item: item[&quot;submitted_at&quot;], reverse=True
+         ):
+-            body = (review.get(&quot;body&quot;) or &quot;&quot;).rstrip()
++            # The verdict ends the agent&#x27;s text; the provenance footer the
++            # automation appends after it is not part of the verdict.
++            body = workflow._without_llm_provenance(review.get(&quot;body&quot;) or &quot;&quot;)
+             if body.endswith(&quot;✅ APPROVED&quot;):
+                 approved = True
+                 break
+@@ -401,6 +417,47 @@ class PullRequestReviewer(GitHubRepository):
+             )
+         return True
+ 
++    def _annotate_llm_provenance(self, pr, reviews):
++        &quot;&quot;&quot;Append the LLM profile and model to this automation&#x27;s own reviews.
++
++        The footer describes the conversation that published the review, read
++        back from that conversation rather than from current settings, so a
++        reused conversation reports the LLM it actually runs. Login, head, and
++        time cannot tell two automations sharing a bot account apart, so a
++        review is annotated only when its single run marker names the
++        conversation this automation records for the pull request. Any other
++        review, including one by an overlapping run, is left as it is. A
++        review is stamped once: one that already carries a footer keeps it, so
++        a later edit of the agent profile cannot rewrite what was recorded.
++        &quot;&quot;&quot;
++        reviews = [
++            review
++            for review in reviews
++            if workflow._REVIEW_RUN_MARKER_RE.search(review.get(&quot;body&quot;) or &quot;&quot;)
++            and workflow._without_llm_provenance(review.get(&quot;body&quot;) or &quot;&quot;)
++            == (review.get(&quot;body&quot;) or &quot;&quot;).strip()
++        ]
++        if not reviews:
++            return
++        repository_id = self.gh(&quot;GET&quot;, &quot;&quot;)[&quot;id&quot;]
++        conversation_id = self.dispatcher.subject_conversation(
++            f&quot;{repository_id}:pr:{pr[&#x27;number&#x27;]}&quot;
++        )
++        own = workflow._own_reviews(reviews, conversation_id)
++        if not own:
++            return
++        provenance = self.dispatcher.llm_provenance(conversation_id)
++        if provenance is None:
++            return
++        for review in own:
++            body = workflow._with_llm_provenance(review.get(&quot;body&quot;) or &quot;&quot;, *provenance)
++            if body != review.get(&quot;body&quot;):
++                self.gh(
++                    &quot;PUT&quot;,
++                    f&quot;/pulls/{pr[&#x27;number&#x27;]}/reviews/{review[&#x27;id&#x27;]}&quot;,
++                    {&quot;body&quot;: body},
++                )
++
+     @staticmethod
+     def _check_app_identity(run):
+         &quot;&quot;&quot;The app that reported a check run, as a stable grouping key.&quot;&quot;&quot;
+@@ -1091,7 +1148,11 @@ class PullRequestReviewer(GitHubRepository):
+         result = self.dispatcher.deliver(
+             subject=f&quot;{repository_id}:pr:{pr[&#x27;number&#x27;]}&quot;,
+             delivery=delivery_key or f&quot;{trigger[&#x27;id&#x27;]}:{sha}&quot;,
+-            prompt=self._prompt(pr, trigger, trigger_label, delivery_key),
++            # The dispatcher names the conversation it delivers to, so the
++            # prompt can carry that conversation&#x27;s review marker.
++            prompt=lambda conversation_id: self._prompt(
++                pr, trigger, trigger_label, delivery_key, conversation_id
++            ),
+             head=sha,
+         )
+         print(
+</pre></details></section><section id="dispatcher"><h2>2. A prompt can name its receiving conversation</h2><details><summary>Sources</summary><ul><li><a class="src" href="https://github.com/OpenHands/extensions/blob/e3e361893c5f22ba5bea82660fe6a6531e7bfba8/skills/github/scripts/agent_conversation.py#L1">skills/github/scripts/agent_conversation.py:1</a></li></ul></details><p>deliver() accepts an optional function of the receiving conversation ID, preserving existing string prompts. This makes the marker follow a created, resumed, or retried conversation. The new llm_provenance() reader requests ordinary conversation and agent-profile metadata with session authentication.</p><svg viewBox="0 0 940 364" role="img" aria-labelledby="dispatcher-title dispatcher-desc">
+<title id="dispatcher-title">A prompt can name its receiving conversation</title><desc id="dispatcher-desc">Before is on the left, after on the right. Orange arrows identify the added display flow. Gray nodes keep existing behavior.</desc>
+<defs><marker id="dispatcher-gray" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 Z" fill="var(--muted)"/></marker><marker id="dispatcher-orange" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 Z" fill="var(--accent)"/></marker></defs>
+<text x="30" y="29" class="label">BEFORE · MAIN</text><text x="494" y="29" class="label">AFTER · THIS PR</text><g><a href="https://github.com/OpenHands/extensions/blob/038dbfa13b5549d3ddf957d52a3e2097c2b4c616/skills/github/scripts/agent_conversation.py#L191"><rect class="existing" x="28" y="50" width="420" height="78" rx="6"/><text class="node" x="238" y="75" text-anchor="middle">deliver()</text><text class="detail" x="238" y="97" text-anchor="middle">Accept a string prompt</text><text class="location" x="238" y="116" text-anchor="middle">agent_conversation.py:191</text></a></g><path class="arrow gray" d="M238 128 V154" marker-end="url(#dispatcher-gray)"/><g><a href="https://github.com/OpenHands/extensions/blob/038dbfa13b5549d3ddf957d52a3e2097c2b4c616/skills/github/scripts/agent_conversation.py#L255"><rect class="existing" x="28" y="155" width="420" height="78" rx="6"/><text class="node" x="238" y="180" text-anchor="middle">_deliver_cloud()</text><text class="detail" x="238" y="202" text-anchor="middle">Choose or reuse the conversation</text><text class="location" x="238" y="221" text-anchor="middle">agent_conversation.py:255</text></a></g><path class="arrow gray" d="M238 233 V259" marker-end="url(#dispatcher-gray)"/><g><a href="https://github.com/OpenHands/extensions/blob/038dbfa13b5549d3ddf957d52a3e2097c2b4c616/skills/github/scripts/agent_conversation.py#L255"><rect class="existing" x="28" y="260" width="420" height="78" rx="6"/><text class="node" x="238" y="285" text-anchor="middle">_deliver_cloud()</text><text class="detail" x="238" y="307" text-anchor="middle">Send the same prompt text</text><text class="location" x="238" y="326" text-anchor="middle">agent_conversation.py:255</text></a></g><g><a href="https://github.com/OpenHands/extensions/blob/e3e361893c5f22ba5bea82660fe6a6531e7bfba8/skills/github/scripts/agent_conversation.py#L207"><rect class="added" x="492" y="50" width="420" height="78" rx="6"/><text class="node" x="702" y="75" text-anchor="middle">deliver()</text><text class="detail" x="702" y="97" text-anchor="middle">Accept a string or a function of the ID</text><text class="location" x="702" y="116" text-anchor="middle">agent_conversation.py:207</text></a></g><path class="arrow orange" d="M702 128 V154" marker-end="url(#dispatcher-orange)"/><g><a href="https://github.com/OpenHands/extensions/blob/e3e361893c5f22ba5bea82660fe6a6531e7bfba8/skills/github/scripts/agent_conversation.py#L334"><rect class="existing" x="492" y="155" width="420" height="78" rx="6"/><text class="node" x="702" y="180" text-anchor="middle">_deliver_cloud()</text><text class="detail" x="702" y="202" text-anchor="middle">Choose or reuse the conversation</text><text class="location" x="702" y="221" text-anchor="middle">agent_conversation.py:334</text></a></g><path class="arrow orange" d="M702 233 V259" marker-end="url(#dispatcher-orange)"/><g><a href="https://github.com/OpenHands/extensions/blob/e3e361893c5f22ba5bea82660fe6a6531e7bfba8/skills/github/scripts/agent_conversation.py#L160"><rect class="added" x="492" y="260" width="420" height="78" rx="6"/><text class="node" x="702" y="285" text-anchor="middle">_render()</text><text class="detail" x="702" y="307" text-anchor="middle">Render the marker for that conversation</text><text class="location" x="702" y="326" text-anchor="middle">agent_conversation.py:160</text></a></g></svg><p class="caption">Fig 2 · Orange marks the added metadata and output flow. Each node links to its source revision.</p><p><code>deliver(prompt: str)</code> → <code>deliver(prompt: str | Callable[[str], str])</code> is additive. Existing string callers keep their behavior. The LLM metadata reader is separate from delivery: <a class="src" href="https://github.com/OpenHands/extensions/blob/e3e361893c5f22ba5bea82660fe6a6531e7bfba8/skills/github/scripts/agent_conversation.py#L282">skills/github/scripts/agent_conversation.py:282</a>.</p><details><summary>Code diff</summary><pre>diff --git a/skills/github/scripts/agent_conversation.py b/skills/github/scripts/agent_conversation.py
+index d8a3c90..8443ee4 100644
+--- a/skills/github/scripts/agent_conversation.py
++++ b/skills/github/scripts/agent_conversation.py
+@@ -3,6 +3,7 @@
+ import json
+ import os
+ import time
++from collections.abc import Callable
+ from urllib.error import HTTPError
+ from urllib.request import Request, urlopen
+ from uuid import NAMESPACE_URL, UUID, uuid4, uuid5
+@@ -113,6 +114,10 @@ class CloudConversations:
+             },
+         )
+ 
++    def agent_profiles(self) -&gt; list[dict]:
++        listing = self._request(&quot;GET&quot;, &quot;/api/agent-profiles&quot;)
++        return (listing or {}).get(&quot;profiles&quot;) or []
++
+     def run(self, conversation: dict) -&gt; None:
+         &quot;&quot;&quot;Start the next turn of an idle conversation on its own Agent Server.&quot;&quot;&quot;
+         try:
+@@ -152,6 +157,17 @@ def _user_message(text: str) -&gt; dict:
+     return {&quot;role&quot;: &quot;user&quot;, &quot;content&quot;: [{&quot;type&quot;: &quot;text&quot;, &quot;text&quot;: text}]}
+ 
+ 
++def _render(prompt, conversation_id) -&gt; str:
++    &quot;&quot;&quot;The text of `prompt` for the conversation it is delivered to.
++
++    A caller that must name the receiving conversation in its own prompt (a
++    marker the deterministic side later looks for, say) passes a function of
++    the conversation id, because only delivery decides which conversation that
++    is.
++    &quot;&quot;&quot;
++    return prompt(str(conversation_id)) if callable(prompt) else prompt
++
++
+ class AgentConversationDispatcher:
+     &quot;&quot;&quot;Deliver one revision at a time to a stable conversation for each subject.&quot;&quot;&quot;
+ 
+@@ -189,7 +205,11 @@ class AgentConversationDispatcher:
+         return self._workspace.__exit__(*args)
+ 
+     def deliver(
+-        self, subject: str, delivery: str, prompt: str, head: str = &quot;&quot;
++        self,
++        subject: str,
++        delivery: str,
++        prompt: str | Callable[[str], str],
++        head: str = &quot;&quot;,
+     ) -&gt; dict[str, str]:
+         &quot;&quot;&quot;Deliver one revision of `subject`, deduping a repeated head.
+ 
+@@ -202,6 +222,7 @@ class AgentConversationDispatcher:
+         A conversation already running for this head is reported `in_progress`
+         and left alone, whatever the new delivery says. Callers with no revision
+         identity leave `head` empty and keep the delivery-key-only behavior.
++        `prompt` may be a function of the receiving conversation&#x27;s id.
+         &quot;&quot;&quot;
+         conversation_id = uuid5(NAMESPACE_URL, f&quot;{self.automation_id}:{subject}&quot;)
+         state_key = f&quot;{_CONVERSATION_KEY_PREFIX}{conversation_id}&quot;
+@@ -252,6 +273,64 @@ class AgentConversationDispatcher:
+             &quot;conversation_id&quot;: str(conversation_id),
+         }
+ 
++    def subject_conversation(self, subject: str) -&gt; str | None:
++        &quot;&quot;&quot;The conversation this automation currently delivers `subject` to.&quot;&quot;&quot;
++        conversation_id = uuid5(NAMESPACE_URL, f&quot;{self.automation_id}:{subject}&quot;)
++        record = _kv_request(f&quot;{_CONVERSATION_KEY_PREFIX}{conversation_id}&quot;, &quot;GET&quot;)
++        return (record or {}).get(&quot;conversation_id&quot;) or None
++
++    def llm_provenance(self, conversation_id: str) -&gt; tuple[str, str] | None:
++        &quot;&quot;&quot;The LLM profile name and model a conversation runs, or None if it is gone.
++
++        Both are read back from the conversation, never from the automation&#x27;s
++        current settings: the server resolves the agent profile when it starts
++        the conversation, and a reused conversation keeps that LLM after the
++        profile is edited. The model is the conversation&#x27;s own. The LLM profile
++        name comes from the launching agent profile only while that profile is
++        still at its launch revision, and is `unknown` otherwise.
++        &quot;&quot;&quot;
++        if self._cloud:
++            conversation = self._cloud.get(conversation_id)
++            if conversation is None:
++                return None
++            model = conversation.get(&quot;llm_model&quot;)
++        else:
++            try:
++                conversation = self._agent_server_get(
++                    f&quot;/api/conversations/{conversation_id}&quot;
++                )
++            except HTTPError as exc:
++                if exc.code == 404:
++                    return None
++                raise
++            model = ((conversation.get(&quot;agent&quot;) or {}).get(&quot;llm&quot;) or {}).get(&quot;model&quot;)
++        launched = conversation.get(&quot;launched_agent_profile&quot;) or {}
++        profile = &quot;unknown&quot;
++        if launched.get(&quot;agent_profile_id&quot;):
++            try:
++                if self._cloud:
++                    profiles = self._cloud.agent_profiles()
++                else:
++                    listing = self._agent_server_get(&quot;/api/agent-profiles&quot;)
++                    profiles = (listing or {}).get(&quot;profiles&quot;) or []
++            except Exception as exc:  # noqa: BLE001 - the model is still known
++                print(f&quot;Could not read agent profiles: {type(exc).__name__}: {exc}&quot;)
++                profiles = []
++            for item in profiles:
++                if str(item.get(&quot;id&quot;)) == str(launched[&quot;agent_profile_id&quot;]):
++                    if item.get(&quot;revision&quot;) == launched.get(&quot;revision&quot;):
++                        profile = item.get(&quot;llm_profile_ref&quot;) or &quot;unknown&quot;
++                    break
++        return profile, model or &quot;unknown&quot;
++
++    def _agent_server_get(self, path: str) -&gt; dict:
++        request = Request(
++            f&quot;{self.agent_url.rstrip(&#x27;/&#x27;)}{path}&quot;,
++            headers={&quot;X-Session-API-Key&quot;: self.api_key},
++        )
++        with urlopen(request, timeout=90) as response:
++            return json.load(response)
++
+     def _deliver_cloud(
+         self,
+         record,
+@@ -287,7 +366,9 @@ class AgentConversationDispatcher:
+ 
+         if conversation is None:
+             new_id = uuid4() if record else conversation_id
+-            self._cloud.start(new_id, self.profile_id, subject, prompt)
++            self._cloud.start(
++                new_id, self.profile_id, subject, _render(prompt, new_id)
++            )
+             return &quot;created&quot;, new_id
+ 
+         status = conversation.get(&quot;execution_status&quot;)
+@@ -303,10 +384,10 @@ class AgentConversationDispatcher:
+                 # The API reports an execution status only while the sandbox
+                 # runs, so an errored conversation whose sandbox was already
+                 # paused is not seen here and keeps reporting deduplicated.
+-                self._cloud.send(conversation, prompt)
++                self._cloud.send(conversation, _render(prompt, current_id))
+                 return &quot;retried&quot;, current_id
+             return &quot;deduplicated&quot;, current_id
+-        self._cloud.send(conversation, prompt)
++        self._cloud.send(conversation, _render(prompt, current_id))
+         return &quot;resumed&quot;, current_id
+ 
+     def _deliver_local(
+@@ -331,7 +412,8 @@ class AgentConversationDispatcher:
+                     agent_profile_id=self.profile_id,
+                     secrets=self._secrets,
+                     initial_message=SendMessageRequest(
+-                        content=[TextContent(text=prompt)], run=True
++                        content=[TextContent(text=_render(prompt, conversation_id))],
++                        run=True,
+                     ),
+                 ),
+                 visualizer=None,
+@@ -365,7 +447,7 @@ class AgentConversationDispatcher:
+                         # the work finished, so send the revision again rather
+                         # than strand it.
+                         conversation.update_secrets(self._secrets)
+-                        conversation.send_message(prompt)
++                        conversation.send_message(_render(prompt, conversation_id))
+                         conversation.run(blocking=False)
+                         disposition = &quot;retried&quot;
+                     else:
+@@ -375,7 +457,7 @@ class AgentConversationDispatcher:
+                     # work on the same subject: reuse the conversation and send
+                     # the revision as its next turn.
+                     conversation.update_secrets(self._secrets)
+-                    conversation.send_message(prompt)
++                    conversation.send_message(_render(prompt, conversation_id))
+                     conversation.run(blocking=False)
+         finally:
+             conversation.close()
+</pre></details></section><section id="legacy"><h2>3. The manual reviewer records its existing model</h2><details><summary>Sources</summary><ul><li><a class="src" href="https://github.com/OpenHands/extensions/blob/e3e361893c5f22ba5bea82660fe6a6531e7bfba8/skills/github-pr-reviewer/scripts/main.py#L1">skills/github-pr-reviewer/scripts/main.py:1</a></li></ul></details><p>The settings loader and agent constructor are identical to main. The review record adds two display strings: default for the settings source, and the model from the agent already being launched. Completion appends them only to a review carrying that record’s marker; fallback and error comments use the same format.</p><svg viewBox="0 0 940 364" role="img" aria-labelledby="legacy-title legacy-desc">
+<title id="legacy-title">The manual reviewer records its existing model</title><desc id="legacy-desc">Before is on the left, after on the right. Orange arrows identify the added display flow. Gray nodes keep existing behavior.</desc>
+<defs><marker id="legacy-gray" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 Z" fill="var(--muted)"/></marker><marker id="legacy-orange" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 Z" fill="var(--accent)"/></marker></defs>
+<text x="30" y="29" class="label">BEFORE · MAIN</text><text x="494" y="29" class="label">AFTER · THIS PR</text><g><a href="https://github.com/OpenHands/extensions/blob/038dbfa13b5549d3ddf957d52a3e2097c2b4c616/skills/github-pr-reviewer/scripts/main.py#L615"><rect class="existing" x="28" y="50" width="420" height="78" rx="6"/><text class="node" x="238" y="75" text-anchor="middle">_get_agent_dict()</text><text class="detail" x="238" y="97" text-anchor="middle">Build the agent from default settings</text><text class="location" x="238" y="116" text-anchor="middle">main.py:615</text></a></g><path class="arrow gray" d="M238 128 V154" marker-end="url(#legacy-gray)"/><g><a href="https://github.com/OpenHands/extensions/blob/038dbfa13b5549d3ddf957d52a3e2097c2b4c616/skills/github-pr-reviewer/scripts/main.py#L892"><rect class="existing" x="28" y="155" width="420" height="78" rx="6"/><text class="node" x="238" y="180" text-anchor="middle">_process_review_request()</text><text class="detail" x="238" y="202" text-anchor="middle">Start and track the conversation</text><text class="location" x="238" y="221" text-anchor="middle">main.py:892</text></a></g><path class="arrow gray" d="M238 233 V259" marker-end="url(#legacy-gray)"/><g><a href="https://github.com/OpenHands/extensions/blob/038dbfa13b5549d3ddf957d52a3e2097c2b4c616/skills/github-pr-reviewer/scripts/main.py#L442"><rect class="existing" x="28" y="260" width="420" height="78" rx="6"/><text class="node" x="238" y="285" text-anchor="middle">_matching_review_exists()</text><text class="detail" x="238" y="307" text-anchor="middle">Confirm a review by this bot and head</text><text class="location" x="238" y="326" text-anchor="middle">main.py:442</text></a></g><g><a href="https://github.com/OpenHands/extensions/blob/e3e361893c5f22ba5bea82660fe6a6531e7bfba8/skills/github-pr-reviewer/scripts/main.py#L616"><rect class="existing" x="492" y="50" width="420" height="78" rx="6"/><text class="node" x="702" y="75" text-anchor="middle">_get_agent_dict()</text><text class="detail" x="702" y="97" text-anchor="middle">Build the same agent from default settings</text><text class="location" x="702" y="116" text-anchor="middle">main.py:616</text></a></g><path class="arrow orange" d="M702 128 V154" marker-end="url(#legacy-orange)"/><g><a href="https://github.com/OpenHands/extensions/blob/e3e361893c5f22ba5bea82660fe6a6531e7bfba8/skills/github-pr-reviewer/scripts/main.py#L953"><rect class="added" x="492" y="155" width="420" height="78" rx="6"/><text class="node" x="702" y="180" text-anchor="middle">_process_review_request()</text><text class="detail" x="702" y="202" text-anchor="middle">Also record default and the existing model</text><text class="location" x="702" y="221" text-anchor="middle">main.py:953</text></a></g><path class="arrow orange" d="M702 233 V259" marker-end="url(#legacy-orange)"/><g><a href="https://github.com/OpenHands/extensions/blob/e3e361893c5f22ba5bea82660fe6a6531e7bfba8/skills/github-pr-reviewer/scripts/main.py#L773"><rect class="added" x="492" y="260" width="420" height="78" rx="6"/><text class="node" x="702" y="285" text-anchor="middle">_own_reviews()</text><text class="detail" x="702" y="307" text-anchor="middle">Match the conversation marker before stamping</text><text class="location" x="702" y="326" text-anchor="middle">main.py:773</text></a></g></svg><p class="caption">Fig 3 · Orange marks the added metadata and output flow. Each node links to its source revision.</p><details><summary>Code diff</summary><pre>diff --git a/skills/github-pr-reviewer/scripts/main.py b/skills/github-pr-reviewer/scripts/main.py
+index 9b392d6..59cc902 100644
+--- a/skills/github-pr-reviewer/scripts/main.py
++++ b/skills/github-pr-reviewer/scripts/main.py
+@@ -24,6 +24,7 @@ import tarfile
+ import time
+ import urllib.error
+ import urllib.request
++import uuid
+ from collections.abc import Callable
+ from pathlib import Path, PurePosixPath
+ 
+@@ -427,7 +428,7 @@ def _latest_trigger_label_event(token: str, repo: str, pr_number: int) -&gt; dict |
+     return max(matching, key=lambda event: (event.get(&quot;created_at&quot;) or &quot;&quot;, int(event.get(&quot;id&quot;) or 0)))
+ 
+ 
+-def _post_github_comment(token: str, repo: str, pr_number: int, body: str) -&gt; None:
++def _post_github_comment(token: str, repo: str, pr_number: int, body: str) -&gt; bool:
+     try:
+         _github_request(
+             token,
+@@ -437,28 +438,28 @@ def _post_github_comment(token: str, repo: str, pr_number: int, body: str) -&gt; No
+         )
+     except Exception as exc:
+         print(f&quot;  Warning: failed to post comment on PR #{pr_number}: {exc}&quot;)
++        return False
++    return True
+ 
+ 
+-def _matching_review_exists(token: str, repo: str, pr_number: int, head_sha: str) -&gt; bool:
+-    &quot;&quot;&quot;Has this token&#x27;s user already published a review for this exact commit?
++def _published_reviews(token: str, repo: str, pr_number: int, head_sha: str) -&gt; list[dict]:
++    &quot;&quot;&quot;This token&#x27;s user&#x27;s submitted reviews of this exact commit.
+ 
+     The agent is asked to report success, but a report is not evidence: reviews
+     have been reported as posted when none existed. GitHub is the source of
+-    truth for whether the review landed.
++    truth for whether the review landed. A listing failure is raised rather
++    than read as &quot;no review&quot;, so the caller retries instead of posting the
++    result a second time.
+     &quot;&quot;&quot;
+     if not head_sha or not _AUTH_LOGIN:
+-        return False
+-    try:
+-        reviews = _github_paginate(token, f&quot;/repos/{repo}/pulls/{pr_number}/reviews&quot;)
+-    except Exception as exc:
+-        print(f&quot;  Warning: could not list reviews for PR #{pr_number}: {exc}&quot;)
+-        return False
+-    for review in reviews:
+-        if (review.get(&quot;user&quot;) or {}).get(&quot;login&quot;, &quot;&quot;).lower() != _AUTH_LOGIN.lower():
+-            continue
+-        if review.get(&quot;commit_id&quot;) == head_sha:
+-            return True
+-    return False
++        return []
++    return [
++        review
++        for review in _github_paginate(token, f&quot;/repos/{repo}/pulls/{pr_number}/reviews&quot;)
++        if (review.get(&quot;user&quot;) or {}).get(&quot;login&quot;, &quot;&quot;).lower() == _AUTH_LOGIN.lower()
++        and review.get(&quot;commit_id&quot;) == head_sha
++        and review.get(&quot;state&quot;) in {&quot;COMMENTED&quot;, &quot;APPROVED&quot;, &quot;CHANGES_REQUESTED&quot;}
++    ]
+ 
+ 
+ # ── Repository checkout ───────────────────────────────────────────────────────
+@@ -666,12 +667,17 @@ def create_conversation(
+     api_key: str,
+     initial_message: str,
+     workspace_dir: Path,
++    agent: dict | None = None,
++    conversation_id: str | None = None,
+ ) -&gt; str:
+     payload: dict = {
+         &quot;workspace&quot;: {&quot;working_dir&quot;: str(workspace_dir)},
+-        &quot;agent&quot;: _get_agent_dict(agent_url, api_key),
++        &quot;agent&quot;: agent or _get_agent_dict(agent_url, api_key),
+         &quot;initial_message&quot;: {&quot;content&quot;: [{&quot;text&quot;: initial_message}]},
+     }
++    if conversation_id:
++        # Chosen by the caller so the prompt can name it before it exists.
++        payload[&quot;conversation_id&quot;] = conversation_id
+     secrets = _build_secrets_payload(agent_url, api_key)
+     if secrets:
+         payload[&quot;secrets&quot;] = secrets
+@@ -733,6 +739,52 @@ def _with_ai_disclosure(body: str) -&gt; str:
+     return f&quot;{body}\n\n{disclosure}&quot; if body else disclosure
+ 
+ 
++def _llm_provenance(profile: str, model: str) -&gt; str:
++    return f&quot;LLM profile: `{profile}` · Model: `{model}`&quot;
++
++
++def _without_llm_provenance(body: str) -&gt; str:
++    &quot;&quot;&quot;The body with any provenance footer removed, for reading its verdict.&quot;&quot;&quot;
++    return &quot;\n&quot;.join(
++        line
++        for line in (body or &quot;&quot;).splitlines()
++        if not re.fullmatch(r&quot;LLM profile: .* · Model: .*&quot;, line.strip())
++    ).strip()
++
++
++def _with_llm_provenance(body: str, profile: str, model: str) -&gt; str:
++    provenance = _llm_provenance(profile, model)
++    body = _without_llm_provenance(body)
++    return f&quot;{body}\n\n{provenance}&quot; if body else provenance
++
++
++# Two automations can share one bot account and review the same head, so the
++# login, commit, and submission time cannot say which run published a review.
++# The review agent copies this hidden marker, naming its own conversation, into
++# the review body; the deterministic script then annotates only the reviews
++# that carry exactly one marker, and only that conversation&#x27;s own.
++_REVIEW_RUN_MARKER_RE = re.compile(r&quot;&lt;!-- openhands-review-run: ([0-9A-Za-z-]+) --&gt;&quot;)
++
++
++def _review_run_marker(conversation_id: str) -&gt; str:
++    return f&quot;&lt;!-- openhands-review-run: {conversation_id} --&gt;&quot;
++
++
++def _own_reviews(reviews: list[dict], conversation_id: str) -&gt; list[dict]:
++    &quot;&quot;&quot;The reviews whose only run marker names `conversation_id`.
++
++    A review with no marker, another run&#x27;s marker, or several markers (an
++    agent quoting another review) is never attributed to this conversation.
++    &quot;&quot;&quot;
++    if not conversation_id:
++        return []
++    return [
++        review
++        for review in reviews
++        if _REVIEW_RUN_MARKER_RE.findall(review.get(&quot;body&quot;) or &quot;&quot;) == [str(conversation_id)]
++    ]
++
++
+ def _load_repo_review_guide(workspace_dir: Path) -&gt; str | None:
+     &quot;&quot;&quot;Read the repo-specific review guide from the checked-out repository.
+ 
+@@ -764,6 +816,7 @@ def _build_review_prompt(
+     workspace_instructions: str | None = None,
+     github_token_secret: str = &quot;GITHUB_PERSONAL_ACCESS_TOKEN&quot;,
+     trigger_description: str | None = None,
++    conversation_id: str | None = None,
+ ) -&gt; str:
+     number = pr.get(&quot;number&quot;, &quot;?&quot;)
+     title = pr.get(&quot;title&quot;, &quot;(no title)&quot;)
+@@ -792,6 +845,14 @@ def _build_review_prompt(
+         &quot;The workspace is already the repository root at the exact Head SHA above. &quot;
+         &quot;Do not clone, fetch, check out, or delete the repository.&quot;
+     )
++    run_marker = (
++        &quot; On the next line put this hidden marker, copied exactly: &quot;
++        f&quot;`{_review_run_marker(conversation_id)}`. It identifies this conversation&#x27;s &quot;
++        &quot;review, and the automation uses it to append the LLM profile and model after &quot;
++        &quot;GitHub accepts the review, so do not write that footer yourself.&quot;
++        if conversation_id
++        else &quot;&quot;
++    )
+ 
+     return (
+         &quot;You are an AI code reviewer. Review the GitHub pull request below and publish &quot;
+@@ -877,7 +938,7 @@ def _build_review_prompt(
+         &quot;If GitHub forbids the configured bot from approving its own PR, retry the clean review with &quot;
+         &quot;`event: COMMENT` and keep the approved verdict.\n&quot;
+         &quot;10. Begin the review body with this disclosure: &quot;
+-        &quot;`_This review was posted by an AI agent (OpenHands)._`\n&quot;
++        f&quot;`_This review was posted by an AI agent (OpenHands)._`{run_marker}\n&quot;
+         &quot;11. End the review body with a verdict on its own line: either `✅ APPROVED` &quot;
+         &quot;or `🔄 CHANGES REQUESTED`.\n&quot;
+         &quot;12. If there are no material issues, still publish a review saying so, with the &quot;
+@@ -933,8 +994,24 @@ def _process_review_request(
+         repo_review_guide = _load_repo_review_guide(workspace_dir)
+         if repo_review_guide:
+             print(f&quot;  Injected repo review guide for PR #{number}&quot;)
+-        prompt = _build_review_prompt(repo, pr, head_sha, label_event, repo_review_guide)
+-        conv_id = create_conversation(agent_url, api_key, prompt, workspace_dir)
++        agent = _get_agent_dict(agent_url, api_key)
++        conv_id = str(uuid.uuid4())
++        prompt = _build_review_prompt(
++            repo,
++            pr,
++            head_sha,
++            label_event,
++            repo_review_guide,
++            conversation_id=conv_id,
++        )
++        conv_id = create_conversation(
++            agent_url,
++            api_key,
++            prompt,
++            workspace_dir,
++            agent=agent,
++            conversation_id=conv_id,
++        )
+     except Exception as exc:
+         # The claim is dropped so the next poll retries this label event. The
+         # checkout goes with it rather than being left behind.
+@@ -950,6 +1027,8 @@ def _process_review_request(
+             &quot;status&quot;: &quot;active&quot;,
+             &quot;conversation_id&quot;: conv_id,
+             &quot;workspace_dir&quot;: str(workspace_dir),
++            &quot;llm_profile&quot;: &quot;default&quot;,
++            &quot;llm_model&quot;: agent[&quot;llm&quot;].get(&quot;model&quot;) or &quot;unknown&quot;,
+             &quot;last_activity&quot;: time.time(),
+         }
+     )
+@@ -1023,31 +1102,65 @@ def _check_conversation_completion(
+     except Exception:
+         final = &quot;&quot;
+ 
++    # A record written before provenance was tracked cannot name either value.
++    llm_profile = rec.get(&quot;llm_profile&quot;) or &quot;unknown&quot;
++    llm_model = rec.get(&quot;llm_model&quot;) or &quot;unknown&quot;
+     if status in {&quot;error&quot;, &quot;stuck&quot;}:
+-        _post_github_comment(
++        posted = _post_github_comment(
+             github_token,
+             repo,
+             pr_number,
+-            _with_ai_disclosure(
+-                f&quot;⚠️ **OpenHands PR Reviewer encountered a problem** at commit `{reviewed_sha[:12]}` &quot;
+-                f&quot;(status: `{status}`).\n\n{final}&quot;.strip()
++            _with_llm_provenance(
++                _with_ai_disclosure(
++                    f&quot;⚠️ **OpenHands PR Reviewer encountered a problem** at commit `{reviewed_sha[:12]}` &quot;
++                    f&quot;(status: `{status}`).\n\n{final}&quot;.strip()
++                ),
++                llm_profile,
++                llm_model,
+             ),
+         )
+-    elif _matching_review_exists(github_token, repo, pr_number, reviewed_sha):
+-        print(f&quot;  PR #{pr_number}: review confirmed on GitHub at {reviewed_sha[:12]}&quot;)
++        if not posted:
++            return
+     else:
+-        # The agent was asked to publish the review itself; it did not, so the
+-        # work is not lost - post whatever it produced as a comment.
+-        _post_github_comment(
+-            github_token,
+-            repo,
+-            pr_number,
+-            _with_ai_disclosure(
+-                final
+-                or f&quot;✅ **OpenHands completed the review for commit `{reviewed_sha[:12]}`.** No review text was produced.&quot;
+-            ),
+-        )
+-        print(f&quot;  PR #{pr_number}: no review found on GitHub; posted the result as a comment&quot;)
++        try:
++            reviews = _published_reviews(github_token, repo, pr_number, reviewed_sha)
++            own = _own_reviews(reviews, conv_id)
++            for review in own:
++                body = _with_llm_provenance(review.get(&quot;body&quot;) or &quot;&quot;, llm_profile, llm_model)
++                if body != review.get(&quot;body&quot;):
++                    _github_request(
++                        github_token,
++                        &quot;PUT&quot;,
++                        f&quot;/repos/{repo}/pulls/{pr_number}/reviews/{review[&#x27;id&#x27;]}&quot;,
++                        body={&quot;body&quot;: body},
++                    )
++        except Exception as exc:
++            print(f&quot;  Warning: could not verify or complete review provenance for PR #{pr_number}: {exc}&quot;)
++            return
++        if reviews:
++            print(
++                f&quot;  PR #{pr_number}: review confirmed on GitHub at {reviewed_sha[:12]}&quot;
++                + (&quot;&quot; if own else &quot;; none carries this conversation&#x27;s marker, so none was annotated&quot;)
++            )
++        else:
++            if final.strip() == &quot;GITHUB_REVIEW_POSTED&quot;:
++                final = &quot;&quot;
++            posted = _post_github_comment(
++                github_token,
++                repo,
++                pr_number,
++                _with_llm_provenance(
++                    _with_ai_disclosure(
++                        final
++                        or f&quot;✅ **OpenHands completed the review for commit `{reviewed_sha[:12]}`.** No review text was produced.&quot;
++                    ),
++                    llm_profile,
++                    llm_model,
++                ),
++            )
++            if not posted:
++                return
++            print(f&quot;  PR #{pr_number}: no review found on GitHub; posted the result as a comment&quot;)
+ 
+     rec[&quot;status&quot;] = &quot;closed&quot;
+     rec[&quot;completed_at&quot;] = time.time()
+</pre></details></section><section id="slack"><h2>4. Slack adds a footer to the existing response</h2><details><summary>Sources</summary><ul><li><a class="src" href="https://github.com/OpenHands/extensions/blob/e3e361893c5f22ba5bea82660fe6a6531e7bfba8/skills/slack-channel-monitor/scripts/main.py#L1">skills/slack-channel-monitor/scripts/main.py:1</a></li></ul></details><p>Slack uses its original settings loader and agent constructor. It records default and the concrete model alongside the conversation ID, then appends them to the final or error response. Follow-up messages reuse the conversation and those recorded display values.</p><svg viewBox="0 0 940 364" role="img" aria-labelledby="slack-title slack-desc">
+<title id="slack-title">Slack adds a footer to the existing response</title><desc id="slack-desc">Before is on the left, after on the right. Orange arrows identify the added display flow. Gray nodes keep existing behavior.</desc>
+<defs><marker id="slack-gray" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 Z" fill="var(--muted)"/></marker><marker id="slack-orange" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 Z" fill="var(--accent)"/></marker></defs>
+<text x="30" y="29" class="label">BEFORE · MAIN</text><text x="494" y="29" class="label">AFTER · THIS PR</text><g><a href="https://github.com/OpenHands/extensions/blob/038dbfa13b5549d3ddf957d52a3e2097c2b4c616/skills/slack-channel-monitor/scripts/main.py#L508"><rect class="existing" x="28" y="50" width="420" height="78" rx="6"/><text class="node" x="238" y="75" text-anchor="middle">_get_agent_dict()</text><text class="detail" x="238" y="97" text-anchor="middle">Build the agent from default settings</text><text class="location" x="238" y="116" text-anchor="middle">main.py:508</text></a></g><path class="arrow gray" d="M238 128 V154" marker-end="url(#slack-gray)"/><g><a href="https://github.com/OpenHands/extensions/blob/038dbfa13b5549d3ddf957d52a3e2097c2b4c616/skills/slack-channel-monitor/scripts/main.py#L870"><rect class="existing" x="28" y="155" width="420" height="78" rx="6"/><text class="node" x="238" y="180" text-anchor="middle">_process_trigger_message()</text><text class="detail" x="238" y="202" text-anchor="middle">Track the new conversation</text><text class="location" x="238" y="221" text-anchor="middle">main.py:870</text></a></g><path class="arrow gray" d="M238 233 V259" marker-end="url(#slack-gray)"/><g><a href="https://github.com/OpenHands/extensions/blob/038dbfa13b5549d3ddf957d52a3e2097c2b4c616/skills/slack-channel-monitor/scripts/main.py#L968"><rect class="existing" x="28" y="260" width="420" height="78" rx="6"/><text class="node" x="238" y="285" text-anchor="middle">_check_conversation_completion()</text><text class="detail" x="238" y="307" text-anchor="middle">Post the final or error response</text><text class="location" x="238" y="326" text-anchor="middle">main.py:968</text></a></g><g><a href="https://github.com/OpenHands/extensions/blob/e3e361893c5f22ba5bea82660fe6a6531e7bfba8/skills/slack-channel-monitor/scripts/main.py#L509"><rect class="existing" x="492" y="50" width="420" height="78" rx="6"/><text class="node" x="702" y="75" text-anchor="middle">_get_agent_dict()</text><text class="detail" x="702" y="97" text-anchor="middle">Build the same agent from default settings</text><text class="location" x="702" y="116" text-anchor="middle">main.py:509</text></a></g><path class="arrow orange" d="M702 128 V154" marker-end="url(#slack-orange)"/><g><a href="https://github.com/OpenHands/extensions/blob/e3e361893c5f22ba5bea82660fe6a6531e7bfba8/skills/slack-channel-monitor/scripts/main.py#L889"><rect class="added" x="492" y="155" width="420" height="78" rx="6"/><text class="node" x="702" y="180" text-anchor="middle">_process_trigger_message()</text><text class="detail" x="702" y="202" text-anchor="middle">Also record two display strings</text><text class="location" x="702" y="221" text-anchor="middle">main.py:889</text></a></g><path class="arrow orange" d="M702 233 V259" marker-end="url(#slack-orange)"/><g><a href="https://github.com/OpenHands/extensions/blob/e3e361893c5f22ba5bea82660fe6a6531e7bfba8/skills/slack-channel-monitor/scripts/main.py#L651"><rect class="added" x="492" y="260" width="420" height="78" rx="6"/><text class="node" x="702" y="285" text-anchor="middle">_with_llm_provenance()</text><text class="detail" x="702" y="307" text-anchor="middle">Append the footer to the response</text><text class="location" x="702" y="326" text-anchor="middle">main.py:651</text></a></g></svg><p class="caption">Fig 4 · Orange marks the added metadata and output flow. Each node links to its source revision.</p><details><summary>Code diff</summary><pre>diff --git a/skills/slack-channel-monitor/scripts/main.py b/skills/slack-channel-monitor/scripts/main.py
+index 66ba555..2085911 100644
+--- a/skills/slack-channel-monitor/scripts/main.py
++++ b/skills/slack-channel-monitor/scripts/main.py
+@@ -33,6 +33,7 @@ Optional secret:
+ 
+ import json
+ import os
++import re
+ import sys
+ import time
+ import urllib.error
+@@ -577,7 +578,12 @@ def _build_secrets_payload(agent_url: str, api_key: str) -&gt; dict:
+     return secrets
+ 
+ 
+-def create_conversation(agent_url: str, api_key: str, initial_message: str) -&gt; str:
++def create_conversation(
++    agent_url: str,
++    api_key: str,
++    initial_message: str,
++    agent: dict | None = None,
++) -&gt; str:
+     &quot;&quot;&quot;Create a conversation and return its ID.
+ 
+     The server auto-starts the agent when initial_message is provided
+@@ -597,10 +603,9 @@ def create_conversation(agent_url: str, api_key: str, initial_message: str) -&gt; s
+     workspace_dir = os.path.join(root, &quot;slack-monitor-conversations&quot;)
+     os.makedirs(workspace_dir, exist_ok=True)
+ 
+-    agent = _get_agent_dict(agent_url, api_key)
+     payload: dict = {
+         &quot;workspace&quot;: {&quot;working_dir&quot;: workspace_dir},
+-        &quot;agent&quot;: agent,
++        &quot;agent&quot;: agent or _get_agent_dict(agent_url, api_key),
+         &quot;initial_message&quot;: {&quot;content&quot;: [{&quot;text&quot;: initial_message}]},
+     }
+ 
+@@ -639,6 +644,20 @@ def conversation_final_response(agent_url: str, api_key: str, conv_id: str) -&gt; s
+     return result.get(&quot;response&quot;, &quot;&quot;)
+ 
+ 
++def _llm_provenance(profile: str, model: str) -&gt; str:
++    return f&quot;LLM profile: `{profile}` · Model: `{model}`&quot;
++
++
++def _with_llm_provenance(body: str, profile: str, model: str) -&gt; str:
++    provenance = _llm_provenance(profile, model)
++    body = &quot;\n&quot;.join(
++        line
++        for line in (body or &quot;&quot;).splitlines()
++        if not re.fullmatch(r&quot;LLM profile: .* · Model: .*&quot;, line.strip())
++    ).strip()
++    return f&quot;{body}\n\n{provenance}&quot; if body else provenance
++
++
+ # ── Message filtering ──────────────────────────────────────────────────────────
+ 
+ def _is_human_message(msg: dict, bot_user_id: str, bot_message_ts: list[str]) -&gt; bool:
+@@ -937,7 +956,10 @@ def _process_trigger_message(
+     )
+ 
+     try:
+-        conv_id = create_conversation(agent_url, api_key, initial_prompt)
++        agent = _get_agent_dict(agent_url, api_key)
++        conv_id = create_conversation(
++            agent_url, api_key, initial_prompt, agent=agent
++        )
+         conv_url = f&quot;{openhands_url}/conversations/{conv_id}&quot;
+ 
+         now = time.time()
+@@ -946,6 +968,8 @@ def _process_trigger_message(
+             &quot;channel_id&quot;: channel_id,
+             &quot;thread_ts&quot;: thread_root,
+             &quot;status&quot;: &quot;active&quot;,
++            &quot;llm_profile&quot;: &quot;default&quot;,
++            &quot;llm_model&quot;: agent[&quot;llm&quot;].get(&quot;model&quot;) or &quot;unknown&quot;,
+             &quot;last_activity&quot;: now,
+             &quot;last_seen_reply_ts&quot;: msg_ts,
+             &quot;reply_poll_backoff_seconds&quot;: THREAD_REPLY_INITIAL_BACKOFF_SECONDS,
+@@ -1003,6 +1027,14 @@ def _check_conversation_completion(
+             )
+         else:
+             summary = final if final else &quot;Success (no message available).&quot;
++        # The values recorded when this script started the conversation; a
++        # thread follow-up reuses it, so they still describe its LLM. A record
++        # written before provenance was tracked cannot name either value.
++        summary = _with_llm_provenance(
++            summary,
++            rec.get(&quot;llm_profile&quot;) or &quot;unknown&quot;,
++            rec.get(&quot;llm_model&quot;) or &quot;unknown&quot;,
++        )
+ 
+         ts_back = post_message(slack_token, channel_id, summary, thread_ts=thread_ts)
+         if ts_back:
+</pre></details></section><section id="evidence"><h2>5. Regression evidence</h2><details><summary>Sources</summary><ul><li><a class="src" href="https://github.com/OpenHands/extensions/blob/e3e361893c5f22ba5bea82660fe6a6531e7bfba8/tests/test_automation_llm_provenance.py#L1">tests/test_automation_llm_provenance.py:1</a></li><li><a class="src" href="https://github.com/OpenHands/extensions/blob/e3e361893c5f22ba5bea82660fe6a6531e7bfba8/tests/test_slack_channel_monitor.py#L1">tests/test_slack_channel_monitor.py:1</a></li><li><a class="src" href="https://github.com/OpenHands/extensions/blob/e3e361893c5f22ba5bea82660fe6a6531e7bfba8/skills/github-pr-reviewer/tests/test_main.py#L1">skills/github-pr-reviewer/tests/test_main.py:1</a></li></ul></details><p>The full root and standalone reviewer suites passed: <strong>1,244 passed, 23 skipped</strong>. Catalog builds, extension sync, plugin-resource checks, and diff whitespace checks passed.</p><pre>uv sync --group test
+.venv/bin/python -m pytest -q tests/ skills/github-pr-reviewer/tests
+npm run build
+.venv/bin/python scripts/sync_extensions.py --check
+.venv/bin/python scripts/check_plugin_resources.py
+git diff --check</pre><table><tr><th>Observable behavior</th><th>Regression</th></tr><tr><td>Both manual scripts retain their existing agent payload even when AUTOMATION_MODEL names another profile.</td><td><a class="src" href="https://github.com/OpenHands/extensions/blob/e3e361893c5f22ba5bea82660fe6a6531e7bfba8/tests/test_automation_llm_provenance.py#L50">tests/test_automation_llm_provenance.py:50</a></td></tr><tr><td>The catalog worker stamps the marked review using conversation metadata; its HTTP fixture rejects requests exposing secrets.</td><td><a class="src" href="https://github.com/OpenHands/extensions/blob/e3e361893c5f22ba5bea82660fe6a6531e7bfba8/tests/test_automation_llm_provenance.py#L528">tests/test_automation_llm_provenance.py:528</a></td></tr><tr><td>Overlapping automations with one bot account update only their own marked reviews.</td><td><a class="src" href="https://github.com/OpenHands/extensions/blob/e3e361893c5f22ba5bea82660fe6a6531e7bfba8/tests/test_automation_llm_provenance.py#L603">tests/test_automation_llm_provenance.py:603</a></td></tr><tr><td>An edited profile cannot substitute a different model for a reused conversation.</td><td><a class="src" href="https://github.com/OpenHands/extensions/blob/e3e361893c5f22ba5bea82660fe6a6531e7bfba8/tests/test_automation_llm_provenance.py#L568">tests/test_automation_llm_provenance.py:568</a></td></tr><tr><td>A metadata failure leaves verdict processing and maintainer handoff available.</td><td><a class="src" href="https://github.com/OpenHands/extensions/blob/e3e361893c5f22ba5bea82660fe6a6531e7bfba8/tests/test_automation_llm_provenance.py#L705">tests/test_automation_llm_provenance.py:705</a></td></tr></table><p class="meta">Validation uses loopback HTTP fixtures and simulated GitHub review writes. Live GitHub, Slack, and Cloud output has not been exercised for this head.</p></section><section id="support"><h2>6. Supporting changes</h2><table><tr><th>File</th><th>Role</th><th>Diff</th></tr><tr><td><a class="src" href="https://github.com/OpenHands/extensions/blob/e3e361893c5f22ba5bea82660fe6a6531e7bfba8/automations/bundle-index.js#L1">automations/bundle-index.js:1</a></td><td>Mechanical: bundle versions, generated catalogs, or contract fixture</td><td>+5 / −5</td></tr><tr><td><a class="src" href="https://github.com/OpenHands/extensions/blob/e3e361893c5f22ba5bea82660fe6a6531e7bfba8/automations/catalog/github-issue-to-pr/manifest.json#L1">automations/catalog/github-issue-to-pr/manifest.json:1</a></td><td>Mechanical: bundle versions, generated catalogs, or contract fixture</td><td>+2 / −2</td></tr><tr><td><a class="src" href="https://github.com/OpenHands/extensions/blob/e3e361893c5f22ba5bea82660fe6a6531e7bfba8/automations/catalog/github-issue-triage/manifest.json#L1">automations/catalog/github-issue-triage/manifest.json:1</a></td><td>Mechanical: bundle versions, generated catalogs, or contract fixture</td><td>+2 / −2</td></tr><tr><td><a class="src" href="https://github.com/OpenHands/extensions/blob/e3e361893c5f22ba5bea82660fe6a6531e7bfba8/automations/catalog/github-pr-reviewer/manifest.json#L1">automations/catalog/github-pr-reviewer/manifest.json:1</a></td><td>Mechanical: bundle versions, generated catalogs, or contract fixture</td><td>+2 / −2</td></tr><tr><td><a class="src" href="https://github.com/OpenHands/extensions/blob/e3e361893c5f22ba5bea82660fe6a6531e7bfba8/skills/github-pr-reviewer/README.md#L1">skills/github-pr-reviewer/README.md:1</a></td><td>Output documentation and metadata examples</td><td>+20 / −0</td></tr><tr><td><a class="src" href="https://github.com/OpenHands/extensions/blob/e3e361893c5f22ba5bea82660fe6a6531e7bfba8/skills/github-pr-reviewer/SKILL.md#L1">skills/github-pr-reviewer/SKILL.md:1</a></td><td>Output documentation and metadata examples</td><td>+29 / −6</td></tr><tr><td><a class="src" href="https://github.com/OpenHands/extensions/blob/e3e361893c5f22ba5bea82660fe6a6531e7bfba8/skills/github-pr-reviewer/references/state-schema.md#L1">skills/github-pr-reviewer/references/state-schema.md:1</a></td><td>Output documentation and metadata examples</td><td>+8 / −0</td></tr><tr><td><a class="src" href="https://github.com/OpenHands/extensions/blob/e3e361893c5f22ba5bea82660fe6a6531e7bfba8/skills/github-pr-reviewer/tests/test_main.py#L1">skills/github-pr-reviewer/tests/test_main.py:1</a></td><td>Regression coverage for display and conversation attribution</td><td>+70 / −5</td></tr><tr><td><a class="src" href="https://github.com/OpenHands/extensions/blob/e3e361893c5f22ba5bea82660fe6a6531e7bfba8/skills/index.js#L1">skills/index.js:1</a></td><td>Mechanical: bundle versions, generated catalogs, or contract fixture</td><td>+2 / −2</td></tr><tr><td><a class="src" href="https://github.com/OpenHands/extensions/blob/e3e361893c5f22ba5bea82660fe6a6531e7bfba8/skills/slack-channel-monitor/README.md#L1">skills/slack-channel-monitor/README.md:1</a></td><td>Output documentation and metadata examples</td><td>+6 / −1</td></tr><tr><td><a class="src" href="https://github.com/OpenHands/extensions/blob/e3e361893c5f22ba5bea82660fe6a6531e7bfba8/skills/slack-channel-monitor/SKILL.md#L1">skills/slack-channel-monitor/SKILL.md:1</a></td><td>Output documentation and metadata examples</td><td>+6 / −3</td></tr><tr><td><a class="src" href="https://github.com/OpenHands/extensions/blob/e3e361893c5f22ba5bea82660fe6a6531e7bfba8/tests/fixtures/automations/github-pr-reviewer.json#L1">tests/fixtures/automations/github-pr-reviewer.json:1</a></td><td>Mechanical: bundle versions, generated catalogs, or contract fixture</td><td>+9 / −9</td></tr><tr><td><a class="src" href="https://github.com/OpenHands/extensions/blob/e3e361893c5f22ba5bea82660fe6a6531e7bfba8/tests/test_agent_conversation_dispatch.py#L1">tests/test_agent_conversation_dispatch.py:1</a></td><td>Regression coverage for display and conversation attribution</td><td>+138 / −2</td></tr><tr><td><a class="src" href="https://github.com/OpenHands/extensions/blob/e3e361893c5f22ba5bea82660fe6a6531e7bfba8/tests/test_automation_llm_provenance.py#L1">tests/test_automation_llm_provenance.py:1</a></td><td>Regression coverage for display and conversation attribution</td><td>+744 / −0</td></tr><tr><td><a class="src" href="https://github.com/OpenHands/extensions/blob/e3e361893c5f22ba5bea82660fe6a6531e7bfba8/tests/test_github_reviewer_delivery.py#L1">tests/test_github_reviewer_delivery.py:1</a></td><td>Regression coverage for display and conversation attribution</td><td>+14 / −7</td></tr><tr><td><a class="src" href="https://github.com/OpenHands/extensions/blob/e3e361893c5f22ba5bea82660fe6a6531e7bfba8/tests/test_slack_channel_monitor.py#L1">tests/test_slack_channel_monitor.py:1</a></td><td>Regression coverage for display and conversation attribution</td><td>+32 / −1</td></tr></table></section></main></div></body></html>
