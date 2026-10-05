@@ -27,36 +27,28 @@ Cross-repository work is acceptable when this PR contains only the
 extensions-owned portion and relies on public interfaces from the owning
 repository.
 
-## Issue triage: ownership and scope
+## Issue triage
 
-Read this guide during issue triage, but distinguish issue readiness from the
-implementation and merge checks below. An issue does not need tests for an
-unwritten fix, PR artifacts, or a demonstration of the eventual implementation.
-Use the issue, discussion, applicable AGENTS.md, and adjacent source to resolve
-reasonable ambiguity. Ask only questions not already answered by that evidence.
+Do not apply implementation or merge checks as issue entry requirements. An
+unwritten fix needs no tests, PR artifacts, or demo yet. Read the issue, linked
+discussion, applicable `AGENTS.md`, and adjacent source before asking questions.
 
-For API-dependent failures, compare the extension's request with the provider at
-the reported or supported version, using dependency pins or deployment evidence
-rather than assuming upstream main. Incorrect instructions, request arguments,
-response parsing, and scanner policy belong here. Broken SDK/server contracts
-belong in software-agent-sdk; scheduling and run ownership in automation; product
-presentation in OpenHands. State necessary cross-repository adaptations and their
-order. An independent upstream defect is not automatically a blocker, and naming
-another owner does not authorize edits or duplicate tickets there.
+For API failures, compare the extension request with the provider's reported or
+supported version, not upstream main. Use dependency pins or deployment evidence.
+Instructions, request arguments, response parsing, and scanner policy belong
+here; use the ownership boundaries above for other failures. State required
+cross-repository changes and their order. An independent upstream defect need
+not block this work. Naming an owner does not authorize edits or duplicate tickets.
 
-## Issue triage: relevant acceptance requirements
+Define the smallest useful outcome and explicit non-goals. Cover only affected
+entrypoints, environments, and permissions. For scanners, state whether discovery,
+commenting, and dispatch are allowed for ineligible candidates or after a cap.
+Discovery alone does not authorize unsolicited comments.
 
-Specify the smallest coherent behavioral outcome and explicit non-goals. Include
-only affected documented entrypoints, environments, and authorization boundaries.
-For scanners, distinguish discovering candidates, commenting, and dispatching;
-state which actions are allowed for ineligible candidates and after a cap is met.
-Do not expand passive discovery into unsolicited commenting.
-
-Use evidence appropriate to the symptom: visual evidence for visual behavior
-when needed, and logs, minimal reproductions, or failing tests for nonvisual
-behavior. Read linked discussion before requesting evidence again. Reconcile
-managed criteria with current human decisions and the authoritative readiness
-policy; surface conflicts rather than knowingly starting a label-removal loop.
+Request visual evidence only when needed; otherwise use logs, minimal
+reproductions, or failing tests. Do not repeat answered questions. Match managed
+criteria to current human decisions and authoritative readiness policy. Report
+conflicts instead of repeatedly adding a label that policy removes.
 
 ## Implementation review checkpoints
 
@@ -73,16 +65,15 @@ in a clean environment far enough to exercise the changed behavior. Keep local
 and cloud behavior identical unless the documentation names and explains a real
 platform capability difference.
 
-For provider-dependent changes, inspect the implementation at the supported
-version before inferring an API contract from mocks or local types. Distinguish
-static/helper tests, stubbed-service tests, and real integration evidence. If the
-version or runtime is unavailable, state the limitation rather than inventing a
-compatibility defect. Check source, shipped bundle, and deployed artifact
-separately when packaging is part of the change.
+For provider changes, inspect the supported implementation; mocks and local types
+alone do not establish an API contract. Separate static/helper tests, tests with
+simulated services, and real integration evidence. If the version or runtime is
+unavailable, report that limit, not an assumed defect. For packaging changes,
+check source, shipped bundle, and deployed files separately.
 
-For scanners, trace discovery, commenting, and dispatch as separate side effects.
-Check eligibility, authorization, caps, retry/no-op behavior, and recovery after
-publication. A launch cap does not implicitly authorize unlimited gate comments.
+For scanners, check eligibility, permissions, caps, retries, unchanged runs, and
+recovery for each action listed under triage. A launch cap does not permit
+unlimited gate comments.
 
 ### Untrusted triggers and credentials
 
@@ -173,12 +164,10 @@ hypothetical non-standard configurations without a supported failure mode. Befor
 raising a finding, verify that the referenced file and behavior are present in
 the current PR head and have not already been addressed in review history.
 
-## Review verdict and merge-readiness policy
+## Review verdict
 
-Separate material code findings from repository merge/evidence gates and optional
-follow-up work. A material finding cannot coexist with an approving final verdict.
-If code is sound but an applicable blocking gate is unmet, state that distinction
-and withhold merge-ready approval. GitHub self-review restrictions may require a
-COMMENT for a genuinely clean assessment; name that exception explicitly. Respect
-accepted scope and non-goals: demonstrate why a pre-existing limitation is exposed
-by this change before treating it as a blocker. Omit cosmetic or speculative notes.
+Do not approve material code defects or unmet blocking merge/evidence checks.
+Distinguish code defects from missing merge requirements and optional follow-up.
+If GitHub forbids self-approval of a clean PR, use COMMENT and explain why.
+Respect accepted scope and non-goals: block on a pre-existing limitation only if
+this change exposes it.

@@ -74,12 +74,12 @@ def test_delivery_and_prompt(triage):
     assert [c.kwargs["subject"] for c in calls] == ["9876:issue:1", "9876:issue:2"]
     prompt = calls[0].kwargs["prompt"]
     for text in (
-        "Do not implement code",
+        "do not implement code",
         "custom-codereview-guide.md",
         "affected version",
         "software-agent-sdk",
-        "supersede stale",
-        "questions already answered",
+        "current decisions override stale",
+        "ask only unanswered questions",
         "Issue readiness is separate",
         "Legacy direct mode",
         "Direct publication",
