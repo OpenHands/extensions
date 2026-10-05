@@ -1,0 +1,37 @@
+{
+  "issue": 3,
+  "conversation_id": "879aa27d-e789-552d-8a38-edd384cdccc5",
+  "comment_url": "https://github.com/enyst/automation/issues/3#issuecomment-5998286591",
+  "llm_profile": "display-live-gpt5-mini",
+  "model": "openai/gpt-5-mini",
+  "launch": {
+    "agent_profile_id": "499fcbb9-d0cc-41e9-b975-908471463a9d",
+    "revision": 0,
+    "secret_refs": []
+  },
+  "metadata_requests": [
+    {
+      "method": "GET",
+      "header_names": [
+        "X-session-api-key"
+      ],
+      "path": "/api/conversations/879aa27d-e789-552d-8a38-edd384cdccc5"
+    },
+    {
+      "method": "GET",
+      "header_names": [
+        "X-session-api-key"
+      ],
+      "path": "/api/agent-profiles"
+    }
+  ],
+  "status": "finished",
+  "agent_tools": [],
+  "agent_secret_refs": [],
+  "extensions_commit": "b2f97183abd2717a0ff5f0f305d29965558cbcc1",
+  "run_id": "115f1120-2618-42bd-a689-d8467d9c13ae",
+  "automation_id": "5569fa69-a061-432f-b9ab-ff40bcc1751e",
+  "automation_status": "COMPLETED",
+  "run_started_at": "2026-10-05T16:06:51.213101Z",
+  "run_completed_at": "2026-10-05T16:07:23.721778Z"
+}
