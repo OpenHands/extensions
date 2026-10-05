@@ -57,6 +57,14 @@ DEFAULT_OPENHANDS_URL = "http://localhost:8000"
 # keeps a first scan over a large backlog from starting an agent for every
 # eligible pull request at once.
 MAX_NEW_PER_RUN = 2
+# The most review conversations this automation may have running at once, counted
+# across scheduled scans rather than per scan: a bound on new work per scan still
+# lets a backlog accumulate live Docker runtimes scan after scan. A conversation
+# releases its slot when it reaches a terminal status, disappears from the agent
+# server, or outlives the window the completion handler allows before abandoning
+# a review. A scan starts at most MAX_IN_FLIGHT - in_flight conversations, so a
+# value below MAX_NEW_PER_RUN simply binds tighter than the per-scan bound.
+MAX_IN_FLIGHT = 4
 
 # A review that ends with this marker is a scope stop: the reviewer found the
 # change out of scope, or needing a product/architecture decision, before the
@@ -76,6 +84,7 @@ _CONFIG_TYPES: dict[str, type] = {
     "review_style_instructions": str,
     "repo_review_guide_path": str,
     "max_new_per_run": int,
+    "max_in_flight": int,
     "openhands_url": str,
 }
 
@@ -117,9 +126,9 @@ def load_config(directory: Path | None = None) -> dict:
             raise SystemExit(
                 f'{CONFIG_FILENAME}: repos must be a non-empty list of "owner/repo" strings'
             )
-        if key == "max_new_per_run" and value < 1:
+        if key in ("max_new_per_run", "max_in_flight") and value < 1:
             raise SystemExit(
-                f"{CONFIG_FILENAME}: max_new_per_run must be at least 1"
+                f"{CONFIG_FILENAME}: {key} must be at least 1"
             )
         config[key] = value
     return config
@@ -166,6 +175,7 @@ REVIEW_TONE = _CONFIG.get("review_tone", REVIEW_TONE)
 REVIEW_STYLE_INSTRUCTIONS = _CONFIG.get("review_style_instructions", REVIEW_STYLE_INSTRUCTIONS)
 REPO_REVIEW_GUIDE_PATH = _CONFIG.get("repo_review_guide_path", REPO_REVIEW_GUIDE_PATH)
 MAX_NEW_PER_RUN = _CONFIG.get("max_new_per_run", MAX_NEW_PER_RUN)
+MAX_IN_FLIGHT = _CONFIG.get("max_in_flight", MAX_IN_FLIGHT)
 DEFAULT_OPENHANDS_URL = _CONFIG.get("openhands_url", DEFAULT_OPENHANDS_URL)
 
 DONE_DEBOUNCE = 15

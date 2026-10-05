@@ -237,14 +237,47 @@ def test_reviewer_submits_requested_exact_head(tmp_path, monkeypatch, draft):
 
 
 def _real_dispatcher(dispatcher_class, monkeypatch, conversation):
-    """The shipped dispatcher with its SDK and KV boundaries stubbed."""
+    """The shipped dispatcher with its SDK and KV boundaries stubbed.
+
+    Returns `(dispatcher, attach)`. The dispatcher is uncapped, matching the
+    pre-existing tests; the admission tests below use `_capped_dispatcher` when
+    they need the cap and access to the KV document.
+    """
+    dispatcher, attach, _state, _create = _capped_dispatcher(
+        dispatcher_class, monkeypatch, conversation
+    )
+    return dispatcher, attach
+
+
+def _capped_dispatcher(dispatcher_class, monkeypatch, conversation, max_in_flight=None):
+    """The shipped dispatcher, its KV store fake, and its SDK boundaries stubbed.
+
+    Returns `(dispatcher, attach, state, create)`, where `state` is the in-memory
+    KV document and `create` is the mock that a real launch would call. The cap
+    is passed straight to the dispatcher, so this is the object whose atomic
+    admission the worker's launch paths exercise.
+    """
     state: dict = {}
+    versions = {"value": 0}
     module = sys.modules[dispatcher_class.__module__]
 
-    def kv(key, method, value=None):
+    def kv(key, method, value=None, *, query=None):
+        query = query or {}
         if method == "GET":
-            return state.get(key)
+            if key not in state:
+                return None
+            if query.get("meta") in (True, "true"):
+                return {"key": key, "value": state[key], "version": versions["value"]}
+            return {"key": key, "value": state[key]}
+        if query.get("nx") in (True, "true") and key in state:
+            raise module.KVConflictError(key)
+        if "if_version" in query:
+            expected = query["if_version"]
+            expected = int(expected) if not isinstance(expected, int) else expected
+            if expected != versions["value"]:
+                raise module.KVConflictError(key)
         state[key] = value
+        versions["value"] += 1
         return {"key": key, "value": value}
 
     monkeypatch.setattr(module, "_kv_request", kv)
@@ -262,11 +295,18 @@ def _real_dispatcher(dispatcher_class, monkeypatch, conversation):
     workspace.get_secrets.return_value = {}
     monkeypatch.setattr(module, "RemoteWorkspace", lambda **_: workspace)
     attach = MagicMock(return_value=conversation)
+    create = MagicMock(return_value=conversation)
     monkeypatch.setattr(module.RemoteConversation, "attach", attach)
-    monkeypatch.setattr(
-        module.RemoteConversation, "create", MagicMock(return_value=conversation)
+    monkeypatch.setattr(module.RemoteConversation, "create", create)
+    return (
+        dispatcher_class(
+            track_in_flight=max_in_flight is not None,
+            max_in_flight=max_in_flight,
+        ),
+        attach,
+        state,
+        create,
     )
-    return dispatcher_class(), attach
 
 
 def test_same_head_re_review_resumes_keyed_conversation_with_refreshed_state(
@@ -2272,7 +2312,9 @@ class _DedupeDispatcher:
         return {"disposition": "created", "conversation_id": subject}
 
 
-def _scan_reviewers(tmp_path, monkeypatch, repositories, *, max_new=None):
+def _scan_reviewers(
+    tmp_path, monkeypatch, repositories, *, max_new=None, max_in_flight=None
+):
     """One module and one reviewer per repository, as the shipped scan builds them."""
     module = worker("github-pr-reviewer", tmp_path, monkeypatch)
     monkeypatch.delenv("AUTOMATION_EVENT_PAYLOAD", raising=False)
@@ -2287,6 +2329,8 @@ def _scan_reviewers(tmp_path, monkeypatch, repositories, *, max_new=None):
         run.config = {"trigger_label": "openhands-review"}
         if max_new is not None:
             run.config["max_new_per_run"] = max_new
+        if max_in_flight is not None:
+            run.config["max_in_flight"] = max_in_flight
         run.repository = repository
         run.token = "token"
         run.token_name = "FACTORY_GITHUB_REVIEWER_TOKEN"
@@ -2664,6 +2708,572 @@ def test_the_rendered_config_rejects_a_misbehaving_max_new_per_run(
 
     with pytest.raises(SystemExit):
         module.workflow.load_config(tmp_path / "github-pr-reviewer")
+
+
+# --------------------------------------------------------------------------- #
+# Global in-flight cap: a scan counts the review conversations still running
+# from earlier scans and starts only what the deployment's cap leaves, so
+# capacity is released as reviews finish and reused on the next scan.
+# --------------------------------------------------------------------------- #
+
+
+class _CapacityDispatcher(_DedupeDispatcher):
+    """The dedupe contract plus the in-flight count the scan bounds itself by.
+
+    It stands in for `AgentConversationDispatcher.in_flight()`: the number is
+    read per scan, and a delivery that reports `created` occupies a slot until
+    the test releases it.
+    """
+
+    def __init__(self, in_flight=0):
+        super().__init__()
+        self.live = in_flight
+        self.in_flight_reads = 0
+        self.released = []
+
+    def in_flight(self):
+        self.in_flight_reads += 1
+        return self.live
+
+    def release(self, conversation_id):
+        self.released.append(conversation_id)
+        self.live = max(0, self.live - 1)
+
+
+def test_a_scan_starts_only_what_the_in_flight_cap_leaves(tmp_path, monkeypatch):
+    """Two conversations are already live, so a cap of three starts one.
+
+    The per-scan bound would allow two, but the global cap is what actually
+    holds the deployment's runtimes down, so the scan starts the single slot the
+    cap leaves. Hard-coded capacity across runs is what a purely per-scan bound
+    misses.
+    """
+    module, (one,) = _scan_reviewers(
+        tmp_path, monkeypatch, ["owner/one"], max_new=2, max_in_flight=3
+    )
+    dispatcher = _CapacityDispatcher(in_flight=2)
+    one.dispatcher = dispatcher
+    _wire_scan(
+        one,
+        [
+            _unrequested_pr(5, "head-5", created_at="2026-01-01T00:00:00Z"),
+            _unrequested_pr(6, "head-6", created_at="2026-01-02T00:00:00Z"),
+            _unrequested_pr(7, "head-7", created_at="2026-01-03T00:00:00Z"),
+        ],
+        101,
+    )
+
+    _run_scan(module, [one])
+
+    assert dispatcher.in_flight_reads == 1
+    assert set(dispatcher.seen) == {"101:pr:5"}
+
+
+def test_capacity_released_by_finished_reviews_is_reused_on_a_later_scan(
+    tmp_path, monkeypatch
+):
+    """The first scan fills the cap; a completed review frees a slot for the next.
+
+    Reading the live count per scan, rather than assuming anything left running
+    is permanent, is what lets the backlog drain instead of stalling once the
+    cap is reached.
+    """
+    module, (one,) = _scan_reviewers(
+        tmp_path, monkeypatch, ["owner/one"], max_new=5, max_in_flight=2
+    )
+    dispatcher = _CapacityDispatcher(in_flight=0)
+    one.dispatcher = dispatcher
+    _wire_scan(
+        one,
+        [
+            _unrequested_pr(5, "head-5", created_at="2026-01-01T00:00:00Z"),
+            _unrequested_pr(6, "head-6", created_at="2026-01-02T00:00:00Z"),
+            _unrequested_pr(7, "head-7", created_at="2026-01-03T00:00:00Z"),
+        ],
+        101,
+    )
+
+    _run_scan(module, [one])
+    assert set(dispatcher.seen) == {"101:pr:5", "101:pr:6"}
+
+    # One review finishes, releasing its slot, and the next scan reaches #7.
+    dispatcher.release("101:pr:5")
+    _wire_scan(
+        one,
+        [
+            _unrequested_pr(5, "head-5", created_at="2026-01-01T00:00:00Z"),
+            _unrequested_pr(6, "head-6", created_at="2026-01-02T00:00:00Z"),
+            _unrequested_pr(7, "head-7", created_at="2026-01-03T00:00:00Z"),
+        ],
+        101,
+    )
+    _run_scan(module, [one])
+
+    assert dispatcher.seen["101:pr:7"] == "scan:owner/one:7:head-7"
+
+
+def test_a_full_in_flight_cap_starts_nothing(tmp_path, monkeypatch):
+    """At the cap the scan dispatches no conversation but still evaluates heads."""
+    module, (one,) = _scan_reviewers(
+        tmp_path, monkeypatch, ["owner/one"], max_new=5, max_in_flight=2
+    )
+    dispatcher = _CapacityDispatcher(in_flight=2)
+    one.dispatcher = dispatcher
+    _wire_scan(one, [_unrequested_pr(5, "head-5")], 101)
+
+    _run_scan(module, [one])
+
+    assert dispatcher.seen == {}
+    assert dispatcher.calls == []
+
+
+def test_an_over_cap_deployment_starts_nothing_rather_than_going_negative(
+    tmp_path, monkeypatch
+):
+    """More live conversations than the cap must clamp to zero, never a refund.
+
+    If a shrinking cap (or a stale count) left the arithmetic negative, a scan
+    that treated it as a budget would start more work precisely when the
+    deployment is already over its limit.
+    """
+    module, (one,) = _scan_reviewers(
+        tmp_path, monkeypatch, ["owner/one"], max_new=5, max_in_flight=2
+    )
+    dispatcher = _CapacityDispatcher(in_flight=5)
+    one.dispatcher = dispatcher
+    _wire_scan(
+        one,
+        [
+            _unrequested_pr(5, "head-5", created_at="2026-01-01T00:00:00Z"),
+            _unrequested_pr(6, "head-6", created_at="2026-01-02T00:00:00Z"),
+        ],
+        101,
+    )
+
+    _run_scan(module, [one])
+
+    assert dispatcher.seen == {}
+
+
+def test_a_dispatcher_without_an_in_flight_count_keeps_the_per_scan_bound(
+    tmp_path, monkeypatch
+):
+    """A stand-in with no capacity signal bounds the scan by max_new_per_run.
+
+    The worker must not require the conversation runtime - that is its
+    no-runtime-code contract - so a dispatcher that cannot answer leaves the
+    existing per-scan behavior untouched.
+    """
+    module, (one,) = _scan_reviewers(tmp_path, monkeypatch, ["owner/one"], max_new=2)
+    assert not hasattr(one.dispatcher, "in_flight")
+    _wire_scan(
+        one,
+        [
+            _unrequested_pr(5, "head-5", created_at="2026-01-01T00:00:00Z"),
+            _unrequested_pr(6, "head-6", created_at="2026-01-02T00:00:00Z"),
+            _unrequested_pr(7, "head-7", created_at="2026-01-03T00:00:00Z"),
+        ],
+        101,
+    )
+
+    _run_scan(module, [one])
+
+    assert set(one.dispatcher.seen) == {"101:pr:5", "101:pr:6"}
+
+
+def test_a_non_integer_in_flight_count_is_not_a_capacity_signal(
+    tmp_path, monkeypatch
+):
+    """A stub that answers with a Mock or a string must not zero the budget."""
+    module, (one,) = _scan_reviewers(tmp_path, monkeypatch, ["owner/one"], max_new=1)
+    one.dispatcher.in_flight = lambda: "two"
+    _wire_scan(
+        one,
+        [
+            _unrequested_pr(5, "head-5", created_at="2026-01-01T00:00:00Z"),
+            _unrequested_pr(6, "head-6", created_at="2026-01-02T00:00:00Z"),
+        ],
+        101,
+    )
+
+    _run_scan(module, [one])
+
+    assert set(one.dispatcher.seen) == {"101:pr:5"}
+
+
+def test_a_failing_in_flight_read_falls_back_to_the_per_scan_bound(
+    tmp_path, monkeypatch
+):
+    """A capacity read that raises must not abort or unbounded-bypass the scan."""
+    module, (one,) = _scan_reviewers(tmp_path, monkeypatch, ["owner/one"], max_new=1)
+
+    def in_flight():
+        raise RuntimeError("agent server unreachable")
+
+    one.dispatcher.in_flight = in_flight
+    _wire_scan(
+        one,
+        [
+            _unrequested_pr(5, "head-5", created_at="2026-01-01T00:00:00Z"),
+            _unrequested_pr(6, "head-6", created_at="2026-01-02T00:00:00Z"),
+        ],
+        101,
+    )
+
+    _run_scan(module, [one])
+
+    assert set(one.dispatcher.seen) == {"101:pr:5"}
+
+
+def test_the_capacity_is_read_once_per_scan_across_repositories(
+    tmp_path, monkeypatch
+):
+    """The count is a snapshot, taken once, so it cannot change mid-drain."""
+    module, (one, two) = _scan_reviewers(
+        tmp_path,
+        monkeypatch,
+        ["owner/one", "owner/two"],
+        max_new=2,
+        max_in_flight=4,
+    )
+    dispatcher = _CapacityDispatcher(in_flight=2)
+    one.dispatcher = dispatcher
+    two.dispatcher = dispatcher
+    _wire_scan(
+        one, [_unrequested_pr(5, "head-5", created_at="2026-01-01T00:00:00Z")], 101
+    )
+    _wire_scan(
+        two, [_unrequested_pr(6, "head-6", created_at="2026-01-02T00:00:00Z")], 102
+    )
+
+    _run_scan(module, [one, two])
+
+    assert dispatcher.in_flight_reads == 1
+    assert set(dispatcher.seen) == {"101:pr:5", "102:pr:6"}
+
+
+def test_the_in_flight_cap_is_configurable_through_the_rendered_config(
+    tmp_path, monkeypatch
+):
+    module, (one,) = _scan_reviewers(
+        tmp_path, monkeypatch, ["owner/one"], max_new=1, max_in_flight=3
+    )
+    dispatcher = _CapacityDispatcher(in_flight=1)
+    one.dispatcher = dispatcher
+    _wire_scan(
+        one,
+        [
+            _unrequested_pr(5, "head-5", created_at="2026-01-01T00:00:00Z"),
+            _unrequested_pr(6, "head-6", created_at="2026-01-02T00:00:00Z"),
+        ],
+        101,
+    )
+
+    _run_scan(module, [one])
+
+    # One live conversation plus a cap of three leaves room for two, but the
+    # per-scan bound of one still applies, so exactly one starts.
+    assert set(dispatcher.seen) == {"101:pr:5"}
+
+
+def test_a_deferred_delivery_stops_the_drain_without_consuming_a_slot(
+    tmp_path, monkeypatch
+):
+    """A dispatcher refusal means the cap binds, so the rest are left for later.
+
+    Even a stale pre-filter (here it reports nothing in flight) cannot override
+    the dispatcher's authoritative admission: the first refused delivery stops
+    the drain, and the untried candidate is neither started nor recorded.
+    """
+    module, (one,) = _scan_reviewers(
+        tmp_path, monkeypatch, ["owner/one"], max_new=5, max_in_flight=2
+    )
+    dispatcher = _CapacityDispatcher(in_flight=0)
+
+    def deliver(*, subject, delivery, prompt, head=""):
+        dispatcher.calls.append((subject, delivery))
+        if dispatcher.seen:
+            return {"disposition": "deferred", "conversation_id": subject}
+        dispatcher.seen[subject] = delivery
+        return {"disposition": "created", "conversation_id": subject}
+
+    dispatcher.deliver = deliver
+    one.dispatcher = dispatcher
+    _wire_scan(
+        one,
+        [
+            _unrequested_pr(5, "head-5", created_at="2026-01-01T00:00:00Z"),
+            _unrequested_pr(6, "head-6", created_at="2026-01-02T00:00:00Z"),
+            _unrequested_pr(7, "head-7", created_at="2026-01-03T00:00:00Z"),
+        ],
+        101,
+    )
+
+    _run_scan(module, [one])
+
+    # The first was admitted, the second was refused, the third was never tried.
+    assert set(dispatcher.seen) == {"101:pr:5"}
+    assert len(dispatcher.calls) == 2
+
+
+def test_the_rendered_config_reads_a_max_in_flight(tmp_path, monkeypatch):
+    module = worker("github-pr-reviewer", tmp_path, monkeypatch)
+    (tmp_path / "github-pr-reviewer" / "config.json").write_text(
+        json.dumps(
+            {
+                "repos": ["owner/one"],
+                "max_new_per_run": 2,
+                "max_in_flight": 6,
+            }
+        )
+    )
+
+    config = module.workflow.load_config(tmp_path / "github-pr-reviewer")
+
+    assert config["max_in_flight"] == 6
+
+
+def test_the_rendered_config_defaults_the_in_flight_cap(tmp_path, monkeypatch):
+    module = worker("github-pr-reviewer", tmp_path, monkeypatch)
+
+    assert module.workflow.MAX_IN_FLIGHT == 4
+    assert module.workflow.load_config(tmp_path / "github-pr-reviewer") == {}
+
+
+@pytest.mark.parametrize("bad", [0, -1, True, "4"])
+def test_the_rendered_config_rejects_a_misbehaving_max_in_flight(
+    tmp_path, monkeypatch, bad
+):
+    module = worker("github-pr-reviewer", tmp_path, monkeypatch)
+    (tmp_path / "github-pr-reviewer" / "config.json").write_text(
+        json.dumps({"repos": ["owner/one"], "max_in_flight": bad})
+    )
+
+    with pytest.raises(SystemExit):
+        module.workflow.load_config(tmp_path / "github-pr-reviewer")
+
+
+# --------------------------------------------------------------------------- #
+# Event-mode admission and mixed event/scheduled concurrency: the event launch
+# path does not pass through the intake, so the dispatcher's atomic reservation
+# is what bounds a burst of simultaneous reviewer requests. A denied event is
+# deferred and its GitHub request is left for a later scheduled scan.
+# --------------------------------------------------------------------------- #
+
+
+def _event_pr(number, sha):
+    return {
+        "number": number,
+        "head": {"sha": sha},
+        "labels": [],
+        "draft": False,
+        "requested_reviewers": [],
+    }
+
+
+def dispatcher_module(module):
+    """The agent_conversation module the worker's dispatcher class lives in."""
+    return sys.modules[module.AgentConversationDispatcher.__module__]
+
+
+def _force_create(module, attach):
+    """Make attach report the conversation gone, so delivery creates one."""
+    attach.side_effect = dispatcher_module(module).httpx.HTTPStatusError(
+        "missing",
+        request=MagicMock(),
+        response=MagicMock(status_code=404),
+    )
+
+
+def _event_pages(pr, module):
+    """The event payload's pages: the reviewer-request event for one PR."""
+    def gh_pages(path):
+        if path.endswith("/events"):
+            return [
+                {
+                    "id": 42,
+                    "event": "review_requested",
+                    "created_at": "now",
+                    "requested_reviewer": {"login": "all-hands-bot"},
+                }
+            ]
+        return []
+    return gh_pages
+
+
+def test_event_mode_cap_defers_an_extra_request_and_leaves_it_unconsumed(
+    tmp_path, monkeypatch
+):
+    """A reviewer-request event past the cap is deferred, not started.
+
+    The event path bypasses the intake, so before the fix a burst of
+    `review_requested` deliveries each started a Docker runtime regardless of
+    how many were already live. The dispatcher's reservation refuses the extra
+    one, and because no delivery record is written the request is still
+    outstanding for the next scheduled scan.
+    """
+    module, run = _reviewer(tmp_path, monkeypatch)
+    live = {"conv-1": {"subject": "x", "started_at": 0.0}}
+    conversation = MagicMock()
+    conversation.state.execution_status = ConversationExecutionStatus.FINISHED
+    dispatcher, attach, state, create = _capped_dispatcher(
+        module.AgentConversationDispatcher, monkeypatch, conversation, max_in_flight=1
+    )
+    _force_create(module, attach)
+    state[dispatcher_module(module)._IN_FLIGHT_KEY] = dict(live)
+    run.dispatcher = dispatcher
+    _event(monkeypatch)
+    pr = _event_pr(2, "head-2")
+    run.gh = Mock(side_effect=[{"id": 99}, pr])
+    run.gh_pages = _event_pages(pr, module)
+    dispatcher._execution_status = lambda cid: "running"
+
+    with dispatcher:
+        run.run()
+
+    create.assert_not_called()
+    # No delivery record was written for PR #2, so its request is not consumed.
+    consumed = [key for key in state if key.startswith("agent-conversation-")]
+    assert consumed == []
+    assert state[dispatcher_module(module)._IN_FLIGHT_KEY] == live
+
+
+def test_event_mode_starts_when_capacity_is_available(tmp_path, monkeypatch):
+    module, run = _reviewer(tmp_path, monkeypatch)
+    conversation = MagicMock()
+    dispatcher, attach, state, create = _capped_dispatcher(
+        module.AgentConversationDispatcher, monkeypatch, conversation, max_in_flight=2
+    )
+    _force_create(module, attach)
+    run.dispatcher = dispatcher
+    _event(monkeypatch)
+    pr = _event_pr(2, "head-2")
+    run.gh = Mock(side_effect=[{"id": 99}, pr])
+    run.gh_pages = _event_pages(pr, module)
+
+    with dispatcher:
+        run.run()
+
+    create.assert_called_once()
+    assert len(state[dispatcher_module(module)._IN_FLIGHT_KEY]) == 1
+
+
+def test_mixed_event_and_scheduled_share_one_cap(tmp_path, monkeypatch):
+    """An event delivery and a scheduled drain reserve from the same registry.
+
+    Two launch paths, one cap: the event fills the deployment's only slot and
+    the scheduled scan must then start nothing, so the two cannot jointly exceed
+    the configured live-runtime bound.
+    """
+    module, run = _reviewer(tmp_path, monkeypatch)
+    conversation = MagicMock()
+    conversation.state.execution_status = ConversationExecutionStatus.FINISHED
+    dispatcher, attach, state, create = _capped_dispatcher(
+        module.AgentConversationDispatcher, monkeypatch, conversation, max_in_flight=1
+    )
+    _force_create(module, attach)
+    run.dispatcher = dispatcher
+    # Treat every recorded conversation as still live.
+    dispatcher._execution_status = lambda cid: "running"
+    _event(monkeypatch)
+    pr = _event_pr(2, "head-2")
+    run.gh = Mock(side_effect=[{"id": 99}, pr])
+    run.gh_pages = _event_pages(pr, module)
+
+    with dispatcher:
+        run.run()
+    assert create.call_count == 1
+
+    # A scheduled scan now shares the cap and must start nothing. It is built in
+    # its own bundle directory so the two modules do not collide on disk.
+    scheduled_dir = tmp_path / "scheduled"
+    scheduled_dir.mkdir()
+    scheduled, scheduled_reviewers = _scan_reviewers(
+        scheduled_dir, monkeypatch, ["owner/one"], max_new=5, max_in_flight=1
+    )
+    scheduled_run = scheduled_reviewers[0]
+    scheduled_run.dispatcher = dispatcher
+    _wire_scan(
+        scheduled_run,
+        [_unrequested_pr(5, "head-5", created_at="2026-01-01T00:00:00Z")],
+        101,
+    )
+    _run_scan(scheduled, [scheduled_run])
+    # Still just the one conversation from the event: the scan's pre-filter saw
+    # the cap full and launched nothing.
+    assert create.call_count == 1
+
+
+def test_a_scheduled_launch_behind_a_stale_count_is_refused_by_admission(
+    tmp_path, monkeypatch, capsys
+):
+    """An event that takes the last slot after the scan counted is still seen.
+
+    The scan reads the in-flight count once, before its drain. An event that
+    reserves the deployment's only slot between that read and the drain's
+    launch makes the count stale, so the pre-filter lets the scheduled candidate
+    through; the dispatcher's atomic admission must refuse it at launch, so the
+    two paths together never exceed the cap.
+    """
+    module, run = _reviewer(tmp_path, monkeypatch)
+    conversation = MagicMock()
+    dispatcher, attach, state, create = _capped_dispatcher(
+        module.AgentConversationDispatcher, monkeypatch, conversation, max_in_flight=1
+    )
+    _force_create(module, attach)
+    dispatcher._execution_status = lambda cid: "running"
+    run.dispatcher = dispatcher
+
+    scheduled_dir = tmp_path / "scheduled"
+    scheduled_dir.mkdir()
+    scheduled, (scheduled_run,) = _scan_reviewers(
+        scheduled_dir, monkeypatch, ["owner/one"], max_new=5, max_in_flight=1
+    )
+    scheduled_run.dispatcher = dispatcher
+    _wire_scan(
+        scheduled_run,
+        [_unrequested_pr(5, "head-5", created_at="2026-01-01T00:00:00Z")],
+        101,
+    )
+
+    count = dispatcher.in_flight
+
+    def count_then_lose_the_slot_to_an_event():
+        live = count()
+        _event(monkeypatch)
+        pr = _event_pr(2, "head-2")
+        run.gh = Mock(side_effect=[{"id": 99}, pr])
+        run.gh_pages = _event_pages(pr, module)
+        run.run()
+        monkeypatch.delenv("AUTOMATION_EVENT_PAYLOAD")
+        return live
+
+    dispatcher.in_flight = count_then_lose_the_slot_to_an_event
+
+    with dispatcher:
+        _run_scan(scheduled, [scheduled_run])
+
+    # Only the event's conversation was created, and it alone holds the slot.
+    assert create.call_count == 1
+    assert len(state[dispatcher_module(module)._IN_FLIGHT_KEY]) == 1
+    # The scheduled candidate reached the dispatcher and was deferred there,
+    # leaving no delivery record, so a later scan retries it.
+    logged = [
+        json.loads(line)
+        for line in capsys.readouterr().out.splitlines()
+        if line.startswith("{")
+    ]
+    dispositions = {
+        entry["pr"]: entry["disposition"] for entry in logged if "disposition" in entry
+    }
+    assert dispositions == {2: "created", 5: "deferred"}
+    subjects = [
+        value["subject"]
+        for key, value in state.items()
+        if key.startswith("agent-conversation-")
+    ]
+    assert subjects == ["99:pr:2"]
+
 
 # --------------------------------------------------------------------------- #
 # Unrequested scheduled scan: an open, non-draft PR with a green current head and

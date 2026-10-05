@@ -1,9 +1,9 @@
 {
   "id": "github-pr-reviewer",
-  "version": "1.9.2",
+  "version": "1.10.0",
   "name": "GitHub code review",
   "category": "Code review",
-  "description": "Review requested pull-request heads, resume an outstanding reviewer request on a schedule once its checks are green, classify all open non-draft pull requests that nobody requested and review eligible green heads, drain the backlog oldest-first under a small per-scan new-conversation bound, record exact-head decisions, stop early on out-of-scope changes, and optionally request a code-aware human maintainer after approval or a maintainer-decision scope stop.",
+  "description": "Review requested pull-request heads, resume an outstanding reviewer request on a schedule once its checks are green, classify all open non-draft pull requests that nobody requested and review eligible green heads, drain the backlog oldest-first under a small per-scan new-conversation bound and an atomically enforced global in-flight cap that also bounds a burst of reviewer-request events, record exact-head decisions, stop early on out-of-scope changes, and optionally request a code-aware human maintainer after approval or a maintainer-decision scope stop.",
   "requires": {
     "integrations": {},
     "features": [
@@ -13,7 +13,7 @@
   },
   "popularityRank": 100,
   "estimatedSetupMinutes": 4,
-  "exampleImplementation": "A scheduled scan of the trigger label, of open PRs (including drafts) holding an outstanding reviewer request, and of every open non-draft PR nobody requested whose current head may be green and unreviewed, or a GitHub reviewer-request event, selects a PR head and submits an idempotent subject turn. Each scheduled scan classifies the full backlog, while the global per-run quota limits only newly created review conversations; blocked and pending heads consume no launch slot, and explicit requests retain priority. The scheduled scan orders eligible heads with explicit requests first and then oldest-first, and starts at most a small configurable number of new conversations per scan across every repository. The profile-backed agent clones that exact head in its runtime, applies an early repository-ownership and product/architecture scope gate, then reuses the established review workflow, runs appropriate tests, and publishes a readable native review. A native approval, or a maintainer-decision scope stop, can then be handed to a code-aware human maintainer.",
+  "exampleImplementation": "A scheduled scan of the trigger label, of open PRs (including drafts) holding an outstanding reviewer request, and of every open non-draft PR nobody requested whose current head may be green and unreviewed, or a GitHub reviewer-request event, selects a PR head and submits an idempotent subject turn. Each scheduled scan classifies the full backlog, while the global per-run quota limits only newly created review conversations; blocked and pending heads consume no launch slot, and explicit requests retain priority. The scheduled scan orders eligible heads with explicit requests first and then oldest-first, starts at most a small configurable number of new conversations per scan across every repository, and counts the review conversations still running from earlier scans so a global in-flight cap bounds the deployment's live runtimes; a completed, errored, stale, or missing conversation releases its capacity. The profile-backed agent clones that exact head in its runtime, applies an early repository-ownership and product/architecture scope gate, then reuses the established review workflow, runs appropriate tests, and publishes a readable native review. A native approval, or a maintainer-decision scope stop, can then be handed to a code-aware human maintainer.",
   "impact": {
     "basis": "completed-runs",
     "one": "1 PR review sweep completed",
@@ -97,6 +97,16 @@
             "min": 1
           }
         },
+        "maxInFlight": {
+          "type": "number",
+          "label": "Live reviews at once",
+          "help": "Most review conversations the automation may have running at the same time, counted across scheduled scans. Bounds the container runtimes a sustained backlog can accumulate; a finished, errored, stale, or missing conversation releases its slot. Set it to at least the per-scan new-review bound so each scan can use its full quota.",
+          "default": 4,
+          "required": true,
+          "constraints": {
+            "min": 1
+          }
+        },
         "reviewTone": {
           "type": "select",
           "label": "Review tone",
@@ -135,7 +145,7 @@
       }
     },
     "bundle": {
-      "version": "1.9.2",
+      "version": "1.10.0",
       "entrypoint": "python3 worker.py",
       "timeout": 300,
       "files": {
@@ -150,12 +160,13 @@
         "trigger_label": "{{form.triggerLabel}}",
         "trigger_reviewer": "{{form.triggerReviewer}}",
         "max_new_per_run": "{{form.maxNewPerRun}}",
+        "max_in_flight": "{{form.maxInFlight}}",
         "review_tone": "{{form.reviewTone}}",
         "maintainers": "{{form.maintainers}}",
         "github_token_secret": "{{form.githubTokenSecret}}"
       }
     },
     "filter": "contains({{form.repositories}}, repository.full_name) && contains(keys(@), 'pull_request') && ((action == 'review_requested' && requested_reviewer.login == '{{form.triggerReviewer}}') || (action == 'submitted' && contains(keys(@), 'review') && review.user.login == '{{form.triggerReviewer}}'))",
-    "message": "Configure the repositories, trigger, review tone, optional maintainer roster, credential name, per-scan new-review bound, and agent profile."
+    "message": "Configure the repositories, trigger, review tone, optional maintainer roster, credential name, per-scan new-review bound, global in-flight cap, and agent profile."
   }
 }
