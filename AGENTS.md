@@ -202,6 +202,7 @@ Important notes:
 - GitHub review suggestions that only delete lines can look empty in `PullRequestReviewComment.body`; the rendered content is available via `bodyText`/`bodyHTML`, so review-context formatting should fall back there before treating a suggestion as empty.
 - Prompt coverage for this behavior lives in `tests/test_pr_review_prompt.py`.
 - `plugins/pr-review`'s `collect-feedback` input should append a short thumbs up/down footer to the main GitHub review body via `agent_script.py` / `prompt.py`, rather than posting a separate PR comment. `evaluate_review.py` should read feedback from review-body reactions while still tolerating legacy issue-comment markers.
+- In `plugins/pr-review/scripts/prompt.py`, PR-derived text (title, head branch, description, review context, files manifest, and patches) goes through the private `_fence_untrusted()` helper, with one nonce per `format_prompt()` call. Keep new PR-derived prompt fields inside these regions; containment tests live in `tests/test_pr_review_prompt_injection.py`.
 
 
 ## When uncertain
