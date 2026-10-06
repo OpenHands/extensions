@@ -5,7 +5,7 @@
   "description": "Watch Jira for implementation-ready issues, start an agent to make the requested code change, and open a GitLab merge request.",
   "requires": {
     "integrations": {
-      "jira": {
+      "atlassian-rovo": {
         "message": "Reads implementation-ready issues and posts progress back to Jira."
       },
       "gitlab": {
