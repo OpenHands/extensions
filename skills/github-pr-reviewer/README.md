@@ -68,7 +68,9 @@ This skill is activated by:
   and no maintainer handoff
 - Posts acknowledgement comments with AI disclosure
 - Configurable review tone and polling schedule
-- Optional human handoff after an exact-head approval. The scanner ranks the
+- Optional human handoff after an exact-head approval or a maintainer-decision
+  scope stop, only when a same-repository closing issue is successfully fetched
+  and labeled `priority:medium` or `priority:high`. The scanner ranks the
   configured maintainers by recent commits to changed paths, then by their open
   GitHub review-request count, and requests one without merging the PR. Use at
   least two repository collaborators so a maintainer can author a PR without
@@ -130,8 +132,13 @@ Keep disabled until you verify these prerequisites; setup is not automatic.
   `/api/conversations/{id}/agent_final_response` returning `response`. Only
   `finished` results are used; no workspace-file transport is supported.
 - Set `scan_window: true` for the VM's rotating discovery window of ten unrequested
-  PRs. Explicit candidates bypass this window. Linked low-priority closing issues
-  suppress automatic maintainer handoff.
+  PRs. Explicit candidates bypass this window. Automatic maintainer handoff for
+  both approvals and scope stops requires a successfully fetched same-repository
+  closing issue labeled `priority:medium` or `priority:high`. Missing links,
+  missing priority labels, low/normal priorities, unresolved references, and PR
+  references do not qualify. One qualifying issue permits handoff even when
+  other references are low-priority or missing. Non-404 lookup errors propagate
+  without requesting a review. Existing manual review requests are unchanged.
 
 ### Recovery and limits
 
