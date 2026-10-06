@@ -2,8 +2,12 @@
 Jira issue-to-PR poller — reads all configuration from config.json in the same directory.
 
 config.json fields:
-  jira_base_url          e.g. "https://yourcompany.atlassian.net"
-  jira_email             Atlassian account email used for Basic auth
+  jira_mcp_server        Settings name of the connected Atlassian Rovo MCP server. When set,
+                         Jira is reached through it (OpenHands Cloud and Enterprise only)
+                         and no Jira credential is configured here
+  jira_cloud_id          Atlassian cloud id of the Jira site; required with jira_mcp_server
+  jira_base_url          e.g. "https://yourcompany.atlassian.net"; without jira_mcp_server
+  jira_email             Atlassian account email used for Basic auth; without jira_mcp_server
   jira_token_secret      Name of the OpenHands secret holding the Jira API token
   jira_label             Label to watch for (default: "create-pr")
   max_new_per_run        Max conversations dispatched per run (default: 5)
@@ -14,7 +18,7 @@ the repo in "owner/repo" format; the spawned agent extracts it from the ticket t
 Runs against a local agent server (AGENT_SERVER_URL is injected) or on OpenHands Cloud
 (OPENHANDS_CLOUD_API_URL / OPENHANDS_API_KEY / SANDBOX_ID are injected instead).
 """
-import base64, json, os, re, sys, tempfile, urllib.error, urllib.request, uuid
+import base64, json, os, re, sys, tempfile, urllib.error, urllib.parse, urllib.request, uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -23,8 +27,12 @@ _HERE = Path(__file__).parent
 with open(_HERE / "config.json") as _f:
     _cfg = json.load(_f)
 
-JIRA_BASE_URL      = _cfg["jira_base_url"].rstrip("/")
-JIRA_EMAIL         = _cfg["jira_email"]
+# Jira is reached through this connected MCP server when it is named, and through
+# Jira's REST API with an API token otherwise.
+JIRA_MCP_SERVER    = _cfg.get("jira_mcp_server")
+JIRA_CLOUD_ID      = _cfg["jira_cloud_id"] if JIRA_MCP_SERVER else None
+JIRA_BASE_URL      = None if JIRA_MCP_SERVER else _cfg["jira_base_url"].rstrip("/")
+JIRA_EMAIL         = None if JIRA_MCP_SERVER else _cfg["jira_email"]
 JIRA_TOKEN_SECRET  = _cfg.get("jira_token_secret", "JIRA_CLOUD_KEY")
 JIRA_LABEL         = _cfg.get("jira_label", "create-pr")
 MAX_NEW_PER_RUN    = int(_cfg.get("max_new_per_run", 5))
@@ -163,14 +171,39 @@ def extract_adf_text(adf):
     return " ".join(p for p in parts if p).strip()
 
 
+def call_mcp_tool(name, arguments):
+    """Call a tool on the connected MCP server and return its text output.
+
+    OpenHands makes the call with the credentials the user stored when connecting
+    the server, so this run holds no Jira credential of its own.
+    """
+    server = urllib.parse.quote(JIRA_MCP_SERVER, safe="")
+    result = _cloud_request("POST", f"/api/v1/mcp/servers/{server}/call-tool", {
+        "name": name, "arguments": arguments,
+    })
+    if result.get("is_error"):
+        raise RuntimeError(f"{name} failed: {str(result.get('text'))[:500]}")
+    return result.get("text") or ""
+
+
 def fetch_labeled_issues(auth_header):
-    """Return open Jira issues with JIRA_LABEL using the current v3 search endpoint."""
-    url  = f"{JIRA_BASE_URL}/rest/api/3/search/jql"
-    body = json.dumps({
+    """Return open Jira issues with JIRA_LABEL.
+
+    Uses the connected MCP server's JQL search, or the current v3 search endpoint.
+    """
+    search = {
         "jql":        f'labels = "{JIRA_LABEL}" AND statusCategory != Done',
         "fields":     ["key", "summary", "description", "status", "updated"],
         "maxResults": 50,
-    }).encode()
+    }
+    if JIRA_MCP_SERVER:
+        text = call_mcp_tool("searchJiraIssuesUsingJql", {"cloudId": JIRA_CLOUD_ID, **search})
+        try:
+            return json.loads(text).get("issues", [])
+        except (ValueError, AttributeError) as exc:
+            raise RuntimeError(f"Unexpected Jira search result: {text[:500]}") from exc
+    url  = f"{JIRA_BASE_URL}/rest/api/3/search/jql"
+    body = json.dumps(search).encode()
     req = urllib.request.Request(
         url, data=body,
         headers={
@@ -188,7 +221,15 @@ def fetch_labeled_issues(auth_header):
 
 
 def post_jira_comment(issue_key, auth_header, text):
-    """Post a plain-text comment on a Jira issue using ADF."""
+    """Post a plain-text comment on a Jira issue."""
+    if JIRA_MCP_SERVER:
+        try:
+            call_mcp_tool("addCommentToJiraIssue", {
+                "cloudId": JIRA_CLOUD_ID, "issueIdOrKey": issue_key, "commentBody": text,
+            })
+        except RuntimeError as exc:
+            print(f"Warning: failed to post Jira comment on {issue_key}: {exc}")
+        return
     url  = f"{JIRA_BASE_URL}/rest/api/3/issue/{issue_key}/comment"
     body = json.dumps({
         "body": {
@@ -321,10 +362,16 @@ try:
         raise RuntimeError("The automation KV store is required on OpenHands Cloud, "
                            "but AUTOMATION_KV_TOKEN is not set for this run.")
 
-    jira_token  = get_secret(JIRA_TOKEN_SECRET)
-    auth_header = "Basic " + base64.b64encode(
-        f"{JIRA_EMAIL}:{jira_token}".encode()
-    ).decode()
+    auth_header = None
+    if not JIRA_MCP_SERVER:
+        jira_token  = get_secret(JIRA_TOKEN_SECRET)
+        auth_header = "Basic " + base64.b64encode(
+            f"{JIRA_EMAIL}:{jira_token}".encode()
+        ).decode()
+    elif IS_LOCAL:
+        # Only OpenHands Cloud and Enterprise call a connected MCP server for a run.
+        raise RuntimeError("jira_mcp_server needs OpenHands Cloud or Enterprise; "
+                           "a local run reaches Jira with jira_token_secret.")
 
     state          = load_state()
     processed_keys = set(state.get("processed_keys", []))
@@ -343,7 +390,7 @@ try:
     if not IS_LOCAL:
         settle_cloud_starts(state, processed_keys, auth_header)
 
-    print(f"Polling {JIRA_BASE_URL} for issues labeled '{JIRA_LABEL}'…")
+    print(f"Polling {JIRA_BASE_URL or JIRA_MCP_SERVER} for issues labeled '{JIRA_LABEL}'…")
     issues = fetch_labeled_issues(auth_header)
     print(f"Total matching issues : {len(issues)}")
 

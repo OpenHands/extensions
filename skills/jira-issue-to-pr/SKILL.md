@@ -21,8 +21,9 @@ starts, it also posts a comment on the Jira ticket: "I'm on it: &lt;conversation
 
 ## How It Works
 
-1. **Poll** - every N minutes, `POST /rest/api/3/search/jql` on the Jira Cloud instance
-   to find open issues with the configured label.
+1. **Poll** - every N minutes, search the Jira Cloud instance for open issues with the
+   configured label: through the user's connected Atlassian Rovo MCP server on OpenHands
+   Cloud and Enterprise, or with `POST /rest/api/3/search/jql` and an API token.
 2. **Deduplicate** - on the very first run the script records a `first_run_at` baseline
    timestamp in the KV store; any issue whose `updated` timestamp predates that baseline
    is skipped (no backfill blast on first deploy). Using `updated` rather than `created`
@@ -47,7 +48,7 @@ Before deploying, ensure the following are in place:
 
 | Requirement | Details |
 |---|---|
-| **Jira API token** | Stored as an OpenHands secret (see [Jira API token setup](#jira-api-token)) |
+| **Jira access** | OpenHands Cloud and Enterprise: the user's connected Atlassian Rovo MCP server, with no API token. Local, or without that connection: a Jira API token stored as an OpenHands secret (see [Jira API token setup](#jira-api-token)) |
 | **GitHub access** | Local: a GitHub token stored as an OpenHands secret with `repo` + `workflow` scope so the spawned conversation can push branches and open PRs. OpenHands Cloud: the spawned conversation uses the user's connected GitHub integration (native integration recommended, or the GitHub MCP server) |
 | **KV store** (OpenHands Cloud only) | The automation service must have its KV store enabled (`kvStore` in `GET /api/automation/v1/capabilities`); each cloud run starts in a fresh sandbox, so processed issues are remembered there |
 | **Jira label** | The label to watch for (default: `create-pr`) must exist in the Jira project |
@@ -72,13 +73,22 @@ Set `OPENHANDS_HOST` and `AUTH_HEADER` for the curl commands below:
 
 ### Step 1 - Collect parameters
 
-Gather the following from the user before proceeding:
+First decide how the poller reaches Jira:
+
+- **Connected Atlassian Rovo MCP server** - on OpenHands Cloud and Enterprise, when the
+  user has connected it. OpenHands calls Jira for the poller through that connection, so
+  do not ask for a Jira email or an API token and do not create a secret.
+- **Jira API token** - on a local Agent Canvas, or when the Rovo server is not connected.
+
+Then gather the parameters for that route, plus the shared ones, before proceeding:
 
 | Parameter | Example | Notes |
 |---|---|---|
-| `jira_base_url` | `https://acme.atlassian.net` | No trailing slash |
-| `jira_email` | `alice@acme.com` | Atlassian account email for Basic auth |
-| `jira_token_secret` | `JIRA_CLOUD_KEY` | Name of the OpenHands secret holding the API token |
+| `jira_mcp_server` | `atlassian-rovo` | Rovo connection only. The name the server is stored under: the key in `agent_settings.mcp_config` of `GET ${OPENHANDS_HOST}/api/v1/settings` whose `url` is on `mcp.atlassian.com`. Look it up; do not ask the user |
+| `jira_cloud_id` | `1324a887-45db-1bf4-1e99-ef0ff456d421` | Rovo connection only. The `id` of the Jira site, from the Rovo tool `getAccessibleAtlassianResources`. Ask which site only when it lists several |
+| `jira_base_url` | `https://acme.atlassian.net` | API token only. No trailing slash |
+| `jira_email` | `alice@acme.com` | API token only. Atlassian account email for Basic auth |
+| `jira_token_secret` | `JIRA_CLOUD_KEY` | API token only. Name of the OpenHands secret holding the API token |
 | `jira_label` | `create-pr` | Label to watch for (optional, defaults to `create-pr`) |
 | `max_new_per_run` | `5` | Max conversations dispatched per cron firing (optional, defaults to `5`) |
 | `cron_schedule` | `*/5 * * * *` | Polling frequency in cron syntax |
@@ -89,7 +99,19 @@ Gather the following from the user before proceeding:
 
 ### Step 2 - Create config.json
 
-Create `config.json` next to `scripts/main.py` when packaging:
+Create `config.json` next to `scripts/main.py` when packaging. With the connected
+Atlassian Rovo MCP server:
+
+```json
+{
+  "jira_mcp_server": "atlassian-rovo",
+  "jira_cloud_id":   "1324a887-45db-1bf4-1e99-ef0ff456d421",
+  "jira_label":      "create-pr",
+  "max_new_per_run": 5
+}
+```
+
+With a Jira API token:
 
 ```json
 {
@@ -157,6 +179,14 @@ curl -s "${OPENHANDS_HOST}/api/automation/v1/<AUTOMATION_ID>/runs?limit=1" \
   -H "$AUTH_HEADER" \
   | python3 -c "import sys,json; r=json.load(sys.stdin)['runs'][0]; print(r['status'], r.get('error_detail'))"
 ```
+
+With the Rovo connection, a run that fails on `/api/v1/mcp/servers/<name>/call-tool` says why:
+
+- `404` with `No connected MCP server is named ...` - `jira_mcp_server` is not the name the
+  server is stored under, or the user switched the server off.
+- `404` with `Not Found` - this deployment cannot call a connected MCP server for a run yet.
+  Set the automation up with a Jira API token instead.
+- `502` - the server could not be reached, or the user has to reconnect it in the settings.
 
 ## Event-Based Alternative
 
@@ -287,7 +317,7 @@ The automation script lives at `scripts/main.py`. Key behaviors:
 - **First-run baseline** - on the very first execution the script writes `first_run_at` (UTC timestamp) into the KV store and exits without dispatching; issues whose `updated` timestamp predates that baseline are skipped on all subsequent runs. Using `updated` (not `created`) means an old issue that has its label applied after deployment is correctly treated as new.
 - **Per-run cap** - `max_new_per_run` (default 5) limits how many conversations are started per cron firing; any remaining new issues are dispatched on the next run.
 - **KV store** - persists `{"processed_keys": [...], "first_run_at": "..."}` between runs; falls back to a local file in local dev environments where `AUTOMATION_KV_TOKEN` is absent (on OpenHands Cloud the run fails instead, since its sandbox does not persist).
-- **Jira API** - uses `POST /rest/api/3/search/jql` (the current non-deprecated endpoint).
+- **Jira access** - with `jira_mcp_server` set, searches and comments through the user's connected Atlassian Rovo MCP server (`POST /api/v1/mcp/servers/<name>/call-tool` on OpenHands Cloud, tools `searchJiraIssuesUsingJql` and `addCommentToJiraIssue`), so the run reads no Jira credential. Otherwise uses the Jira REST API with the token secret: `POST /rest/api/3/search/jql` (the current non-deprecated endpoint).
 - **Conversation dispatch** - locally, calls `POST /api/conversations` on the agent server with the current user's LLM/agent settings forwarded to the new conversation; on OpenHands Cloud, calls `POST /api/v1/app-conversations`, which runs each conversation in its own sandbox with the user's settings, secrets and connected git provider.
 - **Start confirmation** (OpenHands Cloud only) - the API answers a start request before the conversation exists, so the next run checks each one. A start that failed is made again, up to three times, and after that the failure is posted on the Jira issue.
 - **Error transparency** - captures Jira HTTP response bodies in error messages for fast diagnosis.

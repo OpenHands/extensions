@@ -20,8 +20,10 @@ This skill is activated by keywords:
 
 ## How It Works
 
-1. **Poll** - every N minutes, the script calls `POST /rest/api/3/search/jql`
-   on the Jira Cloud instance to find open issues with the configured label.
+1. **Poll** - every N minutes, the script searches the Jira Cloud instance for
+   open issues with the configured label: through the user's connected
+   Atlassian Rovo MCP server on OpenHands Cloud and Enterprise, or with
+   `POST /rest/api/3/search/jql` and an API token.
 2. **Deduplicate** - on the first run the script records a `first_run_at`
    baseline timestamp in the KV store; issues whose `updated` timestamp
    predates that baseline are skipped (no backfill blast on first deploy).
@@ -52,7 +54,7 @@ OpenHands and Jira. See "Event-Based Alternative" in `SKILL.md`.
 
 | Requirement | Details |
 |---|---|
-| **Jira API token** | Stored as an OpenHands secret (see `references/setup.md`) |
+| **Jira access** | OpenHands Cloud and Enterprise: the user's connected Atlassian Rovo MCP server, with no API token. Local, or without that connection: a Jira API token stored as an OpenHands secret (see `references/setup.md`) |
 | **GitHub token** | Stored as an OpenHands secret with `repo` + `workflow` scope so the spawned conversation can push branches and open PRs |
 | **Jira label** | The label to watch for (default: `create-pr`) must exist in the Jira project |
 | **GitHub repo** | The target repository must exist and the GitHub token must have write access |

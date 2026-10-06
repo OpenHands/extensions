@@ -2,6 +2,9 @@
 
 ## Jira API Token
 
+The poller needs this token only when it does not reach Jira through a connected
+Atlassian Rovo MCP server (see Step 1 in `SKILL.md`).
+
 ### Create a token
 
 1. Log in to [id.atlassian.com](https://id.atlassian.com/manage-profile/security/api-tokens).
@@ -63,8 +66,10 @@ Navigate to **Settings → Secrets** and store the token under the name `GITHUB_
 
 | Field | Required | Default | Description |
 |---|---|---|---|
-| `jira_base_url` | ✅ | - | Full URL of your Atlassian instance, e.g. `https://acme.atlassian.net` |
-| `jira_email` | ✅ | - | Email address of the Atlassian account that owns the API token |
+| `jira_mcp_server` | ❌ | - | Name the connected Atlassian Rovo MCP server is stored under. When set, the poller reaches Jira through it (OpenHands Cloud and Enterprise only) and the three fields after `jira_cloud_id` are not used |
+| `jira_cloud_id` | with `jira_mcp_server` | - | Atlassian cloud id of the Jira site |
+| `jira_base_url` | without `jira_mcp_server` | - | Full URL of your Atlassian instance, e.g. `https://acme.atlassian.net` |
+| `jira_email` | without `jira_mcp_server` | - | Email address of the Atlassian account that owns the API token |
 | `jira_token_secret` | ❌ | `"JIRA_CLOUD_KEY"` | Name of the OpenHands secret holding the Jira API token |
 | `jira_label` | ❌ | `"create-pr"` | Jira issue label to watch for |
 

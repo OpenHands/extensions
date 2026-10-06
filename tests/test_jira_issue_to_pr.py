@@ -30,6 +30,9 @@ ISSUE = {
 }
 # A baseline from before the issue was updated, so the issue counts as new.
 STATE = {"processed_keys": [], "first_run_at": "2020-01-01T00:00:00+00:00"}
+# A deployment that reaches Jira through the user's connected MCP server.
+MCP_CONFIG = {"jira_mcp_server": "atlassian-rovo", "jira_cloud_id": "cloud-1"}
+MCP_TOOL_PATH = "/api/v1/mcp/servers/atlassian-rovo/call-tool"
 
 
 class StubServer:
@@ -41,19 +44,22 @@ class StubServer:
         # reports for the conversations it was asked to start.
         self.state = dict(STATE)
         self.start_tasks = []
+        # Set to make the connected MCP server report a failed tool call.
+        self.mcp_error = None
         stub = self
 
         class Handler(BaseHTTPRequestHandler):
             def _handle(self):
                 length = int(self.headers.get("Content-Length") or 0)
                 body = self.rfile.read(length) if length else b""
-                stub.requests.append({
+                request = {
                     "method": self.command,
                     "path": self.path,
                     "headers": {k.lower(): v for k, v in self.headers.items()},
                     "body": json.loads(body) if body else None,
-                })
-                status, payload = stub.respond(self.path)
+                }
+                stub.requests.append(request)
+                status, payload = stub.respond(self.path, request["body"])
                 data = payload.encode() if isinstance(payload, str) else json.dumps(payload).encode()
                 self.send_response(status)
                 self.send_header("Content-Length", str(len(data)))
@@ -69,7 +75,12 @@ class StubServer:
         self.url = f"http://127.0.0.1:{self.httpd.server_port}"
         threading.Thread(target=self.httpd.serve_forever, daemon=True).start()
 
-    def respond(self, path):
+    def respond(self, path, body):
+        if path == MCP_TOOL_PATH:
+            if self.mcp_error:
+                return 200, {"is_error": True, "text": self.mcp_error}
+            found = {"issues": [ISSUE]} if body["name"] == "searchJiraIssuesUsingJql" else {}
+            return 200, {"is_error": False, "text": json.dumps(found)}
         if path == "/rest/api/3/search/jql":
             return 200, {"issues": [ISSUE]}
         if path.startswith("/rest/api/3/issue/"):
@@ -93,6 +104,9 @@ class StubServer:
     def find(self, method, path):
         return [r for r in self.requests if r["method"] == method and r["path"] == path]
 
+    def mcp_calls(self, tool):
+        return [r for r in self.find("POST", MCP_TOOL_PATH) if r["body"]["name"] == tool]
+
 
 @pytest.fixture
 def stub():
@@ -103,11 +117,11 @@ def stub():
 
 @pytest.fixture
 def run_script(stub, tmp_path):
-    def run(env):
+    def run(env, config=None):
         workdir = tmp_path / "run"
         workdir.mkdir()
         shutil.copy(SCRIPT_PATH, workdir / "main.py")
-        (workdir / "config.json").write_text(json.dumps({
+        (workdir / "config.json").write_text(json.dumps(config or {
             "jira_base_url": stub.url,
             "jira_email": "alice@example.test",
             "jira_token_secret": "JIRA_CLOUD_KEY",
@@ -281,6 +295,73 @@ def test_a_cloud_run_without_the_kv_store_fails_before_dispatching(stub, run_scr
     assert stub.find("POST", "/api/v1/app-conversations") == []
     [callback] = stub.find("POST", "/callback")
     assert callback["body"]["status"] == "FAILED"
+
+
+def test_a_cloud_run_finds_issues_through_the_connected_mcp_server(stub, run_script):
+    # Arrange
+    env = cloud_env(stub)
+
+    # Act
+    result = run_script(env, MCP_CONFIG)
+
+    # Assert
+    assert result.returncode == 0, result.stderr
+    [search] = stub.mcp_calls("searchJiraIssuesUsingJql")
+    assert search["headers"]["authorization"] == "Bearer openhands-key"
+    assert search["body"]["arguments"]["cloudId"] == "cloud-1"
+    assert 'labels = "create-pr"' in search["body"]["arguments"]["jql"]
+    [conversation] = stub.find("POST", "/api/v1/app-conversations")
+    assert conversation["body"]["title"] == "[ENG-1] Add a README"
+    assert [r for r in stub.requests if "/settings/secrets/" in r["path"]] == []
+
+
+def test_a_cloud_run_links_the_jira_issue_through_the_connected_mcp_server(stub, run_script):
+    # Arrange
+    env = cloud_env(stub)
+
+    # Act
+    result = run_script(env, MCP_CONFIG)
+
+    # Assert
+    assert result.returncode == 0, result.stderr
+    [conversation] = stub.find("POST", "/api/v1/app-conversations")
+    [comment] = stub.mcp_calls("addCommentToJiraIssue")
+    conversation_id = conversation["body"]["conversation_id"]
+    assert comment["body"]["arguments"] == {
+        "cloudId": "cloud-1",
+        "issueIdOrKey": "ENG-1",
+        "commentBody": f"I'm on it: {stub.url}/canvas/conversations/{conversation_id}",
+    }
+
+
+def test_a_cloud_run_fails_when_the_connected_mcp_server_reports_an_error(stub, run_script):
+    # Arrange
+    stub.mcp_error = "The MCP server must be authorized again"
+
+    # Act
+    result = run_script(cloud_env(stub), MCP_CONFIG)
+
+    # Assert
+    assert result.returncode == 1
+    assert stub.find("POST", "/api/v1/app-conversations") == []
+    [callback] = stub.find("POST", "/callback")
+    assert callback["body"]["status"] == "FAILED"
+    assert "must be authorized again" in callback["body"]["error"]
+
+
+def test_a_local_run_cannot_reach_jira_through_a_connected_mcp_server(stub, run_script):
+    # Arrange
+    env = local_env(stub)
+
+    # Act
+    result = run_script(env, MCP_CONFIG)
+
+    # Assert
+    assert result.returncode == 1
+    assert stub.find("POST", "/api/conversations") == []
+    [callback] = stub.find("POST", "/callback")
+    assert callback["body"]["status"] == "FAILED"
+    assert "OpenHands Cloud or Enterprise" in callback["body"]["error"]
 
 
 def test_a_local_run_still_starts_conversations_on_the_agent_server(stub, run_script):
