@@ -35,6 +35,9 @@ JIRA_BASE_URL      = None if JIRA_MCP_SERVER else _cfg["jira_base_url"].rstrip("
 JIRA_EMAIL         = None if JIRA_MCP_SERVER else _cfg["jira_email"]
 JIRA_TOKEN_SECRET  = _cfg.get("jira_token_secret", "JIRA_CLOUD_KEY")
 JIRA_LABEL         = _cfg.get("jira_label", "create-pr")
+# Atlassian renamed the comment tool in v2 of its MCP server and moves v1 connections
+# to the v2 tools on its own schedule, so a deployment can meet either name.
+JIRA_COMMENT_TOOLS = ("addOrEditJiraIssueComment", "addCommentToJiraIssue")
 MAX_NEW_PER_RUN    = int(_cfg.get("max_new_per_run", 5))
 # How often a conversation that OpenHands Cloud failed to start is started again.
 MAX_START_ATTEMPTS = 3
@@ -223,12 +226,16 @@ def fetch_labeled_issues(auth_header):
 def post_jira_comment(issue_key, auth_header, text):
     """Post a plain-text comment on a Jira issue."""
     if JIRA_MCP_SERVER:
-        try:
-            call_mcp_tool("addCommentToJiraIssue", {
-                "cloudId": JIRA_CLOUD_ID, "issueIdOrKey": issue_key, "commentBody": text,
-            })
-        except RuntimeError as exc:
-            print(f"Warning: failed to post Jira comment on {issue_key}: {exc}")
+        errors = []
+        for tool in JIRA_COMMENT_TOOLS:
+            try:
+                call_mcp_tool(tool, {
+                    "cloudId": JIRA_CLOUD_ID, "issueIdOrKey": issue_key, "commentBody": text,
+                })
+                return
+            except RuntimeError as exc:
+                errors.append(str(exc))
+        print(f"Warning: failed to post Jira comment on {issue_key}: {'; '.join(errors)}")
         return
     url  = f"{JIRA_BASE_URL}/rest/api/3/issue/{issue_key}/comment"
     body = json.dumps({

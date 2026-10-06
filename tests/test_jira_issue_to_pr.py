@@ -46,6 +46,8 @@ class StubServer:
         self.start_tasks = []
         # Set to make the connected MCP server report a failed tool call.
         self.mcp_error = None
+        # The name the connected MCP server offers its comment tool under.
+        self.mcp_comment_tool = "addOrEditJiraIssueComment"
         stub = self
 
         class Handler(BaseHTTPRequestHandler):
@@ -79,6 +81,8 @@ class StubServer:
         if path == MCP_TOOL_PATH:
             if self.mcp_error:
                 return 200, {"is_error": True, "text": self.mcp_error}
+            if body["name"] not in ("searchJiraIssuesUsingJql", self.mcp_comment_tool):
+                return 200, {"is_error": True, "text": f"Tool {body['name']!r} not advertised by server"}
             found = {"issues": [ISSUE]} if body["name"] == "searchJiraIssuesUsingJql" else {}
             return 200, {"is_error": False, "text": json.dumps(found)}
         if path == "/rest/api/3/search/jql":
@@ -325,13 +329,27 @@ def test_a_cloud_run_links_the_jira_issue_through_the_connected_mcp_server(stub,
     # Assert
     assert result.returncode == 0, result.stderr
     [conversation] = stub.find("POST", "/api/v1/app-conversations")
-    [comment] = stub.mcp_calls("addCommentToJiraIssue")
+    [comment] = stub.mcp_calls("addOrEditJiraIssueComment")
     conversation_id = conversation["body"]["conversation_id"]
     assert comment["body"]["arguments"] == {
         "cloudId": "cloud-1",
         "issueIdOrKey": "ENG-1",
         "commentBody": f"I'm on it: {stub.url}/canvas/conversations/{conversation_id}",
     }
+
+
+def test_a_cloud_run_links_the_jira_issue_when_the_mcp_server_still_has_the_older_comment_tool(stub, run_script):
+    # Arrange
+    stub.mcp_comment_tool = "addCommentToJiraIssue"
+
+    # Act
+    result = run_script(cloud_env(stub), MCP_CONFIG)
+
+    # Assert
+    assert result.returncode == 0, result.stderr
+    [comment] = stub.mcp_calls("addCommentToJiraIssue")
+    assert comment["body"]["arguments"]["issueIdOrKey"] == "ENG-1"
+    assert comment["body"]["arguments"]["commentBody"].startswith("I'm on it: ")
 
 
 def test_a_cloud_run_fails_when_the_connected_mcp_server_reports_an_error(stub, run_script):
