@@ -2,7 +2,10 @@ import importlib.util
 import sys
 from pathlib import Path
 
+import pytest
 import yaml
+
+from test_pr_review_review_context import _load_agent_script_module
 
 
 def _load_prompt_module():
@@ -220,3 +223,28 @@ def test_require_pinned_actions_defaults_to_false_and_maps_to_env():
     assert run_step["env"]["REQUIRE_PINNED_ACTIONS"] == (
         "${{ inputs.require-pinned-actions }}"
     )
+
+
+@pytest.mark.parametrize(
+    ("env_value", "expected"), [(None, False), ("false", False), ("true", True)]
+)
+def test_require_pinned_actions_env_reaches_config(monkeypatch, env_value, expected):
+    agent_script = _load_agent_script_module()
+    for name, value in {
+        "GITHUB_TOKEN": "test-token",
+        "LLM_API_KEY": "test-key",
+        "PR_NUMBER": "102",
+        "PR_TITLE": "Pin actions",
+        "PR_BASE_BRANCH": "main",
+        "PR_HEAD_BRANCH": "feature/pinning",
+        "REPO_NAME": "acme/widgets",
+    }.items():
+        monkeypatch.setenv(name, value)
+    if env_value is None:
+        monkeypatch.delenv("REQUIRE_PINNED_ACTIONS", raising=False)
+    else:
+        monkeypatch.setenv("REQUIRE_PINNED_ACTIONS", env_value)
+
+    config = agent_script.validate_environment()
+
+    assert config["require_pinned_actions"] is expected

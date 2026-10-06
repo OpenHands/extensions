@@ -312,10 +312,11 @@ def test_reminder_mentions_evidence_only_when_required(render, require_evidence)
     assert ("evidence" in _reminder(prompt).lower()) is require_evidence
 
 
+@pytest.mark.parametrize("require_pinned_actions", [False, True])
 @pytest.mark.parametrize("collect_feedback", [False, True])
 @pytest.mark.parametrize("use_sub_agents", [False, True])
 def test_optional_sections_render_outside_regions(
-    render, collect_feedback, use_sub_agents
+    render, collect_feedback, use_sub_agents, require_pinned_actions
 ):
     prompt = render(
         review_context="prior thread",
@@ -323,6 +324,7 @@ def test_optional_sections_render_outside_regions(
         collect_feedback=collect_feedback,
         review_run_url=RUN_URL,
         use_sub_agents=use_sub_agents,
+        require_pinned_actions=require_pinned_actions,
     )
     trusted = [
         "## Existing PR and Issue Context",
@@ -341,8 +343,13 @@ def test_optional_sections_render_outside_regions(
 
     assert (FEEDBACK_MARKER in prompt) is collect_feedback
     assert ("## Sub-agent Delegation" in prompt) is use_sub_agents
+    assert ("## Third-party Action Pinning" in prompt) is require_pinned_actions
     for text in trusted:
         assert not _inside(prompt, prompt.index(text)), text
+    if require_pinned_actions:
+        start = prompt.index("## Third-party Action Pinning")
+        end = prompt.index("are outside this rule.", start)
+        assert all(e <= start or end <= b for b, e in _regions(prompt))
 
 
 def test_dependency_policy_is_kept_and_no_sha_pin_policy_is_added(render):
