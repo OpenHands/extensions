@@ -1,6 +1,6 @@
 {
   "id": "qa-changes",
-  "name": "QA Changes Agent",
+  "name": "QA changes",
   "category": "Code review",
   "description": "When a pull request is opened for review, run the QA changes methodology — set up the environment, exercise the changed behavior as a real user would, and post the outcome by editing the PR description with a QA Agent section.",
   "requires": {

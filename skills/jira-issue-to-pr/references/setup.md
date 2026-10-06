@@ -9,6 +9,14 @@
 3. Give it a label (e.g., `openhands-create-pr`) and click **Create**.
 4. Copy the token value - it is shown only once.
 
+### Token for the event-based webhook setup
+
+`scripts/setup_webhook.py` registers a webhook in Jira, which Jira allows only for an
+account with the **Administer Jira** global permission. Create the token as above while
+logged in as such an account - a classic API token, not one restricted to scopes - and
+store it under its own name, for example `JIRA_ADMIN_TOKEN`. It is needed only while the
+webhook is set up, changed or deleted, and can be removed from the secrets afterwards.
+
 ### Store the token as an OpenHands secret
 
 Navigate to **Settings → Secrets** in the OpenHands UI and add a new secret:
