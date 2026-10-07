@@ -1,5 +1,7 @@
 # Migration Scoring Plugin
 
+[![Launch Migration Scoring](https://img.shields.io/badge/Launch%20Migration%20Scoring-blue?logo=data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI+PHBhdGggZmlsbD0id2hpdGUiIGQ9Ik0xMiAyQzYuNDggMiAyIDYuNDggMiAxMnM0LjQ4IDEwIDEwIDEwIDEwLTQuNDggMTAtMTBTMTcuNTIgMiAxMiAyem0xIDE1aC0ydi02aDJ2NnptMC04aC0yVjdoMnYyeiIvPjwvc3ZnPg==)](https://app.all-hands.dev/launch?plugins=W3sic291cmNlIjogImdpdGh1YjpPcGVuSGFuZHMvZXh0ZW5zaW9ucyIsICJyZWYiOiAibWFpbiIsICJyZXBvX3BhdGgiOiAicGx1Z2lucy9taWdyYXRpb24tc2NvcmluZyJ9XQ==&message=Score%20this%20migration)
+
 Quality evaluation for code migration projects using OpenHands agents. This plugin scores completed migrations across multiple dimensions including coverage, correctness, and code style, generating executive reports with actionable recommendations.
 
 ## Quick Start
