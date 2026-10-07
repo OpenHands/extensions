@@ -4,19 +4,24 @@ description: >
   This skill should be used when the user asks to "set up a Jira automation to create pull requests",
   "poll Jira for create-pr issues", "automatically create GitHub PRs from Jira tickets",
   "deploy a Jira issue-to-PR automation", "create a Jira to GitHub PR workflow",
-  or mentions automating GitHub PR creation from a Jira label.
+  "set up the Jira issue to GitLab MR automation", "set up the Jira issue to Bitbucket PR automation",
+  "open GitLab merge requests from Jira tickets", "open Bitbucket pull requests from Jira tickets",
+  or mentions automating pull request or merge request creation from a Jira label.
   Deploys a cron-based OpenHands automation that watches a Jira Cloud project for issues
   labeled with a configurable label (default: "create-pr") and spawns an agent conversation
-  to create a GitHub pull request for each new issue found. The target GitHub repository
-  is read from the body of the Jira ticket - no repo parameter is required at deploy time.
+  that opens a pull request on GitHub (the default), a merge request on GitLab, or a pull
+  request on Bitbucket for each new issue found, chosen with git_provider. The target
+  repository is read from the body of the Jira ticket - no repo parameter is required at deploy time.
 ---
 
-# Jira → GitHub PR Automation
+# Jira → Pull Request Automation (GitHub, GitLab, Bitbucket)
 
 Deploys a cron automation that polls a Jira Cloud instance for open issues carrying a
 configurable label and, for each new issue, starts an OpenHands agent conversation that
-clones the GitHub repository specified in the ticket body, creates a branch, implements
-or placeholders the requested change, and opens a pull request. Once the conversation
+clones the repository specified in the ticket body on the configured git provider (GitHub
+by default, GitLab or Bitbucket with `git_provider`), creates a branch, implements or
+placeholders the requested change, and opens a pull request (a merge request on GitLab).
+Once the conversation
 starts, it also posts a comment on the Jira ticket: "I'm on it: &lt;conversation URL&gt;".
 
 ## How It Works
@@ -34,7 +39,8 @@ starts, it also posts a comment on the Jira ticket: "I'm on it: &lt;conversation
 3. **Dispatch** - for each new issue, start an independent agent conversation with a
    PR-creation prompt: `POST /api/conversations` on the agent server when running locally,
    or `POST /api/v1/app-conversations` on OpenHands Cloud. The prompt instructs the agent
-   to extract the target GitHub repository (`owner/repo`) from the ticket body.
+   to extract the target repository (`owner/repo` on GitHub; `group/project` or a URL on GitLab;
+   `workspace/repo` on Bitbucket) from the ticket body.
 4. **Comment** - immediately after the conversation is created, post a Jira comment on the
    issue: `I'm on it: <conversation URL>`.
 5. **Persist** - record the processed issue key so re-runs never duplicate work.
@@ -49,10 +55,10 @@ Before deploying, ensure the following are in place:
 | Requirement | Details |
 |---|---|
 | **Jira access** | OpenHands Cloud and Enterprise: the user's connected Atlassian Rovo MCP server, with no API token. Local, or without that connection: a Jira API token stored as an OpenHands secret (see [Jira API token setup](#jira-api-token)) |
-| **GitHub access** | Local: a GitHub token stored as an OpenHands secret with `repo` + `workflow` scope so the spawned conversation can push branches and open PRs. OpenHands Cloud: the spawned conversation uses the user's connected GitHub integration (native integration recommended, or the GitHub MCP server) |
+| **Git provider access** | OpenHands Cloud and Enterprise: the user's connected GitHub, GitLab or Bitbucket integration, whichever `git_provider` names. A connected MCP server also works - GitHub's (with the saved access token), GitLab's, or Atlassian Rovo for Bitbucket - with a private repository read through the tools rather than cloned. Local: a token for that provider stored as an OpenHands secret (`GITHUB_TOKEN` with `repo` + `workflow`, `GITLAB_TOKEN` with `api`, `BITBUCKET_TOKEN`) so the spawned conversation can push branches and open the request |
 | **KV store** (OpenHands Cloud only) | The automation service must have its KV store enabled (`kvStore` in `GET /api/automation/v1/capabilities`); each cloud run starts in a fresh sandbox, so processed issues are remembered there |
 | **Jira label** | The label to watch for (default: `create-pr`) must exist in the Jira project |
-| **GitHub repo** | The target repository must exist and the GitHub token must have write access |
+| **Target repository** | Must exist on the configured provider; the connected integration or token must have write access |
 
 ## Deploying the Automation
 
@@ -80,6 +86,12 @@ First decide how the poller reaches Jira:
   do not ask for a Jira email or an API token and do not create a secret.
 - **Jira API token** - on a local Agent Canvas, or when the Rovo server is not connected.
 
+Then pick `git_provider` from the automation the user asked for: `github` for *Jira issue to
+GitHub PR* (the default, so it can be left out), `gitlab` for *Jira issue to GitLab MR*,
+`bitbucket` for *Jira issue to Bitbucket PR*. It changes only what the conversation is told;
+the conversation pushes with the user's connected integration for that provider, or delivers
+through the connected MCP server's tools when it has no token.
+
 Then gather the parameters for that route, plus the shared ones, before proceeding:
 
 | Parameter | Example | Notes |
@@ -90,12 +102,14 @@ Then gather the parameters for that route, plus the shared ones, before proceedi
 | `jira_email` | `alice@acme.com` | API token only. Atlassian account email for Basic auth |
 | `jira_token_secret` | `JIRA_CLOUD_KEY` | API token only. Name of the OpenHands secret holding the API token |
 | `jira_label` | `create-pr` | Label to watch for (optional, defaults to `create-pr`) |
+| `git_provider` | `gitlab` | `github` (default), `gitlab` or `bitbucket` - the provider the ticket names its repository on (optional) |
 | `max_new_per_run` | `5` | Max conversations dispatched per cron firing (optional, defaults to `5`) |
 | `cron_schedule` | `*/5 * * * *` | Polling frequency in cron syntax |
 
-> **Note**: The GitHub repository is not configured here. Each Jira ticket body must include
-> a reference to the target GitHub repo in `owner/repo` format (e.g. `acme-org/backend`).
-> The spawned agent extracts it from the ticket text.
+> **Note**: The repository is not configured here. Each Jira ticket body must name it:
+> `owner/repo` on GitHub, `group/subgroup/project` or a full URL on GitLab (self-managed
+> hosts included), `workspace/repo` on bitbucket.org. The spawned agent extracts it from
+> the ticket text.
 
 ### Step 2 - Create config.json
 
@@ -122,6 +136,9 @@ With a Jira API token:
   "max_new_per_run":   5
 }
 ```
+
+For the GitLab and Bitbucket templates add `"git_provider": "gitlab"` or
+`"git_provider": "bitbucket"` to either example; it is `github` when omitted.
 
 ### Step 3 - Package the tarball
 
@@ -165,7 +182,8 @@ curl -s -X POST "${OPENHANDS_HOST}/api/automation/v1" \
   }" | python3 -m json.tool
 ```
 
-Save the returned `id` - use it for updates and monitoring.
+Save the returned `id` - use it for updates and monitoring. Name the automation after the
+template the user picked, for example `Jira issue-to-MR Poller` for GitLab.
 
 ### Step 6 - Verify with a test dispatch
 
@@ -318,6 +336,7 @@ The automation script lives at `scripts/main.py`. Key behaviors:
 - **Per-run cap** - `max_new_per_run` (default 5) limits how many conversations are started per cron firing; any remaining new issues are dispatched on the next run.
 - **KV store** - persists `{"processed_keys": [...], "first_run_at": "..."}` between runs; falls back to a local file in local dev environments where `AUTOMATION_KV_TOKEN` is absent (on OpenHands Cloud the run fails instead, since its sandbox does not persist).
 - **Jira access** - with `jira_mcp_server` set, searches and comments through the user's connected Atlassian Rovo MCP server (`POST /api/v1/mcp/servers/<name>/call-tool` on OpenHands Cloud, tools `searchJiraIssuesUsingJql` and `addOrEditJiraIssueComment`, or `addCommentToJiraIssue` on a server that still offers the v1 tools), so the run reads no Jira credential. Otherwise uses the Jira REST API with the token secret: `POST /rest/api/3/search/jql` (the current non-deprecated endpoint).
+- **Git provider** - `git_provider` selects the prompt's wording (GitHub pull request, GitLab merge request, Bitbucket pull request), the repository formats the agent looks for, and how it delivers without a token (GitLab's MCP tools, Rovo's Bitbucket tools); nothing else differs between the three templates.
 - **Conversation dispatch** - locally, calls `POST /api/conversations` on the agent server with the current user's LLM/agent settings forwarded to the new conversation; on OpenHands Cloud, calls `POST /api/v1/app-conversations`, which runs each conversation in its own sandbox with the user's settings, secrets and connected git provider.
 - **Start confirmation** (OpenHands Cloud only) - the API answers a start request before the conversation exists, so the next run checks each one. A start that failed is made again, up to three times, and after that the failure is posted on the Jira issue.
 - **Error transparency** - captures Jira HTTP response bodies in error messages for fast diagnosis.
@@ -354,4 +373,4 @@ that issue again.
 
 ## Additional Resources
 
-- **`references/setup.md`** - Jira API token creation, GitHub token scopes, cron schedule reference, and troubleshooting guide.
+- **`references/setup.md`** - Jira API token creation, git provider tokens, cron schedule reference, and troubleshooting guide.

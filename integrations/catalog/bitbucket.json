@@ -8,9 +8,23 @@
   ],
   "appUrl": "https://bitbucket.org",
   "docsUrl": "https://developer.atlassian.com/cloud/bitbucket/oauth-2/",
-  "notes": "Popular in Atlassian-centric teams and complements Jira/Confluence.",
+  "notes": "Bitbucket Cloud is reached through Atlassian's hosted Rovo MCP server (Atlassian MCP v2), the same connection as Jira and Confluence: sign in with your Atlassian account when the authentication flow starts. The REST option is for OAuth apps against the Bitbucket API.",
   "popularityRank": 50,
   "connectionOptions": [
+    {
+      "id": "mcp",
+      "provider": "mcp",
+      "transport": {
+        "kind": "shttp",
+        "url": "https://mcp.atlassian.com/v2/mcp"
+      },
+      "auth": {
+        "strategy": "oauth2",
+        "oauth": {
+          "clientAuthentication": "none"
+        }
+      }
+    },
     {
       "id": "oauth",
       "provider": "http",

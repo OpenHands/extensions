@@ -33,6 +33,30 @@ STATE = {"processed_keys": [], "first_run_at": "2020-01-01T00:00:00+00:00"}
 # A deployment that reaches Jira through the user's connected MCP server.
 MCP_CONFIG = {"jira_mcp_server": "atlassian-rovo", "jira_cloud_id": "cloud-1"}
 MCP_TOOL_PATH = "/api/v1/mcp/servers/atlassian-rovo/call-tool"
+# What the conversation for ISSUE is asked when no git provider is configured. The
+# Jira to GitHub PR template relies on this text staying as it is.
+GITHUB_PROMPT = """Create a GitHub Pull Request for the following Jira issue.
+
+Jira Issue : ENG-1
+Summary    : Add a README
+Description: No description provided.
+
+Steps:
+1. Find the target GitHub repository in the Description above. Look for a reference in
+   "owner/repo" format (e.g. "acme-org/backend") or a full GitHub URL
+   (e.g. "https://github.com/acme-org/backend"). Use that repository.
+   If no repository is mentioned, create a file `jira/ENG-1/notes.md` with the issue
+   details and print a message explaining that no GitHub repo was found in the ticket.
+2. Clone the repository (e.g. https://github.com/<owner>/<repo>).
+3. Create branch `jira/eng-1` from the default branch.
+4. Implement the changes described in the issue.
+   If the description is vague or missing, create `jira/ENG-1/notes.md`
+   with the issue key, summary, and description as a placeholder.
+5. Commit, push the branch, and open a Pull Request:
+   - Title : [ENG-1] Add a README
+   - Body  : Reference the Jira issue key and describe the changes made.
+6. Print the PR URL when done.
+"""
 
 
 class StubServer:
@@ -170,6 +194,10 @@ def local_env(stub):
 
 def comment_text(comment):
     return comment["body"]["body"]["content"][0]["content"][0]["text"]
+
+
+def prompt_text(conversation):
+    return conversation["body"]["initial_message"]["content"][0]["text"]
 
 
 def test_a_cloud_run_reads_the_jira_token_from_its_sandbox_secrets(stub, run_script):
@@ -365,6 +393,73 @@ def test_a_cloud_run_fails_when_the_connected_mcp_server_reports_an_error(stub, 
     [callback] = stub.find("POST", "/callback")
     assert callback["body"]["status"] == "FAILED"
     assert "must be authorized again" in callback["body"]["error"]
+
+
+def test_a_cloud_run_asks_for_a_github_pull_request_when_no_provider_is_configured(stub, run_script):
+    # Act
+    result = run_script(cloud_env(stub), MCP_CONFIG)
+
+    # Assert
+    assert result.returncode == 0, result.stderr
+    [conversation] = stub.find("POST", "/api/v1/app-conversations")
+    assert prompt_text(conversation) == GITHUB_PROMPT
+
+
+def test_a_cloud_run_asks_for_a_gitlab_merge_request_when_the_provider_is_gitlab(stub, run_script):
+    # Act
+    result = run_script(cloud_env(stub), {**MCP_CONFIG, "git_provider": "gitlab"})
+
+    # Assert
+    assert result.returncode == 0, result.stderr
+    [conversation] = stub.find("POST", "/api/v1/app-conversations")
+    prompt = prompt_text(conversation)
+    assert prompt.startswith("Create a GitLab Merge Request for the following Jira issue.")
+    assert '"group/project" format' in prompt
+    assert "self-managed" in prompt
+    assert "https://gitlab.com/<group>/<project>" in prompt
+    assert "Print the MR URL" in prompt
+    assert "github.com" not in prompt
+    # Without a git credential the conversation delivers through the GitLab MCP tools.
+    for tool in ("add_branch", "add_commit", "save_merge_request", "get_repository_file"):
+        assert f"`{tool}`" in prompt
+    assert "Create branch `jira/eng-1`" in prompt
+    assert conversation["body"]["title"] == "[ENG-1] Add a README"
+
+
+def test_a_cloud_run_asks_for_a_bitbucket_pull_request_when_the_provider_is_bitbucket(stub, run_script):
+    # Act
+    result = run_script(cloud_env(stub), {**MCP_CONFIG, "git_provider": "bitbucket"})
+
+    # Assert
+    assert result.returncode == 0, result.stderr
+    [conversation] = stub.find("POST", "/api/v1/app-conversations")
+    prompt = prompt_text(conversation)
+    assert prompt.startswith("Create a Bitbucket Pull Request for the following Jira issue.")
+    assert '"workspace/repo" format' in prompt
+    assert "https://bitbucket.org/<workspace>/<repo>" in prompt
+    assert "Print the PR URL" in prompt
+    assert "Merge Request" not in prompt
+    # Without a git credential the conversation delivers through Rovo's Bitbucket tools.
+    for tool in (
+        "createBitbucketRepoBranch",
+        "createBitbucketRepoCommit",
+        "createBitbucketRepoPullRequest",
+        "getBitbucketRepoFileContent",
+    ):
+        assert f"`{tool}`" in prompt
+
+
+def test_a_run_with_an_unknown_git_provider_fails_before_dispatching(stub, run_script):
+    # Act
+    result = run_script(cloud_env(stub), {**MCP_CONFIG, "git_provider": "gitea"})
+
+    # Assert
+    assert result.returncode == 1
+    assert stub.find("POST", "/api/v1/app-conversations") == []
+    [callback] = stub.find("POST", "/callback")
+    assert callback["body"]["status"] == "FAILED"
+    assert "git_provider" in callback["body"]["error"]
+    assert "gitea" in callback["body"]["error"]
 
 
 def test_a_local_run_cannot_reach_jira_through_a_connected_mcp_server(stub, run_script):

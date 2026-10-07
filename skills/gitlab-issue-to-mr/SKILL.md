@@ -28,6 +28,9 @@ prompt goes stale between dispatch and the moment the agent reads it.
 That needs read access, so the conversation is handed one secret, `GITLAB_TOKEN`.
 `AGENT_SECRET_NAMES` stays an allow-list: the rest of the deployment's secret
 store is not reachable from a conversation whose instructions came from an issue.
+On OpenHands Cloud and Enterprise the conversation runs with the user's own
+settings instead: the connected GitLab integration's token, or the tools of the
+connected GitLab MCP server.
 
 The deployment's MCP servers are forwarded whole, matching `github-pr-reviewer`,
 so a connected GitLab server gives the agent typed tools rather than curl. What
@@ -46,9 +49,16 @@ a command that mentions it, and masks it in the output.
 
 ## Prerequisites
 
-### Required secret
+### GitLab access
 
-Verify that the following secret is set in **OpenHands Settings -> Secrets**:
+On OpenHands Cloud and Enterprise, no secret is needed. A connected GitLab MCP
+server (Settings -> MCP) is used directly, by the poller and by the conversations
+it starts; a connected GitLab integration (Settings -> Integrations) serves both
+with its token. With only the MCP server, the conversation commits through its
+tools and reads a private project through them rather than cloning it.
+
+On a local Agent Canvas, or when neither is connected, verify that the following
+secret is set in **OpenHands Settings -> Secrets**:
 
 | Secret name | Token type | Minimum requirements |
 |---|---|---|
@@ -86,9 +96,16 @@ If the token is missing or invalid, inform the user and stop.
 
 Follow these steps in order.
 
-### Step 1 - Verify `GITLAB_TOKEN`
+### Step 1 - Verify GitLab access
 
-Run the `curl` check above, against the user's instance if it is not
+On OpenHands Cloud and Enterprise, read `GET ${OPENHANDS_HOST}/api/v1/settings`
+first. An entry in `agent_settings.mcp_config` whose `url` is the instance's
+`/api/v4/mcp` means the poller uses that server: put its key in `gitlab_mcp_server`,
+or leave it out and the run finds the server itself. `gitlab` in
+`provider_tokens_set` means the connected integration's token is used. In either
+case skip the token check and go to Step 2.
+
+Otherwise run the `curl` check above, against the user's instance if it is not
 `gitlab.com`.
 
 - If absent: *"GITLAB_TOKEN is not set. Please add it in OpenHands Settings ->
@@ -207,8 +224,8 @@ out of these conversations.
 
 ### Step 9 - Generate the automation script
 
-Read `scripts/main.py` from this skill's directory. Apply exactly six constant
-substitutions near the top of the file:
+Read `scripts/main.py` from this skill's directory. Apply the constant
+substitutions below near the top of the file:
 
 > The script also reads a `config.json` shipped beside it, if there is one, over
 > these constants. That is how the catalog entry
@@ -223,6 +240,7 @@ substitutions near the top of the file:
 | `BRANCH_PREFIX = "openhands/issue"` | `BRANCH_PREFIX = "{branch_prefix}"` |
 | `DRAFT_MERGE_REQUEST = True` | `DRAFT_MERGE_REQUEST = {True or False}` |
 | `GITLAB_API_URL = "https://gitlab.com/api/v4"` | `GITLAB_API_URL = "{gitlab_api_url}"` |
+| `GITLAB_MCP_SERVER_NAME = ""` | `GITLAB_MCP_SERVER_NAME = "{settings key}"` - only on OpenHands Cloud and Enterprise, and only when the user named a connected GitLab MCP server in Step 1; left empty, a cloud run finds the server itself |
 | `AGENT_SECRET_NAMES: list[str] = ["GITLAB_TOKEN"]` | `AGENT_SECRET_NAMES: list[str] = ["{name}", ...]` |
 
 Leave `MAX_NEW_PER_RUN` and `DEFAULT_OPENHANDS_URL` alone unless the user asks
@@ -320,7 +338,9 @@ Tell the user:
 > the label - that opens a second branch and merge request.
 >
 > The agent runs without a checkout credential; the automation pushes the branch
-> and opens the merge request once the agent has stopped.
+> and opens the merge request once the agent has stopped. On OpenHands Cloud and
+> Enterprise the agent pushes and opens the merge request itself, and the
+> automation reports on the issue when none appears.
 
 ---
 
@@ -409,7 +429,7 @@ The completion callback fires once for the whole run.
 | `git is not available in the automation runtime` | The runtime image has no git | Use a runtime image that ships git; the script clones, commits, and pushes with it |
 | Issue commented "did not change any code" | The agent judged the issue too ambiguous, or made no edits | Read its answer in the comment, add the missing detail to the issue, then re-apply the label |
 | Same issue not picked up again after new comments | Its label event was already processed | Remove and re-apply the trigger label |
-| Agent reports it cannot push or open an MR | By design - it has no push credentials in `origin` | No action; the automation pushes and opens the merge request after the agent stops |
+| Agent reports it cannot push or open an MR | By design on a local run - it has no push credentials in `origin`. On Cloud it pushes with the connected integration, or commits through the GitLab MCP tools | No action locally; the automation pushes and opens the merge request after the agent stops |
 | `Warning: could not fetch MCP config` in run logs | The settings endpoint was unreachable | Non-fatal; the agent falls back to the REST calls in the prompt |
 | A backlog of labelled issues starts slowly | `MAX_NEW_PER_RUN` caps how many conversations one poll starts | Wait for the next polls, or raise the cap in the script |
 | Clones remain under `issue-to-mr/` | Their conversations had not stopped yet | They are removed by a later poll once the conversation is terminal |
