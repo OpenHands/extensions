@@ -73,6 +73,10 @@ Navigate to **Settings → Secrets** and store the token under the name `GITHUB_
 Store a personal access token with the `api` scope and at least the Developer role on the
 target projects under the name `GITLAB_TOKEN`.
 
+Calling GitLab MCP directly, to commit without a token, needs GitLab 19.4 or later, where its
+branch, commit and repository tools first appear. On an older GitLab, configure this
+`GITLAB_TOKEN` secret so the conversation pushes with git instead.
+
 ### Bitbucket
 
 Store the token under the name `BITBUCKET_TOKEN`; the `bitbucket` skill describes the token

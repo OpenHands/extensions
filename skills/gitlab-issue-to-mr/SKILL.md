@@ -57,6 +57,11 @@ it starts; a connected GitLab integration (Settings -> Integrations) serves both
 with its token. With only the MCP server, the conversation commits through its
 tools and reads a private project through them rather than cloning it.
 
+Calling GitLab MCP directly needs GitLab 19.4 or later, where the branch,
+commit, repository and work item tools this uses first appear. On an older GitLab,
+configure a `GITLAB_TOKEN` secret instead: whenever it is set, the poller and its
+conversations use it rather than the MCP server.
+
 On a local Agent Canvas, or when neither is connected, verify that the following
 secret is set in **OpenHands Settings -> Secrets**:
 
@@ -103,7 +108,11 @@ first. An entry in `agent_settings.mcp_config` whose `url` is the instance's
 `/api/v4/mcp` means the poller uses that server: put its key in `gitlab_mcp_server`,
 or leave it out and the run finds the server itself. `gitlab` in
 `provider_tokens_set` means the connected integration's token is used. In either
-case skip the token check and go to Step 2.
+case skip the token check and go to Step 2 - unless that MCP server's
+`get_mcp_server_version` tool reports a GitLab older than 19.4. Calling GitLab MCP
+directly needs 19.4 or later, so tell the user that, ask them to add a
+`GITLAB_TOKEN` secret (the poller uses it instead of the server), and run the token
+check below.
 
 Otherwise run the `curl` check above, against the user's instance if it is not
 `gitlab.com`.
@@ -431,5 +440,6 @@ The completion callback fires once for the whole run.
 | Same issue not picked up again after new comments | Its label event was already processed | Remove and re-apply the trigger label |
 | Agent reports it cannot push or open an MR | By design on a local run - it has no push credentials in `origin`. On Cloud it pushes with the connected integration, or commits through the GitLab MCP tools | No action locally; the automation pushes and opens the merge request after the agent stops |
 | `Warning: could not fetch MCP config` in run logs | The settings endpoint was unreachable | Non-fatal; the agent falls back to the REST calls in the prompt |
+| A GitLab MCP tool call fails in the run log, for example on `get_project` | The connected GitLab is older than 19.4, which lacks the tools the poller calls | Add a `GITLAB_TOKEN` secret - it is used instead of the MCP server - or upgrade GitLab |
 | A backlog of labelled issues starts slowly | `MAX_NEW_PER_RUN` caps how many conversations one poll starts | Wait for the next polls, or raise the cap in the script |
 | Clones remain under `issue-to-mr/` | Their conversations had not stopped yet | They are removed by a later poll once the conversation is terminal |

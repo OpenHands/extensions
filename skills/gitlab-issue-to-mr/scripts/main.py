@@ -63,6 +63,7 @@ GITLAB_API_URL = "https://gitlab.com/api/v4"
 # On OpenHands Cloud and Enterprise, the settings name of a connected GitLab MCP
 # server to reach GitLab through. Left empty, a cloud run looks one up in the
 # user's settings itself; a run that finds none uses the REST API with a token.
+# A GITLAB_TOKEN secret, when set, is used instead of the server either way.
 GITLAB_MCP_SERVER_NAME = ""
 # Secrets forwarded to the agent conversation, by name. The GitLab token is
 # here because the agent reads the issue and its discussion itself rather than
@@ -809,6 +810,27 @@ def _gitlab_tool(name: str, arguments: dict):
         return json.loads(text)
     except ValueError as exc:
         raise RuntimeError(f"Unexpected GitLab MCP result from {name}: {text[:500]}") from exc
+
+
+def _choose_gitlab_access() -> str:
+    """Pick how this run reaches GitLab, and return the token it needs ("" for MCP).
+
+    A GITLAB_TOKEN secret wins over a connected GitLab MCP server. The tools this
+    script and its conversations call arrived in GitLab 19.3 and 19.4, so the secret
+    is how a user on an older GitLab keeps the server connected and still runs this.
+    """
+    global GITLAB_MCP_SERVER
+    try:
+        token = get_secret("GITLAB_TOKEN")
+    except Exception:
+        token = ""
+    GITLAB_MCP_SERVER = None if token else _find_gitlab_mcp_server()
+    if GITLAB_MCP_SERVER:
+        print(f"GitLab is reached through the connected MCP server {GITLAB_MCP_SERVER!r}")
+        return ""
+    token = token or _resolve_gitlab_token()
+    _verify_token(token)
+    return token
 
 
 def _field(obj, *names, default=None):
@@ -1888,14 +1910,7 @@ def main() -> str | None:
         )
     if not IS_CLOUD:
         _require_git()
-    global GITLAB_MCP_SERVER
-    GITLAB_MCP_SERVER = _find_gitlab_mcp_server()
-    if GITLAB_MCP_SERVER:
-        print(f"GitLab is reached through the connected MCP server {GITLAB_MCP_SERVER!r}")
-        gitlab_token = ""
-    else:
-        gitlab_token = _resolve_gitlab_token()
-        _verify_token(gitlab_token)
+    gitlab_token = _choose_gitlab_access()
 
     if IS_CLOUD:
         # Conversations are opened in the Canvas of the deployment itself.

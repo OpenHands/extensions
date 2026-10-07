@@ -510,6 +510,41 @@ def test_the_cloud_error_for_no_gitlab_access_names_every_option(cloud_main, mon
     assert "GITLAB_TOKEN" in message
 
 
+def test_a_gitlab_token_secret_wins_over_a_connected_gitlab_mcp_server(cloud_main, monkeypatch):
+    """The MCP tools need GitLab 19.4 or later; the secret is how a user on an older
+    GitLab reaches it with a token instead."""
+    api = CloudApi()
+    monkeypatch.setattr(cloud_main, "_cloud_request", api)
+    monkeypatch.setattr(
+        cloud_main, "get_secret", lambda name: "secret-token" if name == "GITLAB_TOKEN" else ""
+    )
+    verified = []
+    monkeypatch.setattr(cloud_main, "_verify_token", verified.append)
+
+    assert cloud_main._choose_gitlab_access() == "secret-token"
+    assert cloud_main.GITLAB_MCP_SERVER is None
+    assert verified == ["secret-token"]
+    assert api.calls == []
+
+
+def test_without_a_gitlab_token_secret_the_connected_gitlab_mcp_server_is_used(cloud_main, monkeypatch):
+    """The connected integration's token does not count: only the secret opts out."""
+    monkeypatch.setattr(cloud_main, "_cloud_request", CloudApi())
+
+    def get_secret(name):
+        if name == "gitlab_token":
+            return "integration-token"
+        raise RuntimeError("no such secret")
+
+    monkeypatch.setattr(cloud_main, "get_secret", get_secret)
+    verified = []
+    monkeypatch.setattr(cloud_main, "_verify_token", verified.append)
+
+    assert cloud_main._choose_gitlab_access() == ""
+    assert cloud_main.GITLAB_MCP_SERVER == "gitlab"
+    assert verified == []
+
+
 def test_labelled_issues_are_listed_through_the_mcp_server(cloud_main, monkeypatch):
     pages = {
         None: {"nodes": [
