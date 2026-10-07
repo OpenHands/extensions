@@ -10,6 +10,7 @@
   "appUrl": "https://www.atlassian.com/rovo",
   "docsUrl": "https://support.atlassian.com/atlassian-rovo-mcp-server/docs/getting-started-with-the-atlassian-remote-mcp-server/",
   "notes": "OAuth 2.1 is handled entirely by the Atlassian Rovo MCP server. No client credentials required - sign in with your Atlassian account when the authentication flow starts. This is Atlassian MCP v2, which lists its most-used tools directly and the rest through its discover and execute tools; it is also the MCP server for Bitbucket Cloud.",
+  "installHint": "Atlassian Rovo is Atlassian's hosted MCP server for Atlassian Cloud: it reaches Jira Cloud, Confluence Cloud, and Bitbucket Cloud workspaces linked to an Atlassian organization, but not Jira, Confluence, or Bitbucket Data Center.",
   "iconBg": "#0052CC",
   "logoUrl": "https://cdn.simpleicons.org/atlassian/FFFFFF",
   "keywords": [
