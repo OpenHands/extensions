@@ -74,8 +74,10 @@ Store a personal access token with the `api` scope and at least the Developer ro
 target projects under the name `GITLAB_TOKEN`.
 
 Calling GitLab MCP directly, to commit without a token, needs GitLab 19.4 or later, where its
-branch, commit and repository tools first appear. On an older GitLab, configure this
-`GITLAB_TOKEN` secret so the conversation pushes with git instead.
+branch, commit and repository tools first appear. On OpenHands Cloud and Enterprise the token
+of the user's GitLab sign-in or connected integration reaches the conversation as
+`GITLAB_TOKEN`, so on an older GitLab sign in with GitLab or connect it under Settings ->
+Integrations, and store this secret only if neither is possible.
 
 ### Bitbucket
 

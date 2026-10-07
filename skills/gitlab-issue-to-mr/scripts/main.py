@@ -63,7 +63,8 @@ GITLAB_API_URL = "https://gitlab.com/api/v4"
 # On OpenHands Cloud and Enterprise, the settings name of a connected GitLab MCP
 # server to reach GitLab through. Left empty, a cloud run looks one up in the
 # user's settings itself; a run that finds none uses the REST API with a token.
-# A GITLAB_TOKEN secret, when set, is used instead of the server either way.
+# A GitLab token - a GITLAB_TOKEN secret, or on a cloud run the user's GitLab
+# sign-in - is used instead of the server either way.
 GITLAB_MCP_SERVER_NAME = ""
 # Secrets forwarded to the agent conversation, by name. The GitLab token is
 # here because the agent reads the issue and its discussion itself rather than
@@ -815,20 +816,23 @@ def _gitlab_tool(name: str, arguments: dict):
 def _choose_gitlab_access() -> str:
     """Pick how this run reaches GitLab, and return the token it needs ("" for MCP).
 
-    A GITLAB_TOKEN secret wins over a connected GitLab MCP server. The tools this
-    script and its conversations call arrived in GitLab 19.3 and 19.4, so the secret
-    is how a user on an older GitLab keeps the server connected and still runs this.
+    Any GitLab token wins over a connected GitLab MCP server: a GITLAB_TOKEN secret,
+    or on a cloud run the token of the user's GitLab sign-in or connected
+    integration. The tools this script and its conversations call arrived in GitLab
+    19.3 and 19.4, while a token works with any GitLab, so the server is used only
+    when there is no token.
     """
     global GITLAB_MCP_SERVER
     try:
-        token = get_secret("GITLAB_TOKEN")
-    except Exception:
-        token = ""
+        token = _resolve_gitlab_token()
+    except RuntimeError as exc:
+        token, no_token = "", exc
     GITLAB_MCP_SERVER = None if token else _find_gitlab_mcp_server()
     if GITLAB_MCP_SERVER:
         print(f"GitLab is reached through the connected MCP server {GITLAB_MCP_SERVER!r}")
         return ""
-    token = token or _resolve_gitlab_token()
+    if not token:
+        raise no_token
     _verify_token(token)
     return token
 

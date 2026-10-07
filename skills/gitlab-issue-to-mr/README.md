@@ -62,11 +62,11 @@ OpenHands API in a sandbox of its own, which changes three things:
 - A conversation that ends without a merge request is reported on the issue. The
   script cannot finish the work, because it has no copy of it.
 
-A `GITLAB_TOKEN` secret is used whenever it is set. Without one, a connected
-GitLab MCP server is used directly, by the script and by the conversation, and
-without that, the token of the user's connected GitLab integration. Calling GitLab
-MCP directly needs GitLab 19.4 or later, because the tools it uses arrived in 19.3
-and 19.4, so on an older GitLab configure the secret.
+A GitLab token is used whenever there is one: a `GITLAB_TOKEN` secret, or else the
+token of the user's GitLab sign-in or connected integration. Without a token, a
+connected GitLab MCP server is used directly, by the script and by the
+conversation. Calling GitLab MCP directly needs GitLab 19.4 or later, because the
+tools it uses arrived in 19.3 and 19.4, while a token works with any GitLab.
 
 ## Two setup paths
 
@@ -80,8 +80,9 @@ tarball the automation service runs on a cron, not a prompt handed to an agent.
 ## Prerequisites
 
 On OpenHands Cloud and Enterprise, connect GitLab under Settings - its MCP server
-or the built-in integration - and no secret is needed; calling GitLab MCP directly
-needs GitLab 19.4 or later. Otherwise, or on an older GitLab, set
+or the built-in integration, which signing in with GitLab connects - and no secret
+is needed. Calling GitLab MCP directly needs GitLab 19.4 or later, so on an older
+GitLab use the integration. Otherwise set
 `GITLAB_TOKEN` in OpenHands Settings -> Secrets. It needs the `api` scope and
 at least the **Developer** role on every watched project - Developer is the
 lowest role that can push a branch and open a merge request. Leave the configured
