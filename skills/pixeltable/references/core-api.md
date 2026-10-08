@@ -1053,7 +1053,12 @@ messages=[{'role': 'user', 'content': [
 sim = t.content.similarity(string=query_text)  # NOT .similarity(query_text)
 ```
 
-Schema corruption (`IntegrityError`): `pip install -U pixeltable && rm -rf ~/.pixeltable`
+Schema corruption (`IntegrityError`): do not delete `~/.pixeltable` or anything under it. Stop and ask the user before changing the catalog.
+
+1. Back up `~/.pixeltable/pgdata` and `~/.pixeltable/media` first. See [Security and backup](https://docs.pixeltable.com/howto/deployment/security).
+2. For a normal schema change, use the supported migration path: `pxt schema diff`, then `pxt schema update`. See [CLI reference](https://docs.pixeltable.com/platform/cli).
+3. If a backup already exists, restore `pgdata` and `media`, then restart Pixeltable.
+4. A local catalog reset deletes user data. Do not reset the catalog unless the user explicitly confirms that the data can be discarded. The documented steps are in [Operations](https://docs.pixeltable.com/howto/deployment/operations). Do not delete the Pixeltable home directory.
 
 ### `@pxt.query` Eager Compilation
 

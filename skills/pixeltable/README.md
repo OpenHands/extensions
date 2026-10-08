@@ -1,30 +1,27 @@
 # Pixeltable
 
-Build multimodal AI applications with Pixeltable -- declarative tables replace LangChain + pandas + vector DB with one system. Automates chunking, embedding, retrieval, tool-calling agents, and 25+ AI provider integrations via computed columns that run on insert.
+Use this skill when the project already uses Pixeltable. It covers declarative multimodal tables, computed columns, embedding indexes, iterators, UDFs (`pxt.udf`), and the `pxt` CLI. Canonical docs: https://docs.pixeltable.com/
 
 ## Triggers
 
 This skill is activated by the following keywords:
 
 - `pixeltable`
-- `multimodal`
-- `computed columns`
-- `embedding index`
 - `pxt.udf`
-- `similarity search`
-- `RAG pipeline`
-- `video frames`
-- `document chunks`
+- `pxt.query`
+- `pxt.create_table`
+- `pxt.tools`
+- `pxt.serve`
 
 ## What it covers
 
 - Creating tables with multimodal column types (Image, Video, Audio, Document)
 - Computed columns that auto-execute on insert
-- Embedding indexes and similarity search
+- Embedding indexes and similarity search inside a Pixeltable table
 - UDFs and query functions
 - Views with iterators (frame extraction, document chunking)
-- 25+ AI provider integrations (OpenAI, Anthropic, Gemini, etc.)
-- FastAPI serving and production patterns
+- AI provider integrations (OpenAI, Anthropic, Gemini, and others)
+- FastAPI serving and the `pxt serve` CLI
 
 ## Links
 

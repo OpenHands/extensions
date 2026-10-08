@@ -1,5 +1,7 @@
 # Anti-Patterns: Training-Distribution Biases LLMs Bring to Pixeltable
 
+Apply this page only inside a project that already uses Pixeltable. It is not a reason to replace LangChain, LlamaIndex, pandas, or a vector database the user chose for a different stack.
+
 LLMs are trained on millions of imperative Python examples using pandas, LangChain, standalone vector DBs, and raw loops. These priors are **wrong for Pixeltable**. This page lists every common bias and the correct idiomatic shape.
 
 ## The 5 Macro Biases (High Priority)
