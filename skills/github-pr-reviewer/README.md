@@ -78,6 +78,8 @@ This skill is activated by:
   the review; only that record, never an agent-written footer, establishes
   attribution. It keeps those values if the agent profile changes later; a
   failed lookup is logged and never holds up the verdict or maintainer handoff.
+  An uncertain KV write is reconciled against the saved metadata; failure on
+  one review does not prevent the worker from correcting other owned reviews.
   The manual upload flow retries a failed lookup or edit on its next poll
 - Posts acknowledgement comments with AI disclosure
 - Configurable review tone and polling schedule
@@ -96,6 +98,9 @@ agent profile, which the server resolves. Its footer reads the model back from
 that conversation, so a reused conversation reports the LLM it actually runs,
 and takes the LLM profile name from the agent profile while it is still at its
 launch revision (`unknown` once the profile has been edited since).
+For local ACP profiles, the model is the server's reported session model;
+without that metadata it is `unknown`, since the configured override and
+`acp-managed` placeholder do not establish which model produced the review.
 
 The manual upload flow reports `default` and the concrete model from the
 server settings it already uses to start the conversation. That label describes

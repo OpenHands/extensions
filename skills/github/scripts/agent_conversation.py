@@ -304,7 +304,10 @@ class AgentConversationDispatcher:
                 if exc.code == 404:
                     return None
                 raise
-            model = ((conversation.get("agent") or {}).get("llm") or {}).get("model")
+            agent = conversation.get("agent") or {}
+            model = conversation.get("current_model_id")
+            if model is None and agent.get("kind") != "ACPAgent":
+                model = (agent.get("llm") or {}).get("model")
         launched = conversation.get("launched_agent_profile") or {}
         profile = "unknown"
         if launched.get("agent_profile_id"):

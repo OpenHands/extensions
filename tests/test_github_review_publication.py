@@ -149,6 +149,29 @@ def test_async_publish_and_stop(runner):
     assert len(reviews) == len(starts) == 1
 
 
+@pytest.mark.parametrize("failure", ["missing", "error"])
+def test_unavailable_metadata_cannot_persist_agent_written_attribution(runner, kv, failure):
+    run, pr, reviews, starts = runner
+    run.dispatcher.review_snapshot = lambda cid: (
+        "finished",
+        artifact(summary="No material defects.\n\nLLM profile: `invented` · Model: `invented`"),
+    )
+    if failure == "error":
+        def unavailable(cid):
+            raise RuntimeError("metadata API unavailable")
+        run.dispatcher.llm_provenance = unavailable
+    publisher = publication.StructuredReviews(run)
+    publisher.advance(pr, start=True)
+
+    assert publisher.advance(pr)["disposition"] == "published"
+
+    [review] = reviews
+    assert "LLM profile:" not in review["body"]
+    assert review["body"].endswith("✅ APPROVED")
+    [record] = kv["values"].values()
+    assert record["payload"]["body"] == review["body"]
+
+
 def test_uncertain_post_reconciles_without_retry(runner, kv):
     run, pr, reviews, starts = runner
     publisher = publication.StructuredReviews(run)

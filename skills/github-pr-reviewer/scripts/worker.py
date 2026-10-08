@@ -536,29 +536,33 @@ class PullRequestReviewer(GitHubRepository):
         own = workflow._own_reviews(reviews, conversation_id)
         if not own:
             return
+        errors = []
         for review in own:
             original = review.get("body") or ""
             has_footer = workflow._without_llm_provenance(original) != original.strip()
             try:
                 provenance = self._recorded_review_provenance(conversation_id, review["id"])
-            except Exception:
+            except Exception as exc:
                 # Keep an unverifiable agent-written line from claiming a model.
-                # The outer completion guard logs the error and still reads verdicts.
-                if has_footer:
-                    self.gh("PUT", f"/pulls/{pr['number']}/reviews/{review['id']}",
-                            {"body": workflow._with_llm_provenance(original, "unknown", "unknown")})
-                raise
+                # Finish the remaining reviews before the outer guard logs errors.
+                errors.append(exc)
+                provenance = None
             if provenance is None:
                 if not has_footer:
                     continue
                 provenance = ("unknown", "unknown")
-            body = workflow._with_llm_provenance(review.get("body") or "", *provenance)
+            body = workflow._with_llm_provenance(original, *provenance)
             if body != review.get("body"):
-                self.gh(
-                    "PUT",
-                    f"/pulls/{pr['number']}/reviews/{review['id']}",
-                    {"body": body},
-                )
+                try:
+                    self.gh(
+                        "PUT",
+                        f"/pulls/{pr['number']}/reviews/{review['id']}",
+                        {"body": body},
+                    )
+                except Exception as exc:
+                    errors.append(exc)
+        if errors:
+            raise errors[0]
 
     def _recorded_review_provenance(self, conversation_id, review_id):
         """Metadata from the server, recorded once outside agent-written text."""
@@ -583,13 +587,18 @@ class PullRequestReviewer(GitHubRepository):
         try:
             # Concurrent collectors use the first server-derived snapshot.
             agent_conversation._kv_request(key + "?nx=true", "PUT", value)
-        except HTTPError as exc:
-            if exc.code != 409:
-                raise
-            saved = recorded(agent_conversation._kv_request(key, "GET"))
-            if saved is None:
+        except Exception as exc:
+            # A lost response can follow a committed write. Read the snapshot
+            # before any fallback can overwrite a concurrent collector's footer.
+            try:
+                saved = recorded(agent_conversation._kv_request(key, "GET"))
+            except Exception:
+                raise exc
+            if saved is not None:
+                return saved
+            if isinstance(exc, HTTPError) and exc.code == 409:
                 raise ValueError("Stored review provenance does not match its conversation") from exc
-            return saved
+            raise
         return provenance
 
     @staticmethod

@@ -141,11 +141,13 @@ class StructuredReviews:
                 return result
             # Attribute the claimed conversation before saving publication intent.
             # Recovery keeps this payload even if its profile is edited later.
+            from main import _with_llm_provenance, _without_llm_provenance
+
+            # Agent text cannot provide attribution, even when metadata is gone.
+            payload["body"] = _without_llm_provenance(payload["body"])
             try:
                 provenance = run.dispatcher.llm_provenance(cid)
                 if provenance is not None:
-                    from main import _with_llm_provenance
-
                     payload["body"] = _with_llm_provenance(payload["body"], *provenance)
             except Exception as exc:  # noqa: BLE001 - display never blocks publication
                 print(json.dumps({"repository": run.repository, "pr": pr["number"],

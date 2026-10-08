@@ -485,6 +485,36 @@ def _pr_reviewer(shipped, dispatcher, github):
     return run
 
 
+@pytest.mark.parametrize("reported_model,configured_model", [
+    ("selected-by-acp-server", "acp-managed"),
+    ("selected-by-acp-server", "requested-override"),
+    (None, "acp-managed"),
+    (None, "requested-override"),
+])
+def test_shipped_worker_displays_acp_session_model_instead_of_configuration(
+    shipped, monkeypatch, reported_model, configured_model
+):
+    repository = _Repository()
+    with _AgentServer() as server:
+        with _dispatcher(shipped, monkeypatch, server, "automation-a") as dispatcher:
+            run = _pr_reviewer(shipped, dispatcher, repository)
+            conversation_id = run._start_review(99, repository.pr, TRIGGER, "head-2", None)["conversation_id"]
+            server.add(conversation_id, configured_model)
+            server.conversations[conversation_id].update(
+                agent={"kind": "ACPAgent", "llm": {"model": configured_model}},
+                current_model_id=reported_model,
+            )
+            server.profiles[0]["llm_profile_ref"] = None
+            review = repository.publish(_review_text(shipped.sent[conversation_id][0]))
+
+            assert run._finish_completed_review(repository.pr, TRIGGER) is True
+
+    assert review["body"].endswith(
+        f"LLM profile: `unknown` · Model: `{reported_model or 'unknown'}`"
+    )
+    assert server.paths == [f"/api/conversations/{conversation_id}", "/api/agent-profiles"]
+
+
 class _Repository:
     """A pull request's reviews, shared by every automation using one bot."""
 
@@ -845,6 +875,87 @@ def test_metadata_error_replaces_an_untrusted_footer_without_blocking_verdict(
     run = _pr_reviewer(shipped, Unavailable(), repository)
     assert run._finish_completed_review(repository.pr, TRIGGER) is True
     assert review["body"].endswith("LLM profile: `unknown` · Model: `unknown`")
+    assert "invented" not in review["body"]
+
+
+@pytest.mark.parametrize("failure", ["metadata", "github"])
+def test_one_failed_annotation_does_not_leave_later_owned_footer_untrusted(
+    shipped, monkeypatch, failure
+):
+    from unittest.mock import Mock
+
+    repository = _Repository()
+    marker = f"<!-- openhands-review-run: {CONV_A} -->"
+    first = repository.publish(f"{marker}\n\nFirst assessment.\n\n✅ APPROVED")
+    second = repository.publish(
+        f"{marker}\n\nFinal assessment.\n\n✅ APPROVED\n\n"
+        "LLM profile: `invented-profile` · Model: `invented-model`"
+    )
+
+    class Dispatcher:
+        def subject_conversation(self, _subject):
+            return CONV_A
+
+        def llm_provenance(self, _conversation_id):
+            if failure == "metadata":
+                raise RuntimeError("metadata API unavailable")
+            return "actual-profile", "actual-model"
+
+    run = _pr_reviewer(shipped, Dispatcher(), repository)
+    if failure == "github":
+        original = run.gh
+
+        def rejected(method, path, body=None):
+            if method == "PUT" and path.endswith(f"/{first['id']}"):
+                raise RuntimeError("first review edit unavailable")
+            return original(method, path, body)
+
+        run.gh = rejected
+    run.config["maintainers"] = "alice"
+    handoff = Mock(return_value="alice")
+    monkeypatch.setattr(shipped.module, "request_maintainer_review", handoff)
+
+    assert run._finish_completed_review(repository.pr, TRIGGER) is True
+    assert handoff.call_count == 1
+    assert "invented" not in second["body"]
+    profile, model = (
+        ("unknown", "unknown") if failure == "metadata"
+        else ("actual-profile", "actual-model")
+    )
+    assert second["body"].endswith(f"LLM profile: `{profile}` · Model: `{model}`")
+
+
+@pytest.mark.parametrize("footer", ["", "\n\nLLM profile: `invented` · Model: `invented`"])
+def test_lost_kv_receipt_uses_committed_snapshot_after_a_concurrent_stamp(
+    shipped, monkeypatch, footer
+):
+    repository = _Repository()
+    marker = f"<!-- openhands-review-run: {CONV_A} -->"
+    review = repository.publish(f"{marker}\n\nAssessment.\n\n✅ APPROVED{footer}")
+
+    class Dispatcher:
+        def subject_conversation(self, _subject):
+            return CONV_A
+
+        def llm_provenance(self, _conversation_id):
+            return "actual-profile", "actual-model"
+
+    run = _pr_reviewer(shipped, Dispatcher(), repository)
+    client = sys.modules["agent_conversation"]
+    original = client._kv_request
+
+    def interleaved(key, method, value=None):
+        result = original(key, method, value)
+        if method == "PUT" and key.endswith("?nx=true"):
+            # The snapshot commits, then B stamps it before A loses its receipt.
+            run._annotate_llm_provenance(repository.pr, repository.gh_pages("/pulls/2/reviews"))
+            raise TimeoutError("KV write committed but receipt was lost")
+        return result
+
+    monkeypatch.setattr(client, "_kv_request", interleaved)
+
+    assert run._finish_completed_review(repository.pr, TRIGGER) is True
+    assert review["body"].endswith("LLM profile: `actual-profile` · Model: `actual-model`")
     assert "invented" not in review["body"]
 
 
