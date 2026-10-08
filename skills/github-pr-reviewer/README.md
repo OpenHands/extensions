@@ -78,8 +78,9 @@ This skill is activated by:
   the review; only that record, never an agent-written footer, establishes
   attribution. It keeps those values if the agent profile changes later; a
   failed lookup is logged and never holds up the verdict or maintainer handoff.
-  An uncertain KV write is reconciled against the saved metadata; failure on
-  one review does not prevent the worker from correcting other owned reviews.
+  Failed lookups and uncertain KV writes are reconciled against the saved
+  metadata; failure on one review does not prevent the worker from correcting
+  other owned reviews.
   The manual upload flow retries a failed lookup or edit on its next poll
 - Posts acknowledgement comments with AI disclosure
 - Configurable review tone and polling schedule

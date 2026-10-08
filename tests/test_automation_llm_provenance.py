@@ -959,6 +959,60 @@ def test_lost_kv_receipt_uses_committed_snapshot_after_a_concurrent_stamp(
     assert "invented" not in review["body"]
 
 
+@pytest.mark.parametrize("failure", ["missing_metadata", "metadata_error", "kv_read_error"])
+def test_failed_lookup_recovers_a_concurrent_collectors_saved_attribution(
+    shipped, monkeypatch, failure
+):
+    repository = _Repository()
+    marker = f"<!-- openhands-review-run: {CONV_A} -->"
+    review = repository.publish(
+        f"{marker}\n\nAssessment.\n\n✅ APPROVED\n\n"
+        "LLM profile: `invented-profile` · Model: `invented-model`"
+    )
+
+    def other_collector():
+        run._annotate_llm_provenance(repository.pr, repository.gh_pages("/pulls/2/reviews"))
+
+    class Dispatcher:
+        first = True
+
+        def subject_conversation(self, _subject):
+            return CONV_A
+
+        def llm_provenance(self, _conversation_id):
+            if self.first and failure != "kv_read_error":
+                self.first = False
+                # B records/stamps while A's metadata request is pending.
+                other_collector()
+                if failure == "missing_metadata":
+                    return None
+                raise TimeoutError("A's metadata request timed out")
+            return "actual-profile", "actual-model"
+
+    run = _pr_reviewer(shipped, Dispatcher(), repository)
+    if failure == "kv_read_error":
+        client = sys.modules["agent_conversation"]
+        original = client._kv_request
+        first = True
+
+        def interleaved(key, method, value=None):
+            nonlocal first
+            if first and method == "GET" and key.startswith("review-provenance-"):
+                first = False
+                other_collector()
+                raise TimeoutError("A's KV read timed out")
+            return original(key, method, value)
+
+        monkeypatch.setattr(client, "_kv_request", interleaved)
+
+    assert run._finish_completed_review(repository.pr, TRIGGER) is True
+
+    snapshot = shipped.kv[f"review-provenance-{CONV_A}-{review['id']}"]
+    assert (snapshot["profile"], snapshot["model"]) == ("actual-profile", "actual-model")
+    assert review["body"].endswith("LLM profile: `actual-profile` · Model: `actual-model`")
+    assert "invented" not in review["body"]
+
+
 def test_a_provenance_failure_never_blocks_the_verdict_or_handoff(
     shipped, monkeypatch, capsys
 ):

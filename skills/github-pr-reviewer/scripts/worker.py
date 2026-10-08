@@ -576,20 +576,21 @@ class PullRequestReviewer(GitHubRepository):
                 return value["profile"], value["model"]
             return None
 
-        saved = recorded(agent_conversation._kv_request(key, "GET"))
-        if saved is not None:
-            return saved
-        provenance = self.dispatcher.llm_provenance(conversation_id)
-        if provenance is None:
-            return None
-        value = {"conversation_id": conversation_id,
-                 "profile": provenance[0], "model": provenance[1]}
         try:
+            saved = recorded(agent_conversation._kv_request(key, "GET"))
+            if saved is not None:
+                return saved
+            provenance = self.dispatcher.llm_provenance(conversation_id)
+            if provenance is None:
+                # Another collector may have recorded it during the lookup.
+                return recorded(agent_conversation._kv_request(key, "GET"))
+            value = {"conversation_id": conversation_id,
+                     "profile": provenance[0], "model": provenance[1]}
             # Concurrent collectors use the first server-derived snapshot.
             agent_conversation._kv_request(key + "?nx=true", "PUT", value)
         except Exception as exc:
-            # A lost response can follow a committed write. Read the snapshot
-            # before any fallback can overwrite a concurrent collector's footer.
+            # A lookup can fail after another collector records the tuple, or
+            # a write can commit before its response is lost. Reconcile both.
             try:
                 saved = recorded(agent_conversation._kv_request(key, "GET"))
             except Exception:
