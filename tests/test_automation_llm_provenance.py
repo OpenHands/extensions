@@ -414,8 +414,13 @@ def shipped(tmp_path, monkeypatch):
     kv = {}
 
     def kv_request(key, method, value=None):
+        from urllib.error import HTTPError
+
+        key, _, query = key.partition("?")
         if method == "GET":
             return kv.get(key)
+        if query == "nx=true" and key in kv:
+            raise HTTPError(key, 409, "exists", {}, None)
         kv[key] = value
         return {"key": key, "value": value}
 
@@ -709,6 +714,138 @@ def test_a_stamped_footer_is_kept_after_the_agent_profile_changes(
     )
     assert len(repository.writes) == 1
     assert repository.reviews[0]["body"] == stamped
+
+
+@pytest.mark.parametrize("footer", [
+    "LLM profile: `invented-profile` · Model: `invented-model`",
+    "LLM profile: `invented-profile` · Model: `anthropic/claude-sonnet-4-5`",
+])
+def test_agent_written_footer_is_replaced_by_recorded_metadata(shipped, monkeypatch, footer):
+    repository = _Repository()
+    with _AgentServer() as server:
+        with _dispatcher(shipped, monkeypatch, server, "automation-a") as dispatcher:
+            run = _pr_reviewer(shipped, dispatcher, repository)
+            conversation_id = run._start_review(99, repository.pr, TRIGGER, "head-2", None)["conversation_id"]
+            server.add(conversation_id, "anthropic/claude-sonnet-4-5")
+            review = repository.publish(_review_text(shipped.sent[conversation_id][0]) + "\n\n" + footer)
+
+            assert run._finish_completed_review(repository.pr, TRIGGER) is True
+
+    assert review["body"].endswith("LLM profile: `review-sonnet` · Model: `anthropic/claude-sonnet-4-5`")
+    assert "invented" not in review["body"]
+    assert len(repository.writes) == 1
+    assert server.paths == [f"/api/conversations/{conversation_id}", "/api/agent-profiles"]
+
+
+def test_recorded_footer_is_restored_after_review_text_is_changed(shipped, monkeypatch):
+    repository = _Repository()
+    with _AgentServer() as server:
+        with _dispatcher(shipped, monkeypatch, server, "automation-a") as dispatcher:
+            run = _pr_reviewer(shipped, dispatcher, repository)
+            conversation_id = run._start_review(99, repository.pr, TRIGGER, "head-2", None)["conversation_id"]
+            server.add(conversation_id, "anthropic/claude-sonnet-4-5")
+            review = repository.publish(_review_text(shipped.sent[conversation_id][0]))
+            run._finish_completed_review(repository.pr, TRIGGER)
+            stamped = review["body"]
+            server.profiles[0].update(revision=4, llm_profile_ref="edited-profile")
+            review["body"] = stamped.replace("review-sonnet", "invented-profile")
+
+            assert run._finish_completed_review(repository.pr, TRIGGER) is True
+
+    assert review["body"] == stamped
+    assert len(repository.writes) == 2
+    assert server.paths == [f"/api/conversations/{conversation_id}", "/api/agent-profiles"]
+
+
+def test_put_retry_uses_recorded_metadata_after_profile_edit(shipped, monkeypatch):
+    repository = _Repository()
+    with _AgentServer() as server:
+        with _dispatcher(shipped, monkeypatch, server, "automation-a") as dispatcher:
+            run = _pr_reviewer(shipped, dispatcher, repository)
+            conversation_id = run._start_review(99, repository.pr, TRIGGER, "head-2", None)["conversation_id"]
+            server.add(conversation_id, "anthropic/claude-sonnet-4-5")
+            review = repository.publish(_review_text(shipped.sent[conversation_id][0]))
+            original = run.gh
+
+            def rejected(method, path, body=None):
+                if method == "PUT":
+                    raise RuntimeError("GitHub temporarily unavailable")
+                return original(method, path, body)
+
+            run.gh = rejected
+            assert run._finish_completed_review(repository.pr, TRIGGER) is True
+            assert "LLM profile:" not in review["body"]
+            server.profiles[0].update(revision=4, llm_profile_ref="edited-profile")
+            run.gh = original
+
+            assert run._finish_completed_review(repository.pr, TRIGGER) is True
+
+    assert review["body"].endswith("LLM profile: `review-sonnet` · Model: `anthropic/claude-sonnet-4-5`")
+    assert len(repository.writes) == 1
+    assert server.paths == [f"/api/conversations/{conversation_id}", "/api/agent-profiles"]
+
+
+def test_missing_metadata_cannot_preserve_an_agent_written_footer(shipped, monkeypatch):
+    repository = _Repository()
+    with _AgentServer() as server:
+        with _dispatcher(shipped, monkeypatch, server, "automation-a") as dispatcher:
+            run = _pr_reviewer(shipped, dispatcher, repository)
+            conversation_id = run._start_review(99, repository.pr, TRIGGER, "head-2", None)["conversation_id"]
+            review = repository.publish(_review_text(shipped.sent[conversation_id][0])
+                + "\n\nLLM profile: `invented-profile` · Model: `invented-model`")
+
+            assert run._finish_completed_review(repository.pr, TRIGGER) is True
+
+    assert review["body"].endswith("LLM profile: `unknown` · Model: `unknown`")
+    assert "invented" not in review["body"]
+
+
+def test_concurrent_collector_uses_the_first_recorded_snapshot(shipped, monkeypatch):
+    from urllib.error import HTTPError
+
+    repository = _Repository()
+    with _AgentServer() as server:
+        with _dispatcher(shipped, monkeypatch, server, "automation-a") as dispatcher:
+            run = _pr_reviewer(shipped, dispatcher, repository)
+            conversation_id = run._start_review(99, repository.pr, TRIGGER, "head-2", None)["conversation_id"]
+            server.add(conversation_id, "anthropic/claude-sonnet-4-5")
+            profile, model = dispatcher.llm_provenance(conversation_id)
+            winner = {"conversation_id": conversation_id, "profile": profile, "model": model}
+            server.profiles[0].update(revision=4, llm_profile_ref="edited-profile")
+            review = repository.publish(_review_text(shipped.sent[conversation_id][0]))
+            client = sys.modules["agent_conversation"]
+            original = client._kv_request
+
+            def raced(key, method, value=None):
+                if method == "PUT" and key.endswith("?nx=true"):
+                    original(key.partition("?")[0], "PUT", winner)
+                    raise HTTPError(key, 409, "another collector recorded first", {}, None)
+                return original(key, method, value)
+
+            monkeypatch.setattr(client, "_kv_request", raced)
+            assert run._finish_completed_review(repository.pr, TRIGGER) is True
+
+    assert review["body"].endswith("LLM profile: `review-sonnet` · Model: `anthropic/claude-sonnet-4-5`")
+
+
+def test_metadata_error_replaces_an_untrusted_footer_without_blocking_verdict(
+    shipped, monkeypatch
+):
+    repository = _Repository()
+    review = repository.publish(f"{DISCLOSURE}\n<!-- openhands-review-run: {CONV_A} -->\n\n"
+        "Looks correct.\n\n✅ APPROVED\n\nLLM profile: `invented` · Model: `invented`")
+
+    class Unavailable:
+        def subject_conversation(self, subject):
+            return CONV_A
+
+        def llm_provenance(self, conversation_id):
+            raise RuntimeError("agent server unavailable")
+
+    run = _pr_reviewer(shipped, Unavailable(), repository)
+    assert run._finish_completed_review(repository.pr, TRIGGER) is True
+    assert review["body"].endswith("LLM profile: `unknown` · Model: `unknown`")
+    assert "invented" not in review["body"]
 
 
 def test_a_provenance_failure_never_blocks_the_verdict_or_handoff(

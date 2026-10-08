@@ -9,6 +9,7 @@ from urllib.error import HTTPError
 from urllib.parse import quote
 
 import main as workflow
+import agent_conversation
 from agent_conversation import AgentConversationDispatcher
 from github_client import GitHubRepository, run_repositories
 from maintainer_handoff import (
@@ -518,15 +519,13 @@ class PullRequestReviewer(GitHubRepository):
         review is annotated only when its single run marker names the
         conversation this automation records for the pull request. Any other
         review, including one by an overlapping run, is left as it is. A
-        review is stamped once: one that already carries a footer keeps it, so
-        a later edit of the agent profile cannot rewrite what was recorded.
+        review keeps the metadata recorded in this automation's KV namespace.
+        Review text alone cannot establish that a footer came from the worker.
         """
         reviews = [
             review
             for review in reviews
             if workflow._REVIEW_RUN_MARKER_RE.search(review.get("body") or "")
-            and workflow._without_llm_provenance(review.get("body") or "")
-            == (review.get("body") or "").strip()
         ]
         if not reviews:
             return
@@ -537,10 +536,22 @@ class PullRequestReviewer(GitHubRepository):
         own = workflow._own_reviews(reviews, conversation_id)
         if not own:
             return
-        provenance = self.dispatcher.llm_provenance(conversation_id)
-        if provenance is None:
-            return
         for review in own:
+            original = review.get("body") or ""
+            has_footer = workflow._without_llm_provenance(original) != original.strip()
+            try:
+                provenance = self._recorded_review_provenance(conversation_id, review["id"])
+            except Exception:
+                # Keep an unverifiable agent-written line from claiming a model.
+                # The outer completion guard logs the error and still reads verdicts.
+                if has_footer:
+                    self.gh("PUT", f"/pulls/{pr['number']}/reviews/{review['id']}",
+                            {"body": workflow._with_llm_provenance(original, "unknown", "unknown")})
+                raise
+            if provenance is None:
+                if not has_footer:
+                    continue
+                provenance = ("unknown", "unknown")
             body = workflow._with_llm_provenance(review.get("body") or "", *provenance)
             if body != review.get("body"):
                 self.gh(
@@ -548,6 +559,38 @@ class PullRequestReviewer(GitHubRepository):
                     f"/pulls/{pr['number']}/reviews/{review['id']}",
                     {"body": body},
                 )
+
+    def _recorded_review_provenance(self, conversation_id, review_id):
+        """Metadata from the server, recorded once outside agent-written text."""
+        key = f"review-provenance-{conversation_id}-{review_id}"
+
+        def recorded(value):
+            if (isinstance(value, dict)
+                and value.get("conversation_id") == conversation_id
+                and all(isinstance(value.get(field), str) and value[field]
+                        for field in ("profile", "model"))):
+                return value["profile"], value["model"]
+            return None
+
+        saved = recorded(agent_conversation._kv_request(key, "GET"))
+        if saved is not None:
+            return saved
+        provenance = self.dispatcher.llm_provenance(conversation_id)
+        if provenance is None:
+            return None
+        value = {"conversation_id": conversation_id,
+                 "profile": provenance[0], "model": provenance[1]}
+        try:
+            # Concurrent collectors use the first server-derived snapshot.
+            agent_conversation._kv_request(key + "?nx=true", "PUT", value)
+        except HTTPError as exc:
+            if exc.code != 409:
+                raise
+            saved = recorded(agent_conversation._kv_request(key, "GET"))
+            if saved is None:
+                raise ValueError("Stored review provenance does not match its conversation") from exc
+            return saved
+        return provenance
 
     @staticmethod
     def _check_app_identity(run):

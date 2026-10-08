@@ -73,8 +73,10 @@ This skill is activated by:
   a review whose hidden run marker names that conversation, so automations that
   share a bot account cannot relabel each other's reviews. Opt-in worker
   publication formats the claimed conversation's footer before its durable
-  publication intent is saved. The catalog worker stamps
-  a review once and keeps that footer if the agent profile changes later; a
+  publication intent is saved. The catalog worker records each review's
+  server-derived metadata in its automation-scoped KV store before updating
+  the review; only that record, never an agent-written footer, establishes
+  attribution. It keeps those values if the agent profile changes later; a
   failed lookup is logged and never holds up the verdict or maintainer handoff.
   The manual upload flow retries a failed lookup or edit on its next poll
 - Posts acknowledgement comments with AI disclosure
