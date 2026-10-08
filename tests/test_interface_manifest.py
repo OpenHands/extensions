@@ -30,6 +30,12 @@ def _with(mutation):
     return document
 
 
+def _filter(document, filter_id):
+    return next(
+        f for f in document["pages"]["list"]["filters"] if f["id"] == filter_id
+    )
+
+
 def test_schema_is_a_valid_draft_2020_12_schema():
     jsonschema.Draft202012Validator.check_schema(SCHEMA)
 
@@ -94,7 +100,23 @@ def test_featured_automations_resolve_to_catalog_entries():
         ),
         (
             "a status filter without the all option",
-            lambda doc: doc["pages"]["list"]["filters"][0]["options"].pop(0),
+            lambda doc: _filter(doc, "status")["options"].pop(0),
+        ),
+        (
+            "a creator filter without the all option",
+            lambda doc: _filter(doc, "created_by")["options"].pop(0),
+        ),
+        (
+            "a creator filter value the host does not implement",
+            lambda doc: _filter(doc, "created_by")["options"].append(
+                {"value": "team", "label": "My team"}
+            ),
+        ),
+        (
+            "more filters than the host renders",
+            lambda doc: doc["pages"]["list"]["filters"].append(
+                {**doc["pages"]["list"]["filters"][0], "label": "Filter again"}
+            ),
         ),
     ],
 )

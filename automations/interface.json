@@ -71,6 +71,15 @@
             { "value": "schedule", "label": "Scheduled" },
             { "value": "event", "label": "Event-driven" }
           ]
+        },
+        {
+          "id": "created_by",
+          "label": "Filter by creator",
+          "options": [
+            { "value": "all", "label": "Anyone" },
+            { "value": "me", "label": "Me" },
+            { "value": "others", "label": "Others" }
+          ]
         }
       ],
       "sort": {
@@ -144,12 +153,17 @@
     "capabilities": "/v1/capabilities",
     "validate": "/v1/validate",
     "createPrompt": "/v1/preset/prompt",
-    "createPlugin": "/v1/preset/plugin"
+    "createPlugin": "/v1/preset/plugin",
+    "createBundle": "/v1",
+    "uploads": "/v1/uploads"
   },
   "featuredAutomationIds": [
     "github-pr-reviewer",
-    "github-repo-monitor",
-    "slack-channel-monitor"
+    "github-agents-md-maintainer",
+    "news-digest",
+    "github-issue-to-pr",
+    "slack-channel-monitor",
+    "custom-automation"
   ],
   "responderIntegrationIds": ["github", "slack"]
 }

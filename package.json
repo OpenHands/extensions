@@ -1,6 +1,6 @@
 {
   "name": "@openhands/extensions",
-  "version": "0.16.0",
+  "version": "0.29.0",
   "description": "Public OpenHands extension catalogs for skills, plugins, integrations, and automation templates.",
   "license": "MIT",
   "type": "module",
@@ -12,6 +12,8 @@
     "build:skills": "node scripts/build-skills-catalog.mjs",
     "build:integrations": "node scripts/build-integration-catalog.mjs",
     "build:automations": "node scripts/build-automation-catalog.mjs",
+    "build:vscode-app": "node apps/vscode/scripts/package.mjs",
+    "test:vscode-app": "node tests/vscode-app.test.mjs",
     "build": "npm run build:skills && npm run build:integrations && npm run build:automations"
   },
   "engines": {
@@ -51,6 +53,12 @@
       "import": "./skills/index.js",
       "default": "./skills/index.js"
     },
+    "./apps": {
+      "types": "./apps/index.d.ts",
+      "import": "./apps/index.js",
+      "default": "./apps/index.js"
+    },
+    "./apps/*": "./apps/*",
     "./skills/*": "./skills/*",
     "./plugins/*": "./plugins/*",
     "./marketplaces/*.json": "./marketplaces/*.json",

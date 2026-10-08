@@ -1,7 +1,24 @@
 export interface RecommendedAutomation {
   id: string;
+  /**
+   * Semantic version of this template. Present only on entries whose direct
+   * setup sends provenance to the automation service; bumped when the prompt,
+   * form, or filter changes meaningfully.
+   */
+  version?: string;
   name: string;
   category: string;
+  /**
+   * The glyph the card shows, from the closed set the interface manifest's
+   * navigation uses. Absent means the host derives one from the integrations.
+   */
+  icon?:
+    | "layout-dashboard"
+    | "sparkles"
+    | "bot"
+    | "circle-alert"
+    | "activity"
+    | "timer";
   description: string;
   requires: AutomationPrerequisites;
   popularityRank: number;
@@ -13,8 +30,24 @@ export interface RecommendedAutomation {
    */
   skill?: string;
   exampleImplementation: string;
+  /**
+   * The value statement the host renders from an installed automation's run
+   * history. Declared only when its basis honestly backs the phrase: for
+   * `completed-runs`, one completed run must always perform exactly one of
+   * the stated units of work, manually dispatched runs included, so a poller
+   * that can complete having produced nothing phrases the run itself, never
+   * the downstream outcome. `{{count}}` is the host-substituted run count; a
+   * host that meets a basis it does not know renders nothing.
+   */
+  impact?: AutomationImpact;
   /** Present when this automation ships an extension-owned setup experience. */
   setup?: AutomationSetup;
+}
+
+export interface AutomationImpact {
+  basis: "completed-runs";
+  one: string;
+  other: string;
 }
 
 /**
@@ -37,9 +70,15 @@ export type AutomationFieldType =
   | "text"
   | "textarea"
   | "select"
+  | "number"
   | "cron"
   | "timezone"
-  | "repo-picker";
+  | "repo-picker"
+  | "llm-profile"
+  | "event-source"
+  | "event-type"
+  | "plugin-sources"
+  | "tarball-upload";
 export type AutomationGitProvider = "github" | "gitlab" | "bitbucket";
 export type AutomationTriggerKind = "cron" | "event";
 
@@ -51,6 +90,8 @@ export interface AutomationFieldOption {
 export interface AutomationFieldConstraints {
   minLength?: number;
   maxLength?: number;
+  min?: number;
+  max?: number;
   /** Host-implemented check, named from a closed set. Entries supply no regex. */
   format?: "safeExpressionLiteral";
 }
@@ -60,9 +101,14 @@ export interface AutomationFormField {
   label: string;
   help: string;
   placeholder?: string;
-  default?: string;
+  default?: string | number | boolean | null;
   required: boolean;
   provider?: AutomationGitProvider;
+  /**
+   * repo-picker only. The field collects several repositories rather than one,
+   * and its value is a list. A whole-value placeholder resolves to that list.
+   */
+  multiple?: true;
   options?: AutomationFieldOption[];
   constraints?: AutomationFieldConstraints;
 }
@@ -78,7 +124,7 @@ export interface AutomationIntegrationRequirement {
 }
 
 export interface AutomationPrerequisites {
-  /** Keyed by integration catalog id. */
+  /** Keyed by integration catalog id. Empty when the automation needs nothing connected. */
   integrations: Record<string, AutomationIntegrationRequirement>;
   /** Deployment capabilities this automation cannot run without. */
   features?: string[];
@@ -96,12 +142,82 @@ export interface AutomationForm {
   args: AutomationFormFields;
 }
 
+/** A config.json leaf: templated string, number, boolean, null, or a nesting of those. */
+export type AutomationBundleConfigValue =
+  | string
+  | number
+  | boolean
+  | null
+  | AutomationBundleConfigValue[]
+  | { [key: string]: AutomationBundleConfigValue };
+
+/**
+ * The script tarball a direct entry may ship instead of a prompt, for an
+ * automation that is deterministic machinery rather than judgement.
+ */
+export interface AutomationBundle {
+  /** The command run inside the extracted tarball. */
+  entrypoint: string;
+  /** Script run once before the entrypoint. Absent when nothing to install. */
+  setupScript?: string;
+  /** Seconds a run may take, when the service default is not enough. */
+  timeout?: number;
+  /** Packed path -> the repository path the file is read from at build time. */
+  files: Record<string, string>;
+  /** Rendered from the form and packed as config.json beside the entrypoint. */
+  config: Record<string, AutomationBundleConfigValue>;
+}
+
+
+export interface AutomationPromptAction {
+  label: string;
+  help: string;
+  features: string[];
+  args: AutomationFormFields;
+  /** Prompt sent to /v1/preset/prompt. */
+  prompt: string;
+}
+
+export interface AutomationPluginAction {
+  label: string;
+  help: string;
+  features: string[];
+  args: AutomationFormFields;
+  /** Prompt sent to /v1/preset/plugin. */
+  prompt: string;
+  /** PluginSource list sent to /v1/preset/plugin, usually {{form.plugins}}. */
+  plugins: string;
+}
+
+export interface AutomationUploadAction {
+  label: string;
+  help: string;
+  features: string[];
+  args: AutomationFormFields;
+  /** tarball_path produced by uploading the selected tarball file. */
+  tarballPath: string;
+  /** Entrypoint command sent to /v1. */
+  entrypoint: string;
+  /** Optional setup_script_path sent to /v1. */
+  setupScript?: string;
+}
+
+export interface AutomationSetupActions {
+  prompt?: AutomationPromptAction;
+  plugin?: AutomationPluginAction;
+  upload?: AutomationUploadAction;
+}
+
 export interface AutomationSetup {
   version: "1.0";
   mode: AutomationSetupMode;
   form: AutomationForm;
   /** direct only. What the automation is told to do. */
   prompt?: string;
+  /** direct only, and the alternative to `prompt`. Exactly one is present. */
+  bundle?: AutomationBundle;
+  /** direct only, and the alternative to `prompt` or `bundle`. */
+  actions?: AutomationSetupActions;
   /** direct only, event trigger only. Which delivered events belong to it. */
   filter?: string;
   /**
@@ -193,6 +309,7 @@ export type AutomationStatusFilterValue =
   | "failing"
   | "disabled";
 export type AutomationTriggerFilterValue = "all" | "schedule" | "event";
+export type AutomationCreatedByFilterValue = "all" | "me" | "others";
 
 /**
  * A filter dropdown. Values name predicates the host implements; the manifest
@@ -211,9 +328,16 @@ export interface AutomationTriggerFilter {
   options: { value: AutomationTriggerFilterValue; label: string }[];
 }
 
+export interface AutomationCreatedByFilter {
+  id: "created_by";
+  label: string;
+  options: { value: AutomationCreatedByFilterValue; label: string }[];
+}
+
 export type AutomationDashboardFilter =
   | AutomationStatusFilter
-  | AutomationTriggerFilter;
+  | AutomationTriggerFilter
+  | AutomationCreatedByFilter;
 
 /** A comparator the host implements, named from a closed set. */
 export type AutomationSortValue = "last-run" | "runs" | "name";
@@ -337,6 +461,10 @@ export interface AutomationInterfaceEndpoints {
   validate: string;
   createPrompt: string;
   createPlugin: string;
+  /** The raw create endpoint, which a bundle entry is created through. */
+  createBundle: string;
+  /** Where a bundle's tarball is uploaded before that create call. */
+  uploads: string;
 }
 
 export interface AutomationInterfaceManifest {
@@ -365,4 +493,15 @@ export function listAutomationCatalog(): RecommendedAutomation[];
 export function getAutomationCatalogEntry(
   id: string,
 ): RecommendedAutomation | undefined;
+/**
+ * Return the files a bundle entry ships, keyed by the path each takes inside
+ * the tarball, as an independent copy. Undefined for an entry with no bundle.
+ *
+ * The contents are inlined at build time from the repository paths
+ * `setup.bundle.files` names, because a host packing the tarball has the
+ * published package but not the repository.
+ */
+export function getAutomationBundleFiles(
+  id: string,
+): Record<string, string> | undefined;
 export default AUTOMATION_CATALOG;

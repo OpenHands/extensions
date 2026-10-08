@@ -11,6 +11,8 @@ This skill is activated by the following keywords:
 
 ## Details
 
+Use authenticated Azure DevOps MCP tools first when they are available in the agent's environment. Detect the connection through tool availability rather than a particular server name. Fall back to the documented `AZURE_DEVOPS_TOKEN` and direct API flow when those tools are unavailable or raw API or `curl` access is explicitly needed.
+
 You have access to an environment variable, `AZURE_DEVOPS_TOKEN`, which allows you to interact with
 the Azure DevOps API.
 

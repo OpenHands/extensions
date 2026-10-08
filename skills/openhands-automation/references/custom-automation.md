@@ -1,13 +1,12 @@
 # Custom Automation Reference
 
-> **⚠️ Do NOT use this reference unless the user has explicitly requested a custom automation.** Always use the preset/prompt endpoint from the main SKILL.md first. If the preset approach cannot satisfy the requirement, explain the options to the user and let them decide.
-
 This file contains detailed documentation for creating custom automations with user-provided code, uploads, and entrypoints.
 
-**When to use custom automation (only if the user explicitly chooses this):**
+**When to use a custom automation:**
+- The task is deterministic and needs no LLM (fixed data, scheduled HTTP calls, templated messages), especially on a frequent schedule
 - Full control over the automation code structure is needed
 - Custom dependencies or a specific runtime are required
-- The user has confirmed that the prompt preset does not meet their requirements
+- The user picked this path after seeing the options side by side (see the agent behavior rules in `SKILL.md`)
 
 ## Table of Contents
 
@@ -223,7 +222,7 @@ Key points:
 - **Your script and its conversations share the same agent server.** There is no network hop to a remote service.
 - **Conversations are asynchronous.** You can fire one and continue, fire several concurrently, or start none at all (e.g. if your script fetches external data and decides no action is needed).
 - **The completion callback** is sent by `OpenHandsCloudWorkspace.__exit__` when the `with` block exits, telling the automation service the run is done. For async patterns, defer exiting until the conversation is in the desired state.
-- **Secrets** stored in the agent server are accessed via its REST API: `GET {AGENT_SERVER_URL}/api/settings/secrets/{name}` with `X-Session-API-Key: {SESSION_API_KEY}`. SDK scripts can also call `workspace.get_llm()` to get the configured LLM.
+- **Secrets** are fetched over REST with `X-Session-API-Key: {SESSION_API_KEY}`. When `AGENT_SERVER_URL` is set (local Agent Canvas): `GET {AGENT_SERVER_URL}/api/settings/secrets/{name}`. Otherwise (OpenHands Cloud and Enterprise): `GET {OPENHANDS_CLOUD_API_URL}/api/v1/sandboxes/{SANDBOX_ID}/settings/secrets/{name}`. SDK scripts can also call `workspace.get_llm()` to get the configured LLM.
 
 **SDK Documentation:** https://docs.openhands.dev/sdk
 
@@ -250,6 +249,7 @@ uv pip install -q openhands-sdk openhands-workspace openhands-tools
 import os
 
 from openhands.sdk import Conversation
+from openhands.sdk.automation import automation_conversation_kwargs
 from openhands.tools.preset.default import get_default_agent
 from openhands.workspace import OpenHandsCloudWorkspace
 
@@ -267,12 +267,47 @@ with OpenHandsCloudWorkspace(
 ) as workspace:
     llm = workspace.get_llm()
     agent = get_default_agent(llm=llm, cli_mode=True)
-    conversation = Conversation(agent=agent, workspace=workspace)
+    conversation = Conversation(
+        agent=agent,
+        workspace=workspace,
+        **automation_conversation_kwargs(),
+    )
     conversation.send_message("Your automation prompt here")
     conversation.run()
     conversation.close()
 # OpenHandsCloudWorkspace.__exit__ fires the completion callback here.
 ```
+
+### Link automation conversations to run telemetry
+
+When an automation script starts a conversation, preserve the trace context that the automation service injected into the run. This links the conversation span to the triggering webhook, scheduler dispatch, and run record.
+
+- SDK conversations: pass `**automation_conversation_kwargs()` into every `Conversation(...)` call.
+- Direct agent-server API calls: merge `automation_observability_headers()` into the headers for each `POST /api/conversations` request.
+- If you add your own conversation tags, pass them through `conversation_tags={...}` instead of replacing the helper output.
+
+```python
+from openhands.sdk import Conversation
+from openhands.sdk.automation import (
+    automation_conversation_kwargs,
+    automation_observability_headers,
+)
+
+conversation = Conversation(
+    agent=agent,
+    workspace=workspace,
+    **automation_conversation_kwargs(),
+)
+
+headers = {
+    "X-Session-API-Key": api_key,
+    **automation_observability_headers(span_name="automation.conversation"),
+}
+# Use these headers when creating a backend conversation directly.
+# httpx.post(f"{agent_url}/api/conversations", headers=headers, json=payload)
+```
+
+The built-in prompt and plugin presets use this helper. Custom scripts should do the same for every new conversation so traces, observability metadata, and automation conversation tags stay attached.
 
 ### Selecting an LLM profile
 
@@ -300,13 +335,27 @@ Conversations started during a run remain accessible in the OpenHands UI after t
 
 ```python
 # Default: conversation persists after close (users can view/continue it)
-conversation = Conversation(agent=agent, workspace=workspace)
+conversation = Conversation(
+    agent=agent,
+    workspace=workspace,
+    **automation_conversation_kwargs(),
+)
 
 # Explicitly persist (same as default)
-conversation = Conversation(agent=agent, workspace=workspace, delete_on_close=False)
+conversation = Conversation(
+    agent=agent,
+    workspace=workspace,
+    delete_on_close=False,
+    **automation_conversation_kwargs(),
+)
 
 # Delete conversation resources on close
-conversation = Conversation(agent=agent, workspace=workspace, delete_on_close=True)
+conversation = Conversation(
+    agent=agent,
+    workspace=workspace,
+    delete_on_close=True,
+    **automation_conversation_kwargs(),
+)
 ```
 
 The agent server itself persists until it times out or is manually deleted; this is managed by the automation service, not by the workspace.
@@ -340,7 +389,11 @@ else:
     with OpenHandsCloudWorkspace(local_agent_server_mode=True, cloud_api_url=api_url, cloud_api_key=api_key) as workspace:
         llm = workspace.get_llm()
         agent = get_default_agent(llm=llm, cli_mode=True)
-        conversation = Conversation(agent=agent, workspace=workspace)
+        conversation = Conversation(
+            agent=agent,
+            workspace=workspace,
+            **automation_conversation_kwargs(),
+        )
         conversation.send_message(f"Investigate these alerts and open GitHub issues: {alerts}")
         conversation.run()
         conversation.close()
@@ -359,7 +412,11 @@ from openhands.sdk.conversation.state import ConversationExecutionStatus
 with OpenHandsCloudWorkspace(local_agent_server_mode=True, cloud_api_url=api_url, cloud_api_key=api_key) as workspace:
     llm = workspace.get_llm()
     agent = get_default_agent(llm=llm, cli_mode=True)
-    conversation = Conversation(agent=agent, workspace=workspace)
+    conversation = Conversation(
+        agent=agent,
+        workspace=workspace,
+        **automation_conversation_kwargs(),
+    )
     conversation.send_message("Run a long analysis task")
     # Conversation is now running asynchronously in the agent server.
 
@@ -405,7 +462,12 @@ stop_hook = HookConfig(
 with OpenHandsCloudWorkspace(local_agent_server_mode=True, cloud_api_url=api_url, cloud_api_key=api_key) as workspace:
     llm = workspace.get_llm()
     agent = get_default_agent(llm=llm, cli_mode=True)
-    conversation = Conversation(agent=agent, workspace=workspace, hook_config=stop_hook)
+    conversation = Conversation(
+        agent=agent,
+        workspace=workspace,
+        hook_config=stop_hook,
+        **automation_conversation_kwargs(),
+    )
     conversation.send_message("Do some long-running work")
     # Don't call run() — the conversation runs asynchronously.
     # When the agent stops, the stop hook will fire the callback.
@@ -421,7 +483,7 @@ with OpenHandsCloudWorkspace(local_agent_server_mode=True, cloud_api_url=api_url
 
 For tasks that don't need AI reasoning — sending a Slack message, calling an API, rotating from a fixed list — skip the SDK entirely. Use pure Python stdlib with `python3 main.py` as the entrypoint and no `setup.sh`.
 
-**Accessing secrets** — custom secrets are not injected into the subprocess environment automatically. Fetch them via the agent server's REST API:
+**Accessing secrets** — custom secrets are not injected into the subprocess environment automatically. Fetch them over REST (from the agent server when `AGENT_SERVER_URL` is set, otherwise from the OpenHands API):
 
 ```python
 import os, urllib.request
@@ -429,8 +491,15 @@ import os, urllib.request
 def get_secret(name: str) -> str:
     url = os.environ.get("AGENT_SERVER_URL", "").rstrip("/")
     key = os.environ.get("SESSION_API_KEY") or os.environ.get("OH_SESSION_API_KEYS_0", "")
+    if url:
+        # Local Agent Canvas: secrets live in the agent server.
+        url = f"{url}/api/settings/secrets/{name}"
+    else:
+        # OpenHands Cloud / Enterprise: secrets live in the OpenHands API.
+        api = os.environ["OPENHANDS_CLOUD_API_URL"].rstrip("/")
+        url = f"{api}/api/v1/sandboxes/{os.environ['SANDBOX_ID']}/settings/secrets/{name}"
     req = urllib.request.Request(
-        f"{url}/api/settings/secrets/{name}",
+        url,
         headers={"X-Session-API-Key": key},
     )
     with urllib.request.urlopen(req) as r:
@@ -627,11 +696,13 @@ def save_state(state: dict) -> None:
 
 ## Environment Variables
 
-The automation service injects these environment variables into every run:
+The automation service injects these environment variables into every run, except where a row says otherwise:
 
 | Variable | Alt name | Description |
 |----------|----------|-------------|
-| `AGENT_SERVER_URL` | — | Agent server URL. Used as `cloud_api_url` for `OpenHandsCloudWorkspace`, and as the base URL for secret lookups |
+| `AGENT_SERVER_URL` | — | Agent server URL. Local Agent Canvas only; not set on OpenHands Cloud or Enterprise. Used as `cloud_api_url` for `OpenHandsCloudWorkspace`, and as the base URL for secret lookups |
+| `OPENHANDS_CLOUD_API_URL` | — | OpenHands API base URL. OpenHands Cloud and Enterprise only. Base URL for secret lookups |
+| `SANDBOX_ID` | — | ID of the sandbox the run executes in. OpenHands Cloud and Enterprise only. Part of the secret lookup URL |
 | `OH_SESSION_API_KEYS_0` | `SESSION_API_KEY` | Session API key. Used as `cloud_api_key` for `OpenHandsCloudWorkspace`, and as `X-Session-API-Key` for REST API calls |
 | `AUTOMATION_CALLBACK_URL` | — | POST here to mark the run complete (done automatically by `OpenHandsCloudWorkspace.__exit__`, or manually in no-LLM scripts) |
 | `AUTOMATION_CALLBACK_API_KEY` | — | Bearer token for the completion callback POST |
@@ -673,7 +744,12 @@ CHANNEL = "C12345678"
 def get_secret(name):
     url = os.environ.get("AGENT_SERVER_URL", "").rstrip("/")
     key = os.environ.get("SESSION_API_KEY") or os.environ.get("OH_SESSION_API_KEYS_0", "")
-    req = urllib.request.Request(f"{url}/api/settings/secrets/{name}",
+    if url:  # local Agent Canvas
+        url = f"{url}/api/settings/secrets/{name}"
+    else:  # OpenHands Cloud / Enterprise
+        api = os.environ["OPENHANDS_CLOUD_API_URL"].rstrip("/")
+        url = f"{api}/api/v1/sandboxes/{os.environ['SANDBOX_ID']}/settings/secrets/{name}"
+    req = urllib.request.Request(url,
         headers={"X-Session-API-Key": key})
     with urllib.request.urlopen(req) as r:
         return r.read().decode().strip()
@@ -752,6 +828,7 @@ import os
 import json
 
 from openhands.sdk import Conversation
+from openhands.sdk.automation import automation_conversation_kwargs
 from openhands.tools.preset.default import get_default_agent
 from openhands.workspace import OpenHandsCloudWorkspace
 
@@ -768,7 +845,11 @@ with OpenHandsCloudWorkspace(
 ) as workspace:
     llm = workspace.get_llm()
     agent = get_default_agent(llm=llm, cli_mode=True)
-    conversation = Conversation(agent=agent, workspace=workspace)
+    conversation = Conversation(
+        agent=agent,
+        workspace=workspace,
+        **automation_conversation_kwargs(),
+    )
     conversation.send_message("Generate a weekly status report")
     conversation.run()
     conversation.close()
@@ -823,7 +904,7 @@ The upload limit is 1MB. Reduce your tarball size by:
 ### Run fails instantly with `error_detail: null`
 The script sent `fire_callback("FAILED")` immediately — before doing meaningful work. Common causes:
 - A required secret was empty: the `get_secret()` call failed or returned nothing
-- A missing/wrong `AGENT_SERVER_URL` or `SESSION_API_KEY`
+- A missing/wrong `SESSION_API_KEY`, or a missing `OPENHANDS_CLOUD_API_URL` / `SANDBOX_ID` (`AGENT_SERVER_URL` on a local Agent Canvas)
 - An import error in the entrypoint
 
 Add `"error": str(exc)` to your `fire_callback("FAILED", ...)` call so `error_detail` is populated.

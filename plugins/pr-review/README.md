@@ -22,7 +22,8 @@ Then configure the required secrets (see [Installation](#installation) below).
 - **Inline Code Comments**: Posts review comments directly on specific lines of code
 - **Unified Review Style**: Rigorous code review combining pragmatic engineering analysis with data structure and simplicity focus
 - **A/B Testing**: Support for testing multiple LLM models
-- **Review Context Awareness**: Considers previous reviews and unresolved threads
+- **Review Context Awareness**: Considers linked issue acceptance criteria,
+  top-level PR discussion, previous reviews, and unresolved threads
 - **Evidence Enforcement**: Optional check that PR descriptions include concrete end-to-end proof the code works, not just test output
 - **Sub-Agent Delegation**: Split large PR reviews across multiple sub-agents, one per file, then consolidate findings (see [Known Limitations](#known-limitations-sub-agent-delegation))
 - **Observability**: Optional Laminar integration for tracing and evaluation
@@ -379,6 +380,7 @@ If you see rate limit errors:
 
 - Uses `pull_request_target` when you need secrets for fork PR reviews; apply strict maintainer-controlled triggers and checkout safeguards
 - Keeps GitHub Actions caching disabled in privileged review workflows to avoid cache-poisoning pivots from prompt injection
+- Wraps PR text (title, head branch, description, discussion, file names, patches) in per-run nonce markers in the review prompt; the markers label that text but do not stop the model from following instructions in it
 - For lower-trust or comment-only smoke-test setups, prefer `pull_request` to reduce privilege by default
 - Only triggers for trusted contributors or when maintainers add labels/reviewers
 - PR code is checked out explicitly; secrets are not exposed to PR code
