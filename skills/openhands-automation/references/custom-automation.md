@@ -506,7 +506,7 @@ def get_secret(name: str) -> str:
         return r.read().decode().strip()
 ```
 
-**Firing the callback** — without the SDK, POST to `AUTOMATION_CALLBACK_URL` before exiting. If you never fire the callback the run stays `RUNNING` until the watchdog marks it `FAILED`.
+**Firing the callback** — without the SDK, POST to `AUTOMATION_CALLBACK_URL` before exiting. If you never fire the callback, or it is rejected, the run stays `RUNNING` until its timeout, and the watchdog then settles it from the script's exit code: `0` becomes `COMPLETED`, anything else `FAILED`. The sandbox is held for that whole time.
 
 ```python
 import json, os, urllib.request
@@ -520,7 +520,7 @@ def fire_callback(status: str = "COMPLETED", error: str | None = None) -> None:
         body["error"] = error
     req = urllib.request.Request(url, data=json.dumps(body).encode(), headers={
         "Content-Type": "application/json",
-        "Authorization": f"Bearer {os.environ.get('AUTOMATION_CALLBACK_API_KEY', '')}",
+        "Authorization": f"Bearer {os.environ.get('AUTOMATION_CALLBACK_API_KEY') or os.environ.get('OPENHANDS_API_KEY', '')}",
     })
     try:
         urllib.request.urlopen(req)
@@ -705,7 +705,7 @@ The automation service injects these environment variables into every run, excep
 | `SANDBOX_ID` | — | ID of the sandbox the run executes in. OpenHands Cloud and Enterprise only. Part of the secret lookup URL |
 | `OH_SESSION_API_KEYS_0` | `SESSION_API_KEY` | Session API key. Used as `cloud_api_key` for `OpenHandsCloudWorkspace`, and as `X-Session-API-Key` for REST API calls |
 | `AUTOMATION_CALLBACK_URL` | — | POST here to mark the run complete (done automatically by `OpenHandsCloudWorkspace.__exit__`, or manually in no-LLM scripts) |
-| `AUTOMATION_CALLBACK_API_KEY` | — | Bearer token for the completion callback POST |
+| `AUTOMATION_CALLBACK_API_KEY` | `OPENHANDS_API_KEY` | Bearer token for the completion callback POST. Local Agent Canvas sets `AUTOMATION_CALLBACK_API_KEY`; OpenHands Cloud and Enterprise set only `OPENHANDS_API_KEY`, so read both |
 | `AUTOMATION_RUN_ID` | — | Run ID to include in the completion callback payload |
 | `AUTOMATION_EVENT_PAYLOAD` | — | JSON with trigger context: `automation_id`, `automation_name`, `trigger` type, and (for webhook runs) the raw event payload |
 | `AUTOMATION_API_URL` | — | Base URL of the automation service (e.g., `https://app.all-hands.dev/api/automation`). Used to reach the KV store API |
@@ -761,7 +761,7 @@ def fire_callback(status="COMPLETED", error=None):
     if error: body["error"] = error
     req = urllib.request.Request(url, data=json.dumps(body).encode(), headers={
         "Content-Type": "application/json",
-        "Authorization": f"Bearer {os.environ.get('AUTOMATION_CALLBACK_API_KEY', '')}",
+        "Authorization": f"Bearer {os.environ.get('AUTOMATION_CALLBACK_API_KEY') or os.environ.get('OPENHANDS_API_KEY', '')}",
     })
     try: urllib.request.urlopen(req)
     except Exception as e: print(f"Callback error: {e}")
