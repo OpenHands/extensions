@@ -11,6 +11,8 @@ This skill is activated by the following keywords:
 
 ## Details
 
+Use authenticated GitHub MCP tools first when they are available in the agent's environment. Detect the connection through tool availability rather than a particular server name. Fall back to the documented `GITHUB_TOKEN` and direct API flow when those tools are unavailable or raw API or `curl` access is explicitly needed.
+
 You have access to an environment variable, `GITHUB_TOKEN`, which allows you to interact with
 the GitHub API.
 
@@ -40,3 +42,5 @@ Here are some instructions for pushing, but ONLY do this if the user asks you to
 git remote -v && git branch # to find the current org, repo and branch
 git checkout -b create-widget && git add . && git commit -m "Create widget" && git push -u origin create-widget
 ```
+
+When asked to merge a pull request, the skill uses GitHub's async merge API (`PUT /repos/{owner}/{repo}/pulls/{pull_number}/merge-async`, then poll the returned UUID). It supports stacked PRs and merge queues. Docs: https://docs.github.com/en/rest/pulls/pulls#merge-a-pull-request-asynchronously

@@ -53,6 +53,18 @@ conversation never loses the work. `origin` carries no credential, so each GitLa
 command has to name `GITLAB_TOKEN`, which the SDK injects only into a command
 that mentions it and masks in the output.
 
+On OpenHands Cloud and Enterprise the conversation is started through the
+OpenHands API in a sandbox of its own, which changes three things:
+
+- The agent clones the project itself; the script keeps no clone.
+- The conversation runs with the user's own settings, so the secret allow-list
+  above does not apply: it holds the user's secrets and MCP servers.
+- A conversation that ends without a merge request is reported on the issue. The
+  script cannot finish the work, because it has no copy of it.
+
+A user with no `GITLAB_TOKEN` secret is served the token of their connected
+GitLab integration instead.
+
 ## Two setup paths
 
 The `/issue-to-mr:setup` conversation substitutes the constants at the top of

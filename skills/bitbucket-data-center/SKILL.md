@@ -3,6 +3,8 @@ name: bitbucket-data-center
 description: Bitbucket Data Center (self-hosted Bitbucket Server) specifics — authenticate with BITBUCKET_DATA_CENTER_TOKEN, use the REST API 1.0, PROJECT/repo_slug repositories, scm/ git remotes, and the create_bitbucket_data_center_pr tool. Loaded on demand by the bitbucket skill once a Data Center environment is detected.
 ---
 
+Use authenticated Bitbucket Data Center MCP tools first when they are available in the agent's environment. Detect this by tool availability, without depending on a particular MCP server name. Use the token and direct REST API instructions below only when those tools are unavailable or when raw API or `curl` access is explicitly needed.
+
 You are working with **Bitbucket Data Center** (self-hosted Bitbucket Server). You have
 access to an environment variable, `BITBUCKET_DATA_CENTER_TOKEN`, which contains a basic
 auth token in the format `username:your-token` that allows you to interact with the git

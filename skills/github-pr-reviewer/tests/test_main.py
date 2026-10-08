@@ -521,6 +521,9 @@ class TestRepoReviewGuide(unittest.TestCase):
         self.assertIn("AGENTS.md", prompt)
         self.assertIn("CONTRIBUTING.md", prompt)
         self.assertIn("nested `AGENTS.md`", prompt)
+        self.assertIn("supported dependency version", prompt)
+        self.assertIn("custom-codereview-guide.md", prompt)
+        self.assertIn("Never end with APPROVED", prompt)
 
     def test_prompt_uses_native_approval_for_a_clean_review(self):
         prompt = main._build_review_prompt(
@@ -537,6 +540,29 @@ class TestRepoReviewGuide(unittest.TestCase):
         self.assertIn("Do not create commit statuses or Checks", prompt)
         self.assertIn("Do not add speculative or out-of-scope notes", prompt)
         self.assertIn("forbids the configured bot from approving its own PR", prompt)
+
+    def test_prompt_requires_live_ui_evidence_before_approval(self):
+        prompt = main._build_review_prompt(
+            "owner/repo",
+            self._pr(),
+            "0123456789abcdef",
+            {"id": "1", "created_at": "t"},
+        )
+
+        # The gate sits after the finding-quality rules and before the review is
+        # published, so a missing capture is a blocking finding, not a note.
+        gate = prompt.index("LIVE EVIDENCE GATE")
+        self.assertLess(prompt.index("Ground every finding"), gate)
+        self.assertLess(gate, prompt.index("Publish one review"))
+        self.assertIn("user-visible UI behavior", prompt)
+        self.assertIn("real running application", prompt)
+        self.assertIn("production-facing path", prompt)
+        self.assertIn("CSS-token", prompt)
+        self.assertIn("generated mockups", prompt)
+        self.assertIn("reconstructed", prompt)
+        self.assertIn("never substitute for the required live evidence", prompt)
+        self.assertIn("names exactly which live evidence is missing", prompt)
+        self.assertIn("`🔄 CHANGES REQUESTED`", prompt)
 
     def test_prompt_requires_refreshing_mutable_github_state(self):
         """A resumed conversation must not trust an earlier turn's observations."""
