@@ -1013,6 +1013,160 @@ def test_failed_lookup_recovers_a_concurrent_collectors_saved_attribution(
     assert "invented" not in review["body"]
 
 
+@pytest.mark.parametrize("failure", ["missing", "error"])
+def test_atomic_unknown_fallback_adopts_a_later_collectors_tuple(
+    shipped, monkeypatch, failure
+):
+    repository = _Repository()
+    marker = f"<!-- openhands-review-run: {CONV_A} -->"
+    review = repository.publish(
+        f"{marker}\n\nAssessment.\n\n✅ APPROVED\n\n"
+        "LLM profile: `invented` · Model: `invented`"
+    )
+
+    class Dispatcher:
+        available = False
+
+        def subject_conversation(self, _subject):
+            return CONV_A
+
+        def llm_provenance(self, _conversation_id):
+            if self.available:
+                return "actual-profile", "actual-model"
+            if failure == "error":
+                raise TimeoutError("metadata unavailable")
+            return None
+
+    dispatcher = Dispatcher()
+    run = _pr_reviewer(shipped, dispatcher, repository)
+    client = sys.modules["agent_conversation"]
+    original = client._kv_request
+    reads = 0
+
+    def interleaved(key, method, value=None):
+        nonlocal reads
+        result = original(key, method, value)
+        if method == "GET" and key.startswith("review-provenance-"):
+            reads += 1
+            if reads == 3:
+                # Even the fallback's own GET is stale: B wins after the read
+                # is evaluated but before A receives the empty response.
+                assert result is None
+                dispatcher.available = True
+                run._annotate_llm_provenance(repository.pr, repository.gh_pages("/pulls/2/reviews"))
+        return result
+
+    monkeypatch.setattr(client, "_kv_request", interleaved)
+
+    assert run._finish_completed_review(repository.pr, TRIGGER) is True
+
+    snapshot = shipped.kv[f"review-provenance-{CONV_A}-{review['id']}"]
+    assert (snapshot["profile"], snapshot["model"]) == ("actual-profile", "actual-model")
+    assert review["body"].endswith("LLM profile: `actual-profile` · Model: `actual-model`")
+
+
+def test_unknown_winning_tuple_is_retained_after_metadata_recovers(shipped):
+    repository = _Repository()
+    marker = f"<!-- openhands-review-run: {CONV_A} -->"
+    review = repository.publish(
+        f"{marker}\n\nAssessment.\n\n✅ APPROVED\n\n"
+        "LLM profile: `invented` · Model: `invented`"
+    )
+
+    class Dispatcher:
+        available = False
+
+        def subject_conversation(self, _subject):
+            return CONV_A
+
+        def llm_provenance(self, _conversation_id):
+            return ("actual-profile", "actual-model") if self.available else None
+
+    dispatcher = Dispatcher()
+    run = _pr_reviewer(shipped, dispatcher, repository)
+    assert run._finish_completed_review(repository.pr, TRIGGER) is True
+    stamped = review["body"]
+    dispatcher.available = True
+
+    assert run._finish_completed_review(repository.pr, TRIGGER) is True
+
+    assert review["body"] == stamped
+    assert stamped.endswith("LLM profile: `unknown` · Model: `unknown`")
+    assert len(repository.writes) == 1
+
+
+def test_unavailable_kv_skips_uncoordinated_footer_edit_and_completes(
+    shipped, monkeypatch, capsys
+):
+    repository = _Repository()
+    marker = f"<!-- openhands-review-run: {CONV_A} -->"
+    review = repository.publish(
+        f"{marker}\n\nAssessment.\n\n✅ APPROVED\n\n"
+        "LLM profile: `invented` · Model: `invented`"
+    )
+    original_body = review["body"]
+
+    class Dispatcher:
+        def subject_conversation(self, _subject):
+            return CONV_A
+
+        def llm_provenance(self, _conversation_id):
+            return None
+
+    client = sys.modules["agent_conversation"]
+    original = client._kv_request
+
+    def rejected(key, method, value=None):
+        if method == "PUT":
+            raise RuntimeError("KV unavailable")
+        return original(key, method, value)
+
+    monkeypatch.setattr(client, "_kv_request", rejected)
+    run = _pr_reviewer(shipped, Dispatcher(), repository)
+
+    assert run._finish_completed_review(repository.pr, TRIGGER) is True
+
+    assert review["body"] == original_body
+    assert not repository.writes
+    assert "RuntimeError: KV unavailable" in capsys.readouterr().out
+
+
+def test_uncertain_fallback_write_uses_a_concurrent_metadata_winner(shipped, monkeypatch):
+    repository = _Repository()
+    marker = f"<!-- openhands-review-run: {CONV_A} -->"
+    review = repository.publish(
+        f"{marker}\n\nAssessment.\n\n✅ APPROVED\n\n"
+        "LLM profile: `invented` · Model: `invented`"
+    )
+
+    class Dispatcher:
+        available = False
+
+        def subject_conversation(self, _subject):
+            return CONV_A
+
+        def llm_provenance(self, _conversation_id):
+            return ("actual-profile", "actual-model") if self.available else None
+
+    dispatcher = Dispatcher()
+    run = _pr_reviewer(shipped, dispatcher, repository)
+    client = sys.modules["agent_conversation"]
+    original = client._kv_request
+
+    def interleaved(key, method, value=None):
+        if method == "PUT" and value["model"] == "unknown":
+            dispatcher.available = True
+            run._annotate_llm_provenance(repository.pr, repository.gh_pages("/pulls/2/reviews"))
+            raise TimeoutError("fallback write receipt lost")
+        return original(key, method, value)
+
+    monkeypatch.setattr(client, "_kv_request", interleaved)
+
+    assert run._finish_completed_review(repository.pr, TRIGGER) is True
+
+    assert review["body"].endswith("LLM profile: `actual-profile` · Model: `actual-model`")
+
+
 def test_a_provenance_failure_never_blocks_the_verdict_or_handoff(
     shipped, monkeypatch, capsys
 ):

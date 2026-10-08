@@ -550,7 +550,15 @@ class PullRequestReviewer(GitHubRepository):
             if provenance is None:
                 if not has_footer:
                     continue
-                provenance = ("unknown", "unknown")
+                try:
+                    # Fallback edits use the same atomically chosen tuple.
+                    # A concurrent metadata collector may already have won.
+                    provenance = self._recorded_review_provenance(
+                        conversation_id, review["id"], unavailable=True
+                    )
+                except Exception as exc:
+                    errors.append(exc)
+                    continue
             body = workflow._with_llm_provenance(original, *provenance)
             if body != review.get("body"):
                 try:
@@ -564,8 +572,8 @@ class PullRequestReviewer(GitHubRepository):
         if errors:
             raise errors[0]
 
-    def _recorded_review_provenance(self, conversation_id, review_id):
-        """Metadata from the server, recorded once outside agent-written text."""
+    def _recorded_review_provenance(self, conversation_id, review_id, *, unavailable=False):
+        """Record server metadata or an explicit unknown fallback outside agent text."""
         key = f"review-provenance-{conversation_id}-{review_id}"
 
         def recorded(value):
@@ -580,13 +588,16 @@ class PullRequestReviewer(GitHubRepository):
             saved = recorded(agent_conversation._kv_request(key, "GET"))
             if saved is not None:
                 return saved
-            provenance = self.dispatcher.llm_provenance(conversation_id)
+            provenance = (
+                ("unknown", "unknown") if unavailable
+                else self.dispatcher.llm_provenance(conversation_id)
+            )
             if provenance is None:
                 # Another collector may have recorded it during the lookup.
                 return recorded(agent_conversation._kv_request(key, "GET"))
             value = {"conversation_id": conversation_id,
                      "profile": provenance[0], "model": provenance[1]}
-            # Concurrent collectors use the first server-derived snapshot.
+            # Every edit, including an unknown fallback, uses the first tuple.
             agent_conversation._kv_request(key + "?nx=true", "PUT", value)
         except Exception as exc:
             # A lookup can fail after another collector records the tuple, or

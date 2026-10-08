@@ -74,13 +74,16 @@ This skill is activated by:
   share a bot account cannot relabel each other's reviews. Opt-in worker
   publication formats the claimed conversation's footer before its durable
   publication intent is saved. The catalog worker records each review's
-  server-derived metadata in its automation-scoped KV store before updating
-  the review; only that record, never an agent-written footer, establishes
+  server-derived metadata or an explicit `unknown` fallback in its
+  automation-scoped KV store before updating the review; only that record,
+  never an agent-written footer, establishes
   attribution. It keeps those values if the agent profile changes later; a
   failed lookup is logged and never holds up the verdict or maintainer handoff.
   Failed lookups and uncertain KV writes are reconciled against the saved
   metadata; failure on one review does not prevent the worker from correcting
   other owned reviews.
+  The first tuple, including an `unknown` fallback, is retained for that review.
+  If KV cannot establish or validate a tuple, the edit is skipped and logged.
   The manual upload flow retries a failed lookup or edit on its next poll
 - Posts acknowledgement comments with AI disclosure
 - Configurable review tone and polling schedule
