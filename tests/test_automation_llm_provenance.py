@@ -484,7 +484,14 @@ class _Repository:
     """A pull request's reviews, shared by every automation using one bot."""
 
     def __init__(self, sha="head-2"):
-        self.pr = {"number": 2, "head": {"sha": sha}, "labels": []}
+        # The pull request closes a high-priority issue, so an approval may
+        # hand off to a maintainer.
+        self.pr = {
+            "number": 2,
+            "head": {"sha": sha},
+            "labels": [],
+            "body": "Fixes #7",
+        }
         self.reviews = []
         self.writes = []
 
@@ -505,6 +512,8 @@ class _Repository:
             return {"id": 99}
         if (method, path) == ("GET", "/pulls/2"):
             return self.pr
+        if (method, path) == ("GET", "/issues/7"):
+            return {"labels": [{"name": "priority:high"}]}
         self.writes.append((method, path, body))
         if method == "PUT":
             review_id = int(path.rsplit("/", 1)[1])
