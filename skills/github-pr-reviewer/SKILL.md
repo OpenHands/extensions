@@ -186,8 +186,12 @@ move repositories, close, or receive a maintainer decision, and ends with the
 `🛑 MAINTAINER DECISION REQUIRED` verdict. That outcome is **neither an approval
 nor a change request**: it does not approve or merge the PR. The completion
 handler recognizes the verdict and requests one configured maintainer through the
-same handoff used after an approval. An in-scope change continues the existing
-review unchanged.
+same handoff used after an approval. Both paths require a successfully fetched
+same-repository closing issue labeled `priority:medium` or `priority:high`; a
+missing link or priority label, low/normal priority, unresolved reference, or PR
+reference does not authorize handoff. One qualifying issue is sufficient even
+with other low-priority or missing references. Existing manual review requests
+are unchanged. An in-scope change continues the existing review unchanged.
 
 Before approving a change to user-visible UI behavior, the prompt requires live
 evidence from a real running application when the repository's guidance demands
