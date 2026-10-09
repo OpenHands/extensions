@@ -25,6 +25,7 @@ Then configure the required secrets (see [Installation](#installation) below).
 - **Review Context Awareness**: Considers linked issue acceptance criteria,
   top-level PR discussion, previous reviews, and unresolved threads
 - **Evidence Enforcement**: Optional check that PR descriptions include concrete end-to-end proof the code works, not just test output
+- **Action Pinning Check**: Optional check that third-party GitHub Actions in workflow changes are pinned to commit SHAs
 - **Sub-Agent Delegation**: Split large PR reviews across multiple sub-agents, one per file, then consolidate findings (see [Known Limitations](#known-limitations-sub-agent-delegation))
 - **Observability**: Optional Laminar integration for tracing and evaluation
 
@@ -91,6 +92,9 @@ Edit the workflow file to customize:
 
     # Optional: require an Evidence section proving the code works end-to-end
     # require-evidence: 'true'
+
+    # Optional: require third-party actions to be pinned to commit SHAs
+    # require-pinned-actions: 'true'
     
     # Pin to a specific version (tag, branch, or commit SHA)
     extensions-version: main
@@ -217,6 +221,7 @@ PR reviews are automatically triggered when:
 | `llm-base-url` | No | `''` | Custom LLM endpoint URL |
 | `review-style` | No | `roasted` | **[DEPRECATED]** Previously chose between `standard` and `roasted` review styles. Now ignored — the styles have been merged into a single unified skill. |
 | `require-evidence` | No | `'false'` | Require the reviewer to enforce an `Evidence` section in the PR description with end-to-end proof: screenshots/videos for frontend work, commands and runtime output for backend or scripts, and an agent conversation link when applicable. Test output alone does not qualify. |
+| `require-pinned-actions` | No | `'false'` | Require third-party actions added or changed in workflow files and `action.yml` files to be pinned to full commit SHAs. Actions owned by `actions`, `github`, or the reviewed repository's owner, and local `./` actions, are exempt. |
 | `use-sub-agents` | No | `'false'` | Enable sub-agent delegation for file-level reviews in `openhands` mode. The main agent acts as a coordinator that delegates per-file review work to `file_reviewer` sub-agents via the SDK TaskToolSet, then consolidates findings into a single PR review. Useful for large PRs with many changed files. **Disabled by default** due to high token costs and potential timeouts (see [#208](https://github.com/OpenHands/extensions/issues/208)). Set to `'true'` to opt in. Ignored in ACP mode. |
 | `collect-feedback` | No | `'true'` | Append a short feedback footer to the main automated review body asking maintainers to react with thumbs up/down. The evaluation workflow records these reaction counts for analysis. |
 | `extensions-repo` | No | `OpenHands/extensions` | Extensions repository |
