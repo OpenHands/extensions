@@ -81,6 +81,9 @@
                   "max_new_per_run": 2
                 }
               }
+            },
+            "requirements": {
+              "integrations": []
             }
           }
         },
@@ -227,6 +230,9 @@
                   "max_new_per_run": 2
                 }
               }
+            },
+            "requirements": {
+              "integrations": []
             }
           }
         },
@@ -364,6 +370,9 @@
                   "max_new_per_run": 2
                 }
               }
+            },
+            "requirements": {
+              "integrations": []
             }
           }
         },
@@ -629,6 +638,9 @@
                   "max_new_per_run": 2
                 }
               }
+            },
+            "requirements": {
+              "integrations": []
             }
           }
         },
