@@ -30,6 +30,33 @@ ISSUE = {
 }
 # A baseline from before the issue was updated, so the issue counts as new.
 STATE = {"processed_keys": [], "first_run_at": "2020-01-01T00:00:00+00:00"}
+# A deployment that reaches Jira through the user's connected MCP server.
+MCP_CONFIG = {"jira_mcp_server": "atlassian-rovo", "jira_cloud_id": "cloud-1"}
+MCP_TOOL_PATH = "/api/v1/mcp/servers/atlassian-rovo/call-tool"
+# What the conversation for ISSUE is asked when no git provider is configured. The
+# Jira to GitHub PR template relies on this text staying as it is.
+GITHUB_PROMPT = """Create a GitHub Pull Request for the following Jira issue.
+
+Jira Issue : ENG-1
+Summary    : Add a README
+Description: No description provided.
+
+Steps:
+1. Find the target GitHub repository in the Description above. Look for a reference in
+   "owner/repo" format (e.g. "acme-org/backend") or a full GitHub URL
+   (e.g. "https://github.com/acme-org/backend"). Use that repository.
+   If no repository is mentioned, create a file `jira/ENG-1/notes.md` with the issue
+   details and print a message explaining that no GitHub repo was found in the ticket.
+2. Clone the repository (e.g. https://github.com/<owner>/<repo>).
+3. Create branch `jira/eng-1` from the default branch.
+4. Implement the changes described in the issue.
+   If the description is vague or missing, create `jira/ENG-1/notes.md`
+   with the issue key, summary, and description as a placeholder.
+5. Commit, push the branch, and open a Pull Request:
+   - Title : [ENG-1] Add a README
+   - Body  : Reference the Jira issue key and describe the changes made.
+6. Print the PR URL when done.
+"""
 
 
 class StubServer:
@@ -41,19 +68,24 @@ class StubServer:
         # reports for the conversations it was asked to start.
         self.state = dict(STATE)
         self.start_tasks = []
+        # Set to make the connected MCP server report a failed tool call.
+        self.mcp_error = None
+        # The name the connected MCP server offers its comment tool under.
+        self.mcp_comment_tool = "addOrEditJiraIssueComment"
         stub = self
 
         class Handler(BaseHTTPRequestHandler):
             def _handle(self):
                 length = int(self.headers.get("Content-Length") or 0)
                 body = self.rfile.read(length) if length else b""
-                stub.requests.append({
+                request = {
                     "method": self.command,
                     "path": self.path,
                     "headers": {k.lower(): v for k, v in self.headers.items()},
                     "body": json.loads(body) if body else None,
-                })
-                status, payload = stub.respond(self.path)
+                }
+                stub.requests.append(request)
+                status, payload = stub.respond(self.path, request["body"])
                 data = payload.encode() if isinstance(payload, str) else json.dumps(payload).encode()
                 self.send_response(status)
                 self.send_header("Content-Length", str(len(data)))
@@ -69,7 +101,14 @@ class StubServer:
         self.url = f"http://127.0.0.1:{self.httpd.server_port}"
         threading.Thread(target=self.httpd.serve_forever, daemon=True).start()
 
-    def respond(self, path):
+    def respond(self, path, body):
+        if path == MCP_TOOL_PATH:
+            if self.mcp_error:
+                return 200, {"is_error": True, "text": self.mcp_error}
+            if body["name"] not in ("searchJiraIssuesUsingJql", self.mcp_comment_tool):
+                return 200, {"is_error": True, "text": f"Tool {body['name']!r} not advertised by server"}
+            found = {"issues": [ISSUE]} if body["name"] == "searchJiraIssuesUsingJql" else {}
+            return 200, {"is_error": False, "text": json.dumps(found)}
         if path == "/rest/api/3/search/jql":
             return 200, {"issues": [ISSUE]}
         if path.startswith("/rest/api/3/issue/"):
@@ -93,6 +132,9 @@ class StubServer:
     def find(self, method, path):
         return [r for r in self.requests if r["method"] == method and r["path"] == path]
 
+    def mcp_calls(self, tool):
+        return [r for r in self.find("POST", MCP_TOOL_PATH) if r["body"]["name"] == tool]
+
 
 @pytest.fixture
 def stub():
@@ -103,11 +145,11 @@ def stub():
 
 @pytest.fixture
 def run_script(stub, tmp_path):
-    def run(env):
+    def run(env, config=None):
         workdir = tmp_path / "run"
         workdir.mkdir()
         shutil.copy(SCRIPT_PATH, workdir / "main.py")
-        (workdir / "config.json").write_text(json.dumps({
+        (workdir / "config.json").write_text(json.dumps(config or {
             "jira_base_url": stub.url,
             "jira_email": "alice@example.test",
             "jira_token_secret": "JIRA_CLOUD_KEY",
@@ -152,6 +194,10 @@ def local_env(stub):
 
 def comment_text(comment):
     return comment["body"]["body"]["content"][0]["content"][0]["text"]
+
+
+def prompt_text(conversation):
+    return conversation["body"]["initial_message"]["content"][0]["text"]
 
 
 def test_a_cloud_run_reads_the_jira_token_from_its_sandbox_secrets(stub, run_script):
@@ -281,6 +327,154 @@ def test_a_cloud_run_without_the_kv_store_fails_before_dispatching(stub, run_scr
     assert stub.find("POST", "/api/v1/app-conversations") == []
     [callback] = stub.find("POST", "/callback")
     assert callback["body"]["status"] == "FAILED"
+
+
+def test_a_cloud_run_finds_issues_through_the_connected_mcp_server(stub, run_script):
+    # Arrange
+    env = cloud_env(stub)
+
+    # Act
+    result = run_script(env, MCP_CONFIG)
+
+    # Assert
+    assert result.returncode == 0, result.stderr
+    [search] = stub.mcp_calls("searchJiraIssuesUsingJql")
+    assert search["headers"]["authorization"] == "Bearer openhands-key"
+    assert search["body"]["arguments"]["cloudId"] == "cloud-1"
+    assert 'labels = "create-pr"' in search["body"]["arguments"]["jql"]
+    [conversation] = stub.find("POST", "/api/v1/app-conversations")
+    assert conversation["body"]["title"] == "[ENG-1] Add a README"
+    assert [r for r in stub.requests if "/settings/secrets/" in r["path"]] == []
+
+
+def test_a_cloud_run_links_the_jira_issue_through_the_connected_mcp_server(stub, run_script):
+    # Arrange
+    env = cloud_env(stub)
+
+    # Act
+    result = run_script(env, MCP_CONFIG)
+
+    # Assert
+    assert result.returncode == 0, result.stderr
+    [conversation] = stub.find("POST", "/api/v1/app-conversations")
+    [comment] = stub.mcp_calls("addOrEditJiraIssueComment")
+    conversation_id = conversation["body"]["conversation_id"]
+    assert comment["body"]["arguments"] == {
+        "cloudId": "cloud-1",
+        "issueIdOrKey": "ENG-1",
+        "commentBody": f"I'm on it: {stub.url}/canvas/conversations/{conversation_id}",
+    }
+
+
+def test_a_cloud_run_links_the_jira_issue_when_the_mcp_server_still_has_the_older_comment_tool(stub, run_script):
+    # Arrange
+    stub.mcp_comment_tool = "addCommentToJiraIssue"
+
+    # Act
+    result = run_script(cloud_env(stub), MCP_CONFIG)
+
+    # Assert
+    assert result.returncode == 0, result.stderr
+    [comment] = stub.mcp_calls("addCommentToJiraIssue")
+    assert comment["body"]["arguments"]["issueIdOrKey"] == "ENG-1"
+    assert comment["body"]["arguments"]["commentBody"].startswith("I'm on it: ")
+
+
+def test_a_cloud_run_fails_when_the_connected_mcp_server_reports_an_error(stub, run_script):
+    # Arrange
+    stub.mcp_error = "The MCP server must be authorized again"
+
+    # Act
+    result = run_script(cloud_env(stub), MCP_CONFIG)
+
+    # Assert
+    assert result.returncode == 1
+    assert stub.find("POST", "/api/v1/app-conversations") == []
+    [callback] = stub.find("POST", "/callback")
+    assert callback["body"]["status"] == "FAILED"
+    assert "must be authorized again" in callback["body"]["error"]
+
+
+def test_a_cloud_run_asks_for_a_github_pull_request_when_no_provider_is_configured(stub, run_script):
+    # Act
+    result = run_script(cloud_env(stub), MCP_CONFIG)
+
+    # Assert
+    assert result.returncode == 0, result.stderr
+    [conversation] = stub.find("POST", "/api/v1/app-conversations")
+    assert prompt_text(conversation) == GITHUB_PROMPT
+
+
+def test_a_cloud_run_asks_for_a_gitlab_merge_request_when_the_provider_is_gitlab(stub, run_script):
+    # Act
+    result = run_script(cloud_env(stub), {**MCP_CONFIG, "git_provider": "gitlab"})
+
+    # Assert
+    assert result.returncode == 0, result.stderr
+    [conversation] = stub.find("POST", "/api/v1/app-conversations")
+    prompt = prompt_text(conversation)
+    assert prompt.startswith("Create a GitLab Merge Request for the following Jira issue.")
+    assert '"group/project" format' in prompt
+    assert "self-managed" in prompt
+    assert "https://gitlab.com/<group>/<project>" in prompt
+    assert "Print the MR URL" in prompt
+    assert "github.com" not in prompt
+    # Without a git credential the conversation delivers through the GitLab MCP tools.
+    for tool in ("add_branch", "add_commit", "save_merge_request", "get_repository_file"):
+        assert f"`{tool}`" in prompt
+    assert "Create branch `jira/eng-1`" in prompt
+    assert conversation["body"]["title"] == "[ENG-1] Add a README"
+
+
+def test_a_cloud_run_asks_for_a_bitbucket_pull_request_when_the_provider_is_bitbucket(stub, run_script):
+    # Act
+    result = run_script(cloud_env(stub), {**MCP_CONFIG, "git_provider": "bitbucket"})
+
+    # Assert
+    assert result.returncode == 0, result.stderr
+    [conversation] = stub.find("POST", "/api/v1/app-conversations")
+    prompt = prompt_text(conversation)
+    assert prompt.startswith("Create a Bitbucket Pull Request for the following Jira issue.")
+    assert '"workspace/repo" format' in prompt
+    assert "https://bitbucket.org/<workspace>/<repo>" in prompt
+    assert "Print the PR URL" in prompt
+    assert "Merge Request" not in prompt
+    # Without a git credential the conversation delivers through Rovo's Bitbucket tools.
+    for tool in (
+        "createBitbucketRepoBranch",
+        "createBitbucketRepoCommit",
+        "createBitbucketRepoPullRequest",
+        "getBitbucketRepoFileContent",
+    ):
+        assert f"`{tool}`" in prompt
+
+
+def test_a_run_with_an_unknown_git_provider_fails_before_dispatching(stub, run_script):
+    # Act
+    result = run_script(cloud_env(stub), {**MCP_CONFIG, "git_provider": "gitea"})
+
+    # Assert
+    assert result.returncode == 1
+    assert stub.find("POST", "/api/v1/app-conversations") == []
+    [callback] = stub.find("POST", "/callback")
+    assert callback["body"]["status"] == "FAILED"
+    assert "git_provider" in callback["body"]["error"]
+    assert "gitea" in callback["body"]["error"]
+
+
+def test_a_local_run_cannot_reach_jira_through_a_connected_mcp_server(stub, run_script):
+    # Arrange
+    env = local_env(stub)
+
+    # Act
+    result = run_script(env, MCP_CONFIG)
+
+    # Assert
+    assert result.returncode == 1
+    assert stub.find("POST", "/api/conversations") == []
+    [callback] = stub.find("POST", "/callback")
+    assert callback["body"]["status"] == "FAILED"
+    assert "OpenHands Cloud or Enterprise" in callback["body"]["error"]
 
 
 def test_a_local_run_still_starts_conversations_on_the_agent_server(stub, run_script):

@@ -10,6 +10,7 @@
   "docsUrl": "https://github.com/github/github-mcp-server",
   "notes": "Current managed connector works with bearer tokens today; GitHub OAuth is a strong candidate for a future one-click connect flow.",
   "popularityRank": 100,
+  "installHint": "This connects GitHub's hosted MCP server, which serves GitHub.com only and cannot reach GitHub Enterprise Server. On OpenHands Cloud and Enterprise, signing in with GitHub or connecting it under Settings -> Integrations is an alternative that needs no personal access token.",
   "connectionOptions": [
     {
       "id": "oauth",

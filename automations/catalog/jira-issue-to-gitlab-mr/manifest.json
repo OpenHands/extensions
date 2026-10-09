@@ -2,14 +2,14 @@
   "id": "jira-issue-to-gitlab-mr",
   "name": "Jira issue to GitLab MR",
   "category": "Project management",
-  "description": "Watch Jira for implementation-ready issues, start an agent to make the requested code change, and open a GitLab merge request.",
+  "description": "Watch a Jira Cloud project for issues with a configurable label and automatically open a GitLab merge request for each new issue found. The target GitLab project is read from the ticket body - no repo parameter required at deploy time.",
   "requires": {
     "integrations": {
       "atlassian-rovo": {
         "message": "Reads implementation-ready issues and posts progress back to Jira."
       },
       "gitlab": {
-        "message": "Clones the target repository, pushes a branch, and opens the merge request."
+        "message": "Clones the target repository, pushes a branch, and opens the merge request. Calling GitLab MCP directly needs GitLab 19.4 or later. On an older GitLab, sign in with GitLab or connect it under Settings -> Integrations; add a GITLAB_TOKEN secret only if you can do neither."
       }
     },
     "features": [
@@ -18,6 +18,6 @@
   },
   "popularityRank": 84,
   "estimatedSetupMinutes": 6,
-  "skill": "ticket-to-code-change",
-  "exampleImplementation": "Trigger: Jira issue marked implementation-ready\nRequired integrations: Jira, GitLab\n\n1. Watch the selected Jira team or project for issues carrying a configurable implementation-ready label or state.\n2. Deduplicate issue IDs so each transition dispatches once.\n3. Read the issue, linked dependencies, acceptance criteria, and target repository.\n4. Start an independent OpenHands conversation that clones the GitLab repository, creates an issue-keyed branch, implements and tests the change, and opens a merge request.\n5. Post the conversation and merge request links back to the Jira issue and update its status according to the team's workflow."
+  "skill": "jira-issue-to-pr",
+  "exampleImplementation": "Trigger: cron polling (e.g. every 5 minutes)\nRequired integrations: Atlassian Rovo MCP for Jira access and a GitLab connection. On OpenHands Cloud and Enterprise the poller reads and comments on Jira through the connected Atlassian Rovo MCP server, so it needs no Jira API token; the conversation it starts pushes with the connected GitLab integration, or commits through the connected GitLab MCP server when it has no token. Calling GitLab MCP directly needs GitLab 19.4 or later. On an older GitLab, sign in with GitLab or connect it under Settings -> Integrations; add a GITLAB_TOKEN secret only if you can do neither. A local Agent Canvas needs a Jira API token and a GitLab token (api scope) as secrets instead.\n\n1. Connect Atlassian Rovo MCP and GitLab, then collect the Jira site, label to watch, and cron schedule from the user, and set git_provider to gitlab. A local Agent Canvas also needs the Jira base URL, email, and API token secret name. No GitLab project is needed at deploy time - each ticket must include the target project (group/project, subgroups included, or its URL on a self-managed host) in its body.\n2. Search the Jira Cloud instance for open issues carrying the configured label.\n3. Deduplicate against a KV-store-backed set of already-processed issue keys so re-runs never create duplicate merge requests.\n4. For each new issue, start an independent OpenHands agent conversation that extracts the GitLab project from the ticket body, clones it, creates a branch named after the Jira key, implements or scaffolds the requested change, and opens a merge request.\n5. Immediately after the conversation is created, post a Jira comment on the issue: 'I'm on it: <conversation URL>'.\n6. Persist the processed issue key immediately after dispatching so the next poll skips it."
 }

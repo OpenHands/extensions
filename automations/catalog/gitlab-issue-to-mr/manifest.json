@@ -6,7 +6,7 @@
   "requires": {
     "integrations": {
       "gitlab": {
-        "message": "Used to read labelled issues, push the branch, and open the merge request."
+        "message": "Used to read labelled issues, push the branch, and open the merge request. Calling GitLab MCP directly needs GitLab 19.4 or later. On an older GitLab, sign in with GitLab or connect it under Settings -> Integrations; add a GITLAB_TOKEN secret only if you can do neither."
       }
     },
     "features": [
@@ -15,7 +15,7 @@
   },
   "popularityRank": 88,
   "estimatedSetupMinutes": 4,
-  "exampleImplementation": "Trigger: cron polling for open GitLab issues with a configured label such as openhands\nRequired secret: GITLAB_TOKEN, a personal or project access token with the api scope and at least the Developer role\n\n1. Read the projects, trigger label, branch prefix, merge request mode, GitLab API URL, and polling schedule from setup.\n2. Poll each project independently, with its own state, so issue IIDs never collide.\n3. List open labelled issues and find the latest matching GitLab label resource event for each.\n4. Deduplicate on the label event ID so every label application queues exactly one attempt.\n5. Clone the default branch into a directory of its own, create the working branch, and start an OpenHands conversation with that directory as its workspace. The clone carries no credential and the agent is handed no secrets, because the prompt is built from an issue body that anyone can write.\n6. Comment on the issue with the branch and the conversation link.\n7. Once the conversation has stopped, commit whatever the agent left, push the branch, open a merge request titled after the issue and prefixed with Draft:, and comment the link on the issue. An agent that made no changes gets its answer posted instead.\n8. Remove the clone once the conversation has stopped, so nothing accumulates between runs.",
+  "exampleImplementation": "Trigger: cron polling for open GitLab issues with a configured label such as openhands\nRequired: a connected GitLab MCP server or GitLab integration (OpenHands Cloud and Enterprise), or a GITLAB_TOKEN secret: a personal or project access token with the api scope and at least the Developer role. Calling GitLab MCP directly needs GitLab 19.4 or later, while a GitLab token works with any GitLab: the token of a GitLab sign-in or the connected GitLab integration, or a GITLAB_TOKEN secret, is used instead of the MCP server whenever there is one.\n\n1. Read the projects, trigger label, branch prefix, merge request mode, GitLab API URL, and polling schedule from setup.\n2. Poll each project independently, with its own state, so issue IIDs never collide.\n3. List open labelled issues and find the latest matching GitLab label resource event for each.\n4. Deduplicate on the label event ID so every label application queues exactly one attempt.\n5. Clone the default branch into a directory of its own, create the working branch, and start an OpenHands conversation with that directory as its workspace. The clone carries no credential and the agent is handed no secrets, because the prompt is built from an issue body that anyone can write.\n6. Comment on the issue with the branch and the conversation link.\n7. Once the conversation has stopped, commit whatever the agent left, push the branch, open a merge request titled after the issue and prefixed with Draft:, and comment the link on the issue. An agent that made no changes gets its answer posted instead.\n8. Remove the clone once the conversation has stopped, so nothing accumulates between runs.",
   "impact": {
     "basis": "completed-runs",
     "one": "1 issue sweep completed",
@@ -105,7 +105,7 @@
       }
     },
     "bundle": {
-      "version": "1.1.0",
+      "version": "1.2.0",
       "entrypoint": "python3 main.py",
       "timeout": 900,
       "files": {

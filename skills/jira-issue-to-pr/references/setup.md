@@ -2,6 +2,9 @@
 
 ## Jira API Token
 
+The poller needs this token only when it does not reach Jira through a connected
+Atlassian Rovo MCP server (see Step 1 in `SKILL.md`).
+
 ### Create a token
 
 1. Log in to [id.atlassian.com](https://id.atlassian.com/manage-profile/security/api-tokens).
@@ -38,11 +41,19 @@ The Jira Cloud REST API v3 requires this for all authenticated requests.
 
 ---
 
-## GitHub Token
+## Git Provider Access
 
 The spawned agent conversation clones the target repository, pushes a new branch, and
-opens a pull request. The GitHub token must be stored as an OpenHands secret and must
-have the following scopes:
+opens the pull or merge request. On OpenHands Cloud and Enterprise it uses the connected
+integration for the provider named by `git_provider` (GitHub, GitLab or Bitbucket). With
+only an MCP connection (GitHub's with its saved token, GitLab's, or Atlassian Rovo for
+Bitbucket) it commits through the tools instead, and reads a private repository through
+them rather than cloning it. On a local Agent Canvas a token for the provider must be
+stored as an OpenHands secret.
+
+### GitHub
+
+The GitHub token must have the following scopes:
 
 | Scope | Required for |
 |---|---|
@@ -57,20 +68,39 @@ inherits the user's configured secrets automatically through the agent server.
 Navigate to **Settings → Secrets** and store the token under the name `GITHUB_TOKEN`
 (or whatever name is expected by the agent's GitHub skill).
 
+### GitLab
+
+Store a personal access token with the `api` scope and at least the Developer role on the
+target projects under the name `GITLAB_TOKEN`.
+
+Calling GitLab MCP directly, to commit without a token, needs GitLab 19.4 or later, where its
+branch, commit and repository tools first appear. On OpenHands Cloud and Enterprise the token
+of the user's GitLab sign-in or connected integration reaches the conversation as
+`GITLAB_TOKEN`, so on an older GitLab sign in with GitLab or connect it under Settings ->
+Integrations, and store this secret only if neither is possible.
+
+### Bitbucket
+
+Store the token under the name `BITBUCKET_TOKEN`; the `bitbucket` skill describes the token
+type and permissions.
+
 ---
 
 ## config.json Field Reference
 
 | Field | Required | Default | Description |
 |---|---|---|---|
-| `jira_base_url` | ✅ | - | Full URL of your Atlassian instance, e.g. `https://acme.atlassian.net` |
-| `jira_email` | ✅ | - | Email address of the Atlassian account that owns the API token |
+| `jira_mcp_server` | ❌ | - | Name the connected Atlassian Rovo MCP server is stored under. When set, the poller reaches Jira through it (OpenHands Cloud and Enterprise only) and the three fields after `jira_cloud_id` are not used |
+| `jira_cloud_id` | with `jira_mcp_server` | - | Atlassian cloud id of the Jira site |
+| `jira_base_url` | without `jira_mcp_server` | - | Full URL of your Atlassian instance, e.g. `https://acme.atlassian.net` |
+| `jira_email` | without `jira_mcp_server` | - | Email address of the Atlassian account that owns the API token |
 | `jira_token_secret` | ❌ | `"JIRA_CLOUD_KEY"` | Name of the OpenHands secret holding the Jira API token |
 | `jira_label` | ❌ | `"create-pr"` | Jira issue label to watch for |
+| `git_provider` | ❌ | `"github"` | `github`, `gitlab` or `bitbucket` - the provider the ticket names its repository on; changes only the prompt |
 
-> **GitHub repo**: not a config field. The target repository is read from the body of each
-> Jira ticket. Ticket authors must include the repo in `owner/repo` format or as a full
-> GitHub URL (e.g. `https://github.com/acme-org/backend`).
+> **Repository**: not a config field. The target repository is read from the body of each
+> Jira ticket: `owner/repo` or a GitHub URL on GitHub, `group/subgroup/project` or a full
+> URL on GitLab, `workspace/repo` on bitbucket.org.
 
 ---
 
@@ -142,11 +172,12 @@ The response is `SearchAndReconcileResults`; the script reads the `issues` array
 - The Jira project has issues with the label but all are in a Done status category.
   The JQL filter is `statusCategory != Done` - reopen or create a fresh issue.
 
-### Conversation started but no PR appears
+### Conversation started but no PR or MR appears
 
 - The spawned conversation inherits the user's agent/LLM settings. Check the conversation
   in the OpenHands UI (it appears in the conversations list under the automation run).
-- The GitHub token may lack `repo` scope to push or open PRs.
+- The connected integration or token may lack the scope to push or open the request
+  (GitHub `repo`, GitLab `api` with the Developer role).
 - The target repo's default branch may be protected; the token must have bypass permission,
   or the PR should be created against a different base branch.
 
@@ -166,13 +197,13 @@ The response is `SearchAndReconcileResults`; the script reads the `issues` array
 
 ## Multiple Deployments
 
-To watch multiple Jira projects or multiple GitHub repos, deploy separate automations —
+To watch multiple Jira projects or multiple repositories, deploy separate automations —
 one per `config.json`. Each automation has its own KV-store namespace (keyed by
 automation ID), so processed-key sets do not cross-contaminate.
 
 Example: two automations, one per project:
 
-| Automation name | `jira_base_url` | `jira_label` | GitHub repo (in ticket body) |
+| Automation name | `jira_base_url` | `jira_label` | Repository (in ticket body) |
 |---|---|---|---|
 | `Jira issue-to-PR - frontend` | `https://acme.atlassian.net` | `create-pr` | `acme/frontend` (written by ticket author) |
 | `Jira issue-to-PR - backend` | `https://acme.atlassian.net` | `create-pr-backend` | `acme/backend` (written by ticket author) |

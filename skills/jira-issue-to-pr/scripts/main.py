@@ -2,19 +2,26 @@
 Jira issue-to-PR poller — reads all configuration from config.json in the same directory.
 
 config.json fields:
-  jira_base_url          e.g. "https://yourcompany.atlassian.net"
-  jira_email             Atlassian account email used for Basic auth
+  jira_mcp_server        Settings name of the connected Atlassian Rovo MCP server. When set,
+                         Jira is reached through it (OpenHands Cloud and Enterprise only)
+                         and no Jira credential is configured here
+  jira_cloud_id          Atlassian cloud id of the Jira site; required with jira_mcp_server
+  jira_base_url          e.g. "https://yourcompany.atlassian.net"; without jira_mcp_server
+  jira_email             Atlassian account email used for Basic auth; without jira_mcp_server
   jira_token_secret      Name of the OpenHands secret holding the Jira API token
   jira_label             Label to watch for (default: "create-pr")
   max_new_per_run        Max conversations dispatched per run (default: 5)
+  git_provider           Where the ticket's repository lives: "github" (default), "gitlab"
+                         or "bitbucket". It only changes what the conversation is asked
 
-The target GitHub repository is NOT configured here. Each Jira ticket body must include
-the repo in "owner/repo" format; the spawned agent extracts it from the ticket text.
+The target repository is NOT configured here. Each Jira ticket body must name it
+(owner/repo on GitHub, group/project or a URL on GitLab, workspace/repo on Bitbucket);
+the spawned agent extracts it from the ticket text.
 
 Runs against a local agent server (AGENT_SERVER_URL is injected) or on OpenHands Cloud
 (OPENHANDS_CLOUD_API_URL / OPENHANDS_API_KEY / SANDBOX_ID are injected instead).
 """
-import base64, json, os, re, sys, tempfile, urllib.error, urllib.request, uuid
+import base64, json, os, re, sys, tempfile, urllib.error, urllib.parse, urllib.request, uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -23,11 +30,67 @@ _HERE = Path(__file__).parent
 with open(_HERE / "config.json") as _f:
     _cfg = json.load(_f)
 
-JIRA_BASE_URL      = _cfg["jira_base_url"].rstrip("/")
-JIRA_EMAIL         = _cfg["jira_email"]
+# Jira is reached through this connected MCP server when it is named, and through
+# Jira's REST API with an API token otherwise.
+JIRA_MCP_SERVER    = _cfg.get("jira_mcp_server")
+JIRA_CLOUD_ID      = _cfg["jira_cloud_id"] if JIRA_MCP_SERVER else None
+JIRA_BASE_URL      = None if JIRA_MCP_SERVER else _cfg["jira_base_url"].rstrip("/")
+JIRA_EMAIL         = None if JIRA_MCP_SERVER else _cfg["jira_email"]
 JIRA_TOKEN_SECRET  = _cfg.get("jira_token_secret", "JIRA_CLOUD_KEY")
 JIRA_LABEL         = _cfg.get("jira_label", "create-pr")
+# Atlassian renamed the comment tool in v2 of its MCP server and moves v1 connections
+# to the v2 tools on its own schedule, so a deployment can meet either name.
+JIRA_COMMENT_TOOLS = ("addOrEditJiraIssueComment", "addCommentToJiraIssue")
 MAX_NEW_PER_RUN    = int(_cfg.get("max_new_per_run", 5))
+GIT_PROVIDER       = _cfg.get("git_provider", "github")
+# What the conversation is told about the provider the ticket names its repository on.
+# Only the prompt differs: the conversation pushes with the user's connected integration,
+# and without one it delivers through the tools of the connected MCP server instead.
+GIT_PROVIDERS = {
+    "github": {
+        "name":      "GitHub",
+        "request":   "Pull Request",
+        "short":     "PR",
+        "reference": '"owner/repo" format (e.g. "acme-org/backend") or a full GitHub URL\n'
+                     '   (e.g. "https://github.com/acme-org/backend")',
+        "clone":     "https://github.com/<owner>/<repo>",
+        "delivery":  "",
+    },
+    "gitlab": {
+        "name":      "GitLab",
+        "request":   "Merge Request",
+        "short":     "MR",
+        "reference": '"group/project" format, subgroups included (e.g. "acme-org/platform/backend"),\n'
+                     '   or a full GitLab URL, which may be on a self-managed host\n'
+                     '   (e.g. "https://gitlab.example.com/acme-org/platform/backend")',
+        "clone":     "https://gitlab.com/<group>/<project>, or the host the ticket's URL names",
+        "delivery":  """
+Delivering through GitLab:
+- If GitLab tools from a connected MCP server are available to you, prefer them for reading
+  the issue and for opening the merge request.
+- Without a `GITLAB_TOKEN` you cannot push with git: create the branch with `add_branch`,
+  commit your changes with `add_commit` (one call, a file action per changed file), and open
+  the merge request with `save_merge_request`. A private project cannot be cloned without a
+  credential; read it with `list_repository_tree` and `get_repository_file` instead.
+""",
+    },
+    "bitbucket": {
+        "name":      "Bitbucket",
+        "request":   "Pull Request",
+        "short":     "PR",
+        "reference": '"workspace/repo" format (e.g. "acme-org/backend") or a full Bitbucket URL\n'
+                     '   (e.g. "https://bitbucket.org/acme-org/backend")',
+        "clone":     "https://bitbucket.org/<workspace>/<repo>",
+        "delivery":  """
+Delivering through Bitbucket:
+- Without a `BITBUCKET_TOKEN`, use the Bitbucket tools of the connected Atlassian Rovo MCP
+  server: read the repository with `getBitbucketRepoFileContent`, create the branch with
+  `createBitbucketRepoBranch`, commit your changes with `createBitbucketRepoCommit`, and open
+  the pull request with `createBitbucketRepoPullRequest`. Tools the server does not list
+  directly are reached through `discover` and `executeRead` / `executeWrite`.
+""",
+    },
+}
 # How often a conversation that OpenHands Cloud failed to start is started again.
 MAX_START_ATTEMPTS = 3
 
@@ -163,14 +226,39 @@ def extract_adf_text(adf):
     return " ".join(p for p in parts if p).strip()
 
 
+def call_mcp_tool(name, arguments):
+    """Call a tool on the connected MCP server and return its text output.
+
+    OpenHands makes the call with the credentials the user stored when connecting
+    the server, so this run holds no Jira credential of its own.
+    """
+    server = urllib.parse.quote(JIRA_MCP_SERVER, safe="")
+    result = _cloud_request("POST", f"/api/v1/mcp/servers/{server}/call-tool", {
+        "name": name, "arguments": arguments,
+    })
+    if result.get("is_error"):
+        raise RuntimeError(f"{name} failed: {str(result.get('text'))[:500]}")
+    return result.get("text") or ""
+
+
 def fetch_labeled_issues(auth_header):
-    """Return open Jira issues with JIRA_LABEL using the current v3 search endpoint."""
-    url  = f"{JIRA_BASE_URL}/rest/api/3/search/jql"
-    body = json.dumps({
+    """Return open Jira issues with JIRA_LABEL.
+
+    Uses the connected MCP server's JQL search, or the current v3 search endpoint.
+    """
+    search = {
         "jql":        f'labels = "{JIRA_LABEL}" AND statusCategory != Done',
         "fields":     ["key", "summary", "description", "status", "updated"],
         "maxResults": 50,
-    }).encode()
+    }
+    if JIRA_MCP_SERVER:
+        text = call_mcp_tool("searchJiraIssuesUsingJql", {"cloudId": JIRA_CLOUD_ID, **search})
+        try:
+            return json.loads(text).get("issues", [])
+        except (ValueError, AttributeError) as exc:
+            raise RuntimeError(f"Unexpected Jira search result: {text[:500]}") from exc
+    url  = f"{JIRA_BASE_URL}/rest/api/3/search/jql"
+    body = json.dumps(search).encode()
     req = urllib.request.Request(
         url, data=body,
         headers={
@@ -188,7 +276,19 @@ def fetch_labeled_issues(auth_header):
 
 
 def post_jira_comment(issue_key, auth_header, text):
-    """Post a plain-text comment on a Jira issue using ADF."""
+    """Post a plain-text comment on a Jira issue."""
+    if JIRA_MCP_SERVER:
+        errors = []
+        for tool in JIRA_COMMENT_TOOLS:
+            try:
+                call_mcp_tool(tool, {
+                    "cloudId": JIRA_CLOUD_ID, "issueIdOrKey": issue_key, "commentBody": text,
+                })
+                return
+            except RuntimeError as exc:
+                errors.append(str(exc))
+        print(f"Warning: failed to post Jira comment on {issue_key}: {'; '.join(errors)}")
+        return
     url  = f"{JIRA_BASE_URL}/rest/api/3/issue/{issue_key}/comment"
     body = json.dumps({
         "body": {
@@ -321,10 +421,21 @@ try:
         raise RuntimeError("The automation KV store is required on OpenHands Cloud, "
                            "but AUTOMATION_KV_TOKEN is not set for this run.")
 
-    jira_token  = get_secret(JIRA_TOKEN_SECRET)
-    auth_header = "Basic " + base64.b64encode(
-        f"{JIRA_EMAIL}:{jira_token}".encode()
-    ).decode()
+    if GIT_PROVIDER not in GIT_PROVIDERS:
+        raise RuntimeError(f"Unknown git_provider {GIT_PROVIDER!r}; "
+                           f"expected one of: {', '.join(GIT_PROVIDERS)}")
+    git = GIT_PROVIDERS[GIT_PROVIDER]
+
+    auth_header = None
+    if not JIRA_MCP_SERVER:
+        jira_token  = get_secret(JIRA_TOKEN_SECRET)
+        auth_header = "Basic " + base64.b64encode(
+            f"{JIRA_EMAIL}:{jira_token}".encode()
+        ).decode()
+    elif IS_LOCAL:
+        # Only OpenHands Cloud and Enterprise call a connected MCP server for a run.
+        raise RuntimeError("jira_mcp_server needs OpenHands Cloud or Enterprise; "
+                           "a local run reaches Jira with jira_token_secret.")
 
     state          = load_state()
     processed_keys = set(state.get("processed_keys", []))
@@ -343,7 +454,7 @@ try:
     if not IS_LOCAL:
         settle_cloud_starts(state, processed_keys, auth_header)
 
-    print(f"Polling {JIRA_BASE_URL} for issues labeled '{JIRA_LABEL}'…")
+    print(f"Polling {JIRA_BASE_URL or JIRA_MCP_SERVER} for issues labeled '{JIRA_LABEL}'…")
     issues = fetch_labeled_issues(auth_header)
     print(f"Total matching issues : {len(issues)}")
 
@@ -393,28 +504,27 @@ try:
         description = extract_adf_text(issue["fields"].get("description"))
         branch      = f"jira/{key.lower()}"
 
-        prompt = f"""Create a GitHub Pull Request for the following Jira issue.
+        prompt = f"""Create a {git['name']} {git['request']} for the following Jira issue.
 
 Jira Issue : {key}
 Summary    : {summary}
 Description: {description or "No description provided."}
 
 Steps:
-1. Find the target GitHub repository in the Description above. Look for a reference in
-   "owner/repo" format (e.g. "acme-org/backend") or a full GitHub URL
-   (e.g. "https://github.com/acme-org/backend"). Use that repository.
+1. Find the target {git['name']} repository in the Description above. Look for a reference in
+   {git['reference']}. Use that repository.
    If no repository is mentioned, create a file `jira/{key}/notes.md` with the issue
-   details and print a message explaining that no GitHub repo was found in the ticket.
-2. Clone the repository (e.g. https://github.com/<owner>/<repo>).
+   details and print a message explaining that no {git['name']} repo was found in the ticket.
+2. Clone the repository (e.g. {git['clone']}).
 3. Create branch `{branch}` from the default branch.
 4. Implement the changes described in the issue.
    If the description is vague or missing, create `jira/{key}/notes.md`
    with the issue key, summary, and description as a placeholder.
-5. Commit, push the branch, and open a Pull Request:
+5. Commit, push the branch, and open a {git['request']}:
    - Title : [{key}] {summary}
    - Body  : Reference the Jira issue key and describe the changes made.
-6. Print the PR URL when done.
-"""
+6. Print the {git['short']} URL when done.
+{git['delivery']}"""
         if IS_LOCAL:
             workdir = tempfile.mkdtemp(prefix=f"jira-{key.lower()}-")
             payload = {
