@@ -78,7 +78,11 @@ def kv(monkeypatch):
 
         do_GET = do_PUT = handle_request
 
-    server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+    class Server(ThreadingHTTPServer):
+        # Eight claimants connect together; the default backlog is only five.
+        request_queue_size = 16
+
+    server = Server(("127.0.0.1", 0), Handler)
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
     monkeypatch.setenv("AUTOMATION_API_URL", f"http://127.0.0.1:{server.server_port}")
@@ -102,6 +106,7 @@ def test_atomic_claim_and_fencing(kv):
         thread.start()
     for thread in threads:
         thread.join()
+    assert len(leases) == len(threads)
     winners = [lease for lease in leases if lease]
     assert len(winners) == 1
     old = winners[0]
@@ -118,7 +123,8 @@ def runner(kv):
     reviews, starts = [], []
     run = SimpleNamespace(repository="Owner/Repo", github_login="bot", token_name="WRITE_TOKEN",
                           config={"review_profile_read_only": True, "review_read_token_secret": "READ_TOKEN"})
-    run.dispatcher = SimpleNamespace(start_review_work=lambda *args: starts.append(args), review_snapshot=lambda cid: ("finished", artifact()))
+    run.dispatcher = SimpleNamespace(start_review_work=lambda *args: starts.append(args), review_snapshot=lambda cid: ("finished", artifact()),
+                                     llm_provenance=lambda cid: None)
     def gh(method, path, body=None):
         if method == "GET":
             return pr
@@ -141,6 +147,29 @@ def test_async_publish_and_stop(runner):
     for _ in range(3):
         assert publisher.advance(pr, start=True)["disposition"] == "deduplicated"
     assert len(reviews) == len(starts) == 1
+
+
+@pytest.mark.parametrize("failure", ["missing", "error"])
+def test_unavailable_metadata_cannot_persist_agent_written_attribution(runner, kv, failure):
+    run, pr, reviews, starts = runner
+    run.dispatcher.review_snapshot = lambda cid: (
+        "finished",
+        artifact(summary="No material defects.\n\nLLM profile: `invented` · Model: `invented`"),
+    )
+    if failure == "error":
+        def unavailable(cid):
+            raise RuntimeError("metadata API unavailable")
+        run.dispatcher.llm_provenance = unavailable
+    publisher = publication.StructuredReviews(run)
+    publisher.advance(pr, start=True)
+
+    assert publisher.advance(pr)["disposition"] == "published"
+
+    [review] = reviews
+    assert "LLM profile:" not in review["body"]
+    assert review["body"].endswith("✅ APPROVED")
+    [record] = kv["values"].values()
+    assert record["payload"]["body"] == review["body"]
 
 
 def test_uncertain_post_reconciles_without_retry(runner, kv):
@@ -310,3 +339,84 @@ def test_completion_uses_claimed_trigger_not_new_request(runner):
     assert completions[0][1:] == ({"id": 1}, "review")
     publisher.advance(pr)
     assert len(completions) == 1
+
+
+def test_structured_publication_persists_the_claimed_conversation_provenance(
+    runner, kv, tmp_path, monkeypatch
+):
+    from unittest.mock import Mock
+    from github_automation_helpers import worker
+
+    worker("github-pr-reviewer", tmp_path, monkeypatch)
+    run, pr, reviews, starts = runner
+    run.dispatcher.llm_provenance = Mock(return_value=("review-profile", "openai/review-model"))
+    publisher = publication.StructuredReviews(run)
+    started = publisher.advance(pr, start=True)
+
+    assert publisher.advance(pr)["disposition"] == "published"
+
+    run.dispatcher.llm_provenance.assert_called_once_with(started["conversation_id"])
+    [review] = reviews
+    [record] = kv["values"].values()
+    assert review["body"].endswith(
+        "✅ APPROVED\n\nLLM profile: `review-profile` · Model: `openai/review-model`"
+    )
+    assert record["payload"]["body"] == review["body"]
+    assert record["conversation_id"] == started["conversation_id"]
+    assert record["completion"] == "done"
+
+
+def test_structured_receipt_recovery_keeps_provenance_after_profile_edit(
+    runner, kv, tmp_path, monkeypatch
+):
+    from unittest.mock import Mock
+    from github_automation_helpers import worker
+
+    worker("github-pr-reviewer", tmp_path, monkeypatch)
+    run, pr, reviews, starts = runner
+    run.dispatcher.llm_provenance = Mock(return_value=("original-profile", "original-model"))
+    publisher = publication.StructuredReviews(run)
+    started = publisher.advance(pr, start=True)
+    original = run.gh
+
+    def uncertain(method, path, body=None):
+        result = original(method, path, body)
+        if method == "POST":
+            raise TimeoutError("receipt lost")
+        return result
+
+    run.gh = uncertain
+    with pytest.raises(TimeoutError):
+        publisher.advance(pr)
+    run.dispatcher.llm_provenance.return_value = ("edited-profile", "edited-model")
+
+    assert publisher.advance(pr)["disposition"] == "deduplicated"
+
+    run.dispatcher.llm_provenance.assert_called_once_with(started["conversation_id"])
+    [review] = reviews
+    [record] = kv["values"].values()
+    assert review["body"].endswith("LLM profile: `original-profile` · Model: `original-model`")
+    assert record["payload"]["body"] == review["body"]
+    assert record["receipt"]["id"] == review["id"]
+    assert record["completion"] == "done"
+
+
+@pytest.mark.parametrize("unavailable", [None, RuntimeError("metadata unavailable")])
+def test_structured_provenance_failure_preserves_publication_and_completion(
+    runner, unavailable
+):
+    from unittest.mock import Mock
+
+    run, pr, reviews, starts = runner
+    run.dispatcher.llm_provenance = Mock(return_value=None)
+    if unavailable is not None:
+        run.dispatcher.llm_provenance.side_effect = unavailable
+    run._finish_completed_review = Mock(return_value=True)
+    publisher = publication.StructuredReviews(run)
+    publisher.advance(pr, start=True)
+
+    assert publisher.advance(pr)["disposition"] == "published"
+
+    assert len(reviews) == 1
+    assert reviews[0]["body"].endswith("✅ APPROVED")
+    run._finish_completed_review.assert_called_once()

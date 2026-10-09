@@ -33,6 +33,7 @@ Optional secret:
 
 import json
 import os
+import re
 import sys
 import time
 import urllib.error
@@ -577,7 +578,12 @@ def _build_secrets_payload(agent_url: str, api_key: str) -> dict:
     return secrets
 
 
-def create_conversation(agent_url: str, api_key: str, initial_message: str) -> str:
+def create_conversation(
+    agent_url: str,
+    api_key: str,
+    initial_message: str,
+    agent: dict | None = None,
+) -> str:
     """Create a conversation and return its ID.
 
     The server auto-starts the agent when initial_message is provided
@@ -597,10 +603,9 @@ def create_conversation(agent_url: str, api_key: str, initial_message: str) -> s
     workspace_dir = os.path.join(root, "slack-monitor-conversations")
     os.makedirs(workspace_dir, exist_ok=True)
 
-    agent = _get_agent_dict(agent_url, api_key)
     payload: dict = {
         "workspace": {"working_dir": workspace_dir},
-        "agent": agent,
+        "agent": agent or _get_agent_dict(agent_url, api_key),
         "initial_message": {"content": [{"text": initial_message}]},
     }
 
@@ -637,6 +642,20 @@ def conversation_final_response(agent_url: str, api_key: str, conv_id: str) -> s
         agent_url, api_key, "GET", f"/api/conversations/{conv_id}/agent_final_response"
     )
     return result.get("response", "")
+
+
+def _llm_provenance(profile: str, model: str) -> str:
+    return f"LLM profile: `{profile}` · Model: `{model}`"
+
+
+def _with_llm_provenance(body: str, profile: str, model: str) -> str:
+    provenance = _llm_provenance(profile, model)
+    body = "\n".join(
+        line
+        for line in (body or "").splitlines()
+        if not re.fullmatch(r"LLM profile: .* · Model: .*", line.strip())
+    ).strip()
+    return f"{body}\n\n{provenance}" if body else provenance
 
 
 # ── Message filtering ──────────────────────────────────────────────────────────
@@ -937,7 +956,10 @@ def _process_trigger_message(
     )
 
     try:
-        conv_id = create_conversation(agent_url, api_key, initial_prompt)
+        agent = _get_agent_dict(agent_url, api_key)
+        conv_id = create_conversation(
+            agent_url, api_key, initial_prompt, agent=agent
+        )
         conv_url = f"{openhands_url}/conversations/{conv_id}"
 
         now = time.time()
@@ -946,6 +968,8 @@ def _process_trigger_message(
             "channel_id": channel_id,
             "thread_ts": thread_root,
             "status": "active",
+            "llm_profile": "default",
+            "llm_model": agent["llm"].get("model") or "unknown",
             "last_activity": now,
             "last_seen_reply_ts": msg_ts,
             "reply_poll_backoff_seconds": THREAD_REPLY_INITIAL_BACKOFF_SECONDS,
@@ -1003,6 +1027,14 @@ def _check_conversation_completion(
             )
         else:
             summary = final if final else "Success (no message available)."
+        # The values recorded when this script started the conversation; a
+        # thread follow-up reuses it, so they still describe its LLM. A record
+        # written before provenance was tracked cannot name either value.
+        summary = _with_llm_provenance(
+            summary,
+            rec.get("llm_profile") or "unknown",
+            rec.get("llm_model") or "unknown",
+        )
 
         ts_back = post_message(slack_token, channel_id, summary, thread_ts=thread_ts)
         if ts_back:

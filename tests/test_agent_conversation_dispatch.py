@@ -1,5 +1,6 @@
 import json
 from unittest.mock import MagicMock
+from urllib.error import HTTPError
 from uuid import NAMESPACE_URL, UUID, uuid5
 
 import agent_conversation
@@ -53,19 +54,20 @@ def test_github_secret_falls_back_to_agent_server(monkeypatch):
     workspace.reset_client.assert_called_once_with()
 
 
-def test_new_subject_uses_selected_profile_and_persists_mapping(monkeypatch):
+def test_new_subject_uses_selected_profile_and_persists_mapping(monkeypatch, tmp_path):
     state = {}
     _fake_kv(monkeypatch, state)
     monkeypatch.setattr(agent_conversation, "_register_tools", lambda: None)
+    monkeypatch.setenv("WORKSPACE_BASE", str(tmp_path))
     workspace = MagicMock()
     workspace.__enter__.return_value = workspace
+    workspace.working_dir = str(tmp_path)
     scoped_secrets = {
         "GITHUB_TOKEN": LookupSecret(url="/api/settings/secrets/GITHUB_TOKEN")
     }
     workspace.get_secrets.return_value = scoped_secrets
-    monkeypatch.setattr(
-        agent_conversation, "RemoteWorkspace", lambda **kwargs: workspace
-    )
+    remote_workspace = MagicMock(return_value=workspace)
+    monkeypatch.setattr(agent_conversation, "RemoteWorkspace", remote_workspace)
     missing = agent_conversation.httpx.HTTPStatusError(
         "missing",
         request=MagicMock(),
@@ -82,6 +84,10 @@ def test_new_subject_uses_selected_profile_and_persists_mapping(monkeypatch):
         result = dispatcher.deliver("repo:issue:7", "revision-1", "work")
 
     request = create.call_args.args[1]
+    remote_workspace.assert_called_once_with(
+        host="http://agent", api_key="session", working_dir=str(tmp_path)
+    )
+    assert request.workspace.working_dir == str(tmp_path)
     assert request.agent_profile_id == UUID("11111111-1111-4111-8111-111111111111")
     assert request.secrets == scoped_secrets
     workspace.get_secrets.assert_called_once_with(
@@ -98,6 +104,32 @@ def test_new_subject_uses_selected_profile_and_persists_mapping(monkeypatch):
         # the dedupe keyed on `delivery` alone.
         "head": "",
     }
+
+
+def test_review_work_uses_configured_local_workspace(monkeypatch, tmp_path):
+    monkeypatch.setattr(agent_conversation, "_register_tools", lambda: None)
+    monkeypatch.setenv("WORKSPACE_BASE", str(tmp_path))
+    workspace = MagicMock()
+    workspace.__enter__.return_value = workspace
+    workspace.working_dir = str(tmp_path)
+    workspace.get_secrets.return_value = {}
+    remote_workspace = MagicMock(return_value=workspace)
+    monkeypatch.setattr(agent_conversation, "RemoteWorkspace", remote_workspace)
+    conversation = MagicMock()
+    create = MagicMock(return_value=conversation)
+    monkeypatch.setattr(agent_conversation.RemoteConversation, "create", create)
+
+    with _dispatcher(monkeypatch) as dispatcher:
+        dispatcher.start_review_work(
+            "22222222-2222-4222-8222-222222222222", "repo:pr:9", "review"
+        )
+
+    request = create.call_args.args[1]
+    remote_workspace.assert_called_once_with(
+        host="http://agent", api_key="session", working_dir=str(tmp_path)
+    )
+    assert request.workspace.working_dir == str(tmp_path)
+    conversation.close.assert_called_once_with()
 
 
 def test_known_subject_resumes_once_per_delivery(monkeypatch):
@@ -388,8 +420,9 @@ def test_subjects_use_independent_kv_records(monkeypatch):
 class _FakeCloud:
     """The OpenHands API's conversations, as the dispatcher uses them."""
 
-    def __init__(self, conversation=None):
+    def __init__(self, conversation=None, agent_profiles=None):
         self.conversation = conversation
+        self.profiles = agent_profiles
         self.started = []
         self.sent = []
 
@@ -397,7 +430,14 @@ class _FakeCloud:
         return self.conversation
 
     def start(self, conversation_id, profile_id, title, prompt):
-        self.started.append({"id": str(conversation_id), "profile": str(profile_id)})
+        self.started.append(
+            {"id": str(conversation_id), "profile": str(profile_id), "prompt": prompt}
+        )
+
+    def agent_profiles(self):
+        if self.profiles is None:
+            raise HTTPError("/api/agent-profiles", 403, "forbidden", {}, None)
+        return self.profiles
 
     def send(self, conversation, prompt):
         self.sent.append(prompt)
@@ -551,3 +591,130 @@ def test_cloud_run_stops_retrying_an_errored_delivery_after_the_bound(monkeypatc
     # Assert
     assert result["disposition"] == "deduplicated"
     assert cloud.sent == []
+
+
+def test_cloud_prompt_names_the_replacement_conversation(monkeypatch):
+    """A prompt that names its conversation names the one actually started."""
+    gone = "22222222-2222-4222-8222-222222222222"
+    state = {
+        _state_key("repo:pr:7"): {
+            "conversation_id": gone,
+            "delivery": "revision-1",
+            "head": "sha-1",
+        }
+    }
+    _fake_kv(monkeypatch, state)
+    cloud = _FakeCloud({"sandbox_status": "MISSING", "execution_status": None})
+
+    with _cloud_dispatcher(monkeypatch, cloud) as dispatcher:
+        result = dispatcher.deliver(
+            "repo:pr:7",
+            "revision-2",
+            lambda conversation_id: f"review as {conversation_id}",
+            head="sha-2",
+        )
+
+    [started] = cloud.started
+    assert started["prompt"] == f"review as {result['conversation_id']}"
+    assert result["conversation_id"] != gone
+
+
+def test_cloud_llm_provenance_reads_the_conversation_and_its_launch_profile(
+    monkeypatch,
+):
+    launched = {
+        "agent_profile_id": "11111111-1111-4111-8111-111111111111",
+        "revision": 2,
+    }
+    profile = {
+        "id": launched["agent_profile_id"],
+        "name": "Code reviewer",
+        "revision": 2,
+        "llm_profile_ref": "review-sonnet",
+    }
+    conversation = {
+        "llm_model": "anthropic/claude-sonnet-4-5",
+        "launched_agent_profile": launched,
+    }
+
+    current = _cloud_dispatcher(monkeypatch, _FakeCloud(conversation, [profile]))
+    edited = _cloud_dispatcher(
+        monkeypatch, _FakeCloud(conversation, [{**profile, "revision": 3}])
+    )
+    unreadable = _cloud_dispatcher(monkeypatch, _FakeCloud(conversation, None))
+    gone = _cloud_dispatcher(monkeypatch, _FakeCloud(None, [profile]))
+
+    assert current.llm_provenance("conversation") == (
+        "review-sonnet",
+        "anthropic/claude-sonnet-4-5",
+    )
+    # An agent profile edited since launch, or one that cannot be read, cannot
+    # name the LLM profile the conversation started with; its model is known.
+    assert edited.llm_provenance("conversation") == (
+        "unknown",
+        "anthropic/claude-sonnet-4-5",
+    )
+    assert unreadable.llm_provenance("conversation") == (
+        "unknown",
+        "anthropic/claude-sonnet-4-5",
+    )
+    assert gone.llm_provenance("conversation") is None
+
+
+def test_subject_conversation_is_this_automations_recorded_conversation(monkeypatch):
+    state = {
+        _state_key("repo:pr:7"): {
+            "conversation_id": "22222222-2222-4222-8222-222222222222",
+        }
+    }
+    _fake_kv(monkeypatch, state)
+    dispatcher = _dispatcher(monkeypatch)
+
+    assert (
+        dispatcher.subject_conversation("repo:pr:7")
+        == "22222222-2222-4222-8222-222222222222"
+    )
+    assert dispatcher.subject_conversation("repo:pr:8") is None
+
+
+@pytest.mark.parametrize("status", [404, 500])
+def test_local_llm_provenance_of_a_missing_conversation(monkeypatch, status):
+    def urlopen(request, timeout):
+        assert request.full_url.endswith("/api/conversations/conversation")
+        assert request.get_header("X-session-api-key") == "session"
+        raise HTTPError(request.full_url, status, "error", {}, None)
+
+    monkeypatch.setattr(agent_conversation, "urlopen", urlopen)
+    dispatcher = _dispatcher(monkeypatch)
+
+    if status == 404:
+        # A deleted conversation names no LLM, so nothing is attributed to it.
+        assert dispatcher.llm_provenance("conversation") is None
+    else:
+        with pytest.raises(HTTPError):
+            dispatcher.llm_provenance("conversation")
+
+
+def test_cloud_error_retry_renders_the_prompt_for_its_conversation(monkeypatch):
+    """A retried delivery still names the conversation it is sent to."""
+    current = "22222222-2222-4222-8222-222222222222"
+    state = {
+        _state_key("repo:pr:7"): {
+            "conversation_id": current,
+            "delivery": "revision-1",
+            "head": "sha-1",
+        }
+    }
+    _fake_kv(monkeypatch, state)
+    cloud = _FakeCloud({"sandbox_status": "RUNNING", "execution_status": "error"})
+
+    with _cloud_dispatcher(monkeypatch, cloud) as dispatcher:
+        result = dispatcher.deliver(
+            "repo:pr:7",
+            "revision-1",
+            lambda conversation_id: f"review as {conversation_id}",
+            head="sha-1",
+        )
+
+    assert result["disposition"] == "retried"
+    assert cloud.sent == [f"review as {current}"]

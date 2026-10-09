@@ -24,6 +24,7 @@ import tarfile
 import time
 import urllib.error
 import urllib.request
+import uuid
 from collections.abc import Callable
 from pathlib import Path, PurePosixPath
 
@@ -427,7 +428,7 @@ def _latest_trigger_label_event(token: str, repo: str, pr_number: int) -> dict |
     return max(matching, key=lambda event: (event.get("created_at") or "", int(event.get("id") or 0)))
 
 
-def _post_github_comment(token: str, repo: str, pr_number: int, body: str) -> None:
+def _post_github_comment(token: str, repo: str, pr_number: int, body: str) -> bool:
     try:
         _github_request(
             token,
@@ -437,28 +438,28 @@ def _post_github_comment(token: str, repo: str, pr_number: int, body: str) -> No
         )
     except Exception as exc:
         print(f"  Warning: failed to post comment on PR #{pr_number}: {exc}")
+        return False
+    return True
 
 
-def _matching_review_exists(token: str, repo: str, pr_number: int, head_sha: str) -> bool:
-    """Has this token's user already published a review for this exact commit?
+def _published_reviews(token: str, repo: str, pr_number: int, head_sha: str) -> list[dict]:
+    """This token's user's submitted reviews of this exact commit.
 
     The agent is asked to report success, but a report is not evidence: reviews
     have been reported as posted when none existed. GitHub is the source of
-    truth for whether the review landed.
+    truth for whether the review landed. A listing failure is raised rather
+    than read as "no review", so the caller retries instead of posting the
+    result a second time.
     """
     if not head_sha or not _AUTH_LOGIN:
-        return False
-    try:
-        reviews = _github_paginate(token, f"/repos/{repo}/pulls/{pr_number}/reviews")
-    except Exception as exc:
-        print(f"  Warning: could not list reviews for PR #{pr_number}: {exc}")
-        return False
-    for review in reviews:
-        if (review.get("user") or {}).get("login", "").lower() != _AUTH_LOGIN.lower():
-            continue
-        if review.get("commit_id") == head_sha:
-            return True
-    return False
+        return []
+    return [
+        review
+        for review in _github_paginate(token, f"/repos/{repo}/pulls/{pr_number}/reviews")
+        if (review.get("user") or {}).get("login", "").lower() == _AUTH_LOGIN.lower()
+        and review.get("commit_id") == head_sha
+        and review.get("state") in {"COMMENTED", "APPROVED", "CHANGES_REQUESTED"}
+    ]
 
 
 # ── Repository checkout ───────────────────────────────────────────────────────
@@ -666,12 +667,17 @@ def create_conversation(
     api_key: str,
     initial_message: str,
     workspace_dir: Path,
+    agent: dict | None = None,
+    conversation_id: str | None = None,
 ) -> str:
     payload: dict = {
         "workspace": {"working_dir": str(workspace_dir)},
-        "agent": _get_agent_dict(agent_url, api_key),
+        "agent": agent or _get_agent_dict(agent_url, api_key),
         "initial_message": {"content": [{"text": initial_message}]},
     }
+    if conversation_id:
+        # Chosen by the caller so the prompt can name it before it exists.
+        payload["conversation_id"] = conversation_id
     secrets = _build_secrets_payload(agent_url, api_key)
     if secrets:
         payload["secrets"] = secrets
@@ -733,6 +739,52 @@ def _with_ai_disclosure(body: str) -> str:
     return f"{body}\n\n{disclosure}" if body else disclosure
 
 
+def _llm_provenance(profile: str, model: str) -> str:
+    return f"LLM profile: `{profile}` · Model: `{model}`"
+
+
+def _without_llm_provenance(body: str) -> str:
+    """The body with any provenance footer removed, for reading its verdict."""
+    return "\n".join(
+        line
+        for line in (body or "").splitlines()
+        if not re.fullmatch(r"LLM profile: .* · Model: .*", line.strip())
+    ).strip()
+
+
+def _with_llm_provenance(body: str, profile: str, model: str) -> str:
+    provenance = _llm_provenance(profile, model)
+    body = _without_llm_provenance(body)
+    return f"{body}\n\n{provenance}" if body else provenance
+
+
+# Two automations can share one bot account and review the same head, so the
+# login, commit, and submission time cannot say which run published a review.
+# The review agent copies this hidden marker, naming its own conversation, into
+# the review body; the deterministic script then annotates only the reviews
+# that carry exactly one marker, and only that conversation's own.
+_REVIEW_RUN_MARKER_RE = re.compile(r"<!-- openhands-review-run: ([0-9A-Za-z-]+) -->")
+
+
+def _review_run_marker(conversation_id: str) -> str:
+    return f"<!-- openhands-review-run: {conversation_id} -->"
+
+
+def _own_reviews(reviews: list[dict], conversation_id: str) -> list[dict]:
+    """The reviews whose only run marker names `conversation_id`.
+
+    A review with no marker, another run's marker, or several markers (an
+    agent quoting another review) is never attributed to this conversation.
+    """
+    if not conversation_id:
+        return []
+    return [
+        review
+        for review in reviews
+        if _REVIEW_RUN_MARKER_RE.findall(review.get("body") or "") == [str(conversation_id)]
+    ]
+
+
 def _load_repo_review_guide(workspace_dir: Path) -> str | None:
     """Read the repo-specific review guide from the checked-out repository.
 
@@ -764,6 +816,7 @@ def _build_review_prompt(
     workspace_instructions: str | None = None,
     github_token_secret: str = "GITHUB_PERSONAL_ACCESS_TOKEN",
     trigger_description: str | None = None,
+    conversation_id: str | None = None,
 ) -> str:
     number = pr.get("number", "?")
     title = pr.get("title", "(no title)")
@@ -791,6 +844,14 @@ def _build_review_prompt(
     workspace = workspace_instructions or (
         "The workspace is already the repository root at the exact Head SHA above. "
         "Do not clone, fetch, check out, or delete the repository."
+    )
+    run_marker = (
+        " On the next line put this hidden marker, copied exactly: "
+        f"`{_review_run_marker(conversation_id)}`. It identifies this conversation's "
+        "review, and the automation uses it to append the LLM profile and model after "
+        "GitHub accepts the review, so do not write that footer yourself."
+        if conversation_id
+        else ""
     )
 
     return (
@@ -885,7 +946,7 @@ def _build_review_prompt(
         "If GitHub forbids the configured bot from approving its own PR, retry the clean review with "
         "`event: COMMENT` and keep the approved verdict.\n"
         "10. Begin the review body with this disclosure: "
-        "`_This review was posted by an AI agent (OpenHands)._`\n"
+        f"`_This review was posted by an AI agent (OpenHands)._`{run_marker}\n"
         "11. Separate code correctness from merge readiness. Never end with APPROVED while "
         "material findings or required checks/evidence remain unresolved. Missing evidence "
         "is not itself a code defect. "
@@ -944,8 +1005,24 @@ def _process_review_request(
         repo_review_guide = _load_repo_review_guide(workspace_dir)
         if repo_review_guide:
             print(f"  Injected repo review guide for PR #{number}")
-        prompt = _build_review_prompt(repo, pr, head_sha, label_event, repo_review_guide)
-        conv_id = create_conversation(agent_url, api_key, prompt, workspace_dir)
+        agent = _get_agent_dict(agent_url, api_key)
+        conv_id = str(uuid.uuid4())
+        prompt = _build_review_prompt(
+            repo,
+            pr,
+            head_sha,
+            label_event,
+            repo_review_guide,
+            conversation_id=conv_id,
+        )
+        conv_id = create_conversation(
+            agent_url,
+            api_key,
+            prompt,
+            workspace_dir,
+            agent=agent,
+            conversation_id=conv_id,
+        )
     except Exception as exc:
         # The claim is dropped so the next poll retries this label event. The
         # checkout goes with it rather than being left behind.
@@ -961,6 +1038,8 @@ def _process_review_request(
             "status": "active",
             "conversation_id": conv_id,
             "workspace_dir": str(workspace_dir),
+            "llm_profile": "default",
+            "llm_model": agent["llm"].get("model") or "unknown",
             "last_activity": time.time(),
         }
     )
@@ -1034,31 +1113,65 @@ def _check_conversation_completion(
     except Exception:
         final = ""
 
+    # A record written before provenance was tracked cannot name either value.
+    llm_profile = rec.get("llm_profile") or "unknown"
+    llm_model = rec.get("llm_model") or "unknown"
     if status in {"error", "stuck"}:
-        _post_github_comment(
+        posted = _post_github_comment(
             github_token,
             repo,
             pr_number,
-            _with_ai_disclosure(
-                f"⚠️ **OpenHands PR Reviewer encountered a problem** at commit `{reviewed_sha[:12]}` "
-                f"(status: `{status}`).\n\n{final}".strip()
+            _with_llm_provenance(
+                _with_ai_disclosure(
+                    f"⚠️ **OpenHands PR Reviewer encountered a problem** at commit `{reviewed_sha[:12]}` "
+                    f"(status: `{status}`).\n\n{final}".strip()
+                ),
+                llm_profile,
+                llm_model,
             ),
         )
-    elif _matching_review_exists(github_token, repo, pr_number, reviewed_sha):
-        print(f"  PR #{pr_number}: review confirmed on GitHub at {reviewed_sha[:12]}")
+        if not posted:
+            return
     else:
-        # The agent was asked to publish the review itself; it did not, so the
-        # work is not lost - post whatever it produced as a comment.
-        _post_github_comment(
-            github_token,
-            repo,
-            pr_number,
-            _with_ai_disclosure(
-                final
-                or f"✅ **OpenHands completed the review for commit `{reviewed_sha[:12]}`.** No review text was produced."
-            ),
-        )
-        print(f"  PR #{pr_number}: no review found on GitHub; posted the result as a comment")
+        try:
+            reviews = _published_reviews(github_token, repo, pr_number, reviewed_sha)
+            own = _own_reviews(reviews, conv_id)
+            for review in own:
+                body = _with_llm_provenance(review.get("body") or "", llm_profile, llm_model)
+                if body != review.get("body"):
+                    _github_request(
+                        github_token,
+                        "PUT",
+                        f"/repos/{repo}/pulls/{pr_number}/reviews/{review['id']}",
+                        body={"body": body},
+                    )
+        except Exception as exc:
+            print(f"  Warning: could not verify or complete review provenance for PR #{pr_number}: {exc}")
+            return
+        if reviews:
+            print(
+                f"  PR #{pr_number}: review confirmed on GitHub at {reviewed_sha[:12]}"
+                + ("" if own else "; none carries this conversation's marker, so none was annotated")
+            )
+        else:
+            if final.strip() == "GITHUB_REVIEW_POSTED":
+                final = ""
+            posted = _post_github_comment(
+                github_token,
+                repo,
+                pr_number,
+                _with_llm_provenance(
+                    _with_ai_disclosure(
+                        final
+                        or f"✅ **OpenHands completed the review for commit `{reviewed_sha[:12]}`.** No review text was produced."
+                    ),
+                    llm_profile,
+                    llm_model,
+                ),
+            )
+            if not posted:
+                return
+            print(f"  PR #{pr_number}: no review found on GitHub; posted the result as a comment")
 
     rec["status"] = "closed"
     rec["completed_at"] = time.time()

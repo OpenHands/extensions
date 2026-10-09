@@ -66,6 +66,25 @@ This skill is activated by:
   assertions, generated mockups, and reconstructed captures cannot substitute.
   Missing evidence yields a COMMENT review that names the gap, so no approval
   and no maintainer handoff
+- Ends each published review, fallback comment, and error comment with the LLM
+  profile and model of the conversation that wrote it:
+  `LLM profile: <profile> · Model: <model>`. The deterministic script appends
+  the footer, never the agent. With default agent publication, it updates only
+  a review whose hidden run marker names that conversation, so automations that
+  share a bot account cannot relabel each other's reviews. Opt-in worker
+  publication formats the claimed conversation's footer before its durable
+  publication intent is saved. The catalog worker records each review's
+  server-derived metadata or an explicit `unknown` fallback in its
+  automation-scoped KV store before updating the review; only that record,
+  never an agent-written footer, establishes
+  attribution. It keeps those values if the agent profile changes later; a
+  failed lookup is logged and never holds up the verdict or maintainer handoff.
+  Failed lookups and uncertain KV writes are reconciled against the saved
+  metadata; failure on one review does not prevent the worker from correcting
+  other owned reviews.
+  The first tuple, including an `unknown` fallback, is retained for that review.
+  If KV cannot establish or validate a tuple, the edit is skipped and logged.
+  The manual upload flow retries a failed lookup or edit on its next poll
 - Posts acknowledgement comments with AI disclosure
 - Configurable review tone and polling schedule
 - Optional human handoff after an exact-head approval or a maintainer-decision
@@ -77,6 +96,20 @@ This skill is activated by:
   leaving the handoff roster empty.
 
 ## Prerequisites
+
+The catalog worker starts each review conversation from the automation's
+agent profile, which the server resolves. Its footer reads the model back from
+that conversation, so a reused conversation reports the LLM it actually runs,
+and takes the LLM profile name from the agent profile while it is still at its
+launch revision (`unknown` once the profile has been edited since).
+For local ACP profiles, the model is the server's reported session model;
+without that metadata it is `unknown`, since the configured override and
+`acp-managed` placeholder do not establish which model produced the review.
+
+The manual upload flow reports `default` and the concrete model from the
+server settings it already uses to start the conversation. That label describes
+the settings source; it does not infer a named profile from the active-profile
+pointer.
 
 Set `GITHUB_PERSONAL_ACCESS_TOKEN` in OpenHands Settings -> Secrets. The token
 must be able to read the repositories and their contents, read issue events,
@@ -108,6 +141,11 @@ Legacy agent publication is the default. With `structured_publication: true`,
 It chooses the event and footer. Only clean, ready results approve;
 clean self-reviews use COMMENT. Missing merge requirements are not code defects.
 **This mode puts findings in the body, not inline threads.**
+
+The publisher appends the claimed conversation's profile/model metadata before
+saving its publication intent. Receipt recovery uses that saved body, so a later
+profile edit cannot relabel the review. An unavailable metadata read is logged
+and leaves publication and handoff available.
 
 ### Operator prerequisites
 

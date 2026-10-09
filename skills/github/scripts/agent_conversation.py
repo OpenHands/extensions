@@ -3,6 +3,7 @@
 import json
 import os
 import time
+from collections.abc import Callable
 from urllib.error import HTTPError
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
@@ -114,6 +115,10 @@ class CloudConversations:
             },
         )
 
+    def agent_profiles(self) -> list[dict]:
+        listing = self._request("GET", "/api/agent-profiles")
+        return (listing or {}).get("profiles") or []
+
     def run(self, conversation: dict) -> None:
         """Start the next turn of an idle conversation on its own Agent Server."""
         try:
@@ -153,6 +158,17 @@ def _user_message(text: str) -> dict:
     return {"role": "user", "content": [{"type": "text", "text": text}]}
 
 
+def _render(prompt, conversation_id) -> str:
+    """The text of `prompt` for the conversation it is delivered to.
+
+    A caller that must name the receiving conversation in its own prompt (a
+    marker the deterministic side later looks for, say) passes a function of
+    the conversation id, because only delivery decides which conversation that
+    is.
+    """
+    return prompt(str(conversation_id)) if callable(prompt) else prompt
+
+
 class AgentConversationDispatcher:
     """Deliver one revision at a time to a stable conversation for each subject."""
 
@@ -190,7 +206,11 @@ class AgentConversationDispatcher:
         return self._workspace.__exit__(*args)
 
     def deliver(
-        self, subject: str, delivery: str, prompt: str, head: str = ""
+        self,
+        subject: str,
+        delivery: str,
+        prompt: str | Callable[[str], str],
+        head: str = "",
     ) -> dict[str, str]:
         """Deliver one revision of `subject`, deduping a repeated head.
 
@@ -203,6 +223,7 @@ class AgentConversationDispatcher:
         A conversation already running for this head is reported `in_progress`
         and left alone, whatever the new delivery says. Callers with no revision
         identity leave `head` empty and keep the delivery-key-only behavior.
+        `prompt` may be a function of the receiving conversation's id.
         """
         conversation_id = uuid5(NAMESPACE_URL, f"{self.automation_id}:{subject}")
         state_key = f"{_CONVERSATION_KEY_PREFIX}{conversation_id}"
@@ -253,6 +274,67 @@ class AgentConversationDispatcher:
             "conversation_id": str(conversation_id),
         }
 
+    def subject_conversation(self, subject: str) -> str | None:
+        """The conversation this automation currently delivers `subject` to."""
+        conversation_id = uuid5(NAMESPACE_URL, f"{self.automation_id}:{subject}")
+        record = _kv_request(f"{_CONVERSATION_KEY_PREFIX}{conversation_id}", "GET")
+        return (record or {}).get("conversation_id") or None
+
+    def llm_provenance(self, conversation_id: str) -> tuple[str, str] | None:
+        """The LLM profile name and model a conversation runs, or None if it is gone.
+
+        Both are read back from the conversation, never from the automation's
+        current settings: the server resolves the agent profile when it starts
+        the conversation, and a reused conversation keeps that LLM after the
+        profile is edited. The model is the conversation's own. The LLM profile
+        name comes from the launching agent profile only while that profile is
+        still at its launch revision, and is `unknown` otherwise.
+        """
+        if self._cloud:
+            conversation = self._cloud.get(conversation_id)
+            if conversation is None:
+                return None
+            model = conversation.get("llm_model")
+        else:
+            try:
+                conversation = self._agent_server_get(
+                    f"/api/conversations/{conversation_id}"
+                )
+            except HTTPError as exc:
+                if exc.code == 404:
+                    return None
+                raise
+            agent = conversation.get("agent") or {}
+            model = conversation.get("current_model_id")
+            if model is None and agent.get("kind") != "ACPAgent":
+                model = (agent.get("llm") or {}).get("model")
+        launched = conversation.get("launched_agent_profile") or {}
+        profile = "unknown"
+        if launched.get("agent_profile_id"):
+            try:
+                if self._cloud:
+                    profiles = self._cloud.agent_profiles()
+                else:
+                    listing = self._agent_server_get("/api/agent-profiles")
+                    profiles = (listing or {}).get("profiles") or []
+            except Exception as exc:  # noqa: BLE001 - the model is still known
+                print(f"Could not read agent profiles: {type(exc).__name__}: {exc}")
+                profiles = []
+            for item in profiles:
+                if str(item.get("id")) == str(launched["agent_profile_id"]):
+                    if item.get("revision") == launched.get("revision"):
+                        profile = item.get("llm_profile_ref") or "unknown"
+                    break
+        return profile, model or "unknown"
+
+    def _agent_server_get(self, path: str) -> dict:
+        request = Request(
+            f"{self.agent_url.rstrip('/')}{path}",
+            headers={"X-Session-API-Key": self.api_key},
+        )
+        with urlopen(request, timeout=90) as response:
+            return json.load(response)
+
     def _deliver_cloud(
         self,
         record,
@@ -288,7 +370,9 @@ class AgentConversationDispatcher:
 
         if conversation is None:
             new_id = uuid4() if record else conversation_id
-            self._cloud.start(new_id, self.profile_id, subject, prompt)
+            self._cloud.start(
+                new_id, self.profile_id, subject, _render(prompt, new_id)
+            )
             return "created", new_id
 
         status = conversation.get("execution_status")
@@ -304,10 +388,10 @@ class AgentConversationDispatcher:
                 # The API reports an execution status only while the sandbox
                 # runs, so an errored conversation whose sandbox was already
                 # paused is not seen here and keeps reporting deduplicated.
-                self._cloud.send(conversation, prompt)
+                self._cloud.send(conversation, _render(prompt, current_id))
                 return "retried", current_id
             return "deduplicated", current_id
-        self._cloud.send(conversation, prompt)
+        self._cloud.send(conversation, _render(prompt, current_id))
         return "resumed", current_id
 
     def _deliver_local(
@@ -327,12 +411,13 @@ class AgentConversationDispatcher:
             conversation = RemoteConversation.create(
                 self._workspace,
                 StartConversationRequest(
-                    workspace=LocalWorkspace(working_dir="/workspace"),
+                    workspace=LocalWorkspace(working_dir=self._workspace.working_dir),
                     conversation_id=conversation_id,
                     agent_profile_id=self.profile_id,
                     secrets=self._secrets,
                     initial_message=SendMessageRequest(
-                        content=[TextContent(text=prompt)], run=True
+                        content=[TextContent(text=_render(prompt, conversation_id))],
+                        run=True,
                     ),
                 ),
                 visualizer=None,
@@ -366,7 +451,7 @@ class AgentConversationDispatcher:
                         # the work finished, so send the revision again rather
                         # than strand it.
                         conversation.update_secrets(self._secrets)
-                        conversation.send_message(prompt)
+                        conversation.send_message(_render(prompt, conversation_id))
                         conversation.run(blocking=False)
                         disposition = "retried"
                     else:
@@ -376,7 +461,7 @@ class AgentConversationDispatcher:
                     # work on the same subject: reuse the conversation and send
                     # the revision as its next turn.
                     conversation.update_secrets(self._secrets)
-                    conversation.send_message(prompt)
+                    conversation.send_message(_render(prompt, conversation_id))
                     conversation.run(blocking=False)
         finally:
             conversation.close()
@@ -421,7 +506,7 @@ class AgentConversationDispatcher:
         conversation = RemoteConversation.create(
             self._workspace,
             StartConversationRequest(
-                workspace=LocalWorkspace(working_dir="/workspace"),
+                workspace=LocalWorkspace(working_dir=self._workspace.working_dir),
                 conversation_id=UUID(conversation_id),
                 agent_profile_id=self.profile_id,
                 secrets=self._secrets,
