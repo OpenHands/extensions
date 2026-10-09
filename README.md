@@ -100,7 +100,7 @@ The JS and Python versions are kept in lock-step by `release-please` and guarded
 ## Extensions Catalog
 
 <!-- BEGIN AUTO-GENERATED CATALOG -->
-This repository contains **2 marketplace(s)** with **77 extensions** (66 skills, 11 plugins).
+This repository contains **2 marketplace(s)** with **78 extensions** (67 skills, 11 plugins).
 
 ### large-codebase
 
@@ -119,7 +119,7 @@ OpenHands skills for interacting, improving, and refactoring large codebases
 
 Official skills and plugins for OpenHands — the open-source AI software engineer.
 
-**73 extensions** (64 skills, 9 plugins)
+**74 extensions** (65 skills, 9 plugins)
 
 | Name | Type | Description | Commands |
 |------|------|-------------|----------|
@@ -174,6 +174,7 @@ Official skills and plugins for OpenHands — the open-source AI software engine
 | openhands-enterprise-troubleshooting | skill | Diagnose and resolve common issues on OpenHands Enterprise self-hosted installations. Covers sandbox startup failures... | — |
 | openhands-sdk | skill | Reference skill for the OpenHands Software Agent SDK - build AI agents with custom tools, LLM configuration, conversa... | `/sdk` |
 | pdflatex | skill | Install and use pdflatex to compile LaTeX documents into PDFs on Linux. Use when generating academic papers, research... | — |
+| pixeltable | skill | Use when the project already uses Pixeltable. Covers declarative multimodal tables, computed columns, embedding index... | — |
 | plain-english-content | skill | Write and edit clear, accessible prose in a plain English content style: active voice, front-loaded content, sentence... | — |
 | pr-review | plugin | Automated PR code review — analyzes diffs and posts inline review comments via the GitHub API. | — |
 | prd | skill | Generate a Product Requirements Document (PRD) for a new feature through an interactive clarifying-question workflow.... | `/prd` |

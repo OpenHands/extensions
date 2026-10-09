@@ -929,6 +929,19 @@
         "jev",
         "classification"
       ]
+    },
+    {
+      "name": "pixeltable",
+      "source": "./skills/pixeltable",
+      "description": "Use when the project already uses Pixeltable. Covers declarative multimodal tables, computed columns, embedding indexes, iterators, UDFs (pxt.udf), and the pxt CLI.",
+      "category": "integrations",
+      "keywords": [
+        "pixeltable",
+        "pxt.udf",
+        "pxt.query",
+        "computed-columns",
+        "embedding-index"
+      ]
     }
   ]
 }
