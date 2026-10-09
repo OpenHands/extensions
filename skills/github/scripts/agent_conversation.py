@@ -411,7 +411,7 @@ class AgentConversationDispatcher:
             conversation = RemoteConversation.create(
                 self._workspace,
                 StartConversationRequest(
-                    workspace=LocalWorkspace(working_dir="/workspace"),
+                    workspace=LocalWorkspace(working_dir=self._workspace.working_dir),
                     conversation_id=conversation_id,
                     agent_profile_id=self.profile_id,
                     secrets=self._secrets,
@@ -506,7 +506,7 @@ class AgentConversationDispatcher:
         conversation = RemoteConversation.create(
             self._workspace,
             StartConversationRequest(
-                workspace=LocalWorkspace(working_dir="/workspace"),
+                workspace=LocalWorkspace(working_dir=self._workspace.working_dir),
                 conversation_id=UUID(conversation_id),
                 agent_profile_id=self.profile_id,
                 secrets=self._secrets,

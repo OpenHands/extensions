@@ -54,19 +54,20 @@ def test_github_secret_falls_back_to_agent_server(monkeypatch):
     workspace.reset_client.assert_called_once_with()
 
 
-def test_new_subject_uses_selected_profile_and_persists_mapping(monkeypatch):
+def test_new_subject_uses_selected_profile_and_persists_mapping(monkeypatch, tmp_path):
     state = {}
     _fake_kv(monkeypatch, state)
     monkeypatch.setattr(agent_conversation, "_register_tools", lambda: None)
+    monkeypatch.setenv("WORKSPACE_BASE", str(tmp_path))
     workspace = MagicMock()
     workspace.__enter__.return_value = workspace
+    workspace.working_dir = str(tmp_path)
     scoped_secrets = {
         "GITHUB_TOKEN": LookupSecret(url="/api/settings/secrets/GITHUB_TOKEN")
     }
     workspace.get_secrets.return_value = scoped_secrets
-    monkeypatch.setattr(
-        agent_conversation, "RemoteWorkspace", lambda **kwargs: workspace
-    )
+    remote_workspace = MagicMock(return_value=workspace)
+    monkeypatch.setattr(agent_conversation, "RemoteWorkspace", remote_workspace)
     missing = agent_conversation.httpx.HTTPStatusError(
         "missing",
         request=MagicMock(),
@@ -83,6 +84,10 @@ def test_new_subject_uses_selected_profile_and_persists_mapping(monkeypatch):
         result = dispatcher.deliver("repo:issue:7", "revision-1", "work")
 
     request = create.call_args.args[1]
+    remote_workspace.assert_called_once_with(
+        host="http://agent", api_key="session", working_dir=str(tmp_path)
+    )
+    assert request.workspace.working_dir == str(tmp_path)
     assert request.agent_profile_id == UUID("11111111-1111-4111-8111-111111111111")
     assert request.secrets == scoped_secrets
     workspace.get_secrets.assert_called_once_with(
@@ -99,6 +104,32 @@ def test_new_subject_uses_selected_profile_and_persists_mapping(monkeypatch):
         # the dedupe keyed on `delivery` alone.
         "head": "",
     }
+
+
+def test_review_work_uses_configured_local_workspace(monkeypatch, tmp_path):
+    monkeypatch.setattr(agent_conversation, "_register_tools", lambda: None)
+    monkeypatch.setenv("WORKSPACE_BASE", str(tmp_path))
+    workspace = MagicMock()
+    workspace.__enter__.return_value = workspace
+    workspace.working_dir = str(tmp_path)
+    workspace.get_secrets.return_value = {}
+    remote_workspace = MagicMock(return_value=workspace)
+    monkeypatch.setattr(agent_conversation, "RemoteWorkspace", remote_workspace)
+    conversation = MagicMock()
+    create = MagicMock(return_value=conversation)
+    monkeypatch.setattr(agent_conversation.RemoteConversation, "create", create)
+
+    with _dispatcher(monkeypatch) as dispatcher:
+        dispatcher.start_review_work(
+            "22222222-2222-4222-8222-222222222222", "repo:pr:9", "review"
+        )
+
+    request = create.call_args.args[1]
+    remote_workspace.assert_called_once_with(
+        host="http://agent", api_key="session", working_dir=str(tmp_path)
+    )
+    assert request.workspace.working_dir == str(tmp_path)
+    conversation.close.assert_called_once_with()
 
 
 def test_known_subject_resumes_once_per_delivery(monkeypatch):
