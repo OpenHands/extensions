@@ -64,6 +64,19 @@
       ]
     },
     {
+      "name": "session-insight",
+      "source": "./skills/session-insight",
+      "description": "Generate a local HTML usage report from OpenHands session exports, identify recurring failures and repetitive actions, and propose evidence-backed workflow improvements.",
+      "category": "agent-authoring",
+      "keywords": [
+        "insight",
+        "analytics",
+        "sessions",
+        "usage",
+        "report"
+      ]
+    },
+    {
       "name": "code-simplifier",
       "source": "./skills/code-simplifier",
       "description": "Simplifies and refines code across three dimensions - code reuse, code quality, and efficiency - while preserving all functionality. Analyzes recently modified code and provides actionable improvement suggestions.",
