@@ -480,6 +480,19 @@
       ]
     },
     {
+      "name": "openhands-sandbox-conversation",
+      "source": "./skills/openhands-sandbox-conversation",
+      "description": "Identify the sandbox of a given OpenHands conversation, or the agent's own sandbox, and start a new conversation in that same sandbox. Includes a stdlib-only Python helper under scripts/.",
+      "category": "agent-authoring",
+      "keywords": [
+        "openhands",
+        "sandbox",
+        "conversations",
+        "delegation",
+        "workspace"
+      ]
+    },
+    {
       "name": "pdflatex",
       "source": "./skills/pdflatex",
       "description": "Install and use pdflatex to compile LaTeX documents into PDFs on Linux. Use when generating academic papers, research publications, or any documents written in LaTeX.",
