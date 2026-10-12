@@ -105,7 +105,7 @@ def fire_callback(status="COMPLETED", error=None):
     try:
         urllib.request.urlopen(urllib.request.Request(url, data=json.dumps(body).encode(), headers={
             "Content-Type": "application/json",
-            "Authorization": f"Bearer {os.environ.get('AUTOMATION_CALLBACK_API_KEY', '')}",
+            "Authorization": f"Bearer {os.environ.get('AUTOMATION_CALLBACK_API_KEY') or os.environ.get('OPENHANDS_API_KEY', '')}",
         }))
     except Exception as e: print(f"Callback error: {e}")
 ```
@@ -345,7 +345,7 @@ def fire_callback(status="COMPLETED", error=None):
     if error: body["error"] = error
     req = urllib.request.Request(url, data=json.dumps(body).encode(), headers={
         "Content-Type": "application/json",
-        "Authorization": f"Bearer {os.environ.get('AUTOMATION_CALLBACK_API_KEY', '')}",
+        "Authorization": f"Bearer {os.environ.get('AUTOMATION_CALLBACK_API_KEY') or os.environ.get('OPENHANDS_API_KEY', '')}",
     })
     try: urllib.request.urlopen(req)
     except Exception as e: print(f"Callback error: {e}")
