@@ -205,6 +205,23 @@ deterministic maintainer handoff does not fire. Non-UI changes keep the existing
 requirement of the real command and its observed output, with tests insufficient
 as sole proof.
 
+Every review ends with the LLM profile and model of the conversation that wrote
+it, after the verdict: `LLM profile: <profile> · Model: <model>`. The agent does
+not write this footer. The prompt gives it a hidden marker naming its own
+conversation, `<!-- openhands-review-run: <conversation-id> -->`, to copy under
+the disclosure, and the deterministic script appends the footer to the reviews
+that carry exactly that marker and no other. Login, head, and submission time
+cannot tell two automations that share a bot account apart, so a review without
+the marker, with another run's marker, or with several markers is never edited.
+The catalog worker reads the values back from the marked conversation: the
+model it runs, and the LLM profile its agent profile referenced at launch
+(`unknown` once that agent profile has been edited). It never substitutes the
+scanner's own settings, and a reused conversation keeps reporting the LLM it
+was launched with. A review is stamped once, so a later agent profile edit
+cannot rewrite its footer, and a provenance failure is logged without holding
+up the verdict or the maintainer handoff. The completion handler reads the
+verdict above the footer.
+
 The script prepares each review's workspace before the agent starts: the pull
 request's head commit is downloaded as a tarball and extracted to a directory of
 its own, which becomes the conversation's working directory. The agent is told
@@ -453,10 +470,13 @@ For each repository:
      `{WORKSPACE_BASE}/repositories/{owner}__{repo}/pr-{number}-{sha12}`. The
      archive is checked as it is unpacked: a single root, no absolute or `..`
      paths, and symlinks skipped rather than materialised.
+   - Records `default` and the concrete model from the server settings already
+     used to start the conversation, for the review footer.
    - Starts an OpenHands conversation **whose working directory is that
-     checkout**, with a review prompt carrying PR metadata, the exact head SHA,
-     label event details, and the requirement to re-fetch the current mutable
-     GitHub state before deciding a verdict.
+     checkout**, under an id chosen before it starts, with a review prompt
+     carrying PR metadata, the exact head SHA, label event details, the
+     requirement to re-fetch the current mutable GitHub state before deciding
+     a verdict, and that conversation's review marker.
    - Posts an acknowledgement comment with the label event, head SHA, and
      conversation link.
    - Records the review in state with `status: "active"` and the checkout path.
@@ -467,9 +487,12 @@ For each repository:
    - Suppresses stale results if the PR head SHA changed after the review was
      queued.
    - When the conversation reaches `idle`, `finished`, `error`, or `stuck`,
-     asks GitHub whether a review by the token's own user exists for that head
-     SHA. If it does, the review is complete. If it does not, the agent's final
-     response is posted as a comment so the work is not lost.
+     verifies a submitted review by the token's own user at that head SHA and
+     appends the recorded LLM profile and model to each review carrying this
+     conversation's marker before marking the review complete. Reviews without
+     that marker are confirmed but never edited. If no review exists, the
+     agent's final response is posted as a comment with provenance. Failed
+     verification or publication is retried on the next poll.
    - Abandons a conversation that has not reached a terminal status within two
      hours, so its checkout can be reclaimed.
 6. Removes the checkout of every finished review, but only after confirming the
