@@ -931,6 +931,20 @@
         "jev",
         "classification"
       ]
+    },
+    {
+      "name": "cortex-training-rl",
+      "source": "./skills/cortex-training-rl",
+      "description": "Run reinforcement-learning post-training of a model inside the OpenHands harness on Snowflake Cortex Training with the Arctic Platform recipe. Use when launching, monitoring, debugging, or stopping an OpenHands RL run on Cortex Training.",
+      "category": "integrations",
+      "keywords": [
+        "cortex-training",
+        "reinforcement-learning",
+        "post-training",
+        "skyrl",
+        "arctic-platform",
+        "codescout"
+      ]
     }
   ]
 }
