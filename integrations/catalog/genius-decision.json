@@ -1,0 +1,34 @@
+{
+  "id": "genius-decision",
+  "name": "Genius Decision",
+  "description": "Create, review, evaluate, and export versioned decision models with reproducible engine receipts.",
+  "categories": [
+    "Research",
+    "Productivity"
+  ],
+  "appUrl": "https://geniusdecision.app",
+  "docsUrl": "https://geniusdecision.app/agents",
+  "notes": "The hosted service accepts synthetic or non-personal data only. Results are conditional on declared model assumptions and do not establish empirical validity. OAuth is not available.",
+  "installHint": "Read the live manifest and data policy linked from the setup guide, then register an isolated agent at POST /api/agents/register with explicit scopes. Default scopes do not include the twin model tools: request twins:read, twins:write, and twins:evaluate for those operations. Request twins:delete or account:delete only when cleanup is intended. Evaluation consumes the service's shared quota; inspect errors before retrying.",
+  "connectionOptions": [
+    {
+      "id": "api",
+      "provider": "mcp",
+      "transport": {
+        "kind": "shttp",
+        "url": "https://geniusdecision.app/mcp"
+      },
+      "auth": {
+        "strategy": "bearer",
+        "credentialLabel": "Genius agent token",
+        "credentialHelp": "Obtain a scoped machine token using the [agent setup guide](https://geniusdecision.app/agents). Paste only the token; the client sends it in the Authorization: Bearer header. This credential accesses its own agent space, not a human account."
+      }
+    }
+  ],
+  "keywords": [
+    "decision models",
+    "digital twin",
+    "evidence",
+    "reproducibility"
+  ]
+}
