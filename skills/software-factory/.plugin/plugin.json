@@ -1,0 +1,19 @@
+{
+  "name": "software-factory",
+  "version": "1.0.0",
+  "description": "Onboard a user to a GitHub software factory in one conversation: interview once, collect the GitHub token securely, then create and smoke-test the catalog automations that turn labelled issues into reviewed pull requests.",
+  "author": {
+    "name": "OpenHands",
+    "email": "contact@all-hands.dev"
+  },
+  "homepage": "https://github.com/OpenHands/extensions",
+  "repository": "https://github.com/OpenHands/extensions",
+  "license": "MIT",
+  "keywords": [
+    "onboarding",
+    "software-factory",
+    "github",
+    "automation",
+    "pull-request"
+  ]
+}
