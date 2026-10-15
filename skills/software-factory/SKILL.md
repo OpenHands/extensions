@@ -37,59 +37,64 @@ Bitbucket code hosts are not part of this flow.
 | Stale-CI PR closer | `github-stale-ci-pr-closer` | add-on | no |
 | QA changes | `qa-changes` | add-on | no |
 
+## Helper script
+
+`scripts/factory.py` in this skill's directory (`$F` below; run it with
+`python3`) does every catalog and API step and prints one JSON document; it
+exits non-zero with `{"error": ...}` on failure. It needs:
+
+- `OPENHANDS_HOST`: export it as the `openhands-automation` skill determines
+  the host ("Determining the API Host"). Auth comes from `OPENHANDS_API_KEY`
+  (Cloud) or `OPENHANDS_AUTOMATION_API_KEY` (local Agent Canvas).
+- `GITHUB_PERSONAL_ACCESS_TOKEN` in the environment. The script reads it and
+  never prints it.
+
+| Command | Does |
+|---|---|
+| `$F preflight --repos a/b,c/d` | Which stations this deployment supports, the agent profile, the GitHub login, push access per repository. |
+| `$F create --repos a/b --ids ID,ID [--set FIELD=VALUE] [--set ID.FIELD=VALUE]` | Fills each station's form (answers, then derived values, then manifest defaults), uploads the bundle and creates it disabled. `FIELD=VALUE` applies to every listed station with that field. |
+| `$F verify ID... [--no-wait ID...]` | Dispatches once, enables the ones whose run `COMPLETED` and disables the rest, reporting their `error_detail`. `--no-wait` enables without waiting. |
+| `$F status ID...` | The latest run of each. |
+
+Add `--profile NAME` to `preflight` or `create` to use a profile other than the
+active one.
+
 ## Rules
 
-- **Host and auth**: as the `openhands-automation` skill describes ("Determining
-  the API Host", "Authentication"). `${API}` below is
-  `${OPENHANDS_HOST}/api/automation/v1`; send `${AUTH_HEADER}` on every call.
-- **Supported stations**: a station can be created only if
-  `GET ${API}/capabilities` lists every feature in its manifest
-  `requires.features`. Skip the others and say why.
-- **Form values**: the user's answer, else a derived value, else the manifest
-  `default`. Derived values are never asked:
-  - every `githubTokenSecret` = `GITHUB_PERSONAL_ACCESS_TOKEN` (also for the
-    stale-CI closer, whose default is `GITHUB_TOKEN_REVIEW`);
-  - watchdog `branchPrefix` = issue to PR `branchPrefix`.
-- **Agent profile** (stations that need one): the profile the user named, else
-  `active_agent_profile_id` from `GET /api/agent-profiles` on the same backend.
-  It must not be an ACP profile and must allow `GITHUB_PERSONAL_ACCESS_TOKEN`.
-  If none qualifies, skip those stations and point the user to the station's
-  catalog card in Agent Canvas (Automations), which has a profile picker.
+- **Supported stations**: create only those `preflight` reports `ok`; say why
+  the others are skipped.
+- **Derived values** (the script fills them; never ask): every
+  `githubTokenSecret` is `GITHUB_PERSONAL_ACCESS_TOKEN`. The watchdog's
+  `branchPrefix` must equal issue to PR's: when it was changed, pass
+  `--set github-delivery-watchdog.branchPrefix=<same value>`.
+- **Agent profile**: if `preflight` reports a profile error, skip the stations
+  that need one and point the user to the station's catalog card in Agent
+  Canvas (Automations), which has a profile picker.
 - **Token**: never ask for its value in chat, echo it, or put it in a tool
   argument or file.
-- **Failures**: if a create fails, stop, list the stations that exist (with
-  ids) and the error, and ask whether to retry or delete them.
+- **Failures**: if `create` fails, its output lists the stations it already
+  created; report them with the error and ask whether to retry or delete them
+  (`DELETE ${OPENHANDS_HOST}/api/automation/v1/{id}`).
 
 ## Phase 1 - Working factory
 
-1. Prepare, without asking anything:
-   - check capabilities (see Rules);
-   - `git clone --depth 1 https://github.com/OpenHands/extensions /tmp/software-factory/extensions`;
-   - resolve the agent profile (see Rules);
-   - check the token:
-     ```bash
-     curl -s https://api.github.com/user -H "Authorization: Bearer $GITHUB_PERSONAL_ACCESS_TOKEN" \
-       | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('login') or d.get('message'))"
-     ```
-2. If the token is missing or invalid: when the `request_secret` tool is
-   available, call it once with `name: "GITHUB_PERSONAL_ACCESS_TOKEN"` and a
-   `reason` asking for Contents, Issues, Pull requests and Workflows read and
-   write (classic PAT: `repo`, `workflow`), then end your turn and wait for the
-   `[secret-request]` message. Otherwise tell the user to add it in Settings ->
-   Secrets and stop.
-3. Ask, in one message: "Which GitHub repositories (`owner/repo`)? Where do
+1. Ask, in one message: "Which GitHub repositories (`owner/repo`)? Where do
    tickets live: GitHub issues (default), Jira or Linear?" Say that everything
    else uses defaults that can be changed afterwards.
-4. For each repository, check `permissions.push` from
-   `GET https://api.github.com/repos/{owner}/{repo}`. Drop the ones the token
-   cannot push to, and say which.
-5. Create the reviewer and the AGENTS.md maintainer (see "Create a station"),
-   and the issue to PR station for the ticket source (see "Ticket source").
-6. Run "Verify and enable" for the reviewer and, with GitHub issues, for issue
-   to PR. Dispatch the
-   AGENTS.md maintainer once (`POST ${API}/{id}/dispatch`) and enable it without
-   waiting for the run, which opens one `AGENTS.md` pull request per repository.
-7. Go to the Checkpoint.
+2. Run `$F preflight --repos <repos>`. Drop repositories without `push`, and
+   say which.
+3. If `github_login` is null and the `request_secret` tool is available, call
+   it once with `name: "GITHUB_PERSONAL_ACCESS_TOKEN"` and a `reason` asking
+   for Contents, Issues, Pull requests and Workflows read and write (classic
+   PAT: `repo`, `workflow`), end your turn, wait for the `[secret-request]`
+   message, then rerun `preflight`. Without the tool, tell the user to add it
+   in Settings -> Secrets and stop.
+4. `$F create --repos <repos> --ids github-pr-reviewer,github-agents-md-maintainer`,
+   adding `github-issue-to-pr` for GitHub issues. For Jira or Linear, also set
+   up the issue to PR station as "Ticket source" describes.
+5. `$F verify <reviewer id> [<issue to PR id>] --no-wait <maintainer id>`. The
+   maintainer's run opens one `AGENTS.md` pull request per repository.
+6. Go to the Checkpoint.
 
 ## Checkpoint
 
@@ -99,10 +104,9 @@ Bitbucket code hosts are not part of this flow.
    also reviews any open, non-draft, green pull request with no review yet (at
    most 2 new per scan).
 
-   Check the maintainer's run (`GET ${API}/{id}/runs?limit=1`). If it finished,
-   link the `AGENTS.md` pull requests and ask the user to merge them: they give
-   the build agent the repository's build, test and lint commands. If not, say
-   they are on their way.
+   Run `$F status <maintainer id>`. If its run finished, link the `AGENTS.md`
+   pull requests and ask the user to merge them: they give the build agent the
+   repository's build, test and lint commands. If not, say they are on their way.
 2. Say how to use it: "Add the `<trigger label>` label to a ticket to have it
    built (on Jira, the ticket body must name the `owner/repo`); the reviewer
    reviews the pull request; you merge it."
@@ -121,82 +125,50 @@ each with its current value. Apply, then return to the Checkpoint.
 
 ### Tune
 
-| Setting | Default | Fields |
+| Setting | Default | `--set` |
 |---|---|---|
-| Issue trigger label (GitHub issues) | `openhands` | issue to PR `triggerLabel` |
+| Issue trigger label (GitHub issues) | `openhands` | `github-issue-to-pr.triggerLabel` |
 | Draft or ready pull requests | `draft` | `pullRequestMode` (issue to PR, AGENTS.md maintainer) |
-| Branch prefix (GitHub issues) | `openhands/issue` | issue to PR `branchPrefix` (and the watchdog's, if present) |
-| Which pull requests get reviewed | label `openhands-review`, reviewer `all-hands-bot` | reviewer `triggerLabel`, `triggerReviewer` |
-| Review tone: concise, thorough, friendly | `concise` | reviewer `reviewTone` |
-| Human reviewers requested after agent approval (two or more logins) | none | reviewer `maintainers` |
-| Schedules and timezone | issue to PR `*/15 * * * *`, reviewer `*/5 * * * *`, AGENTS.md maintainer `0 9 * * 1`, add-ons per manifest; `UTC` | cron `schedule`, `timezone` |
-| Agent profile | active profile | `agent_profile_id` |
+| Branch prefix (GitHub issues) | `openhands/issue` | `github-issue-to-pr.branchPrefix` (and the watchdog's, if present) |
+| Which pull requests get reviewed | label `openhands-review`, reviewer `all-hands-bot` | `github-pr-reviewer.triggerLabel`, `triggerReviewer` |
+| Review tone: concise, thorough, friendly | `concise` | `reviewTone` |
+| Human reviewers requested after agent approval (two or more logins) | none | `maintainers` |
+| Schedules and timezone | issue to PR `*/15 * * * *`, reviewer `*/5 * * * *`, AGENTS.md maintainer `0 9 * * 1`, add-ons per manifest; `UTC` | `ID.schedule`, `timezone` |
+| Agent profile | active profile | `--profile NAME` |
 
 Apply:
 
-- Schedule or timezone only: `PATCH ${API}/{id}` with `{"trigger": {...}}`.
+- Schedule or timezone only:
+  `PATCH ${OPENHANDS_HOST}/api/automation/v1/{id}` with `{"trigger": {...}}`.
 - Jira or Linear station settings: change them as its skill describes.
-- Anything else is fixed at creation: create a replacement station with the new
-  values and run "Verify and enable" on it. If it passes,
-  `DELETE ${API}/{old id}`; if not, delete the replacement and keep the old one.
+- Anything else is fixed at creation: `$F create` a replacement with the new
+  values (repeat every earlier non-default value) and `$F verify` it. If it
+  passes, delete the old station; if not, delete the replacement and keep the
+  old one.
 
 ### Add a station
 
-Ask only the question below, then create it (see "Create a station") and run
-"Verify and enable".
+Ask only the question below, then `$F create` it and `$F verify` it.
 
-- **Auto-merge watchdog** (GitHub issues only, since it merges only branches
-  with the issue to PR prefix): confirm the user wants the agent to merge pull
-  requests itself once review, tests and CI are green.
-- **Stale-CI closer**: confirm it may warn on, then close, pull requests whose
-  CI keeps failing.
-- **Triage**: nothing. For Linear, follow the `linear-triage` skill instead;
-  for Jira there is none.
-- **QA changes**: which base branch (default `main`). Offer QA only if the
-  `openhands-automation` webhook reachability check passes. It takes a single
-  `repository`, so create one per repository.
-
-## Create a station
-
-Mirror how Agent Canvas creates a catalog bundle:
-
-1. Build the bundle directory from `setup.bundle.files` (archive name ->
-   path relative to the clone root):
-   ```bash
-   mkdir -p /tmp/software-factory/build/<id>
-   cp -L /tmp/software-factory/extensions/<repo-path> /tmp/software-factory/build/<id>/<archive-name>
-   ```
-2. Render `setup.bundle.config`: replace each `{{form.<field>}}` with its form
-   value, keeping JSON types (`repositories` stays a list). Write it to
-   `config.json` in the bundle directory with `json.dumps`.
-3. Upload and record the returned `tarball_path`:
-   ```bash
-   tar -czf /tmp/software-factory/<id>.tar.gz -C /tmp/software-factory/build/<id> .
-   curl -s -X POST "${API}/uploads?name=<id>" -H "${AUTH_HEADER}" \
-     -H "Content-Type: application/gzip" --data-binary @/tmp/software-factory/<id>.tar.gz
-   ```
-4. `POST ${API}` with:
-   ```json
-   {
-     "name": "<manifest name> - <owner/repo>  (or '- N repositories')",
-     "trigger": {"type": "cron", "schedule": "<schedule>", "timezone": "<timezone>"},
-     "tarball_path": "<tarball_path>",
-     "entrypoint": "<setup.bundle.entrypoint>",
-     "timeout": <setup.bundle.timeout>,
-     "agent_profile_id": "<only for stations that need one>",
-     "template": {"id": "<id>", "version": "<setup.bundle.version>", "config": <rendered config>}
-   }
-   ```
-5. Disable it at once: `PATCH ${API}/{id}` with `{"enabled": false}`. Record the id.
-
-`qa-changes` has no bundle: create it as the `openhands-automation` skill
-describes for an event-triggered prompt preset, with its manifest `prompt` and
-`filter`. It runs only on pull request events, so leave it enabled and skip
-"Verify and enable".
+- **Auto-merge watchdog** (`github-delivery-watchdog`, GitHub issues only,
+  since it merges only branches with the issue to PR prefix): confirm the user
+  wants the agent to merge pull requests itself once review, tests and CI are
+  green.
+- **Stale-CI closer** (`github-stale-ci-pr-closer`): confirm it may warn on,
+  then close, pull requests whose CI keeps failing.
+- **Triage** (`github-issue-triage`): nothing. For Linear, follow the
+  `linear-triage` skill instead; for Jira there is none.
+- **QA changes**: which base branch (default `main`). Offer QA only if
+  `preflight` reports it `ok` and the `openhands-automation` webhook
+  reachability check passes. It has no bundle, so the script cannot create it:
+  create it as the `openhands-automation` skill describes for an
+  event-triggered prompt preset, with its manifest `prompt` and `filter`, one
+  per repository (it takes a single `repository`). It runs only on pull request
+  events, so leave it enabled and skip `verify`.
 
 ## Ticket source
 
-- **GitHub issues**: `github-issue-to-pr` (see "Create a station").
+- **GitHub issues**: `github-issue-to-pr`, created with the others in Phase 1.
 - **Jira**: follow the `jira-issue-to-pr` skill with `git_provider` `github`
   and its defaults (label `create-pr`, `*/5 * * * *`). Ask only what it cannot
   look up (the Jira site if several, or the API-token details when Atlassian
@@ -206,15 +178,7 @@ describes for an event-triggered prompt preset, with its manifest `prompt` and
   provider. Ask its questions in one message, proposing the repositories above
   and `*/15 * * * *` as defaults.
 
-Once its skill has created the station, run "Verify and enable" on it (skip
-the dispatch if the skill already ran one).
-
-## Verify and enable
-
-1. `POST ${API}/{id}/dispatch`, then poll `GET ${API}/{id}/runs?limit=1` until
-   the run is `COMPLETED` or `FAILED`.
-2. `COMPLETED`: `PATCH ${API}/{id}` with `{"enabled": true}`.
-3. `FAILED`: keep it disabled, show `error_detail`, and ask how to proceed.
+Once its skill has created the station, run `$F verify <id>` on it.
 
 ## Troubleshooting
 

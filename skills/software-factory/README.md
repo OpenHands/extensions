@@ -24,7 +24,9 @@ This skill is activated by:
 | Stale-CI PR closer | `github-stale-ci-pr-closer` | add-on |
 | QA changes | `qa-changes` | add-on (webhooks only) |
 
-The skill adds no automation logic of its own. Each station is the unmodified
+`scripts/factory.py` (Python standard library, no LLM) does the catalog and API
+work - preflight checks, bundle upload and create, smoke run and enable - so
+Phase 1 takes four agent steps. The skill adds no automation logic of its own. Each station is the unmodified
 catalog bundle from `automations/catalog/<id>/`, configured from its `setup`
 block, so fixes to a station reach factories created by this skill too. A Jira
 or Linear issue to PR station is created by its own skill instead.
