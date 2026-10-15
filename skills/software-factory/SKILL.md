@@ -39,15 +39,21 @@ Bitbucket code hosts are not part of this flow.
 
 ## Helper script
 
-`scripts/factory.py` in this skill's directory (`$F` below; run it with
-`python3`) does every catalog and API step and prints one JSON document; it
-exits non-zero with `{"error": ...}` on failure. It needs:
+`scripts/factory.py` in this skill's directory does every catalog and API step
+and prints one JSON document; it exits non-zero with `{"error": ...}` on
+failure. Export `OPENHANDS_HOST` as the `openhands-automation` skill determines
+the host ("Determining the API Host"), then run every command as:
 
-- `OPENHANDS_HOST`: export it as the `openhands-automation` skill determines
-  the host ("Determining the API Host"). Auth comes from `OPENHANDS_API_KEY`
-  (Cloud) or `OPENHANDS_AUTOMATION_API_KEY` (local Agent Canvas).
-- `GITHUB_PERSONAL_ACCESS_TOKEN` in the environment. The script reads it and
-  never prints it.
+```bash
+GITHUB_PERSONAL_ACCESS_TOKEN="$GITHUB_PERSONAL_ACCESS_TOKEN" \
+OPENHANDS_AUTOMATION_API_KEY="$OPENHANDS_AUTOMATION_API_KEY" \
+OPENHANDS_API_KEY="$OPENHANDS_API_KEY" \
+python3 <this skill's directory>/scripts/factory.py <command> ...
+```
+
+`$F` below stands for that whole line. Keep the secret names in it: the agent
+server passes a saved secret into a command only when the command names it.
+The script reads the token and never prints it.
 
 | Command | Does |
 |---|---|
@@ -83,12 +89,17 @@ active one.
    else uses defaults that can be changed afterwards.
 2. Run `$F preflight --repos <repos>`. Drop repositories without `push`, and
    say which.
-3. If `github_login` is null and the `request_secret` tool is available, call
-   it once with `name: "GITHUB_PERSONAL_ACCESS_TOKEN"` and a `reason` asking
-   for Contents, Issues, Pull requests and Workflows read and write (classic
-   PAT: `repo`, `workflow`), end your turn, wait for the `[secret-request]`
-   message, then rerun `preflight`. Without the tool, tell the user to add it
-   in Settings -> Secrets and stop.
+3. If `github_login` is null, act on `token_error`:
+   - `not_set`, and the `request_secret` tool is available: call it once with
+     `name: "GITHUB_PERSONAL_ACCESS_TOKEN"` and a `reason` asking for Contents,
+     Issues, Pull requests and Workflows read and write (classic PAT: `repo`,
+     `workflow`). End your turn, wait for the `[secret-request]` message,
+     then rerun `preflight`.
+   - `rejected`: the saved token is invalid or expired. Tell the user to
+     replace it in Settings -> Secrets and say when done; `request_secret`
+     cannot replace it (it answers `saved` at once for an existing name).
+   - `not_set` without the tool: tell the user to add it in Settings ->
+     Secrets and stop.
 4. `$F create --repos <repos> --ids github-pr-reviewer,github-agents-md-maintainer`,
    adding `github-issue-to-pr` for GitHub issues. For Jira or Linear, also set
    up the issue to PR station as "Ticket source" describes.

@@ -71,7 +71,10 @@ def _auth() -> dict:
         return {"X-Session-API-Key": session}
     if bearer:
         return {"Authorization": f"Bearer {bearer}"}
-    raise FactoryError("set OPENHANDS_API_KEY or OPENHANDS_AUTOMATION_API_KEY")
+    raise FactoryError(
+        "no automation API key: name OPENHANDS_API_KEY or OPENHANDS_AUTOMATION_API_KEY"
+        " in the command so the agent server passes the saved secret in"
+    )
 
 
 def _request(method: str, url: str, body=None, headers=None, raw: bytes | None = None):
@@ -283,11 +286,18 @@ def preflight(args) -> dict:
         out["profile"] = _profile(args.profile)
     except FactoryError as err:
         out["profile"] = {"error": str(err)}
+    out["github_login"] = None
+    if not os.environ.get(TOKEN_SECRET):
+        out["token_error"] = (
+            f"not_set: name {TOKEN_SECRET} in the command so the agent server passes the"
+            " saved secret in; if it is still not set, it is not saved"
+        )
+        return out
     try:
         out["github_login"] = _github("/user")["login"]
     except FactoryError as err:
-        out["github_login"] = None
-        out["token_error"] = str(err)
+        rejected = " -> 401" in str(err) or " -> 403" in str(err)
+        out["token_error"] = ("rejected: " if rejected else "") + str(err)[:300]
         return out
     out["repos"] = {}
     for repo in _split(args.repos):
