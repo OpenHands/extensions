@@ -1,9 +1,9 @@
 # Software Factory
 
-Onboard a user to a GitHub "software factory" in one conversation. The skill
-interviews the user once, collects the GitHub token securely, then creates and
-smoke-tests the catalog automations that turn labelled issues into reviewed pull
-requests.
+Set up a GitHub "software factory" fast, then grow it step by step. The skill
+asks only for the repositories, creates a working pipeline from catalog
+automations with their defaults, shows what runs, and lets the user stop there
+or extend it.
 
 ## Trigger
 
@@ -14,11 +14,11 @@ This skill is activated by:
 
 ## What it sets up
 
-| Station | Catalog id | Default |
+| Station | Catalog id | Phase |
 |---|---|---|
-| Issue to PR | `github-issue-to-pr` | on |
-| PR reviewer | `github-pr-reviewer` | on |
-| AGENTS.md maintainer | `github-agents-md-maintainer` | on |
+| Issue to PR | `github-issue-to-pr` | 1 |
+| PR reviewer | `github-pr-reviewer` | 1 |
+| AGENTS.md maintainer | `github-agents-md-maintainer` | 1 |
 | Issue triage | `github-issue-triage` | add-on |
 | Auto-merge watchdog | `github-delivery-watchdog` | add-on |
 | Stale-CI PR closer | `github-stale-ci-pr-closer` | add-on |
@@ -30,21 +30,22 @@ block, so fixes to a station reach factories created by this skill too.
 
 ## Flow
 
-1. Interview: ten questions, each with a default, asked once and reused across
-   stations.
-2. Credentials: verify `GITHUB_PERSONAL_ACCESS_TOKEN`; if missing, ask for it
-   with the `request_secret` tool (Agent Canvas), never in chat.
-3. Plan: fill each station's setup form and ask the user to confirm.
-4. Create every station disabled.
-5. Repo readiness: dispatch the AGENTS.md maintainer once; it opens an
-   `AGENTS.md` pull request per repository.
-6. Smoke test: dispatch the other stations once, then enable those that passed.
-7. Summary: ids, schedules, and how to use the factory.
+1. **Phase 1**: verify `GITHUB_PERSONAL_ACCESS_TOKEN` (asked for with the
+   `request_secret` tool if missing, never in chat), ask for the repositories,
+   create the three Phase 1 stations with defaults, smoke-run issue to PR and
+   the reviewer, and enable those that pass. The AGENTS.md maintainer is
+   enabled at once and opens an `AGENTS.md` pull request per repository.
+2. **Checkpoint**: show the stations, their settings and how to use the
+   factory. The user can stop here or pick a next step: try it with a test
+   issue, tune settings, or add a station.
+3. **Phase 2**: one round per pick, asking only the questions for it, then back
+   to the Checkpoint.
 
 ## Requirements
 
-- An automation backend that reports `customTarball` (all stations) and
-  `agentProfiles` (issue to PR, reviewer, triage) in `/api/automation/v1/capabilities`.
+- An automation backend whose `/api/automation/v1/capabilities` reports the
+  features each station's manifest requires (`customTarball`, plus
+  `agentProfiles` for issue to PR, reviewer and triage; QA needs webhook delivery).
 - A GitHub token with Contents, Issues, Pull requests and Workflows read and
   write on every selected repository.
 - An OpenHands (not ACP) agent profile that may use that token.

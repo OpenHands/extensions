@@ -1,11 +1,11 @@
 ---
 name: software-factory
 description: >
-  Onboard a user to an OpenHands "software factory" on GitHub in one
-  conversation: interview them once, collect the GitHub token securely,
-  then create and smoke-test the catalog automations that turn labelled issues
-  into reviewed pull requests (issue to PR, PR reviewer, AGENTS.md maintainer,
-  plus optional triage, auto-merge, stale-CI and QA add-ons).
+  Set up an OpenHands "software factory" on GitHub fast: ask only for the
+  repositories, create a working issue-to-PR and PR-review pipeline from the
+  automation catalog with defaults, show what runs, then let the user stop or
+  extend it one step at a time (tune settings, triage, auto-merge, stale-CI and
+  QA add-ons).
 triggers:
   - /software-factory
   - software factory
@@ -13,158 +13,159 @@ triggers:
 
 # Software Factory
 
-Assemble a GitHub software factory from automations that already exist in the
-OpenHands automation catalog. This skill adds **no automation logic of its
-own**: every station is an unmodified catalog bundle from
-`automations/catalog/<id>/manifest.json`, configured through its `setup` block.
+Build a GitHub software factory from unmodified automation catalog bundles
+(`automations/catalog/<id>/manifest.json`). This skill adds no automation logic.
 
-```
-issue --(trigger label)--> github-issue-to-pr --> pull request --> github-pr-reviewer
-  ^                                 ^                                   |
-  |                                 +------- changes requested ---------+
-  +-- github-issue-triage (opt.)                 approved --> human merge / github-delivery-watchdog (opt.)
-main --(weekly)--> github-agents-md-maintainer --> AGENTS.md pull request
-```
+Two phases: **Phase 1** gets a working factory after one question. **Phase 2**
+extends it in short rounds, only as far as the user wants. After Phase 1 and
+after every round, the **Checkpoint** shows what exists and lets the user stop.
 
-Scope: GitHub only. Linear, Jira, GitLab and Bitbucket stations have no setup
-form yet; tell the user they are not part of this flow.
+GitHub only. Linear, Jira, GitLab and Bitbucket stations have no setup form yet.
 
 ## Stations
 
-| Station | Catalog id | Default | Needs agent profile |
+| Station | Catalog id | Phase | Needs agent profile |
 |---|---|---|---|
-| Issue to PR | `github-issue-to-pr` | on | yes |
-| PR reviewer | `github-pr-reviewer` | on | yes |
-| AGENTS.md maintainer | `github-agents-md-maintainer` | on | no |
+| Issue to PR | `github-issue-to-pr` | 1 | yes |
+| PR reviewer | `github-pr-reviewer` | 1 | yes |
+| AGENTS.md maintainer | `github-agents-md-maintainer` | 1 | no |
 | Issue triage | `github-issue-triage` | add-on | yes |
 | Auto-merge watchdog | `github-delivery-watchdog` | add-on | no |
 | Stale-CI PR closer | `github-stale-ci-pr-closer` | add-on | no |
-| QA changes | `qa-changes` | add-on | no (needs webhook delivery) |
+| QA changes | `qa-changes` | add-on | no |
 
-## Workflow
+## Rules
 
-Follow these steps in order. Do not create anything before Step 4.
+- **Host and auth**: as the `openhands-automation` skill describes ("Determining
+  the API Host", "Authentication"). `${API}` below is
+  `${OPENHANDS_HOST}/api/automation/v1`; send `${AUTH_HEADER}` on every call.
+- **Supported stations**: a station can be created only if
+  `GET ${API}/capabilities` lists every feature in its manifest
+  `requires.features`. Skip the others and say why.
+- **Form values**: the user's answer, else a derived value, else the manifest
+  `default`. Derived values are never asked:
+  - every `githubTokenSecret` = `GITHUB_PERSONAL_ACCESS_TOKEN` (also for the
+    stale-CI closer, whose default is `GITHUB_TOKEN_REVIEW`);
+  - watchdog `branchPrefix` = issue to PR `branchPrefix`.
+- **Agent profile** (stations that need one): the profile the user named, else
+  `active_agent_profile_id` from `GET /api/agent-profiles` on the same backend.
+  It must not be an ACP profile and must allow `GITHUB_PERSONAL_ACCESS_TOKEN`.
+  If none qualifies, skip those stations and point the user to the station's
+  catalog card in Agent Canvas (Automations), which has a profile picker.
+- **Token**: never ask for its value in chat, echo it, or put it in a tool
+  argument or file.
+- **Failures**: if a create fails, stop, list the stations that exist (with
+  ids) and the error, and ask whether to retry or delete them.
 
-### Step 0 - Prepare
+## Phase 1 - Working factory
 
-1. Determine the automation host and auth exactly as the `openhands-automation`
-   skill describes ("Determining the API Host" and "Authentication"). Below,
-   `${OPENHANDS_HOST}` and `${AUTH_HEADER}` mean those values.
-2. Check that the deployment can run catalog bundles:
-   ```bash
-   curl -s "${OPENHANDS_HOST}/api/automation/v1/capabilities" -H "${AUTH_HEADER}"
-   ```
-   Every station needs `customTarball` in the reported features; issue to PR,
-   PR reviewer and triage also need `agentProfiles`. If a feature is missing,
-   drop the stations that need it and tell the user why.
-3. Fetch the catalog and its bundle files:
-   ```bash
-   git clone --depth 1 https://github.com/OpenHands/extensions /tmp/software-factory/extensions
-   ```
-
-### Step 1 - Interview
-
-Ask all questions in **one** message, each with its default, so the user can
-answer "defaults are fine" once. Ask each question once and reuse the answer for
-every station that needs it.
-
-| # | Question | Default | Fills |
-|---|---|---|---|
-| 1 | Which GitHub repositories (`owner/repo`)? | none, required | `repositories` on every station |
-| 2 | Which stations? | issue to PR, PR reviewer, AGENTS.md maintainer | station selection |
-| 3 | Which label marks an issue ready for the agent to build? | `openhands` | `github-issue-to-pr` `triggerLabel` |
-| 4 | Open agent pull requests as drafts or ready for review? | `draft` | `pullRequestMode` (issue to PR, AGENTS.md maintainer) |
-| 5 | Branch prefix for agent branches? | `openhands/issue` | `github-issue-to-pr` `branchPrefix` |
-| 6 | Which pull requests get reviewed: ones with a label, ones requesting a reviewer, or every green one? | label `openhands-review`, reviewer `all-hands-bot` | `github-pr-reviewer` `triggerLabel`, `triggerReviewer` |
-| 7 | Review tone: concise, thorough or friendly? | `concise` | `github-pr-reviewer` `reviewTone` |
-| 8 | Who should be asked for a human review after the agent approves? | nobody | `github-pr-reviewer` `maintainers` |
-| 9 | How often should stations check for work, in which timezone? | issue to PR `*/15 * * * *`, reviewer `*/5 * * * *`, AGENTS.md `0 9 * * 1`; `UTC` | cron `schedule`, `timezone` |
-| 10 | Which agent profile should delegated agents run as? | the active profile | `agent_profile_id` |
-
-Only when the user picks the matching add-on, also ask:
-
-- Watchdog: "Should the agent merge pull requests itself once review, tests and
-  CI are green?" Default: no.
-- Stale-CI closer: "Warn on, then close, abandoned pull requests whose CI keeps
-  failing?" Default: no.
-- Triage: "Triage open issues (priority, acceptance criteria) before they are
-  built?" Default: no.
-- QA: "Run a QA agent on each opened pull request? Against which base branch?"
-  Default: no; `main`. Offer it only when the `openhands-automation` webhook
-  reachability check passes.
-
-Derive, never ask:
-
-- `github-delivery-watchdog` `branchPrefix` = the issue to PR branch prefix
-  (the two must match or the watchdog never finds the agent's pull requests).
-- Every `githubTokenSecret` = `GITHUB_PERSONAL_ACCESS_TOKEN`, including the
-  stale-CI closer, whose form defaults to `GITHUB_TOKEN_REVIEW`.
-- Any field not listed above = its `default` in the catalog `setup.form`.
-
-### Step 2 - Credentials
-
-The stations need `GITHUB_PERSONAL_ACCESS_TOKEN` with Contents, Issues, Pull
-requests and Workflows read and write (classic PAT: `repo` and `workflow`) on
-every selected repository.
-
-1. Check it:
-   ```bash
-   curl -s https://api.github.com/user -H "Authorization: Bearer $GITHUB_PERSONAL_ACCESS_TOKEN" \
-     | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('login') or d.get('message'))"
-   ```
-2. If it is missing or invalid and the `request_secret` tool is available, call
-   it once with `name: "GITHUB_PERSONAL_ACCESS_TOKEN"` and a `reason` that names
-   the permissions above. End your turn and wait for the `[secret-request]`
-   message. On `saved`, continue with the name it reports. Otherwise, or if the
-   tool is not available, tell the user to add the secret in Settings ->
+1. Prepare, without asking anything:
+   - check capabilities (see Rules);
+   - `git clone --depth 1 https://github.com/OpenHands/extensions /tmp/software-factory/extensions`;
+   - resolve the agent profile (see Rules);
+   - check the token:
+     ```bash
+     curl -s https://api.github.com/user -H "Authorization: Bearer $GITHUB_PERSONAL_ACCESS_TOKEN" \
+       | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('login') or d.get('message'))"
+     ```
+2. If the token is missing or invalid: when the `request_secret` tool is
+   available, call it once with `name: "GITHUB_PERSONAL_ACCESS_TOKEN"` and a
+   `reason` asking for Contents, Issues, Pull requests and Workflows read and
+   write (classic PAT: `repo`, `workflow`), then end your turn and wait for the
+   `[secret-request]` message. Otherwise tell the user to add it in Settings ->
    Secrets and stop.
-3. For each repository, confirm the token can push (`permissions.push` from
-   `GET https://api.github.com/repos/{owner}/{repo}`). Drop repositories it
+3. Ask one question: "Which GitHub repositories (`owner/repo`)?" Say that
+   everything else uses defaults that can be changed afterwards.
+4. For each repository, check `permissions.push` from
+   `GET https://api.github.com/repos/{owner}/{repo}`. Drop the ones the token
    cannot push to, and say which.
+5. Create the three Phase 1 stations (see "Create a station").
+6. Run "Verify and enable" for issue to PR and the reviewer. Dispatch the
+   AGENTS.md maintainer once (`POST ${API}/{id}/dispatch`) and enable it without
+   waiting for the run, which opens one `AGENTS.md` pull request per repository.
+7. Go to the Checkpoint.
 
-**Never** ask for a token value in chat, never echo it, and never put it in a
-tool argument or a file.
+## Checkpoint
 
-### Step 3 - Plan and confirm
+1. Show what exists, with the `canvas_ui` tool if available, otherwise a table:
+   station, automation id, repositories, schedule, enabled. Below it, the
+   current value of each setting in the Tune table. Point out that the reviewer
+   also reviews any open, non-draft, green pull request with no review yet (at
+   most 2 new per scan).
 
-1. For each selected station, read its manifest and build its form values:
-   the answers from Step 1, the derived values, and `default` for everything
-   else in `setup.form.args` and `setup.form.triggers.cron`.
-2. For stations that need an agent profile, list profiles with
-   `GET /api/agent-profiles` on the same backend (local Agent Server or
-   OpenHands Cloud). Use the profile the user named, else
-   `active_agent_profile_id`. The profile must not be an ACP profile and must
-   allow `GITHUB_PERSONAL_ACCESS_TOKEN` (tell the user to add it to the
-   profile if its secret allow-list excludes it). If no profile id can be
-   resolved, leave those stations out and tell the user to finish them from the
-   catalog card in Agent Canvas (Automations), which has a profile picker.
-3. Show the plan with the `canvas_ui` tool if available, otherwise as a table:
-   station, repositories, schedule, and every non-default value. Ask the user to
-   confirm. Apply edits and show the plan again until they do.
+   Check the maintainer's run (`GET ${API}/{id}/runs?limit=1`). If it finished,
+   link the `AGENTS.md` pull requests and ask the user to merge them: they give
+   the build agent the repository's build, test and lint commands. If not, say
+   they are on their way.
+2. Say how to use it: "Add the `<trigger label>` label to an issue to have it built;
+   the reviewer reviews the pull request; you merge it."
+3. Say the factory already runs as is and the user can stop here. Offer the next
+   steps, recommending the first one not done yet:
+   1. **Try it**: open a small test issue carrying the trigger label in one
+      repository (only if the user agrees), then report the pull request.
+   2. **Tune**: change settings (see Phase 2).
+   3. **Add a station**: triage, auto-merge watchdog, stale-CI closer, QA.
+   4. **Stop**.
 
-### Step 4 - Create every station disabled
+## Phase 2 - Extend, one round at a time
 
-For each station, mirroring how Agent Canvas creates a catalog bundle:
+Do only what the user picked. Ask only the questions for it, in one message,
+each with its current value. Apply, then return to the Checkpoint.
+
+### Tune
+
+| Setting | Default | Fields |
+|---|---|---|
+| Issue trigger label | `openhands` | issue to PR `triggerLabel` |
+| Draft or ready pull requests | `draft` | `pullRequestMode` (issue to PR, AGENTS.md maintainer) |
+| Branch prefix | `openhands/issue` | issue to PR `branchPrefix` (and the watchdog's, if present) |
+| Which pull requests get reviewed | label `openhands-review`, reviewer `all-hands-bot` | reviewer `triggerLabel`, `triggerReviewer` |
+| Review tone: concise, thorough, friendly | `concise` | reviewer `reviewTone` |
+| Human reviewers requested after agent approval (two or more logins) | none | reviewer `maintainers` |
+| Schedules and timezone | issue to PR `*/15 * * * *`, reviewer `*/5 * * * *`, AGENTS.md maintainer `0 9 * * 1`, add-ons per manifest; `UTC` | cron `schedule`, `timezone` |
+| Agent profile | active profile | `agent_profile_id` |
+
+Apply:
+
+- Schedule or timezone only: `PATCH ${API}/{id}` with `{"trigger": {...}}`.
+- Anything else is fixed at creation: create a replacement station with the new
+  values and run "Verify and enable" on it. If it passes,
+  `DELETE ${API}/{old id}`; if not, delete the replacement and keep the old one.
+
+### Add a station
+
+Ask only the question below, then create it (see "Create a station") and run
+"Verify and enable".
+
+- **Auto-merge watchdog**: confirm the user wants the agent to merge pull
+  requests itself once review, tests and CI are green.
+- **Stale-CI closer**: confirm it may warn on, then close, pull requests whose
+  CI keeps failing.
+- **Triage**: nothing.
+- **QA changes**: which base branch (default `main`). Offer QA only if the
+  `openhands-automation` webhook reachability check passes. It takes a single
+  `repository`, so create one per repository.
+
+## Create a station
+
+Mirror how Agent Canvas creates a catalog bundle:
 
 1. Build the bundle directory from `setup.bundle.files` (archive name ->
-   repository path, relative to the clone root):
+   path relative to the clone root):
    ```bash
    mkdir -p /tmp/software-factory/build/<id>
    cp -L /tmp/software-factory/extensions/<repo-path> /tmp/software-factory/build/<id>/<archive-name>
    ```
-2. Render `setup.bundle.config`: replace each `{{form.<field>}}` with that
-   field's value, keeping JSON types (`repositories` stays a list). Write the
-   result to `config.json` in the bundle directory. Use `json.dumps`, never
-   string concatenation.
-3. Package and upload:
+2. Render `setup.bundle.config`: replace each `{{form.<field>}}` with its form
+   value, keeping JSON types (`repositories` stays a list). Write it to
+   `config.json` in the bundle directory with `json.dumps`.
+3. Upload and record the returned `tarball_path`:
    ```bash
    tar -czf /tmp/software-factory/<id>.tar.gz -C /tmp/software-factory/build/<id> .
-   curl -s -X POST "${OPENHANDS_HOST}/api/automation/v1/uploads?name=<id>" \
-     -H "${AUTH_HEADER}" -H "Content-Type: application/gzip" \
-     --data-binary @/tmp/software-factory/<id>.tar.gz
+   curl -s -X POST "${API}/uploads?name=<id>" -H "${AUTH_HEADER}" \
+     -H "Content-Type: application/gzip" --data-binary @/tmp/software-factory/<id>.tar.gz
    ```
-   Record the returned `tarball_path`.
-4. Create it with `POST ${OPENHANDS_HOST}/api/automation/v1`:
+4. `POST ${API}` with:
    ```json
    {
      "name": "<manifest name> - <owner/repo>  (or '- N repositories')",
@@ -172,53 +173,29 @@ For each station, mirroring how Agent Canvas creates a catalog bundle:
      "tarball_path": "<tarball_path>",
      "entrypoint": "<setup.bundle.entrypoint>",
      "timeout": <setup.bundle.timeout>,
-     "agent_profile_id": "<profile id, only for stations that need one>",
+     "agent_profile_id": "<only for stations that need one>",
      "template": {"id": "<id>", "version": "<setup.bundle.version>", "config": <rendered config>}
    }
    ```
-   `qa-changes` has no bundle: create it as the `openhands-automation` skill
-   describes for an event-triggered prompt preset, with its manifest `prompt`
-   and `filter`.
-5. Immediately disable it: `PATCH /api/automation/v1/{id}` with
-   `{"enabled": false}`. Record the id.
+5. Disable it at once: `PATCH ${API}/{id}` with `{"enabled": false}`. Record the id.
 
-If any create fails, stop, report which stations exist (with ids) and the error,
-and ask whether to delete them or retry. Do not leave the user guessing what was
-created.
+`qa-changes` has no bundle: create it as the `openhands-automation` skill
+describes for an event-triggered prompt preset, with its manifest `prompt` and
+`filter`. It runs only on pull request events, so leave it enabled and skip
+"Verify and enable".
 
-### Step 5 - Repo readiness
+## Verify and enable
 
-Dispatch `github-agents-md-maintainer` once
-(`POST /api/automation/v1/{id}/dispatch`), then poll
-`GET /api/automation/v1/{id}/runs?limit=1` until the run is `COMPLETED` or
-`FAILED`. On success it opens one pull request per repository that adds or
-updates `AGENTS.md`. Link those pull requests and ask the user to review and
-merge them: they give the build agent the repository's real build, test and
-lint commands. Continue whether or not they merge now.
-
-### Step 6 - Smoke test and enable
-
-1. Offer to open a small test issue carrying the trigger label in one
-   repository; do it only if the user agrees.
-2. Dispatch every remaining station once and poll its latest run as in Step 5.
-   Report each result. A `FAILED` run: show `error_detail`, keep that station
-   disabled, and ask how to proceed.
-3. Enable every station that passed: `PATCH /api/automation/v1/{id}` with
-   `{"enabled": true}`.
-
-### Step 7 - Summary
-
-Tell the user, per station: name, automation id, repositories, schedule,
-enabled or not. Then explain how to use the factory: "Add the `<label>` label
-to an issue to have it built; the reviewer picks up the pull request; you merge
-it" (or the watchdog merges it, if enabled).
+1. `POST ${API}/{id}/dispatch`, then poll `GET ${API}/{id}/runs?limit=1` until
+   the run is `COMPLETED` or `FAILED`.
+2. `COMPLETED`: `PATCH ${API}/{id}` with `{"enabled": true}`.
+3. `FAILED`: keep it disabled, show `error_detail`, and ask how to proceed.
 
 ## Troubleshooting
 
 | Symptom | Cause and fix |
 |---|---|
-| `capabilities` lacks `customTarball` or `agentProfiles` | The deployment cannot run that station; drop it and say so. |
-| Create returns 422 | A field does not match the manifest; compare the body with the manifest `setup` block and fix the value at the path the error names. |
-| Issue to PR run fails at push | Token lacks Contents or Workflows write, or does not cover that repository. |
-| Reviewer never reviews | Pull requests carry neither the trigger label nor a request for the trigger reviewer, and are not green. |
+| Create returns 422 | A value does not match the manifest `setup` block; fix the field at the path the error names. |
+| Issue to PR fails at push | The token lacks Contents or Workflows write, or does not cover that repository. |
+| Reviewer never reviews | The pull request has neither the trigger label nor a request for the trigger reviewer, and is not green. |
 | Watchdog never merges | Its branch prefix differs from issue to PR's, or the pull request lacks an independent approval or green CI. |
