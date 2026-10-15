@@ -146,7 +146,7 @@ When editing or adding skills in this repo, follow these rules (and add new skil
 
 ## PR-specific documents (`.pr/`)
 
-When working on a PR that requires design documents, live-test logs, development-only scripts, or other temporary artifacts that should **not** be merged to `main`, store them in a `.pr/` directory at the repository root.
+When working on a PR that requires design documents, live-test logs, development-only scripts, or other temporary artifacts that should be removed after merging to `main`, store them in a `.pr/` directory at the repository root.
 
 ```bash
 mkdir -p .pr
@@ -160,8 +160,7 @@ mkdir -p .pr
 The `PR Artifacts` workflow (`.github/workflows/pr-artifacts.yml`) owns the lifecycle of this directory:
 
 1. **Notification**: When a PR contains `.pr/`, a single comment is posted to the PR conversation alerting reviewers.
-2. **Auto-cleanup on approval**: For same-repository PRs, the directory is automatically removed by a follow-up commit when the PR is approved.
-3. **Post-merge cleanup**: If artifacts reach `main`, including through a fork PR, the workflow opens or updates a cleanup PR against `main`.
+2. **Post-merge cleanup**: After a same-repository or fork PR merges to `main`, the workflow automatically opens or updates a cleanup PR to remove the directory from `main`.
 
 Important notes:
 
