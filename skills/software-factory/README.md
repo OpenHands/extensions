@@ -16,7 +16,7 @@ This skill is activated by:
 
 | Station | Catalog id | Phase |
 |---|---|---|
-| Issue to PR | `github-issue-to-pr` | 1 |
+| Issue to PR | `github-issue-to-pr`, or the Jira or Linear station | 1 |
 | PR reviewer | `github-pr-reviewer` | 1 |
 | AGENTS.md maintainer | `github-agents-md-maintainer` | 1 |
 | Issue triage | `github-issue-triage` | add-on |
@@ -26,12 +26,14 @@ This skill is activated by:
 
 The skill adds no automation logic of its own. Each station is the unmodified
 catalog bundle from `automations/catalog/<id>/`, configured from its `setup`
-block, so fixes to a station reach factories created by this skill too.
+block, so fixes to a station reach factories created by this skill too. A Jira
+or Linear issue to PR station is created by its own skill instead.
 
 ## Flow
 
 1. **Phase 1**: verify `GITHUB_PERSONAL_ACCESS_TOKEN` (asked for with the
-   `request_secret` tool if missing, never in chat), ask for the repositories,
+   `request_secret` tool if missing, never in chat), ask for the repositories
+   and the ticket source (GitHub issues, Jira or Linear),
    create the three Phase 1 stations with defaults, smoke-run issue to PR and
    the reviewer, and enable those that pass. The AGENTS.md maintainer is
    enabled at once and opens an `AGENTS.md` pull request per repository.
@@ -49,8 +51,12 @@ block, so fixes to a station reach factories created by this skill too.
 - A GitHub token with Contents, Issues, Pull requests and Workflows read and
   write on every selected repository.
 - An OpenHands (not ACP) agent profile that may use that token.
+- Jira tickets: a connected Atlassian Rovo server or a Jira API token. Linear
+  tickets: a Linear connection.
 
 ## Scope
 
-GitHub only. Linear, Jira, GitLab and Bitbucket catalog entries have no setup
-form yet, so they are not part of this flow.
+Code lives on GitHub. Tickets can come from GitHub issues, Jira (through the
+`jira-issue-to-pr` skill) or Linear (through the `ticket-to-code-change`
+skill); only the issue to PR station changes. GitLab and Bitbucket code hosts
+are not part of this flow.

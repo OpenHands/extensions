@@ -2,7 +2,7 @@
 name: software-factory
 description: >
   Set up an OpenHands "software factory" on GitHub fast: ask only for the
-  repositories, create a working issue-to-PR and PR-review pipeline from the
+  repositories and where tickets live (GitHub issues, Jira or Linear), create a working issue-to-PR and PR-review pipeline from the
   automation catalog with defaults, show what runs, then let the user stop or
   extend it one step at a time (tune settings, triage, auto-merge, stale-CI and
   QA add-ons).
@@ -14,22 +14,25 @@ triggers:
 # Software Factory
 
 Build a GitHub software factory from unmodified automation catalog bundles
-(`automations/catalog/<id>/manifest.json`). This skill adds no automation logic.
+(`automations/catalog/<id>/manifest.json`); a Jira or Linear station is created
+by its own skill. This skill adds no automation logic.
 
 Two phases: **Phase 1** gets a working factory after one question. **Phase 2**
 extends it in short rounds, only as far as the user wants. After Phase 1 and
 after every round, the **Checkpoint** shows what exists and lets the user stop.
 
-GitHub only. Linear, Jira, GitLab and Bitbucket stations have no setup form yet.
+Code lives on GitHub. Tickets can come from GitHub issues (default), Jira or
+Linear: only the issue to PR station changes (see "Ticket source"). GitLab and
+Bitbucket code hosts are not part of this flow.
 
 ## Stations
 
 | Station | Catalog id | Phase | Needs agent profile |
 |---|---|---|---|
-| Issue to PR | `github-issue-to-pr` | 1 | yes |
+| Issue to PR | `github-issue-to-pr`, or the Jira or Linear station | 1 | yes (GitHub issues only) |
 | PR reviewer | `github-pr-reviewer` | 1 | yes |
 | AGENTS.md maintainer | `github-agents-md-maintainer` | 1 | no |
-| Issue triage | `github-issue-triage` | add-on | yes |
+| Issue triage | `github-issue-triage`, or `linear-triage-assistant` | add-on | yes (GitHub issues only) |
 | Auto-merge watchdog | `github-delivery-watchdog` | add-on | no |
 | Stale-CI PR closer | `github-stale-ci-pr-closer` | add-on | no |
 | QA changes | `qa-changes` | add-on | no |
@@ -74,13 +77,16 @@ GitHub only. Linear, Jira, GitLab and Bitbucket stations have no setup form yet.
    write (classic PAT: `repo`, `workflow`), then end your turn and wait for the
    `[secret-request]` message. Otherwise tell the user to add it in Settings ->
    Secrets and stop.
-3. Ask one question: "Which GitHub repositories (`owner/repo`)?" Say that
-   everything else uses defaults that can be changed afterwards.
+3. Ask, in one message: "Which GitHub repositories (`owner/repo`)? Where do
+   tickets live: GitHub issues (default), Jira or Linear?" Say that everything
+   else uses defaults that can be changed afterwards.
 4. For each repository, check `permissions.push` from
    `GET https://api.github.com/repos/{owner}/{repo}`. Drop the ones the token
    cannot push to, and say which.
-5. Create the three Phase 1 stations (see "Create a station").
-6. Run "Verify and enable" for issue to PR and the reviewer. Dispatch the
+5. Create the reviewer and the AGENTS.md maintainer (see "Create a station"),
+   and the issue to PR station for the ticket source (see "Ticket source").
+6. Run "Verify and enable" for the reviewer and, with GitHub issues, for issue
+   to PR. Dispatch the
    AGENTS.md maintainer once (`POST ${API}/{id}/dispatch`) and enable it without
    waiting for the run, which opens one `AGENTS.md` pull request per repository.
 7. Go to the Checkpoint.
@@ -97,8 +103,9 @@ GitHub only. Linear, Jira, GitLab and Bitbucket stations have no setup form yet.
    link the `AGENTS.md` pull requests and ask the user to merge them: they give
    the build agent the repository's build, test and lint commands. If not, say
    they are on their way.
-2. Say how to use it: "Add the `<trigger label>` label to an issue to have it built;
-   the reviewer reviews the pull request; you merge it."
+2. Say how to use it: "Add the `<trigger label>` label to a ticket to have it
+   built (on Jira, the ticket body must name the `owner/repo`); the reviewer
+   reviews the pull request; you merge it."
 3. Say the factory already runs as is and the user can stop here. Offer the next
    steps, recommending the first one not done yet:
    1. **Try it**: open a small test issue carrying the trigger label in one
@@ -116,9 +123,9 @@ each with its current value. Apply, then return to the Checkpoint.
 
 | Setting | Default | Fields |
 |---|---|---|
-| Issue trigger label | `openhands` | issue to PR `triggerLabel` |
+| Issue trigger label (GitHub issues) | `openhands` | issue to PR `triggerLabel` |
 | Draft or ready pull requests | `draft` | `pullRequestMode` (issue to PR, AGENTS.md maintainer) |
-| Branch prefix | `openhands/issue` | issue to PR `branchPrefix` (and the watchdog's, if present) |
+| Branch prefix (GitHub issues) | `openhands/issue` | issue to PR `branchPrefix` (and the watchdog's, if present) |
 | Which pull requests get reviewed | label `openhands-review`, reviewer `all-hands-bot` | reviewer `triggerLabel`, `triggerReviewer` |
 | Review tone: concise, thorough, friendly | `concise` | reviewer `reviewTone` |
 | Human reviewers requested after agent approval (two or more logins) | none | reviewer `maintainers` |
@@ -128,6 +135,7 @@ each with its current value. Apply, then return to the Checkpoint.
 Apply:
 
 - Schedule or timezone only: `PATCH ${API}/{id}` with `{"trigger": {...}}`.
+- Jira or Linear station settings: change them as its skill describes.
 - Anything else is fixed at creation: create a replacement station with the new
   values and run "Verify and enable" on it. If it passes,
   `DELETE ${API}/{old id}`; if not, delete the replacement and keep the old one.
@@ -137,11 +145,13 @@ Apply:
 Ask only the question below, then create it (see "Create a station") and run
 "Verify and enable".
 
-- **Auto-merge watchdog**: confirm the user wants the agent to merge pull
+- **Auto-merge watchdog** (GitHub issues only, since it merges only branches
+  with the issue to PR prefix): confirm the user wants the agent to merge pull
   requests itself once review, tests and CI are green.
 - **Stale-CI closer**: confirm it may warn on, then close, pull requests whose
   CI keeps failing.
-- **Triage**: nothing.
+- **Triage**: nothing. For Linear, follow the `linear-triage` skill instead;
+  for Jira there is none.
 - **QA changes**: which base branch (default `main`). Offer QA only if the
   `openhands-automation` webhook reachability check passes. It takes a single
   `repository`, so create one per repository.
@@ -183,6 +193,21 @@ Mirror how Agent Canvas creates a catalog bundle:
 describes for an event-triggered prompt preset, with its manifest `prompt` and
 `filter`. It runs only on pull request events, so leave it enabled and skip
 "Verify and enable".
+
+## Ticket source
+
+- **GitHub issues**: `github-issue-to-pr` (see "Create a station").
+- **Jira**: follow the `jira-issue-to-pr` skill with `git_provider` `github`
+  and its defaults (label `create-pr`, `*/5 * * * *`). Ask only what it cannot
+  look up (the Jira site if several, or the API-token details when Atlassian
+  Rovo is not connected). Tell the user each ticket body must name its
+  `owner/repo`.
+- **Linear**: follow the `ticket-to-code-change` skill with GitHub as the
+  provider. Ask its questions in one message, proposing the repositories above
+  and `*/15 * * * *` as defaults.
+
+Once its skill has created the station, run "Verify and enable" on it (skip
+the dispatch if the skill already ran one).
 
 ## Verify and enable
 
