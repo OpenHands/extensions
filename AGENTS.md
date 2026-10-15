@@ -167,6 +167,7 @@ Important notes:
 - Do not put anything in `.pr/` that needs to be preserved.
 - The `.pr/` check is informational during development; it posts a notice rather than blocking the PR.
 - Cleanup PRs follow the normal review and required-check protections for `main`.
+- npm packaging excludes `.pr/` while its cleanup PR is pending, so temporary review artifacts do not ship in releases.
 
 ## CI / validation gotchas
 
