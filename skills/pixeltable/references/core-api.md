@@ -13,7 +13,7 @@ Complete reference for table operations, querying, computed columns, views, embe
 - [UDFs](#udfs) (basic, optional args, batch, aggregate, retrieval)
 - [Update and Delete](#update-and-delete)
 - [Table Operations](#table-operations)
-- [Snapshots](#snapshots)
+- [Snapshots](#snapshots-and-version-history)
 - [Tools and Agents](#tools-and-agents) (create tools, agent pipeline, MCP)
 - [Serving (FastAPIRouter)](#serving-fastapirouter) (add_insert_route, add_query_route, add_delete_route, background jobs, pxt serve)
 - [Export](#export-csv-json-parquet-lancedb) (CSV, JSON, Parquet, LanceDB, SQL)
@@ -151,8 +151,8 @@ t.add_computed_column(
 t.drop_column('column_name')
 
 # Recompute failed or outdated columns (critical for error recovery)
-t.recompute_columns(columns=['summary'])
-t.recompute_columns(columns=['summary'], where=t.summary.errortype != None)
+t.recompute_columns('summary')
+t.recompute_columns('summary', where=t.summary.errortype != None)
 ```
 
 ## Views
@@ -510,13 +510,13 @@ Re-run computed columns on existing rows. Critical for retrying after API errors
 
 ```python
 # Recompute all rows for a column
-t.recompute_columns(columns=['summary'])
+t.recompute_columns('summary')
 
 # Recompute only failed rows (most common pattern)
-t.recompute_columns(columns=['summary'], where=t.summary.errortype != None)
+t.recompute_columns('summary', where=t.summary.errortype != None)
 
 # Recompute specific rows matching a condition
-t.recompute_columns(columns=['label'], where=t.category == 'pending')
+t.recompute_columns('label', where=t.category == 'pending')
 ```
 
 ## Snapshots and Version History
@@ -663,11 +663,11 @@ import pixeltable as pxt
 router = FastAPIRouter(prefix="/api/data", tags=["data"])
 docs = pxt.get_table("app.documents")
 
-# Synchronous insert — returns inserted row fields
+# Synchronous insert - returns inserted row fields
 router.add_insert_route(docs, path="/upload/image",
     uploadfile_inputs=["image"], inputs=["timestamp"], outputs=["uuid", "thumbnail"])
 
-# Background insert — returns job handle for polling
+# Background insert - returns job handle for polling
 router.add_insert_route(docs, path="/upload/document",
     uploadfile_inputs=["document"], inputs=["timestamp"], outputs=["uuid"],
     background=True)
@@ -676,10 +676,10 @@ router.add_insert_route(docs, path="/upload/document",
 ```
 
 Parameters:
-- `uploadfile_inputs` — column names sent as `UploadFile` (multipart form)
-- `inputs` — column names sent as form fields
-- `outputs` — column names to return after insert
-- `background=True` — return immediately with a job URL; client polls for result
+- `uploadfile_inputs` - column names sent as `UploadFile` (multipart form)
+- `inputs` - column names sent as form fields
+- `outputs` - column names to return after insert
+- `background=True` - return immediately with a job URL; client polls for result
 
 ### add_query_route
 
@@ -715,10 +715,10 @@ router.add_delete_route(chat, path="/delete-conversation", match_columns=["conve
 ### Architecture pattern
 
 ```
-setup_pixeltable.py  — flat module: creates tables, views, indexes on import
-routers/data.py      — pxt.get_table() + @pxt.query + add_*_route
-routers/search.py    — pxt.get_table() + @pxt.query + add_*_route
-main.py              — import setup_pixeltable; from routers import data, search
+setup_pixeltable.py  - flat module: creates tables, views, indexes on import
+routers/data.py      - pxt.get_table() + @pxt.query + add_*_route
+routers/search.py    - pxt.get_table() + @pxt.query + add_*_route
+main.py              - import setup_pixeltable; from routers import data, search
 ```
 
 See [workflows.md → FastAPIRouter](workflows.md#fastapirouter-declarative-serving-v06) for a complete example.
@@ -931,7 +931,7 @@ def call_custom_api(prompt: str) -> str:
 Store media files in S3, GCS, Azure, or other cloud storage instead of locally:
 
 ```toml
-# config.toml — global default
+# config.toml - global default
 [pixeltable]
 input_media_dest = "s3://my-bucket/input/"
 output_media_dest = "s3://my-bucket/output/"
@@ -977,11 +977,11 @@ See [Cloud Storage docs](https://docs.pixeltable.com/integrations/cloud-storage)
 ### Deprecated/Wrong Imports
 
 ```python
-# WRONG — openai.vision does not exist
+# WRONG - openai.vision does not exist
 from pixeltable.functions.openai import vision
 description = vision(prompt='Describe', image=t.image)
 
-# CORRECT — use chat_completions with multimodal messages
+# CORRECT - use chat_completions with multimodal messages
 from pixeltable.functions.openai import chat_completions
 description = chat_completions(
     messages=[{
@@ -994,11 +994,11 @@ description = chat_completions(
     model='gpt-4o-mini'
 ).choices[0].message.content
 
-# WRONG — FrameIterator class import
+# WRONG - FrameIterator class import
 from pixeltable.iterators import FrameIterator
 pxt.create_view('v', t, iterator=FrameIterator.create(video=t.video, fps=1))
 
-# CORRECT — function import
+# CORRECT - function import
 from pixeltable.functions.video import frame_iterator
 pxt.create_view('v', t, iterator=frame_iterator(t.video, fps=1), if_exists='ignore')
 ```
@@ -1008,18 +1008,18 @@ pxt.create_view('v', t, iterator=frame_iterator(t.video, fps=1), if_exists='igno
 AI functions often return `Json` or complex objects. Embedding indexes require `String` columns:
 
 ```python
-# WRONG — transcriptions returns a Json object, not a String
+# WRONG - transcriptions returns a Json object, not a String
 t.add_computed_column(transcript=openai.transcriptions(audio=t.audio, model='whisper-1'), if_exists='ignore')
 t.add_embedding_index('transcript', embedding=embed_fn)  # silently fails
 
-# CORRECT — extract .text and cast
+# CORRECT - extract .text and cast
 t.add_computed_column(
     transcript=openai.transcriptions(audio=t.audio, model='whisper-1').text.astype(pxt.String),
     if_exists='ignore')
 t.add_embedding_index('transcript', embedding=embed_fn, if_exists='ignore')
 ```
 
-This applies to any computed column used as an embedding source — always ensure it evaluates to `pxt.String`.
+This applies to any computed column used as an embedding source - always ensure it evaluates to `pxt.String`.
 
 ### The `if_exists='ignore'` Trap
 
@@ -1029,7 +1029,7 @@ If you create a column with buggy logic, fixing the code and re-running does **N
 # Bug: wrong model name
 t.add_computed_column(summary=openai.chat_completions(..., model='nonexistent'), if_exists='ignore')
 
-# Fixing the code and re-running does NOTHING — old column persists
+# Fixing the code and re-running does NOTHING - old column persists
 t.add_computed_column(summary=openai.chat_completions(..., model='gpt-4o-mini'), if_exists='ignore')
 
 # FIX: drop the column first, then recreate
@@ -1065,18 +1065,18 @@ Schema corruption (`IntegrityError`): do not delete `~/.pixeltable` or anything 
 `@pxt.query` compiles the function body at **decoration time** by calling it with expression placeholders. This means:
 
 ```python
-# WRONG — .collect() executes during decoration, not at call time
+# WRONG - .collect() executes during decoration, not at call time
 @pxt.query
 def find_similar(ref_id: str):
     ref = t.where(t.uuid == ref_id).select(t.embedding).collect()  # FAILS at decoration
     return t.order_by(t.embedding.similarity(ref[0]['embedding'])).limit(5)
 
-# CORRECT — use a plain def for imperative logic that needs .collect()
+# CORRECT - use a plain def for imperative logic that needs .collect()
 def find_similar(ref_id: str) -> list[dict]:
     ref = t.where(t.uuid == ref_id).select(t.embedding).collect()
     return list(t.order_by(t.embedding.similarity(ref[0]['embedding'])).limit(5).collect())
 
-# WRONG — references a table that may not exist yet
+# WRONG - references a table that may not exist yet
 @pxt.query
 def search():
     t = pxt.get_table('maybe.missing')  # FAILS if table doesn't exist at decoration time
@@ -1088,17 +1088,17 @@ def search():
 Primary key columns must be non-nullable. Bare `pxt.String` is nullable by default:
 
 ```python
-# WRONG — nullable PK rejected at table creation
+# WRONG - nullable PK rejected at table creation
 t = pxt.create_table('dir.items', {
     'id': pxt.String,  # nullable!
 }, primary_key=['id'])
 
-# CORRECT — explicit non-nullable
+# CORRECT - explicit non-nullable
 t = pxt.create_table('dir.items', {
     'id': pxt.Required[pxt.String],
 }, primary_key=['id'])
 
-# CORRECT — uuid7() computed default (recommended)
+# CORRECT - uuid7() computed default (recommended)
 from pixeltable.functions.uuid import uuid7
 t = pxt.create_table('dir.items', {
     'content': pxt.String,
@@ -1111,14 +1111,14 @@ t = pxt.create_table('dir.items', {
 `Table` objects are bound to the thread that created them. In FastAPI (which dispatches sync endpoints to a thread pool), call `pxt.get_table()` inside each endpoint:
 
 ```python
-# WRONG — module-level Table used across threads
+# WRONG - module-level Table used across threads
 docs = pxt.get_table('app.documents')
 
 @app.get('/count')
 def count():
     return {'count': docs.count()}  # fails: wrong thread
 
-# CORRECT — get a fresh handle per request
+# CORRECT - get a fresh handle per request
 @app.get('/count')
 def count():
     docs = pxt.get_table('app.documents')
@@ -1141,11 +1141,11 @@ Without it, `document_splitter(t.doc, separators='token_limit', ...)` raises `Re
 - Use `on_error='ignore'` to continue past row failures
 - Use `batch_size` in `@pxt.udf(batch_size=32)` for GPU models
 - Embedding indexes use HNSW for fast approximate nearest neighbor search
-- Use `t.insert(source='file.csv')` instead of loading into memory for large datasets
+- Use `t.insert('file.csv')` instead of loading into memory for large datasets
 - Use `keyframes_only=True` in `frame_iterator` for efficient video processing
 - Use `thumbnail()` + `b64_encode()` for API-friendly image responses
 - Configure rate limits in `config.toml` to avoid 429 errors on provider APIs
-- Use `recompute_columns(where=t.col.errortype != None)` to retry only failed rows
+- Use `t.recompute_columns('col', where=t.col.errortype != None)` to retry only failed rows
 - Use `add_btree_index()` on columns used frequently in `where()` filters
 - Cast AI function outputs to `pxt.String` with `.astype(pxt.String)` before embedding indexing
 - During development, use `pxt.drop_dir('dir', force=True)` to reset schema cleanly

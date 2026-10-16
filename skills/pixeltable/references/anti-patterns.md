@@ -6,7 +6,7 @@ LLMs are trained on millions of imperative Python examples using pandas, LangCha
 
 ## The 5 Macro Biases (High Priority)
 
-These are structural — getting any one wrong means the entire solution is non-idiomatic.
+These are structural - getting any one wrong means the entire solution is non-idiomatic.
 
 ### 1. Framework addiction (LangChain / LlamaIndex / Haystack / LangGraph)
 
@@ -129,7 +129,7 @@ sim = t.text.similarity(string='search query')
 results = t.order_by(sim, asc=False).limit(5).select(t.text, sim).collect()
 ```
 
-**Why:** The embedding index lives inside the table — it updates automatically when rows are inserted, shares the same version history, and requires no separate service. Querying uses the same expression language as everything else.
+**Why:** The embedding index lives inside the table - it updates automatically when rows are inserted, shares the same version history, and requires no separate service. Querying uses the same expression language as everything else.
 
 ---
 
@@ -282,9 +282,9 @@ t = pxt.create_table('app.data', {'text': pxt.String}, if_exists='ignore')
 
 **Wrong:**
 ```python
-# Bug in summary prompt — "fix" by re-running:
+# Bug in summary prompt - "fix" by re-running:
 t.add_computed_column(summary=fixed_expression, if_exists='ignore')
-# ↑ SILENT NO-OP — column already exists with old logic
+# ↑ SILENT NO-OP - column already exists with old logic
 ```
 
 **Right:**
@@ -384,7 +384,7 @@ context = memory.where(memory.session_id == sid).order_by(sim, asc=False).limit(
 
 ## Cross-References
 
-- [SKILL.md → Critical Warnings](../SKILL.md#critical-warnings--read-before-writing-code) — hallucinated API fixes
-- [SKILL.md → Common Pitfalls](../SKILL.md#common-pitfalls) — wrong/right table for specific APIs
-- [core-api.md → Common Pitfalls](core-api.md#common-pitfalls) — extended examples
-- [Migration guides](https://docs.pixeltable.com/migrate/from-agent-frameworks) — porting from LangChain/LlamaIndex
+- [SKILL.md → Critical Warnings](../SKILL.md#critical-warnings---read-before-writing-code) - hallucinated API fixes
+- [SKILL.md → Common Pitfalls](../SKILL.md#common-pitfalls) - wrong/right table for specific APIs
+- [core-api.md → Common Pitfalls](core-api.md#common-pitfalls) - extended examples
+- [Migration guides](https://docs.pixeltable.com/migrate/from-agent-frameworks) - porting from LangChain/LlamaIndex

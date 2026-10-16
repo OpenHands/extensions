@@ -12,7 +12,7 @@ Complete, production-ready workflow templates combining multiple Pixeltable feat
 - [Tool-Calling Agent (Full Production Example)](#tool-calling-agent-full-production-example)
 - [Local LLM Pipeline (Ollama)](#local-llm-pipeline-ollama)
 - [FastAPI App Pattern](#fastapi-app-pattern) (hand-written endpoints)
-- [FastAPIRouter — Declarative Serving (v0.6+)](#fastapirouter-declarative-serving-v06) (preferred)
+- [FastAPIRouter: Declarative Serving (v0.6+)](#fastapirouter-declarative-serving-v06) (preferred)
 - [Export Workflow](#export-workflow)
 
 ---
@@ -445,12 +445,12 @@ def search(body: SearchRequest):                    # sync, not async
     return SearchResponse(query=body.query, results=items)
 ```
 
-### FastAPIRouter — Declarative Serving (v0.6+)
+### FastAPIRouter: Declarative Serving (v0.6+)
 
-`pixeltable.serving.FastAPIRouter` generates endpoints from tables and `@pxt.query` functions — no Pydantic models, no hand-written handlers. It's a subclass of FastAPI's `APIRouter`.
+`pixeltable.serving.FastAPIRouter` generates endpoints from tables and `@pxt.query` functions - no Pydantic models, no hand-written handlers. It's a subclass of FastAPI's `APIRouter`.
 
 ```python
-# setup_pixeltable.py — flat module, runs on import
+# setup_pixeltable.py - flat module, runs on import
 import pixeltable as pxt
 from pixeltable.functions.uuid import uuid7
 from pixeltable.functions.document import document_splitter
@@ -471,7 +471,7 @@ chunks.add_embedding_index('text', idx_name='chunks_embed', string_embed=embed_f
 ```
 
 ```python
-# routers/data.py — queries co-located with routes
+# routers/data.py - queries co-located with routes
 import pixeltable as pxt
 from pixeltable.serving import FastAPIRouter
 
@@ -503,7 +503,7 @@ router.add_query_route(path="/search", query=search_docs, method="post")
 ```python
 # main.py
 from fastapi import FastAPI
-import setup_pixeltable  # noqa: F401 — triggers schema init
+import setup_pixeltable  # noqa: F401 - triggers schema init
 from routers import data
 
 app = FastAPI()
@@ -511,10 +511,10 @@ app.include_router(data.router)
 ```
 
 Key points:
-- **`add_insert_route`** — generates POST endpoint from table columns. Use `uploadfile_inputs` for file uploads, `background=True` for long-running inserts
-- **`add_query_route`** — wraps a `@pxt.query` function as GET or POST. Returns `{ "rows": [...] }` automatically
-- **`add_delete_route`** — generates POST endpoint for row deletion by primary key or `match_columns`
-- **Schema in one file, queries in routers** — `setup_pixeltable.py` creates tables/views/indexes on import. Routers get table refs via `pxt.get_table()` and define `@pxt.query` locally
+- **`add_insert_route`** - generates POST endpoint from table columns. Use `uploadfile_inputs` for file uploads, `background=True` for long-running inserts
+- **`add_query_route`** - wraps a `@pxt.query` function as GET or POST. Returns `{ "rows": [...] }` automatically
+- **`add_delete_route`** - generates POST endpoint for row deletion by primary key or `match_columns`
+- **Schema in one file, queries in routers** - `setup_pixeltable.py` creates tables/views/indexes on import. Routers get table refs via `pxt.get_table()` and define `@pxt.query` locally
 - **Only write custom endpoints** for multi-table side effects (e.g., agent insert + chat history saves)
 
 #### return_rows=True for hand-written endpoints

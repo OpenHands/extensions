@@ -122,7 +122,7 @@ errors = images.where(images.label.errortype != None).select(
     images.filename, images.label.errormsg).collect()
 
 # Recompute failed columns (critical for retrying after API errors)
-images.recompute_columns(columns=['label'], where=images.label.errortype != None)
+images.recompute_columns('label', where=images.label.errortype != None)
 ```
 
 ## Video Frame Extraction
@@ -243,7 +243,7 @@ errors = images.where(images.label.errortype != None).select(
     images.filename, images.label.errormsg).collect()
 
 # Retry failed computations (e.g., after fixing rate limits)
-images.recompute_columns(columns=['label'], where=images.label.errortype != None)
+images.recompute_columns('label', where=images.label.errortype != None)
 ```
 
 ### PyTorch Dataset Options
@@ -267,7 +267,7 @@ Data is cached to disk for efficient repeated loading. Use `num_workers > 0` in 
 | Visualize | `draw_bounding_boxes(image, detections)` | Overlay detections on images |
 | Search | `add_embedding_index()` + `.similarity()` | Find similar / deduplicate |
 | Curate | `.where(col.errortype != None)` | Review failed transformations |
-| Retry | `recompute_columns(columns=[...], where=...)` | Re-run failed computations |
+| Retry | `recompute_columns('col', where=...)` | Re-run failed computations |
 | Version | `create_snapshot('name', table)` | Point-in-time dataset copy |
 | Export | `to_pytorch_dataset(image_format='pt')` | PyTorch DataLoader-ready |
 | Export | `export_parquet(query, 'path/')` | Parquet files for sharing |
@@ -276,7 +276,7 @@ Data is cached to disk for efficient repeated loading. Use `num_workers > 0` in 
 
 ## Adapting This Recipe
 
-- **Audio data**: Use `audio_splitter` and `transcriptions` to create labeled audio datasets — see [workflows.md → Audio Transcription](workflows.md#audio-transcription-and-analysis)
-- **Document data**: Use `document_splitter` to chunk PDFs into training examples — see [workflows.md → RAG Pipeline](workflows.md#rag-pipeline)
+- **Audio data**: Use `audio_splitter` and `transcriptions` to create labeled audio datasets - see [workflows.md → Audio Transcription](workflows.md#audio-transcription-and-analysis)
+- **Document data**: Use `document_splitter` to chunk PDFs into training examples - see [workflows.md → RAG Pipeline](workflows.md#rag-pipeline)
 - **Add human labels**: Export to Label Studio, annotate, then re-import
 - **Multi-GPU training**: The PyTorch dataset supports `DistributedSampler` with standard PyTorch patterns

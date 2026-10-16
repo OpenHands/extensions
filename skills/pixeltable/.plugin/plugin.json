@@ -8,7 +8,7 @@
   },
   "homepage": "https://github.com/OpenHands/extensions",
   "repository": "https://github.com/OpenHands/extensions",
-  "license": "MIT",
+  "license": "Apache-2.0",
   "keywords": [
     "pixeltable",
     "pxt.udf",

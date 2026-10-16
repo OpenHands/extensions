@@ -12,20 +12,13 @@ triggers:
   - pxt.tools
   - pxt.serve
 license: Apache-2.0
-metadata:
-  author: Pixeltable
-  version: 2.3.0
-  category: integrations
-  tags: [pixeltable, pxt.udf, pxt.query, computed-columns, embedding-index, iterators]
-  documentation: https://docs.pixeltable.com/
-  support: https://github.com/pixeltable/pixeltable/discussions
 ---
 
 ## What is Pixeltable?
 
 Open-source Python library for **declarative multimodal AI data infrastructure** - tables, computed columns, embedding indexes, and 25+ AI providers in one interface.
 
-`pip install pixeltable` (Python >= 3.10) | [Docs](https://docs.pixeltable.com/) | [GitHub](https://github.com/pixeltable/pixeltable)
+`pip install pixeltable` (Python >= 3.11) | [Docs](https://docs.pixeltable.com/) | [GitHub](https://github.com/pixeltable/pixeltable)
 
 When this skill and https://docs.pixeltable.com/ disagree, follow the docs site. Open this skill only for a project that already uses Pixeltable (`import pixeltable`, `pxt.create_table`, `pxt.udf`, or a Pixeltable catalog). If the user is on another stack and did not ask for Pixeltable, do not switch them.
 
@@ -163,9 +156,9 @@ t = pxt.create_table('my_project.items', {
 ### Inserting Data
 
 ```python
-t.insert([{'title': 'Doc 1', 'content': 'Hello world', 'score': 0.95}])  # list of dicts
+t.insert([{'title': 'Doc 1', 'content': 'Hello world', 'score': 0.95}])   # list of dicts
 t.insert(title='Doc 2', content='Single row', score=0.75)                 # keyword syntax
-t.insert(source='path/to/data.csv')                                       # from file
+t.insert('path/to/data.csv')                                              # from file
 ```
 
 ### Computed Columns
@@ -427,7 +420,7 @@ status = t.insert(rows, on_error='ignore')
 # Inspect errors
 t.where(t.summary.errortype != None).select(t.title, t.summary.errormsg).collect()
 # Retry failed columns
-t.recompute_columns(columns=['summary'], where=t.summary.errortype != None)
+t.recompute_columns('summary', where=t.summary.errortype != None)
 ```
 
 ## Common Pitfalls

@@ -1,19 +1,19 @@
 # Agentic Patterns
 
-Six architectural patterns and two reasoning strategies for building AI agents with Pixeltable. Every pattern uses declarative computed columns — no async code, no orchestration framework, no loop management.
+Six architectural patterns and two reasoning strategies for building AI agents with Pixeltable. Every pattern uses declarative computed columns - no async code, no orchestration framework, no loop management.
 
 **Core principle**: Your agent _is_ a table. Each step is a computed column. The engine resolves dependencies, parallelizes independent columns, caches results, and persists every intermediate step automatically.
 
 ## Contents
 
-- [Prompt Chaining](#prompt-chaining) — sequential multi-step generation
-- [Routing](#routing) — classify intent, dispatch to specialized handlers
-- [Parallelization](#parallelization) — independent analyses on same input
-- [Tool Use](#tool-use) — LLM selects and calls external functions
-- [Evaluator-Optimizer](#evaluator-optimizer) — generate, judge, refine
-- [Orchestrator-Worker](#orchestrator-worker) — decompose, delegate, synthesize
-- [ReAct](#react-reasoning--acting) — reason-act-observe loop
-- [Planning](#planning) — plan upfront, then execute
+- [Prompt Chaining](#prompt-chaining) - sequential multi-step generation
+- [Routing](#routing) - classify intent, dispatch to specialized handlers
+- [Parallelization](#parallelization) - independent analyses on same input
+- [Tool Use](#tool-use) - LLM selects and calls external functions
+- [Evaluator-Optimizer](#evaluator-optimizer) - generate, judge, refine
+- [Orchestrator-Worker](#orchestrator-worker) - decompose, delegate, synthesize
+- [ReAct](#react-reasoning--acting) - reason-act-observe loop
+- [Planning](#planning) - plan upfront, then execute
 
 ---
 
@@ -68,7 +68,7 @@ router.add_computed_column(
     intent=chat_completions(
         messages=[{
             'role': 'user',
-            'content': 'Classify into exactly one word — technical, billing, or general:\n\n' + router.query
+            'content': 'Classify into exactly one word - technical, billing, or general:\n\n' + router.query
         }],
         model='gpt-4o-mini'
     ).choices[0].message.content,
@@ -100,7 +100,7 @@ router.add_computed_column(
 
 ## Parallelization
 
-Multiple independent analyses on the same input — auto-parallelized by the engine.
+Multiple independent analyses on the same input - auto-parallelized by the engine.
 
 ```python
 parallel = pxt.create_table('demo.parallel', {'text': pxt.String}, if_exists='ignore')
@@ -292,7 +292,7 @@ react.add_computed_column(
     tool_output=invoke_tools(react_tools, react.response),
     if_exists='ignore')
 
-# Reasoning loop — each iteration is a new row
+# Reasoning loop - each iteration is a new row
 SYSTEM = "Answer step by step. Use tools when needed. Say FINAL ANSWER when done."
 question = "Which has a larger population, Brazil or Germany?"
 history = []
@@ -359,10 +359,10 @@ planner.add_computed_column(
 |---------|-----------|-------------------------------|
 | Pipeline step | Computed column | Function in a chain/loop |
 | Parallel execution | Independent columns (automatic) | `asyncio.gather` / explicit |
-| Persistence | Built-in — every intermediate stored | Separate logging/DB layer |
-| Caching | Automatic — same input never recomputed | Manual memoization |
+| Persistence | Built-in - every intermediate stored | Separate logging/DB layer |
+| Caching | Automatic - same input never recomputed | Manual memoization |
 | Reusable sub-agent | `pxt.udf(table, return_value=...)` | Agent class with `.run()` |
-| Error recovery | `recompute_columns(where=errortype != None)` | Re-run entire pipeline |
+| Error recovery | `recompute_columns('col', where=col.errortype != None)` | Re-run entire pipeline |
 | Observability | Query any column on any row | Attach tracing callbacks |
 
-Patterns compose naturally — an orchestrator can use routing in its dispatch, tool use within workers, and ReAct reasoning inside tool loops, all without special glue code.
+Patterns compose naturally - an orchestrator can use routing in its dispatch, tool use within workers, and ReAct reasoning inside tool loops, all without special glue code.

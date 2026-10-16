@@ -1,6 +1,6 @@
 # Video RAG Agent
 
-A complete recipe that combines video processing, document/transcript retrieval, and a tool-calling agent into one pipeline. Insert a video and a question — the agent automatically searches frames, transcripts, and documents to answer it.
+A complete recipe that combines video processing, document/transcript retrieval, and a tool-calling agent into one pipeline. Insert a video and a question - the agent automatically searches frames, transcripts, and documents to answer it.
 
 ## Full Pipeline
 
@@ -149,7 +149,7 @@ agent = pxt.create_table('vrag.agent', {
     'temperature': pxt.Float,
 }, if_exists='ignore')
 
-# Step 1: Initial LLM call — tool selection
+# Step 1: Initial LLM call - tool selection
 agent.add_computed_column(
     initial_response=messages(
         model='claude-sonnet-4-20250514',
@@ -208,7 +208,7 @@ videos.insert([
     {'video': 'https://example.com/demo.mp4', 'title': 'Product Demo'},
 ])
 
-# Ask a question — the full pipeline runs automatically
+# Ask a question - the full pipeline runs automatically
 agent.insert([{
     'prompt': 'What visual examples does the lecturer use to explain gradient descent?',
     'timestamp': datetime.now(),
@@ -224,11 +224,11 @@ result = agent.order_by(agent.timestamp, asc=False).limit(1).select(agent.answer
 
 The pipeline is a chain of computed columns. Inserting a row into `agent` triggers these steps automatically:
 
-1. **Initial LLM call** — Claude selects which tools to call (transcript search, frame search, web search)
-2. **Tool execution** — `invoke_tools()` runs the selected `@pxt.query` / `@pxt.udf` functions
-3. **RAG retrieval** — Transcript and frame similarity searches run in parallel as computed columns
-4. **Context assembly** — A UDF merges tool outputs, transcript excerpts, and visual descriptions
-5. **Final LLM call** — Claude synthesizes everything into a grounded answer
+1. **Initial LLM call** - Claude selects which tools to call (transcript search, frame search, web search)
+2. **Tool execution** - `invoke_tools()` runs the selected `@pxt.query` / `@pxt.udf` functions
+3. **RAG retrieval** - Transcript and frame similarity searches run in parallel as computed columns
+4. **Context assembly** - A UDF merges tool outputs, transcript excerpts, and visual descriptions
+5. **Final LLM call** - Claude synthesizes everything into a grounded answer
 
 ### Key building blocks
 
@@ -245,7 +245,7 @@ The pipeline is a chain of computed columns. Inserting a row into `agent` trigge
 
 ## Adapting This Recipe
 
-- **Swap providers**: Replace `messages` (Anthropic) with `chat_completions` (OpenAI/Together/etc.) — see [providers.md](providers.md#quick-reference) for import and output shapes
+- **Swap providers**: Replace `messages` (Anthropic) with `chat_completions` (OpenAI/Together/etc.) - see [providers.md](providers.md#quick-reference) for import and output shapes
 - **Add document RAG**: Add a `document_splitter` view and a `search_documents` query function to the tools list
-- **Use local models**: Replace OpenAI transcription with `whisper.transcribe()` and use `ollama.chat_completions` for the LLM — see [workflows.md → Local LLM Pipeline](workflows.md#local-llm-pipeline-ollama)
-- **Serve via API**: Wrap the pipeline in a FastAPI endpoint — see [workflows.md → FastAPI App Pattern](workflows.md#fastapi-app-pattern)
+- **Use local models**: Replace OpenAI transcription with `whisper.transcribe()` and use `ollama.chat_completions` for the LLM - see [workflows.md → Local LLM Pipeline](workflows.md#local-llm-pipeline-ollama)
+- **Serve via API**: Wrap the pipeline in a FastAPI endpoint - see [workflows.md → FastAPI App Pattern](workflows.md#fastapi-app-pattern)

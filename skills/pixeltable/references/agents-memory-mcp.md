@@ -200,7 +200,7 @@ agent.add_computed_column(
 ## Usage
 
 ```python
-# Ask a question — memory and tools are used automatically
+# Ask a question - memory and tools are used automatically
 agent.insert([{
     'prompt': 'What is the weather in Tokyo? Remember that I like brief answers.',
     'user_id': 'user_1',
@@ -241,7 +241,7 @@ for tool in mcp_tools:
 tools = pxt.tools(get_weather, save_memory, recall_memories, *mcp_tools)
 ```
 
-MCP tools are called via `invoke_tools()` exactly like local UDFs — no special handling needed.
+MCP tools are called via `invoke_tools()` exactly like local UDFs - no special handling needed.
 
 ## Multi-Provider invoke_tools
 
@@ -259,20 +259,20 @@ To switch providers, change the import and the LLM call function. The `tools` ob
 
 ## How It Works
 
-1. **Chat history** — Every conversation is stored in a table with an embedding index. The `recall_chat_history` query retrieves semantically relevant past turns for the current user.
+1. **Chat history** - Every conversation is stored in a table with an embedding index. The `recall_chat_history` query retrieves semantically relevant past turns for the current user.
 
-2. **Memory bank** — Long-lived facts and preferences are stored separately. The `recall_memories` query retrieves relevant memories. The `save_memory` tool lets the LLM itself save new facts during conversation.
+2. **Memory bank** - Long-lived facts and preferences are stored separately. The `recall_memories` query retrieves relevant memories. The `save_memory` tool lets the LLM itself save new facts during conversation.
 
-3. **User scoping** — All queries filter by `user_id`, so multiple users can share the same tables without seeing each other's data.
+3. **User scoping** - All queries filter by `user_id`, so multiple users can share the same tables without seeing each other's data.
 
-4. **MCP integration** — `pxt.mcp_udfs()` loads tools from any MCP server as regular Pixeltable UDFs. They're bundled with `pxt.tools()` and executed with `invoke_tools()` just like local functions.
+4. **MCP integration** - `pxt.mcp_udfs()` loads tools from any MCP server as regular Pixeltable UDFs. They're bundled with `pxt.tools()` and executed with `invoke_tools()` just like local functions.
 
 ## Adapting This Recipe
 
 - **Add document RAG**: Create a document chunking view and add a `search_documents` query to the tools list
 - **Add image memory**: Use CLIP embeddings on an image column for visual memory recall
-- **Serve via API**: Wrap in a FastAPI endpoint — see [workflows.md → FastAPI App Pattern](workflows.md#fastapi-app-pattern)
-- **Use Anthropic instead**: Swap `chat_completions` → `messages` and `openai.invoke_tools` → `anthropic.invoke_tools` — see [providers.md → Quick Reference](providers.md#quick-reference)
+- **Serve via API**: Wrap in a FastAPI endpoint - see [workflows.md → FastAPI App Pattern](workflows.md#fastapi-app-pattern)
+- **Use Anthropic instead**: Swap `chat_completions` → `messages` and `openai.invoke_tools` → `anthropic.invoke_tools` - see [providers.md → Quick Reference](providers.md#quick-reference)
 
 ## Agent with Memory Checklist
 
@@ -283,7 +283,7 @@ To switch providers, change the import and the LLM call function. The `tools` ob
 - [ ] Recall queries filter by `user_id` (multi-tenant safety)
 - [ ] Recall queries use `.similarity(string=...)` with keyword argument and a minimum threshold
 - [ ] `save_memory` tool has a clear docstring so the LLM knows when to store facts
-- [ ] Tools bundled with `pxt.tools()` — includes both local UDFs and MCP tools if any
+- [ ] Tools bundled with `pxt.tools()` - includes both local UDFs and MCP tools if any
 - [ ] `invoke_tools()` import matches the LLM provider used
 - [ ] Agent response saved to chat history after each interaction (both user and assistant turns)
 - [ ] Tested with multiple user IDs to verify scoping works
