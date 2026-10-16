@@ -168,6 +168,7 @@ Important notes:
 - The `.pr/` check is informational during development; it posts a notice rather than blocking the PR.
 - Cleanup PRs follow the normal review and required-check protections for `main`.
 - npm packaging excludes `.pr/` while its cleanup PR is pending, so temporary review artifacts do not ship in releases.
+- Release PRs fail the required `test` check while their committed tree contains `.pr/`. Merge the artifact-cleanup PR and let release-please update the release PR before merging it.
 
 ## CI / validation gotchas
 
