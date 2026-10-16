@@ -75,3 +75,33 @@ def test_tarball_holds_bundle_files_and_config(factory, station):
         config = json.load(tar.extractfile("config.json"))
     assert names == set(bundle["files"]) | {"config.json"}
     assert config == {"repos": ["acme/api"]}
+
+
+def test_prs_keeps_only_branches_with_the_prefix(factory, monkeypatch):
+    pulls = [
+        {"number": 2, "title": "docs: add AGENTS.md", "html_url": "u2", "draft": True,
+         "head": {"ref": "openhands/agents-md-2026-W42"}},
+        {"number": 3, "title": "feature", "html_url": "u3", "draft": False,
+         "head": {"ref": "feature/x"}},
+    ]
+    monkeypatch.setattr(factory, "_github", lambda path: pulls)
+    args = type("Args", (), {"repos": "acme/api", "branch_prefix": "openhands/agents-md"})
+    assert factory.prs(args) == {
+        "acme/api": [{"number": 2, "title": "docs: add AGENTS.md", "url": "u2", "draft": True}]
+    }
+
+
+def test_automation_url_points_at_the_canvas_page(factory, monkeypatch):
+    monkeypatch.setenv("OPENHANDS_HOST", "http://localhost:8000/")
+    assert factory._automation_url("abc") == "http://localhost:8000/automations/abc"
+
+
+def test_automation_backend_host_gets_a_clear_error(factory, monkeypatch):
+    def not_found(*args, **kwargs):
+        raise factory.FactoryError("GET http://localhost:18001/api/agent-profiles -> 404: {}")
+
+    monkeypatch.setenv("OPENHANDS_HOST", "http://localhost:18001")
+    monkeypatch.setenv("OPENHANDS_AUTOMATION_API_KEY", "key")
+    monkeypatch.setattr(factory, "_request", not_found)
+    with pytest.raises(factory.FactoryError, match="Ingress URL"):
+        factory._profile(None)

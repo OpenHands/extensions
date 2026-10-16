@@ -7,6 +7,8 @@ Each command prints one JSON document on stdout and exits non-zero on failure.
   factory.py create --repos owner/a --ids ID[,ID...] [--set [ID.]FIELD=VALUE ...] [--profile NAME]
   factory.py verify ID [ID ...] [--no-wait ID ...] [--timeout SECONDS]
   factory.py status ID [ID ...]
+  factory.py prs --repos owner/a [--branch-prefix openhands/agents-md]
+  factory.py reset-token
 
 Environment:
   OPENHANDS_HOST                  automation host, as the openhands-automation skill determines it
@@ -252,7 +254,15 @@ def _upload(name: str, data: bytes) -> str:
 
 
 def _profile(name: str | None) -> dict:
-    listing = _request("GET", f"{_host()}/api/agent-profiles", headers=_auth())
+    try:
+        listing = _request("GET", f"{_host()}/api/agent-profiles", headers=_auth())
+    except FactoryError as err:
+        if " -> 404" in str(err):
+            raise FactoryError(
+                "OPENHANDS_HOST serves no /api/agent-profiles: on a local Agent Canvas use the"
+                " Ingress URL from <RUNTIME_SERVICES>, not the automation backend"
+            ) from None
+        raise
     profiles = listing.get("profiles", [])
     wanted = name or listing.get("active_agent_profile_id")
     match = next((p for p in profiles if wanted in (p.get("id"), p.get("name"))), None)
@@ -285,6 +295,8 @@ def preflight(args) -> dict:
     try:
         out["profile"] = _profile(args.profile)
     except FactoryError as err:
+        if "OPENHANDS_HOST" in str(err):
+            raise
         out["profile"] = {"error": str(err)}
     out["github_login"] = None
     if not os.environ.get(TOKEN_SECRET):
@@ -343,10 +355,23 @@ def create(args) -> dict:
             automation = _api("POST", "", body)
             if automation.get("enabled") or automation.get("state") == "ACTIVE":
                 _api("PATCH", f"/{automation['id']}", {"enabled": False})
-            created.append({"station": station, "id": automation["id"], "name": body["name"], "trigger": body["trigger"]})
+            created.append(
+                {
+                    "station": station,
+                    "id": automation["id"],
+                    "name": body["name"],
+                    "trigger": body["trigger"],
+                    "url": _automation_url(automation["id"]),
+                }
+            )
     except FactoryError as err:
         raise FactoryError(str(err), created=created) from None
     return {"created": created}
+
+
+def _automation_url(automation_id: str) -> str:
+    """The automation's page in Agent Canvas."""
+    return f"{_host()}/automations/{automation_id}"
 
 
 def _latest_run(automation_id: str) -> dict | None:
@@ -361,7 +386,11 @@ def verify(args) -> dict:
         run = _api("POST", f"/{automation_id}/dispatch")
         if automation_id in (args.no_wait or []):
             _api("PATCH", f"/{automation_id}", {"enabled": True})
-            results[automation_id] = {"status": run.get("status"), "enabled": True}
+            results[automation_id] = {
+                "status": run.get("status"),
+                "enabled": True,
+                "url": _automation_url(automation_id),
+            }
         else:
             waiting[automation_id] = run.get("id")
     deadline = time.time() + args.timeout
@@ -377,11 +406,16 @@ def verify(args) -> dict:
                 "status": run["status"],
                 "enabled": passed,
                 "error_detail": run.get("error_detail"),
+                "url": _automation_url(automation_id),
             }
             del waiting[automation_id]
     for automation_id in waiting:
         _api("PATCH", f"/{automation_id}", {"enabled": False})
-        results[automation_id] = {"status": "TIMEOUT", "enabled": False}
+        results[automation_id] = {
+            "status": "TIMEOUT",
+            "enabled": False,
+            "url": _automation_url(automation_id),
+        }
     return results
 
 
@@ -391,6 +425,28 @@ def status(args) -> dict:
         run = _latest_run(automation_id) or {}
         out[automation_id] = {k: run.get(k) for k in ("status", "error_detail", "conversation_id", "completed_at")}
     return out
+
+
+def prs(args) -> dict:
+    """Open pull requests whose branch starts with the prefix, per repository."""
+    out = {}
+    for repo in _split(args.repos):
+        pulls = _github(f"/repos/{repo}/pulls?state=open&per_page=100")
+        out[repo] = [
+            {"number": p["number"], "title": p["title"], "url": p["html_url"], "draft": p.get("draft")}
+            for p in pulls
+            if p["head"]["ref"].startswith(args.branch_prefix)
+        ]
+    return out
+
+
+def reset_token(args) -> dict:
+    """Delete the saved token so request_secret opens its form (local Agent Canvas)."""
+    try:
+        _request("DELETE", f"{_host()}/api/settings/secrets/{TOKEN_SECRET}", headers=_auth())
+    except FactoryError as err:
+        raise FactoryError(f"could not delete {TOKEN_SECRET}; replace it in Settings -> Secrets: {err}") from None
+    return {"deleted": TOKEN_SECRET}
 
 
 def _split(text: str) -> list[str]:
@@ -418,6 +474,12 @@ def main() -> int:
     p = sub.add_parser("status")
     p.add_argument("ids", nargs="+")
     p.set_defaults(func=status)
+    p = sub.add_parser("prs")
+    p.add_argument("--repos", required=True)
+    p.add_argument("--branch-prefix", default="openhands/agents-md")
+    p.set_defaults(func=prs)
+    p = sub.add_parser("reset-token")
+    p.set_defaults(func=reset_token)
     args = parser.parse_args()
     try:
         print(json.dumps(args.func(args), indent=2))

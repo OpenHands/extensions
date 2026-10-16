@@ -41,8 +41,12 @@ Bitbucket code hosts are not part of this flow.
 
 `scripts/factory.py` in this skill's directory does every catalog and API step
 and prints one JSON document; it exits non-zero with `{"error": ...}` on
-failure. Export `OPENHANDS_HOST` as the `openhands-automation` skill determines
-the host ("Determining the API Host"), then run every command as:
+failure. Its usage is below: do not read its source, and do not load the
+`openhands-automation` skill for Phase 1.
+
+Set `OPENHANDS_HOST` to the **Ingress** URL in `<RUNTIME_SERVICES>` on a local
+Agent Canvas (it serves both `/api/automation` and `/api`; the automation
+backend URL does not), or to `<HOST>` on OpenHands Cloud. Run every command as:
 
 ```bash
 GITHUB_PERSONAL_ACCESS_TOKEN="$GITHUB_PERSONAL_ACCESS_TOKEN" \
@@ -61,6 +65,11 @@ The script reads the token and never prints it.
 | `$F create --repos a/b --ids ID,ID [--set FIELD=VALUE] [--set ID.FIELD=VALUE]` | Fills each station's form (answers, then derived values, then manifest defaults), uploads the bundle and creates it disabled. `FIELD=VALUE` applies to every listed station with that field. |
 | `$F verify ID... [--no-wait ID...]` | Dispatches once, enables the ones whose run `COMPLETED` and disables the rest, reporting their `error_detail`. `--no-wait` enables without waiting. |
 | `$F status ID...` | The latest run of each. |
+| `$F prs --repos a/b [--branch-prefix P]` | Open pull requests whose branch starts with `P` (default `openhands/agents-md`, the AGENTS.md maintainer's). |
+| `$F reset-token` | Deletes the saved `GITHUB_PERSONAL_ACCESS_TOKEN` (local Agent Canvas), so `request_secret` opens its form again. |
+
+`create` and `verify` return each automation's `url`, its page in Agent Canvas.
+Do not use the task tracker for this flow.
 
 Add `--profile NAME` to `preflight` or `create` to use a profile other than the
 active one.
@@ -86,7 +95,8 @@ active one.
 
 1. Ask, in one message: "Which GitHub repositories (`owner/repo`)? Where do
    tickets live: GitHub issues (default), Jira or Linear?" Say that everything
-   else uses defaults that can be changed afterwards.
+   else uses defaults that can be changed afterwards. If the answer names only
+   repositories, use GitHub issues; do not ask again.
 2. Run `$F preflight --repos <repos>`. Drop repositories without `push`, and
    say which.
 3. If `github_login` is null, act on `token_error`:
@@ -95,9 +105,12 @@ active one.
      Issues, Pull requests and Workflows read and write (classic PAT: `repo`,
      `workflow`). End your turn, wait for the `[secret-request]` message,
      then rerun `preflight`.
-   - `rejected`: the saved token is invalid or expired. Tell the user to
-     replace it in Settings -> Secrets and say when done; `request_secret`
-     cannot replace it (it answers `saved` at once for an existing name).
+   - `rejected`: GitHub refuses the saved token (invalid or expired), and
+     `request_secret` cannot replace it: it answers `saved` at once for a name
+     that exists. Say so in one sentence and ask "Shall I remove it and open
+     the form for a new one?" On yes, run `$F reset-token`, then handle it as
+     `not_set`. If `reset-token` fails, tell the user to replace it in
+     Settings -> Secrets and say when done.
    - `not_set` without the tool: tell the user to add it in Settings ->
      Secrets and stop.
 4. `$F create --repos <repos> --ids github-pr-reviewer,github-agents-md-maintainer`,
@@ -109,19 +122,26 @@ active one.
 
 ## Checkpoint
 
-1. Show what exists, with the `canvas_ui` tool if available, otherwise a table:
-   station, automation id, repositories, schedule, enabled. Below it, the
-   current value of each setting in the Tune table. Point out that the reviewer
-   also reviews any open, non-draft, green pull request with no review yet (at
-   most 2 new per scan).
+Write one short message, in this order:
 
-   Run `$F status <maintainer id>`. If its run finished, link the `AGENTS.md`
-   pull requests and ask the user to merge them: they give the build agent the
-   repository's build, test and lint commands. If not, say they are on their way.
-2. Say how to use it: "Add the `<trigger label>` label to a ticket to have it
-   built (on Jira, the ticket body must name the `owner/repo`); the reviewer
-   reviews the pull request; you merge it."
-3. Say the factory already runs as is and the user can stop here. Offer the next
+1. One plain sentence on what runs and how to use it: "Your factory is running
+   on `<repos>`. Add the `<trigger label>` label to a ticket to get a draft pull
+   request; the reviewer reviews it and you merge it." (On Jira, add that the
+   ticket body must name the `owner/repo`.)
+2. The `AGENTS.md` pull requests from `$F prs --repos <repos>`, asking the user
+   to merge them: they give the build agent the repository's build, test and
+   lint commands. If there are none yet, say they are on their way.
+3. A small table of the automations, each linked to its `url`:
+
+   | Automation | Schedule | Status |
+   |---|---|---|
+   | [Issue to PR](<url>) | every 15 minutes | on |
+
+   Status is `on`, or `off` with the reason in a few words. No automation ids.
+4. The settings in effect, as a short list (the Tune table's current values).
+   Mention that the reviewer also reviews any open, non-draft, green pull
+   request with no review yet (at most 2 new per scan).
+5. Say the factory already runs as is and the user can stop here. Offer the next
    steps, recommending the first one not done yet:
    1. **Try it**: open a small test issue carrying the trigger label in one
       repository (only if the user agrees), then report the pull request.
