@@ -433,7 +433,13 @@ def prs(args) -> dict:
     for repo in _split(args.repos):
         pulls = _github(f"/repos/{repo}/pulls?state=open&per_page=100")
         out[repo] = [
-            {"number": p["number"], "title": p["title"], "url": p["html_url"], "draft": p.get("draft")}
+            {
+                "number": p["number"],
+                "title": p["title"],
+                "url": p["html_url"],
+                "draft": p.get("draft"),
+                "created_at": p.get("created_at"),
+            }
             for p in pulls
             if p["head"]["ref"].startswith(args.branch_prefix)
         ]

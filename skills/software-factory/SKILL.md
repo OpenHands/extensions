@@ -69,7 +69,8 @@ The script reads the token and never prints it.
 | `$F reset-token` | Deletes the saved `GITHUB_PERSONAL_ACCESS_TOKEN` (local Agent Canvas), so `request_secret` opens its form again. |
 
 `create` and `verify` return each automation's `url`, its page in Agent Canvas.
-Do not use the task tracker for this flow.
+Trust the script's output: do not open pages in the browser to check them, and
+do not use the task tracker for this flow.
 
 Add `--profile NAME` to `preflight` or `create` to use a profile other than the
 active one.
@@ -130,7 +131,9 @@ Write one short message, in this order:
    ticket body must name the `owner/repo`.)
 2. The `AGENTS.md` pull requests from `$F prs --repos <repos>`, asking the user
    to merge them: they give the build agent the repository's build, test and
-   lint commands. If there are none yet, say they are on their way.
+   lint commands. One opened before this setup started (`created_at`) is
+   "still open from an earlier run", not new; the maintainer works once a week
+   per repository. If there are none yet, say they are on their way.
 3. A small table of the automations, each linked to its `url`:
 
    | Automation | Schedule | Status |
@@ -141,13 +144,14 @@ Write one short message, in this order:
 4. The settings in effect, as a short list (the Tune table's current values).
    Mention that the reviewer also reviews any open, non-draft, green pull
    request with no review yet (at most 2 new per scan).
-5. Say the factory already runs as is and the user can stop here. Offer the next
-   steps, recommending the first one not done yet:
-   1. **Try it**: open a small test issue carrying the trigger label in one
-      repository (only if the user agrees), then report the pull request.
-   2. **Tune**: change settings (see Phase 2).
-   3. **Add a station**: triage, auto-merge watchdog, stale-CI closer, QA.
-   4. **Stop**.
+5. End with only a list of possible next steps, one line each, and nothing
+   after it. Mark the first one not done yet as recommended:
+   - **Try it**: I open a small test issue with the `<trigger label>` label in
+     `<repo>`, only if you say so, and report the pull request.
+   - **Tune**: change a setting from the list above.
+   - **Add a station**: triage, auto-merge watchdog, stale-CI closer (QA only
+     if `preflight` reports it `ok`).
+   - **Stop here**: the factory keeps running as it is.
 
 ## Phase 2 - Extend, one round at a time
 

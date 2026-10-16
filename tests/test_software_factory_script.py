@@ -80,14 +80,17 @@ def test_tarball_holds_bundle_files_and_config(factory, station):
 def test_prs_keeps_only_branches_with_the_prefix(factory, monkeypatch):
     pulls = [
         {"number": 2, "title": "docs: add AGENTS.md", "html_url": "u2", "draft": True,
-         "head": {"ref": "openhands/agents-md-2026-W42"}},
+         "created_at": "2026-10-16T21:32:40Z", "head": {"ref": "openhands/agents-md-2026-W42"}},
         {"number": 3, "title": "feature", "html_url": "u3", "draft": False,
          "head": {"ref": "feature/x"}},
     ]
     monkeypatch.setattr(factory, "_github", lambda path: pulls)
     args = type("Args", (), {"repos": "acme/api", "branch_prefix": "openhands/agents-md"})
     assert factory.prs(args) == {
-        "acme/api": [{"number": 2, "title": "docs: add AGENTS.md", "url": "u2", "draft": True}]
+        "acme/api": [
+            {"number": 2, "title": "docs: add AGENTS.md", "url": "u2", "draft": True,
+             "created_at": "2026-10-16T21:32:40Z"}
+        ]
     }
 
 
