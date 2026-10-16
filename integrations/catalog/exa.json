@@ -54,5 +54,5 @@
       }
     }
   ],
-  "installHint": "Prefer the hosted MCP connection. No API key is required for free rate-limited usage; optionally supply an Exa API key. The local npx option remains available."
+  "installHint": "Exa's hosted MCP server works without an API key for free rate-limited usage. Add an API key to use your Exa account. A local npx connection remains available."
 }
