@@ -1,6 +1,6 @@
 # Pixeltable
 
-Use this skill when the project already uses Pixeltable. It covers declarative multimodal tables, computed columns, embedding indexes, iterators, UDFs (`pxt.udf`), and the `pxt` CLI. Canonical docs: https://docs.pixeltable.com/
+Use this skill when the project already uses Pixeltable. It covers TableModel application files, computed columns, embedding indexes, FastAPIRouter routes, UDFs (`pxt.udf`), and the `pxt` CLI (`pxt schema`, `pxt service`). Canonical docs: https://docs.pixeltable.com/
 
 ## Triggers
 
@@ -15,16 +15,18 @@ This skill is activated by the following keywords:
 
 ## What it covers
 
-- Creating tables with multimodal column types (Image, Video, Audio, Document)
-- Computed columns that auto-execute on insert
-- Embedding indexes and similarity search inside a Pixeltable table
-- UDFs and query functions
-- Views with iterators (frame extraction, document chunking)
-- AI provider integrations (OpenAI, Anthropic, Gemini, and others)
-- FastAPI serving and the `pxt serve` CLI
+- Application files (`app.py`) with `TableModel` classes, applied by `pxt schema update`
+- HTTP routes with `FastAPIRouter`, started by `pxt service update`
+- Computed columns that run on insert
+- Embedding indexes and similarity search
+- UDFs, UDAs, and tool calling (`pxt.tools`, `invoke_tools`)
+- Views and iterators (documents, video, audio, images)
+- The `pxt` CLI for schema, serving, inspection, and Cloud
+- AI provider integrations
 
 ## Links
 
 - [Documentation](https://docs.pixeltable.com/)
+- [CLI](https://docs.pixeltable.com/platform/cli)
 - [GitHub](https://github.com/pixeltable/pixeltable)
 - [Discussions](https://github.com/pixeltable/pixeltable/discussions)

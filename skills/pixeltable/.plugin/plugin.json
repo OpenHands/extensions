@@ -1,7 +1,7 @@
 {
   "name": "pixeltable",
   "version": "1.0.0",
-  "description": "Use when the project already uses Pixeltable. Covers declarative multimodal tables, computed columns, embedding indexes, iterators, UDFs (pxt.udf), and the pxt CLI.",
+  "description": "Use when the project already uses Pixeltable. Covers TableModel application files, computed columns, embedding indexes, FastAPIRouter routes, UDFs (pxt.udf), and the pxt CLI (pxt schema, pxt service).",
   "author": {
     "name": "OpenHands",
     "email": "contact@all-hands.dev"
