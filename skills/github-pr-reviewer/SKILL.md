@@ -254,6 +254,13 @@ requesting the handoff.
 
 When several repositories are monitored, the token must cover all of them.
 
+On OpenHands Cloud and Enterprise, the Agent Canvas catalog template needs no
+saved secret when GitHub is connected under Settings -> Integrations: a secret
+saved under the configured name is used if present, otherwise the connected
+account's token, and the review is published by that account. The requested
+reviewer should be that account's login. The steps below apply to the local
+setup through this skill.
+
 Check with:
 ```bash
 curl -s https://api.github.com/user \
