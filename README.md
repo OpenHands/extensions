@@ -100,7 +100,7 @@ The JS and Python versions are kept in lock-step by `release-please` and guarded
 ## Extensions Catalog
 
 <!-- BEGIN AUTO-GENERATED CATALOG -->
-This repository contains **2 marketplace(s)** with **77 extensions** (66 skills, 11 plugins).
+This repository contains **2 marketplace(s)** with **78 extensions** (66 skills, 12 plugins).
 
 ### large-codebase
 
@@ -119,7 +119,7 @@ OpenHands skills for interacting, improving, and refactoring large codebases
 
 Official skills and plugins for OpenHands — the open-source AI software engineer.
 
-**73 extensions** (64 skills, 9 plugins)
+**74 extensions** (64 skills, 10 plugins)
 
 | Name | Type | Description | Commands |
 |------|------|-------------|----------|
@@ -155,6 +155,7 @@ Official skills and plugins for OpenHands — the open-source AI software engine
 | github-stale-ci-pr-closer | skill | Warn and close abandoned pull requests whose required CI remains failing. | `/github-stale-ci-pr-closer` |
 | gitlab | skill | Interact with GitLab repositories, merge requests, and APIs using the GITLAB_TOKEN environment variable. Use when wor... | — |
 | gitlab-issue-to-mr | skill | Create an automation that implements GitLab issues when a configurable trigger label is applied. Polls the projects d... | `/issue-to-mr:setup` |
+| hello-world-automation | plugin | Example automation plugin that runs a plugin command through the stock conversation runner. | — |
 | incident-retrospective | skill | Create an automation that drafts incident retrospectives by gathering incident-channel messages from Slack, collectin... | `/incident-retro:setup` |
 | iterate | skill | Iterate on a GitHub pull request — drive it through CI, code review, and QA until merge-ready. Monitors state, fixes ... | `/iterate`, `/verify`, `/babysit` |
 | jira-issue-to-pr | skill | Deploy a cron-based OpenHands automation that opens a GitHub pull request, a GitLab merge request or a Bitbucket pull... | — |

@@ -1,0 +1,49 @@
+{
+  "name": "hello-world-automation",
+  "version": "0.1.0",
+  "description": "Example automation plugin that runs a plugin command through the stock conversation runner.",
+  "author": {
+    "name": "OpenHands",
+    "email": "contact@all-hands.dev"
+  },
+  "homepage": "https://github.com/OpenHands/extensions",
+  "repository": "https://github.com/OpenHands/extensions",
+  "license": "MIT",
+  "keywords": [
+    "automation",
+    "example",
+    "hello-world"
+  ],
+  "automation": {
+    "schema_version": "openhands.automation.plugin.v1",
+    "entrypoint": {
+      "runner": "conversation",
+      "command": "hello"
+    },
+    "runtime": {
+      "agent_profile": {
+        "required": true,
+        "default_name": "hello-world-agent",
+        "allowed_tools": [
+          "terminal"
+        ]
+      },
+      "plugins": []
+    },
+    "config_schema": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "message": {
+          "type": "string",
+          "default": "Hello from the automation plugin"
+        }
+      }
+    },
+    "suggested_trigger": {
+      "type": "cron",
+      "schedule": "0 9 * * *",
+      "timezone": "UTC"
+    }
+  }
+}
