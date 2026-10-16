@@ -43,6 +43,13 @@ rook doctor
 
 Changing the installed version also needs the user's approval. Upstream documentation for this release: https://github.com/LambdaTest/rook/tree/v0.1.7
 
+### In an OpenHands sandbox
+
+- The global npm folder is owned by root, so a plain `npm install -g` fails with `EACCES`. Install with `sudo npm install -g @testmuai/rook@0.1.7`.
+- Rook selects the project per directory. Run `rook project create <name>` or `rook project use <id>` inside the agent's directory before `rook explore`, or the command stops with `no_project`.
+- `rook explore` and `rook generate` can stop to ask a question, such as which agent to register. In a non-interactive shell, pass `--yes` only within the scope the user authorized, and close stdin (`< /dev/null`) so a prompt cannot hang the run.
+- In 0.1.7, `explore` and `generate` print readable text even with `--json`, so read their output as text.
+
 ## Your role
 
 You are the orchestrator: you choose and run Rook commands, and Rook does the testing work. Discovery is `rook explore`, test design is `rook generate`, and invocation and grading are `rook run` and `rook report`. When the user asks to explore, understand, plan tests for or test an agent, run the matching command. Do not read the target's code to describe the agent, or write your own test plan or verdicts, in its place. Read the target's source only for a step Rook needs from you, such as a profile's transport and command, or to explain a Rook result. If credits or authorization block the next command, name it and what it needs; manual analysis is not a substitute.
