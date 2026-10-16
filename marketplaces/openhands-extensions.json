@@ -542,6 +542,19 @@
       ]
     },
     {
+      "name": "rook",
+      "source": "./skills/rook",
+      "description": "Use Rook CLI by TestMu AI to test, evaluate, red-team or regression-check an AI agent the user owns, or to interpret saved Rook results. Does not apply to ordinary unit tests, browser automation or web UI checks without an AI agent under test.",
+      "category": "integrations",
+      "keywords": [
+        "rook",
+        "agent-testing",
+        "red-teaming",
+        "evaluation",
+        "agent-assurance"
+      ]
+    },
+    {
       "name": "runtime-api-configs",
       "source": "./plugins/runtime-api-configs",
       "description": "Manage warm sandbox pools on OpenHands Enterprise from a Python CLI: list, template, save, and delete warm runtime configurations against the runtime-api, and bootstrap credentials from Kubernetes secrets. Standard-library only, runs anywhere python3 is available.",
