@@ -36,6 +36,14 @@ kane-cli whoami
 - It runs on Linux, macOS and Windows.
 - By default every run launches Chrome with a fresh, temporary profile, not the user's signed-in Chrome profile.
 
+In an OpenHands sandbox, Google Chrome is not preinstalled and the global npm folder is owned by root, so a plain `npm install -g` fails with `EACCES`. Install both with `sudo`:
+
+```bash
+wget -q https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
+sudo apt-get update -qq && sudo apt-get install -y ./google-chrome-stable_current_amd64.deb
+sudo npm install -g @testmuai/kane-cli@0.8.21
+```
+
 ## Run one check
 
 ```bash
