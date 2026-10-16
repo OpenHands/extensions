@@ -12,6 +12,22 @@
   ],
   "connectionOptions": [
     {
+      "id": "hosted",
+      "provider": "mcp",
+      "transport": {
+        "kind": "shttp",
+        "url": "https://mcp.exa.ai/mcp",
+        "apiKeyOptional": true
+      },
+      "auth": {
+        "strategy": "api_key",
+        "apiKeyHeaderName": "x-api-key",
+        "apiKeyOptional": true,
+        "credentialLabel": "Exa API key",
+        "credentialHelp": "Optional for free rate-limited usage. Use a key from https://dashboard.exa.ai/api-keys for usage on your Exa account."
+      }
+    },
+    {
       "id": "api",
       "provider": "mcp",
       "transport": {
@@ -37,5 +53,6 @@
         "strategy": "api_key"
       }
     }
-  ]
+  ],
+  "installHint": "Prefer the hosted MCP connection. No API key is required for free rate-limited usage; optionally supply an Exa API key. The local npx option remains available."
 }
