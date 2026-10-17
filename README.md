@@ -100,7 +100,7 @@ The JS and Python versions are kept in lock-step by `release-please` and guarded
 ## Extensions Catalog
 
 <!-- BEGIN AUTO-GENERATED CATALOG -->
-This repository contains **2 marketplace(s)** with **77 extensions** (66 skills, 11 plugins).
+This repository contains **2 marketplace(s)** with **78 extensions** (67 skills, 11 plugins).
 
 ### large-codebase
 
@@ -119,7 +119,7 @@ OpenHands skills for interacting, improving, and refactoring large codebases
 
 Official skills and plugins for OpenHands — the open-source AI software engineer.
 
-**73 extensions** (64 skills, 9 plugins)
+**74 extensions** (65 skills, 9 plugins)
 
 | Name | Type | Description | Commands |
 |------|------|-------------|----------|
@@ -196,6 +196,7 @@ Official skills and plugins for OpenHands — the open-source AI software engine
 | uv | skill | Common project, dependency, and environment operations using uv. | — |
 | vercel | skill | Deploy and manage applications on Vercel, including preview deployments and deployment protection. | — |
 | vulnerability-remediation | plugin | Automated security vulnerability scanning and AI-powered remediation. Scans repositories, skips when no issues found,... | — |
+| web-research | skill | Find facts on the web and report them from the source rather than from search results. Use for questions that need th... | — |
 <!-- END AUTO-GENERATED CATALOG -->
 
 ## Contributing

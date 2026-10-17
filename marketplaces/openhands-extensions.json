@@ -931,6 +931,21 @@
         "jev",
         "classification"
       ]
+    },
+    {
+      "name": "web-research",
+      "source": "./skills/web-research",
+      "description": "Find facts on the web and report them from the source rather than from search results. Use for questions that need the web - prices, availability, feature support, version numbers, \"is there a\", \"does it support\", \"does X publish Y\" - and especially when the true answer may be that something does not exist or is not published.",
+      "category": "writing",
+      "keywords": [
+        "web",
+        "search",
+        "research",
+        "sources",
+        "verification",
+        "absence",
+        "rendering"
+      ]
     }
   ]
 }
