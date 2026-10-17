@@ -146,6 +146,14 @@ runs:
               path: pr-repo
               submodules: recursive
 
+        # fetch-depth 0 brings the base branch in as origin/<base> only. The reviewer's
+        # natural `git diff <base>` otherwise fails with "unknown revision" and burns steps.
+        - name: Create local base branch
+          shell: bash
+          env:
+              BASE_REF: ${{ github.event.pull_request.base.ref }}
+          run: git -C pr-repo branch "$BASE_REF" "origin/$BASE_REF" || true
+
         - name: Set up Python
           uses: actions/setup-python@v5
           with:
