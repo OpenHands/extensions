@@ -93,6 +93,19 @@
       ]
     },
     {
+      "name": "software-factory",
+      "source": "./skills/software-factory",
+      "description": "Set up a GitHub software factory fast: ask only for the repositories and the ticket source (GitHub issues, Jira or Linear), create a working issue-to-PR and PR-review pipeline from catalog automations with defaults, then let the user stop or extend it step by step.",
+      "category": "automations",
+      "keywords": [
+        "onboarding",
+        "software-factory",
+        "github",
+        "automation",
+        "pull-request"
+      ]
+    },
+    {
       "name": "agent-canvas-environment",
       "source": "./skills/agent-canvas-environment",
       "description": "Work effectively inside a local Agent Canvas environment, including local agent-server auth, safe workspace hygiene, and local conversation delegation.",
