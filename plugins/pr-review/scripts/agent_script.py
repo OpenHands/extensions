@@ -27,6 +27,7 @@ Environment Variables:
     LLM_API_KEY: API key for the LLM (required for OpenHands agent kind)
     LLM_MODEL: Language model to use (default: anthropic/claude-sonnet-4-5-20250929)
     LLM_BASE_URL: Optional base URL for LLM API
+    LLM_REASONING_EFFORT: Optional reasoning effort for the OpenHands backend
     GITHUB_TOKEN: GitHub token for API access (required)
     PR_NUMBER: Pull request number (required)
     PR_TITLE: Pull request title (required)
@@ -1042,6 +1043,7 @@ def validate_environment() -> dict[str, Any]:
         "github_token": os.getenv("GITHUB_TOKEN"),
         "model": os.getenv("LLM_MODEL", "anthropic/claude-sonnet-4-5-20250929"),
         "base_url": os.getenv("LLM_BASE_URL"),
+        "reasoning_effort": os.getenv("LLM_REASONING_EFFORT") or None,
         "require_evidence": _get_bool_env("REQUIRE_EVIDENCE"),
         "collect_feedback": _get_bool_env("COLLECT_FEEDBACK"),
         "review_run_url": os.getenv("REVIEW_RUN_URL", ""),
@@ -1189,6 +1191,7 @@ def create_conversation(
         "model": config["model"],
         "api_key": config["api_key"],
         "usage_id": "pr_review_agent",
+        "reasoning_effort": config["reasoning_effort"],
         "drop_params": True,
     }
     if config["base_url"]:
