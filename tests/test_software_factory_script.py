@@ -99,6 +99,28 @@ def test_automation_url_points_at_the_canvas_page(factory, monkeypatch):
     assert factory._automation_url("abc") == "http://localhost:8000/automations/abc"
 
 
+def test_extensions_prefers_the_installed_checkout(factory, monkeypatch):
+    """Bundles must come from the release the user has, not a moving main."""
+    monkeypatch.delenv("FACTORY_EXTENSIONS", raising=False)
+    monkeypatch.setattr(factory, "subprocess", None)  # a clone here would fail
+    assert factory._extensions() == ROOT
+
+
+def test_extensions_honours_the_override(factory, monkeypatch, tmp_path):
+    monkeypatch.setenv("FACTORY_EXTENSIONS", str(tmp_path))
+    assert factory._extensions() == tmp_path
+
+
+def test_release_ref_is_none_without_installed_metadata(factory, monkeypatch):
+    import importlib.metadata as md
+
+    def missing(name):
+        raise md.PackageNotFoundError(name)
+
+    monkeypatch.setattr(md, "version", missing)
+    assert factory._release_ref() is None
+
+
 def test_automation_backend_host_gets_a_clear_error(factory, monkeypatch):
     def not_found(*args, **kwargs):
         raise factory.FactoryError("GET http://localhost:18001/api/agent-profiles -> 404: {}")

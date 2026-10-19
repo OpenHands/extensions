@@ -16,7 +16,7 @@ Environment:
   OPENHANDS_API_KEY               Bearer auth (OpenHands Cloud)
   OPENHANDS_AUTOMATION_API_KEY    X-Session-API-Key auth (local Agent Canvas; SESSION_API_KEY also works)
   GITHUB_PERSONAL_ACCESS_TOKEN    GitHub token; read, never printed
-  FACTORY_EXTENSIONS              extensions checkout (default /tmp/software-factory/extensions)
+  FACTORY_EXTENSIONS              catalog checkout; defaults to the package this script ships in
 """
 
 from __future__ import annotations
@@ -146,14 +146,39 @@ def _github(path: str):
 
 
 def _extensions() -> Path:
-    root = Path(os.environ.get("FACTORY_EXTENSIONS", "/tmp/software-factory/extensions"))
+    """The checkout that holds `automations/catalog`.
+
+    Prefer the installed package or working copy this script lives in, so a
+    factory installs the bundles that shipped with the release the user has,
+    rather than whatever `main` happens to be at run time. A bare copy of this
+    script falls back to a shallow clone, pinned to the release tag when the
+    installed version is known.
+    """
+    override = os.environ.get("FACTORY_EXTENSIONS")
+    if override:
+        return Path(override)
+    installed = Path(__file__).resolve().parents[3]
+    if (installed / "automations" / "catalog").is_dir():
+        return installed
+    root = Path("/tmp/software-factory/extensions")
     if not (root / "automations" / "catalog").is_dir():
         root.parent.mkdir(parents=True, exist_ok=True)
-        subprocess.run(
-            ["git", "clone", "-q", "--depth", "1", EXTENSIONS_URL, str(root)],
-            check=True,
-        )
+        ref = _release_ref()
+        cmd = ["git", "clone", "-q", "--depth", "1"]
+        if ref:
+            cmd += ["--branch", ref]
+        subprocess.run([*cmd, EXTENSIONS_URL, str(root)], check=True)
     return root
+
+
+def _release_ref() -> str | None:
+    """The `vX.Y.Z` tag matching the installed package, if it is known."""
+    try:
+        from importlib.metadata import PackageNotFoundError, version
+
+        return f"v{version('openhands-extensions')}"
+    except Exception:
+        return None
 
 
 def _manifest(station: str) -> dict:
