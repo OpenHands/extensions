@@ -68,6 +68,8 @@ pxt schema update app.py pxt://org:db -f
 pxt service update app.py pxt://org:db -f
 ```
 
+Provider calls retry on their own (rate limits, 503s, timeouts, with backoff) and reach a proxy through `OPENAI_BASE_URL`: do not wrap a model call in your own retry loop or client ([providers.md](references/providers.md#retries-and-proxies)). Under a coding agent, ask the user to run `pxt login` in their own terminal, and never ask for a secret's value in the chat.
+
 Provider keys on Cloud: `pxt secret set pxt://org OPENAI_API_KEY=...`, never in `pixeltable.toml`. Cloud handle: `pxt.get_table('pxt://org:db/docs')`. Media goes to the database's managed home bucket unless a column sets `destination=`; share a file by link or `/sign` ([cli.md](references/cli.md#cloud-pxt-login-pxt-db-pxt-org-pxt-secret-pxt-key)). Try the app with a dashboard insert plus `pxt schema diff`; read failures with `pxt service logs` / `pxt db logs`.
 
 ## The application file

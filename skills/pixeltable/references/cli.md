@@ -71,7 +71,7 @@ The daemon reads `config.toml` and the environment once, at startup, and local s
 | Start HTTP | `pxt service update` | `pxt service update app.py my_app -f` (force pending changes in CI) |
 | Inspect catalog | `pxt ls -l`, `pxt describe`, `pxt columns --computed` | `pxt ls --json \| jq '.entries[] \| select(.kind == "table")'` |
 | Debug failed columns | `pxt errors`, `pxt rows --cols` | `pxt errors my_app/docs --col embedding` |
-| Retry failed cells | `pxt recompute` | `pxt recompute my_app/docs embedding --errors-only -f` |
+| Retry failed cells | `pxt recompute` | `pxt recompute my_app/docs embedding --errors-only -f` (provider calls already retry; see [providers.md](providers.md#retries-and-proxies)) |
 | Debug a hosted service | `pxt service logs` | `pxt service logs pxt://org:db/ingest --since 10m --tail 50`. A local service is not readable this way: the command exits 1 and prints the log file's path; `tail` that file |
 | Check runtime/config | `pxt status`, `pxt config` | `pxt config --section openai` |
 | Sign in to Cloud | `pxt login`, `pxt whoami` | `pxt whoami` prints the credential commands will send |
@@ -226,7 +226,7 @@ Do **not** write `[tool.pixeltable.service]` TOML or call `pxt serve`.
 
 ## Cloud (`pxt login`, `pxt db`, `pxt org`, `pxt secret`, `pxt key`)
 
-Cloud commands need a credential. `pxt login` prints a code and opens a browser; it uses the OAuth device grant, so it works over SSH, and the cached session renews itself. An API key (`PIXELTABLE_API_KEY`, or `api_key` under `[pixeltable]` in `config.toml`) wins over a sign-in and does not expire, so CI uses one. `pxt whoami` prints which credential commands will send and exits nonzero when Cloud does not recognize it; `pxt logout` forgets the session. A new account belongs to no organization: `pxt org create NAME` creates one with its first database. URIs are `pxt://org` or `pxt://org:db`.
+Cloud commands need a credential. `pxt login` prints a code and opens a browser; it uses the OAuth device grant, so it works over SSH, and the cached session renews itself. An API key (`PIXELTABLE_API_KEY`, or `api_key` under `[pixeltable]` in `config.toml`) wins over a sign-in and does not expire, so CI uses one. `pxt whoami` prints which credential commands will send and exits nonzero when Cloud does not recognize it; `pxt logout` forgets the session. A new account belongs to no organization: `pxt org create NAME` creates one with its first database. URIs are `pxt://org` or `pxt://org:db`. `pxt login` waits up to 10 minutes for the browser, longer than most agent tool calls last: under a coding agent, ask the user to run `pxt login` in their own terminal, then check with `pxt whoami`.
 
 ```bash
 pxt login
@@ -239,6 +239,8 @@ pxt key create ci                  # a key that acts as you; its secret prints o
 `pxt db update pxt://org:db` selects `[[pixeltable.database]]` by `name = 'pxt://org:db'`. A URI with no matching entry is an error. First `update` creates the hosted database. `pxt db delete` is irreversible and takes the storage with it; without a TTY it exits 3 unless given `-f`.
 
 Hosted order: `pxt db update pxt://org:db -f` uploads the project and sets image and workers, then `pxt schema update app.py pxt://org:db -f`, then `pxt service update app.py pxt://org:db -f`. Taking capacity away requires `--allow-destructive`. If `pxt db diff` says the database project is behind the working copy, run `pxt db update` first.
+
+`pxt db update`, `start`, `stop`, `restart`, `retry`, `build-image` and `delete` wait until Cloud has applied the change, showing the step and what it waits for. Cloud carries on with an accepted change even if the command stops: Ctrl-C or a timed-out tool call stops only the waiting. An agent whose tool calls time out passes `--no-wait` and follows with `pxt db status pxt://org:db`. After three hours the command exits 2 with the change still under way. A failed update names its fix: `pxt db retry pxt://org:db` or `pxt service retry pxt://org:db/NAME` retries it unchanged, and rerunning the same `pxt db update` does too. An update refused because the database changed after its plan is run again as is. `CLIENT_OUTDATED` means the local Pixeltable predates this protocol: `pip install -U pixeltable`, then run the command again.
 
 Every Cloud database stores inserted and computed media in its managed home bucket by default. Set a column `destination=` to send that output elsewhere, or set `db_input_media_dest` / `db_output_media_dest` on the database's `[[pixeltable.database]]` entry to change its defaults (`db_exporter_otlp_endpoint` / `db_exporter_otlp_protocol` set its trace exporter). `pxt db update` carries them to the pods, and `pxt service update` moves running services onto them.
 
@@ -254,7 +256,7 @@ Optional Cloud MCP: when a Cloud user wants the agent to inspect or operate thei
 pxt secret set pxt://myorg OPENAI_API_KEY=<your-key>    # also: list, delete
 ```
 
-An org secret applies to every database in the org; a database secret wins on a key collision. The `PIXELTABLE_` prefix is reserved, so such a name is refused. Secrets are set with `pxt secret`, never in `pixeltable.toml`: a `[[pixeltable.database]]` entry with a `secrets` mapping fails to load. A process reads its secrets once, at startup, so a running one keeps the values it began with. After `pxt secret set` or `pxt secret delete`, run `pxt db restart pxt://org:db` for the database's tables and `pxt service restart pxt://org:db/NAME` for its services.
+An org secret applies to every database in the org; a database secret wins on a key collision. The `PIXELTABLE_` prefix is reserved, so such a name is refused. Secrets are set with `pxt secret`, never in `pixeltable.toml`: a `[[pixeltable.database]]` entry with a `secrets` mapping fails to load. A process reads its secrets once, at startup, so a running one keeps the values it began with. After `pxt secret set` or `pxt secret delete`, run `pxt db restart pxt://org:db` for the database's tables and `pxt service restart pxt://org:db/NAME` for its services; both keep the old pods serving until the new ones are ready. Never ask the user to paste a secret's value into the chat: give them `pxt secret set pxt://org KEY=<value>` to run in their own terminal.
 
 ## Scripting with `--json`
 
