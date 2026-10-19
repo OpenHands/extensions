@@ -103,8 +103,9 @@ That way a skill can rename its trigger without leaving a stale copy behind in t
 
 `triggers` is stated only by an entry whose setup does not declare `form.triggers`, which otherwise already
 names the variants: `cron`, `event`, or both, describing how the automation runs once it has been set up.
-Agent Canvas renders it as the card's trigger badge and filter. The schema rejects an entry that states it
-both ways, so the fact stays in one place.
+An entry lists both when its skill can set up either, for example an event trigger on a deployment that can
+receive events and cron polling elsewhere. Agent Canvas renders it as the card's trigger badge and filter.
+The schema rejects an entry that states it both ways, so the fact stays in one place.
 
 ### Triggers and args
 
@@ -120,7 +121,8 @@ both ways, so the fact stays in one place.
   the endpoint implied by the action key: `prompt` -> `/v1/preset/prompt`, `plugin` -> `/v1/preset/plugin`,
   and `upload` -> `/v1/uploads` followed by `/v1`.
 
-An assisted entry declares no triggers, because the trigger is settled during the conversation.
+An assisted entry declares no `form.triggers`, because the trigger is settled during the conversation. It may
+still list the kinds that conversation can set up in the top-level `triggers`.
 
 ### What the form produces
 

@@ -13,6 +13,7 @@
   "popularityRank": 90,
   "estimatedSetupMinutes": 3,
   "triggers": [
+    "cron",
     "event"
   ],
   "skill": "linear-triage",
