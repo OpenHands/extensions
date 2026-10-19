@@ -5,6 +5,7 @@ Each command prints one JSON document on stdout and exits non-zero on failure.
 
   factory.py preflight --repos owner/a,owner/b [--profile NAME]
   factory.py create --repos owner/a --ids ID[,ID...] [--set [ID.]FIELD=VALUE ...] [--profile NAME]
+  factory.py tune --repos owner/a --ids ID[,ID...] [--set [ID.]FIELD=VALUE ...] [--profile NAME]
   factory.py verify ID [ID ...] [--no-wait ID ...] [--timeout SECONDS]
   factory.py status ID [ID ...]
   factory.py prs --repos owner/a [--branch-prefix openhands/agents-md]
@@ -79,7 +80,14 @@ def _auth() -> dict:
     )
 
 
-def _request(method: str, url: str, body=None, headers=None, raw: bytes | None = None):
+def _request(
+    method: str,
+    url: str,
+    body=None,
+    headers=None,
+    raw: bytes | None = None,
+    return_status: bool = False,
+):
     headers = dict(headers or {})
     data = raw
     if body is not None:
@@ -88,22 +96,34 @@ def _request(method: str, url: str, body=None, headers=None, raw: bytes | None =
     req = urllib.request.Request(url, data=data, method=method, headers=headers)
     try:
         with urllib.request.urlopen(req, timeout=60) as resp:
+            status_code = resp.status
             text = resp.read().decode()
     except urllib.error.HTTPError as err:
         detail = err.read().decode()[:2000]
         raise FactoryError(f"{method} {url} -> {err.code}: {detail}") from None
     except urllib.error.URLError as err:
         raise FactoryError(f"{method} {url} -> {err.reason}") from None
-    return json.loads(text) if text.strip() else None
+    payload = json.loads(text) if text.strip() else None
+    # The status distinguishes a fresh create (201) from the 200 the service
+    # returns when the same template already exists in the organization.
+    return (status_code, payload) if return_status else payload
 
 
-def _api(method: str, path: str, body=None, raw: bytes | None = None, headers=None):
+def _api(
+    method: str,
+    path: str,
+    body=None,
+    raw: bytes | None = None,
+    headers=None,
+    return_status: bool = False,
+):
     return _request(
         method,
         f"{_host()}/api/automation/v1{path}",
         body,
         {**_auth(), **(headers or {})},
         raw,
+        return_status,
     )
 
 
@@ -178,7 +198,9 @@ def _parse_value(text: str):
 
 def _fields(entry: dict) -> dict:
     form = entry["setup"]["form"]
-    return {**form.get("args", {}), **form["triggers"]["cron"]}
+    # Only the cron trigger group carries form fields; an entry whose only
+    # trigger is an event declares no cron fields, so this must not index it.
+    return {**form.get("args", {}), **form.get("triggers", {}).get("cron", {})}
 
 
 def _form_values(entry: dict, repos: list[str], overrides: dict) -> dict:
@@ -324,9 +346,92 @@ def create(args) -> dict:
     repos = _split(args.repos)
     stations = _split(args.ids)
     entries = {station: _manifest(station) for station in stations}
-    # FIELD=VALUE applies to every listed station with that field; ID.FIELD=VALUE to one.
+    overrides = _overrides(entries, args.set or [], stations)
+    root = _extensions()
+    profile = None
+    created = []
+    existing = []
+    try:
+        for station in stations:
+            entry = entries[station]
+            bundle = entry.get("setup", {}).get("bundle")
+            if not bundle:
+                raise FactoryError(f"{station} has no bundle; create it as the skill describes")
+            values = _form_values(entry, repos, overrides[station])
+            body = _create_body(entry, values, repos)
+            body["tarball_path"] = _upload(station, _tarball(root, bundle["files"], body["template"]["config"]))
+            body["enabled"] = False
+            if _needs_profile(entry):
+                profile = profile or _profile(args.profile)
+                body["agent_profile_id"] = profile["id"]
+            status_code, automation = _api("POST", "", body, return_status=True)
+            if status_code == 200:
+                # The service returns the org's existing automation for the same
+                # template id (see find_existing_template_automation). Report it
+                # as pre-existing so a repeat run does not claim it created it.
+                existing.append(_summary(station, body["name"], body["trigger"], automation))
+                continue
+            if automation.get("enabled") or automation.get("state") == "ACTIVE":
+                _api("PATCH", f"/{automation['id']}", {"enabled": False})
+            created.append(_summary(station, body["name"], body["trigger"], automation))
+    except FactoryError as err:
+        raise FactoryError(str(err), created=created, existing=existing) from None
+    return {"created": created, "existing": existing}
+
+
+def tune(args) -> dict:
+    """Apply new settings to an existing station by updating it in place.
+
+    `create` cannot do this: it stamps `template.id`, and the service dedupes on
+    that id, so a second `create` returns the original automation with its old
+    config instead of a replacement. Here the same values are rendered, the
+    bundle is re-uploaded, and the automation is PATCHed, so the new values take
+    effect without a delete and without a template-id collision.
+    """
+    repos = _split(args.repos)
+    stations = _split(args.ids)
+    entries = {station: _manifest(station) for station in stations}
+    overrides = _overrides(entries, args.set or [], stations)
+    root = _extensions()
+    profile = None
+    tuned = []
+    for station in stations:
+        entry = entries[station]
+        bundle = entry.get("setup", {}).get("bundle")
+        if not bundle:
+            raise FactoryError(f"{station} has no bundle; tune it as the skill describes")
+        automation = _find_existing(station)
+        if automation is None:
+            raise FactoryError(f"{station} is not set up yet; create it before tuning it")
+        values = _form_values(entry, repos, overrides[station])
+        body = _create_body(entry, values, repos)
+        patch = {
+            "name": body["name"],
+            "trigger": body["trigger"],
+            "tarball_path": _upload(station, _tarball(root, bundle["files"], body["template"]["config"])),
+            "entrypoint": body["entrypoint"],
+        }
+        if "timeout" in body:
+            patch["timeout"] = body["timeout"]
+        if "setup_script_path" in body:
+            patch["setup_script_path"] = body["setup_script_path"]
+        if _needs_profile(entry):
+            profile = profile or _profile(args.profile)
+            patch["agent_profile_id"] = profile["id"]
+        updated = _api("PATCH", f"/{automation['id']}", patch)
+        tuned.append(_summary(station, body["name"], body["trigger"], updated))
+    return {"tuned": tuned}
+
+
+def _overrides(entries: dict, items: list[str], stations: list[str]) -> dict[str, dict]:
+    """Parse `--set` into per-station overrides.
+
+    FIELD=VALUE applies to every listed station with that field; ID.FIELD=VALUE
+    to one. Station lookup uses the parsed manifest, so a field on a station
+    that declares no such field is reported instead of applied blindly.
+    """
     overrides: dict[str, dict] = {station: {} for station in stations}
-    for item in args.set or []:
+    for item in items:
         key, _, value = item.partition("=")
         target, _, field = key.rpartition(".")
         if target and target not in entries:
@@ -336,37 +441,32 @@ def create(args) -> dict:
             raise FactoryError(f"no listed station has field {field}")
         for station in targets:
             overrides[station][field] = _parse_value(value)
-    root = _extensions()
-    profile = None
-    created = []
-    try:
-        for station in stations:
-            entry = entries[station]
-            bundle = entry.get("setup", {}).get("bundle")
-            if not bundle:
-                raise FactoryError(f"{station} has no bundle; create it as the skill describes")
-            body = _create_body(entry, _form_values(entry, repos, overrides[station]), repos)
-            config = body["template"]["config"]
-            body["tarball_path"] = _upload(station, _tarball(root, bundle["files"], config))
-            body["enabled"] = False
-            if _needs_profile(entry):
-                profile = profile or _profile(args.profile)
-                body["agent_profile_id"] = profile["id"]
-            automation = _api("POST", "", body)
-            if automation.get("enabled") or automation.get("state") == "ACTIVE":
-                _api("PATCH", f"/{automation['id']}", {"enabled": False})
-            created.append(
-                {
-                    "station": station,
-                    "id": automation["id"],
-                    "name": body["name"],
-                    "trigger": body["trigger"],
-                    "url": _automation_url(automation["id"]),
-                }
-            )
-    except FactoryError as err:
-        raise FactoryError(str(err), created=created) from None
-    return {"created": created}
+    return overrides
+
+
+def _find_existing(station: str) -> dict | None:
+    """The org's automation created from this station's template, if any."""
+    offset = 0
+    while True:
+        page = _api("GET", f"?limit=100&offset={offset}")
+        automations = page.get("automations", [])
+        for automation in automations:
+            template = (automation.get("preset_metadata") or {}).get("template") or {}
+            if template.get("id") == station:
+                return automation
+        if len(automations) < 100:
+            return None
+        offset += 100
+
+
+def _summary(station: str, name: str, trigger: dict, automation: dict) -> dict:
+    return {
+        "station": station,
+        "id": automation["id"],
+        "name": name,
+        "trigger": trigger,
+        "url": _automation_url(automation["id"]),
+    }
 
 
 def _automation_url(automation_id: str) -> str:
@@ -472,6 +572,12 @@ def main() -> int:
     p.add_argument("--set", action="append", metavar="[ID.]FIELD=VALUE")
     p.add_argument("--profile")
     p.set_defaults(func=create)
+    p = sub.add_parser("tune")
+    p.add_argument("--repos", required=True)
+    p.add_argument("--ids", required=True)
+    p.add_argument("--set", action="append", metavar="[ID.]FIELD=VALUE")
+    p.add_argument("--profile")
+    p.set_defaults(func=tune)
     p = sub.add_parser("verify")
     p.add_argument("ids", nargs="*")
     p.add_argument("--no-wait", nargs="+", metavar="ID")

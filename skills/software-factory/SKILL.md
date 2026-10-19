@@ -62,7 +62,8 @@ The script reads the token and never prints it.
 | Command | Does |
 |---|---|
 | `$F preflight --repos a/b,c/d` | Which stations this deployment supports, the agent profile, the GitHub login, push access per repository. |
-| `$F create --repos a/b --ids ID,ID [--set FIELD=VALUE] [--set ID.FIELD=VALUE]` | Fills each station's form (answers, then derived values, then manifest defaults), uploads the bundle and creates it disabled. `FIELD=VALUE` applies to every listed station with that field. |
+| `$F create --repos a/b --ids ID,ID [--set FIELD=VALUE] [--set ID.FIELD=VALUE]` | Fills each station's form (answers, then derived values, then manifest defaults), uploads the bundle and creates it disabled. `FIELD=VALUE` applies to every listed station with that field. Stations that already exist are reported under `existing`, not recreated. |
+| `$F tune --repos a/b --ids ID,ID [--set FIELD=VALUE] [--set ID.FIELD=VALUE]` | Applies new settings to an existing station by updating it in place. Use this to change a value that is fixed at creation. |
 | `$F verify ID... [--no-wait ID...]` | Dispatches once, enables the ones whose run `COMPLETED` and disables the rest, reporting their `error_detail`. `--no-wait` enables without waiting. |
 | `$F status ID...` | The latest run of each. |
 | `$F prs --repos a/b [--branch-prefix P]` | Open pull requests whose branch starts with `P` (default `openhands/agents-md`, the AGENTS.md maintainer's). |
@@ -91,6 +92,9 @@ active one.
 - **Failures**: if `create` fails, its output lists the stations it already
   created; report them with the error and ask whether to retry or delete them
   (`DELETE ${OPENHANDS_HOST}/api/automation/v1/{id}`).
+- **Existing stations**: a station `create` reports under `existing` was already
+  set up by an earlier run and was left unchanged. Say so rather than presenting
+  it as new, and change it with `$F tune` if the user wants different settings.
 
 ## Phase 1 - Working factory
 
@@ -176,10 +180,10 @@ Apply:
 - Schedule or timezone only:
   `PATCH ${OPENHANDS_HOST}/api/automation/v1/{id}` with `{"trigger": {...}}`.
 - Jira or Linear station settings: change them as its skill describes.
-- Anything else is fixed at creation: `$F create` a replacement with the new
-  values (repeat every earlier non-default value) and `$F verify` it. If it
-  passes, delete the old station; if not, delete the replacement and keep the
-  old one.
+- Anything else is fixed at creation: `$F tune --repos <repos> --ids <id>` with
+  the new `--set` values (repeat every earlier non-default value), then
+  `$F verify <id>`. `tune` updates the station in place, so there is no
+  replacement to delete and no template-id collision.
 
 ### Add a station
 
