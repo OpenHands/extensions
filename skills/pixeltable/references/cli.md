@@ -133,7 +133,7 @@ pxt dashboard
 - **`pxt revert`**: irreversible: run `pxt history` first
 - **`pxt recompute`**: `pxt recompute PATH COLUMN...`; `--errors-only` narrows it to the rows that failed and takes one column; `--no-cascade` leaves dependent columns alone; `-n` reports the row count without running. The CLI form of `t.recompute_columns()`
 
-Table paths accept `my_app/docs` or `my_app.docs`.
+`pxt` CLI paths use `/` only (`my_app/docs`). The dotted form (`my_app.docs`) is a Python SDK convenience (`pxt.get_table('my_app.docs')`).
 
 ## Schema (`pxt schema`)
 
@@ -208,7 +208,7 @@ pxt schema update app.py my_app
 pxt service update app.py my_app -f
 pxt service list
 pxt service logs ingest                # local: exits 1 and prints the log file's path
-tail -50 "$(pxt service logs ingest 2>&1 | sed 's/.*the log is at //')"
+tail -50 "${PIXELTABLE_HOME:-$HOME/.pixeltable}/logs/services/my_app/ingest.log"
 pxt service stop ingest
 ```
 
