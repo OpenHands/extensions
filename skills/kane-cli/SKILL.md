@@ -47,29 +47,34 @@ sudo npm install -g @testmuai/kane-cli@0.8.21
 ## Run one check
 
 ```bash
-kane-cli run "Go to https://example.com and verify the page title is 'Example Domain'" --agent --headless --timeout 120
+timeout 300 kane-cli run "Go to https://example.com and verify the page title is 'Example Domain'" --agent --headless
 echo "exit code: $?"
 ```
 
 - The `run` subcommand is required. `kane-cli "<objective>"` without it exits with code 2.
 - `--agent` prints one JSON event per line on stdout (NDJSON). `--headless` runs Chrome without a window, which a sandbox needs.
 - Give the run a start URL: begin the objective with "Go to <url>", or pass `--url <url>`.
-- `--timeout <seconds>` asks Kane CLI to stop a long run. For a hard limit in a sandbox, also wrap the command in the shell's `timeout`, for example `timeout 300 kane-cli run ...`. If the wrapper has to stop the run, the exit code is `124`, which comes from `timeout`, not from Kane CLI.
+- On 0.8.21, `--timeout` is not enforced under `--agent`. Bound the run with the shell's `timeout`, as above. If it has to stop the run, the exit code is `124`, which comes from `timeout`, not from Kane CLI.
 
 ## Exit codes
 
 | Code | Meaning |
 |------|---------|
 | `0` | Passed: `run_end.status` is `passed` |
-| `1` | Failed: the objective did not hold, or the run could not start, for example when not signed in or given an unknown flag |
+| `1` | Did not pass: the objective failed, the run hit an environment problem, or it never started (for example not signed in, or an unknown flag). See below |
 | `2` | Invalid input: a missing objective or subcommand, or a rejected option value such as `--mode bogus` |
 | `3` | Stopped: `run_end.reason` contains `Timeout` or `Cancel` |
 
-Exit `1` alone does not prove the change is broken. A final `run_end` event with `status` `failed` means the objective did not hold. If stdout has no `run_end` event, the run never started: read stderr (for example `Not authenticated`), fix the environment and run again before judging the change.
+Exit `1` or `status` `failed` alone does not prove the change is broken. Judge from `reason_code` in the final `run_end` event:
+
+- Starts with `assertion_error.`, for example `assertion_error.final_verification` (`result_code` 710): the objective did not hold.
+- Starts with `infra_error.`, for example `infra_error.controller_auth` (`result_code` 550): an environment problem. Fix it and run again; it says nothing about the change.
+- Any other failed code, for example `stuck.ap_stuck` (`result_code` 330): the agent could not finish. Read `reason` and the evidence before judging.
+- No `run_end` event: the run never started. Read stderr (for example `Not authenticated`), fix the environment and run again.
 
 ## Read the result
 
-When a run completes, the last line on stdout is the `run_end` event. Its main fields are `status` (`passed` or `failed`), `one_liner`, `summary`, `reason`, `final_state` (values the objective stored) and `session_dir`. See `references/output.md` for the full event list.
+When a run completes, the last line on stdout is the `run_end` event. Its main fields are `status` (`passed` or `failed`), `reason_code` and `result_code`, `one_liner`, `summary`, `reason`, `final_state` (values the objective stored) and `session_dir`. See `references/output.md` for the full event list.
 
 ## Evidence
 

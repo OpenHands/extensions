@@ -22,6 +22,8 @@ for each line:
 | Field | Meaning |
 |-------|---------|
 | `status` | `passed` or `failed` |
+| `reason_code` | Why the run ended, for example `success.complete`, `assertion_error.final_verification` or `infra_error.controller_auth` |
+| `result_code` | Numeric form of the same result, for example `100`, `710` or `550` |
 | `one_liner` | Short summary for display |
 | `summary` | What the agent did |
 | `reason` | Why the run stopped |
@@ -35,8 +37,8 @@ The evidence path is printed on stderr, not as an event: `evidence: view locally
 ## Example: keep only the result
 
 ```bash
-kane-cli run "Go to https://example.com and verify the page title is 'Example Domain'" \
-  --agent --headless --timeout 120 > run.ndjson
+timeout 300 kane-cli run "Go to https://example.com and verify the page title is 'Example Domain'" \
+  --agent --headless > run.ndjson
 code=$?
 tail -n 1 run.ndjson
 echo "exit code: $code"
