@@ -8,6 +8,7 @@ With `--agent`, `kane-cli run` prints one JSON object per line on stdout. Ignore
 - Progress events have `step`, `status` (`running`, then `done` or `failed`) and `remark` (what the agent did or why a step failed). They have no `type` field.
 - Typed events have a `type` field, for example `warning`, `error`, `bifurcation`, `child_agent_start` and `child_agent_end`.
 - The last event is `{"type":"run_end", ...}`. Stop reading when you see it.
+- If the run could not start, for example when not signed in, there is no `run_end` event and the reason is on stderr.
 
 ```text
 for each line:

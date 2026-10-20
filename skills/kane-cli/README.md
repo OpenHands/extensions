@@ -59,22 +59,22 @@ echo "exit code: $?"
 - The `run` subcommand is required. `kane-cli "<objective>"` without it exits with code 2.
 - `--agent` prints one JSON event per line on stdout (NDJSON). `--headless` runs Chrome without a window, which a sandbox needs.
 - Give the run a start URL: begin the objective with "Go to <url>", or pass `--url <url>`.
-- `--timeout <seconds>` stops a run that takes too long.
+- `--timeout <seconds>` asks Kane CLI to stop a long run. For a hard limit in a sandbox, also wrap the command in the shell's `timeout`, for example `timeout 300 kane-cli run ...`. If the wrapper has to stop the run, the exit code is `124`, which comes from `timeout`, not from Kane CLI.
 
 ## Exit codes
 
 | Code | Meaning |
 |------|---------|
-| `0` | Passed: the objective held |
-| `1` | Failed: the objective did not hold |
-| `2` | Auth or setup error, such as not signed in, Chrome missing or a bad flag |
-| `3` | Timeout or cancelled |
+| `0` | Passed: `run_end.status` is `passed` |
+| `1` | Failed: the objective did not hold, or the run could not start, for example when not signed in or given an unknown flag |
+| `2` | Invalid input: a missing objective or subcommand, or a rejected option value such as `--mode bogus` |
+| `3` | Stopped: `run_end.reason` contains `Timeout` or `Cancel` |
 
-Treat `2` as an environment problem to fix before judging the change.
+Exit `1` alone does not prove the change is broken. A final `run_end` event with `status` `failed` means the objective did not hold. If stdout has no `run_end` event, the run never started: read stderr (for example `Not authenticated`), fix the environment and run again before judging the change.
 
 ## Read the result
 
-The last line on stdout is the `run_end` event. Its main fields are `status` (`passed` or `failed`), `one_liner`, `summary`, `reason`, `final_state` (values the objective stored) and `session_dir`. See `references/output.md` for the full event list.
+When a run completes, the last line on stdout is the `run_end` event. Its main fields are `status` (`passed` or `failed`), `one_liner`, `summary`, `reason`, `final_state` (values the objective stored) and `session_dir`. See `references/output.md` for the full event list.
 
 ## Evidence
 
