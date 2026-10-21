@@ -19,7 +19,7 @@ import pytest
 
 SCRIPT_PATH = (
     Path(__file__).parent.parent
-    / "skills"
+    / "plugins"
     / "jira-issue-to-pr"
     / "scripts"
     / "setup_webhook.py"
