@@ -355,6 +355,7 @@ Two findings came out of that check and are baked into the entries:
 | `POST /v1` | Exists; accepts `template` provenance from OpenHands/automation#344 |
 | `GET /v1/capabilities` | Exists (OpenHands/automation#270) |
 | `POST /v1/validate` | Exists (OpenHands/automation#270) |
+| `GET /v1/tags` | Added by OpenHands/automation#622 |
 
 None of these appear in a catalog entry. Their service-relative paths are stated once, in
 `interface.json`'s `endpoints` block, which is why settling on different paths changes no catalog entry at

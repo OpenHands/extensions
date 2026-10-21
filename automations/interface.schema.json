@@ -196,7 +196,11 @@
         "createPrompt": { "$ref": "#/$defs/plainEndpoint" },
         "createPlugin": { "$ref": "#/$defs/plainEndpoint" },
         "createBundle": { "$ref": "#/$defs/plainEndpoint" },
-        "uploads": { "$ref": "#/$defs/plainEndpoint" }
+        "uploads": { "$ref": "#/$defs/plainEndpoint" },
+        "tags": {
+          "description": "The org's automation tags with counts, which fill the tag filter. Optional, so a host that predates it still admits the block.",
+          "$ref": "#/$defs/plainEndpoint"
+        }
       }
     },
     "featuredAutomationIds": {

@@ -485,6 +485,8 @@ export interface AutomationInterfaceEndpoints {
   createBundle: string;
   /** Where a bundle's tarball is uploaded before that create call. */
   uploads: string;
+  /** The org's automation tags with counts, which fill the tag filter. */
+  tags?: string;
 }
 
 export interface AutomationInterfaceManifest {
