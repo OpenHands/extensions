@@ -1,0 +1,59 @@
+{
+  "name": "news-digest",
+  "version": "1.0.0",
+  "description": "Create an automation that reads public RSS and Atom feeds on a schedule, keeps what is new and matches the configured topics, and has an agent write a short digest of it. Needs no credentials.",
+  "author": {
+    "name": "OpenHands",
+    "email": "contact@all-hands.dev"
+  },
+  "homepage": "https://github.com/OpenHands/extensions",
+  "repository": "https://github.com/OpenHands/extensions",
+  "license": "MIT",
+  "keywords": [
+    "news",
+    "rss",
+    "atom",
+    "digest",
+    "automation"
+  ],
+  "automation": {
+    "schema_version": "openhands.automation.plugin.v1",
+    "entrypoint": {
+      "runner": "script",
+      "working_dir": "scripts",
+      "command": "python3 plugin_runner.py main.py"
+    },
+    "runtime": {
+      "plugins": [],
+      "agent_profile": {
+        "required": true,
+        "default_name": "agent-default",
+        "allowed_tools": [
+          "terminal",
+          "file_editor",
+          "task_tracker",
+          "browser_tool_set"
+        ]
+      }
+    },
+    "config_schema": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "feeds": {
+          "type": "string",
+          "default": "https://news.ycombinator.com/rss\nhttps://feeds.arstechnica.com/arstechnica/index\nhttps://www.theverge.com/rss/index.xml"
+        },
+        "topics": {
+          "type": "string",
+          "default": "artificial intelligence, open source, developer tools"
+        }
+      }
+    },
+    "suggested_trigger": {
+      "type": "cron",
+      "schedule": "0 8 * * *",
+      "timezone": "UTC"
+    }
+  }
+}

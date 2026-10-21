@@ -1,0 +1,68 @@
+{
+  "name": "slack-channel-monitor",
+  "version": "1.0.0",
+  "description": "Create a cron automation that polls up to 10 Slack channels every minute and starts an OpenHands conversation when a configurable trigger phrase is detected. Forwards thread replies to running conversations and posts summaries back to Slack when the agent finishes.",
+  "author": {
+    "name": "OpenHands",
+    "email": "contact@all-hands.dev"
+  },
+  "homepage": "https://github.com/OpenHands/extensions",
+  "repository": "https://github.com/OpenHands/extensions",
+  "license": "MIT",
+  "keywords": [
+    "slack",
+    "monitor",
+    "channel",
+    "trigger",
+    "cron",
+    "automation",
+    "integration"
+  ],
+  "automation": {
+    "schema_version": "openhands.automation.plugin.v1",
+    "entrypoint": {
+      "runner": "script",
+      "working_dir": "scripts",
+      "command": "python3 plugin_runner.py main.py"
+    },
+    "runtime": {
+      "plugins": [],
+      "agent_profile": {
+        "required": true,
+        "default_name": "agent-default",
+        "allowed_tools": [
+          "terminal",
+          "file_editor",
+          "task_tracker",
+          "browser_tool_set"
+        ]
+      }
+    },
+    "config_schema": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "channel_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": []
+        },
+        "trigger_phrase": {
+          "type": "string",
+          "default": "@openhands"
+        },
+        "openhands_url": {
+          "type": "string",
+          "default": "http://localhost:8000"
+        }
+      }
+    },
+    "suggested_trigger": {
+      "type": "cron",
+      "schedule": "* * * * *",
+      "timezone": "UTC"
+    }
+  }
+}

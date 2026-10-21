@@ -612,10 +612,10 @@ def test_a_bundle_entry_asks_for_the_capability_a_bundle_needs(manifest):
     assert manifest["requires"]["features"] == ["customTarball"]
 
 
-def test_the_bundle_ships_the_script_this_skill_owns(manifest):
+def test_the_bundle_ships_the_script_this_plugin_owns(manifest):
     files = manifest["setup"]["bundle"]["files"]
 
-    assert files == {"main.py": "skills/news-digest/scripts/main.py"}
+    assert files == {"main.py": "plugins/news-digest/scripts/main.py"}
     assert (ROOT / files["main.py"]).is_file()
 
 

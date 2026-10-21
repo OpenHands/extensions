@@ -139,12 +139,12 @@
       "entrypoint": "python3 worker.py",
       "timeout": 300,
       "files": {
-        "main.py": "skills/github-pr-reviewer/scripts/main.py",
-        "agent_conversation.py": "skills/github/scripts/agent_conversation.py",
-        "github_client.py": "skills/github/scripts/github_client.py",
-        "maintainer_handoff.py": "skills/github-pr-reviewer/scripts/maintainer_handoff.py",
-        "worker.py": "skills/github-pr-reviewer/scripts/worker.py",
-        "publication.py": "skills/github-pr-reviewer/scripts/publication.py"
+        "main.py": "plugins/github-pr-reviewer/scripts/main.py",
+        "agent_conversation.py": "plugins/github-pr-reviewer/scripts/agent_conversation.py",
+        "github_client.py": "plugins/github-pr-reviewer/scripts/github_client.py",
+        "maintainer_handoff.py": "plugins/github-pr-reviewer/scripts/maintainer_handoff.py",
+        "worker.py": "plugins/github-pr-reviewer/scripts/worker.py",
+        "publication.py": "plugins/github-pr-reviewer/scripts/publication.py"
       },
       "config": {
         "repos": "{{form.repositories}}",
