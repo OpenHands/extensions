@@ -29,7 +29,9 @@ work - preflight checks, bundle upload and create, in-place tune, smoke run and
 enable - so Phase 1 takes four agent steps. The skill adds no automation logic of its own. Each station is the unmodified
 catalog bundle from `automations/catalog/<id>/`, configured from its `setup`
 block, so fixes to a station reach factories created by this skill too. A Jira
-or Linear issue to PR station is created by its own skill instead.
+or Linear issue to PR station is created by its own skill instead. Every
+station gets the `software-factory` tag (`factory.py tag` adds it to stations
+other skills create), so the Automations list can filter to the factory.
 
 ## Flow
 

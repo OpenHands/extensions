@@ -168,8 +168,77 @@ def test_create_reports_existing_station_instead_of_claiming_it(factory, monkeyp
     result = factory.create(_create_args("github-pr-reviewer,github-issue-to-pr"))
     assert [c["id"] for c in result["created"]] == ["a1"]
     assert [e["id"] for e in result["existing"]] == ["a2"]
-    # The pre-existing automation is left untouched: no disable PATCH for it.
+    # The pre-existing automation is not disabled; it only gets the factory tag.
+    assert patches == [("/a2", {"tags": ["software-factory"]})]
+    assert result["not_tagged"] == []
+
+
+def test_create_tags_every_new_station(factory, monkeypatch):
+    posts, patches = _stub_create(factory, monkeypatch, [(201, {"id": "a1", "enabled": False})])
+    factory.create(_create_args("github-pr-reviewer"))
+    assert posts[0]["tags"] == ["software-factory"]
     assert patches == []
+
+
+@pytest.mark.parametrize(
+    "tags, expected_patches",
+    [
+        (["software-factory"], []),
+        (["team-api"], [("/a2", {"tags": ["team-api", "software-factory"]})]),
+    ],
+)
+def test_create_keeps_an_existing_station_s_own_tags(factory, monkeypatch, tags, expected_patches):
+    """PATCH replaces the tag list, so the station's own tags are sent back."""
+    responses = [(200, {"id": "a2", "enabled": False, "tags": tags})]
+    posts, patches = _stub_create(factory, monkeypatch, responses)
+    factory.create(_create_args("github-pr-reviewer"))
+    assert patches == expected_patches
+
+
+def test_create_reports_a_station_only_its_creator_can_tag(factory, monkeypatch):
+    responses = [(200, {"id": "a2", "enabled": False, "tags": []})]
+    _stub_create(factory, monkeypatch, responses)
+
+    def forbidden(method, path, body=None, **kwargs):
+        if method == "POST":
+            return responses[0]
+        raise factory.FactoryError(f"{method} {path} -> 403: {{}}", status=403)
+
+    monkeypatch.setattr(factory, "_api", forbidden)
+    result = factory.create(_create_args("github-pr-reviewer"))
+    assert [e["id"] for e in result["existing"]] == ["a2"]
+    assert [e["id"] for e in result["not_tagged"]] == ["a2"]
+
+
+def test_tag_adds_the_factory_tag_to_other_skills_stations(factory, monkeypatch):
+    stored = {"j1": {"id": "j1", "tags": ["jira"]}, "l1": {"id": "l1", "tags": ["software-factory"]}}
+    calls = []
+
+    def api(method, path, body=None, **kwargs):
+        calls.append((method, path, body))
+        if method == "GET":
+            return stored[path.strip("/")]
+        if path == "/x1":
+            raise factory.FactoryError("PATCH /x1 -> 403: {}", status=403)
+        return {"id": path.strip("/"), **body}
+
+    stored["x1"] = {"id": "x1", "tags": []}
+    monkeypatch.setattr(factory, "_api", api)
+    result = factory.tag(type("Args", (), {"ids": ["j1", "l1", "x1"]}))
+    assert result == {"tagged": ["j1", "l1"], "not_tagged": ["x1"]}
+    assert ("PATCH", "/j1", {"tags": ["jira", "software-factory"]}) in calls
+    assert not any(method == "PATCH" and path == "/l1" for method, path, _ in calls)
+
+
+def test_tag_raises_errors_other_than_forbidden(factory, monkeypatch):
+    def api(method, path, body=None, **kwargs):
+        if method == "GET":
+            return {"id": "a1", "tags": []}
+        raise factory.FactoryError("PATCH /a1 -> 422: {}", status=422)
+
+    monkeypatch.setattr(factory, "_api", api)
+    with pytest.raises(factory.FactoryError, match="422"):
+        factory.tag(type("Args", (), {"ids": ["a1"]}))
 
 
 def test_create_disables_a_station_the_service_returned_enabled(factory, monkeypatch):

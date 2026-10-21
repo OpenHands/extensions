@@ -278,7 +278,9 @@ falling back to its built-in defaults when the manifest is absent or fails admis
   `total-runs`, `average-duration`), filter option values name host predicates (`status`: enabled /
   latest-run-failed / disabled; `trigger`: `event` matches event-triggered automations, `schedule`
   everything else; `created_by`: `me` matches automations the signed-in user created, `others` everything
-  else, and the host decides where it is shown), `sort` values name host comparators, and `insights`
+  else, and the host decides where it is shown; `tag` declares no options, because its values are the
+  tags the automation service reports for the org, and the host hides it when there are none), `sort`
+  values name host comparators, and `insights`
   captions the host's run-health states and per-automation stats. The health precedence, the run
   sampling, the value formatting, the relative-time rendering, and the filtered-empty state with its reset
   button are the host's - a manifest cannot redefine them, only relabel what appears. Tile `detail` copy is

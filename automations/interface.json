@@ -80,6 +80,11 @@
             { "value": "me", "label": "Me" },
             { "value": "others", "label": "Others" }
           ]
+        },
+        {
+          "id": "tag",
+          "label": "Filter by tag",
+          "allLabel": "All tags"
         }
       ],
       "sort": {

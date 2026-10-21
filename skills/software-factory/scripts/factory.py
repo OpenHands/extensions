@@ -6,6 +6,7 @@ Each command prints one JSON document on stdout and exits non-zero on failure.
   factory.py preflight --repos owner/a,owner/b [--profile NAME]
   factory.py create --repos owner/a --ids ID[,ID...] [--set [ID.]FIELD=VALUE ...] [--profile NAME]
   factory.py tune --repos owner/a --ids ID[,ID...] [--set [ID.]FIELD=VALUE ...] [--profile NAME]
+  factory.py tag ID [ID ...]
   factory.py verify ID [ID ...] [--no-wait ID ...] [--timeout SECONDS]
   factory.py status ID [ID ...]
   factory.py prs --repos owner/a [--branch-prefix openhands/agents-md]
@@ -48,11 +49,14 @@ STATIONS = (
     "qa-changes",
 )
 TERMINAL = {"COMPLETED", "FAILED", "CANCELLED", "SKIPPED"}
+# Every station carries this tag, so the Automations list can filter to the factory.
+FACTORY_TAG = "software-factory"
 
 
 class FactoryError(Exception):
-    def __init__(self, message: str, **extra):
+    def __init__(self, message: str, status: int | None = None, **extra):
         super().__init__(message)
+        self.status = status
         self.extra = extra
 
 
@@ -100,7 +104,7 @@ def _request(
             text = resp.read().decode()
     except urllib.error.HTTPError as err:
         detail = err.read().decode()[:2000]
-        raise FactoryError(f"{method} {url} -> {err.code}: {detail}") from None
+        raise FactoryError(f"{method} {url} -> {err.code}: {detail}", status=err.code) from None
     except urllib.error.URLError as err:
         raise FactoryError(f"{method} {url} -> {err.reason}") from None
     payload = json.loads(text) if text.strip() else None
@@ -376,6 +380,7 @@ def create(args) -> dict:
     profile = None
     created = []
     existing = []
+    not_tagged = []
     try:
         for station in stations:
             entry = entries[station]
@@ -386,6 +391,7 @@ def create(args) -> dict:
             body = _create_body(entry, values, repos)
             body["tarball_path"] = _upload(station, _tarball(root, bundle["files"], body["template"]["config"]))
             body["enabled"] = False
+            body["tags"] = [FACTORY_TAG]
             if _needs_profile(entry):
                 profile = profile or _profile(args.profile)
                 body["agent_profile_id"] = profile["id"]
@@ -394,14 +400,46 @@ def create(args) -> dict:
                 # The service returns the org's existing automation for the same
                 # template id (see find_existing_template_automation). Report it
                 # as pre-existing so a repeat run does not claim it created it.
-                existing.append(_summary(station, body["name"], body["trigger"], automation))
+                # It comes back unchanged, so the factory tag is added here.
+                summary = _summary(station, body["name"], body["trigger"], automation)
+                existing.append(summary)
+                if not _add_factory_tag(automation):
+                    not_tagged.append(summary)
                 continue
             if automation.get("enabled") or automation.get("state") == "ACTIVE":
                 _api("PATCH", f"/{automation['id']}", {"enabled": False})
             created.append(_summary(station, body["name"], body["trigger"], automation))
     except FactoryError as err:
-        raise FactoryError(str(err), created=created, existing=existing) from None
-    return {"created": created, "existing": existing}
+        raise FactoryError(str(err), created=created, existing=existing, not_tagged=not_tagged) from None
+    return {"created": created, "existing": existing, "not_tagged": not_tagged}
+
+
+def _add_factory_tag(automation: dict) -> bool:
+    """Add the factory tag to an automation; False when only its creator may.
+
+    The service replaces the whole tag list on PATCH, so the automation's own
+    tags are sent back with the factory tag appended.
+    """
+    tags = automation.get("tags") or []
+    if FACTORY_TAG in tags:
+        return True
+    try:
+        _api("PATCH", f"/{automation['id']}", {"tags": [*tags, FACTORY_TAG]})
+    except FactoryError as err:
+        if err.status == 403:
+            return False
+        raise
+    return True
+
+
+def tag(args) -> dict:
+    """Add the factory tag to automations another skill created (Jira, Linear)."""
+    tagged = []
+    not_tagged = []
+    for automation_id in args.ids:
+        automation = _api("GET", f"/{automation_id}")
+        (tagged if _add_factory_tag(automation) else not_tagged).append(automation_id)
+    return {"tagged": tagged, "not_tagged": not_tagged}
 
 
 def tune(args) -> dict:
@@ -603,6 +641,9 @@ def main() -> int:
     p.add_argument("--set", action="append", metavar="[ID.]FIELD=VALUE")
     p.add_argument("--profile")
     p.set_defaults(func=tune)
+    p = sub.add_parser("tag")
+    p.add_argument("ids", nargs="+")
+    p.set_defaults(func=tag)
     p = sub.add_parser("verify")
     p.add_argument("ids", nargs="*")
     p.add_argument("--no-wait", nargs="+", metavar="ID")

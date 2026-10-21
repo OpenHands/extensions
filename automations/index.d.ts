@@ -342,10 +342,22 @@ export interface AutomationCreatedByFilter {
   options: { value: AutomationCreatedByFilterValue; label: string }[];
 }
 
+/**
+ * The tag filter. Its values are the tags the automation service reports for
+ * the org, so the manifest supplies only the copy; `allLabel` names the host's
+ * default option, which matches every automation.
+ */
+export interface AutomationTagFilter {
+  id: "tag";
+  label: string;
+  allLabel: string;
+}
+
 export type AutomationDashboardFilter =
   | AutomationStatusFilter
   | AutomationTriggerFilter
-  | AutomationCreatedByFilter;
+  | AutomationCreatedByFilter
+  | AutomationTagFilter;
 
 /** A comparator the host implements, named from a closed set. */
 export type AutomationSortValue = "last-run" | "runs" | "name";
