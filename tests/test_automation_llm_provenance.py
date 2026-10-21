@@ -14,10 +14,11 @@ import pytest
 def _load_script(name, monkeypatch, tmp_path):
     monkeypatch.setenv("WORKSPACE_BASE", str(tmp_path))
     monkeypatch.delenv("AUTOMATION_MODEL", raising=False)
-    path = Path(__file__).parents[1] / "skills" / name / "scripts" / "main.py"
+    path = Path(__file__).parents[1] / "plugins" / name / "scripts" / "main.py"
     monkeypatch.syspath_prepend(str(path.parent))
     module = types.ModuleType(name.replace("-", "_"))
     module.__file__ = str(path)
+    monkeypatch.setenv("WORKSPACE_BASE", str(tmp_path / "workspaces" / "automation-runs" / "run"))
     source = path.read_text()
     if name == "slack-channel-monitor":
         source = source.split("\nPOLL_ITERATIONS = 10", 1)[0]

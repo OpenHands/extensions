@@ -120,6 +120,18 @@ def test_release_ref_is_none_without_installed_metadata(factory, monkeypatch):
     assert factory._release_ref() is None
 
 
+def test_plugin_ref_can_be_overridden(factory, monkeypatch):
+    monkeypatch.setenv("FACTORY_EXTENSIONS_REF", "v9.9.9")
+    monkeypatch.setenv("OPENHANDS_HOST", "https://app.all-hands.dev")
+    assert factory._plugin_ref() == "v9.9.9"
+
+
+def test_plugin_ref_falls_back_to_main_for_source_checkout(factory, monkeypatch):
+    monkeypatch.delenv("FACTORY_EXTENSIONS_REF", raising=False)
+    monkeypatch.setattr(factory, "_release_ref", lambda: None)
+    assert factory._plugin_ref() == "main"
+
+
 def test_automation_backend_host_gets_a_clear_error(factory, monkeypatch):
     def not_found(*args, **kwargs):
         raise factory.FactoryError("GET http://localhost:18001/api/agent-profiles -> 404: {}")

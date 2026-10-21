@@ -172,7 +172,7 @@ once a pull request actually needs reviewing.
   "entrypoint": "python3 main.py",    // run inside the extracted tarball
   "timeout": 600,                     // when the service default is not enough
   "files": {                          // packed path -> where it lives in this repo
-    "main.py": "skills/github-pr-reviewer/scripts/main.py"
+    "main.py": "plugins/github-pr-reviewer/scripts/main.py"
   },
   "config": {                         // rendered from the form, packed as config.json
     "repos": "{{form.repositories}}", // a whole-value placeholder, so this is a list

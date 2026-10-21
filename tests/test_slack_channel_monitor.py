@@ -4,7 +4,7 @@ from pathlib import Path
 
 SCRIPT_PATH = (
     Path(__file__).parent.parent
-    / "skills"
+    / "plugins"
     / "slack-channel-monitor"
     / "scripts"
     / "main.py"
@@ -15,7 +15,7 @@ def load_slack_monitor_helpers():
     os.environ["WORKSPACE_BASE"] = "/tmp/openhands/workspaces/slack-monitor-test/run"
     source = SCRIPT_PATH.read_text(encoding="utf-8")
     helper_source = source.split("\nPOLL_ITERATIONS = 10", 1)[0]
-    namespace: dict = {}
+    namespace: dict = {"__file__": str(SCRIPT_PATH)}
     exec(compile(helper_source, str(SCRIPT_PATH), "exec"), namespace)
     return namespace
 

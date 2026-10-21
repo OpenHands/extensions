@@ -45,6 +45,7 @@ import urllib.error
 import urllib.request
 import uuid
 from datetime import datetime, timezone
+from pathlib import Path
 from urllib.parse import urlencode
 
 # ── Debug logging to a per-run file ───────────────────────────────────────────

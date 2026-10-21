@@ -180,6 +180,16 @@ def _release_ref() -> str | None:
         return None
 
 
+def _plugin_ref() -> str:
+    """Git ref for remote plugin-spec sources.
+
+    Use FACTORY_EXTENSIONS_REF to pin a release explicitly. Installed package
+    users get their matching `vX.Y.Z` tag. A source checkout has no package
+    metadata for this unreleased plugin layout, so it falls back to `main`.
+    """
+    return os.environ.get("FACTORY_EXTENSIONS_REF") or _release_ref() or "main"
+
+
 def _manifest(station: str) -> dict:
     path = _extensions() / "automations" / "catalog" / station / "manifest.json"
     if not path.is_file():
@@ -276,11 +286,11 @@ def _plugin_source(station: str, root: Path) -> dict:
         raise FactoryError(f"{station} has no plugin; create it as the skill describes")
     if _local_host():
         return {"source": str(root), "repo_path": repo_path}
-    source = {"source": "github:OpenHands/extensions", "repo_path": repo_path}
-    ref = _release_ref()
-    if ref:
-        source["ref"] = ref
-    return source
+    return {
+        "source": "github:OpenHands/extensions",
+        "repo_path": repo_path,
+        "ref": _plugin_ref(),
+    }
 
 
 def _create_body(entry: dict, values: dict, repos: list[str], root: Path | None = None) -> dict:

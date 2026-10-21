@@ -14,7 +14,7 @@ from pathlib import Path
 import pytest
 
 ROOT = Path(__file__).parent.parent
-SCRIPT_PATH = ROOT / "skills" / "news-digest" / "scripts" / "main.py"
+SCRIPT_PATH = ROOT / "plugins" / "news-digest" / "scripts" / "main.py"
 MANIFEST_PATH = ROOT / "automations" / "catalog" / "news-digest" / "manifest.json"
 
 

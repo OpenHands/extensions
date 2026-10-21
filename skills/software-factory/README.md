@@ -31,6 +31,10 @@ automation plugin from `plugins/<id>/`, configured from the matching catalog
 `setup` block, so fixes to a station reach factories created by this skill too.
 A Jira or Linear issue to PR station is created by its own skill instead.
 
+Remote plugin sources are parameterized: `FACTORY_EXTENSIONS_REF` wins, then the
+installed `openhands-extensions` package tag (`vX.Y.Z`), then `main` for
+unreleased source checkouts.
+
 ## Flow
 
 1. **Phase 1**: verify `GITHUB_PERSONAL_ACCESS_TOKEN` (asked for with the

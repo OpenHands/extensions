@@ -75,7 +75,10 @@ Trust the script's output: do not open pages in the browser to check them, and
 do not use the task tracker for this flow.
 
 Plugin-spec stations use the agent profile named `default`. Keep `--profile`
-omitted unless you are explicitly checking that same profile name.
+omitted unless you are explicitly checking that same profile name. Remote plugin
+sources use the installed `openhands-extensions` version tag when available, or
+`main` for unreleased source checkouts. Set `FACTORY_EXTENSIONS_REF` to pin a
+specific tag or branch.
 
 ## Rules
 
