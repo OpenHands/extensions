@@ -18,8 +18,8 @@ This skill is activated by:
 |---|---|---|
 | Issue to PR | `github-issue-to-pr`, or the Jira or Linear station | 1 |
 | PR reviewer | `github-pr-reviewer` | 1 |
-| AGENTS.md maintainer | `github-agents-md-maintainer` | 1 |
-| Issue triage | `github-issue-triage` | add-on |
+| Issue triage | `github-issue-triage` | 1 |
+| AGENTS.md maintainer | `github-agents-md-maintainer` | add-on |
 | Auto-merge watchdog | `github-delivery-watchdog` | add-on |
 | Stale-CI PR closer | `github-stale-ci-pr-closer` | add-on |
 | QA changes | `qa-changes` | add-on (webhooks only) |
@@ -36,9 +36,8 @@ or Linear issue to PR station is created by its own skill instead.
 1. **Phase 1**: verify `GITHUB_PERSONAL_ACCESS_TOKEN` (asked for with the
    `request_secret` tool if missing, never in chat), ask for the repositories
    and the ticket source (GitHub issues, Jira or Linear),
-   create the three Phase 1 stations with defaults, smoke-run issue to PR and
-   the reviewer, and enable those that pass. The AGENTS.md maintainer is
-   enabled at once and opens an `AGENTS.md` pull request per repository.
+   create the three Phase 1 stations with defaults, smoke-run them, and enable
+   those that pass.
 2. **Checkpoint**: show the stations, their settings and how to use the
    factory. The user can stop here or pick a next step: try it with a test
    issue, tune settings, or add a station.

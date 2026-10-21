@@ -4,8 +4,8 @@ description: >
   Set up an OpenHands "software factory" on GitHub fast: ask only for the
   repositories and where tickets live (GitHub issues, Jira or Linear), create a working issue-to-PR and PR-review pipeline from the
   automation catalog with defaults, show what runs, then let the user stop or
-  extend it one step at a time (tune settings, triage, auto-merge, stale-CI and
-  QA add-ons).
+  extend it one step at a time (tune settings, AGENTS.md maintainer,
+  auto-merge, stale-CI and QA add-ons).
 triggers:
   - /software-factory
   - software factory
@@ -31,8 +31,8 @@ Bitbucket code hosts are not part of this flow.
 |---|---|---|---|
 | Issue to PR | `github-issue-to-pr`, or the Jira or Linear station | 1 | yes (GitHub issues only) |
 | PR reviewer | `github-pr-reviewer` | 1 | yes |
-| AGENTS.md maintainer | `github-agents-md-maintainer` | 1 | no |
-| Issue triage | `github-issue-triage`, or `linear-triage-assistant` | add-on | yes (GitHub issues only) |
+| Issue triage | `github-issue-triage`, or `linear-triage-assistant` | 1 | yes (GitHub issues only) |
+| AGENTS.md maintainer | `github-agents-md-maintainer` | add-on | no |
 | Auto-merge watchdog | `github-delivery-watchdog` | add-on | no |
 | Stale-CI PR closer | `github-stale-ci-pr-closer` | add-on | no |
 | QA changes | `qa-changes` | add-on | no |
@@ -118,11 +118,11 @@ active one.
      Settings -> Secrets and say when done.
    - `not_set` without the tool: tell the user to add it in Settings ->
      Secrets and stop.
-4. `$F create --repos <repos> --ids github-pr-reviewer,github-agents-md-maintainer`,
-   adding `github-issue-to-pr` for GitHub issues. For Jira or Linear, also set
-   up the issue to PR station as "Ticket source" describes.
-5. `$F verify <reviewer id> [<issue to PR id>] --no-wait <maintainer id>`. The
-   maintainer's run opens one `AGENTS.md` pull request per repository.
+4. `$F create --repos <repos> --ids github-pr-reviewer`, adding
+   `github-issue-to-pr,github-issue-triage` for GitHub issues. For Jira or
+   Linear, also set up the issue to PR station as "Ticket source" describes;
+   for Linear, set up triage with the `linear-triage` skill (Jira has none).
+5. `$F verify <reviewer id> [<issue to PR id>] [<triage id>]`.
 6. Go to the Checkpoint.
 
 ## Checkpoint
@@ -133,11 +133,12 @@ Write one short message, in this order:
    on `<repos>`. Add the `<trigger label>` label to a ticket to get a draft pull
    request; the reviewer reviews it and you merge it." (On Jira, add that the
    ticket body must name the `owner/repo`.)
-2. The `AGENTS.md` pull requests from `$F prs --repos <repos>`, asking the user
-   to merge them: they give the build agent the repository's build, test and
-   lint commands. One opened before this setup started (`created_at`) is
-   "still open from an earlier run", not new; the maintainer works once a week
-   per repository. If there are none yet, say they are on their way.
+2. If the AGENTS.md maintainer was added, the `AGENTS.md` pull requests from
+   `$F prs --repos <repos>`, asking the user to merge them: they give the build
+   agent the repository's build, test and lint commands. One opened before
+   this setup started (`created_at`) is "still open from an earlier run", not
+   new; the maintainer works once a week per repository. If there are none
+   yet, say they are on their way.
 3. A small table of the automations, each linked to its `url`:
 
    | Automation | Schedule | Status |
@@ -153,7 +154,7 @@ Write one short message, in this order:
    - **Try it**: I open a small test issue with the `<trigger label>` label in
      `<repo>`, only if you say so, and report the pull request.
    - **Tune**: change a setting from the list above.
-   - **Add a station**: triage, auto-merge watchdog, stale-CI closer (QA only
+   - **Add a station**: AGENTS.md maintainer, auto-merge watchdog, stale-CI closer (QA only
      if `preflight` reports it `ok`).
    - **Stop here**: the factory keeps running as it is.
 
@@ -172,7 +173,7 @@ each with its current value. Apply, then return to the Checkpoint.
 | Which pull requests get reviewed | label `openhands-review`, reviewer `all-hands-bot` | `github-pr-reviewer.triggerLabel`, `triggerReviewer` |
 | Review tone: concise, thorough, friendly | `concise` | `reviewTone` |
 | Human reviewers requested after agent approval (two or more logins) | none | `maintainers` |
-| Schedules and timezone | issue to PR `*/15 * * * *`, reviewer `*/5 * * * *`, AGENTS.md maintainer `0 9 * * 1`, add-ons per manifest; `UTC` | `ID.schedule`, `timezone` |
+| Schedules and timezone | issue to PR `*/15 * * * *`, reviewer `*/5 * * * *`, triage `*/5 * * * *`, add-ons per manifest; `UTC` | `ID.schedule`, `timezone` |
 | Agent profile | active profile | `--profile NAME` |
 
 Apply:
@@ -195,8 +196,8 @@ Ask only the question below, then `$F create` it and `$F verify` it.
   green.
 - **Stale-CI closer** (`github-stale-ci-pr-closer`): confirm it may warn on,
   then close, pull requests whose CI keeps failing.
-- **Triage** (`github-issue-triage`): nothing. For Linear, follow the
-  `linear-triage` skill instead; for Jira there is none.
+- **AGENTS.md maintainer** (`github-agents-md-maintainer`): nothing. Verify it
+  with `--no-wait`; its run opens one `AGENTS.md` pull request per repository.
 - **QA changes**: which base branch (default `main`). Offer QA only if
   `preflight` reports it `ok` and the `openhands-automation` webhook
   reachability check passes. It has no bundle, so the script cannot create it:
