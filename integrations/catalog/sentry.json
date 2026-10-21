@@ -83,7 +83,7 @@
             "type": "password",
             "placeholder": "sntryu_...",
             "required": true,
-            "helperText": "Create a [personal auth token](https://docs.sentry.io/account/auth-tokens/) with at least org:read, project:read, team:read and event:read. On a self-hosted server, create it there."
+            "helperText": "Create a [personal auth token](https://docs.sentry.io/account/auth-tokens/) with org:read, project:read, project:write, team:read, team:write, event:read and event:write. With read scopes only, tools that change issues or projects fail. On a self-hosted server, create it there."
           },
           {
             "key": "SENTRY_HOST",
