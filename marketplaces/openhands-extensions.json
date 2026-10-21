@@ -93,6 +93,20 @@
       ]
     },
     {
+      "name": "software-factory",
+      "source": "./skills/software-factory",
+      "description": "Set up a GitHub software factory fast: ask only for the repositories and the ticket source (GitHub issues, Jira or Linear), create a working issue-to-PR and PR-review pipeline from catalog automations with defaults, then let the user stop or extend it step by step.",
+      "category": "automations",
+      "defaultEnabled": true,
+      "keywords": [
+        "onboarding",
+        "software-factory",
+        "github",
+        "automation",
+        "pull-request"
+      ]
+    },
+    {
       "name": "agent-canvas-environment",
       "source": "./skills/agent-canvas-environment",
       "description": "Work effectively inside a local Agent Canvas environment, including local agent-server auth, safe workspace hygiene, and local conversation delegation.",
@@ -752,7 +766,7 @@
     {
       "name": "gitlab-issue-to-mr",
       "source": "./skills/gitlab-issue-to-mr",
-      "description": "Create an automation that implements GitLab issues when a configurable trigger label is applied. Clones the default branch for the agent, then commits, pushes, and opens the merge request itself - the agent is handed no push credential.",
+      "description": "Create an automation that implements GitLab issues when a configurable trigger label is applied. Polls the projects deterministically and starts one conversation per label event; on OpenHands Cloud and Enterprise it reaches GitLab through the connected MCP server or integration, with no token to set up.",
       "category": "automations",
       "keywords": [
         "gitlab",
@@ -851,11 +865,14 @@
     {
       "name": "jira-issue-to-pr",
       "source": "./skills/jira-issue-to-pr",
-      "description": "Deploy a cron-based OpenHands automation that watches a Jira Cloud project for issues labeled with a configurable label (default: create-pr) and spawns an agent conversation to create a GitHub pull request for each new issue found. The target GitHub repo is read from the ticket body - no repo parameter required at deploy time.",
+      "description": "Deploy a cron-based OpenHands automation that opens a GitHub pull request, a GitLab merge request or a Bitbucket pull request for each Jira issue carrying a configurable label (default: create-pr). The target repository is read from the ticket body - no repo parameter required at deploy time.",
       "category": "automations",
       "keywords": [
         "jira",
-        "atlassian"
+        "atlassian",
+        "github",
+        "gitlab",
+        "bitbucket"
       ]
     },
     {
@@ -873,10 +890,9 @@
     {
       "name": "ticket-to-code-change",
       "source": "./skills/ticket-to-code-change",
-      "description": "Set up Jira or Linear ticket-to-code-change automations for GitHub, GitLab, and Bitbucket.",
+      "description": "Set up Linear ticket-to-code-change automations for GitHub, GitLab, and Bitbucket.",
       "category": "automations",
       "keywords": [
-        "jira",
         "linear",
         "github",
         "gitlab",

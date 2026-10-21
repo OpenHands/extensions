@@ -146,10 +146,9 @@ deep change lacks it, weigh the gap by risk:
   the diff would materially slow or weaken the review.
 - **LOW** risk: never block on missing design context alone.
 
-Approving a same-repository PR removes its `.pr/` directory. If a temporary
-`.pr/` page is the only design explanation, submit a COMMENT review instead of
-approving, so the page remains for the human maintainer's decision, unless the
-PR description already carries the durable equivalent.
+Temporary `.pr/` artifacts remain available during review and are removed through
+a cleanup PR after merge to `main`. Preserve any design explanation needed beyond
+that cleanup in the PR description or permanent documentation.
 
 Design context aids review; it does not excuse correctness, security,
 architecture, or repository-ownership problems.

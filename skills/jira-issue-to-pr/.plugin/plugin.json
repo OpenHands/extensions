@@ -1,7 +1,7 @@
 {
   "name": "jira-issue-to-pr",
   "version": "1.0.0",
-  "description": "Deploy a cron-based OpenHands automation that watches a Jira Cloud project for issues labeled with a configurable label (default: create-pr) and spawns an agent conversation to create a GitHub pull request for each new issue found. The target GitHub repo is read from the ticket body - no repo parameter required at deploy time.",
+  "description": "Deploy a cron-based OpenHands automation that opens a GitHub pull request, a GitLab merge request or a Bitbucket pull request for each Jira issue carrying a configurable label (default: create-pr). The target repository is read from the ticket body - no repo parameter required at deploy time.",
   "author": {
     "name": "OpenHands",
     "email": "contact@all-hands.dev"
@@ -13,7 +13,10 @@
     "jira",
     "atlassian",
     "github",
+    "gitlab",
+    "bitbucket",
     "pull-request",
+    "merge-request",
     "automation"
   ]
 }

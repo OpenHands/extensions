@@ -9,6 +9,7 @@ from urllib.error import HTTPError
 from urllib.parse import quote
 
 import main as workflow
+import agent_conversation
 from agent_conversation import AgentConversationDispatcher
 from github_client import GitHubRepository, run_repositories
 from maintainer_handoff import (
@@ -255,7 +256,7 @@ class PullRequestReviewer(GitHubRepository):
             return pr if (author or "").lower() == self.trigger_reviewer else None
         return None
 
-    def _prompt(self, pr, trigger, label=None, delivery_key=None):
+    def _prompt(self, pr, trigger, label=None, delivery_key=None, conversation_id=None):
         number = pr["number"]
         sha = pr["head"]["sha"]
         token = self.token_name
@@ -287,6 +288,7 @@ class PullRequestReviewer(GitHubRepository):
             workspace_instructions=workspace,
             github_token_secret=token,
             trigger_description=trigger_description,
+            conversation_id=conversation_id,
         )
         if label:
             moved_head_instruction = (
@@ -428,12 +430,27 @@ class PullRequestReviewer(GitHubRepository):
             ]
         if not completed:
             return False
+        try:
+            self._annotate_llm_provenance(pr, completed)
+        except Exception as exc:  # noqa: BLE001 - provenance never blocks completion
+            print(
+                json.dumps(
+                    {
+                        "repository": self.repository,
+                        "pr": pr["number"],
+                        "llm_provenance_error": f"{type(exc).__name__}: {exc}",
+                    }
+                ),
+                flush=True,
+            )
         approved = None
         maintainer_decision = False
         for review in sorted(
             completed, key=lambda item: item["submitted_at"], reverse=True
         ):
-            body = (review.get("body") or "").rstrip()
+            # The verdict ends the agent's text; the provenance footer the
+            # automation appends after it is not part of the verdict.
+            body = workflow._without_llm_provenance(review.get("body") or "")
             if body.endswith("✅ APPROVED"):
                 approved = True
                 break
@@ -491,6 +508,110 @@ class PullRequestReviewer(GitHubRepository):
                 "DELETE", f"/issues/{pr['number']}/labels/{quote(label, safe='')}"
             )
         return True
+
+    def _annotate_llm_provenance(self, pr, reviews):
+        """Append the LLM profile and model to this automation's own reviews.
+
+        The footer describes the conversation that published the review, read
+        back from that conversation rather than from current settings, so a
+        reused conversation reports the LLM it actually runs. Login, head, and
+        time cannot tell two automations sharing a bot account apart, so a
+        review is annotated only when its single run marker names the
+        conversation this automation records for the pull request. Any other
+        review, including one by an overlapping run, is left as it is. A
+        review keeps the metadata recorded in this automation's KV namespace.
+        Review text alone cannot establish that a footer came from the worker.
+        """
+        reviews = [
+            review
+            for review in reviews
+            if workflow._REVIEW_RUN_MARKER_RE.search(review.get("body") or "")
+        ]
+        if not reviews:
+            return
+        repository_id = self.gh("GET", "")["id"]
+        conversation_id = self.dispatcher.subject_conversation(
+            f"{repository_id}:pr:{pr['number']}"
+        )
+        own = workflow._own_reviews(reviews, conversation_id)
+        if not own:
+            return
+        errors = []
+        for review in own:
+            original = review.get("body") or ""
+            has_footer = workflow._without_llm_provenance(original) != original.strip()
+            try:
+                provenance = self._recorded_review_provenance(conversation_id, review["id"])
+            except Exception as exc:
+                # Keep an unverifiable agent-written line from claiming a model.
+                # Finish the remaining reviews before the outer guard logs errors.
+                errors.append(exc)
+                provenance = None
+            if provenance is None:
+                if not has_footer:
+                    continue
+                try:
+                    # Fallback edits use the same atomically chosen tuple.
+                    # A concurrent metadata collector may already have won.
+                    provenance = self._recorded_review_provenance(
+                        conversation_id, review["id"], unavailable=True
+                    )
+                except Exception as exc:
+                    errors.append(exc)
+                    continue
+            body = workflow._with_llm_provenance(original, *provenance)
+            if body != review.get("body"):
+                try:
+                    self.gh(
+                        "PUT",
+                        f"/pulls/{pr['number']}/reviews/{review['id']}",
+                        {"body": body},
+                    )
+                except Exception as exc:
+                    errors.append(exc)
+        if errors:
+            raise errors[0]
+
+    def _recorded_review_provenance(self, conversation_id, review_id, *, unavailable=False):
+        """Record server metadata or an explicit unknown fallback outside agent text."""
+        key = f"review-provenance-{conversation_id}-{review_id}"
+
+        def recorded(value):
+            if (isinstance(value, dict)
+                and value.get("conversation_id") == conversation_id
+                and all(isinstance(value.get(field), str) and value[field]
+                        for field in ("profile", "model"))):
+                return value["profile"], value["model"]
+            return None
+
+        try:
+            saved = recorded(agent_conversation._kv_request(key, "GET"))
+            if saved is not None:
+                return saved
+            provenance = (
+                ("unknown", "unknown") if unavailable
+                else self.dispatcher.llm_provenance(conversation_id)
+            )
+            if provenance is None:
+                # Another collector may have recorded it during the lookup.
+                return recorded(agent_conversation._kv_request(key, "GET"))
+            value = {"conversation_id": conversation_id,
+                     "profile": provenance[0], "model": provenance[1]}
+            # Every edit, including an unknown fallback, uses the first tuple.
+            agent_conversation._kv_request(key + "?nx=true", "PUT", value)
+        except Exception as exc:
+            # A lookup can fail after another collector records the tuple, or
+            # a write can commit before its response is lost. Reconcile both.
+            try:
+                saved = recorded(agent_conversation._kv_request(key, "GET"))
+            except Exception:
+                raise exc
+            if saved is not None:
+                return saved
+            if isinstance(exc, HTTPError) and exc.code == 409:
+                raise ValueError("Stored review provenance does not match its conversation") from exc
+            raise
+        return provenance
 
     @staticmethod
     def _check_app_identity(run):
@@ -1255,7 +1376,11 @@ class PullRequestReviewer(GitHubRepository):
         result = self.dispatcher.deliver(
             subject=f"{repository_id}:pr:{pr['number']}",
             delivery=delivery_key or f"{trigger['id']}:{sha}",
-            prompt=self._prompt(pr, trigger, trigger_label, delivery_key),
+            # The dispatcher names the conversation it delivers to, so the
+            # prompt can carry that conversation's review marker.
+            prompt=lambda conversation_id: self._prompt(
+                pr, trigger, trigger_label, delivery_key, conversation_id
+            ),
             head=sha,
         )
         print(

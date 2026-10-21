@@ -1,8 +1,9 @@
 ---
 name: ticket-to-code-change
 description: >
-  Set up a ticket-to-code-change automation using Jira or Linear as the issue
-  tracker and GitHub, GitLab, or Bitbucket as the source-control provider.
+  Set up a ticket-to-code-change automation using Linear as the issue tracker
+  and GitHub, GitLab, or Bitbucket as the source-control provider. The Jira
+  templates are served by the jira-issue-to-pr skill instead.
   Watches for implementation-ready tickets, starts an OpenHands conversation
   to implement and test the request, opens a pull or merge request, and links
   the result back to the ticket.
@@ -19,7 +20,8 @@ requests or merge requests.
 
 Ask the user for:
 
-1. The issue tracker: Jira Cloud or Linear.
+1. The issue tracker: Linear. Jira automations are set up with the
+   `jira-issue-to-pr` skill instead, which ships a poller.
 2. The source-control provider: GitHub, GitLab, or Bitbucket Cloud.
 3. The project or team to watch and the label or workflow state that means
    "implementation ready".

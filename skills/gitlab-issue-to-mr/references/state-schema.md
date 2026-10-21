@@ -64,6 +64,10 @@ Key: `"{issue_iid}:label:{label_event_id}"`. This makes the latest GitLab
 resource label event with `action: "add"` the idempotency key. Re-applying the
 trigger label creates a new event and therefore a new task, on a new branch.
 
+When GitLab is reached through a connected MCP server, the event is the system
+note that recorded the label being added (`first` for a work item without one),
+so switching between the token and the MCP server can queue an issue once more.
+
 Value: **TaskRecord**
 
 ```jsonc

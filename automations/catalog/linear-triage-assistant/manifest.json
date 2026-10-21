@@ -12,6 +12,10 @@
   },
   "popularityRank": 90,
   "estimatedSetupMinutes": 3,
+  "triggers": [
+    "cron",
+    "event"
+  ],
   "skill": "linear-triage",
   "exampleImplementation": "Trigger: linear Issue create\nRequired MCP: Linear\n\n1. Load the new issue, team context, project, labels, and recent similar issues.\n2. Score priority and classify the request as bug, feature, support, or chore.\n3. TODO: map local team labels and priority conventions.\n4. Add a triage comment with rationale and suggested next actions.\n5. Optionally update labels, priority, and assignee."
 }

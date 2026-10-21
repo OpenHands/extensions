@@ -79,7 +79,7 @@ def _state_path(repo):
 def _kv_request(key, method, value=None):
     if not KV_TOKEN or not KV_BASE:
         return None
-    data = json.dumps({"value": value}).encode() if value is not None else None
+    data = json.dumps(value).encode() if value is not None else None
     request = Request(
         f"{KV_BASE}/v1/kv/{quote(key, safe='')}",
         data=data,
@@ -101,7 +101,13 @@ def _kv_request(key, method, value=None):
 
 def load_state(repo):
     if KV_TOKEN and KV_BASE:
-        return _kv_request(_state_key(repo), "GET") or {"version": 1, "prs": {}}
+        state = _kv_request(_state_key(repo), "GET") or {"version": 1, "prs": {}}
+        if "prs" not in state and "value" in state:
+            # Earlier versions saved {"value": state}, and the store keeps the
+            # whole body, so each save nested the last one a level deeper.
+            state = state["value"]
+            state.pop("value", None)
+        return state
     path = _state_path(repo)
     if not path.exists():
         return {"version": 1, "prs": {}}
