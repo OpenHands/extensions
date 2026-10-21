@@ -30,7 +30,7 @@
       "plugins": [],
       "agent_profile": {
         "required": true,
-        "default_name": "agent-default",
+        "default_name": "default",
         "allowed_tools": [
           "terminal",
           "file_editor",
