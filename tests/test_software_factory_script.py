@@ -1,9 +1,7 @@
-"""The software-factory helper builds the same create body as Agent Canvas."""
+"""The software-factory helper builds plugin-spec automation requests."""
 
 import importlib.util
-import io
 import json
-import tarfile
 from pathlib import Path
 
 import pytest
@@ -36,11 +34,23 @@ def _entry(station: str) -> dict:
 
 @pytest.mark.parametrize("station", BUNDLE_STATIONS)
 @pytest.mark.parametrize("repos", [["acme/api"], ["acme/api", "acme/web"]])
-def test_create_body_matches_reference_renderer(factory, station, repos):
+def test_create_body_uses_plugin_spec(factory, station, repos, monkeypatch):
+    monkeypatch.setenv("OPENHANDS_HOST", "http://localhost:8000")
     entry = _entry(station)
     values = factory._form_values(entry, repos, {})
-    expected = _render_payload(entry, values, "", selected_trigger="cron")
-    assert factory._create_body(entry, values, repos) == expected
+    body = factory._create_body(entry, values, repos, ROOT)
+    rendered = _render_payload(entry, values, "", selected_trigger="cron")
+
+    assert body["name"] == rendered["name"]
+    assert body["trigger"] == rendered["trigger"]
+    assert body["config"] == rendered["template"]["config"]
+    assert body["template"] == rendered["template"]
+    assert body["enabled"] is False
+    assert body["plugin"] == {
+        "source": str(ROOT),
+        "repo_path": f"plugins/{station}",
+    }
+    assert body.get("timeout") == rendered.get("timeout")
 
 
 @pytest.mark.parametrize("station", BUNDLE_STATIONS)
@@ -55,7 +65,7 @@ def test_overrides_keep_json_types(factory):
     values = factory._form_values(
         entry, ["acme/api"], {"maxNewPerRun": factory._parse_value("4"), "reviewTone": "thorough"}
     )
-    config = factory._create_body(entry, values, ["acme/api"])["template"]["config"]
+    config = factory._station_config(entry, values)
     assert config["max_new_per_run"] == 4
     assert config["review_tone"] == "thorough"
     assert config["repos"] == ["acme/api"]
@@ -64,17 +74,6 @@ def test_overrides_keep_json_types(factory):
 def test_unknown_field_is_rejected(factory):
     with pytest.raises(factory.FactoryError):
         factory._form_values(_entry("github-issue-to-pr"), ["acme/api"], {"nope": 1})
-
-
-@pytest.mark.parametrize("station", BUNDLE_STATIONS)
-def test_tarball_holds_bundle_files_and_config(factory, station):
-    bundle = _entry(station)["setup"]["bundle"]
-    data = factory._tarball(ROOT, bundle["files"], {"repos": ["acme/api"]})
-    with tarfile.open(fileobj=io.BytesIO(data), mode="r:gz") as tar:
-        names = set(tar.getnames())
-        config = json.load(tar.extractfile("config.json"))
-    assert names == set(bundle["files"]) | {"config.json"}
-    assert config == {"repos": ["acme/api"]}
 
 
 def test_prs_keeps_only_branches_with_the_prefix(factory, monkeypatch):
@@ -121,6 +120,18 @@ def test_release_ref_is_none_without_installed_metadata(factory, monkeypatch):
     assert factory._release_ref() is None
 
 
+def test_plugin_ref_can_be_overridden(factory, monkeypatch):
+    monkeypatch.setenv("FACTORY_EXTENSIONS_REF", "v9.9.9")
+    monkeypatch.setenv("OPENHANDS_HOST", "https://app.all-hands.dev")
+    assert factory._plugin_ref() == "v9.9.9"
+
+
+def test_plugin_ref_falls_back_to_main_for_source_checkout(factory, monkeypatch):
+    monkeypatch.delenv("FACTORY_EXTENSIONS_REF", raising=False)
+    monkeypatch.setattr(factory, "_release_ref", lambda: None)
+    assert factory._plugin_ref() == "main"
+
+
 def test_automation_backend_host_gets_a_clear_error(factory, monkeypatch):
     def not_found(*args, **kwargs):
         raise factory.FactoryError("GET http://localhost:18001/api/agent-profiles -> 404: {}")
@@ -139,14 +150,13 @@ def _create_args(ids: str, repos: str = "acme/api", sets=None):
 def _stub_create(factory, monkeypatch, responses):
     """Stub upload/manifest/profile and record the POST bodies and PATCHes."""
     monkeypatch.setenv("OPENHANDS_HOST", "http://localhost:8000")
-    monkeypatch.setattr(factory, "_upload", lambda name, data: f"oh-internal://uploads/{name}")
     monkeypatch.setattr(factory, "_extensions", lambda: ROOT)
     monkeypatch.setattr(factory, "_profile", lambda name: {"id": "p1", "name": "default"})
     posts = []
     patches = []
 
     def api(method, path, body=None, **kwargs):
-        if method == "POST" and path == "":
+        if method == "POST" and path == "/plugin-spec":
             posts.append(body)
             return responses[len(posts) - 1]
         if method == "PATCH":
@@ -178,12 +188,9 @@ def test_create_disables_a_station_the_service_returned_enabled(factory, monkeyp
     assert patches == [("/a1", {"enabled": False})]
 
 
-def test_tune_patches_in_place_without_stamping_template(factory, monkeypatch):
+def test_tune_patches_schedule_without_stamping_template(factory, monkeypatch):
     """Tune must not go through create's template-id dedup path."""
     monkeypatch.setenv("OPENHANDS_HOST", "http://localhost:8000")
-    monkeypatch.setattr(factory, "_upload", lambda name, data: f"oh-internal://uploads/{name}")
-    monkeypatch.setattr(factory, "_extensions", lambda: ROOT)
-    monkeypatch.setattr(factory, "_profile", lambda name: {"id": "p1", "name": "default"})
     monkeypatch.setattr(factory, "_find_existing", lambda station: {"id": "a1"})
     calls = []
 
@@ -193,14 +200,23 @@ def test_tune_patches_in_place_without_stamping_template(factory, monkeypatch):
 
     monkeypatch.setattr(factory, "_api", api)
     result = factory.tune(
-        _create_args("github-pr-reviewer", sets=["reviewTone=thorough"])
+        _create_args("github-pr-reviewer", sets=["schedule=0 * * * *"])
     )
     assert [t["id"] for t in result["tuned"]] == ["a1"]
     method, path, body = calls[-1]
     assert (method, path) == ("PATCH", "/a1")
     assert "template" not in body
-    assert body["tarball_path"].startswith("oh-internal://uploads/")
-    assert body["agent_profile_id"] == "p1"
+    assert body == {
+        "name": "GitHub code review - acme/api",
+        "trigger": {"type": "cron", "schedule": "0 * * * *", "timezone": "UTC"},
+    }
+
+
+def test_tune_rejects_plugin_config_changes(factory, monkeypatch):
+    monkeypatch.setenv("OPENHANDS_HOST", "http://localhost:8000")
+    monkeypatch.setattr(factory, "_find_existing", lambda station: {"id": "a1"})
+    with pytest.raises(factory.FactoryError, match="cannot be updated in place"):
+        factory.tune(_create_args("github-pr-reviewer", sets=["reviewTone=thorough"]))
 
 
 def test_tune_rejects_a_station_that_is_not_set_up(factory, monkeypatch):

@@ -286,11 +286,11 @@
       }
     },
     "bundleSource": {
-      "description": "A file in this repository, as a repository-relative path under skills/ or automations/. No absolute path, no traversal, and no scheme, so a bundle cannot name anything outside the published package.",
+      "description": "A file in this repository, as a repository-relative path under skills/, plugins/, or automations/. No absolute path, no traversal, and no scheme, so a bundle cannot name anything outside the published package.",
       "type": "string",
       "minLength": 1,
       "maxLength": 255,
-      "pattern": "^(skills|automations)/[A-Za-z0-9._-]+(/[A-Za-z0-9._-]+)*$",
+      "pattern": "^(skills|plugins|automations)/[A-Za-z0-9._-]+(/[A-Za-z0-9._-]+)*$",
       "not": { "pattern": "(^|/)\\.\\.?(/|$)" }
     },
     "bundleConfig": {

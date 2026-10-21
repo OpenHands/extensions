@@ -1,63 +1,43 @@
-"""Verify shared support is included in independently installed skills."""
+"""Verify automation skills delegate runtime code to plugins."""
 
 import json
-import subprocess
-import sys
 from pathlib import Path
 
 import pytest
 from openhands.sdk.skills import install_skill
 
 ROOT = Path(__file__).resolve().parents[1]
+AUTOMATION_PLUGIN_SKILLS = [
+    "github-repo-monitor",
+    "github-agents-md-maintainer",
+    "github-issue-to-pr",
+    "github-issue-triage",
+    "github-pr-reviewer",
+    "github-stale-ci-pr-closer",
+    "gitlab-issue-to-mr",
+    "jira-issue-to-pr",
+    "news-digest",
+    "slack-channel-monitor",
+]
 
 
-def test_installed_triage_skill_contains_its_bundle(tmp_path):
-    name = "github-issue-triage"
+@pytest.mark.parametrize("name", AUTOMATION_PLUGIN_SKILLS)
+def test_installed_automation_skill_is_guide_only(tmp_path, name):
     install_skill(source=str(ROOT / "skills" / name), installed_dir=tmp_path)
-    scripts = tmp_path / name / "scripts"
-    manifest = json.loads(
-        (ROOT / f"automations/catalog/{name}/manifest.json").read_text()
-    )
+    installed = tmp_path / name
 
-    for filename, source in manifest["setup"]["bundle"]["files"].items():
-        installed = scripts / filename
-        assert installed.is_file() and not installed.is_symlink()
-        assert installed.read_bytes() == (ROOT / source).read_bytes()
-
-    result = subprocess.run(
-        [sys.executable, "-c", "import worker"],
-        cwd=scripts,
-        text=True,
-        capture_output=True,
-        check=False,
-    )
-    assert result.returncode == 0, result.stderr
+    assert (installed / "SKILL.md").is_file()
+    assert not (installed / "scripts").exists()
+    assert f"plugins/{name}" in (installed / "SKILL.md").read_text()
 
 
-@pytest.mark.parametrize(
-    "name",
-    [
-        "github-repo-monitor",
-        "github-agents-md-maintainer",
-        "github-issue-to-pr",
-        "github-pr-reviewer",
-    ],
-)
-def test_installed_github_skill_contains_shared_client(tmp_path, name):
-    install_skill(source=str(ROOT / "skills" / name), installed_dir=tmp_path)
-    scripts = tmp_path / name / "scripts"
-    helper = scripts / "github_client.py"
+@pytest.mark.parametrize("name", AUTOMATION_PLUGIN_SKILLS)
+def test_automation_plugin_manifest_and_entrypoint_exist(name):
+    manifest_path = ROOT / "plugins" / name / ".plugin" / "plugin.json"
+    manifest = json.loads(manifest_path.read_text())
+    entrypoint = manifest["automation"]["entrypoint"]
+    working_dir = ROOT / "plugins" / name / entrypoint.get("working_dir", ".")
+    command_target = entrypoint["command"].split()[-1]
 
-    assert helper.is_file() and not helper.is_symlink()
-    assert (
-        helper.read_bytes()
-        == (ROOT / "skills/github/scripts/github_client.py").read_bytes()
-    )
-    result = subprocess.run(
-        [sys.executable, "-c", "import main"],
-        cwd=scripts,
-        text=True,
-        capture_output=True,
-        check=False,
-    )
-    assert result.returncode == 0, result.stderr
+    assert manifest["automation"]["schema_version"] == "openhands.automation.plugin.v1"
+    assert (working_dir / command_target).is_file()

@@ -15,7 +15,7 @@ from pathlib import Path
 import pytest
 
 SCRIPT_PATH = (
-    Path(__file__).parent.parent / "skills" / "gitlab-issue-to-mr" / "scripts" / "main.py"
+    Path(__file__).parent.parent / "plugins" / "gitlab-issue-to-mr" / "scripts" / "main.py"
 )
 
 

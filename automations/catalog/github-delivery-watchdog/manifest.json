@@ -64,8 +64,8 @@
       "entrypoint": "python3 worker.py",
       "timeout": 300,
       "files": {
-        "worker.py": "skills/github-delivery-watchdog/scripts/worker.py",
-        "github_client.py": "skills/github/scripts/github_client.py"
+        "worker.py": "plugins/github-delivery-watchdog/scripts/worker.py",
+        "github_client.py": "plugins/github-delivery-watchdog/scripts/github_client.py"
       },
       "config": {
         "repos": "{{form.repositories}}",

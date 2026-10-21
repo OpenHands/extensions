@@ -18,7 +18,7 @@ from pathlib import Path
 import pytest
 
 ROOT = Path(__file__).parent.parent
-SCRIPT_PATH = ROOT / "skills" / "jira-issue-to-pr" / "scripts" / "main.py"
+SCRIPT_PATH = ROOT / "plugins" / "jira-issue-to-pr" / "scripts" / "main.py"
 
 ISSUE = {
     "key": "ENG-1",
