@@ -113,6 +113,16 @@ def test_featured_automations_resolve_to_catalog_entries():
             ),
         ),
         (
+            "a tag filter declaring options, whose values come from the service",
+            lambda doc: _filter(doc, "tag").update(
+                options=[{"value": "all", "label": "All tags"}]
+            ),
+        ),
+        (
+            "a tag filter without the default option's label",
+            lambda doc: _filter(doc, "tag").pop("allLabel"),
+        ),
+        (
             "more filters than the host renders",
             lambda doc: doc["pages"]["list"]["filters"].append(
                 {**doc["pages"]["list"]["filters"][0], "label": "Filter again"}
