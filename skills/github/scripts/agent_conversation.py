@@ -104,16 +104,16 @@ class CloudConversations:
         return found[0] if found else None
 
     def start(self, conversation_id, profile_id, title: str, prompt: str) -> None:
-        self._request(
-            "POST",
-            "/api/v1/app-conversations",
-            {
-                "conversation_id": str(conversation_id),
-                "agent_profile_id": str(profile_id),
-                "title": title,
-                "initial_message": _user_message(prompt),
-            },
-        )
+        body = {
+            "conversation_id": str(conversation_id),
+            "title": title,
+            "initial_message": _user_message(prompt),
+        }
+        if profile_id is not None:
+            # Without one the API launches the member's active profile, or the
+            # default settings when none is active.
+            body["agent_profile_id"] = str(profile_id)
+        self._request("POST", "/api/v1/app-conversations", body)
 
     def agent_profiles(self) -> list[dict]:
         listing = self._request("GET", "/api/agent-profiles")
@@ -177,7 +177,10 @@ class AgentConversationDispatcher:
         # local Agent Canvas; elsewhere conversations go through the OpenHands API.
         self.agent_url = os.environ.get("AGENT_SERVER_URL")
         self.api_key = os.environ["SESSION_API_KEY"]
-        self.profile_id = UUID(os.environ["AUTOMATION_AGENT_PROFILE_ID"])
+        # The automation service sets the variable only when the automation
+        # names an agent profile; a run without one launches the default.
+        profile_id = os.environ.get("AUTOMATION_AGENT_PROFILE_ID")
+        self.profile_id = UUID(profile_id) if profile_id else None
         payload = json.loads(os.environ["AUTOMATION_EVENT_PAYLOAD"])
         self.automation_id = str(payload["automation_id"])
         self._cloud = None if self.agent_url else CloudConversations()
@@ -187,6 +190,18 @@ class AgentConversationDispatcher:
     def __enter__(self):
         if self._cloud:
             return self
+        if self.profile_id is None:
+            # The Agent Server starts a conversation from a profile, and always
+            # has an active one: its listing seeds `default` when the store is
+            # empty.
+            listing = self._agent_server_get("/api/agent-profiles")
+            active = (listing or {}).get("active_agent_profile_id")
+            if not active:
+                raise RuntimeError(
+                    "No agent profile is selected and the Agent Server has "
+                    "none active"
+                )
+            self.profile_id = UUID(active)
         _register_tools()
         self._workspace = RemoteWorkspace(
             host=self.agent_url,
