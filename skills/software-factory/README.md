@@ -50,7 +50,8 @@ or Linear issue to PR station is created by its own skill instead.
   features each station's manifest requires (`customTarball`, plus
   `agentProfiles` for issue to PR, reviewer and triage; QA needs webhook delivery).
 - A GitHub token with Contents, Issues, Pull requests and Workflows read and
-  write on every selected repository.
+  write on every selected repository, created at
+  [GitHub settings](https://github.com/settings/personal-access-tokens).
 - An OpenHands (not ACP) agent profile that may use that token.
 - Jira tickets: a connected Atlassian Rovo server or a Jira API token. Linear
   tickets: a Linear connection.

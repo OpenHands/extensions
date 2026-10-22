@@ -108,16 +108,19 @@ active one.
    - `not_set`, and the `request_secret` tool is available: call it once with
      `name: "GITHUB_PERSONAL_ACCESS_TOKEN"` and a `reason` asking for Contents,
      Issues, Pull requests and Workflows read and write (classic PAT: `repo`,
-     `workflow`). End your turn, wait for the `[secret-request]` message,
-     then rerun `preflight`.
+     `workflow`), and saying a token can be created at
+     https://github.com/settings/personal-access-tokens. End your turn, wait
+     for the `[secret-request]` message, then rerun `preflight`.
    - `rejected`: GitHub refuses the saved token (invalid or expired), and
      `request_secret` cannot replace it: it answers `saved` at once for a name
      that exists. Say so in one sentence and ask "Shall I remove it and open
      the form for a new one?" On yes, run `$F reset-token`, then handle it as
-     `not_set`. If `reset-token` fails, tell the user to replace it in
-     Settings -> Secrets and say when done.
-   - `not_set` without the tool: tell the user to add it in Settings ->
-     Secrets and stop.
+     `not_set`. If `reset-token` fails, tell the user to create a token at
+     https://github.com/settings/personal-access-tokens, replace it in
+     Settings -> Secrets, and say when done.
+   - `not_set` without the tool: tell the user to create a token at
+     https://github.com/settings/personal-access-tokens and add it in
+     Settings -> Secrets, then stop.
 4. `$F create --repos <repos> --ids github-pr-reviewer`, adding
    `github-issue-to-pr,github-issue-triage` for GitHub issues. For Jira or
    Linear, also set up the issue to PR station as "Ticket source" describes;
