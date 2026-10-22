@@ -132,9 +132,9 @@ Ask the user: *"What trigger phrase should OpenHands respond to?
 
 Accepted values: any non-empty string unlikely to appear by accident. The alias
 is plain text: it does not have to be `@openhands` and needs no GitHub account
-of its own, so a repo can use its own handle (for example `@neubig-bot`) to keep
+of its own, so a repo can use its own handle (for example `@my-bot`) to keep
 this automation apart from the hosted mention bot. Matching is case-insensitive
-and ends on a word boundary, so `@neubig-bot` does not fire on `@neubig-bot-extra`.
+and ends on a word boundary, so `@my-bot` does not fire on `@my-bot-extra`.
 
 Record as `TRIGGER_PHRASE`. Default: `"@openhands"`. Mention that the alias can
 also be changed later without a code edit by setting `GITHUB_TRIGGER_PHRASE` in

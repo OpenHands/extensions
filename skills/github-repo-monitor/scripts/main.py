@@ -26,7 +26,7 @@ Optional secret:
   OPENHANDS_URL - base URL for conversation links (default: http://localhost:8000)
 
 Optional environment override:
-  GITHUB_TRIGGER_PHRASE - the mention alias to watch for, e.g. "@neubig-bot"
+  GITHUB_TRIGGER_PHRASE - the mention alias to watch for, e.g. "@my-bot"
                   (default: the TRIGGER_PHRASE constant, "@openhands"). The alias
                   is plain text; it needs no GitHub account of its own.
 
@@ -55,7 +55,7 @@ from github_client import github_paginate as _github_paginate
 
 # ── Embedded configuration (filled in by the skill at creation time) ──────────
 REPO = "owner/repo"                     # e.g. "microsoft/vscode"
-# The mention alias that starts a conversation, e.g. "@neubig-bot". Any handle
+# The mention alias that starts a conversation, e.g. "@my-bot". Any handle
 # works: the poller only scans comment text, so the alias needs no GitHub
 # account of its own. GITHUB_TRIGGER_PHRASE overrides this without a code edit.
 TRIGGER_PHRASE = "@openhands"
@@ -672,8 +672,8 @@ def _effective_trigger_phrase() -> str:
 def _has_trigger(comment: dict, phrase: str) -> bool:
     """Return True if the comment body mentions *phrase* (case-insensitive).
 
-    The alias must end on a boundary so ``@neubig-bot`` does not fire on
-    ``@neubig-bot-extra`` or ``@neubig-botany``.
+    The alias must end on a boundary so ``@my-bot`` does not fire on
+    ``@my-bot-extra`` or ``@my-botany``.
     """
     body = (comment.get("body") or "").strip()
     pattern = rf"(?<![\w-]){re.escape(phrase)}(?![\w-])"

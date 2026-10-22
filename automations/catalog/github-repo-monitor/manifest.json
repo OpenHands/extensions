@@ -56,7 +56,7 @@
         "triggerPhrase": {
           "type": "text",
           "label": "Trigger phrase",
-          "help": "Only comments containing this alias start a conversation, matched case-insensitively and on word boundaries. Use any handle your team recognizes, e.g. @openhands or @neubig-bot; it is plain text and needs no GitHub account of its own.",
+          "help": "Only comments containing this alias start a conversation, matched case-insensitively and on word boundaries. Use any handle your team recognizes, e.g. @openhands or @my-bot; it is plain text and needs no GitHub account of its own.",
           "default": "@openhands",
           "required": true,
           "constraints": {

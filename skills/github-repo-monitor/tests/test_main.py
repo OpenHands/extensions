@@ -412,18 +412,18 @@ class TestHasTrigger(unittest.TestCase):
         self.assertFalse(main._has_trigger(c, "@openhands"))
 
     def test_custom_alias_matches(self):
-        c = _make_comment(body="@neubig-bot please take a look")
-        self.assertTrue(main._has_trigger(c, "@neubig-bot"))
+        c = _make_comment(body="@my-bot please take a look")
+        self.assertTrue(main._has_trigger(c, "@my-bot"))
 
     def test_custom_alias_does_not_match_longer_handle(self):
-        c = _make_comment(body="@neubig-bot-extra please take a look")
-        self.assertFalse(main._has_trigger(c, "@neubig-bot"))
-        c = _make_comment(body="@neubig-botany please take a look")
-        self.assertFalse(main._has_trigger(c, "@neubig-bot"))
+        c = _make_comment(body="@my-bot-extra please take a look")
+        self.assertFalse(main._has_trigger(c, "@my-bot"))
+        c = _make_comment(body="@my-botany please take a look")
+        self.assertFalse(main._has_trigger(c, "@my-bot"))
 
     def test_alias_matches_before_punctuation(self):
-        c = _make_comment(body="ping @neubig-bot: is this done?")
-        self.assertTrue(main._has_trigger(c, "@neubig-bot"))
+        c = _make_comment(body="ping @my-bot: is this done?")
+        self.assertTrue(main._has_trigger(c, "@my-bot"))
 
 
 class TestEffectiveTriggerPhrase(unittest.TestCase):
@@ -441,9 +441,9 @@ class TestEffectiveTriggerPhrase(unittest.TestCase):
             main.TRIGGER_PHRASE = original
 
     def test_environment_override(self):
-        os.environ["GITHUB_TRIGGER_PHRASE"] = "  @neubig-bot "
+        os.environ["GITHUB_TRIGGER_PHRASE"] = "  @my-bot "
         try:
-            self.assertEqual(main._effective_trigger_phrase(), "@neubig-bot")
+            self.assertEqual(main._effective_trigger_phrase(), "@my-bot")
         finally:
             os.environ.pop("GITHUB_TRIGGER_PHRASE", None)
 
@@ -504,20 +504,20 @@ class TestOwnCommentIds(unittest.TestCase):
              patch("main.get_secret", side_effect=Exception("unset")), \
              patch("main._poll_issue_comments", return_value=comments), \
              patch("main._is_authorized_comment_author", return_value=True), \
-             patch.dict(os.environ, {"GITHUB_TRIGGER_PHRASE": "@neubig-bot"}), \
+             patch.dict(os.environ, {"GITHUB_TRIGGER_PHRASE": "@my-bot"}), \
              patch("main._process_trigger_comment") as mock_process:
             main.main()
         return mock_process, saved
 
     def test_own_comment_is_not_processed(self):
-        comment = _make_comment(body="@neubig-bot already handled")
+        comment = _make_comment(body="@my-bot already handled")
         comment["id"] = 777
         mock_process, saved = self._run_main([comment], {777})
         mock_process.assert_not_called()
         self.assertIn(777, saved["processed_comment_ids"])
 
     def test_someone_elses_comment_is_processed(self):
-        comment = _make_comment(body="@neubig-bot please look")
+        comment = _make_comment(body="@my-bot please look")
         comment["id"] = 778
         mock_process, _ = self._run_main([comment], {777})
         mock_process.assert_called_once()
