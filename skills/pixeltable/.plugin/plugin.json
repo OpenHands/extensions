@@ -1,0 +1,19 @@
+{
+  "name": "pixeltable",
+  "version": "1.0.0",
+  "description": "Use when the project already uses Pixeltable. Covers TableModel application files, computed columns, embedding indexes, FastAPIRouter routes, UDFs (pxt.udf), and the pxt CLI (pxt schema, pxt service).",
+  "author": {
+    "name": "OpenHands",
+    "email": "contact@all-hands.dev"
+  },
+  "homepage": "https://github.com/OpenHands/extensions",
+  "repository": "https://github.com/OpenHands/extensions",
+  "license": "Apache-2.0",
+  "keywords": [
+    "pixeltable",
+    "pxt.udf",
+    "pxt.query",
+    "computed-columns",
+    "embedding-index"
+  ]
+}

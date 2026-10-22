@@ -174,6 +174,7 @@ Official skills and plugins for OpenHands — the open-source AI software engine
 | openhands-enterprise-troubleshooting | skill | Diagnose and resolve common issues on OpenHands Enterprise self-hosted installations. Covers sandbox startup failures... | — |
 | openhands-sdk | skill | Reference skill for the OpenHands Software Agent SDK - build AI agents with custom tools, LLM configuration, conversa... | `/sdk` |
 | pdflatex | skill | Install and use pdflatex to compile LaTeX documents into PDFs on Linux. Use when generating academic papers, research... | — |
+| pixeltable | skill | Use when the project already uses Pixeltable. Covers TableModel application files, computed columns, embedding indexe... | — |
 | plain-english-content | skill | Write and edit clear, accessible prose in a plain English content style: active voice, front-loaded content, sentence... | — |
 | pr-review | plugin | Automated PR code review — analyzes diffs and posts inline review comments via the GitHub API. | — |
 | prd | skill | Generate a Product Requirements Document (PRD) for a new feature through an interactive clarifying-question workflow.... | `/prd` |
