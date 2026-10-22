@@ -117,6 +117,10 @@ window.
 
 ### Dependencies and supply chain
 
+Validate installation with the package manager and runtime used by the extension.
+Temporary git pins and unreleased package APIs are blockers for merge unless the
+PR is an explicit, coordinated stack that will replace them before release.
+
 For dependency additions or updates, inspect every changed third-party npm or
 PyPI version, including transitive lockfile changes. Require at least seven days
 since publication of that exact version. Use registry publication/upload metadata

@@ -236,3 +236,7 @@ For manual npm dependency resolution, use npm >= 11.10 with
 `npm install --min-release-age=7` (days), or verify registry timestamps before
 committing the result. Older npm versions do not enforce this option. `npm ci`
 replays the lock and is not proof that newly locked versions meet the age rule.
+
+Use uv >= 0.9.25 for this policy; older versions cannot enforce all of
+the configured release-age settings. `tool.uv.required-version` also guards
+direct `uv sync` and `uv lock` use outside Make.
