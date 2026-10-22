@@ -130,9 +130,15 @@ else:
 Ask the user: *"What trigger phrase should OpenHands respond to?
 (Press Enter to use the default: `@OpenHands`)"*
 
-Accepted values: any non-empty string unlikely to appear by accident.
+Accepted values: any non-empty string unlikely to appear by accident. The alias
+is plain text: it does not have to be `@openhands` and needs no GitHub account
+of its own, so a repo can use its own handle (for example `@neubig-bot`) to keep
+this automation apart from the hosted mention bot. Matching is case-insensitive
+and ends on a word boundary, so `@neubig-bot` does not fire on `@neubig-bot-extra`.
 
-Record as `TRIGGER_PHRASE`. Default: `"@openhands"`.
+Record as `TRIGGER_PHRASE`. Default: `"@openhands"`. Mention that the alias can
+also be changed later without a code edit by setting `GITHUB_TRIGGER_PHRASE` in
+the automation's environment.
 
 ### Step 4  -  Collect who may trigger work
 

@@ -25,6 +25,11 @@ Required secrets (set in OpenHands Settings → Secrets):
 Optional secret:
   OPENHANDS_URL - base URL for conversation links (default: http://localhost:8000)
 
+Optional environment override:
+  GITHUB_TRIGGER_PHRASE - the mention alias to watch for, e.g. "@neubig-bot"
+                  (default: the TRIGGER_PHRASE constant, "@openhands"). The alias
+                  is plain text; it needs no GitHub account of its own.
+
 Behavior settings (embedded at creation time):
   AUTHORIZATION - "repo_write" (default) acts only on comments from users with
                   admin, maintain, or write permission on the repository;
@@ -35,6 +40,7 @@ Behavior settings (embedded at creation time):
 
 import json
 import os
+import re
 import sys
 from pathlib import Path
 import time
@@ -49,7 +55,10 @@ from github_client import github_paginate as _github_paginate
 
 # ── Embedded configuration (filled in by the skill at creation time) ──────────
 REPO = "owner/repo"                     # e.g. "microsoft/vscode"
-TRIGGER_PHRASE = "@openhands"           # case-insensitive
+# The mention alias that starts a conversation, e.g. "@neubig-bot". Any handle
+# works: the poller only scans comment text, so the alias needs no GitHub
+# account of its own. GITHUB_TRIGGER_PHRASE overrides this without a code edit.
+TRIGGER_PHRASE = "@openhands"
 EVENT_TYPES = ["issue_comment"]         # e.g. ["issue_comment", "pr_review_comment"]
 # Who may trigger conversations. Default is the authenticated GITHUB_PERSONAL_ACCESS_TOKEN owner.
 # Use ["*"] to allow any non-bot commenter, or explicit logins like ["octocat"].
@@ -654,10 +663,21 @@ def _is_authorized_comment_author(
     return _user_has_repo_write(token, repo, author, cache)
 
 
+def _effective_trigger_phrase() -> str:
+    """Return the configured alias, honouring GITHUB_TRIGGER_PHRASE."""
+    override = (os.environ.get("GITHUB_TRIGGER_PHRASE") or "").strip()
+    return override or TRIGGER_PHRASE.strip()
+
+
 def _has_trigger(comment: dict, phrase: str) -> bool:
-    """Return True if the comment body contains *phrase* (case-insensitive)."""
+    """Return True if the comment body mentions *phrase* (case-insensitive).
+
+    The alias must end on a boundary so ``@neubig-bot`` does not fire on
+    ``@neubig-bot-extra`` or ``@neubig-botany``.
+    """
     body = (comment.get("body") or "").strip()
-    return phrase.lower() in body.lower()
+    pattern = rf"(?<![\w-]){re.escape(phrase)}(?![\w-])"
+    return re.search(pattern, body, flags=re.IGNORECASE) is not None
 
 
 # ── Prompt building ────────────────────────────────────────────────────────────
@@ -962,6 +982,8 @@ def _check_conversation_completion(
 
 def main() -> str | None:
     """Run one polling cycle. Returns the last conversation ID created, if any."""
+    global TRIGGER_PHRASE
+    TRIGGER_PHRASE = _effective_trigger_phrase()
     state = load_state()
 
     agent_url = os.environ.get("AGENT_SERVER_URL", "").rstrip("/")

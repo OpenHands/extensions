@@ -411,6 +411,52 @@ class TestHasTrigger(unittest.TestCase):
         c = {"id": 1, "user": {"login": "u", "type": "User"}}
         self.assertFalse(main._has_trigger(c, "@openhands"))
 
+    def test_custom_alias_matches(self):
+        c = _make_comment(body="@neubig-bot please take a look")
+        self.assertTrue(main._has_trigger(c, "@neubig-bot"))
+
+    def test_custom_alias_does_not_match_longer_handle(self):
+        c = _make_comment(body="@neubig-bot-extra please take a look")
+        self.assertFalse(main._has_trigger(c, "@neubig-bot"))
+        c = _make_comment(body="@neubig-botany please take a look")
+        self.assertFalse(main._has_trigger(c, "@neubig-bot"))
+
+    def test_alias_matches_before_punctuation(self):
+        c = _make_comment(body="ping @neubig-bot: is this done?")
+        self.assertTrue(main._has_trigger(c, "@neubig-bot"))
+
+
+class TestEffectiveTriggerPhrase(unittest.TestCase):
+
+    def tearDown(self):
+        os.environ.pop("GITHUB_TRIGGER_PHRASE", None)
+
+    def test_defaults_to_constant(self):
+        os.environ.pop("GITHUB_TRIGGER_PHRASE", None)
+        original = main.TRIGGER_PHRASE
+        main.TRIGGER_PHRASE = "@openhands"
+        try:
+            self.assertEqual(main._effective_trigger_phrase(), "@openhands")
+        finally:
+            main.TRIGGER_PHRASE = original
+
+    def test_environment_override(self):
+        os.environ["GITHUB_TRIGGER_PHRASE"] = "  @neubig-bot "
+        try:
+            self.assertEqual(main._effective_trigger_phrase(), "@neubig-bot")
+        finally:
+            os.environ.pop("GITHUB_TRIGGER_PHRASE", None)
+
+    def test_blank_override_falls_back(self):
+        os.environ["GITHUB_TRIGGER_PHRASE"] = "   "
+        original = main.TRIGGER_PHRASE
+        main.TRIGGER_PHRASE = "@openhands"
+        try:
+            self.assertEqual(main._effective_trigger_phrase(), "@openhands")
+        finally:
+            main.TRIGGER_PHRASE = original
+            os.environ.pop("GITHUB_TRIGGER_PHRASE", None)
+
 
 # ── Processed-ID deduplication tests ──────────────────────────────────────────
 

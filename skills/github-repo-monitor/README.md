@@ -63,7 +63,7 @@ automatically.
 | Option | Default | Description |
 |--------|---------|-------------|
 | Repository | (required) | `owner/repo` format |
-| Trigger phrase | `@OpenHands` | Case-insensitive string to watch for in comments |
+| Trigger phrase | `@OpenHands` | Case-insensitive alias to watch for in comments. Any handle works, e.g. `@neubig-bot`; it is plain text and needs no GitHub account of its own. `GITHUB_TRIGGER_PHRASE` overrides it without a code edit |
 | Who may trigger work | users with write access (`AUTHORIZATION="repo_write"`) | Checks the commenter's repository permission and proceeds only for `admin`, `maintain`, or `write`; select `anyone` to accept any non-bot commenter. A trigger phrase is not authorization. The token owner and explicit `ALLOWED_GITHUB_LOGINS` entries bypass the lookup and are reported to the agent as allowed by configuration |
 | What the agent may do | answer and change code (`WORK_MODE="implement"`) | `implement` may branch, commit, push, and update an existing PR; `reply` only investigates and comments. `implement` with `anyone` lets any commenter push commits — pick one or the other |
 | Allowed GitHub logins | token owner only | Extra logins (or `*`) allowed regardless of repository permission; these bypass the permission check |
