@@ -12,6 +12,7 @@ import sys
 import tempfile
 import time
 import unittest
+import urllib.error
 from pathlib import Path
 from unittest.mock import MagicMock, patch, call
 
@@ -217,6 +218,133 @@ class TestAllowedCommentAuthor(unittest.TestCase):
     def test_missing_author_is_rejected(self):
         main.ALLOWED_GITHUB_LOGINS = ["*"]
         self.assertFalse(main._is_allowed_comment_author({}, "octocat"))
+
+
+# ── Repository-permission authorization tests ─────────────────────────────────
+
+def _http_error(code: int) -> urllib.error.HTTPError:
+    return urllib.error.HTTPError("https://api.github.com", code, "error", {}, None)
+
+
+class TestAuthorizedCommentAuthor(unittest.TestCase):
+
+    def setUp(self):
+        self._original_authorization = main.AUTHORIZATION
+        self._original_allowed = main.ALLOWED_GITHUB_LOGINS
+        main.ALLOWED_GITHUB_LOGINS = ["<TOKEN_OWNER>"]
+
+    def tearDown(self):
+        main.AUTHORIZATION = self._original_authorization
+        main.ALLOWED_GITHUB_LOGINS = self._original_allowed
+
+    def _authorize(self, login, permission=None, error=None, cache=None):
+        comment = _make_comment(login=login)
+        kwargs = {"return_value": ({"permission": permission}, {})}
+        if error is not None:
+            kwargs = {"side_effect": error}
+        with patch("main._github_request", **kwargs) as request:
+            decision = main._is_authorized_comment_author(
+                "token", "owner/repo", comment, "octocat", {} if cache is None else cache
+            )
+        return decision, request
+
+    def test_write_permission_allows_outsider(self):
+        main.AUTHORIZATION = "repo_write"
+        decision, _ = self._authorize("enyst", permission="write")
+        self.assertTrue(decision)
+
+    def test_admin_and_maintain_permissions_allow(self):
+        main.AUTHORIZATION = "repo_write"
+        for permission in ("admin", "maintain"):
+            with self.subTest(permission=permission):
+                decision, _ = self._authorize("enyst", permission=permission)
+                self.assertTrue(decision)
+
+    def test_read_permission_rejects(self):
+        main.AUTHORIZATION = "repo_write"
+        decision, _ = self._authorize("enyst", permission="read")
+        self.assertFalse(decision)
+
+    def test_non_collaborator_is_rejected(self):
+        main.AUTHORIZATION = "repo_write"
+        decision, _ = self._authorize("drive-by", error=_http_error(404))
+        self.assertFalse(decision)
+
+    def test_token_owner_needs_no_permission_call(self):
+        main.AUTHORIZATION = "repo_write"
+        decision, request = self._authorize("octocat", permission=None)
+        self.assertTrue(decision)
+        request.assert_not_called()
+
+    def test_anyone_mode_accepts_without_permission_call(self):
+        main.AUTHORIZATION = "anyone"
+        decision, request = self._authorize("drive-by")
+        request.assert_not_called()
+        self.assertTrue(decision)
+
+    def test_unknown_authorization_mode_fails_closed(self):
+        main.AUTHORIZATION = "repo-read"
+        decision, request = self._authorize("enyst", permission="write")
+        request.assert_not_called()
+        self.assertFalse(decision)
+
+    def test_permission_lookup_is_cached_per_run(self):
+        main.AUTHORIZATION = "repo_write"
+        cache: dict[str, bool] = {}
+        decision, _ = self._authorize("enyst", permission="admin", cache=cache)
+        self.assertTrue(decision)
+        decision, request = self._authorize("enyst", permission="admin", cache=cache)
+        self.assertTrue(decision)
+        request.assert_not_called()
+
+
+# ── Work-policy prompt tests ───────────────────────────────────────────────────
+
+def _minimal_context():
+    return {
+        "issue": {"number": 7, "title": "Add swipe deck", "body": "desc", "state": "open",
+                  "html_url": "https://github.com/owner/repo/issues/7", "labels": []},
+        "is_pr": False,
+        "recent_comments": [],
+    }
+
+
+class TestWorkPolicyPrompt(unittest.TestCase):
+
+    def setUp(self):
+        self._original_work_mode = main.WORK_MODE
+        self._original_authorization = main.AUTHORIZATION
+
+    def tearDown(self):
+        main.WORK_MODE = self._original_work_mode
+        main.AUTHORIZATION = self._original_authorization
+
+    def _prompt(self):
+        return main._build_initial_prompt(
+            _minimal_context(), _make_comment(body="@openhands fix the tests"), "issue_comment"
+        )
+
+    def test_implement_mode_permits_pushing_but_not_merging(self):
+        main.WORK_MODE = "implement"
+        prompt = self._prompt()
+        self.assertIn("create a branch, commit, and push", prompt)
+        self.assertIn("never merge a pull request", prompt)
+        self.assertIn("verified to have write access", prompt)
+
+    def test_reply_mode_forbids_code_changes(self):
+        main.WORK_MODE = "reply"
+        prompt = self._prompt()
+        self.assertIn("Do not change code", prompt)
+        self.assertNotIn("create a branch, commit, and push", prompt)
+
+    def test_unknown_work_mode_falls_back_to_reply(self):
+        main.WORK_MODE = "delete-everything"
+        self.assertIn("Do not change code", self._prompt())
+
+    def test_anyone_authorization_is_stated_honestly(self):
+        main.WORK_MODE = "implement"
+        main.AUTHORIZATION = "anyone"
+        self.assertIn("permitted to trigger this automation by configuration", self._prompt())
 
 
 # ── Trigger phrase tests ───────────────────────────────────────────────────────

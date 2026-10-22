@@ -24,6 +24,13 @@ Required secrets (set in OpenHands Settings → Secrets):
 
 Optional secret:
   OPENHANDS_URL - base URL for conversation links (default: http://localhost:8000)
+
+Behavior settings (embedded at creation time):
+  AUTHORIZATION - "repo_write" (default) acts only on comments from users with
+                  admin, maintain, or write permission on the repository;
+                  "anyone" acts on any non-bot commenter.
+  WORK_MODE     - "implement" (default) lets the agent change code and push;
+                  "reply" limits it to answering in the thread.
 """
 
 import json
@@ -46,7 +53,15 @@ TRIGGER_PHRASE = "@openhands"           # case-insensitive
 EVENT_TYPES = ["issue_comment"]         # e.g. ["issue_comment", "pr_review_comment"]
 # Who may trigger conversations. Default is the authenticated GITHUB_PERSONAL_ACCESS_TOKEN owner.
 # Use ["*"] to allow any non-bot commenter, or explicit logins like ["octocat"].
+# These logins are allowed regardless of their repository permission.
 ALLOWED_GITHUB_LOGINS = ["<TOKEN_OWNER>"]
+# Permission gate for every other commenter. "repo_write" asks GitHub for the
+# author's permission on REPO and requires admin, maintain, or write;
+# "anyone" accepts any non-bot commenter. A trigger phrase is not authorization.
+AUTHORIZATION = "repo_write"
+# What the agent may do once a request is authorized. "implement" lets it change
+# code and push; "reply" restricts it to answering in the thread.
+WORK_MODE = "implement"
 DEFAULT_OPENHANDS_URL = "http://localhost:8000"
 
 # Context: number of recent issue/PR comments to include in the initial prompt.
@@ -571,12 +586,66 @@ def _allowed_login_set(token_owner_login: str) -> set[str]:
 
 
 def _is_allowed_comment_author(comment: dict, token_owner_login: str) -> bool:
-    """Return True if this comment author is allowed to trigger conversations."""
+    """Return True if this comment author is in the configured allowlist."""
     author = _comment_author_login(comment).lower()
     if not author:
         return False
     allowed = _allowed_login_set(token_owner_login)
     return "*" in allowed or author in allowed
+
+
+_WRITE_PERMISSIONS = {"admin", "maintain", "write"}
+
+
+def _user_has_repo_write(
+    token: str, repo: str, login: str, cache: dict[str, bool]
+) -> bool:
+    """Return True when *login* has admin, maintain, or write on *repo*."""
+    key = login.lower()
+    if key in cache:
+        return cache[key]
+    try:
+        data, _ = _github_request(
+            token,
+            "GET",
+            f"/repos/{repo}/collaborators/{quote(login, safe='')}/permission",
+        )
+        allowed = (data.get("permission") or "").strip().lower() in _WRITE_PERMISSIONS
+    except urllib.error.HTTPError as exc:
+        # 404 means "not a collaborator"; 403 means the token cannot tell.
+        if exc.code not in (403, 404):
+            print(f"  Warning: permission check for @{login} failed: {exc.code}")
+        allowed = False
+    except Exception as exc:
+        print(f"  Warning: permission check for @{login} failed: {exc}")
+        allowed = False
+    cache[key] = allowed
+    return allowed
+
+
+def _is_authorized_comment_author(
+    token: str,
+    repo: str,
+    comment: dict,
+    token_owner_login: str,
+    cache: dict[str, bool],
+) -> bool:
+    """Return True when this comment author may trigger work on *repo*.
+
+    The explicit allowlist wins; everyone else must hold admin, maintain, or
+    write permission unless AUTHORIZATION is "anyone". Unknown values fail
+    closed, because a trigger phrase is not authorization.
+    """
+    if _is_allowed_comment_author(comment, token_owner_login):
+        return True
+    if AUTHORIZATION == "anyone":
+        return True
+    if AUTHORIZATION != "repo_write":
+        return False
+    author = _comment_author_login(comment)
+    if not author:
+        return False
+    return _user_has_repo_write(token, repo, author, cache)
 
 
 def _has_trigger(comment: dict, phrase: str) -> bool:
@@ -586,6 +655,21 @@ def _has_trigger(comment: dict, phrase: str) -> bool:
 
 
 # ── Prompt building ────────────────────────────────────────────────────────────
+
+_WORK_POLICY = {
+    "implement": (
+        "Do the work the request asks for: create a branch, commit, and push.\n"
+        "Never push to the default branch, never force-push, and never merge a pull request.\n"
+        "When the request targets a pull request, push to that pull request's head branch so the "
+        "existing pull request is updated instead of opening a second one.\n"
+        "If the request needs no code change, answer it in the thread without touching the repository."
+    ),
+    "reply": (
+        "Do not change code, push commits, or open pull requests. Investigate, then reply with what "
+        "you found, what you would change, and why."
+    ),
+}
+
 
 def _build_initial_prompt(ctx: dict, trigger_comment: dict, event_type: str) -> str:
     """Build the initial prompt for a new OpenHands conversation."""
@@ -610,6 +694,16 @@ def _build_initial_prompt(ctx: dict, trigger_comment: dict, event_type: str) -> 
     trigger_author = trigger_comment.get("user", {}).get("login", "?")
     trigger_body = (trigger_comment.get("body") or "").strip()
 
+    if AUTHORIZATION == "repo_write":
+        authorization_note = (
+            f"@{trigger_author} was verified to have write access to this repository"
+        )
+    else:
+        authorization_note = (
+            f"@{trigger_author} is permitted to trigger this automation by configuration"
+        )
+    work_policy = _WORK_POLICY.get(WORK_MODE, _WORK_POLICY["reply"])
+
     path_info = ""
     if event_type == "pr_review_comment":
         path = trigger_comment.get("path", "")
@@ -629,8 +723,9 @@ def _build_initial_prompt(ctx: dict, trigger_comment: dict, event_type: str) -> 
         f"---\n{context_block}\n---\n"
         f"\nTriggering comment by @{trigger_author}:{path_info}\n"
         f"---\n{trigger_body}\n---\n"
-        f"\nPlease analyse the request and take the appropriate action.\n"
-        f"The GITHUB_PERSONAL_ACCESS_TOKEN secret is available if you need to interact with the "
+        f"\nAuthorization: {authorization_note}.\n"
+        f"\nWhat you may do:\n{work_policy}\n"
+        f"\nThe GITHUB_PERSONAL_ACCESS_TOKEN secret is available if you need to interact with the "
         f"GitHub API (fetch the PR diff, create commits, update labels, etc.).\n"
         f"When you are finished, summarise what you did clearly — that summary "
         f"will be posted back to the GitHub {item_type} as a comment."
@@ -885,6 +980,7 @@ def main() -> str | None:
 
     # ── Process trigger events ─────────────────────────────────────────────────
     last_conversation_id: str | None = None
+    authorization_cache: dict[str, bool] = {}
     for event_type, comment in all_events:
         comment_id: int = comment.get("id", 0)
         if comment_id in processed_set:
@@ -894,17 +990,18 @@ def main() -> str | None:
             processed_set.add(comment_id)
             continue
 
-        if not _is_allowed_comment_author(comment, token_owner_login):
-            if _has_trigger(comment, TRIGGER_PHRASE):
-                author = _comment_author_login(comment) or "unknown"
-                print(
-                    f"  Skipping trigger comment {comment_id} "
-                    f"from unauthorized user @{author}"
-                )
+        if not _has_trigger(comment, TRIGGER_PHRASE):
             processed_set.add(comment_id)
             continue
 
-        if not _has_trigger(comment, TRIGGER_PHRASE):
+        if not _is_authorized_comment_author(
+            github_token, REPO, comment, token_owner_login, authorization_cache
+        ):
+            author = _comment_author_login(comment) or "unknown"
+            print(
+                f"  Skipping trigger comment {comment_id} "
+                f"from unauthorized user @{author}"
+            )
             processed_set.add(comment_id)
             continue
 
