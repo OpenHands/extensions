@@ -166,7 +166,9 @@ Map the answer to `WORK_MODE`:
 | 1 (default) | `"implement"` | create a branch, commit, push; update an existing PR's head branch; never push to the base branch, never force-push, never merge |
 | 2 | `"reply"` | investigate and reply only; no code, branch, or PR changes |
 
-Record as `WORK_MODE`.
+Record as `WORK_MODE`. If the user chose `anyone` for `AUTHORIZATION`, warn them
+that `implement` lets any commenter push commits with the token owner's
+credentials and confirm before using that pairing.
 
 ### Step 6  -  Collect event types
 

@@ -344,7 +344,20 @@ class TestWorkPolicyPrompt(unittest.TestCase):
     def test_anyone_authorization_is_stated_honestly(self):
         main.WORK_MODE = "implement"
         main.AUTHORIZATION = "anyone"
-        self.assertIn("permitted to trigger this automation by configuration", self._prompt())
+        self.assertIn("because authorization is set to 'anyone'", self._prompt())
+
+    def test_allowlisted_author_is_not_described_as_verified(self):
+        main.WORK_MODE = "implement"
+        main.AUTHORIZATION = "repo_write"
+        main.ALLOWED_GITHUB_LOGINS = ["<TOKEN_OWNER>"]
+        prompt = main._build_initial_prompt(
+            _minimal_context(),
+            _make_comment(login="octocat", body="@openhands fix the tests"),
+            "issue_comment",
+            "octocat",
+        )
+        self.assertIn("allowed to trigger this automation by configuration", prompt)
+        self.assertNotIn("verified to have write access", prompt)
 
 
 # ── Trigger phrase tests ───────────────────────────────────────────────────────

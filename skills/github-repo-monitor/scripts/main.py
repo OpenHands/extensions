@@ -53,7 +53,9 @@ TRIGGER_PHRASE = "@openhands"           # case-insensitive
 EVENT_TYPES = ["issue_comment"]         # e.g. ["issue_comment", "pr_review_comment"]
 # Who may trigger conversations. Default is the authenticated GITHUB_PERSONAL_ACCESS_TOKEN owner.
 # Use ["*"] to allow any non-bot commenter, or explicit logins like ["octocat"].
-# These logins are allowed regardless of their repository permission.
+# These logins are allowed regardless of their repository permission, so the
+# conversation prompt reports them as allowed by configuration rather than as
+# verified for write access.
 ALLOWED_GITHUB_LOGINS = ["<TOKEN_OWNER>"]
 # Permission gate for every other commenter. "repo_write" asks GitHub for the
 # author's permission on REPO and requires admin, maintain, or write;
@@ -671,7 +673,12 @@ _WORK_POLICY = {
 }
 
 
-def _build_initial_prompt(ctx: dict, trigger_comment: dict, event_type: str) -> str:
+def _build_initial_prompt(
+    ctx: dict,
+    trigger_comment: dict,
+    event_type: str,
+    token_owner_login: str = "",
+) -> str:
     """Build the initial prompt for a new OpenHands conversation."""
     issue = ctx["issue"]
     is_pr = ctx["is_pr"]
@@ -694,13 +701,28 @@ def _build_initial_prompt(ctx: dict, trigger_comment: dict, event_type: str) -> 
     trigger_author = trigger_comment.get("user", {}).get("login", "?")
     trigger_body = (trigger_comment.get("body") or "").strip()
 
-    if AUTHORIZATION == "repo_write":
+    # State the basis that actually authorized this comment: an allowlisted
+    # login never went through the permission lookup, so claiming a check ran
+    # would tell the agent something false about the requester.
+    allowlisted = _is_allowed_comment_author(trigger_comment, token_owner_login)
+    if allowlisted:
+        authorization_note = (
+            f"@{trigger_author} is allowed to trigger this automation by configuration "
+            f"(the token owner or ALLOWED_GITHUB_LOGINS); no repository permission check was made"
+        )
+    elif AUTHORIZATION == "repo_write":
         authorization_note = (
             f"@{trigger_author} was verified to have write access to this repository"
         )
+    elif AUTHORIZATION == "anyone":
+        authorization_note = (
+            f"@{trigger_author} is permitted to trigger this automation because authorization "
+            f"is set to 'anyone'"
+        )
     else:
         authorization_note = (
-            f"@{trigger_author} is permitted to trigger this automation by configuration"
+            f"@{trigger_author} passed an unrecognized authorization setting; the poller should "
+            f"not have started this conversation"
         )
     work_policy = _WORK_POLICY.get(WORK_MODE, _WORK_POLICY["reply"])
 
@@ -820,6 +842,7 @@ def _process_trigger_comment(
     comment: dict,
     event_type: str,
     conversations: dict[str, dict],
+    token_owner_login: str = "",
 ) -> str | None:
     """Handle a new trigger comment: create or resume a conversation.
 
@@ -860,7 +883,7 @@ def _process_trigger_comment(
             # Fall through to create a new conversation.
 
     # ── Case B: closed or missing — create / re-open via helper ──────────────
-    prompt = _build_initial_prompt(ctx, comment, event_type)
+    prompt = _build_initial_prompt(ctx, comment, event_type, token_owner_login)
     try:
         conv_id, resumed = _ensure_conversation(
             agent_url, api_key, conversations, conv_key,
@@ -1014,6 +1037,7 @@ def main() -> str | None:
         conv_id = _process_trigger_comment(
             github_token, agent_url, api_key, openhands_url,
             REPO, issue_number, comment, event_type, conversations,
+            token_owner_login,
         )
         if conv_id:
             last_conversation_id = conv_id

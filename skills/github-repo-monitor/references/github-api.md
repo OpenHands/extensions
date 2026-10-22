@@ -103,9 +103,9 @@ Notes:
   return `read`, which is also "not permitted".
 - `403` means the token cannot read collaboration data (fine-grained tokens may
   lack the permission). The monitor fails closed: the comment is skipped.
-- Fine-grained PATs need **Metadata: Read** and, for private repositories,
-  **Administration: Read** to answer this call; classic PATs answer it with the
-  `repo` scope they already need for everything else.
+- Fine-grained PATs need **Metadata: Read**, which is what GitHub's endpoint
+  reference requires for this call; classic PATs answer it with the `repo` scope
+  they already need for everything else.
 
 ---
 

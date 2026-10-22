@@ -78,7 +78,7 @@
         "authorization": {
           "type": "select",
           "label": "Who may trigger work",
-          "help": "A trigger phrase is not authorization. For repo-write the agent asks GitHub for the commenter's permission on the repository before acting.",
+          "help": "A trigger phrase is not authorization. For repo-write the agent asks GitHub for the commenter's permission on the repository before acting. Do not pair 'anyone' with the implement work mode: that lets any commenter push commits with your token.",
           "default": "repo-write",
           "required": true,
           "options": [
@@ -95,7 +95,7 @@
         "workMode": {
           "type": "select",
           "label": "What the agent may do",
-          "help": "implement lets the agent create a branch, commit, and push, and update an existing pull request; it never merges or pushes to the base branch. reply limits it to answering in the thread.",
+          "help": "implement lets the agent create a branch, commit, and push, and update an existing pull request; it never merges or pushes to the base branch. Combine it with 'Who may trigger work: Users with write access' - 'anyone' plus implement lets any commenter push commits with your token. reply limits it to answering in the thread.",
           "default": "implement",
           "required": true,
           "options": [
