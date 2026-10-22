@@ -30,3 +30,6 @@ test = [
 [tool.pytest.ini_options]
 pythonpath = ["python", "skills/github/scripts"]
 testpaths = ["tests"]
+
+[tool.uv]
+exclude-newer = "7 days"
