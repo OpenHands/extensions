@@ -20,15 +20,15 @@ ALWAYS use the Azure DevOps API for operations instead of a web browser.
 
 ## Git
 
-Use plain `git clone`, `git fetch`, `git pull` and `git push`. OpenHands sets up git credentials for each Azure DevOps organization the user belongs to, so these commands work for any repository in those organizations, not only the one that was opened.
+Use plain `git clone`, `git fetch`, `git pull` and `git push`. OpenHands sets up git credentials for each Azure DevOps organization the user belongs to, so these commands work for any repository in those organizations, not only the one that was opened. Run them with `GIT_TERMINAL_PROMPT=0` so git fails at once instead of waiting at a username or password prompt.
 
 A repository written as `ORG/PROJECT/REPO` is cloned from `https://dev.azure.com/ORG/PROJECT/_git/REPO`:
 
 ```bash
-git clone https://dev.azure.com/ORG/PROJECT/_git/REPO
+GIT_TERMINAL_PROMPT=0 git clone https://dev.azure.com/ORG/PROJECT/_git/REPO
 ```
 
-Do not put `AZURE_DEVOPS_TOKEN` in a remote URL or pass it to git as an option: a token saved in `.git/config` stays on disk and stops working when it expires. If git asks for a username or password, credentials are not set up for that organization; tell the user instead of embedding the token.
+Do not put `AZURE_DEVOPS_TOKEN` in a remote URL or pass it to git as an option: a token saved in `.git/config` stays on disk and stops working when it expires. If git fails because it needs a username or password, credentials are not set up for that organization; tell the user instead of embedding the token.
 
 Here are some instructions for pushing, but ONLY do this if the user asks you to:
 * NEVER push directly to the `main` or `master` branch
@@ -41,10 +41,10 @@ Here are some instructions for pushing, but ONLY do this if the user asks you to
 * Do all of the above in as few steps as possible. E.g. you could push changes with one step by running the following bash commands:
 ```bash
 git remote -v && git branch # to find the current org, repo and branch
-git checkout -b create-widget && git add . && git commit -m "Create widget" && git push -u origin create-widget
+git checkout -b create-widget && git add . && git commit -m "Create widget" && GIT_TERMINAL_PROMPT=0 git push -u origin create-widget
 ```
 
-On Windows PowerShell, run those `git` commands as separate commands if `&&` is not supported by the installed shell.
+On Windows PowerShell, set `$env:GIT_TERMINAL_PROMPT = "0"` and run those `git` commands as separate commands if `&&` is not supported by the installed shell.
 
 ## Azure DevOps API Usage
 

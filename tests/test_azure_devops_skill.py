@@ -14,7 +14,10 @@ def skill_text(request):
 
 def test_git_uses_plain_commands_and_clone_url(skill_text):
     assert "Use plain `git clone`" in skill_text
-    assert "git clone https://dev.azure.com/ORG/PROJECT/_git/REPO" in skill_text
+    assert (
+        "GIT_TERMINAL_PROMPT=0 git clone https://dev.azure.com/ORG/PROJECT/_git/REPO"
+        in skill_text
+    )
 
 
 def test_no_token_in_remote_url(skill_text):
