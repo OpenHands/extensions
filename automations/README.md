@@ -2,12 +2,14 @@
 
 `catalog/<id>/` is one automation. Its `manifest.json` is the single hand-authored source of truth: the
 card metadata Agent Canvas renders today and, optionally, a nested `setup` block, the extension-owned
-configuration experience for that automation. It is the only file there. A script an automation uploads as
-a `.tar.gz` is not copied into this directory: `setup.bundle.files` names where it already lives, so a
-script shipped by both a skill and the catalog has one copy rather than two.
+configuration experience for that automation. A script an automation uploads as a `.tar.gz` is not copied
+into this directory when a skill already ships it: `setup.bundle.files` names where it already lives, so a
+script shipped by both a skill and the catalog has one copy rather than two. A bundle script that no skill
+ships may live here beside the manifest.
 
 ```
 catalog/<id>/manifest.json   one automation per directory - card metadata plus an optional `setup` block
+catalog/<id>/*.py            a bundle script no skill ships - named by setup.bundle.files
 catalog.schema.json          the contract, JSON Schema draft 2020-12
 catalog-index.js             generated from catalog/ - do not edit by hand
 interface.json               the production Automation interface manifest - domain-level, not per-entry
@@ -232,6 +234,7 @@ entered and `{{automation.*}}` for the entry itself. There is deliberately no se
 | Entry | Archetype | Trigger | Produces |
 | --- | --- | --- | --- |
 | `github-pr-reviewer` | Direct scheduled, script bundle | `cron` | an upload, then a create payload |
+| `archived-conversation-cleanup` | Direct scheduled, script bundle | `cron` | an upload, then a create payload |
 | `github-repo-monitor` | Direct scheduled | `cron` | a create payload |
 | `qa-changes` | Direct event | `event` | a create payload |
 | `custom-automation` | Direct custom action with prompt, plugin, or upload variants | `cron` or `event` | a create payload, or an upload then create payload |

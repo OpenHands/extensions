@@ -1,0 +1,83 @@
+{
+  "id": "archived-conversation-cleanup",
+  "version": "1.0.0",
+  "name": "Archived conversation cleanup",
+  "category": "Maintenance",
+  "icon": "timer",
+  "description": "Delete conversations the UI archived, once they have been idle longer than a retention window you choose, on a daily schedule. No LLM is used, so a run costs nothing.",
+  "requires": {
+    "integrations": {},
+    "features": [
+      "customTarball"
+    ]
+  },
+  "popularityRank": 76,
+  "estimatedSetupMinutes": 3,
+  "skill": "openhands-automation",
+  "exampleImplementation": "Trigger: cron schedule (default daily at 03:00 UTC)\nConfig: retention_days\n\n1. List the conversations each configured agent server catalogued at start-up.\n2. Keep those tagged archived=true whose updated_at is older than the retention window.\n3. Skip conversations in a state that can still change, such as running or paused.\n4. Delete each remaining conversation through the server that listed it.\n5. Report the count as the run result, and fail the run when a delete fails.",
+  "impact": {
+    "basis": "completed-runs",
+    "one": "1 cleanup sweep completed",
+    "other": "{{count}} cleanup sweeps completed"
+  },
+  "setup": {
+    "version": "1.0",
+    "mode": "direct",
+    "form": {
+      "triggers": {
+        "cron": {
+          "schedule": {
+            "type": "cron",
+            "label": "Check frequency",
+            "help": "How often to sweep archived conversations. Daily is enough for a retention window measured in days.",
+            "default": "0 3 * * *",
+            "required": true
+          },
+          "timezone": {
+            "type": "timezone",
+            "label": "Timezone",
+            "help": "Timezone the schedule is interpreted in.",
+            "default": "UTC",
+            "required": true
+          }
+        }
+      },
+      "args": {
+        "retentionDays": {
+          "type": "number",
+          "label": "Retention period (days)",
+          "help": "An archived conversation is deleted once it has been idle for longer than this. Time is measured from the last activity, which archiving updates, so a conversation opened after archiving starts a new window.",
+          "default": 14,
+          "required": true,
+          "constraints": {
+            "min": 1,
+            "max": 365
+          }
+        },
+        "peerAgentServerUrl": {
+          "type": "text",
+          "label": "Peer agent server URL",
+          "help": "Optional. Each agent server catalogs the conversations it saw at start-up, so a deployment that runs a second server over the same conversation store sweeps both only when this is set. Leave it empty on a single-server deployment.",
+          "default": "",
+          "required": false,
+          "constraints": {
+            "maxLength": 255
+          }
+        }
+      }
+    },
+    "bundle": {
+      "version": "1.0.0",
+      "entrypoint": "python3 main.py",
+      "timeout": 900,
+      "files": {
+        "main.py": "automations/catalog/archived-conversation-cleanup/main.py"
+      },
+      "config": {
+        "retention_days": "{{form.retentionDays}}",
+        "peer_agent_server_url": "{{form.peerAgentServerUrl}}"
+      }
+    },
+    "message": "This deployment cannot run the bundled script. Set it up in this conversation instead: ask for the retention window in days and the daily schedule, then create the automation that deletes archived conversations past that window."
+  }
+}
