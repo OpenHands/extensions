@@ -89,12 +89,13 @@ GET /repos/{owner}/{repo}/collaborators/{username}/permission
 ```
 
 The monitor calls this once per commenter per run (the result is cached) and
-acts only when `permission` is `admin`, `maintain`, or `write`. The token owner
+acts only when `permission` is `admin` or `write` (`maintain` users arrive as
+`write`; `maintain` is still accepted defensively). The token owner
 and logins listed in `ALLOWED_GITHUB_LOGINS` skip the call.
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `permission` | string | Effective permission: `admin`, `maintain`, `write`, `triage`, or `read` |
+| `permission` | string | Effective permission, as one of the legacy base roles `admin`, `write`, `read`, or `none`. `maintain` is reported as `write` and `triage` as `read` |
 | `user.login` | string | The collaborator the answer describes |
 
 Notes:

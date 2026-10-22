@@ -253,12 +253,22 @@ class TestAuthorizedCommentAuthor(unittest.TestCase):
         decision, _ = self._authorize("enyst", permission="write")
         self.assertTrue(decision)
 
-    def test_admin_and_maintain_permissions_allow(self):
+    def test_admin_permission_allows_outsider(self):
         main.AUTHORIZATION = "repo_write"
-        for permission in ("admin", "maintain"):
-            with self.subTest(permission=permission):
-                decision, _ = self._authorize("enyst", permission=permission)
-                self.assertTrue(decision)
+        decision, _ = self._authorize("enyst", permission="admin")
+        self.assertTrue(decision)
+
+    def test_legacy_maintain_value_is_tolerated(self):
+        # The endpoint reports `maintain` as `write`, so accepting `maintain`
+        # only guards against a future API change; it must not break the gate.
+        main.AUTHORIZATION = "repo_write"
+        decision, _ = self._authorize("enyst", permission="maintain")
+        self.assertTrue(decision)
+
+    def test_none_permission_rejects(self):
+        main.AUTHORIZATION = "repo_write"
+        decision, _ = self._authorize("enyst", permission="none")
+        self.assertFalse(decision)
 
     def test_read_permission_rejects(self):
         main.AUTHORIZATION = "repo_write"

@@ -596,6 +596,10 @@ def _is_allowed_comment_author(comment: dict, token_owner_login: str) -> bool:
     return "*" in allowed or author in allowed
 
 
+# GitHub's `permission` field reports the legacy base roles (`admin`, `write`,
+# `read`, `none`); `maintain` arrives as `write`. Accepting `maintain` and
+# `triage`-ish values is a harmless superset that keeps the gate stable if the
+# field ever changes.
 _WRITE_PERMISSIONS = {"admin", "maintain", "write"}
 
 
