@@ -840,8 +840,12 @@ def _post_acknowledgement(
     item_type: str,
     conv_url: str,
     resumed: bool,
-) -> None:
-    """Post an acknowledgement comment on the GitHub issue or PR."""
+) -> int | None:
+    """Post an acknowledgement comment on the GitHub issue or PR.
+
+    Returns the new comment's ID so the poller can ignore it on later runs: the
+    body names the trigger alias, so otherwise the monitor triggers on itself.
+    """
     if resumed:
         body = (
             f"🤖 **OpenHands is resuming work on this {item_type}.**\n\n"
@@ -857,7 +861,7 @@ def _post_acknowledgement(
             f"_This comment was posted by an AI agent (OpenHands) "
             f"in response to a '{TRIGGER_PHRASE}' mention._"
         )
-    _post_github_comment(github_token, repo, issue_number, body)
+    return _post_github_comment(github_token, repo, issue_number, body)
 
 
 def _process_trigger_comment(
@@ -871,6 +875,7 @@ def _process_trigger_comment(
     event_type: str,
     conversations: dict[str, dict],
     token_owner_login: str = "",
+    own_comment_ids: set[int] | None = None,
 ) -> str | None:
     """Handle a new trigger comment: create or resume a conversation.
 
@@ -922,7 +927,11 @@ def _process_trigger_comment(
         return None
 
     conv_url = f"{openhands_url}/conversations/{conv_id}"
-    _post_acknowledgement(github_token, repo, issue_number, item_type, conv_url, resumed)
+    ack_id = _post_acknowledgement(
+        github_token, repo, issue_number, item_type, conv_url, resumed
+    )
+    if ack_id and own_comment_ids is not None:
+        own_comment_ids.add(ack_id)
     return conv_id
 
 
@@ -933,6 +942,7 @@ def _check_conversation_completion(
     repo: str,
     agent_url: str,
     api_key: str,
+    own_comment_ids: set[int] | None = None,
 ) -> None:
     """Post a summary GitHub comment when a conversation reaches a terminal state."""
     if (time.time() - rec.get("last_activity", 0.0)) < DONE_DEBOUNCE:
@@ -973,7 +983,9 @@ def _check_conversation_completion(
             f"working on {item_label} #{issue_number}._"
         )
 
-    _post_github_comment(github_token, repo, issue_number, comment_body)
+    posted_id = _post_github_comment(github_token, repo, issue_number, comment_body)
+    if posted_id and own_comment_ids is not None:
+        own_comment_ids.add(posted_id)
     rec["status"] = "closed"
     print(f"  Posted summary for #{issue_number}")
 
@@ -1004,6 +1016,7 @@ def main() -> str | None:
     conversations: dict[str, dict] = state.get("conversations", {})
     processed_ids: list[int] = state.get("processed_comment_ids", [])
     processed_set: set[int] = set(processed_ids)
+    own_comment_ids: set[int] = set(state.get("own_comment_ids", []))
 
     print(f"Polling {REPO} since {since}  (trigger: '{TRIGGER_PHRASE}'  types: {EVENT_TYPES})")
 
@@ -1039,6 +1052,10 @@ def main() -> str | None:
         if comment_id in processed_set:
             continue
 
+        if comment_id in own_comment_ids:
+            processed_set.add(comment_id)
+            continue
+
         if _is_bot_comment(comment):
             processed_set.add(comment_id)
             continue
@@ -1067,7 +1084,7 @@ def main() -> str | None:
         conv_id = _process_trigger_comment(
             github_token, agent_url, api_key, openhands_url,
             REPO, issue_number, comment, event_type, conversations,
-            token_owner_login,
+            token_owner_login, own_comment_ids,
         )
         if conv_id:
             last_conversation_id = conv_id
@@ -1079,6 +1096,7 @@ def main() -> str | None:
             continue
         _check_conversation_completion(
             conv_key, rec, github_token, REPO, agent_url, api_key,
+            own_comment_ids,
         )
 
     # Trim processed_ids rolling window.
@@ -1086,6 +1104,7 @@ def main() -> str | None:
     if len(trimmed) > MAX_PROCESSED_IDS:
         trimmed = trimmed[-MAX_PROCESSED_IDS:]
     state["processed_comment_ids"] = trimmed
+    state["own_comment_ids"] = sorted(own_comment_ids)[-MAX_PROCESSED_IDS:]
     state["conversations"] = conversations
 
     save_state(state)

@@ -484,6 +484,59 @@ class TestProcessedIdDeduplication(unittest.TestCase):
             os.unlink(path)
 
 
+class TestOwnCommentIds(unittest.TestCase):
+    """The monitor must not trigger on the comments it posts itself.
+
+    Its acknowledgement footer names the trigger alias, so with an alias posted
+    by the token owner (rather than a bot account) the next poll would otherwise
+    treat that footer as a fresh request.
+    """
+
+    def _run_main(self, comments, own_ids):
+        state = {"version": 1, "conversations": {}, "processed_comment_ids": [],
+                 "own_comment_ids": list(own_ids), "last_poll": "2026-01-01T00:00:00Z"}
+        saved = {}
+        with patch("main.load_state", return_value=state), \
+             patch("main.save_state", side_effect=lambda s: saved.update(s)), \
+             patch("main._get_env_key", return_value="k"), \
+             patch("main._resolve_github_token", return_value="tok"), \
+             patch("main._verify_token_and_repo", return_value="neubig"), \
+             patch("main.get_secret", side_effect=Exception("unset")), \
+             patch("main._poll_issue_comments", return_value=comments), \
+             patch("main._is_authorized_comment_author", return_value=True), \
+             patch.dict(os.environ, {"GITHUB_TRIGGER_PHRASE": "@neubig-bot"}), \
+             patch("main._process_trigger_comment") as mock_process:
+            main.main()
+        return mock_process, saved
+
+    def test_own_comment_is_not_processed(self):
+        comment = _make_comment(body="@neubig-bot already handled")
+        comment["id"] = 777
+        mock_process, saved = self._run_main([comment], {777})
+        mock_process.assert_not_called()
+        self.assertIn(777, saved["processed_comment_ids"])
+
+    def test_someone_elses_comment_is_processed(self):
+        comment = _make_comment(body="@neubig-bot please look")
+        comment["id"] = 778
+        mock_process, _ = self._run_main([comment], {777})
+        mock_process.assert_called_once()
+
+    def test_own_ids_survive_save_and_load(self):
+        with tempfile.NamedTemporaryFile(suffix=".json", delete=False) as f:
+            path = f.name
+        try:
+            state = {"version": 1, "conversations": {}, "processed_comment_ids": [],
+                     "own_comment_ids": [11, 22]}
+            with patch("main._kv_available", return_value=False), \
+                 patch("main._state_file_path", return_value=path):
+                main.save_state(state)
+                loaded = main.load_state()
+            self.assertEqual(loaded["own_comment_ids"], [11, 22])
+        finally:
+            os.unlink(path)
+
+
 # ── Conversation state transition tests ───────────────────────────────────────
 
 class TestEnsureConversation(unittest.TestCase):
@@ -579,6 +632,15 @@ class TestPostAcknowledgement(unittest.TestCase):
         body = mock_post.call_args[0][3]
         self.assertIn("resuming", body.lower())
         self.assertNotIn("OpenHands is on it!", body)
+
+    @patch("main._post_github_comment")
+    def test_returns_posted_comment_id(self, mock_post):
+        mock_post.return_value = 4242
+        result = main._post_acknowledgement(
+            github_token="tok", repo="o/r", issue_number=1,
+            item_type="issue", conv_url="http://x", resumed=False,
+        )
+        self.assertEqual(result, 4242)
 
     @patch("main._post_github_comment")
     def test_trigger_phrase_in_footer(self, mock_post):
