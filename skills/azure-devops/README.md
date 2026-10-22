@@ -21,7 +21,17 @@ You can use `curl` with the `AZURE_DEVOPS_TOKEN` to interact with Azure DevOps's
 ALWAYS use the Azure DevOps API for operations instead of a web browser.
 </IMPORTANT>
 
-If you encounter authentication issues when pushing to Azure DevOps (such as password prompts or permission errors), the old token may have expired. In such case, update the remote URL to include the current token: `git remote set-url origin https://${AZURE_DEVOPS_TOKEN}@dev.azure.com/organization/project/_git/repository`
+### Git
+
+Use plain `git clone`, `git fetch`, `git pull` and `git push`. OpenHands sets up git credentials for each Azure DevOps organization the user belongs to, so these commands work for any repository in those organizations, not only the one that was opened.
+
+A repository written as `ORG/PROJECT/REPO` is cloned from `https://dev.azure.com/ORG/PROJECT/_git/REPO`:
+
+```bash
+git clone https://dev.azure.com/ORG/PROJECT/_git/REPO
+```
+
+Do not put `AZURE_DEVOPS_TOKEN` in a remote URL or pass it to git as an option: a token saved in `.git/config` stays on disk and stops working when it expires. If git asks for a username or password, credentials are not set up for that organization; tell the user instead of embedding the token.
 
 Here are some instructions for pushing, but ONLY do this if the user asks you to:
 * NEVER push directly to the `main` or `master` branch
@@ -39,12 +49,12 @@ git checkout -b create-widget && git add . && git commit -m "Create widget" && g
 
 ## Azure DevOps API Usage
 
-When working with Azure DevOps API, you need to use Basic authentication with your Personal Access Token (PAT). The username is ignored (empty string), and the password is the PAT.
+`AZURE_DEVOPS_TOKEN` is either a Personal Access Token (PAT) or, for users who sign in with Microsoft Entra ID, an Entra access token. Basic authentication works with both: leave the username empty and use the token as the password. An Entra access token can also be sent as `Authorization: Bearer $AZURE_DEVOPS_TOKEN`.
 
 Here's how to authenticate with curl:
 ```bash
-# Convert PAT to base64
-AUTH=$(echo -n ":$AZURE_DEVOPS_TOKEN" | base64)
+# Base64-encode ":<token>" on one line (Entra tokens are long enough to wrap)
+AUTH=$(echo -n ":$AZURE_DEVOPS_TOKEN" | base64 | tr -d '\n')
 
 # Make API call
 curl -H "Authorization: Basic $AUTH" -H "Content-Type: application/json" https://dev.azure.com/{organization}/{project}/_apis/git/repositories?api-version=7.1
