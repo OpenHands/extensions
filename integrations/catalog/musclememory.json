@@ -1,0 +1,54 @@
+{
+  "id": "musclememory",
+  "name": "MuscleMemory",
+  "description": "Recall verified workflow guidance across agent sessions and record, learn, inspect, and evaluate procedures through five MCP tools.",
+  "docsUrl": "https://github.com/TheWariend/MuscleMemory/blob/main/docs/integrations.md#mcp",
+  "notes": "Local stdio connection. Requires uv/uvx on the MCP host. Run `uv tool install --python 3.12 thewariend-musclememory==0.1.7`, `musclememory init`, and `musclememory key --label openhands --permissions read,write` on that host, then enter the returned api_key. A separate REST daemon is not required. MM_HOME and its initialized database must be accessible to the process that launches MCP; a local workstation folder is not automatically available to a remote runner. This connection does not automatically capture OpenHands tool calls. Use recall before a task, explicitly record actual events with observe, and learn only after independent verification. Two later passing checks and operator approval are required before a new workflow becomes eligible for recall. See the linked integration documentation and v1 contract for runtime profiles and event inputs.",
+  "iconBg": "#18181B",
+  "keywords": [
+    "memory",
+    "procedural-memory",
+    "workflows",
+    "verification"
+  ],
+  "connectionOptions": [
+    {
+      "id": "local",
+      "provider": "mcp",
+      "transport": {
+        "kind": "stdio",
+        "serverName": "musclememory",
+        "command": "uvx",
+        "args": [
+          "--python",
+          "3.12",
+          "--from",
+          "thewariend-musclememory==0.1.7",
+          "musclememory",
+          "stdio"
+        ],
+        "envFields": [
+          {
+            "key": "MM_API_KEY",
+            "label": "MuscleMemory API key",
+            "type": "password",
+            "required": true,
+            "helperText": "Read/write key from the initialized MuscleMemory installation on the MCP host. Copy api_key from `musclememory key --label openhands --permissions read,write`.",
+            "helperLink": "https://github.com/TheWariend/MuscleMemory/blob/main/docs/install.md"
+          },
+          {
+            "key": "MM_HOME",
+            "label": "MuscleMemory folder on MCP host",
+            "type": "text",
+            "required": false,
+            "placeholder": "~/.musclememory",
+            "helperText": "Optional initialized folder on the host that launches MCP. Must match the installation that issued the API key. Defaults to ~/.musclememory."
+          }
+        ]
+      },
+      "auth": {
+        "strategy": "api_key"
+      }
+    }
+  ]
+}
