@@ -136,6 +136,7 @@
       "minProperties": 1,
       "properties": {
         "name": { "$ref": "#/$defs/attribute" },
+        "description": { "$ref": "#/$defs/attribute" },
         "prompt": { "$ref": "#/$defs/attribute" },
         "model": { "$ref": "#/$defs/attribute" },
         "timeout": { "$ref": "#/$defs/attribute" },
