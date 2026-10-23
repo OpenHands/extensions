@@ -44,22 +44,20 @@ git checkout -b create-widget && git add . && git commit -m "Create widget" && g
 ## Writing Pull Request Descriptions
 
 Use the `show-me` skill when writing or updating a PR description. If it is not
-available, use the same approach: pick the smallest visual that makes the change
-clear instead of requiring the user to reconstruct it from prose or the raw diff.
+available: pick the smallest visual that makes the change clear instead of requiring
+the user to reconstruct it from prose or the raw diff.
 
-- Follow the repository's PR template and contribution rules. Preserve any
-  human-only sections; never invent human testing or approval.
+- Follow the repository's PR template and contribution rules.
+- Give the PR a plain language title. Focus on what the user needs to see.
 - Lead with what changed and why. Show the important before/after with a focused
   diff, call tree, component/file tree, pseudocode, or Mermaid diagram, as fits
   the change. Keep the visual next to the short explanation it supports.
 - Ground examples in the actual base and head revisions. Name the relevant files
-  or symbols and link to source when helpful. Do not invent behavior or test results.
+  or symbols and link to source when helpful.
 - Keep simple changes brief; do not force a diagram onto a typo or dependency
-  bump. For a dense UI or design comparison, link a focused HTML artifact only
-  when it helps and the host supports it. Follow repository artifact and sharing
-  rules; do not publish private content externally without permission.
-- Include what was tested, the results, and any verification limits. Visual
-  explanations supplement required tests and screenshots; they do not replace
+  bump. For a dense UI or design comparison, link a focused HTML artifact
+  when it helps and the host supports it.
+- Visual explanations supplement required tests and screenshots; they do not replace
   evidence that the changed behavior works.
 
 ## Merging Pull Requests (async merge API)
