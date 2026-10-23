@@ -41,6 +41,27 @@ git remote -v && git branch # to find the current org, repo and branch
 git checkout -b create-widget && git add . && git commit -m "Create widget" && git push -u origin create-widget
 ```
 
+## Writing Pull Request Descriptions
+
+Use the `show-me` skill when writing or updating a PR description. If it is not
+available, use the same approach: pick the smallest visual that makes the change
+clear instead of requiring the user to reconstruct it from prose or the raw diff.
+
+- Follow the repository's PR template and contribution rules. Preserve any
+  human-only sections; never invent human testing or approval.
+- Lead with what changed and why. Show the important before/after with a focused
+  diff, call tree, component/file tree, pseudocode, or Mermaid diagram, as fits
+  the change. Keep the visual next to the short explanation it supports.
+- Ground examples in the actual base and head revisions. Name the relevant files
+  or symbols and link to source when helpful. Do not invent behavior or test results.
+- Keep simple changes brief; do not force a diagram onto a typo or dependency
+  bump. For a dense UI or design comparison, link a focused HTML artifact only
+  when it helps and the host supports it. Follow repository artifact and sharing
+  rules; do not publish private content externally without permission.
+- Include what was tested, the results, and any verification limits. Visual
+  explanations supplement required tests and screenshots; they do not replace
+  evidence that the changed behavior works.
+
 ## Merging Pull Requests (async merge API)
 
 IMPORTANT:
