@@ -40,7 +40,11 @@ This skill is activated by keywords:
   receive a clear error notice, and every result shows the LLM settings source
   and concrete model
 - **Persistent state**: conversation tracking and poll timestamps are stored
-  in `automation-state/slack_poller_{automation_id}.json` across runs
+  in the automation service's KV store across runs (a local Agent Canvas
+  without one uses `automation-state/slack_poller_{automation_id}.json`)
+- **Runs anywhere**: on a local Agent Canvas, and on OpenHands Cloud and
+  Enterprise, where each conversation is started through the OpenHands API in
+  a sandbox of its own with the user's own settings
 
 ## Prerequisites
 
@@ -59,7 +63,7 @@ Optional:
 
 | Secret | Default | Purpose |
 |--------|---------|---------|
-| `OPENHANDS_URL` | `http://localhost:8000` | Base URL for conversation links posted in Slack |
+| `OPENHANDS_URL` | `http://localhost:8000` | Base URL for conversation links posted in Slack (local Agent Canvas only) |
 
 ## Quick Start
 

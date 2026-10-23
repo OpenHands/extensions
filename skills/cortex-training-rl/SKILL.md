@@ -2,9 +2,10 @@
 name: cortex-training-rl
 description: >-
   Run reinforcement-learning post-training of a model inside the OpenHands
-  agent harness on Snowflake Cortex Training, using the Arctic Platform
-  OpenHands recipe (SkyRL GRPO, CodeScout code localization). Use when asked to
-  launch, monitor, debug, or stop an OpenHands RL run on Cortex Training.
+  agent harness or a custom Harbor controller on Snowflake Cortex Training,
+  using the Arctic Platform OpenHands recipe and harness endpoint (SkyRL GRPO,
+  CodeScout code localization, Harbor tasks). Use when asked to launch,
+  monitor, debug, or stop an OpenHands or Harbor RL run on Cortex Training.
 triggers:
 - cortex training
 - cortex-training
@@ -21,8 +22,9 @@ sends the scored episodes back for a policy update. The reference task is
 CodeScout code localization: Qwen3.5-4B learns to name the files, classes, and
 functions a bug touches, scored by F1 (maximum 3).
 
-- Recipe: [Arctic Platform `recipes/rl/openhands/code_localization`](https://github.com/Snowflake-AI-Research/Arctic-Platform/tree/karthik/openhands-cortex/recipes/rl/openhands/code_localization)
+- Recipe: [Arctic Platform `recipes/rl/openhands/code_localization`](https://github.com/Snowflake-AI-Research/Arctic-Platform/tree/main/recipes/rl/openhands/code_localization)
 - Cortex Training guide: [`docs/integrations/openhands.md`](https://github.com/snowflakedb/cortex-training/blob/main/docs/integrations/openhands.md)
+- Bring your own agent / Harbor tasks: [`docs/integrations/bring-your-own-agent.md`](https://github.com/snowflakedb/cortex-training/blob/main/docs/integrations/bring-your-own-agent.md)
 - How the harness plugs into a trainer: <https://docs.openhands.dev/sdk/guides/train-rl>
 
 A run holds 8 GPUs for hours and the job outlives the driver. Read the
@@ -73,11 +75,16 @@ rollout holds one clone of its task repository.
 ### 2. Install and data
 
 Follow the recipe README: `uv`, SkyRL at tag `skyrl-v0.3.0` as `SKYRL_HOME`,
-and the Arctic Platform checkout. Copy `train.parquet` and
-`validation.parquet` from CodeScout
-[`data/swe_smith`](https://github.com/18jeffreyma/codescout/tree/abab719e08a55dde78c6da864cd24d84fd47bdf2/data/swe_smith) into
-`~/data/swe-smith-localization`, or set `DATA_DIR`. The launcher refuses to
-start when any of these is missing and prints what to fix.
+and the Arctic Platform checkout (`main`). From the Arctic Platform checkout,
+download the dataset and write `train.parquet` and `validation.parquet` into
+`~/data/swe-smith-localization` (or pass `--out DIR` and set `DATA_DIR=DIR`):
+
+```bash
+uv run recipes/rl/openhands/code_localization/prepare_data.py
+```
+
+The launcher refuses to start when any of these is missing and prints what to
+fix.
 
 ### 3. Launch detached
 
@@ -137,6 +144,37 @@ If the launcher is already gone and the job is still running, check that its
 `cortex-training cancel "$(cat "$CKPT_DIR/cortex_job_id")"`. Afterwards, check
 again for leftover `openhands-*` tmux sessions and for clones under
 `$OPENHANDS_WORKSPACE`, and remove them if no run is live.
+
+## Custom Harbor tasks, controllers, and other Cortex Training paths
+
+The OpenHands recipe is built on `arctic_platform.integrations.harness`
+([`ChatCompletionsProxy` and `HarnessGenerator`](https://github.com/Snowflake-AI-Research/Arctic-Platform/tree/main/arctic_platform/integrations/harness)),
+which is harness-agnostic:
+
+1. **Custom controller or Harbor tasks (`arctic_platform.integrations.harness`):**
+   - Implement the 3-method `HarnessAdapter` (`submit(request) -> rollout_id`,
+     `get_status(rollout_id)`, `collect_output(rollout_id) -> artifacts`) in
+     place of `OpenHandsAdapter`, and point your agent or Harbor runner (`harbor run`
+     with `--env docker`, `--env modal`, or Snowflake Cortex Sandboxes via
+     `harbor_snowflake_sandbox:SnowflakeSandboxEnvironment`) at
+     `OPENAI_BASE_URL=request.base_url` and `OPENAI_API_KEY=request.api_key`.
+   - Pass a standalone `Grader` callable `(episodes, artifacts, request) -> Grade(reward, reward_detail, exhausted=False)`
+     into `HarnessGenerator`. Verification is decoupled from the rollout runner.
+   - **Context compaction and subagents:** `ChatCompletionsProxy` splices the
+     exact sampled token IDs across turns (`loss_mask = 1` on assistant turns,
+     `0` on prompts and tool output). A request that does not extend the prior
+     messages (such as a compacted history) starts a new chain. Set
+     `generator.step_wise_trajectories=true` so every chain becomes a training
+     row under the same `trajectory_id`. To avoid training on the LLM call that
+     writes a compaction summary, send the summarization call to the un-routed
+     `${proxy.base_url}/v1/chat/completions` endpoint; send it to
+     `request.base_url` if you want the summary call itself trained on.
+2. **Tinker Cookbook Harbor RL (`arctic_platform.integrations.tinker`):**
+   - To run `tinker-cookbook` recipes (including `tinker_cookbook.recipes.harbor_rl.train`
+     with a custom `SandboxFactory` such as Modal or `snowflake.sandbox.AsyncSandbox`)
+     on Cortex Training without a local GPU driver, run
+     `python -m arctic_platform.integrations.tinker.run --training-gpus 4 --sampling-gpus 4 <module> [args...]`.
+     See [`docs/integrations/tinker.md`](https://github.com/snowflakedb/cortex-training/blob/main/docs/integrations/tinker.md).
 
 ## Reference result
 

@@ -43,4 +43,13 @@ git remote -v && git branch # to find the current org, repo and branch
 git checkout -b create-widget && git add . && git commit -m "Create widget" && git push -u origin create-widget
 ```
 
+## PR descriptions
+
+The skill uses `show-me` to explain the important before/after with the smallest
+useful visual: a focused diff, tree, pseudocode, or diagram. If that skill is not
+installed, the same guidance applies without requiring another installation.
+Simple changes stay brief. Repository templates and human-only sections still
+take precedence, and visuals do not replace testing or required screenshots.
+HTML artifacts are optional and follow the repository's sharing rules.
+
 When asked to merge a pull request, the skill uses GitHub's async merge API (`PUT /repos/{owner}/{repo}/pulls/{pull_number}/merge-async`, then poll the returned UUID). It supports stacked PRs and merge queues. Docs: https://docs.github.com/en/rest/pulls/pulls#merge-a-pull-request-asynchronously

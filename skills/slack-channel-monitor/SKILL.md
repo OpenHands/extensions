@@ -31,8 +31,10 @@ On every subsequent run:
 - Completed conversations stay in a short follow-up watch window, allowing
   triggered Slack replies to continue the same OpenHands conversation.
 
-> **Local mode only.** This automation targets the local OpenHands setup
-> (`dev:automation` stack). A cloud/webhook-based variant is out of scope here.
+> Runs on a local Agent Canvas (`dev:automation` stack) and on OpenHands Cloud
+> and Enterprise. On Cloud and Enterprise each conversation is started through
+> the OpenHands API in a sandbox of its own, with the user's own settings, and
+> the automation keeps its state in the automation service's KV store.
 
 ---
 
@@ -66,7 +68,7 @@ function without Slack credentials.
 
 | Secret name | Default | Purpose |
 |---|---|---|
-| `OPENHANDS_URL` | `http://localhost:8000` | Base URL used to build conversation links posted in Slack |
+| `OPENHANDS_URL` | `http://localhost:8000` | Base URL used to build conversation links posted in Slack (local Agent Canvas only; on OpenHands Cloud and Enterprise the links open the deployment's own Canvas) |
 
 ---
 
@@ -165,23 +167,27 @@ repair a hand-written variant.
 
 ### Step 4  -  Package and upload
 
-Determine the Automation backend URL and auth from the `<RUNTIME_SERVICES>`
-block in your system context:
-- Use the **Automation backend** `url_from_agent` as `OPENHANDS_HOST`
-- Auth: `X-Session-API-Key: $OPENHANDS_AUTOMATION_API_KEY`
+Set `OPENHANDS_HOST` and `AUTH_HEADER` for the commands below:
+- **OpenHands Cloud or Enterprise** - a `<HOST>` value is in your system prompt:
+  use it as `OPENHANDS_HOST`, with `AUTH_HEADER="Authorization: Bearer $OPENHANDS_API_KEY"`
+- **Local Agent Canvas** - an **Automation backend** is listed in the
+  `<RUNTIME_SERVICES>` block of your system context: use its `url_from_agent` as
+  `OPENHANDS_HOST`, with `AUTH_HEADER="X-Session-API-Key: $OPENHANDS_AUTOMATION_API_KEY"`
 
-If no Automation backend is listed in `<RUNTIME_SERVICES>`, stop and tell
-the user to start the full automation stack.
+If neither is available, stop and tell the user to start the full automation
+stack.
+
+On OpenHands Cloud or Enterprise each run starts in a fresh sandbox, so the
+automation keeps its state in the KV store: check that `kvStore` is listed under
+`features` in `GET ${OPENHANDS_HOST}/api/automation/v1/capabilities` before
+deploying.
 
 ```bash
 tar -czf /tmp/slack-monitor.tar.gz -C /tmp/slack-monitor-build .
 
-# OPENHANDS_HOST: read from <RUNTIME_SERVICES> Automation backend url_from_agent
-OPENHANDS_HOST="<automation-url-from-runtime-services>"
-
 TARBALL_PATH=$(curl -s -X POST \
   "${OPENHANDS_HOST}/api/automation/v1/uploads?name=slack-channel-monitor" \
-  -H "X-Session-API-Key: $OPENHANDS_AUTOMATION_API_KEY" \
+  -H "$AUTH_HEADER" \
   -H "Content-Type: application/gzip" \
   --data-binary @/tmp/slack-monitor.tar.gz \
   | python3 -c "import json,sys; print(json.load(sys.stdin)['tarball_path'])")
@@ -196,7 +202,7 @@ If the upload fails with a size error, the tarball must be under 1 MB.
 
 ```bash
 curl -s -X POST "${OPENHANDS_HOST}/api/automation/v1" \
-  -H "X-Session-API-Key: $OPENHANDS_AUTOMATION_API_KEY" \
+  -H "$AUTH_HEADER" \
   -H "Content-Type: application/json" \
   -d "{
     \"name\": \"Slack Channel Monitor\",
@@ -221,7 +227,8 @@ Tell the user:
 > - Channels: `{channel list}`
 > - Trigger phrase: `{phrase}`
 > - Polling every minute via cron `* * * * *`
-> - State file: `~/.openhands/workspaces/automation-state/slack_poller_{id}.json`
+> - State: the automation service's KV store (a local Agent Canvas without one
+>   uses `~/.openhands/workspaces/automation-state/slack_poller_{id}.json`)
 >
 > Send a message containing `{phrase}` in any monitored channel to test it.
 > The bot will react with 👀 and reply with a link to the new conversation.
@@ -233,7 +240,8 @@ Tell the user:
 Each cron run executes `main.py`, which runs **10 polling iterations** (every
 5 seconds) within the 55-second timeout window. Each iteration:
 
-1. **Loads state** from the JSON file (see `references/state-schema.md`).
+1. **Loads state** from the KV store, or from the JSON file on a local Agent
+   Canvas without one (see `references/state-schema.md`).
 2. **Resolves the Slack token**  -  checks `SLACK_USER_TOKEN` then `SLACK_BOT_TOKEN`.
 3. **Fetches new messages:**
    - User token + `search:read` + > 1 channel → single `search.messages` call
@@ -253,6 +261,10 @@ Each cron run executes `main.py`, which runs **10 polling iterations** (every
      a new conversation, post link.
      - Records `default` and the concrete model from the server settings already
        used to start the conversation, for the response footer.
+     - On OpenHands Cloud and Enterprise the conversation is started through the
+       OpenHands API in a sandbox of its own, with the user's own settings; the
+       link opens it in the deployment's Canvas, and the footer names the model
+       the conversation reports once it is up.
      - Thread replies: agent receives full thread history for context.
      - Root messages: agent receives the trigger text only.
 6. **Checks conversation statuses**  -  for each active conversation where
@@ -301,7 +313,7 @@ Debug output is written to both stdout and a persistent log at:
 | `not_in_channel` error in run logs | Bot token used but bot not a member | Invite bot or switch to user token |
 | `missing_scope` error | Token lacks required scopes | Re-install Slack app with correct scopes (see `references/slack-api.md`) |
 | No messages detected | `last_poll` timestamp is in the future | Delete the state file to reset; it will be recreated on next run |
-| Conversation link 404 | `OPENHANDS_URL` points to wrong host | Set the `OPENHANDS_URL` secret to the correct base URL |
+| Conversation link 404 | `OPENHANDS_URL` points to wrong host (local Agent Canvas) | Set the `OPENHANDS_URL` secret to the correct base URL |
 | Summary never posted | Conversation stuck in `running` state | Check conversation in the OpenHands UI; the agent may need intervention |
 | Duplicate conversations created | `processed_ts` state missing or corrupted | Delete the state file to reset; dedup will rebuild on next run |
 | Trigger message processed on each cron run | State file deleted between runs | Ensure `automation-state/` directory is persistent across runs |

@@ -117,6 +117,12 @@ write issue comments, and **write pull request reviews** — the review is
 published and the optional human reviewer is requested through the pull request
 API, so read-only pull request access is not enough.
 
+On OpenHands Cloud and Enterprise, the Agent Canvas catalog template needs no
+saved secret when GitHub is connected under Settings -> Integrations: a secret
+saved under the configured name is used if present, otherwise the connected
+account's token, and the review is published by that account. Set the
+requested reviewer to that account's login.
+
 ## Quick Start
 
 Ask OpenHands for either trigger mode:

@@ -17,6 +17,10 @@ On subsequent runs:
 Configuration constants are embedded at automation-creation time by the skill.
 See SKILL.md for the full setup workflow.
 
+Runs against a local agent server (AGENT_SERVER_URL is injected) or on OpenHands
+Cloud and Enterprise (OPENHANDS_CLOUD_API_URL / OPENHANDS_API_KEY / SANDBOX_ID are
+injected instead).
+
 Required secrets (set in OpenHands Settings → Secrets):
   SLACK_BOT_TOKEN    -  bot token (xoxb-…)   with scopes:
                         channels:history, channels:read,
@@ -26,7 +30,8 @@ Required secrets (set in OpenHands Settings → Secrets):
                         channels:history, search:read (for multi-channel),
                         reactions:write, chat:write
 
-Optional secret:
+Optional secret (local Agent Canvas only; on OpenHands Cloud and Enterprise the
+links open the deployment's own Canvas):
   OPENHANDS_URL      -  base URL of your OpenHands instance for conversation
                       links (default: http://localhost:8000)
 """
@@ -38,6 +43,7 @@ import sys
 import time
 import urllib.error
 import urllib.request
+import uuid
 from datetime import datetime, timezone
 from urllib.parse import urlencode
 
@@ -101,6 +107,12 @@ MAX_THREAD_REPLY_POLLS_PER_RUN = 1
 
 # ── Stdlib helpers ─────────────────────────────────────────────────────────────
 
+# A local Agent Canvas run is handed the Agent Server URL. A run on OpenHands
+# Cloud or Enterprise is handed the OpenHands API instead.
+_CLOUD_API_URL = os.environ.get("OPENHANDS_CLOUD_API_URL", "").rstrip("/")
+IS_CLOUD = bool(_CLOUD_API_URL) and not os.environ.get("AGENT_SERVER_URL")
+
+
 def _get_env_key() -> str:
     return (
         os.environ.get("SESSION_API_KEY")
@@ -110,13 +122,14 @@ def _get_env_key() -> str:
 
 
 def get_secret(name: str) -> str:
-    """Fetch a named secret from the agent server."""
-    url = os.environ.get("AGENT_SERVER_URL", "").rstrip("/")
+    """Fetch a named secret from the agent server, or from the OpenHands API on cloud."""
     key = _get_env_key()
-    req = urllib.request.Request(
-        f"{url}/api/settings/secrets/{name}",
-        headers={"X-Session-API-Key": key},
-    )
+    if IS_CLOUD:
+        # The OpenHands API serves the secrets of this run's sandbox.
+        url = f"{_CLOUD_API_URL}/api/v1/sandboxes/{os.environ['SANDBOX_ID']}/settings/secrets/{name}"
+    else:
+        url = f"{os.environ.get('AGENT_SERVER_URL', '').rstrip('/')}/api/settings/secrets/{name}"
+    req = urllib.request.Request(url, headers={"X-Session-API-Key": key})
     with urllib.request.urlopen(req) as r:
         return r.read().decode().strip()
 
@@ -158,6 +171,9 @@ def _ngrok_public_openhands_url() -> str | None:
 
 
 def resolve_openhands_url() -> str:
+    if IS_CLOUD:
+        # Conversations are opened in the Canvas of the deployment itself.
+        return f"{_CLOUD_API_URL}/canvas"
     try:
         configured = get_secret("OPENHANDS_URL").rstrip()
     except Exception:
@@ -184,12 +200,14 @@ def fire_callback(
         body["error"] = error
     if conversation_id:
         body["conversation_id"] = conversation_id
+    # A cloud run is not given a callback key; it authenticates with its API key.
+    api_key = os.environ.get("AUTOMATION_CALLBACK_API_KEY") or os.environ.get("OPENHANDS_API_KEY", "")
     req = urllib.request.Request(
         url,
         data=json.dumps(body).encode(),
         headers={
             "Content-Type": "application/json",
-            "Authorization": f"Bearer {os.environ.get('AUTOMATION_CALLBACK_API_KEY', '')}",
+            "Authorization": f"Bearer {api_key}",
         },
     )
     try:
@@ -578,11 +596,100 @@ def _build_secrets_payload(agent_url: str, api_key: str) -> dict:
     return secrets
 
 
+def _cloud_request(method: str, path: str, body: dict | None = None):
+    """Call the OpenHands API with the API key this cloud run was given."""
+    req = urllib.request.Request(
+        f"{_CLOUD_API_URL}{path}",
+        data=json.dumps(body).encode() if body is not None else None,
+        headers={
+            "Authorization": f"Bearer {os.environ.get('OPENHANDS_API_KEY', '')}",
+            "Content-Type": "application/json",
+        },
+        method=method,
+    )
+    try:
+        with urllib.request.urlopen(req) as r:
+            raw = r.read()
+            return json.loads(raw) if raw.strip() else {}
+    except urllib.error.HTTPError as exc:
+        body_text = exc.read().decode()
+        raise RuntimeError(f"OpenHands API {method} {path} → {exc.code}: {body_text}") from exc
+
+
+def _create_cloud_conversation(initial_message: str, title: str) -> str:
+    """Start a conversation through the OpenHands API and return its id.
+
+    OpenHands runs it in a sandbox of its own, which outlives this run's, with
+    the user's own model, MCP servers and secrets, so none of the local
+    forwarding in create_conversation applies. The API answers with the task
+    that starts the conversation, not with a started conversation.
+    """
+    conversation_id = uuid.uuid4().hex
+    task = _cloud_request(
+        "POST",
+        "/api/v1/app-conversations",
+        {
+            "conversation_id": conversation_id,
+            "title": title,
+            "initial_message": {
+                "role": "user",
+                "content": [{"type": "text", "text": initial_message}],
+            },
+        },
+    )
+    if task.get("status") == "ERROR":
+        raise RuntimeError(f"Starting a conversation failed: {task.get('detail') or 'no detail'}")
+    return conversation_id
+
+
+def _cloud_conversation(conv_id: str) -> dict | None:
+    """The conversation's record, or None while OpenHands is still bringing it up."""
+    found = _cloud_request("GET", f"/api/v1/app-conversations?ids={conv_id}")
+    return found[0] if found else None
+
+
+def _cloud_conversation_status(conv_id: str) -> str:
+    conversation = _cloud_conversation(conv_id)
+    if conversation is None:
+        return "starting"
+    if conversation.get("execution_status"):
+        return conversation["execution_status"]
+    # The status is only reported while the conversation's sandbox is running.
+    # Once it is paused, the last status the agent reported is in its events.
+    events = _cloud_request(
+        "GET",
+        f"/api/v1/conversation/{conv_id}/events/search"
+        "?kind__eq=ConversationStateUpdateEvent&sort_order=TIMESTAMP_DESC&limit=100",
+    )
+    for event in events.get("items", []):
+        if event.get("key") == "execution_status":
+            return event.get("value") or "unknown"
+    return "unknown"
+
+
+def _cloud_conversation_final_response(conv_id: str) -> str:
+    """The agent's closing message, read from the conversation's stored events."""
+    events = _cloud_request(
+        "GET",
+        f"/api/v1/conversation/{conv_id}/events/search?sort_order=TIMESTAMP_DESC&limit=100",
+    )
+    for event in events.get("items", []):
+        if event.get("source") != "agent":
+            continue
+        if event.get("kind") == "ActionEvent" and event.get("tool_name") == "finish":
+            return (event.get("action") or {}).get("message") or ""
+        if event.get("kind") == "MessageEvent":
+            content = (event.get("llm_message") or {}).get("content") or []
+            return "".join(part.get("text", "") for part in content)
+    return ""
+
+
 def create_conversation(
     agent_url: str,
     api_key: str,
     initial_message: str,
     agent: dict | None = None,
+    title: str = "",
 ) -> str:
     """Create a conversation and return its ID.
 
@@ -592,7 +699,13 @@ def create_conversation(
 
     Inherits the user's secrets (as LookupSecret references) and MCP
     server configuration so the spawned agent has the same capabilities.
+
+    On OpenHands Cloud and Enterprise the conversation is started through
+    the OpenHands API instead (see _create_cloud_conversation).
     """
+    if IS_CLOUD:
+        return _create_cloud_conversation(initial_message, title)
+
     # Use a dedicated directory for spawned conversations rather than the
     # automation run's WORKSPACE_BASE, which may be cleaned up between runs.
     workspace_base = os.environ.get("WORKSPACE_BASE", "")
@@ -625,6 +738,15 @@ def create_conversation(
 
 def send_to_conversation(agent_url: str, api_key: str, conv_id: str, text: str) -> None:
     """Send a user message to an existing conversation and resume the agent."""
+    if IS_CLOUD:
+        # Answers 409 while the conversation's sandbox is paused and 404 while
+        # OpenHands is still bringing it up; the caller logs either.
+        _cloud_request("POST", f"/api/v1/app-conversations/{conv_id}/send-message", {
+            "role": "user",
+            "content": [{"type": "text", "text": text}],
+            "run": True,
+        })
+        return
     _oh_request(agent_url, api_key, "POST", f"/api/conversations/{conv_id}/events", {
         "role": "user",
         "content": [{"text": text}],
@@ -633,11 +755,15 @@ def send_to_conversation(agent_url: str, api_key: str, conv_id: str, text: str) 
 
 
 def conversation_status(agent_url: str, api_key: str, conv_id: str) -> str:
+    if IS_CLOUD:
+        return _cloud_conversation_status(conv_id)
     result = _oh_request(agent_url, api_key, "GET", f"/api/conversations/{conv_id}")
     return result.get("execution_status", "unknown")
 
 
 def conversation_final_response(agent_url: str, api_key: str, conv_id: str) -> str:
+    if IS_CLOUD:
+        return _cloud_conversation_final_response(conv_id)
     result = _oh_request(
         agent_url, api_key, "GET", f"/api/conversations/{conv_id}/agent_final_response"
     )
@@ -956,9 +1082,12 @@ def _process_trigger_message(
     )
 
     try:
-        agent = _get_agent_dict(agent_url, api_key)
+        # A cloud conversation runs with the user's own settings; its model is
+        # read back from the conversation once it is up.
+        agent = None if IS_CLOUD else _get_agent_dict(agent_url, api_key)
         conv_id = create_conversation(
-            agent_url, api_key, initial_prompt, agent=agent
+            agent_url, api_key, initial_prompt, agent=agent,
+            title=f"Slack: {request_part or text}"[:80],
         )
         conv_url = f"{openhands_url}/conversations/{conv_id}"
 
@@ -969,7 +1098,7 @@ def _process_trigger_message(
             "thread_ts": thread_root,
             "status": "active",
             "llm_profile": "default",
-            "llm_model": agent["llm"].get("model") or "unknown",
+            "llm_model": (agent["llm"].get("model") if agent else None) or "unknown",
             "last_activity": now,
             "last_seen_reply_ts": msg_ts,
             "reply_poll_backoff_seconds": THREAD_REPLY_INITIAL_BACKOFF_SECONDS,
@@ -1027,6 +1156,14 @@ def _check_conversation_completion(
             )
         else:
             summary = final if final else "Success (no message available)."
+        if IS_CLOUD:
+            # The model is the conversation's own, known once OpenHands started it.
+            try:
+                rec["llm_model"] = (
+                    (_cloud_conversation(conv_id) or {}).get("llm_model") or rec.get("llm_model")
+                )
+            except Exception as exc:
+                print(f"  Warning: could not read the model for {conv_id}: {exc}")
         # The values recorded when this script started the conversation; a
         # thread follow-up reuses it, so they still describe its LLM. A record
         # written before provenance was tracked cannot name either value.
@@ -1056,6 +1193,14 @@ def _check_conversation_completion(
 
 def main() -> str | None:
     """Run one polling cycle. Returns the last conversation ID created, if any."""
+    if IS_CLOUD and not _kv_available():
+        # A cloud run starts in a fresh sandbox, so a state file would not
+        # survive it and every run would start over.
+        raise RuntimeError(
+            "The automation KV store is required on OpenHands Cloud and Enterprise, "
+            "but AUTOMATION_KV_TOKEN is not set for this run."
+        )
+
     state = load_state()
 
     agent_url = os.environ.get("AGENT_SERVER_URL", "").rstrip("/")
