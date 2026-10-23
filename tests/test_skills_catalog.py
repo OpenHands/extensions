@@ -690,3 +690,19 @@ class TestGeneratedDefaultEnabled:
             if (DEFAULT_ENABLED_SKILL_NAMES.length === 0) process.exit(1);
         """)
         run_node(script)
+
+
+class TestShowMeDefaultSkill:
+    def test_public_catalog_exposes_loadable_default_skill(self):
+        run_node("""
+            import assert from 'node:assert/strict';
+            import { SKILLS_CATALOG, DEFAULT_ENABLED_SKILL_NAMES } from '@openhands/extensions/skills';
+            import { readFileSync } from 'node:fs';
+            const skill = SKILLS_CATALOG.find(entry => entry.name === 'show-me');
+            assert.ok(skill);
+            assert.equal(skill.defaultEnabled, true);
+            assert.ok(DEFAULT_ENABLED_SKILL_NAMES.includes(skill.name));
+            assert.equal(skill.license, 'Apache-2.0');
+            const source = readFileSync('skills/show-me/SKILL.md', 'utf8');
+            assert.equal(skill.content, source.split('---').slice(2).join('---').trim());
+        """)

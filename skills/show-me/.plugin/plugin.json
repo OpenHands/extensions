@@ -1,0 +1,18 @@
+{
+  "name": "show-me",
+  "version": "1.0.0",
+  "description": "Help the user understand the current topic visually with concise diagrams, code-shape sketches, and focused HTML artifacts.",
+  "author": {
+    "name": "HumanLayer"
+  },
+  "homepage": "https://github.com/humanlayer/humanlayer",
+  "repository": "https://github.com/OpenHands/extensions",
+  "license": "Apache-2.0",
+  "keywords": [
+    "visualization",
+    "diagrams",
+    "code",
+    "html",
+    "explanation"
+  ]
+}
