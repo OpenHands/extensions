@@ -64,8 +64,25 @@
         }
       }
     },
-    "setup": { "$ref": "#/$defs/setup" }
+    "setup": { "$ref": "#/$defs/setup" },
+    "triggers": {
+      "description": "How the automation runs once created, for an entry without a setup form: `cron` for a schedule, `event` for an event-driven trigger, or both. An entry whose `setup.form.triggers` declares the variants states it there instead, so the two never coexist. Informational: Agent Canvas renders it as the card's trigger badge and filter.",
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "enum": ["cron", "event"] }
+    }
   },
+  "if": {
+    "required": ["setup"],
+    "properties": {
+      "setup": {
+        "required": ["form"],
+        "properties": { "form": { "required": ["triggers"] } }
+      }
+    }
+  },
+  "then": { "not": { "required": ["triggers"] } },
   "$defs": {
     "impactCopy": {
       "description": "One value-statement phrase. Markup-free, and the only placeholder it may open is {{count}}, which the host substitutes with the formatted run count.",

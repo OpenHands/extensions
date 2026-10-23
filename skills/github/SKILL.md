@@ -41,6 +41,25 @@ git remote -v && git branch # to find the current org, repo and branch
 git checkout -b create-widget && git add . && git commit -m "Create widget" && git push -u origin create-widget
 ```
 
+## Writing Pull Request Descriptions
+
+Use the `show-me` skill when writing or updating a PR description. If it is not
+available: pick the smallest visual that makes the change clear instead of requiring
+the user to reconstruct it from prose or the raw diff.
+
+- Follow the repository's PR template and contribution rules.
+- Give the PR a plain language title. Focus on what the user needs to see.
+- Lead with what changed and why. Show the important before/after with a focused
+  diff, call tree, component/file tree, pseudocode, or Mermaid diagram, as fits
+  the change. Keep the visual next to the short explanation it supports.
+- Ground examples in the actual base and head revisions. Name the relevant files
+  or symbols and link to source when helpful.
+- Keep simple changes brief; do not force a diagram onto a typo or dependency
+  bump. For a dense UI or design comparison, link a focused HTML artifact
+  when it helps and the host supports it.
+- Visual explanations supplement required tests and screenshots; they do not replace
+  evidence that the changed behavior works.
+
 ## Merging Pull Requests (async merge API)
 
 IMPORTANT:
@@ -76,7 +95,7 @@ Do not combine paths. Adding the `review-this` label on top of a reviewer
 request is the same double-trigger: a reviewer-request webhook and a
 label webhook can each start an independent agent, producing a formal review
 and a second review-shaped comment for the same request. Do not post an
-`@reviewer please review` comment either — a mention responder can start yet
+`@reviewer please review` comment either - a mention responder can start yet
 another agent.
 
 Check pending requests and submitted reviews before retrying; lack of an

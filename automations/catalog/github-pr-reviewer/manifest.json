@@ -1,9 +1,9 @@
 {
   "id": "github-pr-reviewer",
-  "version": "1.9.2",
+  "version": "1.11.2",
   "name": "GitHub code review",
   "category": "Code review",
-  "description": "Review requested pull-request heads, resume an outstanding reviewer request on a schedule once its checks are green, classify all open non-draft pull requests that nobody requested and review eligible green heads, drain the backlog oldest-first under a small per-scan new-conversation bound, record exact-head decisions, stop early on out-of-scope changes, and optionally request a code-aware human maintainer after approval or a maintainer-decision scope stop.",
+  "description": "Review requested pull-request heads, resume an outstanding reviewer request on a schedule once its checks are green, classify all open non-draft pull requests that nobody requested and review eligible green heads, drain the backlog oldest-first under a small per-scan new-conversation bound, record exact-head decisions, stop early on out-of-scope changes, and optionally request a code-aware human maintainer after approval or a maintainer-decision scope stop only when a successfully fetched same-repository closing issue has priority:medium or priority:high.",
   "requires": {
     "integrations": {},
     "features": [
@@ -79,7 +79,7 @@
         "triggerReviewer": {
           "type": "text",
           "label": "Requested reviewer",
-          "help": "GitHub login whose review request starts an event-driven review.",
+          "help": "GitHub login whose review request starts an event-driven review. The review is published by the account whose token the automation uses, so on OpenHands Cloud and Enterprise set this to the connected account's login.",
           "default": "all-hands-bot",
           "required": true,
           "constraints": {
@@ -128,14 +128,14 @@
         "githubTokenSecret": {
           "type": "text",
           "label": "GitHub token secret",
-          "help": "Name of a saved Agent Server secret. Include it in the selected profile so the delegated agent can use GitHub.",
+          "help": "Name of the secret holding the GitHub token. On OpenHands Cloud and Enterprise, leave the default when GitHub is connected under Settings > Integrations: no saved secret is needed, the connected account's token is used, and the review is published by that account. On a local Agent Canvas this is the secret the GitHub integration saved; include it in the selected profile so the delegated agent can use GitHub.",
           "default": "GITHUB_PERSONAL_ACCESS_TOKEN",
           "required": true
         }
       }
     },
     "bundle": {
-      "version": "1.10.0",
+      "version": "1.11.2",
       "entrypoint": "python3 worker.py",
       "timeout": 300,
       "files": {

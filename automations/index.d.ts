@@ -42,6 +42,14 @@ export interface RecommendedAutomation {
   impact?: AutomationImpact;
   /** Present when this automation ships an extension-owned setup experience. */
   setup?: AutomationSetup;
+  /**
+   * How the automation runs once created, for an entry without a setup form:
+   * `cron` for a schedule, `event` for an event-driven trigger, or both. An
+   * entry whose `setup.form.triggers` declares the variants states it there
+   * instead. Informational: the host renders it as the card's trigger badge
+   * and filter.
+   */
+  triggers?: AutomationTriggerKind[];
 }
 
 export interface AutomationImpact {

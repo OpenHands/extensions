@@ -37,11 +37,20 @@ This skill is activated by keywords:
   thread immediately on trigger detection
 - **Automatic summaries**: when the conversation reaches a terminal state the
   agent's final response is posted back to the thread; error/stuck states
-  receive a clear error notice
+  receive a clear error notice, and every result shows the LLM settings source
+  and concrete model
 - **Persistent state**: conversation tracking and poll timestamps are stored
-  in `automation-state/slack_poller_{automation_id}.json` across runs
+  in the automation service's KV store across runs (a local Agent Canvas
+  without one uses `automation-state/slack_poller_{automation_id}.json`)
+- **Runs anywhere**: on a local Agent Canvas, and on OpenHands Cloud and
+  Enterprise, where each conversation is started through the OpenHands API in
+  a sandbox of its own with the user's own settings
 
 ## Prerequisites
+
+The footer reports `default` and the concrete model from the server settings
+already used to start the conversation. Follow-up replies keep those recorded
+values because they reuse the same conversation.
 
 Set at least one of the following in **OpenHands Settings - Secrets**:
 
@@ -54,7 +63,7 @@ Optional:
 
 | Secret | Default | Purpose |
 |--------|---------|---------|
-| `OPENHANDS_URL` | `http://localhost:8000` | Base URL for conversation links posted in Slack |
+| `OPENHANDS_URL` | `http://localhost:8000` | Base URL for conversation links posted in Slack (local Agent Canvas only) |
 
 ## Quick Start
 

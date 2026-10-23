@@ -35,6 +35,62 @@ def main(monkeypatch, tmp_path):
     return _load_module(monkeypatch, tmp_path / "workspace")
 
 
+CLOUD_URL = "https://app.example.test"
+GITLAB_MCP_URL = "https://gitlab.com/api/v4/mcp"
+CALL_TOOL_PATH = "/api/v1/mcp/servers/gitlab/call-tool"
+
+
+@pytest.fixture
+def cloud_main(monkeypatch, tmp_path):
+    """The script as a cloud run sees it: handed the OpenHands API, no agent server."""
+    monkeypatch.setenv("OPENHANDS_CLOUD_API_URL", CLOUD_URL)
+    monkeypatch.setenv("OPENHANDS_API_KEY", "openhands-key")
+    monkeypatch.setenv("SANDBOX_ID", "sandbox-1")
+    monkeypatch.setenv("SESSION_API_KEY", "session-key")
+    monkeypatch.delenv("AGENT_SERVER_URL", raising=False)
+    return _load_module(monkeypatch, tmp_path / "workspace")
+
+
+class CloudApi:
+    """Stand-in for the OpenHands API: records every call and answers from a table."""
+
+    def __init__(self, settings=None, tools=None):
+        self.calls = []
+        self.settings = settings or {
+            "agent_settings": {
+                "mcp_config": {
+                    "gitlab": {"url": GITLAB_MCP_URL, "transport": "http"},
+                    "rovo": {"url": "https://mcp.atlassian.com/v2/mcp"},
+                }
+            }
+        }
+        # Tool name -> result dict (what the tool's JSON text decodes to), or a
+        # callable taking the arguments.
+        self.tools = tools or {}
+
+    def __call__(self, method, path, body=None):
+        self.calls.append({"method": method, "path": path, "body": body})
+        if path == "/api/v1/settings":
+            return self.settings
+        if path == CALL_TOOL_PATH:
+            answer = self.tools[body["name"]]
+            if callable(answer):
+                answer = answer(body["arguments"])
+            if isinstance(answer, str):
+                return {"is_error": True, "text": answer}
+            return {"is_error": False, "text": json.dumps(answer)}
+        raise AssertionError(f"unexpected call {method} {path}")
+
+    def tool_calls(self, name):
+        return [c["body"]["arguments"] for c in self.calls if c["path"] == CALL_TOOL_PATH and c["body"]["name"] == name]
+
+
+def _wire(cloud_main, monkeypatch, api):
+    monkeypatch.setattr(cloud_main, "_cloud_request", api)
+    monkeypatch.setattr(cloud_main, "GITLAB_MCP_SERVER", "gitlab")
+    return api
+
+
 def _http_error(code: int, body: bytes = b"{}") -> urllib.error.HTTPError:
     return urllib.error.HTTPError("https://gitlab.com/api/v4", code, "err", {}, None)
 
@@ -395,6 +451,234 @@ def test_the_conversation_carries_the_mcp_config_when_there_is_one(main, monkeyp
     main.create_conversation("http://agent", "key", "do the thing", tmp_path)
 
     assert sent["body"]["mcp_config"] == config
+
+
+# ── GitLab through a connected MCP server (cloud runs) ────────────────────────
+
+
+def test_a_cloud_run_uses_the_connected_gitlab_mcp_server_and_reads_no_token(cloud_main, monkeypatch):
+    """The MCP connection replaces the token: no secret is read, no token verified."""
+    api = CloudApi()
+    monkeypatch.setattr(cloud_main, "_cloud_request", api)
+    read = []
+    monkeypatch.setattr(cloud_main, "get_secret", lambda name: read.append(name) or "token")
+
+    assert cloud_main._find_gitlab_mcp_server() == "gitlab"
+    assert read == []
+
+
+def test_a_configured_server_name_is_used_without_looking_at_settings(cloud_main, monkeypatch):
+    api = CloudApi()
+    monkeypatch.setattr(cloud_main, "_cloud_request", api)
+    monkeypatch.setattr(cloud_main, "GITLAB_MCP_SERVER_NAME", "my-gitlab")
+
+    assert cloud_main._find_gitlab_mcp_server() == "my-gitlab"
+    assert api.calls == []
+
+
+def test_a_cloud_run_without_a_gitlab_mcp_server_still_resolves_the_token(cloud_main, monkeypatch):
+    """The fallback is unchanged: GITLAB_TOKEN first, then the connected integration's token."""
+    api = CloudApi(settings={"agent_settings": {"mcp_config": {
+        "rovo": {"url": "https://mcp.atlassian.com/v2/mcp"},
+        "other": {"url": "https://gitlab.example.com/api/v4/mcp"},
+    }}})
+    monkeypatch.setattr(cloud_main, "_cloud_request", api)
+
+    def get_secret(name):
+        if name == "gitlab_token":
+            return "integration-token"
+        raise RuntimeError("no such secret")
+
+    monkeypatch.setattr(cloud_main, "get_secret", get_secret)
+
+    assert cloud_main._find_gitlab_mcp_server() is None
+    assert cloud_main._resolve_gitlab_token() == "integration-token"
+
+
+def test_the_cloud_error_for_no_gitlab_access_names_every_option(cloud_main, monkeypatch):
+    def get_secret(name):
+        raise RuntimeError("no such secret")
+
+    monkeypatch.setattr(cloud_main, "get_secret", get_secret)
+
+    with pytest.raises(RuntimeError) as excinfo:
+        cloud_main._resolve_gitlab_token()
+
+    message = str(excinfo.value)
+    assert "GitLab MCP server" in message
+    assert "GitLab integration" in message
+    assert "GITLAB_TOKEN" in message
+
+
+def test_a_gitlab_token_secret_wins_over_a_connected_gitlab_mcp_server(cloud_main, monkeypatch):
+    """The MCP tools need GitLab 19.4 or later, while a token works with any GitLab."""
+    api = CloudApi()
+    monkeypatch.setattr(cloud_main, "_cloud_request", api)
+    monkeypatch.setattr(
+        cloud_main, "get_secret", lambda name: "secret-token" if name == "GITLAB_TOKEN" else ""
+    )
+    verified = []
+    monkeypatch.setattr(cloud_main, "_verify_token", verified.append)
+
+    assert cloud_main._choose_gitlab_access() == "secret-token"
+    assert cloud_main.GITLAB_MCP_SERVER is None
+    assert verified == ["secret-token"]
+    assert api.calls == []
+
+
+def test_the_gitlab_sign_in_token_wins_over_a_connected_gitlab_mcp_server(cloud_main, monkeypatch):
+    """A user who signed in with GitLab is not asked for a GITLAB_TOKEN secret on top."""
+    api = CloudApi()
+    monkeypatch.setattr(cloud_main, "_cloud_request", api)
+
+    def get_secret(name):
+        if name == "gitlab_token":
+            return "sign-in-token"
+        raise RuntimeError("no such secret")
+
+    monkeypatch.setattr(cloud_main, "get_secret", get_secret)
+    verified = []
+    monkeypatch.setattr(cloud_main, "_verify_token", verified.append)
+
+    assert cloud_main._choose_gitlab_access() == "sign-in-token"
+    assert cloud_main.GITLAB_MCP_SERVER is None
+    assert verified == ["sign-in-token"]
+    assert api.calls == []
+
+
+def _no_secrets(name):
+    raise RuntimeError("no such secret")
+
+
+def test_without_any_gitlab_token_the_connected_gitlab_mcp_server_is_used(cloud_main, monkeypatch):
+    monkeypatch.setattr(cloud_main, "_cloud_request", CloudApi())
+    monkeypatch.setattr(cloud_main, "get_secret", _no_secrets)
+    verified = []
+    monkeypatch.setattr(cloud_main, "_verify_token", verified.append)
+
+    assert cloud_main._choose_gitlab_access() == ""
+    assert cloud_main.GITLAB_MCP_SERVER == "gitlab"
+    assert verified == []
+
+
+def test_without_a_token_or_a_gitlab_mcp_server_the_run_says_how_to_connect(cloud_main, monkeypatch):
+    monkeypatch.setattr(
+        cloud_main, "_cloud_request", CloudApi(settings={"agent_settings": {"mcp_config": {}}})
+    )
+    monkeypatch.setattr(cloud_main, "get_secret", _no_secrets)
+
+    with pytest.raises(RuntimeError) as excinfo:
+        cloud_main._choose_gitlab_access()
+
+    message = str(excinfo.value)
+    assert "GitLab integration" in message and "GITLAB_TOKEN" in message
+
+
+def test_labelled_issues_are_listed_through_the_mcp_server(cloud_main, monkeypatch):
+    pages = {
+        None: {"nodes": [
+            {"iid": "42", "title": "Retry uploads", "webUrl": "https://gitlab.com/group/project/-/issues/42",
+             "state": "OPEN", "labels": {"nodes": [{"title": "openhands"}]}},
+        ], "pageInfo": {"hasNextPage": True, "endCursor": "c2"}},
+        "c2": {"nodes": [
+            {"iid": "7", "title": "Old one", "webUrl": "https://gitlab.com/group/project/-/issues/7",
+             "state": "OPEN", "labels": ["openhands", "bug"]},
+        ], "pageInfo": {"hasNextPage": False}},
+    }
+    api = _wire(cloud_main, monkeypatch, CloudApi(tools={
+        "list_work_items": lambda args: pages[args.get("after")],
+    }))
+
+    issues = cloud_main._list_labeled_issues("", "group/project")
+
+    assert [issue["iid"] for issue in issues] == [42, 7]
+    assert issues[0]["web_url"] == "https://gitlab.com/group/project/-/issues/42"
+    assert cloud_main._has_trigger_label(issues[0]) and cloud_main._has_trigger_label(issues[1])
+    first, second = api.tool_calls("list_work_items")
+    assert first["project_id"] == "group/project"
+    assert first["state"] == "opened"
+    assert first["label_name"] == ["openhands"]
+    assert second["after"] == "c2"
+
+
+def test_the_label_event_is_the_newest_system_note_that_added_the_label(cloud_main, monkeypatch):
+    api = _wire(cloud_main, monkeypatch, CloudApi(tools={
+        "search_labels": {"nodes": [{"id": "gid://gitlab/ProjectLabel/99", "title": "openhands"}]},
+        "get_work_item": {"iid": "42", "notes": {"nodes": [
+            {"id": "gid://gitlab/Note/1", "system": True, "body": "added ~99 label", "createdAt": "2026-01-01T00:00:00Z"},
+            {"id": "gid://gitlab/Note/2", "system": False, "body": "added ~99 label", "createdAt": "2026-01-02T00:00:00Z"},
+            {"id": "gid://gitlab/Note/3", "system": True, "body": "added ~\"openhands\" label", "createdAt": "2026-01-03T00:00:00Z"},
+            {"id": "gid://gitlab/Note/4", "system": True, "body": "removed ~\"openhands\" label", "createdAt": "2026-01-04T00:00:00Z"},
+        ], "pageInfo": {"hasNextPage": False}}},
+    }))
+
+    event = cloud_main._latest_trigger_label_event("", "group/project", 42)
+
+    assert event == {"id": "gid://gitlab/Note/3", "created_at": "2026-01-03T00:00:00Z"}
+    [call] = api.tool_calls("get_work_item")
+    assert call["work_item_iid"] == 42 and "notes" in call["include"]
+
+
+def test_an_issue_without_a_label_note_is_keyed_once(cloud_main, monkeypatch):
+    _wire(cloud_main, monkeypatch, CloudApi(tools={
+        "search_labels": {"nodes": []},
+        "get_work_item": {"iid": "42", "createdAt": "2026-01-01T00:00:00Z", "notes": {"nodes": []}},
+    }))
+
+    event = cloud_main._latest_trigger_label_event("", "group/project", 42)
+
+    assert event == {"id": "first", "created_at": "2026-01-01T00:00:00Z"}
+
+
+def test_branches_are_probed_and_merge_requests_found_through_the_mcp_server(cloud_main, monkeypatch):
+    api = _wire(cloud_main, monkeypatch, CloudApi(tools={
+        "list_branches": lambda args: [{"name": "openhands/issue-42"}, {"name": "openhands/issue-42-x"}]
+        if args["search"] == "openhands/issue-42" else [],
+        "get_work_item": {"iid": "42", "relatedMergeRequests": {"nodes": [
+            {"iid": "5", "sourceBranch": "other", "webUrl": "https://gitlab.com/group/project/-/merge_requests/5"},
+            {"iid": "6", "sourceBranch": "openhands/issue-42-2", "webUrl": "https://gitlab.com/group/project/-/merge_requests/6"},
+        ]}},
+    }))
+
+    assert cloud_main._branch_name("", "group/project", 42) == "openhands/issue-42-2"
+    assert api.tool_calls("list_branches")[0] == {"id": "group/project", "search": "openhands/issue-42", "per_page": 100}
+
+    found = cloud_main._existing_merge_request("", "group/project", "openhands/issue-42-2", iid=42)
+
+    assert found["web_url"] == "https://gitlab.com/group/project/-/merge_requests/6"
+    assert found["iid"] == 6
+    assert cloud_main._existing_merge_request("", "group/project", "openhands/issue-42", iid=42) is None
+
+
+def test_comments_go_through_the_mcp_server(cloud_main, monkeypatch):
+    api = _wire(cloud_main, monkeypatch, CloudApi(tools={"save_note": {"id": "gid://gitlab/Note/9"}}))
+
+    cloud_main._post_gitlab_comment("", "group/project", 42, "hello")
+
+    assert api.tool_calls("save_note") == [{"project_id": "group/project", "work_item_iid": 42, "body": "hello"}]
+
+
+def test_the_cloud_prompt_in_mcp_mode_delivers_through_the_tools(cloud_main, monkeypatch):
+    monkeypatch.setattr(cloud_main, "GITLAB_MCP_SERVER", "gitlab")
+    prompt = _prompt(cloud_main)
+
+    for tool in ("get_work_item", "add_branch", "add_commit", "save_merge_request", "get_repository_file"):
+        assert f"`{tool}`" in prompt
+    assert "private" in prompt
+    assert "GITLAB_TOKEN" not in prompt
+    assert "git push" not in prompt
+    assert "Closes #42" in prompt and "GITLAB_MR_OPENED" in prompt
+    assert '"Draft: [#42] Retry uploads"' in prompt
+    assert "untrusted input" in prompt
+
+
+def test_the_cloud_prompt_in_token_mode_is_unchanged(cloud_main, monkeypatch):
+    monkeypatch.setattr(cloud_main, "GITLAB_MCP_SERVER", None)
+    prompt = _prompt(cloud_main)
+
+    assert "git push" in prompt and "$GITLAB_TOKEN" in prompt
+    assert "Authorization: Bearer $GITLAB_TOKEN" in prompt
+    assert "`add_commit`" not in prompt
 
 
 # ── Issue discovery ───────────────────────────────────────────────────────────

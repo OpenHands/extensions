@@ -139,6 +139,20 @@ class StructuredReviews:
             if fresh["head"]["sha"] != head or fresh.get("state") != "open" or (fresh.get("draft") and not record.get("explicit")):
                 lease.save(status="stale", retired=list(dict.fromkeys([*record.get("retired", []), current])))
                 return result
+            # Attribute the claimed conversation before saving publication intent.
+            # Recovery keeps this payload even if its profile is edited later.
+            from main import _with_llm_provenance, _without_llm_provenance
+
+            # Agent text cannot provide attribution, even when metadata is gone.
+            payload["body"] = _without_llm_provenance(payload["body"])
+            try:
+                provenance = run.dispatcher.llm_provenance(cid)
+                if provenance is not None:
+                    payload["body"] = _with_llm_provenance(payload["body"], *provenance)
+            except Exception as exc:  # noqa: BLE001 - display never blocks publication
+                print(json.dumps({"repository": run.repository, "pr": pr["number"],
+                                  "llm_provenance_error": f"{type(exc).__name__}: {exc}"}),
+                      flush=True)
             # Intent precedes the only POST; failures require reconciliation.
             lease.save(status="posting", marker=marker, payload=payload)
             review = run.gh("POST", f"/pulls/{pr['number']}/reviews", payload)
