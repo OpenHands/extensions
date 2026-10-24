@@ -237,6 +237,10 @@ For manual npm dependency resolution, use npm >= 11.10 with
 committing the result. Older npm versions do not enforce this option. `npm ci`
 replays the lock and is not proof that newly locked versions meet the age rule.
 
-Use uv >= 0.9.25 for this policy; older versions cannot enforce all of
-the configured release-age settings. `tool.uv.required-version` also guards
-direct `uv sync` and `uv lock` use outside Make.
+Use uv >= 0.9.25 for this policy. Older versions cannot parse the boolean
+first-party exemptions and can discard the entire `[tool.uv]` table, including
+`required-version`. Check `uv --version` before running `uv sync`, `uv lock`,
+or `uv run`; this repository does not commit a lockfile to reject old parsers.
+The named exemptions cover the released SDK, tools, workspace, and agent-server
+packages used by the documented import checks; their third-party dependencies
+still have the seven-day cutoff.

@@ -36,4 +36,4 @@ required-version = ">=0.9.25"
 exclude-newer = "7 days"
 
 # Only first-party artifacts bypass the wait, not their dependencies.
-exclude-newer-package = { openhands-sdk = false }
+exclude-newer-package = { openhands-sdk = false, openhands-tools = false, openhands-workspace = false, openhands-agent-server = false }
