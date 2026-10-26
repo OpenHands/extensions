@@ -207,7 +207,7 @@ def test_create_reports_a_station_only_its_creator_can_tag(factory, monkeypatch)
     monkeypatch.setattr(factory, "_api", forbidden)
     result = factory.create(_create_args("github-pr-reviewer"))
     assert [e["id"] for e in result["existing"]] == ["a2"]
-    assert [e["id"] for e in result["not_tagged"]] == ["a2"]
+    assert [(e["id"], e["reason"]) for e in result["not_tagged"]] == [("a2", factory.NOT_CREATOR)]
 
 
 def test_tag_adds_the_factory_tag_to_other_skills_stations(factory, monkeypatch):
@@ -225,7 +225,7 @@ def test_tag_adds_the_factory_tag_to_other_skills_stations(factory, monkeypatch)
     stored["x1"] = {"id": "x1", "tags": []}
     monkeypatch.setattr(factory, "_api", api)
     result = factory.tag(type("Args", (), {"ids": ["j1", "l1", "x1"]}))
-    assert result == {"tagged": ["j1", "l1"], "not_tagged": ["x1"]}
+    assert result == {"tagged": ["j1", "l1"], "not_tagged": [{"id": "x1", "reason": factory.NOT_CREATOR}]}
     assert ("PATCH", "/j1", {"tags": ["jira", "software-factory"]}) in calls
     assert not any(method == "PATCH" and path == "/l1" for method, path, _ in calls)
 
@@ -239,6 +239,67 @@ def test_tag_raises_errors_other_than_forbidden(factory, monkeypatch):
     monkeypatch.setattr(factory, "_api", api)
     with pytest.raises(factory.FactoryError, match="422"):
         factory.tag(type("Args", (), {"ids": ["a1"]}))
+
+
+# FastAPI's 422 from an automation service older than tags, whose create and
+# update bodies forbid unknown fields.
+TAGS_FORBIDDEN = json.dumps(
+    {
+        "detail": [
+            {
+                "type": "extra_forbidden",
+                "loc": ["body", "tags"],
+                "msg": "Extra inputs are not permitted",
+                "input": ["software-factory"],
+            }
+        ]
+    }
+)
+
+
+def test_create_falls_back_to_untagged_on_a_service_without_tags(factory, monkeypatch):
+    responses = [(201, {"id": "a1", "enabled": False}), (200, {"id": "a2", "enabled": False})]
+    posts, patches = _stub_create(factory, monkeypatch, responses)
+    accepts = factory._api
+
+    def old_service(method, path, body=None, **kwargs):
+        if body and "tags" in body:
+            raise factory.FactoryError(f"{method} {path} -> 422", status=422, detail=TAGS_FORBIDDEN)
+        return accepts(method, path, body, **kwargs)
+
+    monkeypatch.setattr(factory, "_api", old_service)
+    result = factory.create(_create_args("github-pr-reviewer,github-issue-to-pr"))
+    assert all("tags" not in body for body in posts)
+    assert [c["id"] for c in result["created"]] == ["a1"]
+    assert [e["id"] for e in result["existing"]] == ["a2"]
+    assert [(e["id"], e["reason"]) for e in result["not_tagged"]] == [
+        ("a1", factory.TAGS_UNSUPPORTED),
+        ("a2", factory.TAGS_UNSUPPORTED),
+    ]
+    assert patches == []
+
+
+def test_create_raises_a_422_that_is_not_about_tags(factory, monkeypatch):
+    _stub_create(factory, monkeypatch, [])
+    missing = json.dumps({"detail": [{"type": "missing", "loc": ["body", "trigger"], "msg": "Field required"}]})
+
+    def api(method, path, body=None, **kwargs):
+        raise factory.FactoryError(f"{method} {path} -> 422: {missing}", status=422, detail=missing)
+
+    monkeypatch.setattr(factory, "_api", api)
+    with pytest.raises(factory.FactoryError, match="422"):
+        factory.create(_create_args("github-pr-reviewer"))
+
+
+def test_tag_reports_a_service_without_tags(factory, monkeypatch):
+    def api(method, path, body=None, **kwargs):
+        if method == "GET":
+            return {"id": "a1"}
+        raise factory.FactoryError(f"{method} {path} -> 422", status=422, detail=TAGS_FORBIDDEN)
+
+    monkeypatch.setattr(factory, "_api", api)
+    result = factory.tag(type("Args", (), {"ids": ["a1"]}))
+    assert result == {"tagged": [], "not_tagged": [{"id": "a1", "reason": factory.TAGS_UNSUPPORTED}]}
 
 
 def test_create_disables_a_station_the_service_returned_enabled(factory, monkeypatch):

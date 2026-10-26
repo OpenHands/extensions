@@ -64,7 +64,7 @@ The script reads the token and never prints it.
 | `$F preflight --repos a/b,c/d` | Which stations this deployment supports, the agent profile, the GitHub login, push access per repository. |
 | `$F create --repos a/b --ids ID,ID [--set FIELD=VALUE] [--set ID.FIELD=VALUE]` | Fills each station's form (answers, then derived values, then manifest defaults), uploads the bundle and creates it disabled with the `software-factory` tag. `FIELD=VALUE` applies to every listed station with that field. Stations that already exist are reported under `existing`, not recreated, and get the tag added. |
 | `$F tune --repos a/b --ids ID,ID [--set FIELD=VALUE] [--set ID.FIELD=VALUE]` | Applies new settings to an existing station by updating it in place. Use this to change a value that is fixed at creation. |
-| `$F tag ID...` | Adds the `software-factory` tag to automations created outside the script, so the Automations list can filter to the factory. Lists any it could not tag under `not_tagged`. |
+| `$F tag ID...` | Adds the `software-factory` tag to automations created outside the script, so the Automations list can filter to the factory. Lists any it could not tag under `not_tagged`, each with its `reason`. |
 | `$F verify ID... [--no-wait ID...]` | Dispatches once, enables the ones whose run `COMPLETED` and disables the rest, reporting their `error_detail`. `--no-wait` enables without waiting. |
 | `$F status ID...` | The latest run of each. |
 | `$F prs --repos a/b [--branch-prefix P]` | Open pull requests whose branch starts with `P` (default `openhands/agents-md`, the AGENTS.md maintainer's). |
@@ -99,9 +99,12 @@ active one.
 - **Factory tag**: every station carries the `software-factory` tag, which the
   Automations list filters on. `create` adds it; for a station another skill
   creates (Jira or Linear issue to PR, Linear triage, QA changes), run
-  `$F tag <id>` once it exists. A station listed under `not_tagged` was created
-  by another user, and only its creator can change its tags: tell the user they
-  can ask that person to add the tag.
+  `$F tag <id>` once it exists. A station listed under `not_tagged` works but
+  has no tag, and its `reason` says why. `only its creator can change its tags`:
+  another user created it, so tell the user they can ask that person to add the
+  tag. `this automation service does not support tags yet`: the deployment's
+  automation service predates tags; tell the user, and run `$F tag <id>` for
+  those stations once it is upgraded.
 
 ## Phase 1 - Working factory
 

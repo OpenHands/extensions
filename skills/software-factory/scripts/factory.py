@@ -51,12 +51,16 @@ STATIONS = (
 TERMINAL = {"COMPLETED", "FAILED", "CANCELLED", "SKIPPED"}
 # Every station carries this tag, so the Automations list can filter to the factory.
 FACTORY_TAG = "software-factory"
+# Why a station could not get the factory tag (reported under not_tagged).
+NOT_CREATOR = "only its creator can change its tags"
+TAGS_UNSUPPORTED = "this automation service does not support tags yet"
 
 
 class FactoryError(Exception):
-    def __init__(self, message: str, status: int | None = None, **extra):
+    def __init__(self, message: str, status: int | None = None, detail: str = "", **extra):
         super().__init__(message)
         self.status = status
+        self.detail = detail
         self.extra = extra
 
 
@@ -104,7 +108,7 @@ def _request(
             text = resp.read().decode()
     except urllib.error.HTTPError as err:
         detail = err.read().decode()[:2000]
-        raise FactoryError(f"{method} {url} -> {err.code}: {detail}", status=err.code) from None
+        raise FactoryError(f"{method} {url} -> {err.code}: {detail}", status=err.code, detail=detail) from None
     except urllib.error.URLError as err:
         raise FactoryError(f"{method} {url} -> {err.reason}") from None
     payload = json.loads(text) if text.strip() else None
@@ -395,41 +399,68 @@ def create(args) -> dict:
             if _needs_profile(entry):
                 profile = profile or _profile(args.profile)
                 body["agent_profile_id"] = profile["id"]
-            status_code, automation = _api("POST", "", body, return_status=True)
+            try:
+                status_code, automation = _api("POST", "", body, return_status=True)
+            except FactoryError as err:
+                if not _rejects_tags(err):
+                    raise
+                # A service older than automation tags: create the station untagged.
+                del body["tags"]
+                status_code, automation = _api("POST", "", body, return_status=True)
+            summary = _summary(station, body["name"], body["trigger"], automation)
             if status_code == 200:
                 # The service returns the org's existing automation for the same
                 # template id (see find_existing_template_automation). Report it
                 # as pre-existing so a repeat run does not claim it created it.
                 # It comes back unchanged, so the factory tag is added here.
-                summary = _summary(station, body["name"], body["trigger"], automation)
                 existing.append(summary)
-                if not _add_factory_tag(automation):
-                    not_tagged.append(summary)
+                reason = _add_factory_tag(automation)
+                if reason:
+                    not_tagged.append({**summary, "reason": reason})
                 continue
             if automation.get("enabled") or automation.get("state") == "ACTIVE":
                 _api("PATCH", f"/{automation['id']}", {"enabled": False})
-            created.append(_summary(station, body["name"], body["trigger"], automation))
+            created.append(summary)
+            if "tags" not in body:
+                not_tagged.append({**summary, "reason": TAGS_UNSUPPORTED})
     except FactoryError as err:
         raise FactoryError(str(err), created=created, existing=existing, not_tagged=not_tagged) from None
     return {"created": created, "existing": existing, "not_tagged": not_tagged}
 
 
-def _add_factory_tag(automation: dict) -> bool:
-    """Add the factory tag to an automation; False when only its creator may.
+def _rejects_tags(err: FactoryError) -> bool:
+    """Whether the service predates automation tags.
+
+    Its create and update bodies forbid unknown fields, so it answers 422 with
+    an ``extra_forbidden`` error at ``tags``.
+    """
+    if err.status != 422:
+        return False
+    try:
+        errors = json.loads(err.detail)["detail"]
+        return any(e["type"] == "extra_forbidden" and e["loc"][-1] == "tags" for e in errors)
+    except (ValueError, KeyError, TypeError, IndexError):
+        return False
+
+
+def _add_factory_tag(automation: dict) -> str | None:
+    """Add the factory tag to an automation; the reason when it cannot.
 
     The service replaces the whole tag list on PATCH, so the automation's own
     tags are sent back with the factory tag appended.
     """
     tags = automation.get("tags") or []
     if FACTORY_TAG in tags:
-        return True
+        return None
     try:
         _api("PATCH", f"/{automation['id']}", {"tags": [*tags, FACTORY_TAG]})
     except FactoryError as err:
         if err.status == 403:
-            return False
+            return NOT_CREATOR
+        if _rejects_tags(err):
+            return TAGS_UNSUPPORTED
         raise
-    return True
+    return None
 
 
 def tag(args) -> dict:
@@ -438,7 +469,11 @@ def tag(args) -> dict:
     not_tagged = []
     for automation_id in args.ids:
         automation = _api("GET", f"/{automation_id}")
-        (tagged if _add_factory_tag(automation) else not_tagged).append(automation_id)
+        reason = _add_factory_tag(automation)
+        if reason:
+            not_tagged.append({"id": automation_id, "reason": reason})
+        else:
+            tagged.append(automation_id)
     return {"tagged": tagged, "not_tagged": not_tagged}
 
 
