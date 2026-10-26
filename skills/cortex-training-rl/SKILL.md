@@ -23,16 +23,17 @@ sends the scored episodes back for a policy update.
 
 Two ready-to-run OpenHands recipes ship in Arctic Platform:
 1. **Harbor tasks (`recipes/rl/openhands/harbor`):** go directly from any
-   [Harbor](https://github.com/harbor-framework/harbor) task directory (such as
+   [Harbor](https://github.com/laude-institute/harbor) task directory (such as
    Terminal-Bench 2.0, where each task has `instruction.md`, `environment/`, and
    `tests/test.sh`) to RL post-training of an OpenHands agent with
-   `TerminalTool`, graded by the task's `tests/test.sh` verifier.
+   `TerminalTool` and `HarborFinishTool`, graded by the task's `tests/test.sh`
+   verifier.
 2. **CodeScout code localization (`recipes/rl/openhands/code_localization`):**
    train Qwen3.5-4B to name the files, classes, and functions a bug touches,
    scored by F1 (maximum 3).
 
 - Code localization recipe: [Arctic Platform `recipes/rl/openhands/code_localization`](https://github.com/Snowflake-AI-Research/Arctic-Platform/tree/main/recipes/rl/openhands/code_localization)
-- Harbor tasks recipe: [Arctic Platform `recipes/rl/openhands/harbor`](https://github.com/Snowflake-AI-Research/Arctic-Platform/tree/main/recipes/rl/openhands/harbor)
+- Harbor tasks recipe: [Arctic Platform `recipes/rl/openhands/harbor`](https://github.com/Snowflake-AI-Research/Arctic-Platform/pull/294)
 - Cortex Training guide: [`docs/integrations/openhands.md`](https://github.com/snowflakedb/cortex-training/blob/main/docs/integrations/openhands.md)
 - Bring your own agent / Harbor tasks: [`docs/integrations/bring-your-own-agent.md`](https://github.com/snowflakedb/cortex-training/blob/main/docs/integrations/bring-your-own-agent.md)
 - How the harness plugs into a trainer: <https://docs.openhands.dev/sdk/guides/train-rl>
@@ -229,7 +230,10 @@ which is harness-agnostic:
   plus 4 sampling H200s, 100 steps of 8 prompts x 8 rollouts gave 10-step means
   of `reward/avg_raw_reward`: 0.39 for steps 1-10, 2.28 for steps 21-30, and
   2.28 for steps 91-100 (matching the CodeScout reference curve near 2.3).
-- **Harbor tasks (Terminal-Bench 2.0):** On 4 training plus 4 sampling H200s
-  with Qwen3.5-4B, multi-turn RL over Harbor tasks with `tests/test.sh` pytest
-  verification increased the grader pass rate from 20.0% at step 0 to 75.0%
-  (3.0x increase in mean episode reward).
+- **Harbor tasks (`recipes/rl/openhands/harbor` on Terminal-Bench 2.0):** On 4
+  training plus 4 sampling H200s with Qwen3.5-4B, running the OpenHands agent
+  (`TerminalTool` + `HarborFinishTool`) over Harbor tasks with `tests/test.sh`
+  pytest verification doubled `reward/avg_raw_reward` from 0.2500 at step 1 to
+  0.5625 at step 4 and stabilized at 0.5000 across steps 7-10 (`pass@8 = 1.0`).
+  In the Tinker Cookbook Harbor RL recipe (`tinker_cookbook.recipes.harbor_rl`),
+  grader pass rate similarly climbed from 20.0% at step 0 to 75.0%.
