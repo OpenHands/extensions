@@ -36,6 +36,8 @@ Environment Variables:
     REPO_NAME: Repository name in format owner/repo (required)
     REQUIRE_EVIDENCE: Whether to require PR description evidence showing the code
         works ('true'/'false', default: 'false')
+    REQUIRE_PINNED_ACTIONS: Whether to require third-party workflow actions
+        pinned to commit SHAs ('true'/'false', default: 'false')
     COLLECT_FEEDBACK: Whether to ask maintainers for thumbs up/down feedback by
         appending a short footer to the main review body ('true'/'false',
         default: 'false')
@@ -1043,6 +1045,7 @@ def validate_environment() -> dict[str, Any]:
         "model": os.getenv("LLM_MODEL", "anthropic/claude-sonnet-4-5-20250929"),
         "base_url": os.getenv("LLM_BASE_URL"),
         "require_evidence": _get_bool_env("REQUIRE_EVIDENCE"),
+        "require_pinned_actions": _get_bool_env("REQUIRE_PINNED_ACTIONS"),
         "collect_feedback": _get_bool_env("COLLECT_FEEDBACK"),
         "review_run_url": os.getenv("REVIEW_RUN_URL", ""),
         "use_sub_agents": use_sub_agents,
@@ -1341,11 +1344,13 @@ def main():
     config = validate_environment()
     pr_info = config["pr_info"]
     require_evidence = config["require_evidence"]
+    require_pinned_actions = config["require_pinned_actions"]
     collect_feedback = config["collect_feedback"]
     use_sub_agents = config["use_sub_agents"]
 
     logger.info(f"Reviewing PR #{pr_info['number']}: {pr_info['title']}")
     logger.info(f"Require PR evidence: {require_evidence}")
+    logger.info(f"Require pinned actions: {require_pinned_actions}")
     logger.info(f"Collect review feedback: {collect_feedback}")
     logger.info(f"Sub-agent delegation: {use_sub_agents}")
     logger.info(f"Agent kind: {config['agent_kind']}")
@@ -1374,6 +1379,7 @@ def main():
             collect_feedback=collect_feedback,
             review_run_url=config["review_run_url"],
             use_sub_agents=use_sub_agents,
+            require_pinned_actions=require_pinned_actions,
         )
 
         secrets = {}
