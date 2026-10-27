@@ -1,7 +1,7 @@
 {
   "name": "cortex-training-rl",
   "version": "1.0.0",
-  "description": "Run reinforcement-learning post-training of a model inside the OpenHands harness on Snowflake Cortex Training with the Arctic Platform recipe. Use when launching, monitoring, debugging, or stopping an OpenHands RL run on Cortex Training.",
+  "description": "Run reinforcement-learning post-training of a model inside the OpenHands harness on Snowflake Cortex Training for any Harbor training and eval task directories or SWE-smith code localization, and generate the reward convergence graph.",
   "author": {
     "name": "OpenHands",
     "email": "contact@all-hands.dev"
@@ -11,10 +11,15 @@
   "license": "MIT",
   "keywords": [
     "cortex-training",
+    "snowflake",
     "reinforcement-learning",
     "post-training",
+    "grpo",
+    "gspo",
     "skyrl",
     "arctic-platform",
-    "codescout"
+    "codescout",
+    "harbor",
+    "swe-smith"
   ]
 }
