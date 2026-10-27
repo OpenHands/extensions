@@ -63,7 +63,10 @@ def test_reviewer_plugin_schema_accepts_catalog_config(factory):
     config = factory._station_config(entry, values)
 
     assert config["max_new_per_run"] == 4
+    assert config["maintainers"] == ""
     assert not list(validator.iter_errors(config))
+    assert validator.is_valid({**config, "maintainers": ["alice", "bob"]})
+    assert validator.is_valid({**config, "maintainers": "alice, bob"})
     for invalid in (0, "4", True):
         assert not validator.is_valid({**config, "max_new_per_run": invalid})
 

@@ -73,7 +73,7 @@
           "default": 2
         },
         "maintainers": {
-          "type": "array",
+          "type": ["array", "string"],
           "items": {
             "type": "string"
           },
