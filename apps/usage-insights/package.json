@@ -1,0 +1,13 @@
+{
+  "name": "usage-insights",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "vitest run --environment jsdom"
+  },
+  "devDependencies": {
+    "vitest": "^3.2.4",
+    "jsdom": "^26.0.0"
+  }
+}

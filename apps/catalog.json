@@ -14,5 +14,13 @@
     "source": "./apps/vscode",
     "manifest": "./apps/vscode/canvas-extension.json",
     "beta": true
+  },
+  {
+    "id": "usage-insights",
+    "name": "Usage Insights",
+    "description": "Track OpenHands conversation tokens, estimated cost, models, and task budgets.",
+    "source": "./apps/usage-insights",
+    "manifest": "./apps/usage-insights/canvas-extension.json",
+    "beta": true
   }
 ]

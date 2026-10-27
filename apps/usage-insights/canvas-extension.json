@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "name": "usage-insights",
+  "display_name": "Usage Insights",
+  "version": "0.1.0",
+  "description": "Track OpenHands conversation tokens, estimated cost, models, and task budgets.",
+  "entrypoint": "extension.js",
+  "contributes": {
+    "pages": [
+      {
+        "id": "usage",
+        "title": "Usage Insights",
+        "path": "/usage",
+        "nav_label": "Usage",
+        "description": "Explore OpenHands conversation token usage and estimated costs."
+      }
+    ]
+  }
+}

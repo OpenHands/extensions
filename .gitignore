@@ -30,3 +30,7 @@ uv.lock
 
 # npm pack artifacts (also keeps stray tarballs out of the published package)
 *.tgz
+
+# App-local Node.js dependencies and test caches
+apps/*/node_modules/
+
