@@ -21,19 +21,21 @@ The trainer and the sampler run on Cortex Training GPUs. Your machine runs a
 CPU-only driver that executes OpenHands conversations against the sampler and
 sends the scored episodes back for a policy update.
 
-Two ready-to-run OpenHands recipes ship in Arctic Platform:
-1. **Harbor tasks (`recipes/rl/openhands/harbor`):** go directly from any
-   [Harbor](https://github.com/laude-institute/harbor) task directory (such as
-   Terminal-Bench 2.0, where each task has `instruction.md`, `environment/`, and
-   `tests/test.sh`) to RL post-training of an OpenHands agent with
-   `TerminalTool` and `HarborFinishTool`, graded by the task's `tests/test.sh`
-   verifier.
+Two ready-to-run recipes ship in Arctic Platform:
+1. **Harbor RL (`recipes/rl/harbor` + `arctic_platform/integrations/harbor`):**
+   go directly from any [Harbor](https://github.com/laude-institute/harbor)
+   training and evaluation task directories (`TRAIN_HARBOR_TASKS` and
+   `EVAL_HARBOR_TASKS`, where each task has `instruction.md`, `environment/`,
+   and `tests/test.sh`) and an optional OpenHands skill (`HARBOR_SKILL`) to RL
+   post-training on Cortex Training, orchestrated by Harbor's `Trial` and
+   `Verifier`.
 2. **CodeScout code localization (`recipes/rl/openhands/code_localization`):**
    train Qwen3.5-4B to name the files, classes, and functions a bug touches,
    scored by F1 (maximum 3).
 
 - Code localization recipe: [Arctic Platform `recipes/rl/openhands/code_localization`](https://github.com/Snowflake-AI-Research/Arctic-Platform/tree/main/recipes/rl/openhands/code_localization)
-- Harbor tasks recipe: [Arctic Platform `recipes/rl/openhands/harbor`](https://github.com/Snowflake-AI-Research/Arctic-Platform/pull/294)
+- Harbor RL recipe & integration: [Arctic Platform `recipes/rl/harbor` (PR #294)](https://github.com/Snowflake-AI-Research/Arctic-Platform/pull/294)
+- Snowflake Cortex Sandboxes provider for Harbor: [Harbor `--env snowflake` (PR #3918)](https://github.com/harbor-framework/harbor/pull/3918)
 - Cortex Training guide: [`docs/integrations/openhands.md`](https://github.com/snowflakedb/cortex-training/blob/main/docs/integrations/openhands.md)
 - Bring your own agent / Harbor tasks: [`docs/integrations/bring-your-own-agent.md`](https://github.com/snowflakedb/cortex-training/blob/main/docs/integrations/bring-your-own-agent.md)
 - How the harness plugs into a trainer: <https://docs.openhands.dev/sdk/guides/train-rl>
@@ -88,21 +90,21 @@ rollout holds one clone or trial directory of its task.
 Follow the recipe README: `uv`, SkyRL at tag `skyrl-v0.3.0` as `SKYRL_HOME`,
 and the Arctic Platform checkout (`main`).
 
-**Option A - Harbor tasks (Terminal-Bench 2.0 or custom Harbor tasks):**
+**Option A - Harbor tasks (Terminal-Bench 2.0, SWE-smith Harbor tasks, or custom Harbor tasks):**
 
-Download a Harbor dataset (or point `HARBOR_TASKS_DIR` at any directory of
-Harbor tasks containing `instruction.md` and `tests/test.sh`):
+Download a Harbor dataset (or point `TRAIN_HARBOR_TASKS` and `EVAL_HARBOR_TASKS`
+at any directories of Harbor tasks containing `instruction.md` and `tests/test.sh`):
 
 ```bash
 uvx harbor datasets download terminal-bench@2.0 -o ~/.cache/harbor/tasks/terminal-bench-2.0
-uv run recipes/rl/openhands/harbor/prepare_data.py \
-  --harbor-tasks-dir ~/.cache/harbor/tasks/terminal-bench-2.0 \
-  --out ~/data/harbor-openhands
+uv run recipes/rl/harbor/prepare_data.py \
+  --train-tasks-dir ~/.cache/harbor/tasks/terminal-bench-2.0 \
+  --eval-tasks-dir ~/.cache/harbor/tasks/terminal-bench-2.0 \
+  --out ~/data/harbor-rl
 ```
 
-(Or simply export `HARBOR_TASKS_DIR=~/.cache/harbor/tasks/terminal-bench-2.0`
-when launching `recipes/rl/openhands/harbor/run_qwen35_4b.sh`, which runs
-`prepare_data.py` automatically.)
+(Or simply export `TRAIN_HARBOR_TASKS` and `EVAL_HARBOR_TASKS` when launching
+`recipes/rl/harbor/run_qwen35_4b.sh`, which runs `prepare_data.py` automatically.)
 
 **Option B - CodeScout code localization (`SWE-smith`):**
 
@@ -125,19 +127,21 @@ removed. OpenHands drives its terminal tool through `libtmux`, which follows
 `TMUX` to whatever server the launcher sits in. If the variables leak, the
 rollouts create and kill sessions on the launcher's own server.
 
-**Launch Harbor tasks RL training (`recipes/rl/openhands/harbor/run_qwen35_4b.sh`):**
+**Launch Harbor RL training (`recipes/rl/harbor/run_qwen35_4b.sh`):**
 
 ```bash
-export RUN_NAME=qwen35-4b-openhands-harbor-$(date +%m%d-%H%M)
+export RUN_NAME=qwen35-4b-harbor-rl-$(date +%m%d-%H%M)
 export CKPT_DIR=$HOME/checkpoints/$RUN_NAME
-export HARBOR_TASKS_DIR=$HOME/.cache/harbor/tasks/terminal-bench-2.0
-export ARCTIC_CORTEX_JOB_COMMENT="<your name> openhands harbor - ask before cancelling"
+export TRAIN_HARBOR_TASKS=$HOME/.cache/harbor/tasks/terminal-bench-2.0
+export EVAL_HARBOR_TASKS=$HOME/.cache/harbor/tasks/terminal-bench-2.0
+export HARBOR_SKILL=/path/to/SKILL.md   # optional OpenHands skill
+export ARCTIC_CORTEX_JOB_COMMENT="<your name> harbor rl - ask before cancelling"
 export LOGGER=console OPENHANDS_WORKSPACE=/path/with/space STARTUP_TIMEOUT=14400
 mkdir -p "$CKPT_DIR"
 
 tmux -L "$RUN_NAME" new-session -d -s train \
   "echo \$\$ > $CKPT_DIR/launcher.pid; exec env -u TMUX -u TMUX_PANE \
-   bash recipes/rl/openhands/harbor/run_qwen35_4b.sh trainer.max_training_steps=50"
+   bash recipes/rl/harbor/run_qwen35_4b.sh trainer.max_training_steps=50"
 ```
 
 **Launch CodeScout code localization (`recipes/rl/openhands/code_localization/run_qwen35_4b.sh`):**
@@ -226,14 +230,14 @@ which is harness-agnostic:
 
 ## Reference result
 
-- **Code localization (`recipes/rl/openhands/code_localization`):** On 4 training
-  plus 4 sampling H200s, 100 steps of 8 prompts x 8 rollouts gave 10-step means
-  of `reward/avg_raw_reward`: 0.39 for steps 1-10, 2.28 for steps 21-30, and
-  2.28 for steps 91-100 (matching the CodeScout reference curve near 2.3).
-- **Harbor tasks (`recipes/rl/openhands/harbor` on Terminal-Bench 2.0):** On 4
-  training plus 4 sampling H200s with Qwen3.5-4B, running the OpenHands agent
-  (`TerminalTool` + `HarborFinishTool`) over Harbor tasks with `tests/test.sh`
-  pytest verification doubled `reward/avg_raw_reward` from 0.2500 at step 1 to
-  0.5625 at step 4 and stabilized at 0.5000 across steps 7-10 (`pass@8 = 1.0`).
-  In the Tinker Cookbook Harbor RL recipe (`tinker_cookbook.recipes.harbor_rl`),
-  grader pass rate similarly climbed from 20.0% at step 0 to 75.0%.
+- **Code localization without Harbor (`recipes/rl/openhands/code_localization`):**
+  On 4 training plus 4 sampling H200s, 100 steps of 8 prompts x 8 rollouts gave
+  10-step means of `reward/avg_raw_reward`: 0.39 for steps 1-10, 2.28 for steps
+  21-30, and 2.28 for steps 91-100 (matching the CodeScout reference curve near 2.3).
+- **Code localization and Terminal-Bench 2.0 with Harbor (`recipes/rl/harbor`):**
+  Running the exact same SWE-smith code localization task through Harbor's `Trial`
+  and `Verifier` (`tests/test.sh` F1 grading) on 4+4 H200s matched the non-Harbor
+  curve step-for-step, climbing from 0.27 at step 1 to 0.78 at step 10 and 2.10 by
+  step 19 (`pass@8 = 1.0`). On Terminal-Bench 2.0 Harbor tasks, `reward/avg_raw_reward`
+  doubled from 0.25 at step 1 to 0.56 at step 4 and stabilized at 0.50 across steps
+  7-10 (`pass@8 = 1.0`).
