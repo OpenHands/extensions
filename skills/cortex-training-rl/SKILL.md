@@ -213,12 +213,19 @@ Both recipes are built on `arctic_platform.integrations.harness`
      `trial.run()` pointed at `request.base_url` and `request.api_key`, and
      `grade_harbor` reads the task's `Verifier` output (`tests/test.sh` ->
      `/logs/verifier/reward.txt` or `reward.json`).
-   - Swap the Harbor agent or sandbox environment via `HARBOR_AGENT` (default:
-     `harbor_rl.agent:OpenHandsHarborAgent`, or `openhands-sdk`, `claude-code`,
-     `codex`, etc.) and `HARBOR_ENV` (default:
-     `arctic_platform.integrations.harbor.env:HostEnvironment`, or
-     `arctic_platform.integrations.harbor.snowflake_sandbox:SnowflakeSandboxEnvironment`
-     / `snowflake`, `docker`, `modal`, `daytona`).
+   - Swap the Harbor agent, OpenHands toolset/prompt, or sandbox environment via:
+     - `HARBOR_AGENT`: any Harbor `BaseAgent` (default:
+       `harbor_rl.agent:OpenHandsHarborAgent`, or Harbor's built-in
+       `openhands-sdk`, `openhands`, `mini-swe-agent`, `swe-agent`, or any custom
+       `module:AgentClass`).
+     - `OPENHANDS_TOOLS` (e.g. `terminal,file_editor,task_tracker`),
+       `OPENHANDS_SYSTEM_PROMPT_FILE`, and `HARBOR_SKILL` (one or more
+       `:`-separated `SKILL.md` paths or directories) to customize the target
+       OpenHands agent without writing a new class.
+     - `HARBOR_ENV`: any Harbor `BaseEnvironment` (default:
+       `arctic_platform.integrations.harbor.env:HostEnvironment`, or
+       `arctic_platform.integrations.harbor.snowflake_sandbox:SnowflakeSandboxEnvironment`
+       / `snowflake`, `docker`, `modal`, `daytona`).
 2. **Custom controller and context compaction (`arctic_platform.integrations.harness`):**
    - `ChatCompletionsProxy` splices the exact sampled token IDs across turns
      (`loss_mask = 1` on assistant turns, `0` on prompts and tool output). A

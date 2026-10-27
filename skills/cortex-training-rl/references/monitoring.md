@@ -64,15 +64,24 @@ for start in range(0, len(rewards), 10):
 W, H, padL, padR, padT, padB = 860, 360, 48, 28, 28, 42
 plotW, plotH = W - padL - padR, H - padT - padB
 max_step = max(len(rewards), 25)
+y_max = 3.0 if max(rewards) > 1.0 else 1.0
+y_ticks = (0, 1, 2, 3) if y_max == 3.0 else (0.0, 0.25, 0.5, 0.75, 1.0)
 x = lambda s: padL + ((s - 1) / max(max_step - 1, 1)) * plotW
-y = lambda v: padT + (1.0 - min(max(v, 0.0), 3.0) / 3.0) * plotH
+y = lambda v: padT + (1.0 - min(max(v, 0.0), y_max) / y_max) * plotH
 pts = lambda arr: " ".join(f"{x(i + 1):.1f},{y(v):.1f}" for i, v in enumerate(arr))
 
+ref_lines = (
+    [
+        f'<line x1="{x(1):.1f}" x2="{x(min(10, max_step)):.1f}" y1="{y(0.758):.1f}" y2="{y(0.758):.1f}" stroke="#e06c75" stroke-width="4" stroke-linecap="round"/>',
+        f'<line x1="{x(min(21, max_step)):.1f}" x2="{x(min(30, max_step)):.1f}" y1="{y(2.3):.1f}" y2="{y(2.3):.1f}" stroke="#e06c75" stroke-width="4" stroke-linecap="round"/>',
+    ]
+    if y_max == 3.0
+    else []
+)
 svg = [
     f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {W} {H}" width="{W}" height="{H}" style="background:#0f1115;font-family:sans-serif">',
-    *[f'<line x1="{padL}" x2="{W-padR}" y1="{y(v):.1f}" y2="{y(v):.1f}" stroke="#262930"/><text x="{padL-8}" y="{y(v)+4:.1f}" fill="#9ca3af" font-size="11" text-anchor="end">{v}</text>' for v in (0, 1, 2, 3)],
-    f'<line x1="{x(1):.1f}" x2="{x(min(10, max_step)):.1f}" y1="{y(0.758):.1f}" y2="{y(0.758):.1f}" stroke="#e06c75" stroke-width="4" stroke-linecap="round"/>',
-    f'<line x1="{x(min(21, max_step)):.1f}" x2="{x(min(30, max_step)):.1f}" y1="{y(2.3):.1f}" y2="{y(2.3):.1f}" stroke="#e06c75" stroke-width="4" stroke-linecap="round"/>',
+    *[f'<line x1="{padL}" x2="{W-padR}" y1="{y(v):.1f}" y2="{y(v):.1f}" stroke="#262930"/><text x="{padL-8}" y="{y(v)+4:.1f}" fill="#9ca3af" font-size="11" text-anchor="end">{v}</text>' for v in y_ticks],
+    *ref_lines,
     f'<polyline fill="none" stroke="#61afef" stroke-opacity="0.4" stroke-width="1.2" points="{pts(rewards)}"/>',
     f'<polyline fill="none" stroke="#61afef" stroke-width="2.8" points="{pts(mean5)}"/>',
     *[f'<circle cx="{x(i+1):.1f}" cy="{y(v):.1f}" r="3" fill="#61afef"/>' for i, v in enumerate(rewards)],
