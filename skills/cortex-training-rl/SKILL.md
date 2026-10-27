@@ -3,9 +3,10 @@ name: cortex-training-rl
 description: >-
   Run reinforcement-learning post-training of a model inside the OpenHands
   agent harness on Snowflake Cortex Training, using the Arctic Platform
-  OpenHands and Harbor code localization recipes (SkyRL GRPO, CodeScout code
-  localization, Harbor tasks). Use when asked to launch, monitor, debug, or
-  stop an OpenHands or Harbor RL run on Cortex Training.
+  OpenHands and Harbor recipes (SkyRL GRPO, CodeScout code localization,
+  Harbor tasks), and generate the step-by-step reward convergence graph. Use
+  when asked to launch, monitor, debug, stop, or plot an OpenHands or Harbor
+  RL run on Cortex Training.
 triggers:
 - cortex training
 - cortex-training
@@ -90,11 +91,12 @@ rollout holds one clone or trial directory of its task.
 Follow the recipe README: `uv`, SkyRL at tag `skyrl-v0.3.0` as `SKYRL_HOME`,
 and the Arctic Platform checkout (`main`).
 
-**Option A - Harbor code localization (`recipes/rl/harbor`):**
+**Option A - Harbor RL (`recipes/rl/harbor`):**
 
-Export the SWE-smith code localization tasks into Harbor `train/` and `eval/`
-task directories (or point `TRAIN_HARBOR_TASKS` and `EVAL_HARBOR_TASKS` at any
-Harbor task directories containing `instruction.md` and `tests/test.sh`):
+Point `TRAIN_HARBOR_TASKS` and `EVAL_HARBOR_TASKS` at any directories of Harbor
+tasks (each containing `instruction.md`, `environment/`, and `tests/test.sh`),
+or export the SWE-smith code localization tasks into Harbor `train/` and
+`eval/` directories:
 
 ```bash
 uv run recipes/rl/harbor/prepare_data.py \
@@ -102,11 +104,10 @@ uv run recipes/rl/harbor/prepare_data.py \
   --out ~/data/harbor-rl
 ```
 
-(Or simply export `TRAIN_HARBOR_TASKS=~/data/swe-smith-harbor-tasks/train` and
-`EVAL_HARBOR_TASKS=~/data/swe-smith-harbor-tasks/eval` when launching
+(Or simply export `TRAIN_HARBOR_TASKS` and `EVAL_HARBOR_TASKS` when launching
 `recipes/rl/harbor/run_qwen35_4b.sh`, which runs `prepare_data.py` automatically.)
 
-**Option B - CodeScout code localization (`SWE-smith`):**
+**Option B - CodeScout code localization (`recipes/rl/openhands/code_localization`):**
 
 From the Arctic Platform checkout, download the dataset and write
 `train.parquet` and `validation.parquet` into `~/data/swe-smith-localization`
@@ -165,20 +166,22 @@ stale variables. `STARTUP_TIMEOUT` (seconds) covers the wait for GPU
 placement. The launcher writes `$CKPT_DIR/$RUN_NAME.log` itself.
 `tmux -L "$RUN_NAME" attach` shows the live output.
 
-### 4. Monitor
+### 4. Monitor and recreate the reward graph
 
 The log is `$CKPT_DIR/$RUN_NAME.log`, and the job id is in
-`$CKPT_DIR/cortex_job_id`. Check the job, the per-step reward, and the
-rollout errors as shown in [references/monitoring.md](references/monitoring.md).
+`$CKPT_DIR/cortex_job_id`. Check the job, the per-step reward, the rollout
+errors, and generate the reward convergence plot (per-step trace, 5-step
+rolling mean, 10-step window means, and the CodeScout reference bars at `0.758`,
+`2.30`, and `2.342`) as shown in [references/monitoring.md](references/monitoring.md).
 
 Signs of a healthy run:
 
 - The job is `running`.
 - A new step lands every few minutes.
-- On code localization, the 10-step mean of `reward/avg_raw_reward` rises from
-  about 0.4 to about 2.3 by steps 21-30; on Harbor tasks, `reward/avg_raw_reward`
-  (and `reward/test_passed`) tracks the fraction of rollouts passing `tests/test.sh`.
-- `policy/grad_norm` stays under 1.
+- On code localization (both with and without Harbor), the 10-step mean of
+  `reward/avg_raw_reward` rises from about 0.35-0.40 in steps 1-10 to about
+  1.4-1.5 in steps 11-20 and reaches the ~2.1-2.3 plateau by steps 21-30.
+- `policy/grad_norm` stays bounded (~0.4-2.0).
 
 About 1% of rollouts failing with `ContextWindowExceeded` is expected at a
 32768-token context. A whole batch of errors, a reward stuck at 0, or steps
@@ -198,30 +201,35 @@ If the launcher is already gone and the job is still running, check that its
 again for leftover `openhands-*` tmux sessions and for clones under
 `$OPENHANDS_WORKSPACE`, and remove them if no run is live.
 
-## Custom controllers, compaction, and Tinker Cookbook Harbor RL
+## Harbor integration (`arctic_platform.integrations.harbor`) and custom harnesses
 
-Both OpenHands recipes are built on `arctic_platform.integrations.harness`
-([`ChatCompletionsProxy` and `HarnessGenerator`](https://github.com/Snowflake-AI-Research/Arctic-Platform/tree/main/arctic_platform/integrations/harness)),
-which is harness-agnostic:
+Both recipes are built on `arctic_platform.integrations.harness`
+([`ChatCompletionsProxy` and `HarnessGenerator`](https://github.com/Snowflake-AI-Research/Arctic-Platform/tree/main/arctic_platform/integrations/harness)):
 
-1. **Custom controller or Harbor environment (`arctic_platform.integrations.harness`):**
-   - Implement the 3-method `HarnessAdapter` (`submit(request) -> rollout_id`,
-     `get_status(rollout_id)`, `collect_output(rollout_id) -> artifacts`) and
-     point your agent or Harbor runner (`harbor run` with `--env docker`,
-     `--env modal`, or Snowflake Cortex Sandboxes) at
-     `OPENAI_BASE_URL=request.base_url` and `OPENAI_API_KEY=request.api_key`.
-   - Pass a standalone `Grader` callable `(episodes, artifacts, request) -> Grade(reward, reward_detail, exhausted=False)`
-     into `HarnessGenerator`. Verification is decoupled from the rollout runner.
-   - **Context compaction and subagents:** `ChatCompletionsProxy` splices the
-     exact sampled token IDs across turns (`loss_mask = 1` on assistant turns,
-     `0` on prompts and tool output). A request that does not extend the prior
-     messages (such as a compacted history) starts a new chain. Set
-     `generator.step_wise_trajectories=true` so every chain becomes a training
-     row under the same `trajectory_id`. To avoid training on the LLM call that
-     writes a compaction summary, send the summarization call to the un-routed
-     `${proxy.base_url}/v1/chat/completions` endpoint; send it to
-     `request.base_url` if you want the summary call itself trained on.
-2. **Tinker Cookbook Harbor RL (`arctic_platform.integrations.tinker`):**
+1. **Harbor Trial & Verifier integration (`arctic_platform.integrations.harbor`):**
+   - `HarborTrialAdapter` (`arctic_platform/integrations/harbor/adapter.py`)
+     implements the 3-method `HarnessAdapter` (`submit`, `get_status`,
+     `collect_output`) by running Harbor's `Trial.create(trial_cfg)` and
+     `trial.run()` pointed at `request.base_url` and `request.api_key`, and
+     `grade_harbor` reads the task's `Verifier` output (`tests/test.sh` ->
+     `/logs/verifier/reward.txt` or `reward.json`).
+   - Swap the Harbor agent or sandbox environment via `HARBOR_AGENT` (default:
+     `harbor_rl.agent:OpenHandsHarborAgent`, or `openhands-sdk`, `claude-code`,
+     `codex`, etc.) and `HARBOR_ENV` (default:
+     `arctic_platform.integrations.harbor.env:HostEnvironment`, or
+     `arctic_platform.integrations.harbor.snowflake_sandbox:SnowflakeSandboxEnvironment`
+     / `snowflake`, `docker`, `modal`, `daytona`).
+2. **Custom controller and context compaction (`arctic_platform.integrations.harness`):**
+   - `ChatCompletionsProxy` splices the exact sampled token IDs across turns
+     (`loss_mask = 1` on assistant turns, `0` on prompts and tool output). A
+     request that does not extend the prior messages (such as a compacted
+     history) starts a new chain. Set `generator.step_wise_trajectories=true`
+     so every chain becomes a training row under the same `trajectory_id`. To
+     avoid training on the LLM call that writes a compaction summary, send the
+     summarization call to the un-routed `${proxy.base_url}/v1/chat/completions`
+     endpoint; send it to `request.base_url` if you want the summary call itself
+     trained on.
+3. **Tinker Cookbook Harbor RL (`arctic_platform.integrations.tinker`):**
    - To run `tinker-cookbook` recipes (including `tinker_cookbook.recipes.harbor_rl.train`
      with a custom `SandboxFactory` such as Modal or `snowflake.sandbox.AsyncSandbox`)
      on Cortex Training without a local GPU driver, run
