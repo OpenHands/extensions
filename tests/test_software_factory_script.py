@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 
 import pytest
+from jsonschema import Draft202012Validator
 from test_automation_setup import _render_payload
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -51,6 +52,20 @@ def test_create_body_uses_plugin_spec(factory, station, repos, monkeypatch):
         "repo_path": f"plugins/{station}",
     }
     assert body.get("timeout") == rendered.get("timeout")
+
+
+def test_reviewer_plugin_schema_accepts_catalog_config(factory):
+    entry = _entry("github-pr-reviewer")
+    values = factory._form_values(entry, ["acme/api"], {"maxNewPerRun": 4})
+    schema_path = ROOT / "plugins" / "github-pr-reviewer" / ".plugin" / "plugin.json"
+    schema = json.loads(schema_path.read_text())["automation"]["config_schema"]
+    validator = Draft202012Validator(schema)
+    config = factory._station_config(entry, values)
+
+    assert config["max_new_per_run"] == 4
+    assert not list(validator.iter_errors(config))
+    for invalid in (0, "4", True):
+        assert not validator.is_valid({**config, "max_new_per_run": invalid})
 
 
 @pytest.mark.parametrize("station", BUNDLE_STATIONS)

@@ -67,6 +67,11 @@
           "type": "string",
           "default": "all-hands-bot"
         },
+        "max_new_per_run": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 2
+        },
         "maintainers": {
           "type": "array",
           "items": {
