@@ -790,18 +790,20 @@ def _create_cloud_conversation(initial_message: str, title: str) -> str:
     conversation is not held to the empty secrets payload below.
     """
     conversation_id = uuid.uuid4().hex
-    _cloud_request(
-        "POST",
-        "/api/v1/app-conversations",
-        {
-            "conversation_id": conversation_id,
-            "title": title,
-            "initial_message": {
-                "role": "user",
-                "content": [{"type": "text", "text": initial_message}],
-            },
+    body = {
+        "conversation_id": conversation_id,
+        "title": title,
+        "initial_message": {
+            "role": "user",
+            "content": [{"type": "text", "text": initial_message}],
         },
-    )
+    }
+    # The automation service sets the variable only when the automation names
+    # an agent profile; without one the API launches the member's active profile.
+    profile_id = os.environ.get("AUTOMATION_AGENT_PROFILE_ID")
+    if profile_id:
+        body["agent_profile_id"] = profile_id
+    _cloud_request("POST", "/api/v1/app-conversations", body)
     return conversation_id
 
 

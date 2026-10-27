@@ -63,8 +63,9 @@ The script reads the token and never prints it.
 | Command | Does |
 |---|---|
 | `$F preflight --repos a/b,c/d` | Which stations this deployment supports, the agent profile, the GitHub login, push access per repository. |
-| `$F create --repos a/b --ids ID,ID [--set FIELD=VALUE] [--set ID.FIELD=VALUE]` | Fills each station's form (answers, then derived values, then manifest defaults) and creates a disabled plugin-spec automation. `FIELD=VALUE` applies to every listed station with that field. Stations that already exist are reported under `existing`, not recreated. |
-| `$F tune --repos a/b --ids ID,ID [--set schedule=...|timezone=...] [--set ID.schedule=...]` | Updates schedule or timezone in place. Other plugin-spec config is fixed after creation until the automation API supports config patching; delete and recreate the station to change those fields. |
+| `$F create --repos a/b --ids ID,ID [--set FIELD=VALUE] [--set ID.FIELD=VALUE]` | Creates disabled plugin-spec stations with the `software-factory` tag where supported. Reports existing stations separately and tags them where possible. |
+| `$F tune --repos a/b --ids ID,ID [--set schedule=...|timezone=...] [--set ID.schedule=...]` | Updates schedule or timezone in place; other plugin config requires recreating the station until config patching is supported. |
+| `$F tag ID...` | Adds the `software-factory` tag to automations created by other skills, reporting failures under `not_tagged`. |
 | `$F verify ID... [--no-wait ID...]` | Dispatches once, enables the ones whose run `COMPLETED` and disables the rest, reporting their `error_detail`. `--no-wait` enables without waiting. |
 | `$F status ID...` | The latest run of each. |
 | `$F prs --repos a/b [--branch-prefix P]` | Open pull requests whose branch starts with `P` (default `openhands/agents-md`, the AGENTS.md maintainer's). |
@@ -97,9 +98,14 @@ specific tag or branch.
   created; report them with the error and ask whether to retry or delete them
   (`DELETE ${OPENHANDS_HOST}/api/automation/v1/{id}`).
 - **Existing stations**: a station `create` reports under `existing` was already
-  set up by an earlier run and was left unchanged. Say so rather than presenting
-  it as new. Use `$F tune` only for schedule or timezone changes; delete and
-  recreate for other plugin-spec settings.
+  set up by an earlier run. Say so rather than presenting it as new. Use `$F tune`
+  only for schedule or timezone changes; delete and recreate for other plugin
+  settings until config patching is supported.
+- **Factory tag**: every station carries the `software-factory` tag where
+  supported. `create` adds it; for stations created by other skills (Jira or
+  Linear issue to PR, Linear triage, QA changes), run `$F tag <id>`. If a station
+  is `not_tagged`, report its reason: only its creator may change tags, or the
+  deployment does not support tags yet.
 
 ## Phase 1 - Working factory
 
@@ -113,16 +119,19 @@ specific tag or branch.
    - `not_set`, and the `request_secret` tool is available: call it once with
      `name: "GITHUB_PERSONAL_ACCESS_TOKEN"` and a `reason` asking for Contents,
      Issues, Pull requests and Workflows read and write (classic PAT: `repo`,
-     `workflow`). End your turn, wait for the `[secret-request]` message,
-     then rerun `preflight`.
+     `workflow`), and saying a token can be created at
+     https://github.com/settings/personal-access-tokens. End your turn, wait
+     for the `[secret-request]` message, then rerun `preflight`.
    - `rejected`: GitHub refuses the saved token (invalid or expired), and
      `request_secret` cannot replace it: it answers `saved` at once for a name
      that exists. Say so in one sentence and ask "Shall I remove it and open
      the form for a new one?" On yes, run `$F reset-token`, then handle it as
-     `not_set`. If `reset-token` fails, tell the user to replace it in
-     Settings -> Secrets and say when done.
-   - `not_set` without the tool: tell the user to add it in Settings ->
-     Secrets and stop.
+     `not_set`. If `reset-token` fails, tell the user to create a token at
+     https://github.com/settings/personal-access-tokens, replace it in
+     Settings -> Secrets, and say when done.
+   - `not_set` without the tool: tell the user to create a token at
+     https://github.com/settings/personal-access-tokens and add it in
+     Settings -> Secrets, then stop.
 4. `$F create --repos <repos> --ids github-pr-reviewer`, adding
    `github-issue-to-pr,github-issue-triage` for GitHub issues. For Jira or
    Linear, also set up the issue to PR station as "Ticket source" describes;
@@ -222,7 +231,8 @@ Ask only the question below, then `$F create` it and `$F verify` it.
   provider. Ask its questions in one message, proposing the repositories above
   and `*/15 * * * *` as defaults.
 
-Once its skill has created the station, run `$F verify <id>` on it.
+Once its skill has created the station, run `$F tag <id>` and then
+`$F verify <id>` on it.
 
 ## Troubleshooting
 

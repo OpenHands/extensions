@@ -76,6 +76,16 @@
         "openhands_url": {
           "type": "string",
           "default": "http://localhost:8000"
+        },
+        "authorization": {
+          "type": "string",
+          "enum": ["repo_write", "anyone"],
+          "default": "repo_write"
+        },
+        "work_mode": {
+          "type": "string",
+          "enum": ["implement", "reply"],
+          "default": "implement"
         }
       }
     },

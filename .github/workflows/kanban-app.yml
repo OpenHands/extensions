@@ -1,0 +1,34 @@
+name: Kanban App
+
+on:
+  pull_request:
+    paths:
+      - "apps/kanban-manager/**"
+      - "skills/canvas-extension-api/scripts/validate-extension.mjs"
+      - ".github/workflows/kanban-app.yml"
+  push:
+    branches: [main]
+    paths:
+      - "apps/kanban-manager/**"
+      - ".github/workflows/kanban-app.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: apps/kanban-manager/package-lock.json
+      - run: npm ci --ignore-scripts
+        working-directory: apps/kanban-manager
+      - run: npm run check
+        working-directory: apps/kanban-manager
+      - run: node skills/canvas-extension-api/scripts/validate-extension.mjs apps/kanban-manager
+      - name: Confirm the checked-in bundle is current
+        run: git diff --exit-code -- apps/kanban-manager/extension.js

@@ -845,6 +845,20 @@
       ]
     },
     {
+      "name": "show-me",
+      "source": "./skills/show-me",
+      "description": "Help the user understand the current topic visually with concise diagrams, code-shape sketches, and focused HTML artifacts.",
+      "category": "design",
+      "defaultEnabled": true,
+      "keywords": [
+        "visualization",
+        "diagrams",
+        "code",
+        "html",
+        "explanation"
+      ]
+    },
+    {
       "name": "simplified-technical-english",
       "source": "./skills/simplified-technical-english",
       "description": "Write explanations and chat in the style of ASD-STE100 Simplified Technical English: short active sentences, one idea each, plain consistent words. Applies to prose only, never to code.",

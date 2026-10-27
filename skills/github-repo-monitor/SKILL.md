@@ -16,6 +16,10 @@ triggers:
 
 This automation now runs from the executable automation plugin at `plugins/github-repo-monitor`. Do not copy or package code from `skills/github-repo-monitor`; the skill is only a setup guide for creating the plugin-spec automation.
 
+## Authorization and work mode
+
+By default only the token owner, explicitly allowlisted logins, or users with repository write access can trigger work. `anyone` accepts non-bot commenters; do not combine it with `implement`, which permits pushing to a branch. `reply` only investigates and comments. Never merge, force-push, or push to the base branch. Verify the token has access to the repository and the permissions required for the selected work mode. Ask for the repository, alias, authorization policy, work mode and cron schedule before creating the automation.
+
 ## Create with the plugin-spec endpoint
 
 Use `POST /api/automation/v1/plugin-spec` with this plugin source:
@@ -59,7 +63,9 @@ For local Agent Canvas development from this checkout, use a local source instea
     "allowed_github_logins": [
         "<TOKEN_OWNER>"
     ],
-    "openhands_url": "http://localhost:8000"
+    "openhands_url": "http://localhost:8000",
+    "authorization": "repo_write",
+    "work_mode": "implement"
 },
   "trigger": {
     "type": "cron",

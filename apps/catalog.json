@@ -1,5 +1,13 @@
 [
   {
+    "id": "kanban-manager",
+    "name": "Kanban Manager",
+    "description": "A beta board for agent work: queue requests, track progress, and review completed tickets.",
+    "source": "./apps/kanban-manager",
+    "manifest": "./apps/kanban-manager/canvas-extension.json",
+    "beta": true
+  },
+  {
     "id": "vscode",
     "name": "VS Code",
     "description": "A managed full-height OpenVSCode editor for the selected Agent Canvas workspace.",

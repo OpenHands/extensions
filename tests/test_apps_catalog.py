@@ -24,3 +24,15 @@ def test_apps_catalog_is_valid_and_package_export_matches():
         cwd=ROOT,
         check=True,
     )
+
+
+def test_kanban_catalog_preserves_installation_identity():
+    entries = json.loads((ROOT / "apps/catalog.json").read_text())
+    entry = next(entry for entry in entries if entry["id"] == "kanban-manager")
+    assert entry["beta"] is True
+    source = ROOT / entry["source"].removeprefix("./")
+    manifest = json.loads((ROOT / entry["manifest"].removeprefix("./")).read_text())
+    assert manifest["name"] == "kanban-manager"
+    assert manifest["contributes"]["pages"][0]["id"] == "board"
+    assert (source / manifest["entrypoint"]).is_file()
+    assert (source / "LICENSE").is_file()

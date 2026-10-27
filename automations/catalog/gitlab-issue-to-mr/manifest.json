@@ -47,7 +47,7 @@
         "projects": {
           "type": "repo-picker",
           "label": "Projects",
-          "help": "The GitLab projects whose labelled issues are implemented. Each is polled independently and keeps its own state, so issue numbers never collide between them.",
+          "help": "The GitLab projects whose labelled issues OpenHands implements. Each is polled independently and keeps its own state, so issue numbers never collide between them.",
           "provider": "gitlab",
           "multiple": true,
           "required": true
@@ -55,7 +55,7 @@
         "triggerLabel": {
           "type": "text",
           "label": "Trigger label",
-          "help": "Only issues carrying this label are worked on.",
+          "help": "OpenHands works only on issues carrying this label.",
           "default": "openhands",
           "required": true,
           "constraints": {
@@ -66,7 +66,7 @@
         "branchPrefix": {
           "type": "text",
           "label": "Branch prefix",
-          "help": "Branches are named after this prefix and the issue number, such as openhands/issue-42.",
+          "help": "OpenHands names branches using this prefix and the issue number, such as openhands/issue-42.",
           "default": "openhands/issue",
           "required": true,
           "constraints": {
@@ -77,7 +77,7 @@
         "mergeRequestMode": {
           "type": "select",
           "label": "Merge request mode",
-          "help": "Whether the merge request is opened as a draft or ready for review. GitLab marks a draft by prefixing its title with Draft:.",
+          "help": "Whether OpenHands should open the merge request as a draft or ready for review. GitLab marks a draft by prefixing its title with Draft:.",
           "default": "draft",
           "required": true,
           "options": [
