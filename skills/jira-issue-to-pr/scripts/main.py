@@ -349,11 +349,17 @@ def start_cloud_conversation(title, prompt):
     """
     cloud_url       = os.environ.get("OPENHANDS_CLOUD_API_URL", "").rstrip("/")
     conversation_id = uuid.uuid4().hex
-    task = _cloud_request("POST", "/api/v1/app-conversations", {
+    body = {
         "conversation_id": conversation_id,
         "title":           title,
         "initial_message": {"content": [{"type": "text", "text": prompt}]},
-    })
+    }
+    # The automation service sets the variable only when the automation names
+    # an agent profile; without one the API launches the member's active profile.
+    profile_id = os.environ.get("AUTOMATION_AGENT_PROFILE_ID")
+    if profile_id:
+        body["agent_profile_id"] = profile_id
+    task = _cloud_request("POST", "/api/v1/app-conversations", body)
     if task.get("status") == "ERROR":
         raise RuntimeError(f"Starting a conversation failed: {task.get('detail') or 'no detail'}")
     return f"{cloud_url}/canvas/conversations/{conversation_id}", task.get("id")
