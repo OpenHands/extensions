@@ -3,8 +3,8 @@ name: cortex-training-rl
 description: >-
   Run reinforcement-learning post-training of a model inside the OpenHands
   agent harness on Snowflake Cortex Training, using the Arctic Platform
-  OpenHands recipes (CodeScout code localization and Harbor task directories
-  such as Terminal-Bench 2.0). Use when asked to launch, monitor, debug, or
+  OpenHands and Harbor code localization recipes (SkyRL GRPO, CodeScout code
+  localization, Harbor tasks). Use when asked to launch, monitor, debug, or
   stop an OpenHands or Harbor RL run on Cortex Training.
 triggers:
 - cortex training
@@ -90,20 +90,20 @@ rollout holds one clone or trial directory of its task.
 Follow the recipe README: `uv`, SkyRL at tag `skyrl-v0.3.0` as `SKYRL_HOME`,
 and the Arctic Platform checkout (`main`).
 
-**Option A - Harbor tasks (Terminal-Bench 2.0, SWE-smith Harbor tasks, or custom Harbor tasks):**
+**Option A - Harbor code localization (`recipes/rl/harbor`):**
 
-Download a Harbor dataset (or point `TRAIN_HARBOR_TASKS` and `EVAL_HARBOR_TASKS`
-at any directories of Harbor tasks containing `instruction.md` and `tests/test.sh`):
+Export the SWE-smith code localization tasks into Harbor `train/` and `eval/`
+task directories (or point `TRAIN_HARBOR_TASKS` and `EVAL_HARBOR_TASKS` at any
+Harbor task directories containing `instruction.md` and `tests/test.sh`):
 
 ```bash
-uvx harbor datasets download terminal-bench@2.0 -o ~/.cache/harbor/tasks/terminal-bench-2.0
 uv run recipes/rl/harbor/prepare_data.py \
-  --train-tasks-dir ~/.cache/harbor/tasks/terminal-bench-2.0 \
-  --eval-tasks-dir ~/.cache/harbor/tasks/terminal-bench-2.0 \
+  --export-swe-smith-to ~/data/swe-smith-harbor-tasks \
   --out ~/data/harbor-rl
 ```
 
-(Or simply export `TRAIN_HARBOR_TASKS` and `EVAL_HARBOR_TASKS` when launching
+(Or simply export `TRAIN_HARBOR_TASKS=~/data/swe-smith-harbor-tasks/train` and
+`EVAL_HARBOR_TASKS=~/data/swe-smith-harbor-tasks/eval` when launching
 `recipes/rl/harbor/run_qwen35_4b.sh`, which runs `prepare_data.py` automatically.)
 
 **Option B - CodeScout code localization (`SWE-smith`):**
@@ -132,16 +132,16 @@ rollouts create and kill sessions on the launcher's own server.
 ```bash
 export RUN_NAME=qwen35-4b-harbor-rl-$(date +%m%d-%H%M)
 export CKPT_DIR=$HOME/checkpoints/$RUN_NAME
-export TRAIN_HARBOR_TASKS=$HOME/.cache/harbor/tasks/terminal-bench-2.0
-export EVAL_HARBOR_TASKS=$HOME/.cache/harbor/tasks/terminal-bench-2.0
+export TRAIN_HARBOR_TASKS=$HOME/data/swe-smith-harbor-tasks/train
+export EVAL_HARBOR_TASKS=$HOME/data/swe-smith-harbor-tasks/eval
 export HARBOR_SKILL=/path/to/SKILL.md   # optional OpenHands skill
-export ARCTIC_CORTEX_JOB_COMMENT="<your name> harbor rl - ask before cancelling"
+export ARCTIC_CORTEX_JOB_COMMENT="<your name> harbor localization - ask before cancelling"
 export LOGGER=console OPENHANDS_WORKSPACE=/path/with/space STARTUP_TIMEOUT=14400
 mkdir -p "$CKPT_DIR"
 
 tmux -L "$RUN_NAME" new-session -d -s train \
   "echo \$\$ > $CKPT_DIR/launcher.pid; exec env -u TMUX -u TMUX_PANE \
-   bash recipes/rl/harbor/run_qwen35_4b.sh trainer.max_training_steps=50"
+   bash recipes/rl/harbor/run_qwen35_4b.sh trainer.max_training_steps=100"
 ```
 
 **Launch CodeScout code localization (`recipes/rl/openhands/code_localization/run_qwen35_4b.sh`):**
@@ -232,12 +232,13 @@ which is harness-agnostic:
 
 - **Code localization without Harbor (`recipes/rl/openhands/code_localization`):**
   On 4 training plus 4 sampling H200s, 100 steps of 8 prompts x 8 rollouts gave
-  10-step means of `reward/avg_raw_reward`: 0.39 for steps 1-10, 2.28 for steps
-  21-30, and 2.28 for steps 91-100 (matching the CodeScout reference curve near 2.3).
-- **Code localization and Terminal-Bench 2.0 with Harbor (`recipes/rl/harbor`):**
+  10-step means of `reward/avg_raw_reward`: 0.39 for steps 1-10, 1.39 for steps
+  11-20, 2.28 for steps 21-30, and 2.28 for steps 91-100 (matching the CodeScout
+  reference curve near 2.3).
+- **Code localization with Harbor (`recipes/rl/harbor`):**
   Running the exact same SWE-smith code localization task through Harbor's `Trial`
-  and `Verifier` (`tests/test.sh` F1 grading) on 4+4 H200s matched the non-Harbor
-  curve step-for-step, climbing from 0.27 at step 1 to 0.78 at step 10 and 2.10 by
-  step 19 (`pass@8 = 1.0`). On Terminal-Bench 2.0 Harbor tasks, `reward/avg_raw_reward`
-  doubled from 0.25 at step 1 to 0.56 at step 4 and stabilized at 0.50 across steps
-  7-10 (`pass@8 = 1.0`).
+  and `Verifier` (`tests/test.sh` F1 grading) on 4 training plus 4 sampling H200s
+  matched the non-Harbor curve step-for-step across 25 steps (1,600 Harbor trials on
+  200 unique tasks, 0 errors): 10-step mean of 0.35 for steps 1-10 (0.78 at step 10),
+  1.46 for steps 11-20 (2.03 at step 16, 2.10 at step 19), and climbing to 2.13 at
+  step 21 and 2.10 at step 24 (`pass@8 = 0.88-1.00`).
