@@ -159,7 +159,7 @@ OPENHANDS_HOST="http://localhost:8001"       # local Agent Canvas
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|
-| `/api/automation/v1/preset/prompt` | POST | **Create automation from a prompt (recommended)** |
+| `/api/automation/v1/preset/prompt` | POST | **Create one-off automations from a prompt** |
 | `/api/automation/v1/preset/plugin` | POST | **Create automation with plugins and a prompt** |
 | `/api/automation/v1/plugin-spec` | POST | **Create automation from an executable plugin manifest** |
 | `/api/automation/v1` | GET | List automations |
