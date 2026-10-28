@@ -6,6 +6,16 @@ The App uses existing Agent Server read APIs plus fixed read-only discovery and 
 
 Install from the absolute package path. New installations remain disabled until explicitly enabled in Agent Canvas.
 
+## Install in Agent Canvas
+
+In **Customize → Apps → Add app**, paste this folder's URL at the commit you reviewed as **App source**:
+
+```text
+https://github.com/OpenHands/extensions/tree/<commit>/apps/agent-memory-viewer
+```
+
+The form splits it into source `https://github.com/OpenHands/extensions`, **Ref** `<commit>` and **Path** `apps/agent-memory-viewer`. The App installs disabled. Review its source at that revision, switch it on and confirm **Enable trusted app**, then open **Memory** from the sidebar. Canvas installs a copy, so after a change use **Update** on its card, or uninstall and reinstall.
+
 ## Verify
 
 ```sh
@@ -56,3 +66,7 @@ reads `.openhands/memory/` from every registered workspace and from the working
 directories of the 100 most recent conversations, so it may show memory from
 projects you did not expect. Nothing is sent anywhere except the Agent Server
 you are connected to.
+
+## Source
+
+Moved from [OpenHands/canvas-apps](https://github.com/OpenHands/canvas-apps/tree/b83068fdce5ec7f85c07b8aefa15d413982059d0/agent-memory-viewer) at `b83068fdce5ec7f85c07b8aefa15d413982059d0`, keeping the MIT [LICENSE](LICENSE). Installations made from canvas-apps do not follow this move: uninstall them and install again from this registry.

@@ -9,6 +9,16 @@ The App deliberately separates two kinds of state:
 
 The real home directory is never assumed. Every mount discovers it with `GET /api/file/home`, validates the returned absolute path, and passes it as the structured `cwd` field to the authenticated `POST /api/bash/execute_bash_command` endpoint.
 
+## Install in Agent Canvas
+
+In **Customize → Apps → Add app**, paste this folder's URL at the commit you reviewed as **App source**:
+
+```text
+https://github.com/OpenHands/extensions/tree/<commit>/apps/backend-sqlite-studio
+```
+
+The form splits it into source `https://github.com/OpenHands/extensions`, **Ref** `<commit>` and **Path** `apps/backend-sqlite-studio`. The App installs disabled. Review its source at that revision, switch it on and confirm **Enable trusted app**, then open **SQLite Studio** and **Agent handoff** from the sidebar. Canvas installs a copy, so after a change use **Update** on its card, or uninstall and reinstall.
+
 ## First-run and repair flow
 
 The first request is a non-mutating probe. It checks for `python3`, verifies that Python can import its standard-library `sqlite3` module, reports Python and SQLite versions, optionally reports the `sqlite3` CLI version, and inspects whether the App-owned wrapper, runtime marker, and database already exist. The probe does not create a directory, open a database, download software, or run an installer.
@@ -80,3 +90,7 @@ The Apps UI has no refresh control. After every code change, rebuild and then un
 10. Reinstall, create another row, disable and re-enable the App, and verify durable data remains. Exercise Repair and confirm rows are preserved.
 
 If no second client or local Agent Server is available, record those manual checks as not run rather than treating the Blob smoke test as a substitute.
+
+## Source
+
+Moved from [OpenHands/canvas-apps](https://github.com/OpenHands/canvas-apps/tree/b83068fdce5ec7f85c07b8aefa15d413982059d0/backend-sqlite-studio) at `b83068fdce5ec7f85c07b8aefa15d413982059d0`, keeping the MIT [LICENSE](LICENSE). Installations made from canvas-apps do not follow this move: uninstall them and install again from this registry.

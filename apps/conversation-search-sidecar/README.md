@@ -4,6 +4,16 @@ Conversation Search is a local-first Agent Canvas App backed by a native Go side
 
 The App is independent: its React bundle, Go source, build/test configuration, documentation, and checked-in `extension.js` live only in this directory. It does not add a repository workspace, shared runtime, or reusable sidecar foundation.
 
+## Install in Agent Canvas
+
+In **Customize → Apps → Add app**, paste this folder's URL at the commit you reviewed as **App source**:
+
+```text
+https://github.com/OpenHands/extensions/tree/<commit>/apps/conversation-search-sidecar
+```
+
+The form splits it into source `https://github.com/OpenHands/extensions`, **Ref** `<commit>` and **Path** `apps/conversation-search-sidecar`. The App installs disabled. Review its source at that revision, switch it on and confirm **Enable trusted app**, then open **Conversation Search** from the sidebar. Canvas installs a copy, so after a change use **Update** on its card, or uninstall and reinstall.
+
 ## Evidence from the active SDK store
 
 The implementation was chosen after read-only inspection of the active Agent Server environment and the installed OpenHands SDK 1.17 persistence code. On 2026-09-09 the active store contained 556 conversation directories, roughly 834 MB, and 25,360 files at:
@@ -136,3 +146,7 @@ The Apps UI has no refresh button. Rebuild, uninstall, and reinstall the App bef
 11. Click **Review deletion**, cancel once, and confirm nothing changed. With disposable index data, click **Delete exact directory** and verify only `.openhands/apps/conversation-search-sidecar/` is removed; conversation stores and sibling Apps remain.
 
 If a local Agent Server, suitable real conversations, or a ten-minute manual idle window is unavailable, record those checks as not run. The Blob smoke test is not a substitute for local Canvas acceptance.
+
+## Source
+
+Moved from [OpenHands/canvas-apps](https://github.com/OpenHands/canvas-apps/tree/b83068fdce5ec7f85c07b8aefa15d413982059d0/conversation-search-sidecar) at `b83068fdce5ec7f85c07b8aefa15d413982059d0`, keeping the MIT [LICENSE](LICENSE). Installations made from canvas-apps do not follow this move: uninstall them and install again from this registry.

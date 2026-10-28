@@ -2,6 +2,9 @@
 
 Terminal is an App for Agent Canvas that runs shell commands on the active backend through Canvas host API 1. It bundles xterm.js into a single Blob-importable `extension.js` and does not use a sidecar, custom HTTP request, WebSocket, localStorage credential lookup, or API key.
 
+> [!WARNING]
+> Terminal is a general-purpose shell. Every command you type runs on the Agent Server machine through `POST /api/bash/execute_bash_command`, with the same permissions as the agent. Enable it only on a backend where you would run those commands yourself.
+
 ## Architecture
 
 1. Canvas Blob-imports `extension.js` and mounts the Terminal page.
@@ -38,13 +41,13 @@ The build emits one `extension.js` containing the App, xterm.js, and all styles.
 
 ## Install in Agent Canvas
 
-In **Customize → Apps**, add this backend-visible source:
+In **Customize → Apps → Add app**, paste this folder's URL at the commit you reviewed as **App source**:
 
 ```text
-/root/git/canvas-app-terminal
+https://github.com/OpenHands/extensions/tree/<commit>/apps/terminal
 ```
 
-Review and enable the installed **Terminal** App. Reinstall with force after rebuilding because Canvas installs a copy rather than running the source tree directly.
+The form splits it into source `https://github.com/OpenHands/extensions`, **Ref** `<commit>` and **Path** `apps/terminal`. The App installs disabled. Review its source at that revision, switch it on and confirm **Enable trusted app**, then open **Terminal** from the sidebar. Canvas installs a copy, so after a change use **Update** on its card, or uninstall and reinstall.
 
 ## Security model
 
@@ -57,3 +60,7 @@ This App uses only the Canvas-provided authenticated request adapter.
 - Commands run with the permissions and command policy of the active backend's Agent Server.
 - Only one command request runs at a time, with a 300-second requested timeout.
 - Late results are ignored after the page unmounts.
+
+## Source
+
+Moved from [OpenHands/canvas-apps](https://github.com/OpenHands/canvas-apps/tree/b83068fdce5ec7f85c07b8aefa15d413982059d0/terminal) at `b83068fdce5ec7f85c07b8aefa15d413982059d0`, keeping the MIT [LICENSE](LICENSE). Installations made from canvas-apps do not follow this move: uninstall them and install again from this registry.

@@ -16,23 +16,15 @@ contribution graphs (heatmaps) and usage stats.
   from conversation events that include `llm_metrics`, `token_usage`, or
   `usage` fields. Breaks down usage by model.
 
-## Installation
+## Install in Agent Canvas
 
-Install from **Customize → Extensions** using:
-
-```text
-personal-profile
-```
-
-Or from a Git repository:
+In **Customize → Apps → Add app**, paste this folder's URL at the commit you reviewed as **App source**:
 
 ```text
-source: github:owner/repository
-repo_path: personal-profile
+https://github.com/OpenHands/extensions/tree/<commit>/apps/personal-profile
 ```
 
-The extension remains disabled after installation. Enable it to run the
-trusted same-realm code.
+The form splits it into source `https://github.com/OpenHands/extensions`, **Ref** `<commit>` and **Path** `apps/personal-profile`. The App installs disabled. Review its source at that revision, switch it on and confirm **Enable trusted app**, then open **Profile** from the sidebar. Canvas installs a copy, so after a change use **Update** on its card, or uninstall and reinstall.
 
 ## Verification
 
@@ -52,3 +44,7 @@ npm test
 
 The checked-in `extension.js` is the self-contained browser ESM entrypoint —
 no build step is required.
+
+## Source
+
+Moved from [OpenHands/canvas-apps](https://github.com/OpenHands/canvas-apps/tree/b83068fdce5ec7f85c07b8aefa15d413982059d0/personal-profile) at `b83068fdce5ec7f85c07b8aefa15d413982059d0`, keeping the MIT [LICENSE](LICENSE). Installations made from canvas-apps do not follow this move: uninstall them and install again from this registry.

@@ -4,6 +4,16 @@ Git Cockpit is a standalone Agent Canvas App that turns a selected Agent Server 
 
 React, CSS, command policy, parsers, onboarding, and routing are bundled into the checked-in `extension.js`. Runtime users do not need Node.js or any sibling App assets. Git is the only repository prerequisite.
 
+## Install in Agent Canvas
+
+In **Customize → Apps → Add app**, paste this folder's URL at the commit you reviewed as **App source**:
+
+```text
+https://github.com/OpenHands/extensions/tree/<commit>/apps/git-cockpit
+```
+
+The form splits it into source `https://github.com/OpenHands/extensions`, **Ref** `<commit>` and **Path** `apps/git-cockpit`. The App installs disabled. Review its source at that revision, switch it on and confirm **Enable trusted app**, then open **Git Cockpit** from the sidebar. Canvas installs a copy, so after a change use **Update** on its card, or uninstall and reinstall.
+
 ## Execution boundary and safety
 
 **Every active Git operation is read-only and executes on the active Agent Server machine.** Git Cockpit does not send repository data to a third party, expose a terminal or arbitrary command field, update Git configuration, use credentials, or write a repository file, ref, index entry, commit, stash, worktree, or remote.
@@ -114,3 +124,7 @@ Prepare a disposable Git repository that has at least one committed file, one st
 - `scripts/check-artifact.mjs` and `scripts/blob-smoke.mjs` prove the installed artifact is one self-contained Blob-compatible ESM file.
 
 All implementation, dependencies, tests, build assets, and documentation are local to `git-cockpit/`.
+
+## Source
+
+Moved from [OpenHands/canvas-apps](https://github.com/OpenHands/canvas-apps/tree/b83068fdce5ec7f85c07b8aefa15d413982059d0/git-cockpit) at `b83068fdce5ec7f85c07b8aefa15d413982059d0`, keeping the MIT [LICENSE](LICENSE). Installations made from canvas-apps do not follow this move: uninstall them and install again from this registry.

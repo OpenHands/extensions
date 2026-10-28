@@ -18,11 +18,15 @@ The page provides:
 
 This is a dependency-free Canvas Extension targeting manifest schema 1 and host API 1. Its self-contained browser ESM entrypoint is `extension.js`.
 
-## Install
+## Install in Agent Canvas
 
-Add this repository in **Customize → Extensions** and use `usage-insights` as the repository path. Installation leaves the extension disabled. Review it, then enable it to add the **Usage** navigation item.
+In **Customize → Apps → Add app**, paste this folder's URL at the commit you reviewed as **App source**:
 
-For a backend-local install, select this directory as the source path on the Agent Server machine.
+```text
+https://github.com/OpenHands/extensions/tree/<commit>/apps/usage-insights
+```
+
+The form splits it into source `https://github.com/OpenHands/extensions`, **Ref** `<commit>` and **Path** `apps/usage-insights`. The App installs disabled. Review its source at that revision, switch it on and confirm **Enable trusted app**, then open **Usage** from the sidebar. Canvas installs a copy, so after a change use **Update** on its card, or uninstall and reinstall.
 
 ## Verify
 
@@ -57,3 +61,7 @@ Reasoning tokens are treated as part of completion tokens by default to avoid do
 - History is bounded to 500 conversations and 2,000 stats events per conversation.
 - Canvas Extension host API 1 exposes no WebSocket helper; active conversations are polled every 10 seconds.
 - The bundled catalog is a small subset of public model prices; models without a catalog match are shown as unpriced.
+
+## Source
+
+Moved from [OpenHands/canvas-apps](https://github.com/OpenHands/canvas-apps/tree/b83068fdce5ec7f85c07b8aefa15d413982059d0/usage-insights) at `b83068fdce5ec7f85c07b8aefa15d413982059d0`, keeping the MIT [LICENSE](LICENSE). Installations made from canvas-apps do not follow this move: uninstall them and install again from this registry.

@@ -4,6 +4,16 @@ WASM Repo Lens is a standalone Agent Canvas App that turns a selected Agent Serv
 
 React, CSS, Worker source, and the compiled WASM engine are embedded in the checked-in `extension.js`. Runtime users do not need Node.js, Rust, Cargo, wasm-pack, or a network download.
 
+## Install in Agent Canvas
+
+In **Customize → Apps → Add app**, paste this folder's URL at the commit you reviewed as **App source**:
+
+```text
+https://github.com/OpenHands/extensions/tree/<commit>/apps/wasm-repo-lens
+```
+
+The form splits it into source `https://github.com/OpenHands/extensions`, **Ref** `<commit>` and **Path** `apps/wasm-repo-lens`. The App installs disabled. Review its source at that revision, switch it on and confirm **Enable trusted app**, then open **Repo Lens** from the sidebar. Canvas installs a copy, so after a change use **Update** on its card, or uninstall and reinstall.
+
 ## Data boundary and safety
 
 The App has one explicit data flow:
@@ -110,3 +120,7 @@ Use a small test Git repository with several language types, at least one suppor
 - `scripts/check-artifact.mjs` and `scripts/blob-smoke.mjs` prove the installed artifact is one self-contained Blob-compatible ESM file.
 
 All implementation, dependencies, tests, build assets, and documentation are local to `wasm-repo-lens/`.
+
+## Source
+
+Moved from [OpenHands/canvas-apps](https://github.com/OpenHands/canvas-apps/tree/b83068fdce5ec7f85c07b8aefa15d413982059d0/wasm-repo-lens) at `b83068fdce5ec7f85c07b8aefa15d413982059d0`, keeping the MIT [LICENSE](LICENSE). Installations made from canvas-apps do not follow this move: uninstall them and install again from this registry.

@@ -4,6 +4,16 @@ Browser SQL Lab is a standalone Agent Canvas App that runs a genuine SQLite data
 
 The App does not call the Agent Server, use a CDN or Service Worker, install prerequisites, download runtime files, or start a background process.
 
+## Install in Agent Canvas
+
+In **Customize → Apps → Add app**, paste this folder's URL at the commit you reviewed as **App source**:
+
+```text
+https://github.com/OpenHands/extensions/tree/<commit>/apps/browser-sql-lab
+```
+
+The form splits it into source `https://github.com/OpenHands/extensions`, **Ref** `<commit>` and **Path** `apps/browser-sql-lab`. The App installs disabled. Review its source at that revision, switch it on and confirm **Enable trusted app**, then open **SQL Lab** from the sidebar. Canvas installs a copy, so after a change use **Update** on its card, or uninstall and reinstall.
+
 ## What it includes
 
 - A SQL editor with Cmd/Ctrl+Enter execution and request cancellation
@@ -66,3 +76,7 @@ The Apps screen currently has no refresh action. After any rebuild, uninstall an
 ## Source and artifact layout
 
 All implementation and build machinery is local to this directory. `src/database.worker.ts` owns SQLite initialization and IndexedDB writes; `src/database-client.ts` owns cancellable Worker RPC; `src/database-core.ts` owns migrations, schema/history inspection, query execution, and seed insertion. Vite inlines the Worker and every asset into exactly one `extension.js`. Mutable database state never lives in the installed App directory.
+
+## Source
+
+Moved from [OpenHands/canvas-apps](https://github.com/OpenHands/canvas-apps/tree/b83068fdce5ec7f85c07b8aefa15d413982059d0/browser-sql-lab) at `b83068fdce5ec7f85c07b8aefa15d413982059d0`, keeping the MIT [LICENSE](LICENSE). Installations made from canvas-apps do not follow this move: uninstall them and install again from this registry.

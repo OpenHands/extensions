@@ -19,19 +19,15 @@ For a standalone visual preview, serve this directory from any local static
 server and open `preview.html`. The actual Canvas runtime entrypoint remains
 the self-contained `extension.js` file.
 
-## Install
+## Install in Agent Canvas
 
-In **Customize → Extensions**, add the repository containing this directory and
-set **Repository path** to:
+In **Customize → Apps → Add app**, paste this folder's URL at the commit you reviewed as **App source**:
 
 ```text
-snake-arcade
+https://github.com/OpenHands/extensions/tree/<commit>/apps/snake-arcade
 ```
 
-Installation leaves the extension disabled. Review its source, enable it, then
-open **Snake** in the Canvas navigation. The route is
-`/extensions/snake-arcade/snake` and the rules screen is available at the nested
-route `/extensions/snake-arcade/snake/how-to-play`.
+The form splits it into source `https://github.com/OpenHands/extensions`, **Ref** `<commit>` and **Path** `apps/snake-arcade`. The App installs disabled. Review its source at that revision, switch it on and confirm **Enable trusted app**, then open **Snake** from the sidebar. Canvas installs a copy, so after a change use **Update** on its card, or uninstall and reinstall.
 
 ## Verify in Canvas
 
@@ -41,3 +37,7 @@ route `/extensions/snake-arcade/snake/how-to-play`.
 4. Reload the page and confirm the high score remains.
 5. Disable the extension and confirm its navigation item and keyboard handlers
    disappear; re-enable it and confirm it mounts once.
+
+## Source
+
+Moved from [OpenHands/canvas-apps](https://github.com/OpenHands/canvas-apps/tree/b83068fdce5ec7f85c07b8aefa15d413982059d0/snake-arcade) at `b83068fdce5ec7f85c07b8aefa15d413982059d0`, keeping the MIT [LICENSE](LICENSE). Installations made from canvas-apps do not follow this move: uninstall them and install again from this registry.
