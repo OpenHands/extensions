@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "name": "terminal",
+  "display_name": "Terminal",
+  "version": "0.5.0",
+  "description": "Run shell commands on the active backend through Canvas authentication.",
+  "entrypoint": "extension.js",
+  "contributes": {
+    "pages": [
+      {
+        "id": "terminal",
+        "title": "Terminal",
+        "path": "/terminal",
+        "nav_label": "Terminal",
+        "description": "A terminal-style command runner for the active backend."
+      }
+    ]
+  }
+}

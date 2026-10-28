@@ -1,0 +1,28 @@
+{
+  "name": "canvas-app-terminal",
+  "version": "0.5.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build:extension": "vite build && node scripts/sync-extension.mjs",
+    "build": "npm run build:extension",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "validate": "node scripts/check-extension.mjs",
+    "smoke:extension": "node scripts/blob-smoke.mjs",
+    "smoke": "npm run smoke:extension",
+    "check": "npm run typecheck && npm run test && npm run build && npm run validate && npm run smoke"
+  },
+  "dependencies": {
+    "@xterm/addon-fit": "0.11.0",
+    "@xterm/xterm": "6.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "26.5.0",
+    "jsdom": "27.4.0",
+    "playwright": "1.63.0",
+    "typescript": "5.9.3",
+    "vite": "7.3.6",
+    "vitest": "4.1.11"
+  }
+}

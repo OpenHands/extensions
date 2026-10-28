@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "name": "conversation-trace",
+  "display_name": "Conversation Trace",
+  "version": "0.1.0",
+  "description": "Inspect every OpenHands conversation as a searchable chronological trace of messages, tools, edits, commands, approvals, and errors.",
+  "entrypoint": "extension.js",
+  "contributes": {
+    "pages": [
+      {
+        "id": "trace",
+        "title": "Conversation Trace",
+        "path": "/trace",
+        "nav_label": "Trace",
+        "description": "Explore complete conversation histories as visual event timelines."
+      }
+    ]
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "name": "wasm-repo-lens",
+  "display_name": "WASM Repo Lens",
+  "version": "0.1.0",
+  "description": "Analyze an Agent Server repository in a browser Worker with an embedded Rust/WASM engine.",
+  "entrypoint": "extension.js",
+  "contributes": {
+    "pages": [
+      {
+        "id": "repo-lens",
+        "title": "WASM Repo Lens",
+        "path": "/repo-lens",
+        "nav_label": "Repo Lens",
+        "description": "Explore repository languages, directories, hotspots, dependencies, and imports without indexing source on the server."
+      }
+    ]
+  }
+}

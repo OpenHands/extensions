@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "name": "git-cockpit",
+  "display_name": "Git Cockpit",
+  "version": "0.1.0",
+  "description": "Inspect Agent Server Git worktrees through a focused, read-only cockpit.",
+  "entrypoint": "extension.js",
+  "contributes": {
+    "pages": [
+      {
+        "id": "cockpit",
+        "title": "Git Cockpit",
+        "path": "/cockpit",
+        "nav_label": "Git Cockpit",
+        "description": "Review status, branches, commits, changed files, and diffs without changing the repository."
+      }
+    ]
+  }
+}

@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Extension Lab — Preview</title>
+  <style>
+    :root {
+      --oh-background: #0c0d0f;
+      --oh-foreground: #f4f4f5;
+      --oh-surface: #1b1d22;
+      --oh-surface-raised: #262930;
+      --oh-border: #4b505c;
+      --oh-accent: #c9b974;
+      --oh-text-secondary: #b6bac3;
+      --oh-focus: #fff;
+    }
+    body { margin: 0; min-height: 100vh; background: var(--oh-background); }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="module">
+    const { activate, __testing } = await import("./src/extension.js");
+
+    __testing.injectStyle("extension-lab-style", __testing.STYLE);
+
+    const host = {
+      apiVersion: "1",
+      extension: { name: "extension-lab", version: "0.1.0", resolvedRef: null },
+      backend: { id: "preview", kind: "local", orgId: null },
+      registerPage(id, mount) {
+        const container = document.getElementById("root");
+        mount({ container, path: "", navigate: (p) => console.log("navigate", p) });
+        return () => container.replaceChildren();
+      },
+      navigate(path) { console.log("navigate", path); },
+      agentServer: {
+        request(req) {
+          return Promise.resolve({ conversations: [] });
+        },
+      },
+    };
+
+    activate(host);
+  </script>
+</body>
+</html>

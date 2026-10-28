@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "name": "personal-profile",
+  "display_name": "Personal Profile",
+  "version": "0.1.0",
+  "description": "A personal activity dashboard with contribution graphs for OpenHands conversations, GitHub activity, and LLM usage stats.",
+  "entrypoint": "extension.js",
+  "contributes": {
+    "pages": [
+      {
+        "id": "profile",
+        "title": "Personal Profile",
+        "path": "/profile",
+        "nav_label": "Profile",
+        "description": "Contribution graphs and usage stats across OpenHands, GitHub, and LLM activity."
+      }
+    ]
+  }
+}

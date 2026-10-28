@@ -1,0 +1,17 @@
+{
+  "version": "0.1.0",
+  "engine": "Bleve 2.5.5",
+  "build_mode": "local-source",
+  "supported_targets": [
+    "darwin-arm64",
+    "darwin-amd64",
+    "linux-arm64",
+    "linux-amd64"
+  ],
+  "source_sha256": "9a126991a6a6cae09f441398d3a0ebb17365d2f92e955d14ca24088e76b8cfaa",
+  "main_go_sha256": "cab411491c1056c7ec26c71e47d98daaa8f1b5b4393ba218a0f4a10c9424e621",
+  "go_mod_sha256": "4386d0e31d7d23f7a6bf2b2e87a824e7f0fa45ddc814144774f3e64a38389ce2",
+  "go_sum_sha256": "7e02c5aa2fbfe6d1567a36b9bff80c5b6478f16c1a7e5a1050e4fe67d946153e",
+  "origin": "Bundled App source in native/main.go, native/go.mod, and native/go.sum",
+  "module_network": "The first local build downloads the pinned Bleve module graph from proxy.golang.org or the configured Go proxy."
+}

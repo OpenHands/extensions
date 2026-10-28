@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "name": "canvas-pulse",
+  "display_name": "Canvas Pulse",
+  "version": "0.1.0",
+  "description": "A live operational dashboard for the active OpenHands Agent Server.",
+  "entrypoint": "extension.js",
+  "contributes": {
+    "pages": [
+      {
+        "id": "pulse",
+        "title": "Canvas Pulse",
+        "path": "/pulse",
+        "nav_label": "Canvas Pulse",
+        "description": "Inspect Agent Server health, capabilities, and runtime services."
+      }
+    ]
+  }
+}

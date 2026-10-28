@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "name": "vite-showcase",
+  "display_name": "Vite Showcase",
+  "version": "0.1.0",
+  "description": "A polished React and TypeScript showcase packaged by Vite as one self-contained Canvas App bundle.",
+  "entrypoint": "extension.js",
+  "contributes": {
+    "pages": [
+      {
+        "id": "showcase",
+        "title": "Vite Showcase",
+        "path": "/showcase",
+        "nav_label": "Vite Showcase",
+        "description": "Explore a self-contained Vite, React, TypeScript, asset, and Worker showcase."
+      }
+    ]
+  }
+}

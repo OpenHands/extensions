@@ -1,0 +1,28 @@
+{
+  "name": "vite-showcase-canvas-app",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "vite build && node scripts/check-artifact.mjs --sync",
+    "check:artifact": "node scripts/check-artifact.mjs",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:blob": "node scripts/blob-smoke.mjs",
+    "check": "npm run typecheck && npm run build && npm run test && npm run test:blob"
+  },
+  "dependencies": {
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8"
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.7",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^6.1.1",
+    "jsdom": "^28.1.0",
+    "playwright-core": "^1.58.2",
+    "typescript": "^5.9.3",
+    "vite": "^8.2.2",
+    "vitest": "^5.0.0"
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "name": "snake-arcade",
+  "display_name": "Snake Arcade",
+  "version": "0.1.0",
+  "description": "A bright, keyboard-friendly Snake game with a persistent high score for every Canvas backend.",
+  "entrypoint": "extension.js",
+  "contributes": {
+    "pages": [
+      {
+        "id": "arcade",
+        "title": "Snake Arcade",
+        "path": "/snake",
+        "nav_label": "Snake",
+        "description": "Play Snake, chase your best score, and take a quick arcade break."
+      }
+    ]
+  }
+}
