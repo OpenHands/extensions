@@ -24,6 +24,7 @@
       "command": "python3 plugin_runner.py main.py"
     },
     "runtime": {
+      "plugins": [],
       "agent_profile": {
         "required": true,
         "default_name": "default",
@@ -33,13 +34,7 @@
           "task_tracker",
           "browser_tool_set"
         ]
-      },
-      "plugins": [
-        {
-          "source": "github:OpenHands/extensions",
-          "repo_path": "skills/comment-cleanup"
-        }
-      ]
+      }
     },
     "config_schema": {
       "type": "object",

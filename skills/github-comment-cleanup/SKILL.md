@@ -86,5 +86,5 @@ The authoritative config schema is in `plugins/github-comment-cleanup/.plugin/pl
 
 - Entrypoint: `python3 plugin_runner.py main.py` in `scripts`.
 - Agent profile: `default`.
-- Secondary plugins: `skills/comment-cleanup` from this repository, forwarded to the cleanup conversation.
+- Secondary plugins: `[]`. The cleanup conversation loads `skills/comment-cleanup` from the same source and resolved commit as this plugin, so the skill always matches the script.
 - State: see [references/state-schema.md](references/state-schema.md). Delete a repository's key to force a full re-examination.

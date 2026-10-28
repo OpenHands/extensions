@@ -211,7 +211,7 @@ def test_prune_drops_deleted_paths(selection, repo):
 @pytest.fixture
 def local_env(monkeypatch, tmp_path):
     for name in ("OPENHANDS_CLOUD_API_URL", "AUTOMATION_KV_TOKEN", "AUTOMATION_API_URL",
-                 "AUTOMATION_REQUIRED_PLUGINS_PATH", "AUTOMATION_AGENT_PROFILE_ID", "AUTOMATION_EVENT_PAYLOAD"):
+                 "AUTOMATION_EXECUTION_SPEC_PATH", "AUTOMATION_AGENT_PROFILE_ID", "AUTOMATION_EVENT_PAYLOAD"):
         monkeypatch.delenv(name, raising=False)
     monkeypatch.setenv("AGENT_SERVER_URL", "http://agent.invalid")
     monkeypatch.setenv("SESSION_API_KEY", "session-key")
@@ -253,9 +253,7 @@ def test_the_plugin_manifest_config_schema_matches_the_script_defaults(main):
     for key, default in main.DEFAULT_CONFIG.items():
         if key != "repos":
             assert properties[key]["default"] == default, key
-    assert manifest["automation"]["runtime"]["plugins"] == [
-        {k: v for k, v in main.SKILL_PLUGIN.items() if k != "ref"}
-    ]
+    assert manifest["automation"]["runtime"]["plugins"] == []
 
 
 def test_the_catalog_bundle_runs_from_a_flat_directory(monkeypatch, local_env, repo):
@@ -273,17 +271,20 @@ def test_the_catalog_bundle_runs_from_a_flat_directory(monkeypatch, local_env, r
     assert set(module.select_files(repo, blobs, {"files": {}}, [], [], 100, 1_000_000).queue) == COMMENTED
 
 
-def test_a_plugin_spec_run_hands_the_conversation_the_resolved_skill_ref(main, monkeypatch, tmp_path):
-    plugins = tmp_path / "plugins.json"
-    plugins.write_text(json.dumps([{
-        "source": "github:OpenHands/extensions", "repo_path": "skills/comment-cleanup", "resolved_ref": "abc123",
-    }]))
-    assert main.skill_plugin()["ref"] == "main"
+def test_a_plugin_spec_run_loads_the_skill_from_the_same_source_and_commit(main, monkeypatch, tmp_path):
+    """The skill must match the script that queued the files, branch builds included."""
+    execution = tmp_path / "execution.json"
+    execution.write_text(json.dumps({
+        "plugin": {"source": "github:acme/extensions-fork", "repo_path": "plugins/github-comment-cleanup",
+                   "ref": "feature"},
+        "plugin_resolved_ref": "abc123",
+    }))
+    assert main.skill_plugin() == main.SKILL_PLUGIN
 
-    monkeypatch.setenv("AUTOMATION_REQUIRED_PLUGINS_PATH", str(plugins))
+    monkeypatch.setenv("AUTOMATION_EXECUTION_SPEC_PATH", str(execution))
 
     assert main.skill_plugin() == {
-        "source": "github:OpenHands/extensions", "repo_path": "skills/comment-cleanup", "ref": "abc123",
+        "source": "github:acme/extensions-fork", "repo_path": "skills/comment-cleanup", "ref": "abc123",
     }
 
 

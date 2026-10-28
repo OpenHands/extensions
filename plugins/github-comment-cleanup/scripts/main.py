@@ -53,9 +53,11 @@ DEFAULT_CONFIG = {
     "branch_prefix": "openhands/comment-cleanup",
     "pull_request_mode": "draft",
 }
-# What the cleanup conversation loads. A plugin-spec run is handed the same source
-# with its ref resolved in AUTOMATION_REQUIRED_PLUGINS_PATH; a bundle run is not.
-SKILL_PLUGIN = {"source": "github:OpenHands/extensions", "repo_path": "skills/comment-cleanup", "ref": "main"}
+# What the cleanup conversation loads. A plugin-spec run takes the source and the
+# resolved ref of this plugin from AUTOMATION_EXECUTION_SPEC_PATH, so the skill always
+# matches the script; a catalog bundle run is not given one and uses main.
+SKILL_REPO_PATH = "skills/comment-cleanup"
+SKILL_PLUGIN = {"source": "github:OpenHands/extensions", "repo_path": SKILL_REPO_PATH, "ref": "main"}
 TOKEN_SECRET = "GITHUB_PERSONAL_ACCESS_TOKEN"
 CLOUD_TOKEN_SECRET = "github_token"
 CLOUD_TOKEN_ENV = "GITHUB_TOKEN"
@@ -102,15 +104,16 @@ def load_config(directory: Path | None = None) -> dict:
 
 
 def skill_plugin() -> dict:
-    path = os.environ.get("AUTOMATION_REQUIRED_PLUGINS_PATH")
+    path = os.environ.get("AUTOMATION_EXECUTION_SPEC_PATH")
     if not path or not Path(path).is_file():
         return dict(SKILL_PLUGIN)
-    plugin = json.loads(Path(path).read_text())[0]
-    return {
-        "source": plugin["source"],
-        "repo_path": plugin["repo_path"],
-        "ref": plugin.get("resolved_ref") or plugin.get("ref") or "main",
-    }
+    execution = json.loads(Path(path).read_text())
+    plugin = execution["plugin"]
+    skill = {"source": plugin["source"], "repo_path": SKILL_REPO_PATH}
+    ref = execution.get("plugin_resolved_ref") or plugin.get("ref")
+    if ref:
+        skill["ref"] = ref
+    return skill
 
 
 def now_iso() -> str:
