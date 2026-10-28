@@ -399,6 +399,24 @@ def test_a_run_waits_for_a_conversation_that_is_still_going(run):
     assert state["runs"][-1]["finalized"] == "still running (running)"
 
 
+def test_a_conversation_that_never_stops_is_abandoned_after_an_hour(run, monkeypatch):
+    started_ts = run()["pending"]["started_ts"]
+    # A conversation whose creation failed is never found, so it reports "starting" forever.
+    run.conversations.status = "starting"
+
+    monkeypatch.setattr(run.main.time, "time", lambda: started_ts + 3599)
+    state = run()
+    assert state["runs"][-1]["finalized"] == "still running (starting)"
+    assert len(run.conversations.started) == 1
+
+    monkeypatch.setattr(run.main.time, "time", lambda: started_ts + 3601)
+    state = run()
+    assert state["runs"][-1]["finalized"] == "expired"
+    assert len(run.conversations.started) == 2
+    assert state["pending"]["conversation_id"] == "conv-2"
+    assert set(state["pending"]["files"]) == COMMENTED
+
+
 def test_a_pull_request_records_both_fingerprints_and_parks_the_repository(run, repo):
     state = run()
     pending = state["pending"]
