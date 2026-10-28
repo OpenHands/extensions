@@ -7,6 +7,7 @@ GitHub REST API and the conversation API are replaced, at the functions that cal
 
 import importlib.util
 import json
+import re
 import subprocess
 import sys
 import threading
@@ -230,13 +231,20 @@ def test_config_defaults_and_comma_separated_globs(main, tmp_path):
     config = main.load_config(tmp_path)
 
     assert config["exclude"] == ["docs/*", "*.gen.ts"]
-    assert config["max_files"] == 100
+    assert config["max_files"] == 50
     assert config["pull_request_mode"] == "draft"
 
 
 @pytest.mark.parametrize(
     "raw",
-    [{}, {"repos": ["not-a-repo"]}, {"repos": [REPO], "max_files": "10"}, {"repos": [REPO], "pull_request_mode": "x"}],
+    [
+        {},
+        {"repos": ["not-a-repo"]},
+        {"repos": [REPO], "max_files": "10"},
+        {"repos": [REPO], "max_files": 51},
+        {"repos": [REPO], "max_files": 0},
+        {"repos": [REPO], "pull_request_mode": "x"},
+    ],
 )
 def test_bad_config_is_rejected(main, tmp_path, raw):
     (tmp_path / "config.json").write_text(json.dumps(raw))
@@ -452,6 +460,30 @@ def test_an_edited_file_is_examined_again(run, repo):
     state = run()
 
     assert set(state["pending"]["files"]) == {"src/plain.py"}
+
+
+def test_a_run_with_more_than_50_files_to_examine_sends_only_the_first_50(run, repo):
+    """Changed files come first, then the rest by path; the remainder waits for a later run."""
+    run()
+    run.conversations.status = "finished"
+    run.conversations.final = "CLEANUP_RESULT: NO_CHANGES"
+    run()
+    many = {f"pkg/m{i:02}.py": f"# Return {i}\nx = {i}\n" for i in range(60)}
+    commit(repo, many | {"src/plain.py": FILES["src/plain.py"] + "# Return the sum\n"})
+    git(repo, "push", "-q", str(run.remote), "main")
+
+    state = run()
+
+    prompt = run.conversations.started[-1]["prompt"]
+    sent = re.findall(r"^- `([^`]+)`$", prompt, re.MULTILINE)
+    assert sent == ["src/plain.py"] + [f"pkg/m{i:02}.py" for i in range(49)]
+    assert "Files to examine (50)" in prompt
+    assert set(state["pending"]["files"]) == set(sent)
+    assert state["runs"][-1]["queued"] == 50 and state["runs"][-1]["deferred"] == 11
+
+    state = run()
+
+    assert set(state["pending"]["files"]) == {f"pkg/m{i:02}.py" for i in range(49, 60)}
 
 
 # ── Starting conversations ────────────────────────────────────────────────────

@@ -20,7 +20,7 @@ For every configured repository:
 
 1. Records the outcome of the conversation the previous run started, once it has stopped. With a pull request, each file keeps its original and its cleaned fingerprint; with `NO_CHANGES`, its original; after a failure, nothing, so its files are offered again.
 2. Skips the repository while the pull request it opened is still open or the previous conversation is still running.
-3. Shallow-clones the default branch and fingerprints each candidate file by git blob SHA. Recorded fingerprints are skipped without reading the file; files with no comments are recorded directly. Changed files are queued before never-seen ones, up to `max_files` and `max_bytes`.
+3. Shallow-clones the default branch and fingerprints each candidate file by git blob SHA. Recorded fingerprints are skipped without reading the file; files with no comments are recorded directly. Changed files are queued before never-seen ones, then by path. At most 50 files are queued per run (`max_files`, 1-50, default 50), within `max_bytes`; the rest wait for a later run.
 4. Starts one conversation with `comment-cleanup` loaded and the queued paths in its first message. The agent edits, runs `verify_comment_only.py`, commits, pushes, and opens the pull request.
 
 Ask the user which repositories to clean and whether any paths should be included or excluded before creating it.
@@ -62,7 +62,7 @@ For local Agent Canvas development from this checkout, use a local source instea
     "repos": ["owner/repo"],
     "include": [],
     "exclude": ["docs/legacy/*"],
-    "max_files": 100,
+    "max_files": 50,
     "max_bytes": 1000000,
     "branch_prefix": "openhands/comment-cleanup",
     "pull_request_mode": "draft"

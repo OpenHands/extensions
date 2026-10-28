@@ -44,11 +44,12 @@ from github_client import github_paginate, github_request, is_cloud_run
 from selection import examined_fingerprints, prune, record, select_files, tree_blobs
 
 CONFIG_FILENAME = "config.json"
+MAX_FILES_PER_RUN = 50
 DEFAULT_CONFIG = {
     "repos": [],
     "include": [],
     "exclude": [],
-    "max_files": 100,
+    "max_files": MAX_FILES_PER_RUN,
     "max_bytes": 1_000_000,
     "branch_prefix": "openhands/comment-cleanup",
     "pull_request_mode": "draft",
@@ -98,6 +99,8 @@ def load_config(directory: Path | None = None) -> dict:
         config[key] = value
     if not config["repos"] or not all(re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", r) for r in config["repos"]):
         raise ValueError(f"{CONFIG_FILENAME}: repos must list at least one owner/repo")
+    if not 1 <= config["max_files"] <= MAX_FILES_PER_RUN:
+        raise ValueError(f"{CONFIG_FILENAME}: max_files must be between 1 and {MAX_FILES_PER_RUN}")
     if config["pull_request_mode"] not in {"draft", "ready"}:
         raise ValueError(f"{CONFIG_FILENAME}: pull_request_mode must be draft or ready")
     return config
