@@ -1,19 +1,19 @@
 {
   "name": "hol-guard",
   "version": "1.0.0",
-  "description": "Use HOL Guard to protect supported local AI harnesses, review Guard approvals and receipts, and scan agent plugins, skills, MCP servers, and marketplace packages before use.",
+  "description": "Inspect supported AI-agent skills, plugins, and MCP packages with HOL Plugin Scanner; does not add an OpenHands execution hook.",
   "author": {
-    "name": "OpenHands",
-    "email": "contact@all-hands.dev"
+    "name": "HOL",
+    "email": "michael@hol.org"
   },
   "homepage": "https://hol.org/guard",
-  "repository": "https://github.com/hashgraph-online/hol-guard-plugin",
+  "repository": "https://github.com/hashgraph-online/hol-guard",
   "license": "Apache-2.0",
   "keywords": [
     "hol-guard",
-    "security",
-    "ai-agents",
     "plugin-scanner",
-    "approvals"
+    "agent-security",
+    "security-scan",
+    "package-inspection"
   ]
 }
