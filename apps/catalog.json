@@ -1,5 +1,69 @@
 [
   {
+    "id": "agent-memory-viewer",
+    "name": "Agent Memory",
+    "description": "Read-only viewer for Agent Canvas user and project memory.",
+    "source": "./apps/agent-memory-viewer",
+    "manifest": "./apps/agent-memory-viewer/canvas-extension.json",
+    "beta": true
+  },
+  {
+    "id": "backend-sqlite-studio",
+    "name": "Backend SQLite Studio",
+    "description": "Explore and query durable SQLite data stored on the active Agent Server.",
+    "source": "./apps/backend-sqlite-studio",
+    "manifest": "./apps/backend-sqlite-studio/canvas-extension.json",
+    "beta": true
+  },
+  {
+    "id": "browser-sql-lab",
+    "name": "Browser SQL Lab",
+    "description": "Run a persistent SQLite database entirely in the browser with embedded WASM and an inline Worker.",
+    "source": "./apps/browser-sql-lab",
+    "manifest": "./apps/browser-sql-lab/canvas-extension.json",
+    "beta": true
+  },
+  {
+    "id": "canvas-pulse",
+    "name": "Canvas Pulse",
+    "description": "A live operational dashboard for the active OpenHands Agent Server.",
+    "source": "./apps/canvas-pulse",
+    "manifest": "./apps/canvas-pulse/canvas-extension.json",
+    "beta": true
+  },
+  {
+    "id": "conversation-search-sidecar",
+    "name": "Conversation Search",
+    "description": "Search local Agent Server conversations through a verified native index.",
+    "source": "./apps/conversation-search-sidecar",
+    "manifest": "./apps/conversation-search-sidecar/canvas-extension.json",
+    "beta": true
+  },
+  {
+    "id": "conversation-trace",
+    "name": "Conversation Trace",
+    "description": "Inspect every OpenHands conversation as a searchable chronological trace of messages, tools, edits, commands, approvals, and errors.",
+    "source": "./apps/conversation-trace",
+    "manifest": "./apps/conversation-trace/canvas-extension.json",
+    "beta": true
+  },
+  {
+    "id": "extension-lab",
+    "name": "Extension Lab",
+    "description": "A capability test bench and pattern gallery for Canvas extension authors — see what works, what doesn't, and copy the code.",
+    "source": "./apps/extension-lab",
+    "manifest": "./apps/extension-lab/canvas-extension.json",
+    "beta": true
+  },
+  {
+    "id": "git-cockpit",
+    "name": "Git Cockpit",
+    "description": "Inspect Agent Server Git worktrees through a focused, read-only cockpit.",
+    "source": "./apps/git-cockpit",
+    "manifest": "./apps/git-cockpit/canvas-extension.json",
+    "beta": true
+  },
+  {
     "id": "kanban-manager",
     "name": "Kanban Manager",
     "description": "A beta board for agent work: queue requests, track progress, and review completed tickets.",
@@ -8,11 +72,59 @@
     "beta": true
   },
   {
+    "id": "personal-profile",
+    "name": "Personal Profile",
+    "description": "A personal activity dashboard with contribution graphs for OpenHands conversations, GitHub activity, and LLM usage stats.",
+    "source": "./apps/personal-profile",
+    "manifest": "./apps/personal-profile/canvas-extension.json",
+    "beta": true
+  },
+  {
+    "id": "snake-arcade",
+    "name": "Snake Arcade",
+    "description": "A bright, keyboard-friendly Snake game with a persistent high score for every Canvas backend.",
+    "source": "./apps/snake-arcade",
+    "manifest": "./apps/snake-arcade/canvas-extension.json",
+    "beta": true
+  },
+  {
+    "id": "terminal",
+    "name": "Terminal",
+    "description": "Run shell commands on the active backend through Canvas authentication.",
+    "source": "./apps/terminal",
+    "manifest": "./apps/terminal/canvas-extension.json",
+    "beta": true
+  },
+  {
+    "id": "usage-insights",
+    "name": "Usage Insights",
+    "description": "Track OpenHands conversation tokens, estimated cost, models, and task budgets.",
+    "source": "./apps/usage-insights",
+    "manifest": "./apps/usage-insights/canvas-extension.json",
+    "beta": true
+  },
+  {
+    "id": "vite-showcase",
+    "name": "Vite Showcase",
+    "description": "A polished React and TypeScript showcase packaged by Vite as one self-contained Canvas App bundle.",
+    "source": "./apps/vite-showcase",
+    "manifest": "./apps/vite-showcase/canvas-extension.json",
+    "beta": true
+  },
+  {
     "id": "vscode",
     "name": "VS Code",
     "description": "A managed full-height OpenVSCode editor for the selected Agent Canvas workspace.",
     "source": "./apps/vscode",
     "manifest": "./apps/vscode/canvas-extension.json",
+    "beta": true
+  },
+  {
+    "id": "wasm-repo-lens",
+    "name": "WASM Repo Lens",
+    "description": "Analyze an Agent Server repository in a browser Worker with an embedded Rust/WASM engine.",
+    "source": "./apps/wasm-repo-lens",
+    "manifest": "./apps/wasm-repo-lens/canvas-extension.json",
     "beta": true
   }
 ]
