@@ -9,9 +9,11 @@ rook plan --json
 rook status --json
 ```
 
-`doctor` prints version, node, workspace, environment, controller and api
-reachability, identity, auth state, project, mode (`headless` or `tui`)
-and tty.
+`doctor` prints version, node, OS, workspace, environment, controller and api
+reachability, identity, auth state, project, mode (`cli`, `tui` or `headless`),
+tty and the terminal (shell, privilege, color level, size); a field it cannot
+detect reads `unknown`. Since 0.1.12, `rook doctor --json` prints the same
+report as one JSON object; see [headless contracts](headless-contract.md).
 
 ## Failure documents
 
@@ -21,23 +23,33 @@ Gate refusals on `report`, `status` and `ask`, and parser errors, may have no
 JSON document; use the stderr diagnostic. Do not infer successful execution
 from `ok: true` or from an old report on disk.
 
-| `error` says             | Do                                                                                              |
-| ------------------------ | ----------------------------------------------------------------------------------------------- |
-| `remedy: login`          | you are not signed in - `rook login`; in CI, `rook login --username <u> --access-key <k>`       |
-| `remedy: new_session`    | that session has been used up - run the command again                                           |
-| `remedy: retry`          | could not reach rook-api - it may be down, or the network; wait and try again, or `rook doctor` |
-| `remedy: request_access` | you do not have access to this project - ask the org admin for access                           |
-| `remedy: create_project` | this org has no projects yet - `rook project create <name>`                                     |
-| `remedy: pick_project`   | no project selected - `rook project use <id>`                                                   |
-| `remedy: agent_missing`  | the active agent is gone - `rook agent use <id>`                                                |
-| `remedy: explore_agents` | no agents registered - `rook explore`                                                           |
-| `remedy: pick_agent`     | no agent selected - `rook agent use <id>`                                                       |
-| `remedy: topup`          | you are out of credits - check `rook plan` and add credits                                      |
-| `remedy: reconcile`      | this agent has diverged from upstream - `rook sync`                                             |
-| `remedy: update`         | this version is too old to be served - tell the user, and change the pinned version only with their approval                                    |
-| no active agent          | `rook agent use <id>` after `rook explore`                                                      |
-| no project selected      | `rook project use <id>` or `rook project create <name>`                                         |
-| could not reach rook-api | check the network; `doctor` shows both endpoints                                                |
+| `error` says                | Do                                                                                                                                 |
+| --------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| `remedy: login`             | you are not signed in - `rook login`; in CI, export `LT_USERNAME` and `LT_ACCESS_KEY`                                              |
+| `remedy: repair_auth`       | a stored sign-in could not be refreshed or saved - not a sign-out; run `rook login` again and check `~/.testmuai/rook` permissions |
+| `remedy: new_session`       | that session has been used up - run the command again                                                                              |
+| `remedy: retry`             | could not reach the service - it may be down, or the network; wait and try again, or `rook doctor`                                 |
+| `remedy: wait`              | rate-limited - wait the stated time, then retry                                                                                    |
+| `remedy: server_error`      | the service answered with an error - retry later; include the status in a bug report                                               |
+| `remedy: request_access`    | you do not have access to this project - ask the org admin for access                                                              |
+| `remedy: create_project`    | this org has no projects yet - `rook project create <name>`                                                                        |
+| `remedy: pick_project`      | no project selected - `rook project use <id>`                                                                                      |
+| `remedy: agent_missing`     | the active agent is gone - `rook agent use <id>`                                                                                   |
+| `remedy: explore_agents`    | no agents registered - `rook explore`                                                                                              |
+| `remedy: pick_agent`        | no agent selected - `rook agent use <id>`                                                                                          |
+| `remedy: topup`             | you are out of credits - check `rook plan` and add credits                                                                         |
+| `remedy: plan_required`     | the org has no active Agent Assurance plan (none, an ended free trial or an expired subscription), whatever its credit balance - nothing ran or was charged; give the user the billing link the refusal names |
+| `remedy: upgrade_plan`      | the plan has no Rook cloud (such as Starter) - sync, cloud project status and recording runs on Rook cloud are refused; keep work local with `rook run --test`, or give the user the upgrade link the refusal names |
+| `remedy: reconcile`         | this agent has diverged from upstream - `rook sync`                                                                                |
+| `remedy: update`            | this version is too old to be served - tell the user, and change the pinned version only with their approval   |
+| `remedy: report`            | a client bug - file an issue with `rook export logs` attached                                                                      |
+| no active agent             | `rook agent use <id>` after `rook explore`                                                                                         |
+| no project selected         | `rook project use <id>` or `rook project create <name>`                                                                            |
+| could not reach the service | check the network; `doctor` shows both endpoints                                                                                   |
+
+A plan refusal shows the billing page that lifts it as the next step; Rook uses
+only https links on LambdaTest or TestMu AI hosts. Do not retry the refused
+command until the plan changes.
 
 ## Discovery succeeds but registers no agents
 
@@ -86,4 +98,8 @@ rook export logs --out ./rook-logs.zip --all-sessions
 ```
 
 Include `rook --version`, the OS, and the scenario and run ids. Never paste a
-transcript, a credential, or the contents of `~/.testmuai/rook/`.
+transcript, a credential, or the contents of `~/.testmuai/rook/`. The bundle
+carries session transcripts and their `blobs/` folders. Since 0.1.12 Rook masks
+the credentials it holds or recognises before writing a transcript line, best
+effort; transcripts from older versions are not masked. Let the user review the
+bundle before it is shared.

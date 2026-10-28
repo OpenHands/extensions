@@ -15,7 +15,7 @@ It is one option for testing agents. It does not replace `qa-changes` or any bui
 <IMPORTANT>
 Rook CLI needs a TestMu AI account, and runs spend Agent Assurance credits. The user signs in, chooses and authorizes the target agent, and authorizes any credit spend. Never authorize those yourself.
 
-For headless runs, sign in with credentials the user provides as OpenHands secrets:
+For headless runs, Rook signs in from credentials the user provides as OpenHands secrets:
 
 ```bash
 [ -n "$LT_USERNAME" ] && echo "LT_USERNAME is set" || echo "LT_USERNAME is NOT set"
@@ -27,23 +27,24 @@ If either is missing, ask the user to add it as a secret. Never print them, and 
 
 ## Install and sign in
 
-Rook CLI runs on macOS and Linux. Install the pinned release with Node 22 or newer:
+Rook CLI runs on macOS, Linux and Windows. Install the pinned release with Node.js 20 or newer:
 
 ```bash
-npm install -g @testmuai/rook@0.1.7
+npm install -g @testmuai/rook@0.1.14
 rook --version
-rook login --username "$LT_USERNAME" --access-key "$LT_ACCESS_KEY"
 rook doctor
 ```
 
-Changing the installed version also needs the user's approval. Upstream documentation for this release: https://github.com/LambdaTest/rook/tree/v0.1.7
+With `LT_USERNAME` and `LT_ACCESS_KEY` set, Rook signs commands in from them directly, so a headless run needs no `rook login` step and the access key never appears on a command line. At a terminal, `rook login` opens the browser sign-in instead.
+
+Changing the installed version also needs the user's approval. Upstream documentation for this release: https://github.com/LambdaTest/rook/tree/v0.1.14
 
 ### In an OpenHands sandbox
 
-- The global npm folder is owned by root, so a plain `npm install -g` fails with `EACCES`. Install with `sudo npm install -g @testmuai/rook@0.1.7`.
+- The global npm folder is owned by root, so a plain `npm install -g` fails with `EACCES`. Install with `sudo npm install -g @testmuai/rook@0.1.14`.
 - Rook selects the project per directory. Run `rook project create <name>` or `rook project use <id>` inside the agent's directory before `rook explore`, or the command stops with `no_project`.
 - `rook explore` and `rook generate` can stop to ask a question, such as which agent to register. In a non-interactive shell, pass `--yes` only within the scope the user authorized, and close stdin (`< /dev/null`) so a prompt cannot hang the run.
-- In 0.1.7, `explore` and `generate` print readable text even with `--json`, so read their output as text.
+- In 0.1.14, `explore` and `generate` print readable text even with `--json`, so read their output as text. `run` prints a JSON document with `--json`.
 
 ## Your role
 
@@ -62,7 +63,7 @@ Then run the next command the state needs:
 
 | Need | Command |
 | --- | --- |
-| Sign in | `rook login --username "$LT_USERNAME" --access-key "$LT_ACCESS_KEY"` |
+| Sign in | Export `LT_USERNAME` and `LT_ACCESS_KEY` (no login step), or `rook login` at a terminal |
 | Select a project | `rook project use <id>` or `rook project create <name>` |
 | Discover agents | `rook explore . --json` |
 | Select an agent | `rook agent use <id>` |
@@ -77,13 +78,15 @@ Choose the profile's transport and command from the target's source or the user'
 
 Before `profile add`, `profile fix`, `profile test` or `run`, inspect the target's `agent.yaml` for `calls[]` entries with `write: true`. Those commands can reach the real agent, and Rook cannot undo their effects. Point Rook at staging and get the user's authorization for those effects first. Verify effects through read-only interfaces. Keep secrets as `${VAR}` references through `rook env set`, outside profiles and transcripts.
 
-Tell the user before spending credits on `explore`, `generate`, `run`, `profile add`, `profile fix`, `ask` and `run --rca` or `report --rca`. `profile test` invokes the target without Rook model credits. Use paid root-cause analysis only with the user's authorization, and track the user's budget across commands. Prefer scoped `--allow` grants, and use `--yes` only within the authorized scope. See [headless contracts](references/headless-contract.md) for output, grants and credit accounting.
+Tell the user before spending credits on `explore`, `generate`, `run`, `profile add`, `profile fix`, `ask` and `run --rca` or `report --rca`. `profile test` invokes the target without Rook model credits. Use paid root-cause analysis only with the user's authorization, and track the user's budget across commands.
+
+Rook checks the organisation's Agent Assurance plan before any model call or credit spend, whatever the balance. A `plan_required` or `upgrade_plan` refusal names the billing page that lifts it; pass that link to the user instead of retrying. A plan without Rook cloud, such as Starter, runs locally: when `sync` or cloud status is refused, `rook run --test` gives a local result. See [troubleshooting](references/troubleshooting.md). Prefer scoped `--allow` grants, and use `--yes` only within the authorized scope. See [headless contracts](references/headless-contract.md) for output, grants and credit accounting.
 
 ## Report the evidence
 
 Check the exit status and the `discarded` and `halted` fields before claiming completion. A finished run exits 0 even when scenarios fail, and `ok: true` can also describe a refused run. Parse JSON only when a document exists, otherwise use stderr. Read the report by this invocation's run ID, not an older default report.
 
-Follow [verdicts](references/verdicts.md): show **Pass**, **Fail** and **Unable to Verify** separately, quote criterion evidence, identify gaps and compare prior runs only when their evidence is available. Unable to Verify stays out of the pass rate. Do not invent evidence or replace Rook's verdict with your own reading of the agent's reply.
+Follow [verdicts](references/verdicts.md): show **Pass**, **Fail** and **Unable to Verify** separately, quote criterion evidence, identify gaps and compare prior runs only when their evidence is available. Unable to Verify is its own verdict, never a Fail. Do not invent evidence or replace Rook's verdict with your own reading of the agent's reply.
 
 ## References
 
@@ -97,4 +100,4 @@ Follow [verdicts](references/verdicts.md): show **Pass**, **Fail** and **Unable 
 
 Project evidence lives under `.testmuai/rook/`. Credentials and session state live under `~/.testmuai/rook/`; never commit that folder.
 
-Adapted from the Rook CLI agent skill (Apache-2.0) at the `v0.1.7` tag.
+Adapted from the Rook CLI agent skill (Apache-2.0) at the `v0.1.14` tag.
