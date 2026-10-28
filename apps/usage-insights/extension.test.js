@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { activate } from "./extension.js";
 
 // ─── Fixtures ──────────────────────────────────────────────────────────────
@@ -145,7 +145,20 @@ function setup({ conversationPages, eventPages } = {}) {
   return { host, mountPage, unregister, deactivate, navigate, request, requestPaths };
 }
 
-afterEach(() => vi.restoreAllMocks());
+// The fixtures are dated 2026-09-29 and the default view covers the last
+// seven days, so pin the clock to the day after them; otherwise the reported
+// cost falls out of range once the fixtures age past a week.
+const FIXTURE_NOW = new Date("2026-09-30T00:00:00Z");
+
+beforeEach(() => {
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(FIXTURE_NOW);
+});
+
+afterEach(() => {
+  vi.useRealTimers();
+  vi.restoreAllMocks();
+});
 
 // ─── Tests ─────────────────────────────────────────────────────────────────
 
