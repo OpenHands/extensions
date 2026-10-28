@@ -4,7 +4,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "vitest run --environment jsdom"
+    "test": "vitest run --environment jsdom",
+    "check": "node --check extension.js && vitest run --environment jsdom"
   },
   "devDependencies": {
     "vitest": "^3.2.4",
