@@ -1,34 +1,32 @@
-# HOL Guard
+# HOL Guard Plugin Scanner for OpenHands
 
-This OpenHands skill provides operational guidance for the real HOL Guard security CLI and its separate plugin scanner.
+This optional OpenHands skill teaches an agent to inspect a supported third-party AI-agent artifact **without executing it**. It uses HOL's separately published `plugin-scanner` CLI to perform a security scan, plus optional authoring/packaging checks.
 
-Use it to:
+It **does not** install HOL Guard hooks, intercept OpenHands tool calls, protect OpenHands itself, or modify another coding agent's configuration. An OpenHands extension file is not necessarily a format recognized by the scanner.
 
-- install and verify `hol-guard`;
-- protect a local AI harness that HOL Guard currently supports;
-- review Guard approvals, receipts, and evidence;
-- scan agent skills, plugins, MCP server packages, marketplace packages, or mixed workspaces with `plugin-scanner`.
+## Example
 
-It intentionally does not claim a native OpenHands pre-tool interception hook. For OpenHands workspaces, the skill can run Guard and scanner workflows from the agent environment, while harness protection is limited to targets explicitly supported by HOL Guard.
-
-## Quick start
+When the user authorizes a scan of an artifact format supported by the installed scanner:
 
 ```bash
-pipx install hol-guard
-hol-guard status
-hol-guard detect --json
+pipx install 'plugin-scanner==3.58.0'
+plugin-scanner --version
+plugin-scanner scan <path> --format json
 ```
 
-For package scanning:
+Replace `<path>` with the selected supported package root. The pinned version was available on PyPI on October 28, 2026; check its suitability before running the command.
+
+Optional authoring and package-readiness checks, **not** a replacement for the security scan:
 
 ```bash
-pipx install plugin-scanner
-plugin-scanner lint .
-plugin-scanner verify .
+plugin-scanner lint <path>
+plugin-scanner verify <path>
 ```
+
+Do not execute untrusted package hooks or report an unrecognized package as clean. Report actual files in scope, command results, unresolved findings, and unsupported formats. No successful scanner result is an OpenHands runtime enforcement guarantee.
 
 ## Sources
 
-- Product: https://hol.org/guard
-- Plugin and Agent Skill: https://github.com/hashgraph-online/hol-guard-plugin
-- Runtime: https://github.com/hashgraph-online/hol-guard
+- Published scanner: https://pypi.org/project/plugin-scanner/
+- Open-source implementation: https://github.com/hashgraph-online/hol-guard
+- Product context: https://hol.org/guard
