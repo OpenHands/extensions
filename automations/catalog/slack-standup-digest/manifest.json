@@ -12,5 +12,8 @@
   },
   "popularityRank": 94,
   "estimatedSetupMinutes": 5,
+  "triggers": [
+    "cron"
+  ],
   "exampleImplementation": "Trigger: cron, weekday mornings\nRequired MCP: Slack\n\n1. Search configured channels for messages since the last digest window.\n2. Cluster updates into shipped work, active work, blockers, and decisions.\n3. TODO: choose a safe allowlist for channels and whether DMs are excluded.\n4. Draft a Slack message with owners, links, and unanswered questions.\n5. Optionally post to the configured standup channel."
 }

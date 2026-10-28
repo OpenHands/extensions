@@ -1,9 +1,60 @@
-"""Tests for how the stale-CI pull request closer reports its run."""
+"""Tests for how the stale-CI pull request closer keeps state and reports its run."""
 
+import io
 import json
+from urllib.error import HTTPError
 
 import pytest
 from github_automation_helpers import worker
+
+RECORDS = {"7": {"head_sha": "abc", "first_failed_at": 0}}
+
+
+@pytest.fixture
+def kv(tmp_path, monkeypatch):
+    """A KV store that, like the real one, keeps a PUT body verbatim."""
+    module = worker("github-stale-ci-pr-closer", tmp_path, monkeypatch)
+    monkeypatch.setattr(module, "KV_TOKEN", "kv-token")
+    monkeypatch.setattr(module, "KV_BASE", "https://automation.test")
+    store = {}
+
+    def urlopen(request):
+        if request.get_method() == "PUT":
+            store["value"] = json.loads(request.data)
+        elif "value" not in store:
+            raise HTTPError(request.full_url, 404, "Not Found", {}, None)
+        return io.BytesIO(json.dumps({"value": store["value"]}).encode())
+
+    monkeypatch.setattr(module, "urlopen", urlopen)
+    return module, store
+
+
+def test_state_round_trips_through_the_kv_store_unchanged(kv):
+    # Arrange
+    module, store = kv
+    state = {"prs": RECORDS}
+
+    # Act
+    for _ in range(3):
+        module.save_state("OpenHands/extensions", state)
+        state = module.load_state("OpenHands/extensions")
+
+    # Assert
+    assert store["value"] == {"version": 1, "prs": RECORDS}
+    assert state == store["value"]
+
+
+def test_state_nested_by_earlier_versions_is_recovered(kv):
+    # Arrange
+    module, store = kv
+    oldest = {"value": {"version": 1, "prs": {}}}
+    store["value"] = {"value": {"value": oldest, "version": 1, "prs": RECORDS}}
+
+    # Act
+    state = module.load_state("OpenHands/extensions")
+
+    # Assert
+    assert state == {"version": 1, "prs": RECORDS}
 
 
 @pytest.mark.parametrize(

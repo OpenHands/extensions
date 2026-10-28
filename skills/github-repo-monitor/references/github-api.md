@@ -31,7 +31,9 @@ X-GitHub-Api-Version: 2022-11-28
 | Permission | Level |
 |------------|-------|
 | Issues | Read and Write |
-| Pull requests | Read (optional, for fetching PR metadata) |
+| Metadata | Read (required for the collaborator-permission check) |
+| Contents | Read and Write (`WORK_MODE = "implement"`; the agent pushes commits) |
+| Pull requests | Read and Write (`WORK_MODE = "implement"`; the agent updates PRs) |
 
 ### Checking Token Scopes
 
@@ -77,6 +79,34 @@ Key fields in the response:
 Error codes:
 - `404` — Repo not found or token has no read access.
 - `403` — Token exists but is blocked from this resource.
+
+---
+
+### Check a commenter's permission (authorization gate)
+
+```
+GET /repos/{owner}/{repo}/collaborators/{username}/permission
+```
+
+The monitor calls this once per commenter per run (the result is cached) and
+acts only when `permission` is `admin` or `write` (`maintain` users arrive as
+`write`; `maintain` is still accepted defensively). The token owner
+and logins listed in `ALLOWED_GITHUB_LOGINS` skip the call.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `permission` | string | Effective permission, as one of the legacy base roles `admin`, `write`, `read`, or `none`. `maintain` is reported as `write` and `triage` as `read` |
+| `user.login` | string | The collaborator the answer describes |
+
+Notes:
+- A user who is not a collaborator on a private repo returns `404`; treat that
+  as "not permitted". On a public repo with a base permission, the same user may
+  return `read`, which is also "not permitted".
+- `403` means the token cannot read collaboration data (fine-grained tokens may
+  lack the permission). The monitor fails closed: the comment is skipped.
+- Fine-grained PATs need **Metadata: Read**, which is what GitHub's endpoint
+  reference requires for this call; classic PATs answer it with the `repo` scope
+  they already need for everything else.
 
 ---
 

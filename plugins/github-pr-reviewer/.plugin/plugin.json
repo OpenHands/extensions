@@ -1,0 +1,90 @@
+{
+  "name": "github-pr-reviewer",
+  "version": "1.0.0",
+  "description": "Create an automation that reviews GitHub pull requests when a configurable trigger label is applied. It starts one OpenHands review conversation per label event, inspects full PR and repository context, and posts the final review comment back to GitHub.",
+  "author": {
+    "name": "OpenHands",
+    "email": "contact@all-hands.dev"
+  },
+  "homepage": "https://github.com/OpenHands/extensions",
+  "repository": "https://github.com/OpenHands/extensions",
+  "license": "MIT",
+  "keywords": [
+    "github",
+    "pull-request",
+    "review",
+    "code-review",
+    "automation",
+    "integration"
+  ],
+  "automation": {
+    "schema_version": "openhands.automation.plugin.v1",
+    "entrypoint": {
+      "runner": "script",
+      "working_dir": "scripts",
+      "command": "python3 plugin_runner.py worker.py"
+    },
+    "runtime": {
+      "plugins": [],
+      "agent_profile": {
+        "required": true,
+        "default_name": "default",
+        "allowed_tools": [
+          "terminal",
+          "file_editor",
+          "task_tracker",
+          "browser_tool_set"
+        ]
+      }
+    },
+    "config_schema": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "repos": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "default": [
+            "OpenHands/extensions"
+          ]
+        },
+        "trigger_label": {
+          "type": "string",
+          "default": "openhands-review"
+        },
+        "review_tone": {
+          "type": "string",
+          "default": "concise"
+        },
+        "github_token_secret": {
+          "type": "string",
+          "default": "GITHUB_PERSONAL_ACCESS_TOKEN"
+        },
+        "trigger_reviewer": {
+          "type": "string",
+          "default": "all-hands-bot"
+        },
+        "max_new_per_run": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 2
+        },
+        "maintainers": {
+          "type": ["array", "string"],
+          "items": {
+            "type": "string"
+          },
+          "default": []
+        }
+      }
+    },
+    "suggested_trigger": {
+      "type": "cron",
+      "schedule": "*/15 * * * *",
+      "timezone": "UTC"
+    }
+  }
+}

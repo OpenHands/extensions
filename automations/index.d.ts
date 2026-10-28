@@ -42,6 +42,14 @@ export interface RecommendedAutomation {
   impact?: AutomationImpact;
   /** Present when this automation ships an extension-owned setup experience. */
   setup?: AutomationSetup;
+  /**
+   * How the automation runs once created, for an entry without a setup form:
+   * `cron` for a schedule, `event` for an event-driven trigger, or both. An
+   * entry whose `setup.form.triggers` declares the variants states it there
+   * instead. Informational: the host renders it as the card's trigger badge
+   * and filter.
+   */
+  triggers?: AutomationTriggerKind[];
 }
 
 export interface AutomationImpact {
@@ -334,10 +342,22 @@ export interface AutomationCreatedByFilter {
   options: { value: AutomationCreatedByFilterValue; label: string }[];
 }
 
+/**
+ * The tag filter. Its values are the tags the automation service reports for
+ * the org, so the manifest supplies only the copy; `allLabel` names the host's
+ * default option, which matches every automation.
+ */
+export interface AutomationTagFilter {
+  id: "tag";
+  label: string;
+  allLabel: string;
+}
+
 export type AutomationDashboardFilter =
   | AutomationStatusFilter
   | AutomationTriggerFilter
-  | AutomationCreatedByFilter;
+  | AutomationCreatedByFilter
+  | AutomationTagFilter;
 
 /** A comparator the host implements, named from a closed set. */
 export type AutomationSortValue = "last-run" | "runs" | "name";
@@ -465,6 +485,8 @@ export interface AutomationInterfaceEndpoints {
   createBundle: string;
   /** Where a bundle's tarball is uploaded before that create call. */
   uploads: string;
+  /** The org's automation tags with counts, which fill the tag filter. */
+  tags?: string;
 }
 
 export interface AutomationInterfaceManifest {

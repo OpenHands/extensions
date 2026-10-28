@@ -18,6 +18,10 @@
   },
   "popularityRank": 87,
   "estimatedSetupMinutes": 6,
+  "triggers": [
+    "cron",
+    "event"
+  ],
   "skill": "ticket-to-code-change",
   "exampleImplementation": "Trigger: Linear issue marked implementation-ready\nRequired integrations: Linear, Bitbucket\n\n1. Watch the selected Linear team or project for issues carrying a configurable implementation-ready label or state.\n2. Deduplicate issue IDs so each transition dispatches once.\n3. Read the issue, linked dependencies, acceptance criteria, and target repository.\n4. Start an independent OpenHands conversation that clones the Bitbucket repository, creates an issue-keyed branch, implements and tests the change, and opens a pull request.\n5. Post the conversation and pull request links back to the Linear issue and update its status according to the team's workflow."
 }

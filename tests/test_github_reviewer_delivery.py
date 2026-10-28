@@ -885,7 +885,7 @@ def test_reviewer_continues_after_one_submission_fails_then_reports_run_failure(
 def test_reviewer_scanner_has_no_conversation_or_runtime_code():
     source = (
         Path(__file__).resolve().parents[1]
-        / "skills/github-pr-reviewer/scripts/worker.py"
+        / "plugins/github-pr-reviewer/scripts/worker.py"
     ).read_text()
     for forbidden in (
         "RemoteConversation",

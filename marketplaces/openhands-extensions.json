@@ -93,6 +93,20 @@
       ]
     },
     {
+      "name": "software-factory",
+      "source": "./skills/software-factory",
+      "description": "Set up a GitHub software factory fast: ask only for the repositories and the ticket source (GitHub issues, Jira or Linear), create a working issue-to-PR and PR-review pipeline from catalog automations with defaults, then let the user stop or extend it step by step.",
+      "category": "automations",
+      "defaultEnabled": true,
+      "keywords": [
+        "onboarding",
+        "software-factory",
+        "github",
+        "automation",
+        "pull-request"
+      ]
+    },
+    {
       "name": "agent-canvas-environment",
       "source": "./skills/agent-canvas-environment",
       "description": "Work effectively inside a local Agent Canvas environment, including local agent-server auth, safe workspace hygiene, and local conversation delegation.",
@@ -844,6 +858,20 @@
       ]
     },
     {
+      "name": "show-me",
+      "source": "./skills/show-me",
+      "description": "Help the user understand the current topic visually with concise diagrams, code-shape sketches, and focused HTML artifacts.",
+      "category": "design",
+      "defaultEnabled": true,
+      "keywords": [
+        "visualization",
+        "diagrams",
+        "code",
+        "html",
+        "explanation"
+      ]
+    },
+    {
       "name": "simplified-technical-english",
       "source": "./skills/simplified-technical-english",
       "description": "Write explanations and chat in the style of ASD-STE100 Simplified Technical English: short active sentences, one idea each, plain consistent words. Applies to prose only, never to code.",
@@ -943,6 +971,25 @@
       "keywords": [
         "jev",
         "classification"
+      ]
+    },
+    {
+      "name": "cortex-training-rl",
+      "source": "./skills/cortex-training-rl",
+      "description": "Run reinforcement-learning post-training of a model inside the OpenHands harness on Snowflake Cortex Training for any Harbor training and eval task directories or SWE-smith code localization, and generate the reward convergence graph.",
+      "category": "integrations",
+      "keywords": [
+        "cortex-training",
+        "snowflake",
+        "reinforcement-learning",
+        "post-training",
+        "grpo",
+        "gspo",
+        "skyrl",
+        "arctic-platform",
+        "codescout",
+        "harbor",
+        "swe-smith"
       ]
     }
   ]

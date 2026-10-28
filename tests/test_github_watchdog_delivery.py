@@ -7,15 +7,12 @@ from urllib.error import HTTPError
 
 import pytest
 from github_automation_helpers import ROOT, worker
-from openhands.sdk.skills import install_skill
 
 
-def test_installed_watchdog_skill_imports_worker(tmp_path):
-    name = "github-delivery-watchdog"
-    install_skill(source=str(ROOT / "skills" / name), installed_dir=tmp_path)
+def test_watchdog_plugin_imports_worker():
     result = subprocess.run(
         [sys.executable, "-c", "import worker"],
-        cwd=tmp_path / name / "scripts",
+        cwd=ROOT / "plugins" / "github-delivery-watchdog" / "scripts",
         text=True,
         capture_output=True,
         check=False,

@@ -137,7 +137,7 @@ When editing or adding skills in this repo, follow these rules (and add new skil
 - Agent-driven plugins (for example `plugins/pr-review` and `plugins/release-notes`) use `uv run --with openhands-sdk --with openhands-tools ...` and require an `LLM_API_KEY` in addition to `GITHUB_TOKEN`.
 - For OpenHands Cloud API guidance, automations, and CLI integration, use `plugins/openhands`. It is the canonical unified OpenHands plugin covering the V1 Cloud API, Automations API, and CLI. The individual skills (`skills/openhands-api`, `skills/openhands-automation`) are also available standalone.
 - When reviewing or editing `skills/openhands-sdk`, validate copy-paste imports against the released packages with `uv run --with openhands-tools --with openhands-workspace --with openhands-agent-server python ...`. In the current released workspace package, the exported remote workspace classes are `APIRemoteWorkspace` / `OpenHandsCloudWorkspace`; `RemoteAPIWorkspace` is not available.
-- For agent-driven plugin scripts, prefer `from openhands.sdk.plugin import PluginSource` and pass `plugins=[PluginSource(source=...)]` into `Conversation`. The current released SDK (`openhands-sdk` 1.49.x) exports both `PluginSource` and `Plugin` from `openhands.sdk.plugin`, so `Plugin.load(...)` imports also work (used by `tests/test_skill_plugin_loading.py`).
+- For agent-driven plugin scripts, prefer `from openhands.sdk.plugin import PluginSource` and pass `plugins=[PluginSource(source=...)]` into `Conversation`. `tests/test_skill_plugin_loading.py` also exercises `Plugin.load(...)` from `openhands.sdk.plugin`.
 - `plugins/qa-changes/action.yml` now has a preflight guard for fork PRs in `pull_request` context: if the PR comes from a fork and `LLM_API_KEY` is unavailable (normal for forks), the action exits successfully with a clear skip notice instead of failing.
 - `skills/bitbucket` should not tell agents to rewrite remotes proactively. In OpenHands, `BITBUCKET_TOKEN` is commonly kept in unencoded `user:token` form for API calls like `curl --user "$BITBUCKET_TOKEN" ...`; only split and URL-encode it when constructing a non-interactive HTTPS Git remote URL.
 
@@ -199,13 +199,48 @@ Important notes:
 - The `code-review` and `codereview-roasted` skills have been merged into a single `code-review` skill. The `/codereview-roasted` trigger is kept as an alias for backward compatibility. The `review-style` action input is deprecated and ignored.
 - `plugins/pr-review` supports an optional `require-evidence` action input that tells the reviewer to require end-to-end proof in the PR description that the code works; test output alone is not sufficient evidence.
 - The corresponding `REQUIRE_EVIDENCE` env flag is consumed by `plugins/pr-review/scripts/agent_script.py` and injected into the review prompt via `plugins/pr-review/scripts/prompt.py`.
+- `plugins/pr-review` supports an optional `require-pinned-actions` input (default `'false'`) that tells the reviewer to require commit-SHA pins on third-party actions in workflow and `action.yml` changes. The reviewed repository's owner is exempt; the `REQUIRE_PINNED_ACTIONS` env flag follows the same path as `REQUIRE_EVIDENCE`.
 - `plugins/pr-review` exposes an `enable-uv-cache` input (default `'false'`) that toggles `setup-uv`'s GitHub Actions cache. Default stays off because a prompt-injected reviewer could poison a shared cache that higher-privilege workflows later consume; opt in only on single-tenant self-hosted runners. The README's "Caching and Security" section documents the threat model and recommends a host-level uv cache volume as the preferred alternative for self-hosted setups.
 - GitHub review suggestions that only delete lines can look empty in `PullRequestReviewComment.body`; the rendered content is available via `bodyText`/`bodyHTML`, so review-context formatting should fall back there before treating a suggestion as empty.
 - Prompt coverage for this behavior lives in `tests/test_pr_review_prompt.py`.
 - `plugins/pr-review`'s `collect-feedback` input should append a short thumbs up/down footer to the main GitHub review body via `agent_script.py` / `prompt.py`, rather than posting a separate PR comment. `evaluate_review.py` should read feedback from review-body reactions while still tolerating legacy issue-comment markers.
+- In `plugins/pr-review/scripts/prompt.py`, PR-derived text (title, head branch, description, review context, files manifest, and patches) goes through the private `_fence_untrusted()` helper, with one nonce per `format_prompt()` call. Keep new PR-derived prompt fields inside these regions; containment tests live in `tests/test_pr_review_prompt_injection.py`.
 
 
 ## When uncertain
 
 - Prefer the official OpenHands docs on skills: https://docs.openhands.dev/overview/skills
 - Prefer the SDK skill guide: https://docs.openhands.dev/sdk/guides/skill
+
+## Dependency release-age policy
+
+- Wait at least seven days after publication before adding or updating a
+  third-party npm or PyPI version, including transitive lockfile changes.
+  A weekly update schedule alone does not enforce this minimum age.
+- Keep Dependabot `cooldown.default-days: 7` for npm and Python version
+  updates, and preserve `tool.uv.exclude-newer = "7 days"` where configured.
+  Existing named first-party exceptions do not exempt their third-party
+  dependencies. Do not add broad exemptions or disable the cutoff to make a
+  resolver succeed.
+- Verify the exact version's publication/upload time from npm or PyPI metadata
+  (or artifact `upload-time` in `uv.lock`), not the package's creation date.
+  If age cannot be established, report the missing evidence rather than guess.
+- Security updates can bypass Dependabot cooldown. An urgent exception needs
+  explicit maintainer approval recorded in the PR with the package, version,
+  advisory/reason, and publication time. Agents must not grant themselves an
+  exception. Keep overrides narrow and remove temporary exceptions afterward.
+- Use the committed lock for reproducible installs; review newly resolved
+  artifacts before committing a lock update.
+
+For manual npm dependency resolution, use npm >= 11.10 with
+`npm install --min-release-age=7` (days), or verify registry timestamps before
+committing the result. Older npm versions do not enforce this option. `npm ci`
+replays the lock and is not proof that newly locked versions meet the age rule.
+
+Use uv >= 0.9.25 for this policy. Older versions cannot parse the boolean
+first-party exemptions and can discard the entire `[tool.uv]` table, including
+`required-version`. Check `uv --version` before running `uv sync`, `uv lock`,
+or `uv run`; this repository does not commit a lockfile to reject old parsers.
+The named exemptions cover the released SDK, tools, workspace, and agent-server
+packages used by the documented import checks; their third-party dependencies
+still have the seven-day cutoff.

@@ -42,7 +42,7 @@ two records of the same fact from drifting apart, and it is why the file is as s
 | The setup route | `/automations/new/<id>` |
 | The integrations the card lists | `requires.integrations`, which every entry carries |
 | The capabilities endpoint | The host queries it for every automation |
-| The trigger variants a deployment can offer | The keys of `setup.form.triggers`; an entry with multiple keys is usable when at least one variant is supported |
+| The trigger variants a deployment can offer | The keys of `setup.form.triggers`; an entry with multiple keys is usable when at least one variant is supported. An entry without a setup form states its kind in `triggers` instead |
 | Schedule limits, timezone list, event choices, and model profiles | The `cron`, `timezone`, `event-source`, `event-type`, and `llm-profile` field types |
 | Local validation rules | The `required` flag and `constraints` on each field, applied to the selected trigger variant |
 | The preflight call | `POST /v1/validate` with the entry id, the create endpoint, and the rendered payload |
@@ -101,6 +101,12 @@ That way a skill can rename its trigger without leaving a stale copy behind in t
 `setup` is optional. Entries that carry one never repeat `id`, `name`, `category`, or `description`.
 `setup.version` selects how the block is interpreted; a future format ships a new constant.
 
+`triggers` is stated only by an entry whose setup does not declare `form.triggers`, which otherwise already
+names the variants: `cron`, `event`, or both, describing how the automation runs once it has been set up.
+An entry lists both when its skill can set up either, for example an event trigger on a deployment that can
+receive events and cron polling elsewhere. Agent Canvas renders it as the card's trigger badge and filter.
+The schema rejects an entry that states it both ways, so the fact stays in one place.
+
 ### Triggers and args
 
 `form` separates the two things a user is configuring, and both are keyed by field name:
@@ -115,7 +121,8 @@ That way a skill can rename its trigger without leaving a stale copy behind in t
   the endpoint implied by the action key: `prompt` -> `/v1/preset/prompt`, `plugin` -> `/v1/preset/plugin`,
   and `upload` -> `/v1/uploads` followed by `/v1`.
 
-An assisted entry declares no triggers, because the trigger is settled during the conversation.
+An assisted entry declares no `form.triggers`, because the trigger is settled during the conversation. It may
+still list the kinds that conversation can set up in the top-level `triggers`.
 
 ### What the form produces
 
@@ -165,7 +172,7 @@ once a pull request actually needs reviewing.
   "entrypoint": "python3 main.py",    // run inside the extracted tarball
   "timeout": 600,                     // when the service default is not enough
   "files": {                          // packed path -> where it lives in this repo
-    "main.py": "skills/github-pr-reviewer/scripts/main.py"
+    "main.py": "plugins/github-pr-reviewer/scripts/main.py"
   },
   "config": {                         // rendered from the form, packed as config.json
     "repos": "{{form.repositories}}", // a whole-value placeholder, so this is a list
@@ -271,7 +278,9 @@ falling back to its built-in defaults when the manifest is absent or fails admis
   `total-runs`, `average-duration`), filter option values name host predicates (`status`: enabled /
   latest-run-failed / disabled; `trigger`: `event` matches event-triggered automations, `schedule`
   everything else; `created_by`: `me` matches automations the signed-in user created, `others` everything
-  else, and the host decides where it is shown), `sort` values name host comparators, and `insights`
+  else, and the host decides where it is shown; `tag` declares no options, because its values are the
+  tags the automation service reports for the org, and the host hides it when there are none), `sort`
+  values name host comparators, and `insights`
   captions the host's run-health states and per-automation stats. The health precedence, the run
   sampling, the value formatting, the relative-time rendering, and the filtered-empty state with its reset
   button are the host's - a manifest cannot redefine them, only relabel what appears. Tile `detail` copy is
@@ -346,6 +355,7 @@ Two findings came out of that check and are baked into the entries:
 | `POST /v1` | Exists; accepts `template` provenance from OpenHands/automation#344 |
 | `GET /v1/capabilities` | Exists (OpenHands/automation#270) |
 | `POST /v1/validate` | Exists (OpenHands/automation#270) |
+| `GET /v1/tags` | Added by OpenHands/automation#622 |
 
 None of these appear in a catalog entry. Their service-relative paths are stated once, in
 `interface.json`'s `endpoints` block, which is why settling on different paths changes no catalog entry at

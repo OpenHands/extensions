@@ -18,7 +18,7 @@ from pathlib import Path
 import pytest
 
 ROOT = Path(__file__).parent.parent
-SCRIPT_PATH = ROOT / "skills" / "jira-issue-to-pr" / "scripts" / "main.py"
+SCRIPT_PATH = ROOT / "plugins" / "jira-issue-to-pr" / "scripts" / "main.py"
 
 ISSUE = {
     "key": "ENG-1",
@@ -227,6 +227,32 @@ def test_a_cloud_run_starts_each_conversation_through_openhands_cloud(stub, run_
     assert conversation["body"]["title"] == "[ENG-1] Add a README"
     assert "ENG-1" in conversation["body"]["initial_message"]["content"][0]["text"]
     assert stub.find("POST", "/api/conversations") == []
+
+
+def test_a_cloud_run_starts_conversations_from_the_automation_s_agent_profile(stub, run_script):
+    # Arrange
+    env = {**cloud_env(stub), "AUTOMATION_AGENT_PROFILE_ID": "0f2b5c2e-6d3a-4e7b-9c1d-2a4b6c8d0e1f"}
+
+    # Act
+    result = run_script(env)
+
+    # Assert
+    assert result.returncode == 0, result.stderr
+    [conversation] = stub.find("POST", "/api/v1/app-conversations")
+    assert conversation["body"]["agent_profile_id"] == "0f2b5c2e-6d3a-4e7b-9c1d-2a4b6c8d0e1f"
+
+
+def test_a_cloud_run_without_a_profile_leaves_the_choice_to_openhands_cloud(stub, run_script):
+    # Arrange
+    env = cloud_env(stub)
+
+    # Act
+    result = run_script(env)
+
+    # Assert
+    assert result.returncode == 0, result.stderr
+    [conversation] = stub.find("POST", "/api/v1/app-conversations")
+    assert "agent_profile_id" not in conversation["body"]
 
 
 def test_a_cloud_run_links_the_jira_issue_to_its_conversation(stub, run_script):

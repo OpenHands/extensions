@@ -23,6 +23,10 @@
   },
   "popularityRank": 78,
   "estimatedSetupMinutes": 8,
+  "triggers": [
+    "cron",
+    "event"
+  ],
   "skill": "incident-retrospective",
   "exampleImplementation": "Trigger: manual, cron, or incident label added\nRequired MCPs: Slack, Linear, Notion\n\n1. Gather incident messages, timestamps, and linked issue references.\n2. Pull Linear follow-up tickets, owners, and status.\n3. TODO: define the incident identifier format and approved Notion template.\n4. Build a timeline, impact summary, root-cause hypotheses, and action items.\n5. Publish a draft retrospective and notify the incident owner.",
   "setup": {

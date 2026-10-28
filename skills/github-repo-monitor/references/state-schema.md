@@ -46,7 +46,10 @@ variable (field `automation_id`).
   "processed_comment_ids": [             // rolling list (max 5000) of GitHub
     12345678,                            // comment IDs already handled; prevents
     98765432                             // duplicate processing if the run overlaps
-  ]
+  ],
+  "own_comment_ids": [                   // same size cap; comment IDs this
+    11223344                             // monitor posted itself (acknowledgement
+  ]                                      // and summary), skipped on later polls
 }
 ```
 
@@ -81,6 +84,14 @@ Value: **ConversationRecord**
 | `closed` | Summary has been posted to GitHub; a new trigger comment will attempt to re-open this conversation (or create a fresh one if it is unreachable) |
 
 ---
+
+## `own_comment_ids` List
+
+Comment IDs this monitor posted itself — the acknowledgement and the completion
+summary. They are skipped before the trigger check, because those bodies name
+the trigger alias and are authored by the token owner (or by the automation's
+own account, which is not necessarily a GitHub bot), so they would otherwise
+look like fresh requests on the next poll.
 
 ## `processed_comment_ids` List
 
