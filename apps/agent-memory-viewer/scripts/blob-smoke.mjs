@@ -1,9 +1,19 @@
+import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import process from "node:process";
 import { chromium } from "playwright-core";
 
-const chrome = process.env.CHROME_PATH ?? "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
+const chromeCandidates = [
+  process.env.CHROME_PATH,
+  "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+  "/usr/bin/google-chrome",
+  "/usr/bin/google-chrome-stable",
+  "/usr/bin/chromium",
+  "/usr/bin/chromium-browser",
+].filter(Boolean);
+const chrome = chromeCandidates.find((candidate) => existsSync(candidate));
+if (!chrome) throw new Error(`No Chrome or Chromium found; set CHROME_PATH. Tried: ${chromeCandidates.join(", ")}`);
 const source = await readFile(resolve(import.meta.dirname, "../extension.js"), "utf8");
 const browser = await chromium.launch({ executablePath: chrome, headless: true });
 try {
