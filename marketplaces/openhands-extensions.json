@@ -959,6 +959,25 @@
         "jev",
         "classification"
       ]
+    },
+    {
+      "name": "cortex-training-rl",
+      "source": "./skills/cortex-training-rl",
+      "description": "Run reinforcement-learning post-training of a model inside the OpenHands harness on Snowflake Cortex Training for any Harbor training and eval task directories or SWE-smith code localization, and generate the reward convergence graph.",
+      "category": "integrations",
+      "keywords": [
+        "cortex-training",
+        "snowflake",
+        "reinforcement-learning",
+        "post-training",
+        "grpo",
+        "gspo",
+        "skyrl",
+        "arctic-platform",
+        "codescout",
+        "harbor",
+        "swe-smith"
+      ]
     }
   ]
 }

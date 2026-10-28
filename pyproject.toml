@@ -1,6 +1,6 @@
 [project]
 name = "openhands-extensions"
-version = "0.35.0"
+version = "0.36.0"
 description = "OpenHands extensions, plugins, and skills (Python bindings for the integration catalog)"
 requires-python = ">=3.12"
 dependencies = [
@@ -30,3 +30,10 @@ test = [
 [tool.pytest.ini_options]
 pythonpath = ["python", "skills/github/scripts"]
 testpaths = ["tests"]
+
+[tool.uv]
+required-version = ">=0.9.25"
+exclude-newer = "7 days"
+
+# Only first-party artifacts bypass the wait, not their dependencies.
+exclude-newer-package = { openhands-sdk = false, openhands-tools = false, openhands-workspace = false, openhands-agent-server = false }

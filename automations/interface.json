@@ -80,6 +80,11 @@
             { "value": "me", "label": "Me" },
             { "value": "others", "label": "Others" }
           ]
+        },
+        {
+          "id": "tag",
+          "label": "Filter by tag",
+          "allLabel": "All tags"
         }
       ],
       "sort": {
@@ -155,7 +160,8 @@
     "createPrompt": "/v1/preset/prompt",
     "createPlugin": "/v1/preset/plugin",
     "createBundle": "/v1",
-    "uploads": "/v1/uploads"
+    "uploads": "/v1/uploads",
+    "tags": "/v1/tags"
   },
   "featuredAutomationIds": [
     "github-pr-reviewer",

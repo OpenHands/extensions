@@ -1,0 +1,73 @@
+{
+  "name": "github-agents-md-maintainer",
+  "version": "1.0.0",
+  "description": "Create an automation that keeps AGENTS.md current in one or more GitHub repositories. On a schedule it clones the default branch, has an agent read the repository and create or update AGENTS.md, and opens a pull request - staying quiet while one of its own pull requests is still open.",
+  "author": {
+    "name": "OpenHands",
+    "email": "contact@all-hands.dev"
+  },
+  "homepage": "https://github.com/OpenHands/extensions",
+  "repository": "https://github.com/OpenHands/extensions",
+  "license": "MIT",
+  "keywords": [
+    "github",
+    "agents-md",
+    "documentation",
+    "maintenance",
+    "automation"
+  ],
+  "automation": {
+    "schema_version": "openhands.automation.plugin.v1",
+    "entrypoint": {
+      "runner": "script",
+      "working_dir": "scripts",
+      "command": "python3 plugin_runner.py main.py"
+    },
+    "runtime": {
+      "plugins": [],
+      "agent_profile": {
+        "required": true,
+        "default_name": "default",
+        "allowed_tools": [
+          "terminal",
+          "file_editor",
+          "task_tracker",
+          "browser_tool_set"
+        ]
+      }
+    },
+    "config_schema": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "repos": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "default": [
+            "OpenHands/extensions"
+          ]
+        },
+        "branch_prefix": {
+          "type": "string",
+          "default": "openhands/agents-md"
+        },
+        "pull_request_mode": {
+          "type": "string",
+          "enum": [
+            "draft",
+            "ready"
+          ],
+          "default": "draft"
+        }
+      }
+    },
+    "suggested_trigger": {
+      "type": "cron",
+      "schedule": "0 9 * * 1",
+      "timezone": "UTC"
+    }
+  }
+}

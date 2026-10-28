@@ -14,7 +14,7 @@ from pathlib import Path
 import pytest
 
 ROOT = Path(__file__).parent.parent
-SCRIPT_PATH = ROOT / "skills" / "news-digest" / "scripts" / "main.py"
+SCRIPT_PATH = ROOT / "plugins" / "news-digest" / "scripts" / "main.py"
 MANIFEST_PATH = ROOT / "automations" / "catalog" / "news-digest" / "manifest.json"
 
 
@@ -612,10 +612,10 @@ def test_a_bundle_entry_asks_for_the_capability_a_bundle_needs(manifest):
     assert manifest["requires"]["features"] == ["customTarball"]
 
 
-def test_the_bundle_ships_the_script_this_skill_owns(manifest):
+def test_the_bundle_ships_the_script_this_plugin_owns(manifest):
     files = manifest["setup"]["bundle"]["files"]
 
-    assert files == {"main.py": "skills/news-digest/scripts/main.py"}
+    assert files == {"main.py": "plugins/news-digest/scripts/main.py"}
     assert (ROOT / files["main.py"]).is_file()
 
 
@@ -644,3 +644,41 @@ def test_the_form_offers_the_same_default_topics_the_script_carries(main, manife
     form_default = manifest["setup"]["form"]["args"]["topics"]["default"]
 
     assert [topic.strip() for topic in form_default.split(",")] == main.TOPICS
+
+
+# ── The conversation runs from the automation's agent profile ─────────────────
+
+
+def test_a_cloud_conversation_starts_from_the_automation_s_agent_profile(main, monkeypatch):
+    # Arrange
+    monkeypatch.setenv("AUTOMATION_AGENT_PROFILE_ID", "0f2b5c2e-6d3a-4e7b-9c1d-2a4b6c8d0e1f")
+    calls = []
+    monkeypatch.setattr(
+        main, "_cloud_request", lambda method, path, body=None: calls.append((method, path, body)) or {}
+    )
+
+    # Act
+    main._create_cloud_conversation("Write today's summary.", "Summary 2026-10-27")
+
+    # Assert
+    [(method, path, body)] = calls
+    assert (method, path) == ("POST", "/api/v1/app-conversations")
+    assert body["agent_profile_id"] == "0f2b5c2e-6d3a-4e7b-9c1d-2a4b6c8d0e1f"
+
+
+@pytest.mark.parametrize("value", [None, ""])
+def test_a_cloud_conversation_without_a_profile_leaves_the_choice_to_openhands(main, monkeypatch, value):
+    # Arrange
+    if value is None:
+        monkeypatch.delenv("AUTOMATION_AGENT_PROFILE_ID", raising=False)
+    else:
+        monkeypatch.setenv("AUTOMATION_AGENT_PROFILE_ID", value)
+    calls = []
+    monkeypatch.setattr(main, "_cloud_request", lambda method, path, body=None: calls.append(body) or {})
+
+    # Act
+    main._create_cloud_conversation("Write today's summary.", "Summary 2026-10-27")
+
+    # Assert
+    [body] = calls
+    assert "agent_profile_id" not in body

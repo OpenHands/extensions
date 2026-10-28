@@ -6,6 +6,7 @@ Each command prints one JSON document on stdout and exits non-zero on failure.
   factory.py preflight --repos owner/a,owner/b [--profile NAME]
   factory.py create --repos owner/a --ids ID[,ID...] [--set [ID.]FIELD=VALUE ...] [--profile NAME]
   factory.py tune --repos owner/a --ids ID[,ID...] [--set [ID.]FIELD=VALUE ...] [--profile NAME]
+  factory.py tag ID [ID ...]
   factory.py verify ID [ID ...] [--no-wait ID ...] [--timeout SECONDS]
   factory.py status ID [ID ...]
   factory.py prs --repos owner/a [--branch-prefix openhands/agents-md]
@@ -22,13 +23,11 @@ Environment:
 from __future__ import annotations
 
 import argparse
-import io
 import json
 import os
 import re
 import subprocess
 import sys
-import tarfile
 import time
 import urllib.error
 import urllib.parse
@@ -36,6 +35,7 @@ import urllib.request
 from pathlib import Path
 
 TOKEN_SECRET = "GITHUB_PERSONAL_ACCESS_TOKEN"
+DEFAULT_AGENT_PROFILE_NAME = "default"
 EXTENSIONS_URL = "https://github.com/OpenHands/extensions"
 PLACEHOLDER_RE = re.compile(r"\{\{([a-z]+)\.([A-Za-z0-9_.]+)\}\}")
 STATIONS = (
@@ -48,11 +48,18 @@ STATIONS = (
     "qa-changes",
 )
 TERMINAL = {"COMPLETED", "FAILED", "CANCELLED", "SKIPPED"}
+# Every station carries this tag, so the Automations list can filter to the factory.
+FACTORY_TAG = "software-factory"
+# Why a station could not get the factory tag (reported under not_tagged).
+NOT_CREATOR = "only its creator can change its tags"
+TAGS_UNSUPPORTED = "this automation service does not support tags yet"
 
 
 class FactoryError(Exception):
-    def __init__(self, message: str, **extra):
+    def __init__(self, message: str, status: int | None = None, detail: str = "", **extra):
         super().__init__(message)
+        self.status = status
+        self.detail = detail
         self.extra = extra
 
 
@@ -100,7 +107,7 @@ def _request(
             text = resp.read().decode()
     except urllib.error.HTTPError as err:
         detail = err.read().decode()[:2000]
-        raise FactoryError(f"{method} {url} -> {err.code}: {detail}") from None
+        raise FactoryError(f"{method} {url} -> {err.code}: {detail}", status=err.code, detail=detail) from None
     except urllib.error.URLError as err:
         raise FactoryError(f"{method} {url} -> {err.reason}") from None
     payload = json.loads(text) if text.strip() else None
@@ -181,6 +188,16 @@ def _release_ref() -> str | None:
         return None
 
 
+def _plugin_ref() -> str:
+    """Git ref for remote plugin-spec sources.
+
+    Use FACTORY_EXTENSIONS_REF to pin a release explicitly. Installed package
+    users get their matching `vX.Y.Z` tag. A source checkout has no package
+    metadata for this unreleased plugin layout, so it falls back to `main`.
+    """
+    return os.environ.get("FACTORY_EXTENSIONS_REF") or _release_ref() or "main"
+
+
 def _manifest(station: str) -> dict:
     path = _extensions() / "automations" / "catalog" / station / "manifest.json"
     if not path.is_file():
@@ -247,54 +264,63 @@ def _form_values(entry: dict, repos: list[str], overrides: dict) -> dict:
     return values
 
 
-def _create_body(entry: dict, values: dict, repos: list[str]) -> dict:
-    """The create request, as Agent Canvas builds it for a catalog bundle."""
-    bundle = entry["setup"]["bundle"]
-    name = entry["name"] + (f" - {repos[0]}" if len(repos) == 1 else f" - {len(repos)} repositories")
-    body = {
-        "name": name,
-        "trigger": {"type": "cron", "schedule": values["schedule"], "timezone": values["timezone"]},
-        "tarball_path": "",
-        "entrypoint": bundle["entrypoint"],
+def _station_name(entry: dict, repos: list[str]) -> str:
+    return entry["name"] + (
+        f" - {repos[0]}" if len(repos) == 1 else f" - {len(repos)} repositories"
+    )
+
+
+def _station_config(entry: dict, values: dict) -> dict:
+    return _interpolate(
+        entry["setup"]["bundle"]["config"], {"form": values, "automation": entry}
+    )
+
+
+def _trigger(values: dict) -> dict:
+    return {
+        "type": "cron",
+        "schedule": values["schedule"],
+        "timezone": values["timezone"],
     }
-    if "setupScript" in bundle:
-        body["setup_script_path"] = bundle["setupScript"]
+
+
+def _local_host() -> bool:
+    return urllib.parse.urlparse(_host()).hostname in ("localhost", "127.0.0.1", "::1")
+
+
+def _plugin_source(station: str, root: Path) -> dict:
+    repo_path = f"plugins/{station}"
+    if not (root / repo_path / ".plugin" / "plugin.json").is_file():
+        raise FactoryError(f"{station} has no plugin; create it as the skill describes")
+    if _local_host():
+        return {"source": str(root), "repo_path": repo_path}
+    return {
+        "source": "github:OpenHands/extensions",
+        "repo_path": repo_path,
+        "ref": _plugin_ref(),
+    }
+
+
+def _create_body(entry: dict, values: dict, repos: list[str], root: Path | None = None) -> dict:
+    """The plugin-spec create request for one factory station."""
+    root = root or _extensions()
+    bundle = entry["setup"]["bundle"]
+    body = {
+        "name": _station_name(entry, repos),
+        "plugin": _plugin_source(entry["id"], root),
+        "config": _station_config(entry, values),
+        "trigger": _trigger(values),
+        "enabled": False,
+        "template": {
+            "id": entry["id"],
+            "version": bundle["version"],
+            "config": _station_config(entry, values),
+        },
+    }
     if "timeout" in bundle:
         body["timeout"] = bundle["timeout"]
-    body["template"] = {
-        "id": entry["id"],
-        "version": bundle["version"],
-        "config": _interpolate(bundle["config"], {"form": values, "automation": entry}),
-    }
     return body
 
-
-def _tarball(root: Path, files: dict, config: dict) -> bytes:
-    buf = io.BytesIO()
-    with tarfile.open(fileobj=buf, mode="w:gz") as tar:
-        for archive_name, repo_path in files.items():
-            tar.add(str((root / repo_path).resolve()), arcname=archive_name)
-        data = json.dumps(config, indent=2).encode()
-        info = tarfile.TarInfo("config.json")
-        info.size = len(data)
-        tar.addfile(info, io.BytesIO(data))
-    return buf.getvalue()
-
-
-def _upload(name: str, data: bytes) -> str:
-    upload = _api(
-        "POST",
-        f"/uploads?name={urllib.parse.quote(name)}",
-        raw=data,
-        headers={"Content-Type": "application/gzip"},
-    )
-    deadline = time.time() + 120
-    while upload.get("status") == "UPLOADING" and time.time() < deadline:
-        time.sleep(2)
-        upload = _api("GET", f"/uploads/{upload['id']}")
-    if upload.get("status") not in (None, "COMPLETED") or not upload.get("tarball_path"):
-        raise FactoryError(f"upload of {name} failed: {upload.get('error_message') or upload}")
-    return upload["tarball_path"]
 
 
 # --- Agent profile ----------------------------------------------------------
@@ -311,7 +337,7 @@ def _profile(name: str | None) -> dict:
             ) from None
         raise
     profiles = listing.get("profiles", [])
-    wanted = name or listing.get("active_agent_profile_id")
+    wanted = name or DEFAULT_AGENT_PROFILE_NAME
     match = next((p for p in profiles if wanted in (p.get("id"), p.get("name"))), None)
     if not match:
         raise FactoryError(f"agent profile not found: {wanted}")
@@ -376,6 +402,7 @@ def create(args) -> dict:
     profile = None
     created = []
     existing = []
+    not_tagged = []
     try:
         for station in stations:
             entry = entries[station]
@@ -383,68 +410,123 @@ def create(args) -> dict:
             if not bundle:
                 raise FactoryError(f"{station} has no bundle; create it as the skill describes")
             values = _form_values(entry, repos, overrides[station])
-            body = _create_body(entry, values, repos)
-            body["tarball_path"] = _upload(station, _tarball(root, bundle["files"], body["template"]["config"]))
-            body["enabled"] = False
+            body = _create_body(entry, values, repos, root)
+            body["tags"] = [FACTORY_TAG]
             if _needs_profile(entry):
                 profile = profile or _profile(args.profile)
-                body["agent_profile_id"] = profile["id"]
-            status_code, automation = _api("POST", "", body, return_status=True)
+                if profile["name"] != DEFAULT_AGENT_PROFILE_NAME:
+                    raise FactoryError(
+                        "plugin-spec factory stations use the `default` agent profile; "
+                        f"got {profile['name']}"
+                    )
+            try:
+                status_code, automation = _api("POST", "/plugin-spec", body, return_status=True)
+            except FactoryError as err:
+                if not _rejects_tags(err):
+                    raise
+                del body["tags"]
+                status_code, automation = _api("POST", "/plugin-spec", body, return_status=True)
+            summary = _summary(station, body["name"], body["trigger"], automation)
             if status_code == 200:
                 # The service returns the org's existing automation for the same
                 # template id (see find_existing_template_automation). Report it
                 # as pre-existing so a repeat run does not claim it created it.
-                existing.append(_summary(station, body["name"], body["trigger"], automation))
+                # It comes back unchanged, so the factory tag is added here.
+                existing.append(summary)
+                reason = _add_factory_tag(automation)
+                if reason:
+                    not_tagged.append({**summary, "reason": reason})
                 continue
             if automation.get("enabled") or automation.get("state") == "ACTIVE":
                 _api("PATCH", f"/{automation['id']}", {"enabled": False})
-            created.append(_summary(station, body["name"], body["trigger"], automation))
+            created.append(summary)
+            if "tags" not in body:
+                not_tagged.append({**summary, "reason": TAGS_UNSUPPORTED})
     except FactoryError as err:
-        raise FactoryError(str(err), created=created, existing=existing) from None
-    return {"created": created, "existing": existing}
+        raise FactoryError(str(err), created=created, existing=existing, not_tagged=not_tagged) from None
+    return {"created": created, "existing": existing, "not_tagged": not_tagged}
+
+
+def _rejects_tags(err: FactoryError) -> bool:
+    """Whether the service predates automation tags.
+
+    Its create and update bodies forbid unknown fields, so it answers 422 with
+    an ``extra_forbidden`` error at ``tags``.
+    """
+    if err.status != 422:
+        return False
+    try:
+        errors = json.loads(err.detail)["detail"]
+        return any(e["type"] == "extra_forbidden" and e["loc"][-1] == "tags" for e in errors)
+    except (ValueError, KeyError, TypeError, IndexError):
+        return False
+
+
+def _add_factory_tag(automation: dict) -> str | None:
+    """Add the factory tag to an automation; the reason when it cannot.
+
+    The service replaces the whole tag list on PATCH, so the automation's own
+    tags are sent back with the factory tag appended.
+    """
+    tags = automation.get("tags") or []
+    if FACTORY_TAG in tags:
+        return None
+    try:
+        _api("PATCH", f"/{automation['id']}", {"tags": [*tags, FACTORY_TAG]})
+    except FactoryError as err:
+        if err.status == 403:
+            return NOT_CREATOR
+        if _rejects_tags(err):
+            return TAGS_UNSUPPORTED
+        raise
+    return None
+
+
+def tag(args) -> dict:
+    """Add the factory tag to automations another skill created (Jira, Linear)."""
+    tagged = []
+    not_tagged = []
+    for automation_id in args.ids:
+        automation = _api("GET", f"/{automation_id}")
+        reason = _add_factory_tag(automation)
+        if reason:
+            not_tagged.append({"id": automation_id, "reason": reason})
+        else:
+            tagged.append(automation_id)
+    return {"tagged": tagged, "not_tagged": not_tagged}
 
 
 def tune(args) -> dict:
-    """Apply new settings to an existing station by updating it in place.
+    """Update schedule-only settings on an existing plugin-spec station.
 
-    `create` cannot do this: it stamps `template.id`, and the service dedupes on
-    that id, so a second `create` returns the original automation with its old
-    config instead of a replacement. Here the same values are rendered, the
-    bundle is re-uploaded, and the automation is PATCHed, so the new values take
-    effect without a delete and without a template-id collision.
+    The automation API can patch a plugin-spec source, but it does not yet patch
+    plugin-spec config. Non-trigger values are therefore fixed at creation time.
     """
     repos = _split(args.repos)
     stations = _split(args.ids)
     entries = {station: _manifest(station) for station in stations}
     overrides = _overrides(entries, args.set or [], stations)
-    root = _extensions()
-    profile = None
     tuned = []
     for station in stations:
         entry = entries[station]
-        bundle = entry.get("setup", {}).get("bundle")
-        if not bundle:
+        if not entry.get("setup", {}).get("bundle"):
             raise FactoryError(f"{station} has no bundle; tune it as the skill describes")
         automation = _find_existing(station)
         if automation is None:
             raise FactoryError(f"{station} is not set up yet; create it before tuning it")
         values = _form_values(entry, repos, overrides[station])
-        body = _create_body(entry, values, repos)
+        config_fields = set(overrides[station]) - {"schedule", "timezone"}
+        if config_fields:
+            raise FactoryError(
+                "plugin-spec station settings cannot be updated in place yet; "
+                "delete and recreate the station to change: " + ", ".join(sorted(config_fields))
+            )
         patch = {
-            "name": body["name"],
-            "trigger": body["trigger"],
-            "tarball_path": _upload(station, _tarball(root, bundle["files"], body["template"]["config"])),
-            "entrypoint": body["entrypoint"],
+            "name": _station_name(entry, repos),
+            "trigger": _trigger(values),
         }
-        if "timeout" in body:
-            patch["timeout"] = body["timeout"]
-        if "setup_script_path" in body:
-            patch["setup_script_path"] = body["setup_script_path"]
-        if _needs_profile(entry):
-            profile = profile or _profile(args.profile)
-            patch["agent_profile_id"] = profile["id"]
         updated = _api("PATCH", f"/{automation['id']}", patch)
-        tuned.append(_summary(station, body["name"], body["trigger"], updated))
+        tuned.append(_summary(station, patch["name"], patch["trigger"], updated))
     return {"tuned": tuned}
 
 
@@ -603,6 +685,9 @@ def main() -> int:
     p.add_argument("--set", action="append", metavar="[ID.]FIELD=VALUE")
     p.add_argument("--profile")
     p.set_defaults(func=tune)
+    p = sub.add_parser("tag")
+    p.add_argument("ids", nargs="+")
+    p.set_defaults(func=tag)
     p = sub.add_parser("verify")
     p.add_argument("ids", nargs="*")
     p.add_argument("--no-wait", nargs="+", metavar="ID")

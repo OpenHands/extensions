@@ -86,13 +86,14 @@
               "description": "The filter dropdowns of the list page, in render order. Each filter id may appear once; the host's admission checks that.",
               "type": "array",
               "minItems": 1,
-              "maxItems": 3,
+              "maxItems": 4,
               "uniqueItems": true,
               "items": {
                 "oneOf": [
                   { "$ref": "#/$defs/statusFilter" },
                   { "$ref": "#/$defs/triggerFilter" },
-                  { "$ref": "#/$defs/createdByFilter" }
+                  { "$ref": "#/$defs/createdByFilter" },
+                  { "$ref": "#/$defs/tagFilter" }
                 ]
               }
             },
@@ -195,7 +196,11 @@
         "createPrompt": { "$ref": "#/$defs/plainEndpoint" },
         "createPlugin": { "$ref": "#/$defs/plainEndpoint" },
         "createBundle": { "$ref": "#/$defs/plainEndpoint" },
-        "uploads": { "$ref": "#/$defs/plainEndpoint" }
+        "uploads": { "$ref": "#/$defs/plainEndpoint" },
+        "tags": {
+          "description": "The org's automation tags with counts, which fill the tag filter. Optional, so a host that predates it still admits the block.",
+          "$ref": "#/$defs/plainEndpoint"
+        }
       }
     },
     "featuredAutomationIds": {
@@ -457,6 +462,23 @@
             "required": ["value"],
             "properties": { "value": { "const": "all" } }
           }
+        }
+      }
+    },
+    "tagFilter": {
+      "description": "The tag filter. Unlike the other filters, its values are the tags the automation service reports for the org, so the manifest declares only the copy. The host hides it when the service reports no tags.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "label", "allLabel"],
+      "properties": {
+        "id": { "const": "tag" },
+        "label": {
+          "description": "The control's accessible name.",
+          "$ref": "#/$defs/copy"
+        },
+        "allLabel": {
+          "description": "The label of the host's default option, which matches every automation.",
+          "$ref": "#/$defs/copy"
         }
       }
     },

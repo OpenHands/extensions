@@ -172,7 +172,7 @@ once a pull request actually needs reviewing.
   "entrypoint": "python3 main.py",    // run inside the extracted tarball
   "timeout": 600,                     // when the service default is not enough
   "files": {                          // packed path -> where it lives in this repo
-    "main.py": "skills/github-pr-reviewer/scripts/main.py"
+    "main.py": "plugins/github-pr-reviewer/scripts/main.py"
   },
   "config": {                         // rendered from the form, packed as config.json
     "repos": "{{form.repositories}}", // a whole-value placeholder, so this is a list
@@ -278,7 +278,9 @@ falling back to its built-in defaults when the manifest is absent or fails admis
   `total-runs`, `average-duration`), filter option values name host predicates (`status`: enabled /
   latest-run-failed / disabled; `trigger`: `event` matches event-triggered automations, `schedule`
   everything else; `created_by`: `me` matches automations the signed-in user created, `others` everything
-  else, and the host decides where it is shown), `sort` values name host comparators, and `insights`
+  else, and the host decides where it is shown; `tag` declares no options, because its values are the
+  tags the automation service reports for the org, and the host hides it when there are none), `sort`
+  values name host comparators, and `insights`
   captions the host's run-health states and per-automation stats. The health precedence, the run
   sampling, the value formatting, the relative-time rendering, and the filtered-empty state with its reset
   button are the host's - a manifest cannot redefine them, only relabel what appears. Tile `detail` copy is
@@ -353,6 +355,7 @@ Two findings came out of that check and are baked into the entries:
 | `POST /v1` | Exists; accepts `template` provenance from OpenHands/automation#344 |
 | `GET /v1/capabilities` | Exists (OpenHands/automation#270) |
 | `POST /v1/validate` | Exists (OpenHands/automation#270) |
+| `GET /v1/tags` | Added by OpenHands/automation#622 |
 
 None of these appear in a catalog entry. Their service-relative paths are stated once, in
 `interface.json`'s `endpoints` block, which is why settling on different paths changes no catalog entry at

@@ -109,7 +109,7 @@
       "entrypoint": "python3 main.py",
       "timeout": 900,
       "files": {
-        "main.py": "skills/gitlab-issue-to-mr/scripts/main.py"
+        "main.py": "plugins/gitlab-issue-to-mr/scripts/main.py"
       },
       "config": {
         "projects": "{{form.projects}}",

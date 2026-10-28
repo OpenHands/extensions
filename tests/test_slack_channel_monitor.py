@@ -4,7 +4,7 @@ from pathlib import Path
 
 SCRIPT_PATH = (
     Path(__file__).parent.parent
-    / "skills"
+    / "plugins"
     / "slack-channel-monitor"
     / "scripts"
     / "main.py"
@@ -15,7 +15,7 @@ def load_slack_monitor_helpers():
     os.environ["WORKSPACE_BASE"] = "/tmp/openhands/workspaces/slack-monitor-test/run"
     source = SCRIPT_PATH.read_text(encoding="utf-8")
     helper_source = source.split("\nPOLL_ITERATIONS = 10", 1)[0]
-    namespace: dict = {}
+    namespace: dict = {"__file__": str(SCRIPT_PATH)}
     exec(compile(helper_source, str(SCRIPT_PATH), "exec"), namespace)
     return namespace
 
@@ -171,3 +171,40 @@ def test_expired_followup_watch_polls_once_before_closing(monkeypatch):
     )
     assert rec["next_reply_poll_at"] == 1006.0
     assert rec["watch_until"] == 1301.0
+
+
+def test_a_cloud_conversation_starts_from_the_automation_s_agent_profile(monkeypatch):
+    # Arrange
+    monkeypatch.setenv("AUTOMATION_AGENT_PROFILE_ID", "0f2b5c2e-6d3a-4e7b-9c1d-2a4b6c8d0e1f")
+    helpers = load_slack_monitor_helpers()
+    calls = []
+    monkeypatch.setitem(
+        helpers,
+        "_cloud_request",
+        lambda method, path, body=None: calls.append((method, path, body)) or {"id": "task-1", "status": "WORKING"},
+    )
+
+    # Act
+    helpers["_create_cloud_conversation"]("Summarize this thread.", "Slack: #general")
+
+    # Assert
+    [(method, path, body)] = calls
+    assert (method, path) == ("POST", "/api/v1/app-conversations")
+    assert body["agent_profile_id"] == "0f2b5c2e-6d3a-4e7b-9c1d-2a4b6c8d0e1f"
+
+
+def test_a_cloud_conversation_without_a_profile_leaves_the_choice_to_openhands(monkeypatch):
+    # Arrange
+    monkeypatch.delenv("AUTOMATION_AGENT_PROFILE_ID", raising=False)
+    helpers = load_slack_monitor_helpers()
+    calls = []
+    monkeypatch.setitem(
+        helpers, "_cloud_request", lambda method, path, body=None: calls.append(body) or {"id": "task-1", "status": "WORKING"}
+    )
+
+    # Act
+    helpers["_create_cloud_conversation"]("Summarize this thread.", "Slack: #general")
+
+    # Assert
+    [body] = calls
+    assert "agent_profile_id" not in body

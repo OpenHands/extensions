@@ -1,0 +1,54 @@
+{
+  "name": "github-delivery-watchdog",
+  "version": "1.0.0",
+  "description": "Periodically check pull requests and merge only current heads with independent review, tests, and passing CI.",
+  "author": {
+    "name": "OpenHands"
+  },
+  "license": "MIT",
+  "homepage": "https://github.com/OpenHands/extensions",
+  "repository": "https://github.com/OpenHands/extensions",
+  "keywords": [
+    "automation"
+  ],
+  "automation": {
+    "schema_version": "openhands.automation.plugin.v1",
+    "entrypoint": {
+      "runner": "script",
+      "working_dir": "scripts",
+      "command": "python3 plugin_runner.py worker.py"
+    },
+    "runtime": {
+      "plugins": []
+    },
+    "config_schema": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "repos": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "default": [
+            "OpenHands/extensions"
+          ]
+        },
+        "github_token_secret": {
+          "type": "string",
+          "default": "GITHUB_PERSONAL_ACCESS_TOKEN"
+        },
+        "branch_prefix": {
+          "type": "string",
+          "default": "openhands/issue"
+        }
+      }
+    },
+    "suggested_trigger": {
+      "type": "cron",
+      "schedule": "*/5 * * * *",
+      "timezone": "UTC"
+    }
+  }
+}
