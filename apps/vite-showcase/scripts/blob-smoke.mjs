@@ -38,9 +38,17 @@ try {
       const container = document.querySelector("#mount");
       const mount = registrations.get("showcase");
       const firstCleanup = mount({ container, path: "diagnostics", navigate: host.navigate });
-      await new Promise((resolveWait) => setTimeout(resolveWait, 80));
-      if (!container.textContent.includes("Runtime diagnostics")) throw new Error("Diagnostics route did not render.");
-      if (!container.textContent.includes("fibonacci(32) = 2178309")) throw new Error("Inline Worker did not respond.");
+      // The Worker's answer arrives asynchronously; wait for it instead of a fixed delay.
+      const waitFor = async (text, timeoutMs = 10000) => {
+        const deadline = Date.now() + timeoutMs;
+        while (!container.textContent.includes(text)) {
+          if (Date.now() > deadline) return false;
+          await new Promise((resolveWait) => setTimeout(resolveWait, 25));
+        }
+        return true;
+      };
+      if (!(await waitFor("Runtime diagnostics"))) throw new Error("Diagnostics route did not render.");
+      if (!(await waitFor("fibonacci(32) = 2178309"))) throw new Error("Inline Worker did not respond.");
       container.querySelector(".vs-brand").click();
       if (navigation.at(-1) !== "/extensions/vite-showcase/showcase") throw new Error("Root navigation failed.");
       firstCleanup();
