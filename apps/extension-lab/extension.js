@@ -481,9 +481,9 @@ function renderDashboard(host, mountCtx) {
     return () => root.remove();
   }
   if (mountCtx.path === "stress") {
-    const stressCleanup = renderStressPage(container, key);
     root.append(header, nav);
     container.append(root);
+    const stressCleanup = renderStressPage(root, key);
     rerunBtn.addEventListener("click", () => stressCleanup.rerun());
     return () => { stressCleanup.cleanup(); root.remove(); };
   }

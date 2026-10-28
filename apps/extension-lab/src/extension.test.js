@@ -80,7 +80,10 @@ describe("Extension Lab lifecycle", () => {
     const stress = document.createElement("div");
     const cleanupStress = getRegistered().get("stress")({ container: stress, path: "", navigate: vi.fn() });
     expect(stress.textContent).toContain("Stress");
+    const text = stress.textContent;
+    expect(text.indexOf("Capability Dashboard")).toBeLessThan(text.indexOf("Stress Tests"));
     cleanupStress();
+    expect(stress.textContent).toBe("");
   });
 
   it("fails clearly on an unsupported host API", () => {
