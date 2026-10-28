@@ -19,7 +19,7 @@ This automation runs from the executable automation plugin at `plugins/github-co
 For every configured repository:
 
 1. Records the outcome of the conversation the previous run started, once it has stopped. With a pull request, each file keeps its original and its cleaned fingerprint; with `NO_CHANGES`, its original; after a failure, nothing, so its files are offered again.
-2. Skips the repository while a cleanup pull request (branch under `branch_prefix`) is open or the previous conversation is still running.
+2. Skips the repository while the pull request it opened is still open or the previous conversation is still running.
 3. Shallow-clones the default branch and fingerprints each candidate file by git blob SHA. Recorded fingerprints are skipped without reading the file; files with no comments are recorded directly. Changed files are queued before never-seen ones, up to `max_files` and `max_bytes`.
 4. Starts one conversation with `comment-cleanup` loaded and the queued paths in its first message. The agent edits, runs `verify_comment_only.py`, commits, pushes, and opens the pull request.
 

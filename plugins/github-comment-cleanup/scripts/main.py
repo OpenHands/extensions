@@ -11,7 +11,7 @@ Each run, for each configured repository:
    files it was given are recorded as examined, with the cleaned fingerprints read
    from its pull request. A failed conversation records nothing, so its files are
    offered again.
-2. The repository is skipped while a cleanup pull request is still open or the
+2. The repository is skipped while the pull request it opened is still open or the
    previous conversation is still running.
 3. The default branch is cloned and every candidate file is fingerprinted by its git
    blob SHA. Files whose fingerprint is already recorded are not read at all, and
@@ -209,7 +209,7 @@ def state_file(repo: str) -> Path:
 
 
 def empty_state(repo: str) -> dict:
-    return {"version": STATE_VERSION, "repo": repo, "files": {}, "pending": None, "runs": []}
+    return {"version": STATE_VERSION, "repo": repo, "files": {}, "pending": None, "pull_request": None, "runs": []}
 
 
 def load_state(repo: str) -> dict:
@@ -365,12 +365,8 @@ def pull_request_blobs(token: str, repo: str, number: int) -> dict[str, str]:
     return {f["filename"]: f["sha"] for f in files if f.get("status") != "removed"}
 
 
-def open_cleanup_pull_requests(token: str, repo: str, prefix: str) -> list[str]:
-    return [
-        pr["html_url"]
-        for pr in github_paginate(token, f"/repos/{repo}/pulls", {"state": "open"})
-        if pr["head"]["ref"].startswith(f"{prefix}/")
-    ]
+def pull_request_is_open(token: str, repo: str, number: int) -> bool:
+    return github_request(token, "GET", f"/repos/{repo}/pulls/{number}")[0]["state"] == "open"
 
 
 def git(args: list[str], cwd: Path | None = None, token: str = "") -> str:
@@ -477,6 +473,7 @@ def finalize_pending(token: str, repo: str, state: dict) -> str:
     pr = find_pull_request(token, repo, pending["branch"])
     if pr:
         record(state, examined_fingerprints(pending["files"], pull_request_blobs(token, repo, pr["number"])), date)
+        state["pull_request"] = {"number": pr["number"], "url": pr["html_url"]}
         outcome = f"pull request {pr['html_url']}"
     elif status in {"idle", "finished"} and f"{RESULT_MARKER} NO_CHANGES" in conversation_final_message(
         pending["conversation_id"]
@@ -509,10 +506,13 @@ def _process_repo(token: str, token_env: str, repo: str, config: dict, state: di
         if state["pending"]:
             return
 
-    open_prs = open_cleanup_pull_requests(token, repo, config["branch_prefix"])
-    if open_prs:
-        run["skipped"] = f"cleanup pull request still open: {', '.join(open_prs)}"
-        return
+    # A second pull request would edit the same files as the first.
+    pull_request = state.get("pull_request")
+    if pull_request:
+        if pull_request_is_open(token, repo, pull_request["number"]):
+            run["skipped"] = f"cleanup pull request still open: {pull_request['url']}"
+            return
+        state["pull_request"] = None
 
     base_branch = github_request(token, "GET", f"/repos/{repo}")[0]["default_branch"]
     today = now_iso()[:10]

@@ -33,6 +33,7 @@ cloud run without it fails rather than starting over every week.
     "src/app.py": {"at": "2026-10-28", "fp": ["<original sha>", "<cleaned sha>"]}
   },
   "pending": null,          // or the conversation started by the last run, below
+  "pull_request": null,     // or {"number": 12, "url": "..."} while its pull request is open
   "runs": [],               // the last 20 run summaries
   "updated_at": "2026-10-28T09:00:00+00:00"
 }
@@ -77,6 +78,9 @@ The next run finalizes it once the conversation has stopped:
 | A pull request exists for `branch` | Each file's original fingerprint, plus its cleaned one from the pull request |
 | The agent ended with `CLEANUP_RESULT: NO_CHANGES` | Each file's original fingerprint |
 | Anything else | Nothing; the files are queued again |
+
+When a pull request is found it is also stored in `pull_request`, and later runs
+skip the repository until GitHub reports it closed or merged.
 
 A conversation still running after three days is abandoned without recording
 anything. On a local Agent Canvas the clone in `workspace_dir` is removed once the

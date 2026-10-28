@@ -313,19 +313,17 @@ class FakeGitHub:
         self.pull_files: dict[int, list[dict]] = {}
 
     def request(self, token, method, path, params=None, body=None, accept=None):
+        if path.startswith(f"/repos/{REPO}/pulls/"):
+            number = int(path.rsplit("/", 1)[1])
+            return next(p for p in self.pulls if p["number"] == number), {}
         assert path == f"/repos/{REPO}"
         return {"default_branch": "main"}, {}
 
     def paginate(self, token, path, params=None):
         if path.endswith("/files"):
             return self.pull_files[int(path.split("/")[-2])]
-        params = params or {}
-        pulls = self.pulls
-        if params.get("state") == "open":
-            pulls = [p for p in pulls if p["state"] == "open"]
-        if "head" in params:
-            pulls = [p for p in pulls if f"acme:{p['head']['ref']}" == params["head"]]
-        return pulls
+        assert path == f"/repos/{REPO}/pulls" and params["state"] == "all"
+        return [p for p in self.pulls if f"acme:{p['head']['ref']}" == params["head"]]
 
 
 class FakeConversations:
@@ -406,14 +404,16 @@ def test_a_pull_request_records_both_fingerprints_and_parks_the_repository(run, 
     assert state["pending"] is None
     assert state["files"]["src/msg.py"]["fp"] == [pending["files"]["src/msg.py"], blob(repo, cleaned)]
     assert state["files"]["README.md"]["fp"] == [pending["files"]["README.md"]]
+    assert state["pull_request"] == {"number": 7, "url": "https://pr/7"}
     assert not Path(pending["workspace_dir"]).exists()
-    assert state["runs"][-1]["skipped"].startswith("cleanup pull request still open")
+    assert state["runs"][-1]["skipped"] == "cleanup pull request still open: https://pr/7"
 
     run.github.pulls[0]["state"] = "closed"
     state = run()
 
     assert len(run.conversations.started) == 1, "closed unmerged: nothing left to examine"
     assert state["runs"][-1]["queued"] == 0
+    assert state["pull_request"] is None
 
 
 def test_no_changes_records_the_originals(run):
