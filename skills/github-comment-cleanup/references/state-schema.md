@@ -1,0 +1,105 @@
+# State Schema
+
+The automation keeps one JSON document **per repository**, persisted across runs.
+It records which file contents are already clean and which conversation, if any,
+is still working on the repository.
+
+---
+
+## Storage
+
+**Primary (cloud):** the automation service's KV store, key
+`state:{owner}__{repo}`, available when `AUTOMATION_KV_TOKEN` is injected. A
+cloud run without it fails rather than starting over every week.
+
+**Fallback (local/dev):**
+
+```
+{WORKSPACE_BASE_ROOT}/automation-state/comment_cleanup_{automation_id}_{owner}__{repo}.json
+```
+
+`WORKSPACE_BASE_ROOT` is two levels up from `WORKSPACE_BASE`, stripping
+`automation-runs/{run_id}`; `automation_id` comes from `AUTOMATION_EVENT_PAYLOAD`.
+
+---
+
+## Top-Level Schema
+
+```jsonc
+{
+  "version": 1,
+  "repo": "owner/repo",
+  "files": {
+    "src/app.py": {"at": "2026-10-28", "fp": ["<original sha>", "<cleaned sha>"]}
+  },
+  "pending": null,          // or the conversation started by the last run, below
+  "runs": [],               // the last 20 run summaries
+  "updated_at": "2026-10-28T09:00:00+00:00"
+}
+```
+
+### `files`
+
+A fingerprint is a git blob SHA: the value `git hash-object`, `git ls-tree`, and the
+GitHub pull request files API all report. A file is skipped while its current
+fingerprint is in `fp`, without being read.
+
+| `fp` holds | Written when |
+|---|---|
+| `[original]` | The file has no comments, or the agent examined it and changed nothing |
+| `[original, cleaned]` | The cleanup pull request changed it |
+
+Keeping both means the file stays clean whether the pull request is merged (the
+default branch now holds `cleaned`) or closed (it still holds `original`). Any other
+edit produces a new fingerprint and the file is queued again, ahead of files never
+examined. Entries for paths no longer on the default branch are pruned each run.
+
+Modification times are not used: a fresh clone stamps every file with the time of
+the clone, while a blob SHA changes exactly when the content does.
+
+### `pending`
+
+```jsonc
+{
+  "conversation_id": "...",
+  "branch": "openhands/comment-cleanup/2026-10-28-a1b2c3",
+  "started_at": "2026-10-28T09:00:05+00:00",
+  "started_ts": 1793178005.0,
+  "files": {"src/app.py": "<original sha>"},   // exactly what the agent was given
+  "workspace_dir": null                        // the clone, on a local Agent Canvas only
+}
+```
+
+The next run finalizes it once the conversation has stopped:
+
+| Outcome | Recorded |
+|---|---|
+| A pull request exists for `branch` | Each file's original fingerprint, plus its cleaned one from the pull request |
+| The agent ended with `CLEANUP_RESULT: NO_CHANGES` | Each file's original fingerprint |
+| Anything else | Nothing; the files are queued again |
+
+A conversation still running after three days is abandoned without recording
+anything. On a local Agent Canvas the clone in `workspace_dir` is removed once the
+conversation has stopped.
+
+### `runs`
+
+```jsonc
+{
+  "at": "2026-10-28T09:00:00+00:00",
+  "finalized": "pull request https://github.com/owner/repo/pull/12",
+  "skipped": "cleanup pull request still open: ...",
+  "auto_cleared": 12,
+  "queued": 40,
+  "deferred": 3,
+  "conversation_id": "..."
+}
+```
+
+Every key except `at` is present only when it applies.
+
+---
+
+## Resetting
+
+Delete the repository's KV key (or state file) to examine every file again.

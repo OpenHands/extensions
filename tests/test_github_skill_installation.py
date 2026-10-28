@@ -10,6 +10,7 @@ ROOT = Path(__file__).resolve().parents[1]
 AUTOMATION_PLUGIN_SKILLS = [
     "github-repo-monitor",
     "github-agents-md-maintainer",
+    "github-comment-cleanup",
     "github-issue-to-pr",
     "github-issue-triage",
     "github-pr-reviewer",

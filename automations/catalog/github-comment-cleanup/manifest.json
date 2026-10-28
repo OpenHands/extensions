@@ -1,0 +1,98 @@
+{
+  "id": "github-comment-cleanup",
+  "name": "Comment Cleanup",
+  "category": "Developer tools",
+  "icon": "sparkles",
+  "description": "Strip comments that restate the code, narrate old changes, or ramble. Weekly, an agent cleans only the files that changed since they were last examined and opens one pull request per repository - code and docstrings stay untouched.",
+  "requires": {
+    "integrations": {
+      "github": {
+        "message": "Used to clone the repository, push the cleanup branch, and open the pull request."
+      }
+    },
+    "features": [
+      "customTarball"
+    ]
+  },
+  "popularityRank": 76,
+  "estimatedSetupMinutes": 3,
+  "exampleImplementation": "Trigger: cron, weekly by default (0 9 * * 1)\nRequired secret: GITHUB_PERSONAL_ACCESS_TOKEN, with permission to write contents and pull requests\n\n1. Read the repositories, excluded paths, and pull request mode from setup.\n2. Process each repository independently, with its own state in the KV store.\n3. Finalize the conversation the previous run started: record each file it was given with its original fingerprint, plus the cleaned fingerprint read from the pull request.\n4. Skip a repository while a cleanup pull request is open or the previous conversation is still running.\n5. Shallow-clone the default branch and fingerprint every candidate file by git blob SHA; skip recorded fingerprints without reading the file, and record comment-free files directly.\n6. Queue changed files before never-seen ones, up to a per-run file and byte limit.\n7. Start one conversation with the comment-cleanup skill loaded and the queued paths in its first message; the agent edits, verifies that only comments changed, and opens the pull request.",
+  "setup": {
+    "version": "1.0",
+    "mode": "direct",
+    "form": {
+      "triggers": {
+        "cron": {
+          "schedule": {
+            "type": "cron",
+            "label": "Cleanup frequency",
+            "help": "How often to look for new comments to clean. A repository is skipped while its previous cleanup pull request is still open.",
+            "default": "0 9 * * 1",
+            "required": true
+          },
+          "timezone": {
+            "type": "timezone",
+            "label": "Timezone",
+            "help": "Timezone the schedule is interpreted in.",
+            "default": "UTC",
+            "required": true
+          }
+        }
+      },
+      "args": {
+        "repositories": {
+          "type": "repo-picker",
+          "label": "Repositories",
+          "help": "The repositories to clean. Each keeps its own record of which files are already clean.",
+          "provider": "github",
+          "multiple": true,
+          "required": true
+        },
+        "exclude": {
+          "type": "text",
+          "label": "Excluded paths",
+          "help": "Comma-separated globs the agent never examines, such as docs/legacy/*,*.generated.ts. Vendored, minified, and lock files are always skipped.",
+          "default": "",
+          "required": false,
+          "constraints": {
+            "maxLength": 500
+          }
+        },
+        "pullRequestMode": {
+          "type": "select",
+          "label": "Pull request mode",
+          "help": "Whether the cleanup pull request is opened as a draft or ready for review.",
+          "default": "draft",
+          "required": true,
+          "options": [
+            {
+              "value": "draft",
+              "label": "Draft"
+            },
+            {
+              "value": "ready",
+              "label": "Ready for review"
+            }
+          ]
+        }
+      }
+    },
+    "bundle": {
+      "version": "1.0.0",
+      "entrypoint": "python3 main.py",
+      "timeout": 900,
+      "files": {
+        "main.py": "plugins/github-comment-cleanup/scripts/main.py",
+        "selection.py": "plugins/github-comment-cleanup/scripts/selection.py",
+        "github_client.py": "plugins/github-comment-cleanup/scripts/github_client.py",
+        "comment_syntax.py": "plugins/github-comment-cleanup/skills/comment-cleanup/scripts/comment_syntax.py"
+      },
+      "config": {
+        "repos": "{{form.repositories}}",
+        "exclude": "{{form.exclude}}",
+        "pull_request_mode": "{{form.pullRequestMode}}"
+      }
+    },
+    "message": "This deployment cannot run the scheduled comment cleanup automation directly. Set it up in this conversation instead: confirm the repositories to clean, any paths to exclude, whether pull requests open as drafts, and the schedule, then create the automation."
+  }
+}
