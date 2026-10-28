@@ -14,7 +14,7 @@ from pathlib import Path
 import pytest
 
 SCRIPT_PATH = (
-    Path(__file__).parent.parent / "skills" / "github-issue-to-pr" / "scripts" / "main.py"
+    Path(__file__).parent.parent / "plugins" / "github-issue-to-pr" / "scripts" / "main.py"
 )
 
 

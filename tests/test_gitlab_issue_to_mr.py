@@ -15,7 +15,7 @@ from pathlib import Path
 import pytest
 
 SCRIPT_PATH = (
-    Path(__file__).parent.parent / "skills" / "gitlab-issue-to-mr" / "scripts" / "main.py"
+    Path(__file__).parent.parent / "plugins" / "gitlab-issue-to-mr" / "scripts" / "main.py"
 )
 
 
@@ -1105,3 +1105,41 @@ def test_state_is_written_atomically(main):
     path = Path(main._state_file_path("group/project"))
     assert json.loads(path.read_text()) == state
     assert not Path(f"{path}.tmp").exists()
+
+
+# ── The conversation runs from the automation's agent profile ─────────────────
+
+
+def test_a_cloud_conversation_starts_from_the_automation_s_agent_profile(cloud_main, monkeypatch):
+    # Arrange
+    monkeypatch.setenv("AUTOMATION_AGENT_PROFILE_ID", "0f2b5c2e-6d3a-4e7b-9c1d-2a4b6c8d0e1f")
+    calls = []
+    monkeypatch.setattr(
+        cloud_main, "_cloud_request", lambda method, path, body=None: calls.append((method, path, body)) or {}
+    )
+
+    # Act
+    cloud_main._create_cloud_conversation("Open an MR for issue #1.", "[#1] Add a README")
+
+    # Assert
+    [(method, path, body)] = calls
+    assert (method, path) == ("POST", "/api/v1/app-conversations")
+    assert body["agent_profile_id"] == "0f2b5c2e-6d3a-4e7b-9c1d-2a4b6c8d0e1f"
+
+
+@pytest.mark.parametrize("value", [None, ""])
+def test_a_cloud_conversation_without_a_profile_leaves_the_choice_to_openhands(cloud_main, monkeypatch, value):
+    # Arrange
+    if value is None:
+        monkeypatch.delenv("AUTOMATION_AGENT_PROFILE_ID", raising=False)
+    else:
+        monkeypatch.setenv("AUTOMATION_AGENT_PROFILE_ID", value)
+    calls = []
+    monkeypatch.setattr(cloud_main, "_cloud_request", lambda method, path, body=None: calls.append(body) or {})
+
+    # Act
+    cloud_main._create_cloud_conversation("Open an MR for issue #1.", "[#1] Add a README")
+
+    # Assert
+    [body] = calls
+    assert "agent_profile_id" not in body

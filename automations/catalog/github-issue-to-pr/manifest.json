@@ -44,7 +44,7 @@
         "repositories": {
           "type": "repo-picker",
           "label": "Repositories",
-          "help": "The repositories whose labelled issues are implemented. Each is polled independently and keeps its own state, so issue numbers never collide between them.",
+          "help": "The repositories whose labelled issues OpenHands implements. Each is polled independently and keeps its own state, so issue numbers never collide between them.",
           "provider": "github",
           "multiple": true,
           "required": true
@@ -52,7 +52,7 @@
         "triggerLabel": {
           "type": "text",
           "label": "Trigger label",
-          "help": "Only issues carrying this label are worked on.",
+          "help": "OpenHands works only on issues carrying this label.",
           "default": "openhands",
           "required": true,
           "constraints": {
@@ -63,7 +63,7 @@
         "branchPrefix": {
           "type": "text",
           "label": "Branch prefix",
-          "help": "Branches are named after this prefix and the issue number, such as openhands/issue-42.",
+          "help": "OpenHands names branches using this prefix and the issue number, such as openhands/issue-42.",
           "default": "openhands/issue",
           "required": true,
           "constraints": {
@@ -74,7 +74,7 @@
         "pullRequestMode": {
           "type": "select",
           "label": "Pull request mode",
-          "help": "Whether the pull request is opened as a draft or ready for review.",
+          "help": "Whether OpenHands should open the pull request as a draft or ready for review.",
           "default": "draft",
           "required": true,
           "options": [
@@ -98,14 +98,14 @@
       }
     },
     "bundle": {
-      "version": "1.2.3",
+      "version": "1.2.4",
       "entrypoint": "python3 worker.py",
       "timeout": 300,
       "files": {
-        "main.py": "skills/github-issue-to-pr/scripts/main.py",
-        "agent_conversation.py": "skills/github/scripts/agent_conversation.py",
-        "github_client.py": "skills/github/scripts/github_client.py",
-        "worker.py": "skills/github-issue-to-pr/scripts/worker.py"
+        "main.py": "plugins/github-issue-to-pr/scripts/main.py",
+        "agent_conversation.py": "plugins/github-issue-to-pr/scripts/agent_conversation.py",
+        "github_client.py": "plugins/github-issue-to-pr/scripts/github_client.py",
+        "worker.py": "plugins/github-issue-to-pr/scripts/worker.py"
       },
       "config": {
         "repos": "{{form.repositories}}",
@@ -117,5 +117,5 @@
     },
     "message": "Configure the repositories, labels, branch prefix, pull request mode, agent profile, and schedule."
   },
-  "version": "1.2.2"
+  "version": "1.2.3"
 }

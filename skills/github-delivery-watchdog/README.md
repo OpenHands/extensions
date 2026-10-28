@@ -1,10 +1,19 @@
-# GitHub delivery watchdog
+# Github Delivery Watchdog
 
-Periodically check pull requests and merge only current heads with independent review, tests, and passing CI.
+This skill is a setup guide for the executable automation plugin in `plugins/github-delivery-watchdog`.
 
-Run this independently from issue triage, implementation, and review. Configure
-a repository-scoped fine-grained PAT by its saved secret name. The watchdog uses
-Actions and commit statuses and sends a conditional merge request for the exact
-accepted head. It does not create an agent or change application code.
+Create new automations through `POST /api/automation/v1/plugin-spec` with:
 
-See [SKILL.md](SKILL.md) for permissions, acceptance gates, and configuration.
+```json
+{
+  "plugin": {
+    "source": "github:OpenHands/extensions",
+    "repo_path": "plugins/github-delivery-watchdog",
+    "ref": "main"
+  }
+}
+```
+
+Use `ref: "main"` until the plugin is included in a released `openhands-extensions` tag. After release, pin the matching tag such as `v<extensions-version>`. Setup helpers can parameterize this with the installed package version and fall back to `main` for unreleased checkouts.
+
+The runtime implementation and config schema live in `plugins/github-delivery-watchdog/.plugin/plugin.json`; do not copy script files from this skill directory.
