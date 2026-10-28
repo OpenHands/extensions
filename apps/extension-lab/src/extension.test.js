@@ -55,15 +55,32 @@ describe("Extension Lab lifecycle", () => {
     localStorage.clear();
   });
 
-  it("registers exactly one page (dashboard) and activation cleanup unregisters it", () => {
+  it("registers every declared page and activation cleanup unregisters them", () => {
     const { host, getRegistered } = createHost();
     const dispose = activate(host);
-    expect(host.registerPage).toHaveBeenCalledTimes(1);
-    expect(host.registerPage).toHaveBeenCalledWith("dashboard", expect.any(Function));
-    expect(getRegistered().has("dashboard")).toBe(true);
+    expect(host.registerPage).toHaveBeenCalledTimes(3);
+    for (const id of ["dashboard", "patterns", "stress"]) {
+      expect(host.registerPage).toHaveBeenCalledWith(id, expect.any(Function));
+      expect(getRegistered().has(id)).toBe(true);
+    }
 
     dispose();
-    expect(getRegistered().has("dashboard")).toBe(false);
+    for (const id of ["dashboard", "patterns", "stress"]) {
+      expect(getRegistered().has(id)).toBe(false);
+    }
+  });
+
+  it("mounts the Patterns and Stress Test pages on their own views", () => {
+    const { host, getRegistered } = createHost();
+    activate(host);
+    const patterns = document.createElement("div");
+    const cleanupPatterns = getRegistered().get("patterns")({ container: patterns, path: "", navigate: vi.fn() });
+    expect(patterns.textContent).toContain("Pattern Gallery");
+    cleanupPatterns();
+    const stress = document.createElement("div");
+    const cleanupStress = getRegistered().get("stress")({ container: stress, path: "", navigate: vi.fn() });
+    expect(stress.textContent).toContain("Stress");
+    cleanupStress();
   });
 
   it("fails clearly on an unsupported host API", () => {

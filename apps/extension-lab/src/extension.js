@@ -741,12 +741,17 @@ export function activate(host) {
 
   injectStyle("extension-lab-style", STYLE);
 
-  const unregisterDashboard = host.registerPage("dashboard", (mountCtx) => {
-    return renderDashboard(host, mountCtx);
-  });
+  // The manifest declares the Patterns and Stress Test views as their own
+  // pages, so register each one: Canvas lists only registered pages in its
+  // navigation. They share the dashboard shell with the matching view.
+  const unregister = [
+    host.registerPage("dashboard", (mountCtx) => renderDashboard(host, mountCtx)),
+    host.registerPage("patterns", (mountCtx) => renderDashboard(host, { ...mountCtx, path: "patterns" })),
+    host.registerPage("stress", (mountCtx) => renderDashboard(host, { ...mountCtx, path: "stress" })),
+  ];
 
   return () => {
-    unregisterDashboard();
+    for (const dispose of unregister) dispose();
   };
 }
 
