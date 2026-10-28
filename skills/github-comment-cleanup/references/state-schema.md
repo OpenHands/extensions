@@ -8,9 +8,23 @@ is still working on the repository.
 
 ## Storage
 
-**Primary (cloud):** the automation service's KV store, key
-`state:{owner}__{repo}`, available when `AUTOMATION_KV_TOKEN` is injected. A
-cloud run without it fails rather than starting over every week.
+**Primary (cloud):** the automation service's KV store, available when
+`AUTOMATION_KV_TOKEN` is injected. A cloud run without it fails rather than starting
+over every week.
+
+The KV store rejects any single value over 64 KB, and `files` grows with the
+repository, so the document is split across keys:
+
+| Key | Holds |
+|---|---|
+| `state:{owner}__{repo}` | Everything below except `files`, plus `file_keys` listing the chunk keys |
+| `state:{owner}__{repo}:files:{generation}:{n}` | A slice of `files`, at most 48 KB each |
+
+Each save writes its chunks under a new generation, then the head key, then deletes the
+previous generation's chunks, so a run that dies part way leaves the head pointing at a
+complete set. A version 1 document, which kept `files` inline in the head key, is read
+and rewritten in this layout on the next save. State is saved before the conversation
+starts, so a run that cannot store its state fails without starting one.
 
 **Fallback (local/dev):**
 
@@ -27,7 +41,7 @@ cloud run without it fails rather than starting over every week.
 
 ```jsonc
 {
-  "version": 1,
+  "version": 2,
   "repo": "owner/repo",
   "files": {
     "src/app.py": {"at": "2026-10-28", "fp": ["<original sha>", "<cleaned sha>"]}
@@ -106,4 +120,5 @@ Every key except `at` is present only when it applies.
 
 ## Resetting
 
-Delete the repository's KV key (or state file) to examine every file again.
+Delete the repository's KV keys (`state:{owner}__{repo}` and its `:files:` chunks), or
+its state file, to examine every file again.

@@ -63,7 +63,11 @@ TOKEN_SECRET = "GITHUB_PERSONAL_ACCESS_TOKEN"
 CLOUD_TOKEN_SECRET = "github_token"
 CLOUD_TOKEN_ENV = "GITHUB_TOKEN"
 
-STATE_VERSION = 1
+STATE_VERSION = 2
+READABLE_STATE_VERSIONS = {1, 2}
+# The KV store rejects any single value over 64 KB (HTTP 413), and `files` holds an entry
+# for every examined file, so it is stored across keys of at most this many bytes.
+KV_CHUNK_BYTES = 48_000
 MAX_RUN_HISTORY = 20
 # A conversation still going after this long is abandoned so the repository is not parked forever.
 MAX_PENDING_SECONDS = 3 * 24 * 3600
@@ -215,38 +219,76 @@ def empty_state(repo: str) -> dict:
     return {"version": STATE_VERSION, "repo": repo, "files": {}, "pending": None, "pull_request": None, "runs": []}
 
 
+def kv_request(method: str, key: str, value=None):
+    """Call the KV store; returns the stored value for GET, None for a missing key."""
+    req = urllib.request.Request(
+        f"{KV_BASE}/v1/kv/{key}",
+        data=json.dumps(value).encode() if value is not None else None,
+        headers={"Authorization": f"Bearer {KV_TOKEN}", "Content-Type": "application/json"},
+        method=method,
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=90) as r:
+            body = r.read()
+    except urllib.error.HTTPError as exc:
+        if exc.code == 404 and method == "GET":
+            return None
+        raise RuntimeError(f"KV {method} {key} -> {exc.code}: {exc.read().decode()[:500]}") from exc
+    return json.loads(body)["value"] if method == "GET" else None
+
+
+def chunk_files(files: dict) -> list[dict]:
+    chunks: list[dict] = [{}]
+    size = 2
+    for path, entry in files.items():
+        item = len(json.dumps({path: entry}, ensure_ascii=False).encode())
+        if chunks[-1] and size + item > KV_CHUNK_BYTES:
+            chunks.append({})
+            size = 2
+        chunks[-1][path] = entry
+        size += item
+    return chunks if chunks[0] else []
+
+
 def load_state(repo: str) -> dict:
     state = None
     if kv_available():
-        req = urllib.request.Request(
-            f"{KV_BASE}/v1/kv/{state_key(repo)}", headers={"Authorization": f"Bearer {KV_TOKEN}"}
-        )
-        try:
-            with urllib.request.urlopen(req, timeout=90) as r:
-                state = json.loads(r.read())["value"]
-        except urllib.error.HTTPError as exc:
-            if exc.code != 404:
-                raise
+        state = kv_request("GET", state_key(repo))
+        if state is not None and "file_keys" in state:
+            state["files"] = {}
+            for key in state["file_keys"]:
+                chunk = kv_request("GET", key)
+                if chunk is None:
+                    raise RuntimeError(f"State for {repo} references missing KV key {key}")
+                state["files"].update(chunk)
     elif state_file(repo).is_file():
         state = json.loads(state_file(repo).read_text())
     if state is None:
         return empty_state(repo)
-    if state.get("version") != STATE_VERSION:
+    if state.get("version") not in READABLE_STATE_VERSIONS:
         raise RuntimeError(f"Unsupported state version {state.get('version')} for {repo}")
+    state["version"] = STATE_VERSION
     return state
 
 
 def save_state(repo: str, state: dict) -> None:
     state["updated_at"] = now_iso()
     if kv_available():
-        req = urllib.request.Request(
-            f"{KV_BASE}/v1/kv/{state_key(repo)}",
-            data=json.dumps(state).encode(),
-            headers={"Authorization": f"Bearer {KV_TOKEN}", "Content-Type": "application/json"},
-            method="PUT",
-        )
-        with urllib.request.urlopen(req, timeout=90) as r:
-            r.read()
+        # Chunks go under a fresh generation and the head key is written last, so a run
+        # that dies part way leaves the previous head pointing at a complete set.
+        generation = uuid.uuid4().hex[:8]
+        old_keys = state.get("file_keys", [])
+        new_keys = []
+        for i, chunk in enumerate(chunk_files(state["files"])):
+            key = f"{state_key(repo)}:files:{generation}:{i}"
+            kv_request("PUT", key, chunk)
+            new_keys.append(key)
+        head = {k: v for k, v in state.items() if k != "files"}
+        head["file_keys"] = new_keys
+        kv_request("PUT", state_key(repo), head)
+        state["file_keys"] = new_keys
+        for key in old_keys:
+            kv_request("DELETE", key)
         return
     path = state_file(repo)
     tmp = path.with_suffix(".tmp")
@@ -544,6 +586,8 @@ def _process_repo(token: str, token_env: str, repo: str, config: dict, state: di
             git(["checkout", "--quiet", "-b", branch], cwd=checkout)
         prompt = build_prompt(repo, base_branch, branch, list(selection.queue),
                               config["pull_request_mode"] == "draft", token_env)
+        # If state cannot be stored, fail before starting a conversation the next run would not know about.
+        save_state(repo, state)
         conversation_id = start_conversation(prompt, f"Comment cleanup: {repo} ({today})",
                                              None if IS_CLOUD else checkout, token_env)
         keep = not IS_CLOUD

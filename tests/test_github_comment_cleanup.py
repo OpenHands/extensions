@@ -7,6 +7,7 @@ GitHub REST API and the conversation API are replaced, at the functions that cal
 
 import importlib.util
 import json
+import os
 import re
 import subprocess
 import sys
@@ -367,6 +368,7 @@ def run(main, monkeypatch, local_env, repo):
     once.github = github
     once.conversations = conversations
     once.remote = remote_root / "acme" / "widget.git"
+    once.main = main
     return once
 
 
@@ -537,45 +539,97 @@ def test_a_cloud_run_without_the_kv_store_fails(monkeypatch, local_env):
 
 
 class KVHandler(BaseHTTPRequestHandler):
+    """The automation KV store, including its per-value size limit."""
+
     store: dict = {}
+    max_value_size = 64 * 1024
 
     def log_message(self, *args):
         pass
 
+    def reply(self, code: int, body: dict) -> None:
+        self.send_response(code)
+        self.end_headers()
+        self.wfile.write(json.dumps(body).encode())
+
     def do_GET(self):
         key = self.path.rsplit("/", 1)[1]
         if key not in self.store:
-            self.send_response(404)
-            self.end_headers()
-            return
-        body = json.dumps({"key": key, "value": self.store[key]}).encode()
-        self.send_response(200)
-        self.end_headers()
-        self.wfile.write(body)
+            return self.reply(404, {"detail": "not found"})
+        self.reply(200, {"key": key, "value": self.store[key]})
 
     def do_PUT(self):
         assert self.headers["Authorization"] == "Bearer kv-token"
-        self.store[self.path.rsplit("/", 1)[1]] = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
-        self.send_response(200)
-        self.end_headers()
-        self.wfile.write(b"{}")
+        value = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
+        if len(json.dumps(value, ensure_ascii=False).encode()) > self.max_value_size:
+            return self.reply(413, {"detail": {"error": "value_too_large"}})
+        self.store[self.path.rsplit("/", 1)[1]] = value
+        self.reply(200, {})
+
+    def do_DELETE(self):
+        self.reply(200, {"deleted": self.store.pop(self.path.rsplit("/", 1)[1], None) is not None})
 
 
-def test_state_round_trips_through_the_kv_store(monkeypatch, local_env):
+@pytest.fixture
+def kv(monkeypatch, local_env):
     server = HTTPServer(("127.0.0.1", 0), KVHandler)
     threading.Thread(target=server.serve_forever, daemon=True).start()
-    try:
-        monkeypatch.setenv("AUTOMATION_KV_TOKEN", "kv-token")
-        monkeypatch.setenv("AUTOMATION_API_URL", f"http://127.0.0.1:{server.server_port}/api/automation")
-        module = load_scripts(monkeypatch, PLUGIN_SCRIPTS)
+    monkeypatch.setattr(KVHandler, "store", {})
+    monkeypatch.setenv("AUTOMATION_KV_TOKEN", "kv-token")
+    monkeypatch.setenv("AUTOMATION_API_URL", f"http://127.0.0.1:{server.server_port}/api/automation")
+    yield KVHandler
+    server.shutdown()
 
-        state = module.load_state(REPO)
-        assert state["files"] == {} and state["pending"] is None
-        state["files"]["a.py"] = {"at": "2026-10-28", "fp": ["abc"]}
-        module.save_state(REPO, state)
 
-        assert "state:acme__widget" in KVHandler.store
-        assert module.load_state(REPO)["files"] == {"a.py": {"at": "2026-10-28", "fp": ["abc"]}}
-        assert not (module.persistent_root() / "automation-state").exists()
-    finally:
-        server.shutdown()
+def test_state_round_trips_through_the_kv_store(monkeypatch, kv):
+    module = load_scripts(monkeypatch, PLUGIN_SCRIPTS)
+
+    state = module.load_state(REPO)
+    assert state["files"] == {} and state["pending"] is None
+    state["files"]["a.py"] = {"at": "2026-10-28", "fp": ["abc"]}
+    module.save_state(REPO, state)
+
+    assert "state:acme__widget" in kv.store
+    assert module.load_state(REPO)["files"] == {"a.py": {"at": "2026-10-28", "fp": ["abc"]}}
+    assert not (module.persistent_root() / "automation-state").exists()
+
+
+def test_a_large_repository_state_is_split_under_the_kv_value_limit(monkeypatch, kv):
+    module = load_scripts(monkeypatch, PLUGIN_SCRIPTS)
+    files = {f"src/package_{i // 50}/module_{i}.py": {"at": "2026-10-28", "fp": [f"{i:040x}"]} for i in range(5000)}
+    state = module.load_state(REPO)
+    state["files"] = dict(files)
+    assert len(json.dumps(state).encode()) > kv.max_value_size
+
+    module.save_state(REPO, state)
+    first_keys = set(kv.store)
+    reloaded = module.load_state(REPO)
+    module.save_state(REPO, reloaded)
+
+    assert len(first_keys) > 2
+    assert module.load_state(REPO)["files"] == files
+    assert not first_keys - {"state:acme__widget"} & set(kv.store), "the previous generation's chunks are deleted"
+    assert all(len(json.dumps(v).encode()) <= kv.max_value_size for v in kv.store.values())
+
+
+def test_a_single_key_state_from_version_1_is_still_read(monkeypatch, kv):
+    module = load_scripts(monkeypatch, PLUGIN_SCRIPTS)
+    kv.store["state:acme__widget"] = {**module.empty_state(REPO), "version": 1,
+                                      "files": {"a.py": {"at": "2026-10-28", "fp": ["abc"]}}}
+
+    state = module.load_state(REPO)
+    module.save_state(REPO, state)
+
+    assert "files" not in kv.store["state:acme__widget"]
+    assert module.load_state(REPO)["files"] == {"a.py": {"at": "2026-10-28", "fp": ["abc"]}}
+
+
+def test_no_conversation_is_started_when_state_cannot_be_stored(run, monkeypatch, kv):
+    monkeypatch.setattr(run.main, "KV_TOKEN", "kv-token")
+    monkeypatch.setattr(run.main, "KV_BASE", os.environ["AUTOMATION_API_URL"])
+    monkeypatch.setattr(kv, "max_value_size", 10)
+
+    with pytest.raises(RuntimeError, match="-> 413"):
+        run()
+
+    assert run.conversations.started == []
