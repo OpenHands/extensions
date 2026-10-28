@@ -380,14 +380,15 @@
     {
       "name": "kane-cli",
       "source": "./skills/kane-cli",
-      "description": "Verify a web flow in a real Chrome browser from a natural-language objective with Kane CLI by TestMu AI, and gate on a typed exit code with a replayable evidence pack. Use when a change needs a quick pass or fail check of a user-facing flow, as an option alongside the built-in browser tools.",
+      "description": "Verify a web flow in a real Chrome browser, or a native app on a real Android or iOS cloud device, from a natural-language objective with Kane CLI by TestMu AI, and gate on a typed exit code with a replayable evidence pack. Use when a change needs a quick pass or fail check of a user-facing flow, as an option alongside the built-in browser tools.",
       "category": "integrations",
       "keywords": [
         "kane-cli",
         "browser",
         "testing",
         "e2e",
-        "chrome"
+        "chrome",
+        "mobile"
       ]
     },
     {
