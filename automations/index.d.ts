@@ -256,6 +256,8 @@ export interface AutomationInterfaceRoutes {
   detail: string;
   /** The templates sub-page. Static: there is no parameter to substitute. */
   templates: string;
+  /** The event sources sub-page. */
+  events?: string;
 }
 
 /** An icon name from the host's closed icon map. */
@@ -268,7 +270,7 @@ export type AutomationIconSlug =
   | "timer";
 
 /** The pages a sub-page navigation item may point at. */
-export type AutomationSubPageId = "list" | "templates";
+export type AutomationSubPageId = "list" | "events" | "templates";
 
 export interface AutomationSubPageNavItem {
   /** The `pages` entry this item navigates to; its route comes from `routes`. */
@@ -410,6 +412,7 @@ export interface AutomationInterfacePages {
   detail: { backLabel: string };
   edit: { title: string };
   templates: AutomationTemplatesPage;
+  events?: { title: string; description: string };
 }
 
 export type AutomationAttributeType =
@@ -487,6 +490,8 @@ export interface AutomationInterfaceEndpoints {
   uploads: string;
   /** The org's automation tags with counts, which fill the tag filter. */
   tags?: string;
+  /** The custom webhook source collection. */
+  webhooks?: string;
 }
 
 export interface AutomationInterfaceManifest {
