@@ -14,5 +14,13 @@
     "source": "./apps/vscode",
     "manifest": "./apps/vscode/canvas-extension.json",
     "beta": true
+  },
+  {
+    "id": "whiteboard",
+    "name": "Whiteboard",
+    "description": "An Excalidraw whiteboard whose boards are saved on the Agent Server.",
+    "source": "./apps/whiteboard",
+    "manifest": "./apps/whiteboard/canvas-extension.json",
+    "beta": true
   }
 ]
