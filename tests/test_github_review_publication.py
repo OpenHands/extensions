@@ -1,7 +1,6 @@
 """Real publisher/lease paths; only external KV, GitHub and SDK are simulated."""
 
 import importlib.util
-import sys
 import json
 import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -13,9 +12,7 @@ import pytest
 from agent_conversation import ReviewCoordination
 
 ROOT = Path(__file__).resolve().parents[1]
-SCRIPTS = ROOT / "plugins/github-pr-reviewer/scripts"
-sys.path.insert(0, str(SCRIPTS))
-SPEC = importlib.util.spec_from_file_location("review_publication", SCRIPTS / "publication.py")
+SPEC = importlib.util.spec_from_file_location("review_publication", ROOT / "skills/github-pr-reviewer/scripts/publication.py")
 publication = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(publication)
 

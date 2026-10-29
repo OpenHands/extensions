@@ -13,9 +13,8 @@ triggers:
 
 # Software Factory
 
-Build a GitHub software factory from the automation plugin specs in
-`plugins/<id>/.plugin/plugin.json`, with setup defaults still read from
-`automations/catalog/<id>/manifest.json`; a Jira or Linear station is created
+Build a GitHub software factory from unmodified automation catalog bundles
+(`automations/catalog/<id>/manifest.json`); a Jira or Linear station is created
 by its own skill. This skill adds no automation logic.
 
 Two phases: **Phase 1** gets a working factory after one question. **Phase 2**
@@ -28,15 +27,15 @@ Bitbucket code hosts are not part of this flow.
 
 ## Stations
 
-| Station | Catalog id | Phase | Agent profile |
+| Station | Catalog id | Phase | Needs agent profile |
 |---|---|---|---|
-| Issue to PR | `github-issue-to-pr`, or the Jira or Linear station | 1 | `default` (GitHub issues only) |
-| PR reviewer | `github-pr-reviewer` | 1 | `default` |
-| Issue triage | `github-issue-triage`, or `linear-triage-assistant` | 1 | `default` (GitHub issues only) |
-| AGENTS.md maintainer | `github-agents-md-maintainer` | add-on | `default` |
-| Auto-merge watchdog | `github-delivery-watchdog` | add-on | none |
-| Stale-CI PR closer | `github-stale-ci-pr-closer` | add-on | none |
-| QA changes | `qa-changes` | add-on | none |
+| Issue to PR | `github-issue-to-pr`, or the Jira or Linear station | 1 | yes (GitHub issues only) |
+| PR reviewer | `github-pr-reviewer` | 1 | yes |
+| Issue triage | `github-issue-triage`, or `linear-triage-assistant` | 1 | yes (GitHub issues only) |
+| AGENTS.md maintainer | `github-agents-md-maintainer` | add-on | no |
+| Auto-merge watchdog | `github-delivery-watchdog` | add-on | no |
+| Stale-CI PR closer | `github-stale-ci-pr-closer` | add-on | no |
+| QA changes | `qa-changes` | add-on | no |
 
 ## Helper script
 
@@ -63,9 +62,9 @@ The script reads the token and never prints it.
 | Command | Does |
 |---|---|
 | `$F preflight --repos a/b,c/d` | Which stations this deployment supports, the agent profile, the GitHub login, push access per repository. |
-| `$F create --repos a/b --ids ID,ID [--set FIELD=VALUE] [--set ID.FIELD=VALUE]` | Creates disabled plugin-spec stations with the `software-factory` tag where supported. Reports existing stations separately and tags them where possible. |
-| `$F tune --repos a/b --ids ID,ID [--set schedule=...|timezone=...] [--set ID.schedule=...]` | Updates schedule or timezone in place; other plugin config requires recreating the station until config patching is supported. |
-| `$F tag ID...` | Adds the `software-factory` tag to automations created by other skills, reporting failures under `not_tagged`. |
+| `$F create --repos a/b --ids ID,ID [--set FIELD=VALUE] [--set ID.FIELD=VALUE]` | Fills each station's form (answers, then derived values, then manifest defaults), uploads the bundle and creates it disabled with the `software-factory` tag. `FIELD=VALUE` applies to every listed station with that field. Stations that already exist are reported under `existing`, not recreated, and get the tag added. |
+| `$F tune --repos a/b --ids ID,ID [--set FIELD=VALUE] [--set ID.FIELD=VALUE]` | Applies new settings to an existing station by updating it in place. Use this to change a value that is fixed at creation. |
+| `$F tag ID...` | Adds the `software-factory` tag to automations created outside the script, so the Automations list can filter to the factory. Lists any it could not tag under `not_tagged`, each with its `reason`. |
 | `$F verify ID... [--no-wait ID...]` | Dispatches once, enables the ones whose run `COMPLETED` and disables the rest, reporting their `error_detail`. `--no-wait` enables without waiting. |
 | `$F status ID...` | The latest run of each. |
 | `$F prs --repos a/b [--branch-prefix P]` | Open pull requests whose branch starts with `P` (default `openhands/agents-md`, the AGENTS.md maintainer's). |
@@ -75,11 +74,8 @@ The script reads the token and never prints it.
 Trust the script's output: do not open pages in the browser to check them, and
 do not use the task tracker for this flow.
 
-Plugin-spec stations use the agent profile named `default`. Keep `--profile`
-omitted unless you are explicitly checking that same profile name. Remote plugin
-sources use the installed `openhands-extensions` version tag when available, or
-`main` for unreleased source checkouts. Set `FACTORY_EXTENSIONS_REF` to pin a
-specific tag or branch.
+Add `--profile NAME` to `preflight` or `create` to use a profile other than the
+active one.
 
 ## Rules
 
@@ -89,23 +85,26 @@ specific tag or branch.
   `githubTokenSecret` is `GITHUB_PERSONAL_ACCESS_TOKEN`. The watchdog's
   `branchPrefix` must equal issue to PR's: when it was changed, pass
   `--set github-delivery-watchdog.branchPrefix=<same value>`.
-- **Agent profile**: plugin-spec stations that launch agents use the profile
-  named `default`. If `preflight` reports a profile error, skip the stations
-  that need one and ask the user to create or fix the `default` profile.
+- **Agent profile**: if `preflight` reports a profile error, skip the stations
+  that need one and point the user to the station's catalog card in Agent
+  Canvas (Automations), which has a profile picker.
 - **Token**: never ask for its value in chat, echo it, or put it in a tool
   argument or file.
 - **Failures**: if `create` fails, its output lists the stations it already
   created; report them with the error and ask whether to retry or delete them
   (`DELETE ${OPENHANDS_HOST}/api/automation/v1/{id}`).
 - **Existing stations**: a station `create` reports under `existing` was already
-  set up by an earlier run. Say so rather than presenting it as new. Use `$F tune`
-  only for schedule or timezone changes; delete and recreate for other plugin
-  settings until config patching is supported.
-- **Factory tag**: every station carries the `software-factory` tag where
-  supported. `create` adds it; for stations created by other skills (Jira or
-  Linear issue to PR, Linear triage, QA changes), run `$F tag <id>`. If a station
-  is `not_tagged`, report its reason: only its creator may change tags, or the
-  deployment does not support tags yet.
+  set up by an earlier run and was left unchanged. Say so rather than presenting
+  it as new, and change it with `$F tune` if the user wants different settings.
+- **Factory tag**: every station carries the `software-factory` tag, which the
+  Automations list filters on. `create` adds it; for a station another skill
+  creates (Jira or Linear issue to PR, Linear triage, QA changes), run
+  `$F tag <id>` once it exists. A station listed under `not_tagged` works but
+  has no tag, and its `reason` says why. `only its creator can change its tags`:
+  another user created it, so tell the user they can ask that person to add the
+  tag. `this automation service does not support tags yet`: the deployment's
+  automation service predates tags; tell the user, and run `$F tag <id>` for
+  those stations once it is upgraded.
 
 ## Phase 1 - Working factory
 
@@ -188,16 +187,17 @@ each with its current value. Apply, then return to the Checkpoint.
 | Review tone: concise, thorough, friendly | `concise` | `reviewTone` |
 | Human reviewers requested after agent approval (two or more logins) | none | `maintainers` |
 | Schedules and timezone | issue to PR `*/15 * * * *`, reviewer `*/5 * * * *`, triage `*/5 * * * *`, add-ons per manifest; `UTC` | `ID.schedule`, `timezone` |
-| Agent profile | `default` | fixed by the plugin spec |
+| Agent profile | active profile | `--profile NAME` |
 
 Apply:
 
-- Schedule or timezone only: `$F tune --repos <repos> --ids <id>` with the
-  new `--set schedule=...` or `--set timezone=...`, then `$F verify <id>`.
+- Schedule or timezone only:
+  `PATCH ${OPENHANDS_HOST}/api/automation/v1/{id}` with `{"trigger": {...}}`.
 - Jira or Linear station settings: change them as its skill describes.
-- Any other plugin-spec setting is fixed at creation until the automation API
-  supports config patching. To change it, delete that station and recreate it
-  with `$F create`, repeating every earlier non-default value.
+- Anything else is fixed at creation: `$F tune --repos <repos> --ids <id>` with
+  the new `--set` values (repeat every earlier non-default value), then
+  `$F verify <id>`. `tune` updates the station in place, so there is no
+  replacement to delete and no template-id collision.
 
 ### Add a station
 
@@ -213,7 +213,7 @@ Ask only the question below, then `$F create` it and `$F verify` it.
   with `--no-wait`; its run opens one `AGENTS.md` pull request per repository.
 - **QA changes**: which base branch (default `main`). Offer QA only if
   `preflight` reports it `ok` and the `openhands-automation` webhook
-  reachability check passes. It has no plugin-spec station, so the script cannot create it:
+  reachability check passes. It has no bundle, so the script cannot create it:
   create it as the `openhands-automation` skill describes for an
   event-triggered prompt preset, with its manifest `prompt` and `filter`, one
   per repository (it takes a single `repository`). It runs only on pull request

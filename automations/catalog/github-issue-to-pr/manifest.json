@@ -102,10 +102,10 @@
       "entrypoint": "python3 worker.py",
       "timeout": 300,
       "files": {
-        "main.py": "plugins/github-issue-to-pr/scripts/main.py",
-        "agent_conversation.py": "plugins/github-issue-to-pr/scripts/agent_conversation.py",
-        "github_client.py": "plugins/github-issue-to-pr/scripts/github_client.py",
-        "worker.py": "plugins/github-issue-to-pr/scripts/worker.py"
+        "main.py": "skills/github-issue-to-pr/scripts/main.py",
+        "agent_conversation.py": "skills/github/scripts/agent_conversation.py",
+        "github_client.py": "skills/github/scripts/github_client.py",
+        "worker.py": "skills/github-issue-to-pr/scripts/worker.py"
       },
       "config": {
         "repos": "{{form.repositories}}",

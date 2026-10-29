@@ -9,7 +9,7 @@ from urllib.parse import parse_qs, urlsplit
 
 _MODULE_PATH = (
     Path(__file__).resolve().parents[1]
-    / "plugins/github-pr-reviewer/scripts/maintainer_handoff.py"
+    / "skills/github-pr-reviewer/scripts/maintainer_handoff.py"
 )
 _SPEC = importlib.util.spec_from_file_location("maintainer_handoff_test", _MODULE_PATH)
 assert _SPEC and _SPEC.loader
