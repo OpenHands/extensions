@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Vite Showcase mark">
+  <defs>
+    <linearGradient id="a" x1="8" y1="4" x2="52" y2="60" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#9B87F5"/><stop offset=".52" stop-color="#68D5F2"/><stop offset="1" stop-color="#F9C86B"/>
+    </linearGradient>
+  </defs>
+  <path fill="url(#a)" d="M32 3 58 18v28L32 61 6 46V18L32 3Z"/>
+  <path fill="#101321" fill-rule="evenodd" d="m19 20 13 30 13-30-8 4-5-10-5 10-8-4Zm10.7 8.1L32 23l2.3 5.1 3.2-1.6L32 39l-5.5-12.5 3.2 1.6Z" clip-rule="evenodd"/>
+</svg>

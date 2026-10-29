@@ -1,0 +1,15 @@
+{
+  "name": "extension-lab-canvas-extension",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "cp src/extension.js extension.js",
+    "test": "vitest run",
+    "check": "npm run build && vitest run"
+  },
+  "devDependencies": {
+    "jsdom": "^26.1.0",
+    "vitest": "^3.2.4"
+  }
+}

@@ -1,0 +1,33 @@
+{
+  "schema_version": 1,
+  "name": "extension-lab",
+  "display_name": "Extension Lab",
+  "version": "0.1.0",
+  "description": "A capability test bench and pattern gallery for Canvas extension authors — see what works, what doesn't, and copy the code.",
+  "entrypoint": "extension.js",
+  "contributes": {
+    "pages": [
+      {
+        "id": "dashboard",
+        "title": "Extension Lab",
+        "path": "/lab",
+        "nav_label": "Extension Lab",
+        "description": "Capability dashboard — live tests of every technique an extension can use."
+      },
+      {
+        "id": "patterns",
+        "title": "Pattern Gallery",
+        "path": "/lab/patterns",
+        "nav_label": "Patterns",
+        "description": "Copy-paste code snippets for each working capability."
+      },
+      {
+        "id": "stress",
+        "title": "Stress Test",
+        "path": "/lab/stress",
+        "nav_label": "Stress Test",
+        "description": "Mount/unmount loops, leak detection, quota handling, and concurrent async."
+      }
+    ]
+  }
+}

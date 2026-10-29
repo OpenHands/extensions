@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "name": "backend-sqlite-studio",
+  "display_name": "Backend SQLite Studio",
+  "version": "0.1.0",
+  "description": "Explore and query durable SQLite data stored on the active Agent Server.",
+  "entrypoint": "extension.js",
+  "contributes": {
+    "pages": [
+      {
+        "id": "studio",
+        "title": "Backend SQLite Studio",
+        "path": "/studio",
+        "nav_label": "SQLite Studio",
+        "description": "Manage a focused App-owned SQLite database on the Agent Server."
+      },
+      {
+        "id": "handoff",
+        "title": "SQLite Agent Handoff",
+        "path": "/handoff",
+        "nav_label": "Agent handoff",
+        "description": "Copy safe instructions for agents sharing this App-owned database."
+      }
+    ]
+  }
+}

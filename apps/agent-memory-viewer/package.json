@@ -1,0 +1,17 @@
+{
+  "name": "agent-memory-viewer-canvas-app",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "vitest run",
+    "check:artifact": "node scripts/check-artifact.mjs",
+    "check:blob": "node scripts/blob-smoke.mjs",
+    "check": "npm run test && npm run check:artifact && npm run check:blob"
+  },
+  "devDependencies": {
+    "jsdom": "^26.1.0",
+    "playwright-core": "^1.63.0",
+    "vitest": "^3.2.4"
+  }
+}

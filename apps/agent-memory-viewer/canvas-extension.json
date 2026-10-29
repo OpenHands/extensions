@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "name": "agent-memory-viewer",
+  "display_name": "Agent Memory",
+  "version": "0.1.0",
+  "description": "Read-only viewer for Agent Canvas user and project memory.",
+  "icon": "icon.svg",
+  "entrypoint": "extension.js",
+  "contributes": {
+    "pages": [{
+      "id": "memory",
+      "title": "Agent Memory",
+      "path": "/memory",
+      "nav_label": "Memory",
+      "description": "Inspect memory provenance and budget use."
+    }]
+  }
+}

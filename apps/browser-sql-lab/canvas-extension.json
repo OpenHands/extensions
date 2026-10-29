@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "name": "browser-sql-lab",
+  "display_name": "Browser SQL Lab",
+  "version": "0.1.0",
+  "description": "Run a persistent SQLite database entirely in the browser with embedded WASM and an inline Worker.",
+  "entrypoint": "extension.js",
+  "contributes": {
+    "pages": [
+      {
+        "id": "sql-lab",
+        "title": "Browser SQL Lab",
+        "path": "/sql-lab",
+        "nav_label": "SQL Lab",
+        "description": "Query, inspect, seed, export, and reset a browser-local SQLite database."
+      }
+    ]
+  }
+}

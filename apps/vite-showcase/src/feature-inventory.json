@@ -1,0 +1,13 @@
+{
+  "framework": "React 19",
+  "language": "TypeScript",
+  "bundler": "Vite 8",
+  "features": [
+    "Inline CSS",
+    "Inlined SVG",
+    "Raw Markdown",
+    "JSON modules",
+    "Dynamic imports",
+    "Inline Web Worker"
+  ]
+}

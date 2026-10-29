@@ -1,0 +1,62 @@
+name: Canvas Apps
+
+# Builds and tests every App moved from OpenHands/canvas-apps. Kanban Manager
+# and VS Code keep their own workflows.
+on:
+  pull_request:
+    paths:
+      - "apps/**"
+      - "skills/canvas-extension-api/scripts/validate-extension.mjs"
+      - ".github/workflows/canvas-apps.yml"
+  push:
+    branches: [main]
+    paths:
+      - "apps/**"
+      - ".github/workflows/canvas-apps.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: ${{ matrix.app }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        app:
+          - agent-memory-viewer
+          - backend-sqlite-studio
+          - browser-sql-lab
+          - canvas-pulse
+          - conversation-search-sidecar
+          - conversation-trace
+          - extension-lab
+          - git-cockpit
+          - personal-profile
+          - snake-arcade
+          - usage-insights
+          - vite-showcase
+          - wasm-repo-lens
+    env:
+      # The Blob smoke scripts launch the runner's preinstalled Chrome.
+      CHROME_PATH: /usr/bin/google-chrome
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: apps/${{ matrix.app }}/package-lock.json
+      - if: matrix.app == 'conversation-search-sidecar'
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: apps/conversation-search-sidecar/native/go.mod
+          cache: false
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+        working-directory: apps/${{ matrix.app }}
+      - run: npm run check
+        working-directory: apps/${{ matrix.app }}
+      - run: node skills/canvas-extension-api/scripts/validate-extension.mjs apps/${{ matrix.app }}
+      - name: Confirm the checked-in bundle is current
+        run: git diff --exit-code -- apps/${{ matrix.app }}/extension.js

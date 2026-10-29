@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Snake Arcade preview</title>
+    <style>
+      html, body, #preview { min-height: 100%; margin: 0; }
+      body { background: #0b0b15; }
+    </style>
+  </head>
+  <body>
+    <div id="preview"></div>
+    <script type="module">
+      import { activate } from "./extension.js";
+
+      const container = document.querySelector("#preview");
+      let mountPage;
+      let unmount;
+      activate({
+        apiVersion: "1",
+        extension: { name: "snake-arcade", version: "0.1.0", resolvedRef: "preview" },
+        backend: { id: "local-preview", kind: "local", orgId: null },
+        registerPage(_id, mount) { mountPage = mount; return () => {}; },
+        navigate(path) {
+          const prefix = "/extensions/snake-arcade/snake";
+          render(path.startsWith(prefix) ? path.slice(prefix.length).replace(/^\//, "") : "");
+        },
+        agentServer: { async request() { return {}; } },
+      });
+
+      function render(path = "") {
+        unmount?.();
+        unmount = mountPage({ container, path, navigate: (nextPath) => {
+          const prefix = "/extensions/snake-arcade/snake";
+          render(nextPath.slice(prefix.length).replace(/^\//, ""));
+        } });
+      }
+
+      render();
+    </script>
+  </body>
+</html>

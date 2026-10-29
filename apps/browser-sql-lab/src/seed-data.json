@@ -1,0 +1,7 @@
+[
+  { "id": 1, "title": "The Left Hand of Darkness", "author": "Ursula K. Le Guin", "publishedYear": 1969, "rating": 4.8 },
+  { "id": 2, "title": "Invisible Cities", "author": "Italo Calvino", "publishedYear": 1972, "rating": 4.7 },
+  { "id": 3, "title": "Kindred", "author": "Octavia E. Butler", "publishedYear": 1979, "rating": 4.9 },
+  { "id": 4, "title": "The Dispossessed", "author": "Ursula K. Le Guin", "publishedYear": 1974, "rating": 4.6 },
+  { "id": 5, "title": "Piranesi", "author": "Susanna Clarke", "publishedYear": 2020, "rating": 4.5 }
+]
