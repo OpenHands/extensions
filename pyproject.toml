@@ -25,6 +25,7 @@ test = [
     "requests>=2.31",
     "openhands-sdk>=0.3",
     "jsonschema>=4.23",
+    "jmespath>=1.0",
 ]
 
 [tool.pytest.ini_options]

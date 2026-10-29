@@ -93,6 +93,13 @@ not it ships a setup flow. Integrations are keyed by id, and each id must match 
 never listed with nothing attached. `required` defaults to true; state `false` only for an integration
 setup can proceed without.
 
+`requires.builtInIntegrations` lists the integrations built into an OpenHands Cloud or Enterprise instance
+(Settings > Integrations) that the automation cannot run without, by provider name (`bitbucket_data_center`,
+`jira_dc`, ...). State it only for an integration no MCP server can stand in for, such as a self-hosted Data
+Center product: a user cannot connect one from the card, so a host that knows the instance's built-in
+integrations hides the entry where one is missing, and a host without built-in integrations, such as a
+local backend, never offers it.
+
 `skill` names the `skills/` directory that builds this automation today, and defaults to `id`, so only the
 three entries whose names differ from their skill state it. The command that launches that skill is **not**
 repeated here: it lives once, in the skill's own `triggers:` frontmatter, and the skills catalog exposes it.

@@ -1,0 +1,108 @@
+{
+  "id": "jira-data-center-issue-to-bitbucket-data-center-pr",
+  "name": "Jira Data Center issue to Bitbucket Data Center PR",
+  "category": "Project management",
+  "description": "When an issue in a Jira Data Center project gets a configurable label, start an agent that implements the request in a Bitbucket Data Center repository and opens a pull request. Runs on the Jira Data Center and Bitbucket Data Center integrations built into OpenHands Enterprise.",
+  "requires": {
+    "integrations": {},
+    "features": [
+      "presetPrompt"
+    ],
+    "builtInIntegrations": [
+      "jira_dc",
+      "bitbucket_data_center"
+    ]
+  },
+  "popularityRank": 84,
+  "estimatedSetupMinutes": 5,
+  "skill": "openhands-automation",
+  "exampleImplementation": "Trigger: the Jira Data Center webhook that the instance's built-in Jira Data Center integration forwards to the automation service (source jira_dc, jira:issue_* events).\nRequired built-in integrations: Jira Data Center and Bitbucket Data Center under Settings > Integrations. No MCP server is needed, and the Bitbucket Data Center credential is the automation owner's connection, which the run receives as the bitbucket_data_center_token secret.\n\n1. The filter matches an issue in the configured project when it is created with the trigger label, or when an update adds that label, so each labelling dispatches once.\n2. Anyone who can label issues in that project can start a run. The run uses the automation owner's Bitbucket Data Center connection and changes only the configured repository: it pushes one branch named after the issue key and opens a pull request, never pushing to the default branch.\n3. The agent reads the issue from the webhook payload, clones the repository, implements and tests the change, and opens the pull request through the Bitbucket Data Center REST API.\n4. Optionally, with a saved Jira Data Center personal access token secret, the agent comments the pull request link back on the issue.",
+  "setup": {
+    "version": "1.0",
+    "mode": "direct",
+    "form": {
+      "triggers": {
+        "event": {
+          "source": {
+            "type": "select",
+            "label": "Event source",
+            "help": "Issue events from the Jira Data Center integration built into this instance.",
+            "default": "jira_dc",
+            "required": true,
+            "options": [
+              {
+                "value": "jira_dc",
+                "label": "Jira Data Center"
+              }
+            ]
+          },
+          "on": {
+            "type": "select",
+            "label": "Jira events",
+            "help": "Issue creation and updates. The trigger label and project decide which of them start a run.",
+            "default": "jira:issue_*",
+            "required": true,
+            "options": [
+              {
+                "value": "jira:issue_*",
+                "label": "Issue created or updated"
+              }
+            ]
+          }
+        }
+      },
+      "args": {
+        "repositoryUrl": {
+          "type": "text",
+          "label": "Bitbucket repository URL",
+          "help": "The Bitbucket Data Center repository the agent changes and opens pull requests against, as its browser URL.",
+          "placeholder": "https://bitbucket.example.com/projects/ENG/repos/payments",
+          "default": "",
+          "required": true,
+          "constraints": {
+            "minLength": 1,
+            "maxLength": 500
+          }
+        },
+        "jiraProject": {
+          "type": "text",
+          "label": "Jira project key",
+          "help": "Only issues in this Jira Data Center project start a run, for example ENG.",
+          "placeholder": "ENG",
+          "default": "",
+          "required": true,
+          "constraints": {
+            "minLength": 1,
+            "maxLength": 50,
+            "format": "safeExpressionLiteral"
+          }
+        },
+        "triggerLabel": {
+          "type": "text",
+          "label": "Trigger label",
+          "help": "Adding this label to an issue, or creating an issue with it, starts a run.",
+          "default": "openhands",
+          "required": true,
+          "constraints": {
+            "minLength": 1,
+            "maxLength": 50,
+            "format": "safeExpressionLiteral"
+          }
+        },
+        "jiraTokenSecret": {
+          "type": "text",
+          "label": "Jira token secret (optional)",
+          "help": "Name of a saved secret holding a Jira Data Center personal access token. When set, the agent comments the pull request link on the issue. Leave blank to skip the comment.",
+          "default": "",
+          "required": false,
+          "constraints": {
+            "maxLength": 100
+          }
+        }
+      }
+    },
+    "prompt": "A Jira Data Center issue in project {{form.jiraProject}} was labelled '{{form.triggerLabel}}'. Its key, summary, description and comments are in the event payload below. Implement what it asks in the Bitbucket Data Center repository {{form.repositoryUrl}}.\n\n1. Clone the repository with the Bitbucket Data Center token you receive as the bitbucket_data_center_token secret (use the bitbucket-data-center skill for the clone URL and authentication).\n2. Create a branch named after the issue key, for example openhands/ENG-123. Never push to the default branch, and change no other repository.\n3. Implement the change and run the repository's relevant tests and checks.\n4. Push the branch and open a pull request in that repository through the Bitbucket Data Center REST API, titled with the issue key and summary, and describing the change and the test results.\n5. Jira token secret name: '{{form.jiraTokenSecret}}'. If that name is not empty and the secret is available, add a comment with the pull request link to the issue through the Jira Data Center REST API, at the base URL of the issue's `self` link. Otherwise skip this step.\n\nIf the issue does not contain enough information to implement it, open no pull request and explain what is missing in your final message, and in the Jira comment when a token is configured.",
+    "filter": "issue.fields.project.key == '{{form.jiraProject}}' && ((webhookEvent == 'jira:issue_created' && contains(issue.fields.labels || `[]`, '{{form.triggerLabel}}')) || (webhookEvent == 'jira:issue_updated' && length(changelog.items[?field == 'labels' && contains(join('', [' ', to_string(toString), ' ']), ' {{form.triggerLabel}} ') && !contains(join('', [' ', to_string(fromString), ' ']), ' {{form.triggerLabel}} ')] || `[]`) > `0`))",
+    "message": "This deployment cannot create the Jira Data Center automation directly. Set it up in this conversation instead: confirm the Bitbucket Data Center repository URL, the Jira project key, the trigger label and the optional Jira token secret, then create a prompt automation with an event trigger on the jira_dc source."
+  }
+}
