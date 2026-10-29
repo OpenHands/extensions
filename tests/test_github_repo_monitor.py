@@ -6,7 +6,7 @@ from pathlib import Path
 
 SCRIPT_PATH = (
     Path(__file__).parent.parent
-    / "plugins"
+    / "skills"
     / "github-repo-monitor"
     / "scripts"
     / "main.py"
@@ -15,7 +15,7 @@ SCRIPT_PATH = (
 
 def load_repo_monitor_helpers():
     source = SCRIPT_PATH.read_text(encoding="utf-8")
-    namespace: dict = {"__name__": "repo_monitor_main", "__file__": str(SCRIPT_PATH)}
+    namespace: dict = {"__name__": "repo_monitor_main"}
     exec(compile(source, str(SCRIPT_PATH), "exec"), namespace)
     return namespace
 

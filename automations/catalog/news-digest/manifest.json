@@ -69,7 +69,7 @@
       "entrypoint": "python3 main.py",
       "timeout": 900,
       "files": {
-        "main.py": "plugins/news-digest/scripts/main.py"
+        "main.py": "skills/news-digest/scripts/main.py"
       },
       "config": {
         "feeds": "{{form.feeds}}",

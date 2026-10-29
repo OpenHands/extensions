@@ -48,9 +48,9 @@ for (const { entry } of automations) {
   if (!files) continue;
   bundles[entry.id] = {};
   for (const [packedPath, source] of Object.entries(files).sort()) {
-    if (!/^(skills|plugins|automations)\//.test(source) || source.includes("..")) {
+    if (!/^(skills|automations)\//.test(source) || source.includes("..")) {
       throw new Error(
-        `${entry.id}: bundle file "${packedPath}" names ${source}, which is outside skills/, plugins/, or automations/`,
+        `${entry.id}: bundle file "${packedPath}" names ${source}, which is outside skills/ or automations/`,
       );
     }
     bundles[entry.id][packedPath] = await readFile(path.join(root, source), "utf8");
