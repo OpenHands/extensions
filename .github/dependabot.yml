@@ -4,7 +4,8 @@ updates:
   - package-ecosystem: github-actions
     directory: /
     schedule:
-      interval: weekly
+      interval: cron
+      cronjob: "0 * * * *"
     commit-message:
       prefix: ci(deps)
 
@@ -13,7 +14,8 @@ updates:
     cooldown:
       default-days: 7
     schedule:
-      interval: weekly
+      interval: cron
+      cronjob: "0 * * * *"
     commit-message:
       prefix: chore(deps)
       include: scope
@@ -23,6 +25,7 @@ updates:
     cooldown:
       default-days: 7
     schedule:
-      interval: weekly
+      interval: cron
+      cronjob: "0 * * * *"
     commit-message:
       prefix: chore(deps)
