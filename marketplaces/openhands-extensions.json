@@ -79,6 +79,19 @@
       ]
     },
     {
+      "name": "comment-cleanup",
+      "source": "./skills/comment-cleanup",
+      "description": "Remove comments that restate adjacent code, delete comments that narrate removed functionality or past PRs, and condense verbose comments and README prose, leaving code and docstrings untouched.",
+      "category": "code-quality",
+      "keywords": [
+        "comments",
+        "cleanup",
+        "readme",
+        "code-quality",
+        "documentation"
+      ]
+    },
+    {
       "name": "openhands-automation",
       "source": "./skills/openhands-automation",
       "description": "Create and manage OpenHands automations - scheduled tasks that run in sandboxes. Use the prompt preset to create automations from natural language, or manage existing automations.",
@@ -737,6 +750,19 @@
       ]
     },
     {
+      "name": "github-comment-cleanup",
+      "source": "./skills/github-comment-cleanup",
+      "description": "Create an automation that runs the comment-cleanup skill on GitHub repositories on a schedule and opens one pull request per repository, re-reading only files changed since they were last examined.",
+      "category": "automations",
+      "keywords": [
+        "github",
+        "comments",
+        "cleanup",
+        "code-quality",
+        "automation"
+      ]
+    },
+    {
       "name": "github-issue-to-pr",
       "source": "./skills/github-issue-to-pr",
       "description": "Create an automation that implements GitHub issues when a configurable trigger label is applied. Clones the default branch for the agent, then commits, pushes, and opens the pull request itself - the agent is handed no GitHub credential.",
@@ -958,6 +984,25 @@
       "keywords": [
         "jev",
         "classification"
+      ]
+    },
+    {
+      "name": "cortex-training-rl",
+      "source": "./skills/cortex-training-rl",
+      "description": "Run reinforcement-learning post-training of a model inside the OpenHands harness on Snowflake Cortex Training for any Harbor training and eval task directories or SWE-smith code localization, and generate the reward convergence graph.",
+      "category": "integrations",
+      "keywords": [
+        "cortex-training",
+        "snowflake",
+        "reinforcement-learning",
+        "post-training",
+        "grpo",
+        "gspo",
+        "skyrl",
+        "arctic-platform",
+        "codescout",
+        "harbor",
+        "swe-smith"
       ]
     }
   ]
