@@ -42,10 +42,16 @@
       "properties": {
         "feeds": {
           "type": "string",
+          "title": "Feeds",
+          "description": "One RSS or Atom feed URL per line. They must be public: this automation signs in to nothing, so a feed behind a login will simply fail and be skipped.",
+          "format": "textarea",
           "default": "https://news.ycombinator.com/rss\nhttps://feeds.arstechnica.com/arstechnica/index\nhttps://www.theverge.com/rss/index.xml"
         },
         "topics": {
           "type": "string",
+          "title": "Topics of interest",
+          "description": "One topic per line, or separated by commas. The agent reads every new story and decides which ones are about these, so write them the way you would explain your interests to a colleague rather than as search terms. Leave this empty to cover whatever is most significant.",
+          "format": "textarea",
           "default": "artificial intelligence, open source, developer tools"
         }
       }
