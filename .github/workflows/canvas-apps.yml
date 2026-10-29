@@ -35,7 +35,6 @@ jobs:
           - git-cockpit
           - personal-profile
           - snake-arcade
-          - terminal
           - usage-insights
           - vite-showcase
           - wasm-repo-lens

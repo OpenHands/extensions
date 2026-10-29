@@ -88,14 +88,6 @@
     "beta": true
   },
   {
-    "id": "terminal",
-    "name": "Terminal",
-    "description": "Run shell commands on the active backend through Canvas authentication.",
-    "source": "./apps/terminal",
-    "manifest": "./apps/terminal/canvas-extension.json",
-    "beta": true
-  },
-  {
     "id": "usage-insights",
     "name": "Usage Insights",
     "description": "Track OpenHands conversation tokens, estimated cost, models, and task budgets.",

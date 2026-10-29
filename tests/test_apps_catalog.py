@@ -57,7 +57,7 @@ def test_apps_moved_from_canvas_apps_keep_their_license_and_source():
     moved = [
         "agent-memory-viewer", "backend-sqlite-studio", "browser-sql-lab", "canvas-pulse",
         "conversation-search-sidecar", "conversation-trace", "extension-lab", "git-cockpit",
-        "kanban-manager", "personal-profile", "snake-arcade", "terminal", "usage-insights",
+        "kanban-manager", "personal-profile", "snake-arcade", "usage-insights",
         "vite-showcase", "wasm-repo-lens",
     ]
     for app_id in moved:

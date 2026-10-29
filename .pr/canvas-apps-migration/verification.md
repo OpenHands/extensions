@@ -1,6 +1,6 @@
 # Canvas apps migration verification
 
-Source: OpenHands/canvas-apps `b83068fdce5ec7f85c07b8aefa15d413982059d0`, the 14 Apps other than Kanban Manager (moved in #841).
+Source: OpenHands/canvas-apps `b83068fdce5ec7f85c07b8aefa15d413982059d0`, the 14 Apps other than Kanban Manager (moved in #841). Terminal was imported and then removed again (see below), so 13 are added.
 Destination: `OpenHands/extensions`, `apps/<app>/`, registered in `apps/catalog.json`.
 
 ## What changed beyond the import
@@ -15,16 +15,15 @@ The first commit imports each App unchanged, with the source repository's MIT li
 | 7 Apps with Blob smoke scripts | Defaulted to the macOS Chrome path | `CHROME_PATH`, then macOS and Linux locations, with a clear error |
 | extension-lab | Manifest declares Pattern Gallery and Stress Test, but only the dashboard was registered, so Canvas showed no sidebar entries for them | Register all three pages; test |
 | extension-lab | Stress Test page rendered its log above the header and navigation | Mount the log inside the shell after the header; test (fails on the old code) |
-| all 14 | READMEs said Customize → Extensions, `github:owner/repository` or a local path | Install from the registry tree URL at a reviewed commit; credit and link the canvas-apps source |
-| terminal | General-purpose shell on the Agent Server | Warning at the top of its README |
+| all 13 | READMEs said Customize → Extensions, `github:owner/repository` or a local path | Install from the registry tree URL at a reviewed commit; credit and link the canvas-apps source |
 
 Both Extension Lab bugs were found by the live catalog smoke below, not by the Apps' own tests.
 
-Repository plumbing: catalog entries for all 14, a catalog test that every App directory is catalogued with a matching manifest, README, license and source credit, per-App `.gitignore`/`.npmignore` (no `node_modules`, `dist`, tests or lockfiles in the npm package), and a `Canvas Apps` CI matrix that runs each App's `npm run check`, the Canvas App validator and a check that the committed `extension.js` is current.
+Repository plumbing: catalog entries for all 13, a catalog test that every App directory is catalogued with a matching manifest, README, license and source credit, per-App `.gitignore`/`.npmignore` (no `node_modules`, `dist`, tests or lockfiles in the npm package), and a `Canvas Apps` CI matrix that runs each App's `npm run check`, the Canvas App validator and a check that the committed `extension.js` is current.
 
 ## Automated checks (local, Node 24)
 
-For each of the 14 Apps: clean `npm ci --ignore-scripts`, `npm run check`, `validate-extension.mjs`. All pass, and every rebuilt `extension.js` is byte-identical to the committed bundle except extension-lab, whose bundle is its source copied verbatim.
+For each of the 13 Apps: clean `npm ci --ignore-scripts`, `npm run check`, `validate-extension.mjs`. All pass, and every rebuilt `extension.js` is byte-identical to the committed bundle except extension-lab, whose bundle is its source copied verbatim.
 
 | App | Unit tests | Also in `check` |
 |---|---|---|
@@ -38,7 +37,6 @@ For each of the 14 Apps: clean `npm ci --ignore-scripts`, `npm run check`, `vali
 | git-cockpit | 44 | typecheck, build, Blob smoke |
 | personal-profile | 10 | |
 | snake-arcade | 9 | `node --check` |
-| terminal | 7 | typecheck, build, validator, Blob smoke |
 | usage-insights | 22 | `node --check` |
 | vite-showcase | 12 | typecheck, build, Blob smoke |
 | wasm-repo-lens | 26 | typecheck, build, Blob smoke (Rust/WASM) |
@@ -59,11 +57,14 @@ VS Code's page reads `VS Code is unavailable because this Agent Server does not 
 
 Same run, Apps installed from the same commit:
 
-- Terminal: typed `echo QA_$((6*7)) && uname -s` and pressed Enter; the page printed `QA_42` (`flows/terminal-command.png`).
 - Browser SQL Lab: **Seed data**, then **Run query**; the result table lists 4 authors with book counts and average ratings (`flows/sql-lab-query.png`).
 - Snake Arcade: **Start game** and arrow keys; the status reads `Game started.` and the board is in play (`flows/snake-playing.png`).
 
 No page or app errors were logged during these flows.
+
+## Left out
+
+Terminal is not added. It runs arbitrary commands typed by the user, and `skills/canvas-extension-api/references/backend-safety.md` says Apps must never expose a general terminal; the #843 triage calls it out of scope for the public registry. It passed the same checks and smoke as the others before it was removed, so the smoke counts above (19 pages, 16 Apps) still include it.
 
 ## Not covered
 

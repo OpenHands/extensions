@@ -1,8 +1,0 @@
-node_modules/
-dist/
-package-lock.json
-*.test.*
-test/
-tests/
-rust-engine/target/
-*.log
