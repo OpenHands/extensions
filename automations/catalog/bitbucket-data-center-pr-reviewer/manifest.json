@@ -1,0 +1,94 @@
+{
+  "id": "bitbucket-data-center-pr-reviewer",
+  "name": "Bitbucket Data Center code review",
+  "category": "Code review",
+  "description": "Review each pull request opened or updated in a Bitbucket Data Center repository and post the findings as pull request comments. Runs on the Bitbucket Data Center integration built into OpenHands Enterprise.",
+  "requires": {
+    "integrations": {},
+    "features": [
+      "presetPrompt"
+    ],
+    "builtInIntegrations": [
+      "bitbucket_data_center"
+    ]
+  },
+  "popularityRank": 83,
+  "estimatedSetupMinutes": 3,
+  "skill": "openhands-automation",
+  "exampleImplementation": "Trigger: the Bitbucket Data Center webhook that the instance's built-in Bitbucket Data Center integration installs on the repository and forwards to the automation service (source bitbucket_data_center).\nRequired built-in integration: Bitbucket Data Center under Settings > Integrations. The run receives the automation owner's Bitbucket Data Center credential as the bitbucket_data_center_token secret.\n\n1. The filter matches pr:opened and pr:from_ref_updated events for non-draft pull requests targeting the configured repository, so each new head is reviewed once.\n2. Anyone who can open or push to a pull request in that repository can start a review. The run uses the automation owner's Bitbucket Data Center connection and only reads the repository and writes pull request comments: it never pushes, approves or merges.\n3. The agent fetches the pull request head, reviews the diff against its target branch, and posts a summary comment plus inline comments through the Bitbucket Data Center API.",
+  "setup": {
+    "version": "1.0",
+    "mode": "direct",
+    "form": {
+      "triggers": {
+        "event": {
+          "source": {
+            "type": "select",
+            "label": "Event source",
+            "help": "Pull request events from the Bitbucket Data Center integration built into this instance.",
+            "default": "bitbucket_data_center",
+            "required": true,
+            "options": [
+              {
+                "value": "bitbucket_data_center",
+                "label": "Bitbucket Data Center"
+              }
+            ]
+          },
+          "on": {
+            "type": "select",
+            "label": "Bitbucket events",
+            "help": "Only pull requests opened or updated against the repository start a review.",
+            "default": "pr:*",
+            "required": true,
+            "options": [
+              {
+                "value": "pr:*",
+                "label": "Pull request opened or updated"
+              }
+            ]
+          }
+        }
+      },
+      "args": {
+        "repository": {
+          "type": "text",
+          "label": "Repository",
+          "help": "The Bitbucket Data Center repository whose pull requests are reviewed, as PROJECT/repo: the project key and repository slug from its URL.",
+          "placeholder": "ENG/payments",
+          "default": "",
+          "required": true,
+          "constraints": {
+            "minLength": 3,
+            "maxLength": 200,
+            "format": "safeExpressionLiteral"
+          }
+        },
+        "reviewTone": {
+          "type": "select",
+          "label": "Review tone",
+          "help": "How detailed the review comments should be.",
+          "default": "concise",
+          "required": true,
+          "options": [
+            {
+              "value": "concise",
+              "label": "Concise"
+            },
+            {
+              "value": "thorough",
+              "label": "Thorough"
+            },
+            {
+              "value": "friendly",
+              "label": "Friendly"
+            }
+          ]
+        }
+      }
+    },
+    "prompt": "Review the Bitbucket Data Center pull request described in the event payload below, in the repository {{form.repository}}. Use a {{form.reviewTone}} review tone.\n\n1. Clone the repository with the Bitbucket Data Center token you receive as the bitbucket_data_center_token secret (use the bitbucket-data-center skill for authentication; the server's URL is in the payload's links). Fetch the pull request head with `git fetch origin refs/pull-requests/<id>/from` and check out the payload's fromRef.latestCommit.\n2. Review the changes against the target branch for correctness, security, tests and maintainability. Run focused tests when they help confirm a finding.\n3. Post the review through the Bitbucket Data Center REST API: inline comments on the lines that need changes, then one summary comment that names the reviewed commit.\n\nOnly read the repository and write pull request comments: never push, approve, decline or merge. If the pull request has no reviewable changes, post a short summary comment saying so.",
+    "filter": "(eventKey == 'pr:opened' || eventKey == 'pr:from_ref_updated') && pullRequest.draft != `true` && join('/', [pullRequest.toRef.repository.project.key, pullRequest.toRef.repository.slug]) == '{{form.repository}}'",
+    "message": "This deployment cannot create the Bitbucket Data Center review automation directly. Set it up in this conversation instead: confirm the repository (PROJECT/repo) and review tone, then create a prompt automation with an event trigger on the bitbucket_data_center source."
+  }
+}

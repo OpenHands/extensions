@@ -136,7 +136,27 @@ export interface AutomationPrerequisites {
   integrations: Record<string, AutomationIntegrationRequirement>;
   /** Deployment capabilities this automation cannot run without. */
   features?: string[];
+  /**
+   * Integrations built into an OpenHands Cloud or Enterprise instance
+   * (Settings > Integrations) that this automation cannot run without. A user
+   * cannot connect one from the card, so a host that knows the instance's
+   * built-in integrations can rank the entry below the others, or hide it,
+   * where one is missing, and a host without built-in integrations never
+   * offers it.
+   */
+  builtInIntegrations?: AutomationBuiltInIntegration[];
 }
+
+export type AutomationBuiltInIntegration =
+  | "github"
+  | "gitlab"
+  | "bitbucket"
+  | "bitbucket_data_center"
+  | "azure_devops"
+  | "jira"
+  | "jira_dc"
+  | "linear"
+  | "slack";
 
 /** The inputs that decide when the automation runs, keyed by trigger kind. */
 export type AutomationTriggerForm = Partial<

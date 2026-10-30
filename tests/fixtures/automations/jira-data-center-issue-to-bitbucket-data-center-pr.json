@@ -1,0 +1,87 @@
+{
+  "automationId": "jira-data-center-issue-to-bitbucket-data-center-pr",
+  "description": "Direct event setup on the built-in jira_dc source. Every create request body below is verified against the live CreatePromptAutomationRequest model in OpenHands/automation (openhands/automation/preset_router.py).",
+  "capabilities": "supported",
+  "blockedBy": [
+    "cronOnly",
+    "notReady"
+  ],
+  "scenarios": [
+    {
+      "id": "happy-path",
+      "description": "A repository URL, project key, the default label and a Jira token secret name. Preflight passes, the automation is created.",
+      "formValues": {
+        "repositoryUrl": "https://bitbucket.example.com/projects/ENG/repos/payments",
+        "jiraProject": "ENG",
+        "triggerLabel": "openhands",
+        "jiraTokenSecret": "JIRA_DC_TOKEN",
+        "source": "jira_dc",
+        "on": "jira:issue_*"
+      },
+      "preflight": {
+        "request": {
+          "method": "POST",
+          "path": "/v1/validate",
+          "body": {
+            "automationId": "jira-data-center-issue-to-bitbucket-data-center-pr",
+            "endpoint": "/v1/preset/prompt",
+            "draft": {
+              "name": "Jira Data Center issue to Bitbucket Data Center PR",
+              "prompt": "A Jira Data Center issue in project ENG was labelled 'openhands'. Its key, summary, description and comments are in the event payload below. Implement what it asks in the Bitbucket Data Center repository https://bitbucket.example.com/projects/ENG/repos/payments.\n\n1. Clone the repository with the Bitbucket Data Center token you receive as the bitbucket_data_center_token secret (use the bitbucket-data-center skill for the clone URL and authentication).\n2. Create a branch named after the issue key, for example openhands/ENG-123. Never push to the default branch, and change no other repository.\n3. Implement the change and run the repository's relevant tests and checks.\n4. Push the branch and open a pull request in that repository through the Bitbucket Data Center REST API, titled with the issue key and summary, and describing the change and the test results.\n5. Jira token secret name: 'JIRA_DC_TOKEN'. If that name is not empty and the secret is available, add a comment with the pull request link to the issue through the Jira Data Center REST API, at the base URL of the issue's `self` link. Otherwise skip this step.\n\nIf the issue does not contain enough information to implement it, open no pull request and explain what is missing in your final message, and in the Jira comment when a token is configured.",
+              "trigger": {
+                "type": "event",
+                "source": "jira_dc",
+                "on": "jira:issue_*",
+                "filter": "issue.fields.project.key == 'ENG' && ((webhookEvent == 'jira:issue_created' && contains(issue.fields.labels || `[]`, 'openhands')) || (webhookEvent == 'jira:issue_updated' && length(changelog.items[?field == 'labels' && contains(join('', [' ', to_string(toString), ' ']), ' openhands ') && !contains(join('', [' ', to_string(fromString), ' ']), ' openhands ')] || `[]`) > `0`))"
+              }
+            }
+          }
+        },
+        "response": {
+          "status": 200,
+          "body": {
+            "valid": true,
+            "errors": []
+          }
+        }
+      },
+      "create": {
+        "request": {
+          "method": "POST",
+          "path": "/v1/preset/prompt",
+          "body": {
+            "name": "Jira Data Center issue to Bitbucket Data Center PR",
+            "prompt": "A Jira Data Center issue in project ENG was labelled 'openhands'. Its key, summary, description and comments are in the event payload below. Implement what it asks in the Bitbucket Data Center repository https://bitbucket.example.com/projects/ENG/repos/payments.\n\n1. Clone the repository with the Bitbucket Data Center token you receive as the bitbucket_data_center_token secret (use the bitbucket-data-center skill for the clone URL and authentication).\n2. Create a branch named after the issue key, for example openhands/ENG-123. Never push to the default branch, and change no other repository.\n3. Implement the change and run the repository's relevant tests and checks.\n4. Push the branch and open a pull request in that repository through the Bitbucket Data Center REST API, titled with the issue key and summary, and describing the change and the test results.\n5. Jira token secret name: 'JIRA_DC_TOKEN'. If that name is not empty and the secret is available, add a comment with the pull request link to the issue through the Jira Data Center REST API, at the base URL of the issue's `self` link. Otherwise skip this step.\n\nIf the issue does not contain enough information to implement it, open no pull request and explain what is missing in your final message, and in the Jira comment when a token is configured.",
+            "trigger": {
+              "type": "event",
+              "source": "jira_dc",
+              "on": "jira:issue_*",
+              "filter": "issue.fields.project.key == 'ENG' && ((webhookEvent == 'jira:issue_created' && contains(issue.fields.labels || `[]`, 'openhands')) || (webhookEvent == 'jira:issue_updated' && length(changelog.items[?field == 'labels' && contains(join('', [' ', to_string(toString), ' ']), ' openhands ') && !contains(join('', [' ', to_string(fromString), ' ']), ' openhands ')] || `[]`) > `0`))"
+            }
+          }
+        },
+        "response": {
+          "status": 201,
+          "body": {
+            "id": "9a2c7b15-3c4d-4e5f-8a1b-4c9d0e1f2a41",
+            "user_id": "1a2b3c4d-0000-4000-8000-000000000001",
+            "org_id": "1a2b3c4d-0000-4000-8000-000000000002",
+            "model": null,
+            "name": "Jira Data Center issue to Bitbucket Data Center PR",
+            "prompt": "A Jira Data Center issue in project ENG was labelled 'openhands'. Its key, summary, description and comments are in the event payload below. Implement what it asks in the Bitbucket Data Center repository https://bitbucket.example.com/projects/ENG/repos/payments.\n\n1. Clone the repository with the Bitbucket Data Center token you receive as the bitbucket_data_center_token secret (use the bitbucket-data-center skill for the clone URL and authentication).\n2. Create a branch named after the issue key, for example openhands/ENG-123. Never push to the default branch, and change no other repository.\n3. Implement the change and run the repository's relevant tests and checks.\n4. Push the branch and open a pull request in that repository through the Bitbucket Data Center REST API, titled with the issue key and summary, and describing the change and the test results.\n5. Jira token secret name: 'JIRA_DC_TOKEN'. If that name is not empty and the secret is available, add a comment with the pull request link to the issue through the Jira Data Center REST API, at the base URL of the issue's `self` link. Otherwise skip this step.\n\nIf the issue does not contain enough information to implement it, open no pull request and explain what is missing in your final message, and in the Jira comment when a token is configured.",
+            "trigger": {
+              "type": "event",
+              "source": "jira_dc",
+              "on": "jira:issue_*",
+              "filter": "issue.fields.project.key == 'ENG' && ((webhookEvent == 'jira:issue_created' && contains(issue.fields.labels || `[]`, 'openhands')) || (webhookEvent == 'jira:issue_updated' && length(changelog.items[?field == 'labels' && contains(join('', [' ', to_string(toString), ' ']), ' openhands ') && !contains(join('', [' ', to_string(fromString), ' ']), ' openhands ')] || `[]`) > `0`))"
+            },
+            "enabled": true,
+            "last_triggered_at": null,
+            "created_at": "2026-10-29T12:00:00Z",
+            "updated_at": "2026-10-29T12:00:00Z"
+          }
+        }
+      }
+    }
+  ]
+}

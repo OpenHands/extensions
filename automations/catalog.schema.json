@@ -368,6 +368,25 @@
           "minItems": 1,
           "uniqueItems": true,
           "items": { "type": "string", "minLength": 1 }
+        },
+        "builtInIntegrations": {
+          "description": "Integrations built into an OpenHands Cloud or Enterprise instance (Settings > Integrations) that this automation cannot run without, such as a self-hosted Data Center provider no MCP server reaches. Unlike `integrations`, a user cannot connect one from the card: the instance has it enabled or it does not, so a host that knows the instance's built-in integrations can rank the entry below the others, or hide it, where one is missing, and a host without built-in integrations, such as a local backend, never offers it.",
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "github",
+              "gitlab",
+              "bitbucket",
+              "bitbucket_data_center",
+              "azure_devops",
+              "jira",
+              "jira_dc",
+              "linear",
+              "slack"
+            ]
+          }
         }
       }
     },
