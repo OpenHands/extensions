@@ -21,9 +21,9 @@ This complements the `agent-memory` skill. `agent-memory` saves general reposito
 
 ## Steps
 
-1. Clone the template into a temporary folder outside the repository, and show the user `scripts/install.py` before running it:
+1. Clone the reviewed release into a temporary folder outside the repository, and show the user `scripts/install.py` before running it:
    ```bash
-   git clone --depth 1 https://github.com/cerredz/vidbyte-memory /tmp/vidbyte-memory
+   git clone --depth 1 --branch v0.2.1 https://github.com/cerredz/vidbyte-memory /tmp/vidbyte-memory
    ```
 2. Show the user the plan without writing anything:
    ```bash
