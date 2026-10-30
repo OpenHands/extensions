@@ -389,6 +389,7 @@ def test_create_conversation_uses_sdk_project_skill_loader(tmp_path, monkeypatch
         "model": "test-model",
         "api_key": "test-key",
         "base_url": "",
+        "reasoning_effort": None,
         "use_sub_agents": False,
     }
 
