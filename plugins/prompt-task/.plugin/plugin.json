@@ -1,0 +1,46 @@
+{
+  "name": "prompt-task",
+  "version": "1.0.0",
+  "description": "Run a typed prompt as an OpenHands automation, launched from the agent profile chosen for it",
+  "author": {
+    "name": "OpenHands",
+    "email": "contact@all-hands.dev"
+  },
+  "homepage": "https://github.com/OpenHands/extensions/tree/main/plugins/prompt-task",
+  "repository": "https://github.com/OpenHands/extensions",
+  "license": "MIT",
+  "keywords": [
+    "automation",
+    "prompt",
+    "agent-profile"
+  ],
+  "automation": {
+    "schema_version": "openhands.automation.plugin.v1",
+    "entrypoint": {
+      "runner": "conversation",
+      "command": "run",
+      "arguments": "{{ config.prompt }}"
+    },
+    "runtime": {
+      "agent_profile": {
+        "required": true
+      }
+    },
+    "config_schema": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "prompt"
+      ],
+      "properties": {
+        "prompt": {
+          "type": "string",
+          "title": "Prompt",
+          "description": "What the agent does on every run.",
+          "minLength": 1,
+          "maxLength": 50000
+        }
+      }
+    }
+  }
+}
