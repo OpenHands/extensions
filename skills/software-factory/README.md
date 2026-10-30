@@ -25,16 +25,13 @@ This skill is activated by:
 | QA changes | `qa-changes` | add-on (webhooks only) |
 
 `scripts/factory.py` (Python standard library, no LLM) does the catalog and API
-work - preflight checks, plugin-spec create, schedule tune, smoke run and enable
-- so Phase 1 takes four agent steps. Each station is the unmodified plugin
-from `plugins/<id>/`, configured from the matching catalog `setup` block.
-A Jira or Linear issue to PR station is created by its own skill instead.
-Every station gets the `software-factory` tag where supported (`factory.py tag`
-adds it to stations created by other skills).
-
-Remote plugin sources are parameterized: `FACTORY_EXTENSIONS_REF` wins, then the
-installed `openhands-extensions` package tag (`vX.Y.Z`), then `main` for
-unreleased source checkouts.
+work - preflight checks, bundle upload and create, in-place tune, smoke run and
+enable - so Phase 1 takes four agent steps. The skill adds no automation logic of its own. Each station is the unmodified
+catalog bundle from `automations/catalog/<id>/`, configured from its `setup`
+block, so fixes to a station reach factories created by this skill too. A Jira
+or Linear issue to PR station is created by its own skill instead. Every
+station gets the `software-factory` tag (`factory.py tag` adds it to stations
+other skills create), so the Automations list can filter to the factory.
 
 ## Flow
 
@@ -51,13 +48,13 @@ unreleased source checkouts.
 
 ## Requirements
 
-- An automation backend that supports plugin-spec automations and whose
-  `/api/automation/v1/capabilities` reports the features each station's
-  manifest requires (QA needs webhook delivery).
+- An automation backend whose `/api/automation/v1/capabilities` reports the
+  features each station's manifest requires (`customTarball`, plus
+  `agentProfiles` for issue to PR, reviewer and triage; QA needs webhook delivery).
 - A GitHub token with Contents, Issues, Pull requests and Workflows read and
   write on every selected repository, created at
   [GitHub settings](https://github.com/settings/personal-access-tokens).
-- An OpenHands (not ACP) agent profile named `default` that may use that token.
+- An OpenHands (not ACP) agent profile that may use that token.
 - Jira tickets: a connected Atlassian Rovo server or a Jira API token. Linear
   tickets: a Linear connection.
 

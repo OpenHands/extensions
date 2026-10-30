@@ -5,64 +5,33 @@ triggers:
 - /github-issue-triage
 ---
 
-# Github Issue Triage
+# GitHub issue triage
 
-This automation now runs from the executable automation plugin at `plugins/github-issue-triage`. Do not copy or package code from `skills/github-issue-triage`; the skill is only a setup guide for creating the plugin-spec automation.
+Prioritize open issues and establish acceptance criteria before marking them ready for development.
 
-## Create with the plugin-spec endpoint
+## Setup
 
-Use `POST /api/automation/v1/plugin-spec` with this plugin source:
+Keep triage separate from implementation and review. Follow [README.md](README.md)
+for packaging, credentials, publisher setup, and limits. Never put token values
+in the automation definition or prompt. Legacy agent publication is the default.
 
-```json
-{
-  "source": "github:OpenHands/extensions",
-  "repo_path": "plugins/github-issue-triage",
-  "ref": "main"
-}
-```
+## Triage instructions
 
-`ref` is `main` while this plugin layout is unreleased. After an `openhands-extensions` release includes this plugin, prefer the matching release tag, for example `v<extensions-version>`. If setup code can inspect the installed package version, parameterize this value as `v{version('openhands-extensions')}`; otherwise default to `main`.
-
-For local Agent Canvas development from this checkout, use a local source instead:
-
-```json
-{
-  "source": "/absolute/path/to/OpenHands/extensions",
-  "repo_path": "plugins/github-issue-triage"
-}
-```
-
-## Request template
-
-```json
-{
-  "name": "Prioritize open issues and establish acceptance criteria before marking them ready for development",
-  "plugin": {
-    "source": "github:OpenHands/extensions",
-    "repo_path": "plugins/github-issue-triage",
-    "ref": "main"
-  },
-  "config": {
-    "repos": [
-        "OpenHands/extensions"
-    ],
-    "github_token_secret": "GITHUB_PERSONAL_ACCESS_TOKEN"
-},
-  "trigger": {
-    "type": "cron",
-    "schedule": "*/5 * * * *",
-    "timezone": "UTC"
-},
-  "enabled": false
-}
-```
-
-The authoritative config schema is in `plugins/github-issue-triage/.plugin/plugin.json` under `automation.config_schema`. Use that schema to validate any user-provided values before creating the automation.
-
-## Runtime notes
-
-- Entrypoint: `python3 plugin_runner.py worker.py` in `scripts`.
-- Agent profile: `default`.
-- Secondary plugins: `[]`.
-
-The old skill-local script packaging flow is deprecated. Use the plugin spec directly so OpenHands/automation resolves the plugin, writes `config.json`, and derives the runtime entrypoint from the plugin manifest.
+- Honor explicit dependencies. Read applicable root/local `AGENTS.md`,
+  `.agents/skills/custom-codereview-guide.md` if present, human discussion, and
+  adjacent code. Identify affected versions and the owning component (Canvas,
+  SDK, automation, or extensions).
+- Follow current human decisions over stale generated criteria. Do not repeat
+  answered questions. Keep scope bounded, name non-goals, and ask only unresolved
+  material product/design questions.
+- Define observable completion, not entry requirements. Do not require tests for
+  unwritten code, PR artifacts, or images/videos for every issue. Default priority
+  to low; medium/high need recorded real user pain, not speculation or synthetic
+  tests.
+- Return structured recommendations. If a publisher is configured, use it; never
+  bypass it or its changed-input checks. Legacy direct mode follows the same rules
+  without enforcement.
+- Preserve human text and unrelated labels. Never run repository checkers with
+  credentials. Use current repository policy audited by the deployment owner, not
+  historical checker comments, to decide readiness.
+- Do not implement code or accept pull requests.

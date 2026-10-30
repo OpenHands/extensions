@@ -1,19 +1,9 @@
-# Github Stale Ci Pr Closer
+# GitHub stale CI pull request closer
 
-This skill is a setup guide for the executable automation plugin in `plugins/github-stale-ci-pr-closer`.
+This extension runs a deterministic scheduled maintenance pass over configured
+GitHub repositories. It warns after seven days of continuously failing required
+CI and closes after another seven days without author follow-up. Optional checks
+do not affect the decision, and no LLM slot is used.
 
-Create new automations through `POST /api/automation/v1/plugin-spec` with:
-
-```json
-{
-  "plugin": {
-    "source": "github:OpenHands/extensions",
-    "repo_path": "plugins/github-stale-ci-pr-closer",
-    "ref": "main"
-  }
-}
-```
-
-Use `ref: "main"` until the plugin is included in a released `openhands-extensions` tag. After release, pin the matching tag such as `v<extensions-version>`. Setup helpers can parameterize this with the installed package version and fall back to `main` for unreleased checkouts.
-
-The runtime implementation and config schema live in `plugins/github-stale-ci-pr-closer/.plugin/plugin.json`; do not copy script files from this skill directory.
+Conversation and review automation state are unaffected. Warning and closure
+comments carry stable markers so retries remain idempotent.

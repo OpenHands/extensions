@@ -12,76 +12,356 @@ triggers:
   - /github-monitor:poll
 ---
 
-# Github Repo Monitor
+# GitHub Repository Monitor
 
-This automation now runs from the executable automation plugin at `plugins/github-repo-monitor`. Do not copy or package code from `skills/github-repo-monitor`; the skill is only a setup guide for creating the plugin-spec automation.
+Create a cron automation that polls a single GitHub repository on a
+configurable schedule (default: every minute).
+Windows PowerShell equivalents for the setup, packaging, upload, and API-check shell snippets are in `references/windows.md`.
 
-## Authorization and work mode
+When a comment on an issue or PR contains the **trigger phrase**
+(default: `@OpenHands`), and its author is allowed to trigger work, it:
 
-By default only the token owner, explicitly allowlisted logins, or users with repository write access can trigger work. `anyone` accepts non-bot commenters; do not combine it with `implement`, which permits pushing to a branch. `reply` only investigates and comments. Never merge, force-push, or push to the base branch. Verify the token has access to the repository and the permissions required for the selected work mode. Ask for the repository, alias, authorization policy, work mode and cron schedule before creating the automation.
+1. Posts a GitHub comment acknowledging the request with a conversation link.
+2. Creates an OpenHands conversation pre-loaded with the issue/PR title, body,
+   labels, and recent comment history for full context.
+3. Lets the agent answer the request, and - when asked to change something and
+   `WORK_MODE` is `implement` - do the work on a branch, push it, and update an
+   existing pull request instead of opening a second one.
+4. Posts a summary GitHub comment when the conversation finishes.
 
-## Create with the plugin-spec endpoint
+Authorization comes before work. With `AUTHORIZATION = "repo_write"` (the
+default) the script asks GitHub for the commenter's permission on the repository
+and acts only when it is `admin`, `maintain`, or `write`; a trigger phrase on a
+public repository therefore spends nobody's tokens.
 
-Use `POST /api/automation/v1/plugin-spec` with this plugin source:
+On every subsequent run:
+- New trigger comments on an already-tracked issue/PR are forwarded to the
+  running conversation (or re-open a previously closed one).
+- When a conversation goes idle/finished/error the agent's final response
+  is posted back as a GitHub comment.
 
-```json
-{
-  "source": "github:OpenHands/extensions",
-  "repo_path": "plugins/github-repo-monitor",
-  "ref": "main"
-}
+> **Local mode only.** This automation targets the local OpenHands setup
+> (`dev:automation` stack). A cloud/webhook variant is out of scope here.
+
+---
+
+The script imports shared GitHub transport from
+`scripts/github_client.py`, installed with this skill. Include it beside
+`main.py` when packaging manually, as shown below.
+
+## Prerequisites
+
+### Required secret
+
+Verify that the following secret is set in **OpenHands Settings → Secrets**
+before proceeding:
+
+| Secret name | Token type | Minimum permissions |
+|---|---|---|
+| `GITHUB_PERSONAL_ACCESS_TOKEN` | Classic PAT | `repo` (private repos) or `public_repo` (public repos); add `workflow` if `WORK_MODE` is `implement` and the repository has workflows |
+| `GITHUB_PERSONAL_ACCESS_TOKEN` | Fine-grained PAT | Issues: Read and Write; Contents: Read and Write and Pull requests: Read and Write when `WORK_MODE` is `implement`; Metadata: Read for the permission check |
+
+Check with:
+```bash
+curl -s https://api.github.com/user \
+  -H "Authorization: Bearer $GITHUB_PERSONAL_ACCESS_TOKEN" \
+  -H "Accept: application/vnd.github+json" \
+  | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('login') or d.get('message'))"
 ```
 
-`ref` is `main` while this plugin layout is unreleased. After an `openhands-extensions` release includes this plugin, prefer the matching release tag, for example `v<extensions-version>`. If setup code can inspect the installed package version, parameterize this value as `v{version('openhands-extensions')}`; otherwise default to `main`.
+If the token is missing, inform the user and stop — the automation cannot
+function without GitHub credentials.
 
-For local Agent Canvas development from this checkout, use a local source instead:
+### Optional secret
 
-```json
-{
-  "source": "/absolute/path/to/OpenHands/extensions",
-  "repo_path": "plugins/github-repo-monitor"
-}
+| Secret name | Default | Purpose |
+|---|---|---|
+| `OPENHANDS_URL` | `http://localhost:8000` | Base URL used to build conversation links in GitHub comments |
+
+---
+
+## Setup Workflow
+
+Follow these steps in order.
+
+### Step 1  -  Verify GITHUB_PERSONAL_ACCESS_TOKEN
+
+Fetch the secret and run the `curl` check above.
+
+- If the secret is absent: tell the user
+  *"GITHUB_PERSONAL_ACCESS_TOKEN is not set. Please add it in OpenHands Settings → Secrets
+  (classic PAT with `repo` or `public_repo` scope, or a fine-grained PAT
+  with Issues: Read and Write, plus Contents: Read and Write when the agent
+  is allowed to implement)."* Then stop.
+
+- If the API returns a non-200 or `{"message": "Bad credentials"}`:
+  tell the user the token is invalid and ask them to update it.
+
+### Step 2  -  Collect repository
+
+Ask the user: *"Which GitHub repository should be monitored?
+(Format: `owner/repo`, e.g. `microsoft/vscode`)"*
+
+Validate access and write permissions:
+
+```bash
+curl -s "https://api.github.com/repos/{owner}/{repo}" \
+  -H "Authorization: Bearer $GITHUB_PERSONAL_ACCESS_TOKEN" \
+  -H "Accept: application/vnd.github+json" \
+  | python3 -c "
+import json, sys
+d = json.load(sys.stdin)
+if 'message' in d:
+    print('ERROR:', d['message'])
+else:
+    perms = d.get('permissions', {})
+    print(f\"Accessible. Private: {d.get('private')}. Permissions: {perms}\")
+"
 ```
 
-## Request template
+- If `message: Not Found` or `message: Bad credentials` →
+  inform the user and ask them to check the repo name and token.
+- If the repo is private and `permissions.push` is `false` →
+  inform the user the token does not have write access and comments will fail.
+- If the check passes, record `REPO = "{owner}/{repo}"`.
 
-```json
-{
-  "name": "Create a cron automation that polls a GitHub repository for issue and PR comments containing a configurable trigger phrase (@OpenHands by default)",
-  "plugin": {
-    "source": "github:OpenHands/extensions",
-    "repo_path": "plugins/github-repo-monitor",
-    "ref": "main"
-  },
-  "config": {
-    "repository": "OpenHands/extensions",
-    "trigger_phrase": "@openhands",
-    "base_branch": "main",
-    "event_types": [
-        "issue_comment"
-    ],
-    "allowed_github_logins": [
-        "<TOKEN_OWNER>"
-    ],
-    "openhands_url": "http://localhost:8000",
-    "authorization": "repo_write",
-    "work_mode": "implement"
-},
-  "trigger": {
-    "type": "cron",
-    "schedule": "*/15 * * * *",
-    "timezone": "UTC"
-},
-  "enabled": false
-}
+### Step 3  -  Collect trigger phrase
+
+Ask the user: *"What trigger phrase should OpenHands respond to?
+(Press Enter to use the default: `@OpenHands`)"*
+
+Accepted values: any non-empty string unlikely to appear by accident. The alias
+is plain text: it does not have to be `@openhands` and needs no GitHub account
+of its own, so a repo can use its own handle (for example `@my-bot`) to keep
+this automation apart from the hosted mention bot. Matching is case-insensitive
+and ends on a word boundary, so `@my-bot` does not fire on `@my-bot-extra`.
+
+Record as `TRIGGER_PHRASE`. Default: `"@openhands"`. Mention that the alias can
+also be changed later without a code edit by setting `GITHUB_TRIGGER_PHRASE` in
+the automation's environment.
+
+### Step 4  -  Collect who may trigger work
+
+A trigger phrase is not authorization: on a public repository anyone can type
+it. Ask the user: *"Who may trigger this automation?
+  1. Users with write access to the repository (default)
+  2. Anyone who comments on it"*
+
+Map the answer to `AUTHORIZATION`:
+
+| User answer | `AUTHORIZATION` value | Runtime gate |
+|---|---|---|
+| 1 (default) | `"repo_write"` | `GET /repos/{owner}/{repo}/collaborators/{author}/permission` must return `admin`, `maintain`, or `write` |
+| 2 | `"anyone"` | any non-bot commenter |
+
+The authenticated token owner and any login listed in `ALLOWED_GITHUB_LOGINS`
+are always allowed, whatever their repository permission. Record the value as
+`AUTHORIZATION`; only offer an explicit login allowlist if the user asks for
+one, and record it as `ALLOWED_GITHUB_LOGINS`.
+
+### Step 5  -  Collect what the agent may do
+
+Ask the user: *"What may the agent do when a request is authorized?
+  1. Answer, and change code when asked (default)
+  2. Answer only"*
+
+Map the answer to `WORK_MODE`:
+
+| User answer | `WORK_MODE` value | Agent prompt policy |
+|---|---|---|
+| 1 (default) | `"implement"` | create a branch, commit, push; update an existing PR's head branch; never push to the base branch, never force-push, never merge |
+| 2 | `"reply"` | investigate and reply only; no code, branch, or PR changes |
+
+Record as `WORK_MODE`. If the user chose `anyone` for `AUTHORIZATION`, warn them
+that `implement` lets any commenter push commits with the token owner's
+credentials and confirm before using that pairing.
+
+### Step 6  -  Collect event types
+
+Ask the user: *"Which event types should be monitored?
+Choose one or more:*
+  *1. Issue and PR comments (default)*
+  *2. PR inline review comments*
+  *3. Both*
+*(Press Enter to accept the default: issue and PR comments.)"*
+
+Map the choice to the `EVENT_TYPES` list:
+
+| Choice | `EVENT_TYPES` value |
+|---|---|
+| 1 (default) | `["issue_comment"]` |
+| 2 | `["pr_review_comment"]` |
+| 3 | `["issue_comment", "pr_review_comment"]` |
+
+### Step 7  -  Collect cron schedule
+
+Ask the user: *"How often should the automation poll GitHub?
+(Press Enter for the default: every minute.
+Use a cron expression for a different interval, e.g.:
+`*/5 * * * *` = every 5 minutes,
+`0 * * * *` = every hour)"*
+
+Default: `* * * * *` (every minute).
+
+Record as `CRON_SCHEDULE`.
+
+### Step 8  -  Generate the automation script
+
+Read `scripts/main.py` from this skill's directory. Apply exactly seven
+constant substitutions near the top of the file:
+
+| Placeholder | Replace with |
+|---|---|
+| `REPO = "owner/repo"` | `REPO = "{owner_repo}"` |
+| `TRIGGER_PHRASE = "@openhands"` | `TRIGGER_PHRASE = "{trigger_phrase_lower}"` |
+| `EVENT_TYPES = ["issue_comment"]` | `EVENT_TYPES = {event_types_list}` |
+| `ALLOWED_GITHUB_LOGINS = ["<TOKEN_OWNER>"]` | `ALLOWED_GITHUB_LOGINS = {allowed_logins_list}` |
+| `AUTHORIZATION = "repo_write"` | `AUTHORIZATION = "{authorization}"` |
+| `WORK_MODE = "implement"` | `WORK_MODE = "{work_mode}"` |
+| `DEFAULT_OPENHANDS_URL = "http://localhost:8000"` | `DEFAULT_OPENHANDS_URL = "{url}"` (keep default if the user has no preference) |
+
+Run these commands from this skill's directory and write the customised script
+to a temporary build directory:
+```bash
+mkdir -p /tmp/github-monitor-build
+cp -L scripts/github_client.py /tmp/github-monitor-build/github_client.py
+# (write the customised main.py to /tmp/github-monitor-build/main.py)
 ```
 
-The authoritative config schema is in `plugins/github-repo-monitor/.plugin/plugin.json` under `automation.config_schema`. Use that schema to validate any user-provided values before creating the automation.
+Validate syntax before packaging:
+```bash
+python3 -m py_compile /tmp/github-monitor-build/main.py && echo "Syntax OK"
+```
 
-## Runtime notes
+Fix any syntax errors before proceeding.
 
-- Entrypoint: `python3 plugin_runner.py main.py` in `scripts`.
-- Agent profile: `default`.
-- Secondary plugins: `[]`.
+### Step 9  -  Package and upload
 
-The old skill-local script packaging flow is deprecated. Use the plugin spec directly so OpenHands/automation resolves the plugin, writes `config.json`, and derives the runtime entrypoint from the plugin manifest.
+Determine the Automation backend URL and auth from the `<RUNTIME_SERVICES>`
+block in your system context:
+- Use the **Automation backend** `url_from_agent` as `OPENHANDS_HOST`
+- Auth: `X-Session-API-Key: $OPENHANDS_AUTOMATION_API_KEY`
+
+If no Automation backend is listed in `<RUNTIME_SERVICES>`, stop and tell
+the user to start the full automation stack.
+
+```bash
+tar -czf /tmp/github-monitor.tar.gz -C /tmp/github-monitor-build .
+
+# OPENHANDS_HOST: read from <RUNTIME_SERVICES> Automation backend url_from_agent
+OPENHANDS_HOST="<automation-url-from-runtime-services>"
+
+TARBALL_PATH=$(curl -s -X POST \
+  "${OPENHANDS_HOST}/api/automation/v1/uploads?name=github-repo-monitor" \
+  -H "X-Session-API-Key: $OPENHANDS_AUTOMATION_API_KEY" \
+  -H "Content-Type: application/gzip" \
+  --data-binary @/tmp/github-monitor.tar.gz \
+  | python3 -c "import json,sys; print(json.load(sys.stdin)['tarball_path'])")
+
+echo "Uploaded: $TARBALL_PATH"
+```
+
+### Step 10  -  Create the automation
+
+```bash
+curl -s -X POST "${OPENHANDS_HOST}/api/automation/v1" \
+  -H "X-Session-API-Key: $OPENHANDS_AUTOMATION_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d "{
+    \"name\": \"GitHub Monitor: {owner}/{repo}\",
+    \"trigger\": {\"type\": \"cron\", \"schedule\": \"{cron_schedule}\"},
+    \"tarball_path\": \"$TARBALL_PATH\",
+    \"entrypoint\": \"python3 main.py\",
+    \"timeout\": 55
+  }" | python3 -m json.tool
+```
+
+Record the returned `id`.
+
+### Step 11  -  Confirm
+
+Tell the user:
+
+> ✅ **GitHub Repository Monitor** is running!
+>
+> - Automation ID: `{id}`
+> - Repository: `{owner}/{repo}`
+> - Trigger phrase: `{phrase}`
+> - Event types: `{event_types}`
+> - Allowed GitHub logins: `{allowed_logins}`
+> - Who may trigger work: `{authorization}`
+> - What the agent may do: `{work_mode}`
+> - Polling schedule: `{cron_schedule}`
+> - State file: `~/.openhands/workspaces/automation-state/github_poller_{id}.json`
+>
+> From a GitHub login that is allowed to trigger work, post a comment containing `{phrase}` on any
+> issue or PR in `{owner}/{repo}` to test it. OpenHands will acknowledge with
+> a comment and a link to the new conversation.
+
+---
+
+## Runtime Behaviour (per poll)
+
+Each cron run executes `main.py`, which:
+
+1. **Loads state** from the JSON file (see `references/state-schema.md`).
+2. **Resolves and validates GITHUB_PERSONAL_ACCESS_TOKEN** — aborts immediately if absent or invalid.
+3. **Polls for new events** since the previous `last_poll` timestamp:
+   - `GET /repos/{owner}/{repo}/issues/comments?since=…` for `issue_comment`
+   - `GET /repos/{owner}/{repo}/pulls/comments?since=…` for `pr_review_comment`
+4. **Processes matching comments** in chronological order:
+   - Skips bot accounts (login ending in `[bot]`) to avoid feedback loops.
+   - Skips already-processed comment IDs.
+   - Skips comments without the trigger phrase (case-insensitive).
+   - Skips trigger comments whose author may not trigger work: with
+     `AUTHORIZATION = "repo_write"` the author must have `admin`, `maintain`, or
+     `write` permission on the repository (checked once per author per run and
+     cached), and the token owner or an `ALLOWED_GITHUB_LOGINS` entry always
+     passes.
+   - Extracts the issue/PR number from the comment URL.
+5. **For each trigger comment**, per issue/PR:
+   - **Active conversation** → forwards the new comment directly.
+   - **Closed conversation** → tries to re-open it; falls back to creating
+     a new conversation if the old one is unreachable.
+   - **No conversation** → fetches full context (title, body, labels, last
+     10 comments) and creates a new conversation with a detailed prompt.
+   - Posts a GitHub comment: *"🤖 OpenHands is on it! View progress: {url}"*
+6. **Checks active conversations** for completion:
+   - If `status ∈ {idle, finished, error, stuck}` and enough time has passed
+     since creation (debounce), fetches the agent's final response and posts
+     it as a GitHub comment. Marks the conversation `closed`.
+7. **Saves state** and fires the completion callback.
+
+---
+
+## Additional Resources
+
+### Reference Files
+
+- **`references/state-schema.md`**  -  State JSON schema, field definitions,
+  and conversation lifecycle diagram.
+- **`references/github-api.md`**  -  GitHub API endpoint reference, token
+  scopes, rate limits, and common error codes.
+
+### Script Template
+
+- **`scripts/main.py`**  -  The complete automation script. Customise the seven
+  constants at the top (`REPO`, `TRIGGER_PHRASE`, `EVENT_TYPES`,
+  `ALLOWED_GITHUB_LOGINS`, `AUTHORIZATION`, `WORK_MODE`,
+  `DEFAULT_OPENHANDS_URL`) before packaging.
+
+---
+
+## Troubleshooting
+
+| Symptom | Likely cause | Fix |
+|---|---|---|
+| Bot doesn't respond to comments | `GITHUB_PERSONAL_ACCESS_TOKEN` missing or wrong scopes | Verify token with `curl /user`; check scopes in Step 1 |
+| "Bad credentials" in run logs | Token expired | Rotate token and update the secret in Settings |
+| 404 on repo access | Repo name wrong or token has no access | Re-check `owner/repo` spelling; add token as collaborator |
+| Comments posted but no conversation created | Agent server URL wrong | Check `OPENHANDS_URL` secret and `AGENT_SERVER_URL` env var |
+| Same comment processed twice | `processed_comment_ids` cleared | State file was deleted; harmless but duplicate comment may appear |
+| Summary never posted | Conversation stuck in `running` | Open the conversation in the OpenHands UI; agent may need input |
+| No events detected after first run | `last_poll` in the future | Delete the state file to reset; it will be recreated on next run |
+| Comment has the trigger phrase but nothing happens | Its author lacks write permission on the repository | Expected with `AUTHORIZATION = "repo_write"`; make the author a collaborator, add their login to `ALLOWED_GITHUB_LOGINS`, or switch to `"anyone"` |
+| Agent replies but never changes code | `WORK_MODE` is `"reply"` | Re-create the automation with `WORK_MODE = "implement"` |
