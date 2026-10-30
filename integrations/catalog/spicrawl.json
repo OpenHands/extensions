@@ -1,0 +1,39 @@
+{
+  "id": "spicrawl",
+  "name": "Spicrawl",
+  "description": "Scrape web pages to Markdown or JSON, with batch jobs and persistent login sessions.",
+  "appUrl": "https://app.spicrawl.com",
+  "docsUrl": "https://docs.spicrawl.com/agents/openhands",
+  "logoUrl": "https://docs.spicrawl.com/apple-icon.png",
+  "iconBg": "var(--oh-surface)",
+  "notes": "Hosted MCP server (Streamable HTTP) with tools for scraping, batch jobs, persistent sessions, request history, usage, and docs search. Every tool returns structured results. Authenticates with a Spicrawl API key sent as Authorization: Bearer <key> (recommended; the server also accepts it in an x-api-key header). There is no OAuth. Scrapes and batch jobs spend credits from your Spicrawl account, and the usage tools need a key with the read scope.",
+  "keywords": [
+    "scraping",
+    "web",
+    "markdown",
+    "batch",
+    "sessions"
+  ],
+  "installHint": "Create an API key at https://app.spicrawl.com and paste it here. It is sent as Authorization: Bearer <key>.",
+  "connectionOptions": [
+    {
+      "id": "api",
+      "provider": "mcp",
+      "auth": {
+        "strategy": "bearer",
+        "authModes": [
+          "bearer"
+        ],
+        "credentialLabel": "Spicrawl API key",
+        "credentialPlaceholder": "spicrawl_live_...",
+        "credentialHelp": "Create an API key in the [Spicrawl dashboard](https://app.spicrawl.com). Sent as Authorization: Bearer <key>.",
+        "credentialSecretName": "SPICRAWL_API_KEY",
+        "saveCredentialAsSecretByDefault": true
+      },
+      "transport": {
+        "kind": "shttp",
+        "url": "https://mcp.spicrawl.com/mcp"
+      }
+    }
+  ]
+}
