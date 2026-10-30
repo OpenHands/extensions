@@ -51,6 +51,19 @@
       ]
     },
     {
+      "name": "vidbyte-memory",
+      "source": "./skills/vidbyte-memory",
+      "description": "Install correction-driven memory into a repository: every correction the user gives becomes a slim fact, a pytest test that fails if the mistake comes back, and a git commit. Use when the agent keeps repeating mistakes the user already corrected.",
+      "category": "agent-authoring",
+      "keywords": [
+        "memory",
+        "agent-memory",
+        "corrections",
+        "agents-md",
+        "tests"
+      ]
+    },
+    {
       "name": "agent-sdk-builder",
       "source": "./skills/agent-sdk-builder",
       "description": "Guided workflow for building custom AI agents using the OpenHands Software Agent SDK. Use when you want to create a new agent through an interactive interview process that gathers requirements and generates implementation plans.",
