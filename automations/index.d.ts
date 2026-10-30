@@ -140,8 +140,9 @@ export interface AutomationPrerequisites {
    * Integrations built into an OpenHands Cloud or Enterprise instance
    * (Settings > Integrations) that this automation cannot run without. A user
    * cannot connect one from the card, so a host that knows the instance's
-   * built-in integrations hides the entry where one is missing, and a host
-   * without built-in integrations never offers it.
+   * built-in integrations can rank the entry below the others, or hide it,
+   * where one is missing, and a host without built-in integrations never
+   * offers it.
    */
   builtInIntegrations?: AutomationBuiltInIntegration[];
 }

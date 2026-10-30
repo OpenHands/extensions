@@ -97,8 +97,8 @@ setup can proceed without.
 (Settings > Integrations) that the automation cannot run without, by provider name (`bitbucket_data_center`,
 `jira_dc`, ...). State it only for an integration no MCP server can stand in for, such as a self-hosted Data
 Center product: a user cannot connect one from the card, so a host that knows the instance's built-in
-integrations hides the entry where one is missing, and a host without built-in integrations, such as a
-local backend, never offers it.
+integrations can rank the entry below the others, or hide it, where one is missing, and a host without
+built-in integrations, such as a local backend, never offers it.
 
 `skill` names the `skills/` directory that builds this automation today, and defaults to `id`, so only the
 three entries whose names differ from their skill state it. The command that launches that skill is **not**

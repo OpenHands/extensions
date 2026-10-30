@@ -33,14 +33,37 @@
           "event": {
             "filterLanguage": "jmespath",
             "filterFunctions": [
+              "abs",
+              "avg",
+              "ceil",
               "contains",
               "ends_with",
+              "floor",
               "glob",
               "icontains",
+              "join",
+              "keys",
+              "length",
               "lower",
+              "map",
+              "max",
+              "max_by",
+              "merge",
+              "min",
+              "min_by",
+              "not_null",
               "regex",
+              "reverse",
+              "sort",
+              "sort_by",
               "starts_with",
-              "upper"
+              "sum",
+              "to_array",
+              "to_number",
+              "to_string",
+              "type",
+              "upper",
+              "values"
             ]
           }
         },
