@@ -123,7 +123,7 @@
     },
     "templates": {
       "title": "Templates",
-      "description": "Browse proven automations and beta ideas, then launch one into a conversation to tailor it to your work."
+      "description": "Browse templates and launch one into a conversation to tailor it to your work."
     }
   },
   "docsUrl": "https://docs.openhands.dev/openhands/usage/automations/overview",
