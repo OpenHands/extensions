@@ -1,0 +1,19 @@
+{
+  "name": "vidbyte-memory",
+  "version": "1.0.0",
+  "description": "Install correction-driven memory into a repository: every correction becomes a slim fact, a pytest test that fails if the mistake comes back, and a git commit.",
+  "author": {
+    "name": "cerredz",
+    "url": "https://github.com/cerredz"
+  },
+  "homepage": "https://github.com/cerredz/vidbyte-memory",
+  "repository": "https://github.com/cerredz/vidbyte-memory",
+  "license": "MIT",
+  "keywords": [
+    "memory",
+    "agent-memory",
+    "corrections",
+    "agents-md",
+    "tests"
+  ]
+}
