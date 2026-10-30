@@ -122,6 +122,55 @@ def test_datadog_mcp_uses_documented_api_key_headers():
     ] == ["DD-API-KEY", "DD-APPLICATION-KEY"]
 
 
+def test_azure_devops_uses_official_remote_and_pat_connections():
+    entries = {
+        entry["id"]: entry for entry in load_catalog_entries("integrations/catalog")
+    }
+    entry = entries["azure-devops"]
+    remote, pat = entry["connectionOptions"]
+
+    # Let MCP discovery select tenant-specific OAuth metadata and scopes.
+    # Hard-coded provider endpoints route Canvas away from MCP OAuth discovery.
+    assert remote["provider"] == "mcp"
+    assert remote["auth"] == {"strategy": "oauth2"}
+    assert remote["transport"] == {
+        "kind": "shttp",
+        "url": "https://mcp.dev.azure.com/",
+        "urlEditable": True,
+    }
+
+    assert pat["provider"] == "mcp"
+    assert pat["auth"]["strategy"] == "api_key"
+    transport = pat["transport"]
+    assert transport["kind"] == "stdio"
+    assert transport["serverName"] == "azure-devops"
+    assert transport["command"] == "npx"
+    assert transport["args"] == ["-y", "@azure-devops/mcp", "--authentication", "pat"]
+    (organization,) = transport["argFields"]
+    assert (organization["key"], organization["type"], organization["required"]) == (
+        "organization", "text", True,
+    )
+    (credential,) = transport["envFields"]
+    assert (credential["key"], credential["type"], credential["required"]) == (
+        "PERSONAL_ACCESS_TOKEN", "password", True,
+    )
+    assert "base64" in credential["helperText"]
+    assert "<email>:<PAT>" in credential["helperText"]
+    assert "app registration" in entry["notes"]
+
+
+def test_azure_devops_logo_is_shipped_with_the_catalog():
+    entry = next(
+        entry for entry in load_catalog_entries("integrations/catalog")
+        if entry["id"] == "azure-devops"
+    )
+    logo_path = "integrations/icons/azure-devops.svg"
+    assert entry["logoUrl"] == (
+        f"https://cdn.jsdelivr.net/gh/OpenHands/extensions/{logo_path}"
+    )
+    assert "<svg" in (ROOT / logo_path).read_text()
+
+
 def test_credential_fields_have_helper_text_and_link():
     """All password fields must have helperText plus a link (either a helperLink field or a
     markdown link embedded in helperText) so users know how to get credentials."""

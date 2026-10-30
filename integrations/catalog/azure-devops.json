@@ -1,0 +1,78 @@
+{
+  "id": "azure-devops",
+  "name": "Azure DevOps",
+  "description": "Manage work items, repositories, pull requests, pipelines, wikis, and test plans with Microsoft's official Azure DevOps MCP server.",
+  "categories": [
+    "Engineering",
+    "Project management"
+  ],
+  "appUrl": "https://azure.microsoft.com/en-us/products/devops",
+  "docsUrl": "https://github.com/microsoft/azure-devops-mcp",
+  "notes": "The hosted server uses Streamable HTTP and Microsoft Entra ID. Append your organization name to the remote URL to set the default organization, or supply it in tool calls when using the base URL. Custom clients require a Microsoft Entra app registration; see the [remote setup guide](https://learn.microsoft.com/en-us/azure/devops/mcp-server/remote-mcp-server). Configure the registered client ID in the custom MCP server editor. The local PAT connection is available through the marketplace install form.",
+  "iconBg": "#0078D4",
+  "logoUrl": "https://cdn.jsdelivr.net/gh/OpenHands/extensions/integrations/icons/azure-devops.svg",
+  "keywords": [
+    "ado",
+    "azure",
+    "devops",
+    "work items",
+    "pipelines",
+    "repos",
+    "boards"
+  ],
+  "popularityRank": 80,
+  "installHint": "For the local PAT connection, Node.js 20 or later with npx is required in the environment running the MCP server. Enter your organization name and the base64 encoding of <email>:<PAT>, where email is any non-empty value. For hosted OAuth, follow the remote setup guide linked above and configure your registered client ID in the custom MCP server editor.",
+  "connectionOptions": [
+    {
+      "id": "remote",
+      "provider": "mcp",
+      "auth": {
+        "strategy": "oauth2"
+      },
+      "transport": {
+        "kind": "shttp",
+        "url": "https://mcp.dev.azure.com/",
+        "urlEditable": true
+      }
+    },
+    {
+      "id": "pat",
+      "provider": "mcp",
+      "auth": {
+        "strategy": "api_key"
+      },
+      "transport": {
+        "kind": "stdio",
+        "serverName": "azure-devops",
+        "command": "npx",
+        "args": [
+          "-y",
+          "@azure-devops/mcp",
+          "--authentication",
+          "pat"
+        ],
+        "argFields": [
+          {
+            "key": "organization",
+            "label": "Organization name",
+            "type": "text",
+            "placeholder": "contoso",
+            "required": true,
+            "helperText": "Enter only the organization name, for example contoso for https://dev.azure.com/contoso."
+          }
+        ],
+        "envFields": [
+          {
+            "key": "PERSONAL_ACCESS_TOKEN",
+            "label": "Base64-encoded Personal Access Token",
+            "type": "password",
+            "placeholder": "base64(<email>:<PAT>)",
+            "required": true,
+            "helperText": "Create a PAT in Azure DevOps User settings > Personal access tokens, with the permissions needed for your tools. Enter the base64 encoding of <email>:<PAT>; email can be any non-empty value. See the [official authentication guide](https://github.com/microsoft/azure-devops-mcp/blob/main/docs/GETTINGSTARTED.md#personal-access-token-pat).",
+            "helperLink": "https://learn.microsoft.com/en-us/azure/devops/organizations/accounts/use-personal-access-tokens-to-authenticate"
+          }
+        ]
+      }
+    }
+  ]
+}
