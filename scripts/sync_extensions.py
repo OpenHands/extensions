@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Keep the OpenHands extensions registry in sync.
 
-Four sync tasks, runnable individually or all at once:
+Five sync tasks, runnable individually or all at once:
 
   1. **commands**  — generate Claude Code ``commands/<trigger>.md`` files from
      SKILL.md slash-triggers.
@@ -11,6 +11,8 @@ Four sync tasks, runnable individually or all at once:
   4. **symlinks**  — enforce ``.plugin/`` as the canonical manifest directory
      with vendor manifests (``.claude-plugin``, ``.codex-plugin``), each
      either a symlink or a real directory mirroring ``plugin.json``.
+  5. **mirrors**   — keep each ``plugins/<plugin>/skills/<name>`` copy of a
+     catalog skill identical to its source, ``skills/<name>``.
 
 Usage:
     python scripts/sync_extensions.py                   # run all, write changes
@@ -19,14 +21,18 @@ Usage:
     python scripts/sync_extensions.py catalog            # only regenerate README catalog
     python scripts/sync_extensions.py coverage           # only check marketplace coverage
     python scripts/sync_extensions.py symlinks           # only check/fix vendor symlinks
+    python scripts/sync_extensions.py mirrors            # only check/rewrite plugin skill mirrors
     python scripts/sync_extensions.py commands catalog   # combine sub-commands
 """
 
 from __future__ import annotations
 
 import argparse
+import fnmatch
 import json
+import os
 import re
+import shutil
 import sys
 from dataclasses import dataclass
 from pathlib import Path
@@ -341,9 +347,9 @@ def sync_coverage(*, check: bool) -> list[str]:
         for p in mp.get("plugins", []):
             all_sources.add(p.get("source", ""))
 
-    # Collect skill dirs that are symlink targets inside a plugin's skills/
-    # subdirectory — these are covered by the parent plugin entry.
-    symlink_targets: set[str] = set()
+    # Collect skill dirs that a plugin ships under its skills/ subdirectory
+    # (see sync_skill_mirrors) — these are covered by the parent plugin entry.
+    plugin_skill_sources: set[str] = set()
     plugins_dir = REPO_ROOT / "plugins"
     if plugins_dir.is_dir():
         for plugin_dir in plugins_dir.iterdir():
@@ -351,17 +357,13 @@ def sync_coverage(*, check: bool) -> list[str]:
             if not skills_sub.is_dir():
                 continue
             for entry in skills_sub.iterdir():
-                if entry.is_symlink():
-                    resolved = entry.resolve()
-                    try:
-                        rel = f"./{resolved.relative_to(REPO_ROOT)}"
-                        symlink_targets.add(rel)
-                    except ValueError:
-                        pass
+                source = _mirror_source(entry)
+                if source is not None:
+                    plugin_skill_sources.add(f"./{source.relative_to(REPO_ROOT)}")
 
     problems: list[str] = []
 
-    missing_from_mp = sorted(all_dirs - all_sources - symlink_targets)
+    missing_from_mp = sorted(all_dirs - all_sources - plugin_skill_sources)
     for d in missing_from_mp:
         problems.append(f"not in any marketplace: {d}")
 
@@ -449,6 +451,130 @@ def sync_symlinks(*, check: bool) -> list[str]:
     return problems
 
 
+# ── 5. Plugin skill mirrors ──────────────────────────────────────────
+
+# Build and editor litter that can sit in a working tree but is never
+# committed (see .gitignore). The mirror check skips it on both sides and
+# sync never copies it.
+_MIRROR_IGNORE = (
+    "__pycache__", ".pytest_cache", "*.pyc", "*.pyo",
+    ".DS_Store", "Thumbs.db", "*.swp", "*.swo",
+)
+
+
+def _is_mirror_noise(name: str) -> bool:
+    return any(fnmatch.fnmatchcase(name, pat) for pat in _MIRROR_IGNORE)
+
+
+def _mirror_source(entry: Path) -> Path | None:
+    """Return the ``skills/<name>`` directory a plugin skill entry mirrors.
+
+    ``plugins/<plugin>/skills/<name>`` mirrors ``skills/<name>`` when that
+    catalog directory exists. A symlink mirrors the catalog directory it
+    points to. Returns ``None`` for a skill the plugin owns.
+    """
+    skills_dir = REPO_ROOT / "skills"
+    if entry.is_symlink():
+        target = entry.resolve()
+        if target.parent == skills_dir.resolve() and target.is_dir():
+            return skills_dir / target.name
+        return None
+    source = skills_dir / entry.name
+    if entry.is_dir() and source.is_dir():
+        return source
+    return None
+
+
+def _tree_entries(root: Path) -> dict[str, Path]:
+    """Map every file and symlink under ``root`` by its relative POSIX path.
+
+    Symlinks are recorded as entries, not followed.
+    """
+    entries: dict[str, Path] = {}
+    for dirpath, dirnames, filenames in os.walk(root):
+        base = Path(dirpath)
+        dirnames[:] = [d for d in dirnames if not _is_mirror_noise(d)]
+        linked_dirs = [d for d in dirnames if (base / d).is_symlink()]
+        for name in filenames + linked_dirs:
+            if _is_mirror_noise(name):
+                continue
+            path = base / name
+            entries[path.relative_to(root).as_posix()] = path
+    return entries
+
+
+def _same_entry(a: Path, b: Path) -> bool:
+    if a.is_symlink() or b.is_symlink():
+        return a.is_symlink() and b.is_symlink() and a.readlink() == b.readlink()
+    return a.read_bytes() == b.read_bytes()
+
+
+def _mirror_problems(mirror: Path, source: Path) -> list[str]:
+    """Name every path where ``mirror`` differs from ``source``."""
+    mirror_rel = mirror.relative_to(REPO_ROOT).as_posix()
+    source_rel = source.relative_to(REPO_ROOT).as_posix()
+    want = _tree_entries(source)
+    have = _tree_entries(mirror)
+    problems: list[str] = []
+    for rel in sorted(want.keys() | have.keys()):
+        if rel not in have:
+            reason = f"missing, source is {source_rel}/{rel}"
+        elif rel not in want:
+            reason = f"not in {source_rel}"
+        elif not _same_entry(want[rel], have[rel]):
+            reason = f"differs from {source_rel}/{rel}"
+        else:
+            continue
+        problems.append(f"stale mirror: {mirror_rel}/{rel} ({reason})")
+    return problems
+
+
+def _write_mirror(mirror: Path, source: Path) -> None:
+    if mirror.is_symlink():
+        mirror.unlink()
+    elif mirror.exists():
+        shutil.rmtree(mirror)
+    shutil.copytree(
+        source,
+        mirror,
+        symlinks=True,
+        ignore=shutil.ignore_patterns(*_MIRROR_IGNORE),
+    )
+
+
+def sync_skill_mirrors(*, check: bool) -> list[str]:
+    """Keep each plugin's copy of a catalog skill identical to its source.
+
+    A plugin that ships a skill from ``skills/`` keeps a real copy at
+    ``plugins/<plugin>/skills/<name>``. A symlink does not work: since
+    openhands-sdk 1.49.2 the plugin loader denies any path that resolves
+    outside the plugin directory, so the skill silently never loads.
+    ``skills/<name>`` is the source of truth; edit it and run sync to
+    rewrite the copy.
+    """
+    problems: list[str] = []
+    plugins_dir = REPO_ROOT / "plugins"
+    if not plugins_dir.is_dir():
+        return problems
+    for plugin_dir in sorted(plugins_dir.iterdir()):
+        skills_sub = plugin_dir / "skills"
+        if not skills_sub.is_dir():
+            continue
+        for entry in sorted(skills_sub.iterdir()):
+            source = _mirror_source(entry)
+            if entry.is_symlink():
+                rel = entry.relative_to(REPO_ROOT)
+                found = [f"symlink: {rel} → {entry.readlink()}"]
+            elif source is not None:
+                found = _mirror_problems(entry, source)
+            else:
+                continue  # a skill the plugin owns
+            problems.extend(found)
+            if found and source is not None and not check:
+                _write_mirror(entry, source)
+    return problems
+
+
 # ── Main ─────────────────────────────────────────────────────────────
 
 ALL_SYNCS = {
@@ -456,6 +582,7 @@ ALL_SYNCS = {
     "catalog": sync_catalog,
     "coverage": sync_coverage,
     "symlinks": sync_symlinks,
+    "mirrors": sync_skill_mirrors,
 }
 
 

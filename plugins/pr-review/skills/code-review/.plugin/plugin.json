@@ -1,0 +1,19 @@
+{
+  "name": "code-review",
+  "version": "1.0.0",
+  "description": "Rigorous code review focusing on data structures, simplicity, security, pragmatism, and risk/safety evaluation. Provides brutally honest, actionable feedback on pull requests or merge requests, inc...",
+  "author": {
+    "name": "OpenHands",
+    "email": "contact@all-hands.dev"
+  },
+  "homepage": "https://github.com/OpenHands/extensions",
+  "repository": "https://github.com/OpenHands/extensions",
+  "license": "MIT",
+  "keywords": [
+    "code-review",
+    "quality",
+    "security",
+    "style",
+    "risk"
+  ]
+}

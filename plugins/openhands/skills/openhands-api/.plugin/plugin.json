@@ -1,0 +1,22 @@
+{
+  "name": "openhands-api",
+  "version": "1.0.0",
+  "description": "Use the OpenHands Cloud REST API (V1) to create and manage app conversations, including multi-conversation delegation workflows, and to access sandbox agent-server endpoints. Includes minimal Pytho...",
+  "author": {
+    "name": "OpenHands",
+    "email": "contact@all-hands.dev"
+  },
+  "homepage": "https://github.com/OpenHands/extensions",
+  "repository": "https://github.com/OpenHands/extensions",
+  "license": "MIT",
+  "keywords": [
+    "openhands",
+    "api",
+    "cloud",
+    "automation",
+    "delegation",
+    "agent-server",
+    "sandbox",
+    "conversations"
+  ]
+}

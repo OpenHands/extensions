@@ -16,9 +16,11 @@ from sync_extensions import (
     collect_needed_commands,
     generate_catalog,
     load_marketplaces,
+    main,
     parse_frontmatter,
     slash_triggers,
     sync_commands,
+    sync_skill_mirrors,
     sync_symlinks,
 )
 
@@ -388,6 +390,133 @@ class TestVendorManifests:
         assert (skill / ".codex-plugin").is_symlink()
         assert (skill / ".claude-plugin").is_symlink()
         assert sync_symlinks(check=True) == []
+
+
+# ── plugin skill mirrors ─────────────────────────────────────────────
+
+def _make_mirrored_skill(root: Path, name: str = "demo") -> tuple[Path, Path]:
+    """Create skills/<name> and an in-sync copy in a plugin's skills/."""
+    source = root / "skills" / name
+    (source / "references").mkdir(parents=True)
+    (source / "SKILL.md").write_text("---\nname: demo\n---\nBody\n")
+    (source / "references" / "notes.md").write_text("notes\n")
+    mirror = root / "plugins" / "demo-plugin" / "skills" / name
+    shutil.copytree(source, mirror)
+    return source, mirror
+
+
+class TestPluginSkillMirrors:
+    def test_repo_mirrors_are_real_copies_in_sync(self):
+        """No plugins/*/skills/ entry is a symlink, and every copy matches skills/."""
+        assert sync_skill_mirrors(check=True) == []
+
+    def test_repo_plugin_skill_paths_stay_inside_plugin(self):
+        """openhands-sdk >= 1.49.2 denies plugin paths that resolve outside
+        the plugin directory, which silently dropped symlinked skills (#840)."""
+        escaping = []
+        for skills in sorted((REPO_ROOT / "plugins").glob("*/skills")):
+            plugin_root = skills.parent.resolve()
+            for path in skills.rglob("*"):
+                if not path.resolve().is_relative_to(plugin_root):
+                    escaping.append(path.relative_to(REPO_ROOT).as_posix())
+        assert escaping == []
+
+    def test_in_sync_mirror_passes(self, tmp_path, monkeypatch):
+        _make_mirrored_skill(tmp_path)
+        _point_sync_at(tmp_path, monkeypatch)
+
+        assert sync_skill_mirrors(check=True) == []
+
+    @pytest.mark.parametrize("side", ["source", "mirror"])
+    def test_edit_on_either_side_names_the_path(self, tmp_path, monkeypatch, side):
+        source, mirror = _make_mirrored_skill(tmp_path)
+        edited = source if side == "source" else mirror
+        (edited / "references" / "notes.md").write_text("edited\n")
+        _point_sync_at(tmp_path, monkeypatch)
+
+        assert sync_skill_mirrors(check=True) == [
+            "stale mirror: plugins/demo-plugin/skills/demo/references/notes.md "
+            "(differs from skills/demo/references/notes.md)"
+        ]
+
+    def test_added_or_removed_file_names_the_path(self, tmp_path, monkeypatch):
+        source, mirror = _make_mirrored_skill(tmp_path)
+        (source / "NEW.md").write_text("new\n")
+        (mirror / "references" / "notes.md").unlink()
+        (mirror / "EXTRA.md").write_text("extra\n")
+        _point_sync_at(tmp_path, monkeypatch)
+
+        assert sync_skill_mirrors(check=True) == [
+            "stale mirror: plugins/demo-plugin/skills/demo/EXTRA.md (not in skills/demo)",
+            "stale mirror: plugins/demo-plugin/skills/demo/NEW.md "
+            "(missing, source is skills/demo/NEW.md)",
+            "stale mirror: plugins/demo-plugin/skills/demo/references/notes.md "
+            "(missing, source is skills/demo/references/notes.md)",
+        ]
+
+    def test_sync_rewrites_mirror_from_source(self, tmp_path, monkeypatch):
+        source, mirror = _make_mirrored_skill(tmp_path)
+        (source / "SKILL.md").write_text("---\nname: demo\n---\nNew body\n")
+        (mirror / "EXTRA.md").write_text("extra\n")
+        _point_sync_at(tmp_path, monkeypatch)
+
+        assert sync_skill_mirrors(check=False) != []
+        assert (mirror / "SKILL.md").read_text() == "---\nname: demo\n---\nNew body\n"
+        assert not (mirror / "EXTRA.md").exists()
+        assert sync_skill_mirrors(check=True) == []
+
+    def test_symlink_is_flagged_and_replaced_with_real_copy(self, tmp_path, monkeypatch):
+        source, mirror = _make_mirrored_skill(tmp_path)
+        shutil.rmtree(mirror)
+        (source / ".plugin").mkdir()
+        (source / ".plugin" / "plugin.json").write_text('{"name": "demo"}\n')
+        try:
+            (source / ".codex-plugin").symlink_to(".plugin", target_is_directory=True)
+            mirror.symlink_to("../../../skills/demo", target_is_directory=True)
+        except OSError:
+            pytest.skip("symlinks need privileges on this platform")
+        _point_sync_at(tmp_path, monkeypatch)
+
+        assert sync_skill_mirrors(check=True) == [
+            "symlink: plugins/demo-plugin/skills/demo → ../../../skills/demo"
+        ]
+
+        sync_skill_mirrors(check=False)
+        assert mirror.is_dir() and not mirror.is_symlink()
+        # A vendor manifest link stays a link, pointing inside the copy.
+        assert (mirror / ".codex-plugin").readlink() == Path(".plugin")
+        assert sync_skill_mirrors(check=True) == []
+
+    def test_build_litter_is_ignored(self, tmp_path, monkeypatch):
+        source, mirror = _make_mirrored_skill(tmp_path)
+        (source / "__pycache__").mkdir()
+        (source / "__pycache__" / "x.cpython-312.pyc").write_bytes(b"\0")
+        (mirror / ".DS_Store").write_bytes(b"\0")
+        _point_sync_at(tmp_path, monkeypatch)
+
+        assert sync_skill_mirrors(check=True) == []
+
+        (source / "SKILL.md").write_text("changed\n")
+        sync_skill_mirrors(check=False)
+        assert not (mirror / "__pycache__").exists()
+
+    def test_plugin_owned_skill_is_ignored(self, tmp_path, monkeypatch):
+        own = tmp_path / "plugins" / "demo-plugin" / "skills" / "plugin-only"
+        own.mkdir(parents=True)
+        (own / "SKILL.md").write_text("---\nname: plugin-only\n---\nBody\n")
+        (tmp_path / "skills").mkdir()
+        _point_sync_at(tmp_path, monkeypatch)
+
+        assert sync_skill_mirrors(check=True) == []
+
+    def test_check_mode_exits_nonzero_naming_the_path(self, tmp_path, monkeypatch, capsys):
+        source, _ = _make_mirrored_skill(tmp_path)
+        (source / "SKILL.md").write_text("edited\n")
+        _point_sync_at(tmp_path, monkeypatch)
+        monkeypatch.setattr(sys, "argv", ["sync_extensions.py", "--check", "mirrors"])
+
+        assert main() == 1
+        assert "plugins/demo-plugin/skills/demo/SKILL.md" in capsys.readouterr().out
 
 
 # ── marketplace source paths ─────────────────────────────────────────

@@ -128,6 +128,36 @@ class TestIteratePluginLoading:
         assert "verify" in command_names
 
 
+def _plugins_shipping_catalog_skills():
+    """Yield a param per plugin that ships copies of skills from skills/."""
+    for plugin_dir in sorted(PLUGINS_DIR.iterdir()):
+        skills_sub = plugin_dir / "skills"
+        if not skills_sub.is_dir():
+            continue
+        names = sorted(
+            e.name for e in skills_sub.iterdir() if (SKILLS_DIR / e.name).is_dir()
+        )
+        if names:
+            yield pytest.param(plugin_dir, names, id=plugin_dir.name)
+
+
+class TestPluginCatalogSkillsLoad:
+    """Plugins load the skills they copy from skills/ (issue #840).
+
+    openhands-sdk >= 1.49.2 denies plugin paths that resolve outside the
+    plugin directory, so symlinked skills silently failed to load.
+    """
+
+    @pytest.mark.parametrize("plugin_dir,names", list(_plugins_shipping_catalog_skills()))
+    def test_plugin_loads_its_catalog_skills(self, plugin_dir, names):
+        from openhands.sdk.plugin.plugin import Plugin
+
+        plugin = Plugin.load(plugin_dir)
+        loaded = sorted(s.name for s in plugin.skills or [])
+        missing = sorted(set(names) - set(loaded))
+        assert not missing, f"{plugin_dir.name} did not load {missing}; got {loaded}"
+
+
 def _vendor_manifest_ok(directory: Path, vendor: str) -> bool:
     """A vendor manifest is a symlink to .plugin/ or a real dir mirror."""
     link = directory / vendor
