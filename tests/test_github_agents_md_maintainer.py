@@ -15,7 +15,7 @@ import pytest
 
 SCRIPT_PATH = (
     Path(__file__).parent.parent
-    / "plugins"
+    / "skills"
     / "github-agents-md-maintainer"
     / "scripts"
     / "main.py"

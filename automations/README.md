@@ -172,7 +172,7 @@ once a pull request actually needs reviewing.
   "entrypoint": "python3 main.py",    // run inside the extracted tarball
   "timeout": 600,                     // when the service default is not enough
   "files": {                          // packed path -> where it lives in this repo
-    "main.py": "plugins/github-pr-reviewer/scripts/main.py"
+    "main.py": "skills/github-pr-reviewer/scripts/main.py"
   },
   "config": {                         // rendered from the form, packed as config.json
     "repos": "{{form.repositories}}", // a whole-value placeholder, so this is a list
@@ -400,9 +400,12 @@ Recorded rather than resolved, because they need an owner outside this contract:
 - **Distribution.** Agent Canvas pins `@openhands/extensions`, so changing an entry still needs a version
   bump and a dependency update. Delivering "change automation UI without a Canvas release" needs runtime
   loading.
-- **Integration credentials at runtime.** Dropping `requires.secrets` assumes a created automation can use
-  the credential behind a connected integration. Whether the automations service receives it, and how, is
-  not settled here.
+- **Integration credentials at runtime.** The automations service passes no integration credential to a
+  run. An entry that needs a token names a saved secret instead (`githubTokenSecret`, default
+  `GITHUB_PERSONAL_ACCESS_TOKEN`), and its script resolves that name through the sandbox's secret lookup;
+  on OpenHands Cloud and Enterprise that lookup also serves the connected GitHub account's token
+  (`github_token`) as the fallback. Whether a run should ever receive the credential behind a connected
+  integration from `integrations/catalog` is not settled here.
 - **Grouped review rows.** The review screen is now one row per field. The hand-written summaries grouped
   related fields onto one line, which reads better; if that matters, it is a host concern, not an entry's.
 - **Assisted-setup completion.** The assisted flow ends at a conversation, so the host cannot emit a

@@ -11,7 +11,7 @@ from urllib.parse import unquote
 import pytest
 from github_automation_helpers import worker
 
-SCRIPTS = Path(__file__).resolve().parents[1] / "plugins/github-issue-triage/scripts"
+SCRIPTS = Path(__file__).resolve().parents[1] / "skills/github-issue-triage/scripts"
 
 
 @pytest.fixture
