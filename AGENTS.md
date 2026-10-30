@@ -157,18 +157,17 @@ mkdir -p .pr
 └── notes.md        # Any other PR-specific content
 ```
 
-The `PR Artifacts` workflow (`.github/workflows/pr-artifacts.yml`) owns the lifecycle of this directory:
+The lifecycle of this directory:
 
-1. **Notification**: When a PR contains `.pr/`, a single comment is posted to the PR conversation alerting reviewers.
-2. **Post-merge cleanup**: After a same-repository or fork PR merges to `main`, the workflow automatically opens or updates a cleanup PR to remove the directory from `main`.
+1. **Notification**: When a PR adds or changes files under `.pr/`, the `PR Artifacts` workflow (`.github/workflows/pr-artifacts.yml`) posts a single comment to the PR conversation alerting reviewers.
+2. **Release cleanup**: After a same-repository or fork PR merges to `main`, the next release PR update removes `.pr/` from `main` in the same push as its version bump (`cleanup-pr-artifacts` in `.github/workflows/release.yml`). No separate cleanup PR is opened.
 
 Important notes:
 
 - Do not put anything in `.pr/` that needs to be preserved.
 - The `.pr/` check is informational during development; it posts a notice rather than blocking the PR.
-- Cleanup PRs follow the normal review and required-check protections for `main`.
-- npm packaging excludes `.pr/` while its cleanup PR is pending, so temporary review artifacts do not ship in releases.
-- Release PRs fail the required `test` check while their committed tree contains `.pr/`. Merge the artifact-cleanup PR and let release-please update the release PR before merging it.
+- npm packaging excludes `.pr/` while it remains on `main`, so temporary review artifacts do not ship in releases.
+- Release PRs fail the required `test` check while their committed tree contains `.pr/`. Refresh the release PR by rerunning the latest `release` workflow on its target branch, then let the check rerun before merging.
 
 ## CI / validation gotchas
 
