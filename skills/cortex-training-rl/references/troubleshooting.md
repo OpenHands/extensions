@@ -24,19 +24,48 @@ cat /proc/sys/kernel/pty/nr /proc/sys/kernel/pty/max
 Check that no driver processes from the old run survived
 (`pgrep -af 'skyrl.train|openhands_localization'`), then relaunch.
 
-## Every Harbor rollout on Snowflake sandboxes scores 0
+## Every Harbor rollout on Snowflake sandboxes errors
 
-`reward/avg_raw_reward` is exactly 0, and the log shows `ImageMirrorError` (often
-`HTTP 444: source IP address not allowed`, then Docker Hub `TOOMANYREQUESTS`)
-followed by `Sandbox not found`.
+Each rollout leaves a `.error` file instead of a `.json` under
+`$CKPT_DIR/trajectories/step_N/train/`, and after three reruns the run stops with
+`Every train rollout at step N errored in 4 attempts`. The first error shows
+`ImageMirrorError` (often `HTTP 444: source IP address not allowed`, then Docker
+Hub `TOOMANYREQUESTS`).
 
 **Cause:** with `image_repo`, each task's `FROM` image is mirrored into the
 Snowflake registry, and the registry rejects pushes from this machine's network.
-No sandbox starts, so the run trains on nothing.
+No sandbox starts, so there is nothing to train on.
 
-**Fix:** stop the run. Use `base_image` (for example `"base_image": "sandbox-base"`)
-when the tasks' Dockerfile steps work on the sandbox catalog image, or run the
-driver from a network the registry accepts.
+**Fix:** use `base_image` (for example `"base_image": "sandbox-base"`) when the
+tasks' Dockerfile steps work on the sandbox catalog image, or run the driver from
+a network the registry accepts.
+
+## Snowflake rollouts fail with `SandboxRateLimitError` or `Your session has expired`
+
+A growing share of each step's rollouts are `.error` files showing
+`SandboxRateLimitError: rate-limited after 4 retries`, or
+`create returned no container id: {'code': '390112', 'message': 'Your session has expired. ...'}`
+starting about an hour into the run.
+
+**Cause:** Snowflake allows 100 live sandboxes per owner, and suspended ones
+count. Sandboxes left behind by a killed run, or by other work on the same
+connection, use up that quota. Arctic Platform revisions before the session
+renewal fix also let the shared session expire after about an hour, and leaked a
+sandbox whenever a create failed partway.
+
+**Fix:** update Arctic Platform. Then, when no other run uses the connection,
+terminate what earlier runs left behind:
+
+```bash
+uv run --extra harbor python -c "
+from snowflake.sandbox import Sandbox
+for s in Sandbox.list(connection='MY_CONN'):
+    if s.status in ('ready', 'pending') and (s.name or '').startswith('harbor-rl-'):
+        s.terminate()"
+```
+
+Sandboxes from older revisions have generated names. Find them by their
+`harbor_session` tag or creation time in `Sandbox.list()` before terminating.
 
 ## `fatal: fetch-pack: invalid index-pack output` or `fatal: error writing to <workspace>/...`
 
