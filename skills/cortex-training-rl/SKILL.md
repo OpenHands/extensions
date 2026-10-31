@@ -27,7 +27,7 @@ Two recipes ship in [Arctic Platform](https://github.com/Snowflake-AI-Research/A
    Direct SWE-smith code localization (`file + module + function F1`, max `3.0`).
 
 - Cortex Training guides: [`docs/integrations/openhands.md`](https://github.com/snowflakedb/cortex-training/blob/main/docs/integrations/openhands.md) · [`docs/integrations/bring-your-own-agent.md`](https://github.com/snowflakedb/cortex-training/blob/main/docs/integrations/bring-your-own-agent.md)
-- Harbor Snowflake Sandbox provider (`--env snowflake`): [harbor-framework/harbor#3918](https://github.com/harbor-framework/harbor/pull/3918)
+- Harbor recipe guide: [`recipes/rl/harbor/README.md`](https://github.com/Snowflake-AI-Research/Arctic-Platform/blob/main/recipes/rl/harbor/README.md). Its Snowflake sandbox environment (`HARBOR_ENV=snowflake`) ships in Arctic Platform.
 
 ## Rules
 
@@ -47,7 +47,7 @@ cortex-training login ~/cortex-training-config.json   # once per machine
 cfg=~/cortex-training-config.json
 export ARCTIC_CORTEX_HOST=$(jq -r .host "$cfg") ARCTIC_CORTEX_DATABASE=$(jq -r .database "$cfg")
 export ARCTIC_CORTEX_SCHEMA=$(jq -r .schema "$cfg") ARCTIC_CORTEX_PAT=$(jq -r .pat "$cfg")
-cortex-training capacity --hardware H200              # need 8 free
+cortex-training capacity                              # available_gpus must be at least 8
 cortex-training list --status running                 # check for live jobs
 pgrep -af 'run_qwen35_4b.sh|skyrl.train'              # live driver on this host?
 tmux ls 2>/dev/null | grep -c '^openhands-'           # leaked rollout sessions
@@ -89,9 +89,9 @@ export CKPT_DIR=$HOME/checkpoints/$RUN_NAME
 export TRAIN_HARBOR_TASKS=$HOME/data/swe-smith-harbor-tasks/train
 export EVAL_HARBOR_TASKS=$HOME/data/swe-smith-harbor-tasks/eval
 export HARBOR_SKILL=/path/to/SKILL.md   # optional: ":"-separated SKILL.md paths
-# Snowflake sandboxes (the default). base_image replays each task's Dockerfile on the sandbox catalog
-# image, so nothing is mirrored; use image_repo=DB.SCHEMA.REPO instead to mirror each task's FROM image.
-export HARBOR_ENV_KWARGS='{"base_image": "sandbox-base", "connection": "MY_CONN", "egress_eai": "GITHUB_ACCESS"}'
+# Snowflake sandboxes (the default). base_image replays each task's Dockerfile on the sandbox catalog image.
+# SWE-smith tasks clone from GitHub, so egress_eai must name an external access integration that allows github.com.
+export HARBOR_ENV_KWARGS='{"base_image": "sandbox-base", "connection": "MY_CONN", "role": "MY_ROLE", "egress_eai": "MY_GITHUB_EAI"}'
 export ARCTIC_CORTEX_JOB_COMMENT="<your name> harbor rl - ask before cancelling"
 export LOGGER=console OPENHANDS_WORKSPACE=/path/with/space STARTUP_TIMEOUT=14400
 mkdir -p "$CKPT_DIR"
@@ -101,12 +101,14 @@ tmux -L "$RUN_NAME" new-session -d -s train \
    bash recipes/rl/harbor/run_qwen35_4b.sh trainer.max_training_steps=100"
 ```
 
+Before it provisions GPUs, the launcher runs the first training task once in its sandbox with an agent that does nothing. If the sandbox, the Dockerfile replay, or the verifier fails, it exits with the cause and no Cortex job is created; see [references/troubleshooting.md](references/troubleshooting.md).
+
 Optional environment variables to target any OpenHands configuration or Harbor sandbox:
-- `OPENHANDS_TOOLS`: comma-separated OpenHands tools (e.g. `terminal,file_editor,task_tracker`).
+- `OPENHANDS_TOOLS`: comma-separated OpenHands tools (e.g. `terminal,task_tracker`). The Harbor recipe has no `file_editor`, because it would edit the driver's filesystem instead of the sandbox's.
 - `OPENHANDS_SYSTEM_PROMPT_FILE`: custom system prompt template file.
 - `HARBOR_AGENT`: a Harbor `BaseAgent` that runs on the driver (default `harbor_rl.agent:OpenHandsHarborAgent`, or your own `module:Class`). Agents Harbor installs inside the environment (`openhands-sdk`, `mini-swe-agent`, `claude-code`, ...) are refused, because task code there could read the rollout's API key.
-- `HARBOR_ENV`: Harbor environment (default `snowflake`, the Snowflake sandbox bundled in Arctic Platform; or `docker`, `modal`, `daytona`, `e2b`, a `module:Class`, or `host` for trusted tasks only, which also needs `HARBOR_ALLOW_HOST_EXEC=1`).
-- `HARBOR_ENV_KWARGS`: JSON object passed to the environment, like `harbor run --ek`. `snowflake` needs `base_image`, `image_repo`, or a sandbox-path `prebuilt_image`.
+- `HARBOR_ENV`: `snowflake` (default) or `host` for trusted tasks only, which also needs `HARBOR_ALLOW_HOST_EXEC=1`. These two were run end to end; Harbor's other environments are accepted but untested with this recipe.
+- `HARBOR_ENV_KWARGS`: JSON object passed to the environment, like `harbor run --ek`. For `snowflake`: `base_image`, `connection`, `role`, `egress_eai`. Use a Snowflake connection that logs in without a browser (programmatic access token or key pair): the run logs in again every 20 minutes.
 
 **Direct code localization (`recipes/rl/openhands/code_localization/run_qwen35_4b.sh`):**
 
@@ -130,14 +132,18 @@ Use [references/monitoring.md](references/monitoring.md) to check job state, pri
 
 ```bash
 kill -TERM "$(cat "$CKPT_DIR/launcher.pid")"
-cortex-training get "$(cat "$CKPT_DIR/cortex_job_id")"  # confirm status is cancelled
+# Confirm the run's job is CANCELLED. Jobs are identified by their comment.
+cortex-training list | jq -r --arg c "$ARCTIC_CORTEX_JOB_COMMENT" '.jobs[] | select(.comment == $c) | "\(.job_id) \(.status)"'
 ```
 
 ## Reference result (Qwen3.5-4B, 4+4 H200 GPUs)
 
+SWE-smith code localization, reward out of `3.0`. The Harbor run used Snowflake sandboxes with `base_image` for 25 steps.
+
 | Window | With Harbor (`recipes/rl/harbor`) | Without Harbor (`recipes/rl/openhands/code_localization`) | CodeScout Reference |
 | --- | --- | --- | --- |
-| **Steps 1–10 mean** | `0.35` (`0.78` at step 10) | `0.39` (`0.75` at step 10) | `0.76` |
-| **Steps 11–20 mean** | `1.46` (`2.03` at step 16, `2.10` at step 19) | `1.39`–`1.54` (`2.17` at step 16) | — |
-| **Steps 21–30 / 21–25** | Peak `2.13` (step 21), `2.10` (step 24), `0 / 1,600` errors | `2.28`–`2.32` | `~2.30` |
-| **Steps 91–100 mean** | — | `2.28` (`2.25` at step 100) | `2.34` (`2.27` at step 100) |
+| **Steps 1–10 mean** | `0.59` | `0.39` | `0.76` |
+| **Steps 11–20 mean** | `1.81` | `1.39` | — |
+| **Steps 21–25 mean** | `2.39` (best step `2.54`) | — | — |
+| **Steps 21–30 mean** | — | `2.28` | `~2.30` |
+| **Steps 91–100 mean** | — | `2.28` | `2.34` |
