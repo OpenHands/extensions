@@ -24,6 +24,20 @@ cat /proc/sys/kernel/pty/nr /proc/sys/kernel/pty/max
 Check that no driver processes from the old run survived
 (`pgrep -af 'skyrl.train|openhands_localization'`), then relaunch.
 
+## Every Harbor rollout on Snowflake sandboxes scores 0
+
+`reward/avg_raw_reward` is exactly 0, and the log shows `ImageMirrorError` (often
+`HTTP 444: source IP address not allowed`, then Docker Hub `TOOMANYREQUESTS`)
+followed by `Sandbox not found`.
+
+**Cause:** with `image_repo`, each task's `FROM` image is mirrored into the
+Snowflake registry, and the registry rejects pushes from this machine's network.
+No sandbox starts, so the run trains on nothing.
+
+**Fix:** stop the run. Use `base_image` (for example `"base_image": "sandbox-base"`)
+when the tasks' Dockerfile steps work on the sandbox catalog image, or run the
+driver from a network the registry accepts.
+
 ## `fatal: fetch-pack: invalid index-pack output` or `fatal: error writing to <workspace>/...`
 
 Most rollouts in a step fail while cloning, and `df` shows the
@@ -108,7 +122,8 @@ The script checks its inputs before creating a job and prints the fix:
 - `uv` is missing.
 - `SKYRL_HOME` is unset or lacks `integrations/arctic_rl`.
 - A parquet file is missing.
-- There is no Cortex login.
+- `ARCTIC_CORTEX_HOST`, `_DATABASE`, `_SCHEMA`, or `_PAT` is not exported. `cortex-training login` alone is not enough.
+- `HARBOR_ENV=snowflake` has no `base_image`, `image_repo`, or sandbox-path `prebuilt_image`.
 - The batch would exceed the 128 MiB response cap.
 - A cached wheel shadows the checkout.
 
