@@ -43,6 +43,10 @@ Two recipes ship in [Arctic Platform](https://github.com/Snowflake-AI-Research/A
 
 ```bash
 cortex-training login ~/cortex-training-config.json   # once per machine
+# The launchers read the Cortex connection only from ARCTIC_CORTEX_*; login alone is not enough.
+cfg=~/cortex-training-config.json
+export ARCTIC_CORTEX_HOST=$(jq -r .host "$cfg") ARCTIC_CORTEX_DATABASE=$(jq -r .database "$cfg")
+export ARCTIC_CORTEX_SCHEMA=$(jq -r .schema "$cfg") ARCTIC_CORTEX_PAT=$(jq -r .pat "$cfg")
 cortex-training capacity --hardware H200              # need 8 free
 cortex-training list --status running                 # check for live jobs
 pgrep -af 'run_qwen35_4b.sh|skyrl.train'              # live driver on this host?
@@ -85,6 +89,9 @@ export CKPT_DIR=$HOME/checkpoints/$RUN_NAME
 export TRAIN_HARBOR_TASKS=$HOME/data/swe-smith-harbor-tasks/train
 export EVAL_HARBOR_TASKS=$HOME/data/swe-smith-harbor-tasks/eval
 export HARBOR_SKILL=/path/to/SKILL.md   # optional: ":"-separated SKILL.md paths
+# Snowflake sandboxes (the default). base_image replays each task's Dockerfile on the sandbox catalog
+# image, so nothing is mirrored; use image_repo=DB.SCHEMA.REPO instead to mirror each task's FROM image.
+export HARBOR_ENV_KWARGS='{"base_image": "sandbox-base", "connection": "MY_CONN", "egress_eai": "GITHUB_ACCESS"}'
 export ARCTIC_CORTEX_JOB_COMMENT="<your name> harbor rl - ask before cancelling"
 export LOGGER=console OPENHANDS_WORKSPACE=/path/with/space STARTUP_TIMEOUT=14400
 mkdir -p "$CKPT_DIR"
@@ -97,8 +104,9 @@ tmux -L "$RUN_NAME" new-session -d -s train \
 Optional environment variables to target any OpenHands configuration or Harbor sandbox:
 - `OPENHANDS_TOOLS`: comma-separated OpenHands tools (e.g. `terminal,file_editor,task_tracker`).
 - `OPENHANDS_SYSTEM_PROMPT_FILE`: custom system prompt template file.
-- `HARBOR_AGENT`: Harbor `BaseAgent` (default `harbor_rl.agent:OpenHandsHarborAgent`, or `openhands-sdk`, `openhands`, `module:Class`).
-- `HARBOR_ENV`: Harbor `BaseEnvironment` (default `arctic_platform.integrations.harbor.env:HostEnvironment`, or `arctic_platform.integrations.harbor.snowflake_sandbox:SnowflakeSandboxEnvironment` / `snowflake`, `docker`, `modal`, `daytona`).
+- `HARBOR_AGENT`: a Harbor `BaseAgent` that runs on the driver (default `harbor_rl.agent:OpenHandsHarborAgent`, or your own `module:Class`). Agents Harbor installs inside the environment (`openhands-sdk`, `mini-swe-agent`, `claude-code`, ...) are refused, because task code there could read the rollout's API key.
+- `HARBOR_ENV`: Harbor environment (default `snowflake`, the Snowflake sandbox bundled in Arctic Platform; or `docker`, `modal`, `daytona`, `e2b`, a `module:Class`, or `host` for trusted tasks only, which also needs `HARBOR_ALLOW_HOST_EXEC=1`).
+- `HARBOR_ENV_KWARGS`: JSON object passed to the environment, like `harbor run --ek`. `snowflake` needs `base_image`, `image_repo`, or a sandbox-path `prebuilt_image`.
 
 **Direct code localization (`recipes/rl/openhands/code_localization/run_qwen35_4b.sh`):**
 
