@@ -118,7 +118,8 @@ def test_atomic_claim_and_fencing(kv):
 
 
 @pytest.fixture
-def runner(kv):
+def runner(kv, monkeypatch):
+    monkeypatch.syspath_prepend(str(ROOT / "skills/github-pr-reviewer/scripts"))
     pr = {"number": 3, "head": {"sha": "abc"}, "user": {"login": "human"}, "state": "open"}
     reviews, starts = [], []
     run = SimpleNamespace(repository="Owner/Repo", github_login="bot", token_name="WRITE_TOKEN",
@@ -127,6 +128,8 @@ def runner(kv):
                                      llm_provenance=lambda cid: None)
     def gh(method, path, body=None):
         if method == "GET":
+            if "/reviews/" in path:
+                return next(review for review in reviews if review["id"] == int(path.rsplit("/", 1)[-1]))
             return pr
         review = {**body, "id": len(reviews) + 1, "state": "APPROVED" if body["event"] == "APPROVE" else "COMMENTED", "user": {"login": "bot"}}
         reviews.append(review)
@@ -147,6 +150,198 @@ def test_async_publish_and_stop(runner):
     for _ in range(3):
         assert publisher.advance(pr, start=True)["disposition"] == "deduplicated"
     assert len(reviews) == len(starts) == 1
+
+
+@pytest.mark.parametrize("phase", ["receipt", "readback", "recovery", "legacy"])
+@pytest.mark.parametrize("damage", [
+    {"body": ""}, {"body": None}, {"body": " \n"}, {"body": "different assessment"},
+    {"commit_id": "other"}, {"state": "COMMENTED"}, {"user": {"login": "other"}},
+    {"user": None}, {"id": True}, {"id": "1"},
+])
+def test_invalid_publication_never_completes_or_reposts(runner, kv, phase, damage):
+    run, pr, reviews, starts = runner
+    completions = []
+    run._finish_completed_review = lambda *args: completions.append(args)
+    publisher = publication.StructuredReviews(run)
+    publisher.advance(pr, start=True)
+    original = run.gh
+
+    def damaged(method, path, body=None):
+        result = original(method, path, body)
+        if method == "POST":
+            if phase in {"recovery", "legacy"}:
+                result.update(damage)
+                raise TimeoutError("response lost")
+            return {**result, **damage} if phase == "receipt" else result
+        if "/reviews/" in path and phase == "readback":
+            return {**result, **damage}
+        return result
+
+    run.gh = damaged
+    if phase in {"recovery", "legacy"}:
+        with pytest.raises(TimeoutError):
+            publisher.advance(pr)
+        if phase == "legacy":
+            subject = "owner/repo:pr:3:bot"
+            lease = publisher.store.claim(subject)
+            lease.save(status="published", receipt={"id": 1}, completed=[lease.value["work"]])
+            lease.release()
+    else:
+        assert publisher.advance(pr)["disposition"] == "in_progress"
+        # Persist the same bad response so a later scan cannot recover it as valid.
+        reviews[0].update(damage)
+    for _ in range(2):
+        assert publisher.advance(pr, "request:2", start=True)["disposition"] == "in_progress"
+    [record] = kv["values"].values()
+    assert record["completion"] == "pending"
+    assert not completions
+    assert len(reviews) == len(starts) == 1
+
+
+@pytest.mark.parametrize("response", [None, [], {}, {"id": 1}])
+def test_malformed_post_receipt_is_quarantined(runner, kv, response):
+    run, pr, reviews, _ = runner
+    publisher = publication.StructuredReviews(run)
+    publisher.advance(pr, start=True)
+    original = run.gh
+
+    def incomplete(method, path, body=None):
+        result = original(method, path, body)
+        return response if method == "POST" else result
+
+    run.gh = incomplete
+    assert publisher.advance(pr)["disposition"] == "in_progress"
+    [record] = kv["values"].values()
+    assert record["status"] == "posting"
+    assert not record.get("completed")
+    assert record["completion"] == "pending"
+    # An authoritative exact recovery may succeed without another POST.
+    assert publisher.advance(pr)["disposition"] == "deduplicated"
+    assert len(reviews) == 1
+
+
+def test_marker_is_not_content_and_duplicates_remain_ambiguous(runner, kv):
+    run, pr, reviews, _ = runner
+    publisher = publication.StructuredReviews(run)
+    publisher.advance(pr, start=True)
+    original = run.gh
+
+    def lost(method, path, body=None):
+        result = original(method, path, body)
+        if method == "POST":
+            raise TimeoutError("response lost")
+        return result
+
+    run.gh = lost
+    with pytest.raises(TimeoutError):
+        publisher.advance(pr)
+    complete = reviews[0].copy()
+    [record] = kv["values"].values()
+    reviews[0]["body"] = record["marker"]
+    assert publisher.advance(pr)["disposition"] == "in_progress"
+    reviews.append({**complete, "id": 2})
+    assert publisher.advance(pr)["disposition"] == "in_progress"
+    assert len(reviews) == 2
+    assert next(iter(kv["values"].values()))["completion"] == "pending"
+
+
+@pytest.mark.parametrize("missing_payload", [False, True])
+def test_old_published_records_require_verification(runner, kv, missing_payload):
+    run, pr, reviews, _ = runner
+    publisher = publication.StructuredReviews(run)
+    publisher.advance(pr, start=True)
+    assert publisher.advance(pr)["disposition"] == "published"
+    lease = publisher.store.claim("owner/repo:pr:3:bot")
+    changes = {"receipt": {"id": 1}, "completion": "pending"}
+    if missing_payload:
+        changes["payload"] = None
+    lease.save(**changes)
+    lease.release()
+    completions = []
+    run._finish_completed_review = lambda *args: completions.append(args)
+    expected = "in_progress" if missing_payload else "deduplicated"
+    assert publisher.advance(pr)["disposition"] == expected
+    assert len(completions) == (0 if missing_payload else 1)
+    [record] = kv["values"].values()
+    if not missing_payload:
+        assert record["receipt"]["verified"] is True
+
+
+@pytest.mark.parametrize("assessment,readiness,findings,self_author", [
+    ("clean", "ready", [], False), ("clean", "ready", [], True),
+    ("material_findings", "blocked", ["file.py:2 fails"], False),
+    ("inconclusive", "unknown", [], False), ("clean", "blocked", [], False),
+])
+def test_valid_receipt_and_readback_complete_once(runner, kv, assessment, readiness, findings, self_author):
+    run, pr, reviews, _ = runner
+    if self_author:
+        pr["user"]["login"] = "bot"
+    run.dispatcher.review_snapshot = lambda cid: ("finished", artifact(
+        code_assessment=assessment, merge_readiness=readiness, findings=findings))
+    calls, completions = [], []
+    original = run.gh
+
+    def track(method, path, body=None):
+        calls.append((method, path))
+        return original(method, path, body)
+
+    run.gh = track
+    run._finish_completed_review = lambda *args: completions.append(args)
+    publisher = publication.StructuredReviews(run)
+    publisher.advance(pr, start=True)
+    assert publisher.advance(pr)["disposition"] == "published"
+    assert ("GET", "/pulls/3/reviews/1") in calls
+    for _ in range(2):
+        assert publisher.advance(pr, start=True)["disposition"] == "deduplicated"
+    [record] = kv["values"].values()
+    assert record["receipt"]["verified"] is True
+    assert len(completions) == len(reviews) == 1
+
+
+@pytest.mark.parametrize("readback", [None, {}, {"id": 1}, "not a review"])
+def test_malformed_readback_stays_posting(runner, kv, readback):
+    run, pr, reviews, _ = runner
+    original = run.gh
+
+    def malformed(method, path, body=None):
+        if "/reviews/" in path:
+            return readback
+        return original(method, path, body)
+
+    run.gh = malformed
+    publisher = publication.StructuredReviews(run)
+    publisher.advance(pr, start=True)
+    assert publisher.advance(pr)["disposition"] == "in_progress"
+    assert publisher.advance(pr, "request:2", start=True)["disposition"] == "in_progress"
+    [record] = kv["values"].values()
+    assert record["status"] == "posting"
+    assert record["completion"] == "pending"
+    assert len(reviews) == 1
+
+
+def test_readback_failure_and_different_id_cannot_complete(runner, kv):
+    run, pr, reviews, _ = runner
+    original = run.gh
+    unavailable = True
+
+    def readback(method, path, body=None):
+        if "/reviews/" in path:
+            if unavailable:
+                raise TimeoutError("readback unavailable")
+            return {**reviews[0], "id": 2}
+        return original(method, path, body)
+
+    run.gh = readback
+    publisher = publication.StructuredReviews(run)
+    publisher.advance(pr, start=True)
+    with pytest.raises(TimeoutError, match="readback"):
+        publisher.advance(pr)
+    unavailable = False
+    assert publisher.advance(pr, "request:2", start=True)["disposition"] == "in_progress"
+    [record] = kv["values"].values()
+    assert record["status"] == "posting"
+    assert record["completion"] == "pending"
+    assert len(reviews) == 1
 
 
 @pytest.mark.parametrize("failure", ["missing", "error"])
