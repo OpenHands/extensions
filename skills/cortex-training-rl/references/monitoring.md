@@ -37,6 +37,17 @@ The same dictionary carries `'policy/grad_norm'` (should stay under 1-2) and
 `timing/generate` drops to a few seconds while the reward drops to 0, the
 rollouts are failing before the model is called.
 
+## Evaluation scores
+
+A run launched with `trainer.eval_before_train=true trainer.eval_interval=N`
+prints one `'eval/all/avg_score'` before the first step, one every `N` steps,
+and one after the last step. Each evaluation's rollouts are saved under
+`$CKPT_DIR/trajectories/step_<N>/eval/`.
+
+```bash
+sed 's/\x1b\[[0-9;]*m//g' "$CKPT_DIR/$RUN_NAME.log" | grep -oE "'eval/all/avg_score': '[0-9.]+'"
+```
+
 ## Recreate the reward graph (with and without Harbor)
 
 This snippet parses a training log from either recipe, prints 10-step means,

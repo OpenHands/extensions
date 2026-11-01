@@ -34,7 +34,7 @@ Two recipes ship in [Arctic Platform](https://github.com/Snowflake-AI-Research/A
 1. **Identify jobs by comment.** Set `ARCTIC_CORTEX_JOB_COMMENT` with your name; never cancel a job whose comment is not yours.
 2. **One run per driver machine.** Concurrent runs collide on tmux sessions, ptys, and workspace disk.
 3. **Never `kill -9` the driver.** Stop with `SIGTERM` or Ctrl-C so the launcher's exit trap cancels the Cortex GPU job.
-4. **Keep credentials private.** Never print, log, or commit PATs or login configs.
+4. **Keep credentials private.** Never print, log, or commit PATs or login configs. Don't `cat` `~/cortex-training-config.json` or `~/.snowflake/connections.toml`; check them with `jq 'keys'` or `grep -c '^\['`.
 5. **Keep recipe hyperparameters intact.** Fix environment issues (`references/troubleshooting.md`) rather than changing batch size, context length, or learning rate.
 
 ## Workflow
@@ -63,7 +63,13 @@ tmux ls -F '#{session_name}' 2>/dev/null | grep '^openhands-' | xargs -r -n1 tmu
 
 ### 2. Prepare data
 
-Requires `uv`, SkyRL at `skyrl-v0.3.0` (`export SKYRL_HOME=/path/to/SkyRL`), and an `Arctic-Platform` checkout.
+Requires `uv`. Run everything below from the root of an `Arctic-Platform` checkout, with SkyRL at `skyrl-v0.3.0` next to it:
+
+```bash
+git clone https://github.com/Snowflake-AI-Research/Arctic-Platform && cd Arctic-Platform
+git clone --branch skyrl-v0.3.0 --depth 1 https://github.com/NovaSky-AI/SkyRL
+export SKYRL_HOME=$PWD/SkyRL
+```
 
 - **Any Harbor task set (`recipes/rl/harbor`):**
   Point `TRAIN_HARBOR_TASKS` and `EVAL_HARBOR_TASKS` at any directories of Harbor tasks (`instruction.md` + `tests/test.sh`). To export SWE-smith code localization into Harbor task directories (`train/` and `eval/`):
@@ -101,6 +107,8 @@ tmux -L "$RUN_NAME" new-session -d -s train \
    bash recipes/rl/harbor/run_qwen35_4b.sh trainer.max_training_steps=100"
 ```
 
+To evaluate during training, append `trainer.eval_before_train=true trainer.eval_interval=10` to the launcher command: the model is evaluated on `EVAL_HARBOR_TASKS` before the first step and every 10 steps after it, and each evaluation prints `eval/all/avg_score` in the log. The launcher runs no evaluation by default.
+
 Before it provisions GPUs, the launcher runs the first training task once in its sandbox with an agent that does nothing. If the sandbox, the Dockerfile replay, or the verifier fails, it exits with the cause and no Cortex job is created; see [references/troubleshooting.md](references/troubleshooting.md).
 
 Optional environment variables to target any OpenHands configuration or Harbor sandbox:
@@ -126,12 +134,23 @@ tmux -L "$RUN_NAME" new-session -d -s train \
 
 ### 4. Monitor and recreate the reward graph
 
-Use [references/monitoring.md](references/monitoring.md) to check job state, print 10-step reward means, count `.error` files, and generate `$CKPT_DIR/reward_graph.svg`. Use [references/troubleshooting.md](references/troubleshooting.md) if steps finish in seconds or rewards drop to 0.
+A step is done when the log prints its `'reward/avg_raw_reward'`. `trajectories/step_<N>/` appears when the step's rollouts finish, before its update, so don't count steps from those directories:
+
+```bash
+sed 's/\x1b\[[0-9;]*m//g' "$CKPT_DIR/$RUN_NAME.log" | grep -oE "'reward/avg_raw_reward': '[0-9.]+'"
+```
+
+The run ends by itself after `trainer.max_training_steps`, and the launcher cancels its Cortex job; don't stop it to finish it.
+
+The `references/` files sit next to this `SKILL.md`. Use [references/monitoring.md](references/monitoring.md) to check job state, print 10-step reward means, count `.error` files, and generate `$CKPT_DIR/reward_graph.svg` with its snippet, which needs only Python's standard library. Use [references/troubleshooting.md](references/troubleshooting.md) if steps finish in seconds or rewards drop to 0.
 
 ### 5. Stop and clean up
 
+To end a run early:
+
 ```bash
 kill -TERM "$(cat "$CKPT_DIR/launcher.pid")"
+# The job is cancelled at once; the launcher takes up to 2 minutes more to stop its rollouts.
 # Confirm the run's job is CANCELLED. Jobs are identified by their comment.
 cortex-training list | jq -r --arg c "$ARCTIC_CORTEX_JOB_COMMENT" '.jobs[] | select(.comment == $c) | "\(.job_id) \(.status)"'
 ```
