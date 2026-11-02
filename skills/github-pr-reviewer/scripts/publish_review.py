@@ -24,7 +24,9 @@ def validate_payload(payload, head):
     if not isinstance(body, str) or not body.startswith(DISCLOSURE + "\n"):
         raise ValueError("Review body must begin with the disclosure")
     lines = body.rstrip().splitlines()
-    if lines[-1] not in VERDICTS or not "\n".join(lines[1:-1]).strip():
+    assessment = re.sub(r"<!--.*?(?:-->|$)", "", "\n".join(lines[1:-1]), flags=re.DOTALL)
+    assessment = re.sub(r"(?m)^LLM profile: .* · Model: .*$", "", assessment).strip()
+    if lines[-1] not in VERDICTS or not assessment:
         raise ValueError("Review needs an assessment and final verdict")
     if payload["event"] == "APPROVE" and lines[-1] != VERDICTS[0]:
         raise ValueError("Only an approved verdict can use APPROVE")

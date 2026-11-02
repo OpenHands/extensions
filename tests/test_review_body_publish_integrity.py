@@ -112,6 +112,16 @@ class PublishIntegrityTests(unittest.TestCase):
         self.assertEqual(self.boundary.posts, [])
         self.assertEqual(self.boundary.reads, [])
 
+    def test_hidden_metadata_is_not_an_assessment(self):
+        for text in ["<!-- openhands-review-run: 1234 -->", "<!-- hidden\nassessment -->",
+                     "<!-- unfinished", "LLM profile: `reviewer` · Model: `model`"]:
+            with self.subTest(text=text):
+                request = payload(body=publisher.DISCLOSURE + "\n\n" + text + "\n\n✅ APPROVED")
+                with self.assertRaises(ValueError):
+                    self.publish(request)
+        self.assertEqual(self.boundary.reads, [])
+        self.assertEqual(self.boundary.posts, [])
+
     def test_exact_body_and_inline_findings_are_serialized_once(self):
         request = payload(event="COMMENT", comments=[{"path": "a.py", "line": 2, "side": "RIGHT", "body": "Demonstrated failure"}])
         request["body"] = publisher.DISCLOSURE + "\n\nQuotes: \"x\", backticks `x`, $HOME, Unicode ✓.\n\n🔄 CHANGES REQUESTED"
