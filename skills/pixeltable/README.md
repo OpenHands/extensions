@@ -22,6 +22,7 @@ This skill is activated by the following keywords:
 - UDFs, UDAs, and tool calling (`pxt.tools`, `invoke_tools`)
 - Views and iterators (documents, video, audio, images)
 - The `pxt` CLI for schema, serving, inspection, and Cloud
+- Table versions, snapshots, and revert
 - AI provider integrations
 
 ## Links
