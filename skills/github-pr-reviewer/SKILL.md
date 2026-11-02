@@ -231,7 +231,8 @@ checkout once the conversation has stopped. Nothing accumulates between runs.
 ---
 
 The script imports shared GitHub transport from
-`scripts/github_client.py`, installed with this skill. Include it beside
+`scripts/github_client.py`, installed with this skill. Include it and
+`scripts/publish_review.py` beside
 `main.py` when packaging manually, as shown below; catalog bundles include it
 automatically.
 
@@ -382,6 +383,7 @@ to a temporary build directory:
 ```bash
 mkdir -p /tmp/pr-reviewer-build
 cp -L scripts/github_client.py /tmp/pr-reviewer-build/github_client.py
+cp scripts/publish_review.py /tmp/pr-reviewer-build/publish_review.py
 # write the customized main.py to /tmp/pr-reviewer-build/main.py
 ```
 

@@ -138,6 +138,27 @@ can instead use a configured label and re-apply it for another review.
 
 - [SKILL.md](SKILL.md) - Full setup workflow reference
 
+## Guarded legacy publication
+
+The legacy prompt includes the self-contained `publish_review.py` command. The
+agent writes a complete JSON request, then executes that command unchanged rather
+than composing a review POST with shell substitutions. The guard rejects missing
+assessment/disclosure/verdict, malformed inline findings and stale heads before
+POST. It checks existing reviews, pins the commit, converts self-approval to
+COMMENT and verifies the returned body, author, head and submitted state.
+
+A local, fsynced intent plus a file lock blocks retries after an accepted or
+uncertain POST. Only an explicit HTTP 422 rejection permits a corrected request.
+An existing empty-body review requires operator reconciliation, not a second
+review. Never delete the local publication journal to force retry.
+
+This is a workflow guard, not a security boundary: the agent still has write
+credentials and must follow the supplied command. Separate sandboxes can race;
+loss of the local journal loses uncertain-intent protection. GitHub has no
+idempotency key or atomic head check. Inline findings are validated in the request,
+not independently read back after acceptance. Tests use an isolated HTTP server;
+no live customer review is posted.
+
 ## Opt-in worker publication
 
 Legacy agent publication is the default. With `structured_publication: true`,
