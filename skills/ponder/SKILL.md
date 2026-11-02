@@ -23,11 +23,11 @@ While coverage < 1.0, ponder judge returns blocked and ponder decide stop exits 
 ## Prerequisites
 
 - Runtime: Node.js >= 18 and Git on the local machine (0 npm dependencies; no node_modules or package install required).
-- Optional CLI installation: If ponder is not already on PATH, clone into a temporary directory, pin to the reviewed commit 5f81a6db4586a42bd554d9a3d5279d4b587ff018, and run:
+- Optional CLI installation: If ponder is not already on PATH, clone into a temporary directory, pin to the reviewed commit 76ac8a455db3030a615a5c10391807d1a7af6a21, and run:
 
 ```bash
 git clone https://github.com/Quinnod345/ponder.git /tmp/ponder-review
-git -C /tmp/ponder-review checkout 5f81a6db4586a42bd554d9a3d5279d4b587ff018
+git -C /tmp/ponder-review checkout 76ac8a455db3030a615a5c10391807d1a7af6a21
 ls -la /tmp/ponder-review/bin /tmp/ponder-review/lib /tmp/ponder-review/lenses
 PONDER_OCA=off /tmp/ponder-review/bin/ponder doctor
 ```
@@ -108,10 +108,10 @@ These outputs are illustrative; actual findings depend on the target repository.
 
 - Read-only on target source code: Ponder never modifies, patches, or deletes target project source files. All session state is written strictly inside .ponder/<session-slug>/ (or ~/.ponder/sessions/<slug>/) and any user-requested --out report path.
 - No network or telemetry: With PONDER_OCA=off, the CLI performs no network calls and spawns only local git when --diff or --strict-scope is explicitly passed.
-- External code inspection: Pin any external checkout of Quinnod345/ponder to commit 5f81a6db4586a42bd554d9a3d5279d4b587ff018, inspect /tmp/ponder-review before running, and require explicit user confirmation before symlinking or installing into agent directories.
+- External code inspection: Pin any external checkout of Quinnod345/ponder to commit 76ac8a455db3030a615a5c10391807d1a7af6a21, inspect /tmp/ponder-review before running, and require explicit user confirmation before symlinking or installing into agent directories.
 
 ## Sources and related skills
 
-- Upstream repository (MIT): https://github.com/Quinnod345/ponder, pinned at 5f81a6db4586a42bd554d9a3d5279d4b587ff018.
-- Upstream specification: https://github.com/Quinnod345/ponder/blob/5f81a6db4586a42bd554d9a3d5279d4b587ff018/SPEC.md
+- Upstream repository (MIT): https://github.com/Quinnod345/ponder, pinned at 76ac8a455db3030a615a5c10391807d1a7af6a21.
+- Upstream specification: https://github.com/Quinnod345/ponder/blob/76ac8a455db3030a615a5c10391807d1a7af6a21/SPEC.md
 - Related skills in this catalog: code-review, security, qa-changes.
