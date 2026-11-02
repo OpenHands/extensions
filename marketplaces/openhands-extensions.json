@@ -1004,6 +1004,19 @@
         "harbor",
         "swe-smith"
       ]
+    },
+    {
+      "name": "vintage-item-dating",
+      "source": "./skills/vintage-item-dating",
+      "description": "Date and price a second-hand garment from photos of its labels, by building a comparison board from live marketplace listings instead of trusting seller-stated decades. Use when asked how old a piece of clothing is, whether it is real vintage, what a thrifted or resale item is worth, or to read a care label, neck tag, or brand tag.",
+      "category": "other",
+      "keywords": [
+        "vintage",
+        "clothing",
+        "labels",
+        "resale",
+        "dating"
+      ]
     }
   ]
 }
