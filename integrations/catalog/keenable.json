@@ -16,7 +16,7 @@
       "provider": "mcp",
       "transport": {
         "kind": "shttp",
-        "url": "https://api.keenable.ai/mcp"
+        "url": "https://api.keenable.ai/mcp-public"
       },
       "auth": {
         "strategy": "none"
