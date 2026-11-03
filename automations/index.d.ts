@@ -20,6 +20,11 @@ export interface RecommendedAutomation {
     | "activity"
     | "timer";
   description: string;
+  /**
+   * Mermaid source for a small diagram of what the automation does. The host
+   * draws it beside `description` on the setup screen.
+   */
+  diagram?: string;
   requires: AutomationPrerequisites;
   popularityRank: number;
   estimatedSetupMinutes: number;

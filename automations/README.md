@@ -105,6 +105,10 @@ three entries whose names differ from their skill state it. The command that lau
 repeated here: it lives once, in the skill's own `triggers:` frontmatter, and the skills catalog exposes it.
 That way a skill can rename its trigger without leaving a stale copy behind in this catalog.
 
+`diagram` is optional Mermaid source for a small picture of what the automation does, which the host draws
+beside `description` on the setup screen. Keep it to a handful of nodes in a top-down `flowchart TD`, since
+the setup screen is narrow; the schema caps it at 1500 characters.
+
 `setup` is optional. Entries that carry one never repeat `id`, `name`, `category`, or `description`.
 `setup.version` selects how the block is interpreted; a future format ships a new constant.
 
