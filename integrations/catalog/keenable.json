@@ -1,0 +1,26 @@
+{
+  "id": "keenable",
+  "name": "Keenable",
+  "description": "Web search over Keenable's own index plus page fetch as clean Markdown. Hosted MCP, no API key needed on the public tier.",
+  "docsUrl": "https://docs.keenable.ai/mcp-server",
+  "iconBg": "var(--oh-surface)",
+  "keywords": [
+    "search",
+    "web",
+    "research",
+    "fetch"
+  ],
+  "connectionOptions": [
+    {
+      "id": "none",
+      "provider": "mcp",
+      "transport": {
+        "kind": "shttp",
+        "url": "https://api.keenable.ai/mcp"
+      },
+      "auth": {
+        "strategy": "none"
+      }
+    }
+  ]
+}
