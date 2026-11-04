@@ -7,7 +7,7 @@
   "requires": {
     "integrations": {
       "github": {
-        "message": "Used to clone the repository, push the cleanup branch, and open the pull request."
+        "message": "Needed to clone the repository, push the cleanup branch, and open the pull request, but the scheduled script does not use the GitHub MCP connection. It needs the GITHUB_PERSONAL_ACCESS_TOKEN secret (write access to contents and pull requests). On OpenHands Cloud and Enterprise your GitHub sign-in token is used when that secret is not set; on a local Agent Canvas, add the secret."
       }
     },
     "features": [
@@ -78,7 +78,7 @@
       }
     },
     "bundle": {
-      "version": "1.0.0",
+      "version": "1.0.1",
       "entrypoint": "python3 main.py",
       "timeout": 900,
       "files": {

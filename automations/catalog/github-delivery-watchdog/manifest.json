@@ -1,6 +1,6 @@
 {
   "id": "github-delivery-watchdog",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "name": "GitHub delivery watchdog",
   "category": "Project management",
   "description": "Periodically check pull requests and merge only current heads with independent review, tests, and passing CI.",
@@ -46,7 +46,7 @@
         "githubTokenSecret": {
           "type": "text",
           "label": "GitHub token secret",
-          "help": "Name of a saved Agent Server secret. Enter its name, not its value.",
+          "help": "Name of a saved Agent Server secret. Enter its name, not its value. On OpenHands Cloud and Enterprise, leave the default when GitHub is connected: if this secret is not set, the token from your GitHub sign-in or Settings > Integrations is used. On a local Agent Canvas this secret is required.",
           "default": "GITHUB_PERSONAL_ACCESS_TOKEN",
           "required": true
         },

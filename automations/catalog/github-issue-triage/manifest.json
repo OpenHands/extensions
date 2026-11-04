@@ -1,6 +1,6 @@
 {
   "id": "github-issue-triage",
-  "version": "1.3.4",
+  "version": "1.3.5",
   "name": "GitHub issue triage",
   "category": "Project management",
   "description": "Prioritize open issues and establish acceptance criteria before marking them ready for development.",
@@ -47,7 +47,7 @@
         "githubTokenSecret": {
           "type": "text",
           "label": "GitHub token secret",
-          "help": "Name of a saved secret allowed by the selected agent profile. Enter its name, not its value.",
+          "help": "Name of a saved secret allowed by the selected agent profile. Enter its name, not its value. On OpenHands Cloud and Enterprise, leave the default when GitHub is connected: if this secret is not set, the token from your GitHub sign-in or Settings > Integrations is used. On a local Agent Canvas this secret is required.",
           "default": "GITHUB_PERSONAL_ACCESS_TOKEN",
           "required": true
         }
