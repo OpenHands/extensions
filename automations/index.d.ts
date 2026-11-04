@@ -87,7 +87,11 @@ export type AutomationFieldType =
   | "event-type"
   | "plugin-sources"
   | "tarball-upload";
-export type AutomationGitProvider = "github" | "gitlab" | "bitbucket";
+export type AutomationGitProvider =
+  | "github"
+  | "gitlab"
+  | "bitbucket"
+  | "bitbucket_data_center";
 export type AutomationTriggerKind = "cron" | "event";
 
 export interface AutomationFieldOption {

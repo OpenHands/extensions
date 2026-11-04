@@ -450,7 +450,7 @@
           "type": ["string", "number", "boolean", "null"]
         },
         "required": { "type": "boolean" },
-        "provider": { "enum": ["github", "gitlab", "bitbucket"] },
+        "provider": { "enum": ["github", "gitlab", "bitbucket", "bitbucket_data_center"] },
         "multiple": {
           "description": "repo-picker only. The field collects several repositories rather than one, and its value is a list. A whole-value placeholder resolves to that list, so a payload can state `\"repos\": \"{{form.repositories}}\"` and get an array.",
           "const": true

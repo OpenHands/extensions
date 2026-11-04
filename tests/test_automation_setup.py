@@ -688,6 +688,26 @@ def test_schema_allows_event_filter_on_script_bundle() -> None:
     assert list(VALIDATOR.iter_errors(entry)) == []
 
 
+@pytest.mark.parametrize(
+    "provider", ["github", "gitlab", "bitbucket", "bitbucket_data_center"]
+)
+def test_schema_allows_a_repo_picker_for_every_git_provider(provider: str) -> None:
+    """A repository picker names the provider whose repositories it lists; a
+    self-hosted Bitbucket Data Center instance is one of them."""
+    entry = deepcopy(_load(CATALOG_DIR / "github-pr-reviewer" / "manifest.json"))
+    entry["setup"]["form"]["args"]["repositories"]["provider"] = provider
+
+    assert list(VALIDATOR.iter_errors(entry)) == []
+
+
+def test_schema_rejects_an_unknown_repo_picker_provider() -> None:
+    entry = deepcopy(_load(CATALOG_DIR / "github-pr-reviewer" / "manifest.json"))
+    entry["setup"]["form"]["args"]["repositories"]["provider"] = "sourcehut"
+
+    errors = list(VALIDATOR.iter_errors(entry))
+    assert any("sourcehut" in error.message for error in errors), errors
+
+
 def test_schema_rejects_content_a_setup_block_must_never_carry() -> None:
     """The format constraints are the trust boundary, so they are asserted here.
 
