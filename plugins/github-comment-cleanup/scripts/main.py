@@ -70,7 +70,7 @@ READABLE_STATE_VERSIONS = {1, 2}
 KV_CHUNK_BYTES = 48_000
 MAX_RUN_HISTORY = 20
 # A conversation still going after this long is abandoned so the repository is not parked forever.
-MAX_PENDING_SECONDS = 3 * 24 * 3600
+MAX_PENDING_SECONDS = 3600
 TERMINAL_STATUSES = {"idle", "finished", "error", "stuck"}
 RESULT_MARKER = "CLEANUP_RESULT:"
 PR_TITLE = "Clean up redundant code comments"
