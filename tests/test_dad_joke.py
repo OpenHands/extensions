@@ -1,11 +1,11 @@
 """Unit tests for the dad-joke automation script.
 
-The focus is what the script decides on its own: which suggestions it will joke
-about, when it declines to do any work at all, what it hands the agent - plus the
-one thing this entry asserts that no other does, which is that it needs no
-credentials. The script has no feed to parse and no seen-list to maintain, so
-the surface is smaller than news-digest's; the state lifecycle and the
-credential-free contract are what is worth pinning.
+The script is stateless: each run starts a fresh conversation and writes a
+fresh set of jokes, with today's date put in the prompt as a seed for variety.
+What's tested here is what the script decides on its own - which suggestions it
+will joke about, what it hands the agent, how it waits for the conversation, and
+the one thing this entry asserts that no other does, which is that it needs no
+credentials.
 """
 
 import importlib.util
@@ -24,7 +24,7 @@ MANIFEST_PATH = ROOT / "automations" / "catalog" / "dad-joke" / "manifest.json"
 def main(monkeypatch, tmp_path):
     # The real layout: WORKSPACE_BASE is .../workspaces/automation-runs/<run>,
     # and the state directory is two levels up from it. Reproducing it here
-    # keeps each test's state document inside its own tmp_path.
+    # keeps each test's workspace inside its own tmp_path.
     monkeypatch.setenv(
         "WORKSPACE_BASE", str(tmp_path / "workspaces" / "automation-runs" / "run-1")
     )
@@ -41,147 +41,100 @@ def manifest():
     return json.loads(MANIFEST_PATH.read_text())
 
 
-# ── One unit of work is one UTC day ───────────────────────────────────────────
+# ── The date seed ─────────────────────────────────────────────────────────────
 
 
-def test_the_period_is_the_utc_date(main):
-    """A cron that fires more often, a retried run, or a restarted service all
-    resolve to the same key, so the joke set is written once."""
-    assert main._current_period() == time.strftime("%Y-%m-%d", time.gmtime())
-    assert main._task_key("2026-08-20") == "jokes:2026-08-20"
-
-
-# ── State stays inside the KV store's limit ───────────────────────────────────
-
-
-def test_task_history_is_pruned_to_the_cap(main):
-    tasks = {f"jokes:2026-01-{day:02d}": {"status": "completed"} for day in range(1, 26)}
-
-    main._prune_tasks(tasks)
-
-    assert len(tasks) == main.MAX_TASKS
-    assert "jokes:2026-01-25" in tasks
-    assert "jokes:2026-01-01" not in tasks
-
-
-@pytest.mark.parametrize(
-    "rec",
-    [
-        {"status": "active"},
-        {"status": "starting"},
-        {"status": "completed", "workspace_dir": "/somewhere"},
-    ],
-)
-def test_pruning_never_drops_a_record_something_still_depends_on(main, rec):
-    """The record is the only thing that knows a conversation is running or a
-    directory is waiting to be removed."""
-    tasks = {f"jokes:2026-01-{day:02d}": {"status": "completed"} for day in range(1, 26)}
-    tasks["jokes:2020-01-01"] = rec
-
-    main._prune_tasks(tasks)
-
-    assert "jokes:2020-01-01" in tasks
+def test_the_date_seed_is_the_utc_date(main):
+    """The date in the prompt is today's UTC date - a seed for variety, not a
+    unit of work keyed on it."""
+    assert main._today() == time.strftime("%Y-%m-%d", time.gmtime())
 
 
 # ── Finalising a conversation ─────────────────────────────────────────────────
 
 
-def test_a_completed_day_stores_the_jokes_in_one_slot(main, monkeypatch):
-    """One record a day, each holding a joke set, would overrun the value limit
-    inside a fortnight."""
+def test_a_finished_conversation_returns_its_jokes(main, monkeypatch):
     monkeypatch.setattr(main, "conversation_status", lambda *a: "finished")
-    monkeypatch.setattr(main, "conversation_final_response", lambda *a: "Why did the computer sneeze? It had a virus.")
-    monkeypatch.setattr(main, "_release_workspace", lambda *a: True)
-    state: dict = {}
-    rec = {
-        "period": "2026-08-20",
-        "conversation_id": "c1",
-        "last_activity": 0.0,
-    }
+    monkeypatch.setattr(
+        main, "conversation_final_response", lambda *a: "Why did the computer sneeze? It had a virus."
+    )
+    monkeypatch.setattr(main, "_release_workspace", lambda *a: None)
+    monkeypatch.setattr(main, "create_conversation", lambda *a, **k: "c1")
+    monkeypatch.setattr(main, "_wait_for_conversation", lambda *a: "finished")
 
-    main._finalize_task(rec, state, "http://agent", "key", "http://oh")
+    conv_id = main.main()
 
-    assert rec["status"] == "completed"
-    assert state["last_jokes"]["text"] == "Why did the computer sneeze? It had a virus."
-    assert state["last_jokes"]["period"] == "2026-08-20"
+    assert conv_id == "c1"
 
 
-@pytest.mark.parametrize("status", ["error", "stuck"])
-def test_a_failed_conversation_is_recorded_as_failed(main, monkeypatch, status):
-    monkeypatch.setattr(main, "conversation_status", lambda *a: status)
-    monkeypatch.setattr(main, "_release_workspace", lambda *a: True)
-    state: dict = {}
-    rec = {"period": "2026-08-20", "conversation_id": "c1", "last_activity": 0.0}
+@pytest.mark.parametrize("status", ["error", "stuck", "timeout"])
+def test_a_failed_conversation_raises(main, monkeypatch, status):
+    monkeypatch.setattr(main, "get_secret", lambda name: "")
+    monkeypatch.setattr(main, "create_conversation", lambda *a, **k: "c1")
+    monkeypatch.setattr(main, "_wait_for_conversation", lambda *a: status)
+    monkeypatch.setattr(main, "_release_workspace", lambda *a: None)
 
-    main._finalize_task(rec, state, "http://agent", "key", "http://oh")
-
-    assert rec["status"] == "failed"
-    assert "last_jokes" not in state
+    with pytest.raises(RuntimeError, match=status):
+        main.main()
 
 
-def test_a_conversation_that_wrote_nothing_is_empty(main, monkeypatch):
-    monkeypatch.setattr(main, "conversation_status", lambda *a: "finished")
+def test_a_conversation_that_wrote_nothing_raises(main, monkeypatch):
+    monkeypatch.setattr(main, "get_secret", lambda name: "")
+    monkeypatch.setattr(main, "create_conversation", lambda *a, **k: "c1")
+    monkeypatch.setattr(main, "_wait_for_conversation", lambda *a: "finished")
     monkeypatch.setattr(main, "conversation_final_response", lambda *a: "   ")
-    monkeypatch.setattr(main, "_release_workspace", lambda *a: True)
-    state: dict = {}
-    rec = {"period": "2026-08-20", "conversation_id": "c1", "last_activity": 0.0}
+    monkeypatch.setattr(main, "_release_workspace", lambda *a: None)
 
-    main._finalize_task(rec, state, "http://agent", "key", "http://oh")
-
-    assert rec["status"] == "empty"
-    assert "last_jokes" not in state
+    with pytest.raises(RuntimeError, match="wrote no jokes"):
+        main.main()
 
 
-def test_the_jokes_file_beats_the_final_message(main, monkeypatch, tmp_path):
+def test_the_jokes_file_is_preferred_over_the_final_message(main, monkeypatch, tmp_path):
     """A file is what the agent was asked for and the message is the copy of it;
     when they differ, the file is the one that was edited last."""
     workspace = tmp_path / "ws"
     workspace.mkdir()
     (workspace / main.JOKES_FILENAME).write_text("FromFile: a pun written down.")
-    monkeypatch.setattr(main, "conversation_status", lambda *a: "finished")
-    monkeypatch.setattr(main, "conversation_final_response", lambda *a: "FromMessage: a pun typed at the end.")
-    monkeypatch.setattr(main, "_release_workspace", lambda *a: True)
-    state: dict = {}
-    rec = {
-        "period": "2026-08-20",
-        "conversation_id": "c1",
-        "workspace_dir": str(workspace),
-        "last_activity": 0.0,
-    }
+    monkeypatch.setattr(main, "get_secret", lambda name: "")
+    monkeypatch.setattr(main, "_prepare_workspace", lambda: workspace)
+    monkeypatch.setattr(main, "create_conversation", lambda *a, **k: "c1")
+    monkeypatch.setattr(main, "_wait_for_conversation", lambda *a: "finished")
+    monkeypatch.setattr(
+        main, "conversation_final_response", lambda *a: "FromMessage: a pun typed at the end."
+    )
+    printed = []
+    monkeypatch.setattr(main, "_release_workspace", lambda w: printed.append("released") or None)
+    # Capture the jokes that get printed by main()
+    import io
+    import contextlib
+    buf = io.StringIO()
+    with contextlib.redirect_stdout(buf):
+        main.main()
+    output = buf.getvalue()
 
-    main._finalize_task(rec, state, "http://agent", "key", "http://oh")
-
-    assert state["last_jokes"]["text"] == "FromFile: a pun written down."
+    assert "FromFile: a pun written down." in output
+    assert "FromMessage" not in output
 
 
 # ── The run ───────────────────────────────────────────────────────────────────
-
-
-def test_a_finished_day_does_not_start_another_conversation(main, monkeypatch):
-    """An extra run inside a day that is already handled costs one state read."""
-    monkeypatch.setattr(main, "get_secret", lambda name: "")
-    started = []
-    monkeypatch.setattr(main, "_start_task", lambda *a, **k: started.append(1))
-
-    main.save_state(
-        {"version": 1, "tasks": {main._task_key(main._current_period()): {"status": "completed"}}}
-    )
-
-    main.main()
-
-    assert started == []
 
 
 def test_a_run_with_suggestions_starts_a_conversation(main, monkeypatch):
     monkeypatch.setattr(main, "get_secret", lambda name: "")
     started = []
     monkeypatch.setattr(
-        main, "_start_task", lambda *a, **k: started.append(a[3]) or "c1"
+        main, "create_conversation", lambda *a, **k: started.append(a[2]) or "c1"
     )
+    monkeypatch.setattr(main, "_wait_for_conversation", lambda *a: "finished")
+    monkeypatch.setattr(main, "conversation_final_response", lambda *a: "a joke")
+    monkeypatch.setattr(main, "_release_workspace", lambda *a: None)
 
     main.main()
 
-    assert started == [main.SUGGESTIONS]
+    # The prompt (arg index 2) carries the suggestions.
+    assert len(started) == 1
+    assert "computers" in started[0]
+    assert "coffee" in started[0]
 
 
 def test_a_run_with_no_suggestions_fails(main, monkeypatch):
@@ -190,6 +143,23 @@ def test_a_run_with_no_suggestions_fails(main, monkeypatch):
 
     with pytest.raises(SystemExit, match="No suggestions"):
         main.main()
+
+
+# ── Polling ───────────────────────────────────────────────────────────────────
+
+
+def test_polling_returns_terminal_status(main, monkeypatch):
+    monkeypatch.setattr(main, "conversation_status", lambda *a: "finished")
+
+    assert main._wait_for_conversation("http://agent", "key", "c1") == "finished"
+
+
+def test_polling_times_out(main, monkeypatch):
+    monkeypatch.setattr(main, "conversation_status", lambda *a: "running")
+    monkeypatch.setattr(main, "POLL_TIMEOUT", 0)
+    monkeypatch.setattr(main, "POLL_INTERVAL", 0)
+
+    assert main._wait_for_conversation("http://agent", "key", "c1") == "timeout"
 
 
 # ── The prompt, and the credentials it does not have ──────────────────────────
@@ -209,6 +179,13 @@ def test_the_prompt_asks_for_one_joke_when_count_is_one(main):
 
     assert "1 dad joke" in prompt
     assert "1 dad jokes" not in prompt
+
+
+def test_the_prompt_uses_the_date_as_a_seed_not_a_topic(main):
+    """The date nudges variety without being a hard constraint."""
+    flowed = " ".join(main._build_jokes_prompt("2026-08-20", ["computers"], 3).split())
+
+    assert "The date above is a seed for variety" in flowed
 
 
 def test_the_prompt_treats_suggestions_as_data_not_instructions(main):

@@ -25,11 +25,11 @@ This skill is activated by:
   and writes a few dad jokes about each
 - Starts no conversation at all when no suggestions are configured, so an empty
   configuration costs no tokens
-- Runs daily by default, keyed by UTC date, so a retried or duplicated run
-  cannot write the same joke set twice
+- Stateless: each run writes a fresh joke set, with today's date put in the
+  prompt as a seed for variety. There is no cross-run state document or KV
+  store to configure
 - Writes its own jokes rather than quoting a joke site, and treats a suggestion
   that reads like an instruction as data, not a request
-- Keeps its own state small enough for the KV store's 64 KB limit, indefinitely
 
 ## What the agent is asked to do
 
@@ -37,7 +37,8 @@ Read the suggestions the script put in the prompt and write a few dad jokes
 about each one - a short setup and a punny punchline, one line per joke. It is
 told to work in a pun on the suggestion's name or meaning, to keep each joke
 family-friendly, and to treat the suggestions as the owner's words rather than
-as instructions.
+as instructions. Today's date is in the opening line as a seed for variety, not
+as a topic.
 
 ## Prerequisites
 
@@ -53,15 +54,12 @@ Ask OpenHands:
 ## Where the jokes go
 
 Nowhere that needs a credential, which is the trade: they stay in the run's
-conversation, they are printed into the run log, and their opening is kept in
-state so the next run's log can show what the last one said. Posting them to
-Slack, Notion or a repository is a different automation, built from the skill
-for that integration.
+conversation and are printed into the run log. Posting them to Slack, Notion or
+a repository is a different automation, built from the skill for that
+integration.
 
 ## See Also
 
 - [SKILL.md](SKILL.md) - Full setup workflow reference
-- [references/state-schema.md](references/state-schema.md) - State document and
-  task lifecycle
 - [../news-digest/SKILL.md](../news-digest/SKILL.md) - A sibling automation
   that reads feeds and writes a digest the same way

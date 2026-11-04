@@ -22,11 +22,16 @@ exercises the schedule, the conversation, the model and the run log end to end
 while nothing of yours is at stake, and it is mildly amusing in its own right
 afterwards.
 
-The script is deterministic: the schedule, the once-a-day claim, and remembering
-what has already been written are all Python. The LLM is invoked only for the
-part that is judgement - reading the suggestions and writing a pun that works.
-**When no suggestions are configured, no conversation is started at all**, so an
-empty configuration costs no tokens.
+The script is stateless: each run starts a fresh conversation and writes a
+fresh set of jokes. Today's date is put in the prompt as a seed for variety, so
+two runs on different days are less likely to produce the same jokes - but if
+they do, that is fine. A dad joke told twice is still a dad joke. There is no
+cross-run state document to maintain, no KV store to configure, and no
+once-a-day claim to release when a run dies.
+
+The LLM is invoked for the part that is judgement - reading the suggestions and
+writing a pun that works. **When no suggestions are configured, no conversation
+is started at all**, so an empty configuration costs no tokens.
 
 ---
 
@@ -77,8 +82,8 @@ day at 09:00 UTC, `0 9 * * *`.)"*
 Default: `0 9 * * *`. Record as `CRON_SCHEDULE`, and the timezone as
 `CRON_TIMEZONE` (default `UTC`).
 
-A schedule more frequent than daily is allowed and is not wasteful: work is
-keyed by UTC date, so extra runs stop at a state read once the day is done.
+A schedule more frequent than daily is fine - each run produces its own joke
+set, and there is no state to double-write.
 
 ### Step 3 - Confirm the secret scope
 
@@ -130,11 +135,6 @@ Set `OPENHANDS_HOST` and `AUTH_HEADER` for the commands below:
   `<RUNTIME_SERVICES>` block of your system context: use its `url_from_agent` as
   `OPENHANDS_HOST`, with `AUTH_HEADER="X-Session-API-Key: $OPENHANDS_AUTOMATION_API_KEY"`
 
-On OpenHands Cloud or Enterprise each run starts in a fresh sandbox, so the
-automation keeps its state in the KV store: check that `kvStore` is listed under
-`features` in `GET ${OPENHANDS_HOST}/api/automation/v1/capabilities` before
-deploying.
-
 ```bash
 tar -czf /tmp/dad-joke.tar.gz -C /tmp/dad-joke-build .
 
@@ -175,12 +175,10 @@ Tell the user:
 > - Suggestions: `{suggestions}` (one line each)
 > - Schedule: `{cron_schedule}` ({cron_timezone})
 > - Credentials used: **none**
-> - State file: `~/.openhands/workspaces/automation-state/dad_joke_{id}.json`
 >
 > Each day the agent writes a few dad jokes about each suggestion and the run
 > log carries them. A day with no suggestions configured produces nothing and
-> costs nothing - but the day still gets claimed, so clear the state entry if
-> you want to re-run it after changing the suggestions.
+> costs nothing.
 
 Then offer to dispatch it once so they can read today's jokes immediately:
 
@@ -193,36 +191,33 @@ curl -s -X POST "${OPENHANDS_HOST}/api/automation/v1/{id}/dispatch" \
 
 ## Runtime Behaviour (per run)
 
-Each cron run executes `main.py`, which loads `config.json` if the catalog
-shipped one and then:
+Each cron run executes `main.py`, which:
 
-1. Loads state (the automation service's KV store, or a local JSON file when
-   the store is unavailable).
-2. Computes today's UTC date and **stops immediately if it is already
-   recorded** - no conversation is started, so an extra run inside a finished
-   day costs one state read.
-3. Otherwise claims the day in state *before* the slow work, so an overlapping
-   run cannot write the jokes twice, then starts an OpenHands conversation
-   with the suggestions **and the per-suggestion count** in its prompt, an
-   empty secrets payload and no MCP servers, working in
-   `{WORKSPACE_BASE}/dad-joke/{date}`. The agent writes one dad joke per
-   suggestion per count, as a single line each.
-   On OpenHands Cloud and Enterprise the conversation is started through
-   the OpenHands API instead, in a sandbox of its own and with the user's own
-   settings, so there it does hold the user's secrets and MCP servers.
-4. When the conversation reaches `idle`, `finished`, `error` or `stuck`:
-   - reads `jokes.md` from the working directory, falling back to the agent's
-     final message;
-   - prints the jokes into the run log and keeps their opening in state;
-   - removes the working directory once the conversation is confirmed stopped.
-5. Prunes the task history to the last 14 days, both so the state document
-   stays inside the KV store's 64 KB value limit.
+1. Reads the suggestions from the constants (or from `config.json` if the
+   catalog shipped one). If the list is empty, the run fails with a clear error
+   rather than asking the agent to invent the subject as well as the punchline.
+2. Puts today's UTC date in the prompt as a seed for variety - not a topic, just
+   something for the model to riff on differently each day.
+3. Starts an OpenHands conversation with the suggestions and the
+   per-suggestion count in its prompt, an empty secrets payload and no MCP
+   servers, working in `{WORKSPACE_BASE}/dad-joke/run-{pid}`. On OpenHands
+   Cloud and Enterprise the conversation is started through the OpenHands API
+   instead, in a sandbox of its own and with the user's own settings, so there
+   it does hold the user's secrets and MCP servers.
+4. Polls the conversation until it reaches a terminal status (`idle`,
+   `finished`, `error`, or `stuck`), with a 30-minute cap so a stuck run does
+   not hang the automation service.
+5. Reads `jokes.md` from the working directory, falling back to the agent's
+   final message; prints the jokes into the run log; and removes the working
+   directory.
+
+There is no state document, no KV store, and no once-a-day claim. A retried or
+duplicated run simply writes a second joke set - which is fine for a dad joke.
 
 ---
 
 ## Additional Resources
 
-- **`references/state-schema.md`** - State JSON schema and the task lifecycle.
 - **`scripts/main.py`** - The complete automation script.
 
 ---
@@ -231,8 +226,8 @@ shipped one and then:
 
 | Symptom | Likely cause | Fix |
 |---|---|---|
-| Every run says "already handled" | Today is already in state | Clear today's entry from the state document, or wait for tomorrow |
 | The jokes ignore a suggestion | The suggestion is too vague to pun on | Make it more specific - `computers` puns; `things` does not |
 | The jokes are not funny | Dad jokes are not funny | That is the point; adjust `JOKES_PER_SUGGESTION` up if you want more chances |
-| Nothing happens after a manual dispatch | Today is already recorded in state | Read the previous run's log for the jokes, or clear today's entry from the state document |
 | A day was missed entirely | The run failed, or the service was down | The next run writes that day's jokes on its next tick; missed days are not backfilled |
+| The run hangs | The conversation never reached a terminal status | The 30-minute poll cap abandons it; check the conversation in the Canvas for what went wrong |
+
