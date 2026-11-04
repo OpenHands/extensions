@@ -60,3 +60,23 @@ def test_refactoring_advisor_references_exist():
         "README.md",
     ):
         assert (SKILL_DIR / relative_path).is_file(), relative_path
+
+
+def test_refactoring_advisor_keyword_triggers_are_advisory_only():
+    """`triggers:` is the keyword-activation surface, so assert it directly.
+
+    The earlier coverage built its `searchable` string from the description,
+    body, and references only, so an edit that dropped or garbled the
+    `triggers:` list kept every test green while silently disabling activation.
+    """
+    metadata, _ = _frontmatter_and_body(SKILL_PATH)
+    triggers = [str(trigger).lower() for trigger in metadata.get("triggers", [])]
+
+    # Advisory phrasings owned by this skill.
+    for phrase in ("refactoring plan", "code smells", "technical debt", "god class"):
+        assert phrase in triggers, f"missing advisory trigger: {phrase}"
+
+    # This skill must not modify code, so a bare action verb would fire on an
+    # ordinary refactoring request and then forbid what the user asked for.
+    for phrase in ("refactor", "simplify", "extract method", "reduce complexity"):
+        assert phrase not in triggers, f"action-verb trigger must stay removed: {phrase}"

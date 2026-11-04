@@ -2,17 +2,14 @@
 name: refactoring-advisor
 description: Analyze a codebase to identify structural problems and propose concrete refactoring plans using design patterns, dependency injection, and established refactoring techniques. This skill should be used when the user asks to "refactor", find "code smells" or "technical debt", "extract method", "reduce complexity", "clean up this codebase", simplify complex code, break up a "god class", reduce coupling or duplication, resolve circular dependencies, introduce dependency injection, improve testability, or create a refactoring plan for a function, class, module, package, or repository. Produce analysis and proposals only, without writing implementation code.
 triggers:
-  - refactor
+  - refactoring plan
   - code smells
   - technical debt
   - god class
   - spaghetti code
   - too coupled
   - hard to test
-  - simplify
   - dependency injection
-  - extract method
-  - reduce complexity
   - clean up this codebase
 ---
 
