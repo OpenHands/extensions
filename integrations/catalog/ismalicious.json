@@ -1,0 +1,50 @@
+{
+  "id": "ismalicious",
+  "name": "IsMalicious",
+  "description": "Threat intelligence for IPs, domains, URLs, hashes and CVEs, with optional prompt-injection and link-reputation checks. API account and quotas apply.",
+  "docsUrl": "https://ismalicious.com/mcp",
+  "keywords": [
+    "security",
+    "threat-intelligence",
+    "ioc",
+    "cve",
+    "prompt-injection"
+  ],
+  "connectionOptions": [
+    {
+      "id": "api",
+      "provider": "mcp",
+      "transport": {
+        "kind": "stdio",
+        "serverName": "ismalicious",
+        "command": "npx",
+        "args": [
+          "-y",
+          "@ismalicious/mcp-server@0.3.0"
+        ],
+        "envFields": [
+          {
+            "key": "ISMALICIOUS_API_KEY",
+            "label": "IsMalicious API key",
+            "type": "password",
+            "required": true,
+            "helperText": "API key from your IsMalicious account.",
+            "helperLink": "https://ismalicious.com/app/account"
+          },
+          {
+            "key": "ISMALICIOUS_API_SECRET",
+            "label": "IsMalicious API secret",
+            "type": "password",
+            "required": true,
+            "helperText": "Matching API secret from your IsMalicious account. Keep it private.",
+            "helperLink": "https://ismalicious.com/app/account"
+          }
+        ]
+      },
+      "auth": {
+        "strategy": "api_key"
+      }
+    }
+  ],
+  "notes": "Content passed to scan_before_use and check_url leaves the sandbox and is sent to the IsMalicious API. This can include repository text or fetched pages. Only pass content you are permitted to share with this external service."
+}
