@@ -1,0 +1,70 @@
+{
+  "id": "dad-joke",
+  "name": "Daily dad jokes",
+  "category": "Research",
+  "icon": "sparkles",
+  "description": "Take a list of suggestions and have an agent write a few dad jokes about each one on a schedule - daily by default. Connects to nothing and needs no credentials: the suggestions are the only input, and the jokes are the agent's own.",
+  "requires": {
+    "integrations": {},
+    "features": [
+      "customTarball"
+    ]
+  },
+  "popularityRank": 70,
+  "estimatedSetupMinutes": 2,
+  "exampleImplementation": "Trigger: cron, daily by default (0 9 * * *)\nRequired secret: none. The suggestions are the owner's words and, on a local Agent Canvas, the conversation is started with an empty secret allow-list and no MCP servers. On OpenHands Cloud and Enterprise it is started from the automation's agent profile, or with the user's own settings when none is selected.\n\n1. Read the suggestion list and the schedule from setup.\n2. Key one unit of work to the UTC date, so a cron that fires more often, a retried run, or a restarted service cannot write the same joke set twice.\n3. Start no conversation at all when no suggestions are configured, and leave the day open for a later run after the owner adds some. An empty configuration costs no tokens.\n4. Otherwise claim the day in state before the slow work, so an overlapping run cannot write the jokes twice, then start an OpenHands conversation with the suggestions and the per-suggestion count in the prompt, an empty secrets payload and no MCP servers, working in {WORKSPACE_BASE}/dad-joke/{date}. The agent writes the jokes itself - it is told not to quote a comedian, a joke site, or a film.\n5. Deliver the jokes three ways that need no credentials: they stay in the conversation, they are printed into the run log, and their opening is kept in state.\n6. Prune the task history to the last 14 days so the state document stays inside the KV store's 64 KB value limit.",
+  "impact": {
+    "basis": "completed-runs",
+    "one": "1 joke set written",
+    "other": "{{count}} joke sets written"
+  },
+  "setup": {
+    "version": "1.0",
+    "mode": "direct",
+    "form": {
+      "triggers": {
+        "cron": {
+          "schedule": {
+            "type": "cron",
+            "label": "Joke time",
+            "help": "When the jokes are written. Work is keyed by UTC date, so a schedule more frequent than daily only polls until the day is done.",
+            "default": "0 9 * * *",
+            "required": true
+          },
+          "timezone": {
+            "type": "timezone",
+            "label": "Timezone",
+            "help": "Timezone the schedule is interpreted in.",
+            "default": "UTC",
+            "required": true
+          }
+        }
+      },
+      "args": {
+        "suggestions": {
+          "type": "textarea",
+          "label": "Suggestions",
+          "help": "One suggestion per line, or separated by commas. The agent writes a few dad jokes about each one, so write the topic - `computers`, `coffee`, `Monday mornings` - rather than the punchline. A suggestion that reads like an instruction is treated as a topic to joke about, not a request to follow.",
+          "default": "computers\ncoffee\nMonday mornings",
+          "required": true,
+          "constraints": {
+            "minLength": 2,
+            "maxLength": 4000
+          }
+        }
+      }
+    },
+    "bundle": {
+      "version": "1.0.0",
+      "entrypoint": "python3 main.py",
+      "timeout": 600,
+      "files": {
+        "main.py": "skills/dad-joke/scripts/main.py"
+      },
+      "config": {
+        "suggestions": "{{form.suggestions}}"
+      }
+    },
+    "message": "This deployment cannot run the scheduled dad-joke automation directly. Set it up in this conversation instead: confirm the suggestions to joke about and the schedule, then create the automation."
+  }
+}
