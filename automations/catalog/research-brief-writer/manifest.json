@@ -3,6 +3,7 @@
   "name": "Research brief writer",
   "category": "Research",
   "description": "Monitor a topic, gather sources from the web, and publish a short brief for your team.",
+  "diagram": "flowchart TD\n  A([\"Scheduled\"]) --> B[\"Search the web for the topic\"]\n  B --> C[\"Agent writes a brief with sources\"]\n  C --> D[\"Brief published to Notion\"]",
   "requires": {
     "integrations": {
       "tavily": {

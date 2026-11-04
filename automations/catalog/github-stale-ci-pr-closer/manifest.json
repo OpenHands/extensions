@@ -4,6 +4,7 @@
   "name": "GitHub stale CI cleanup",
   "category": "Code review",
   "description": "Warn and close abandoned pull requests whose required CI remains failing.",
+  "diagram": "flowchart TD\n  A([\"Scheduled scan\"]) --> B[\"PRs failing required CI 7 days\"]\n  B --> C[\"Post one warning\"]\n  C --> D{{\"7 more days, no reply?\"}}\n  D -->|yes| E[\"Close the PR\"]\n  D -.->|\"no, keep open\"| A",
   "requires": {
     "integrations": {},
     "features": [

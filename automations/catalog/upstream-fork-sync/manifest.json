@@ -3,6 +3,7 @@
   "name": "Upstream fork sync",
   "category": "Developer tools",
   "description": "Keep a long-lived fork current with its upstream by re-running a nightly job that fetches upstream changes, rebases local customizations on top, verifies the software still works, and replaces the running version when it does.",
+  "diagram": "flowchart TD\n  A([\"Nightly\"]) --> B[\"Fetch upstream, rebase local changes\"]\n  B --> C{{\"Software still works?\"}}\n  C -->|yes| D[\"Replace the running version\"]\n  C -->|no| E[\"Keep it, report what failed\"]",
   "requires": {
     "integrations": {
       "github": {

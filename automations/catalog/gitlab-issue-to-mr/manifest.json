@@ -3,6 +3,7 @@
   "name": "GitLab issue to MR",
   "category": "Software development",
   "description": "Watch for a configurable label on GitLab issues, implement the issue in a clone of the default branch, and open a merge request for each label event.",
+  "diagram": "flowchart TD\n  A([\"Scheduled scan\"]) --> B[\"Issues with the trigger label\"]\n  B --> C[\"Agent implements on a new branch\"]\n  C --> D[\"Merge request opened\"]",
   "requires": {
     "integrations": {
       "gitlab": {

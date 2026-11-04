@@ -3,6 +3,7 @@
   "name": "Bitbucket Data Center code review",
   "category": "Code review",
   "description": "Review each pull request opened or updated in a Bitbucket Data Center repository and post the findings as pull request comments. Runs on the Bitbucket Data Center integration built into OpenHands Enterprise.",
+  "diagram": "flowchart TD\n  A([\"PR opened or updated\"]) --> B[\"Clone the PR head\"]\n  B --> C[\"Agent reviews the changes\"]\n  C --> D[\"Findings posted as PR comments\"]",
   "requires": {
     "integrations": {},
     "features": [
