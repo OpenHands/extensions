@@ -1,0 +1,20 @@
+{
+  "name": "refactoring-advisor",
+  "version": "1.0.0",
+  "description": "Analyze codebases for structural problems and produce concrete, prioritized refactoring plans without implementing changes.",
+  "author": {
+    "name": "OpenHands",
+    "email": "contact@all-hands.dev"
+  },
+  "homepage": "https://github.com/OpenHands/extensions",
+  "repository": "https://github.com/OpenHands/extensions",
+  "license": "MIT",
+  "keywords": [
+    "refactoring",
+    "architecture",
+    "code-smells",
+    "technical-debt",
+    "dependency-injection",
+    "testability"
+  ]
+}
