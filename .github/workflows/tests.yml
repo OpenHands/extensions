@@ -3,7 +3,7 @@ name: Tests
 # NOTE: pull_request (not pull_request_target) so checks run against the PR head.
 on:
   pull_request:
-    branches: ["*"]
+    branches: ["**"]
   push:
     branches: ["main", "master"]
 
@@ -22,7 +22,7 @@ jobs:
           set -euo pipefail
           artifacts="$(git ls-tree -r --name-only HEAD -- .pr)"
           if [ -n "$artifacts" ]; then
-            echo "::error::Release PR contains temporary .pr artifacts. Merge the cleanup PR and let release-please update this PR before merging."
+            echo "::error::Release PR contains temporary .pr artifacts. Refresh the release PR (rerun the latest release workflow on its target branch) so release-please removes them, then let this check rerun before merging."
             printf '%s\n' "$artifacts"
             exit 1
           fi
