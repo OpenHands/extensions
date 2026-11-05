@@ -150,10 +150,32 @@ DEFAULT_OPENHANDS_URL = _CONFIG.get("openhands_url", DEFAULT_OPENHANDS_URL)
 TERMINAL_STATUSES = {"idle", "finished", "error", "stuck"}
 
 
-# A local Agent Canvas run is handed the Agent Server URL. A run on OpenHands
-# Cloud or Enterprise is handed the OpenHands API instead.
-_CLOUD_API_URL = os.environ.get("OPENHANDS_CLOUD_API_URL", "").rstrip("/")
-IS_CLOUD = bool(_CLOUD_API_URL) and not os.environ.get("AGENT_SERVER_URL")
+def _discover_cloud_api_url() -> str:
+    """The OpenHands API host this deployment serves, or "" when there is none.
+
+    The explicit cloud variable is authorative where it is set. In every other
+    deployment the runtime is handed the webhook base URL, and its origin is
+    the API host, so that is the fallback. The local agent server is only ever
+    a last resort: a conversation it starts gets the run's own LLM settings,
+    which hosted deployments do not expose (api_key is null), so the agent
+    cannot run at all.
+    """
+    url = os.environ.get("OPENHANDS_CLOUD_API_URL", "").strip().rstrip("/")
+    if url:
+        return url
+    webhook_base = os.environ.get("OH_WEBHOOKS_0_BASE_URL", "").strip().rstrip("/")
+    if webhook_base:
+        # e.g. https://host/api/v1/webhooks -> https://host
+        return webhook_base.split("/api/")[0]
+    return ""
+
+
+# The runtime decision: use the OpenHands API whenever a host for it can be
+# found, and fall back to the local agent server only when it cannot (the
+# cloud path needs an API key, which a bare local Canvas does not issue).
+_CLOUD_API_URL = _discover_cloud_api_url()
+IS_CLOUD = bool(_CLOUD_API_URL)
+_USE_CLOUD = IS_CLOUD
 
 
 def _get_env_key() -> str:
@@ -317,9 +339,38 @@ def _create_cloud_conversation(initial_message: str, title: str) -> str:
     return conversation_id
 
 
-def _cloud_conversation_status(conv_id: str) -> str:
+def _cloud_conversation_record(conv_id: str) -> dict | None:
     found = _cloud_request("GET", f"/api/v1/app-conversations?ids={conv_id}")
     conversation = found[0] if found else None
+    return conversation if isinstance(conversation, dict) else None
+
+
+def _cloud_conversation_events(conv_id: str, conversation: dict, query: str) -> dict:
+    """Read a conversation's stored events from its own agent server.
+
+    The OpenHands API surface does not serve events directly; each
+    conversation carries the URL of the agent server that owns them
+    (``conversation_url``) and the session key to read them with. Falling
+    back to an empty dict keeps a status read from failing a run outright.
+    """
+    events_url = (conversation.get("conversation_url") or "").rstrip("/")
+    session_key = conversation.get("session_api_key") or ""
+    if not events_url or not session_key:
+        return {}
+    try:
+        req = urllib.request.Request(
+            f"{events_url}/events/search{query}",
+            headers={"X-Session-API-Key": session_key},
+        )
+        with urllib.request.urlopen(req, timeout=30) as response:
+            return json.loads(response.read() or b"{}")
+    except Exception as exc:
+        print(f"  Warning: could not read conversation events: {exc}")
+        return {}
+
+
+def _cloud_conversation_status(conv_id: str) -> str:
+    conversation = _cloud_conversation_record(conv_id)
     if conversation is None:
         # OpenHands is still bringing the conversation up.
         return "starting"
@@ -327,9 +378,9 @@ def _cloud_conversation_status(conv_id: str) -> str:
         return conversation["execution_status"]
     # The status is only reported while the conversation's sandbox is running.
     # Once it is paused, the last status the agent reported is in its events.
-    events = _cloud_request(
-        "GET",
-        f"/api/v1/conversation/{conv_id}/events/search"
+    events = _cloud_conversation_events(
+        conv_id,
+        conversation,
         "?kind__eq=ConversationStateUpdateEvent&sort_order=TIMESTAMP_DESC&limit=100",
     )
     for event in events.get("items", []):
@@ -340,9 +391,11 @@ def _cloud_conversation_status(conv_id: str) -> str:
 
 def _cloud_conversation_final_response(conv_id: str) -> str:
     """The agent's closing message, read from the conversation's stored events."""
-    events = _cloud_request(
-        "GET",
-        f"/api/v1/conversation/{conv_id}/events/search?sort_order=TIMESTAMP_DESC&limit=100",
+    conversation = _cloud_conversation_record(conv_id)
+    if conversation is None:
+        return ""
+    events = _cloud_conversation_events(
+        conv_id, conversation, "?sort_order=TIMESTAMP_DESC&limit=100"
     )
     for event in events.get("items", []):
         if event.get("source") != "agent":
@@ -363,7 +416,18 @@ def create_conversation(
     title: str = "",
 ) -> str:
     if IS_CLOUD:
-        return _create_cloud_conversation(initial_message, title)
+        try:
+            conv_id = _create_cloud_conversation(initial_message, title)
+        except Exception as exc:
+            print(f"  OpenHands API conversation create failed: {exc}")
+            if not os.environ.get("OPENHANDS_API_KEY"):
+                # A bare local Canvas has no API key for the cloud path.
+                print("  Falling back to the local agent server")
+                _USE_CLOUD = False
+            else:
+                raise
+        else:
+            return conv_id
     payload: dict = {
         "workspace": {"working_dir": str(workspace_dir)},
         "agent": _get_agent_dict(agent_url, api_key),
@@ -379,14 +443,14 @@ def create_conversation(
 
 
 def conversation_status(agent_url: str, api_key: str, conv_id: str) -> str:
-    if IS_CLOUD:
+    if _USE_CLOUD:
         return _cloud_conversation_status(conv_id)
     result = _oh_request(agent_url, api_key, "GET", f"/api/conversations/{conv_id}")
     return result.get("execution_status", "unknown")
 
 
 def conversation_final_response(agent_url: str, api_key: str, conv_id: str) -> str:
-    if IS_CLOUD:
+    if _USE_CLOUD:
         return _cloud_conversation_final_response(conv_id)
     result = _oh_request(agent_url, api_key, "GET", f"/api/conversations/{conv_id}/agent_final_response")
     return result.get("response", "")

@@ -30,6 +30,11 @@ def main(monkeypatch, tmp_path):
     )
     monkeypatch.delenv("AUTOMATION_KV_TOKEN", raising=False)
     monkeypatch.delenv("AUTOMATION_API_URL", raising=False)
+    # The deployment detection reads these; clear them so tests exercise the
+    # local path deterministically regardless of the host running pytest.
+    monkeypatch.delenv("OPENHANDS_CLOUD_API_URL", raising=False)
+    monkeypatch.delenv("OH_WEBHOOKS_0_BASE_URL", raising=False)
+    monkeypatch.delenv("AGENT_SERVER_URL", raising=False)
     spec = importlib.util.spec_from_file_location("dad_joke_main", SCRIPT_PATH)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
@@ -39,6 +44,44 @@ def main(monkeypatch, tmp_path):
 @pytest.fixture
 def manifest():
     return json.loads(MANIFEST_PATH.read_text())
+
+
+# ── Deployment detection ──────────────────────────────────────────────────────
+
+
+def test_the_cloud_api_url_prefers_the_explicit_variable(main, monkeypatch):
+    monkeypatch.setenv("OPENHANDS_CLOUD_API_URL", "https://cloud.example")
+    monkeypatch.setenv("OH_WEBHOOKS_0_BASE_URL", "https://webhooks.example/api/v1/webhooks")
+
+    assert main._discover_cloud_api_url() == "https://cloud.example"
+
+
+def test_an_explicit_cloud_url_turns_the_run_cloud(main, monkeypatch):
+    """The module decision is frozen at import, like the other defaults."""
+    assert main.IS_CLOUD is False
+    monkeypatch.setenv("OPENHANDS_CLOUD_API_URL", "https://cloud.example")
+    monkeypatch.setenv("WORKSPACE_BASE", str(Path("/tmp")))
+    spec = importlib.util.spec_from_file_location(
+        "dad_joke_main_cloud", SCRIPT_PATH
+    )
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+
+    assert module._discover_cloud_api_url() == "https://cloud.example"
+    assert module.IS_CLOUD is True
+
+
+def test_the_cloud_api_url_falls_back_to_the_webhook_base(main, monkeypatch):
+    monkeypatch.setenv("OH_WEBHOOKS_0_BASE_URL", "https://host.example/api/v1/webhooks")
+
+    assert main._discover_cloud_api_url() == "https://host.example"
+
+
+def test_no_api_host_leaves_the_run_local(main, monkeypatch):
+    monkeypatch.delenv("OPENHANDS_CLOUD_API_URL", raising=False)
+    monkeypatch.delenv("OH_WEBHOOKS_0_BASE_URL", raising=False)
+
+    assert main._discover_cloud_api_url() == ""
 
 
 # ── The date seed ─────────────────────────────────────────────────────────────
