@@ -2,20 +2,41 @@
 
 The automation service evaluates a filter with JMESPath against the raw webhook
 payload that the instance's built-in Jira Data Center or Bitbucket Data Center
-integration forwards. These filters use only built-in JMESPath functions, so
-plain `jmespath` evaluates them the way the service does.
+integration forwards, with the built-in functions plus its own. The Jira filter
+uses only built-in functions; the Bitbucket filter also calls the service's
+`lower`, which `SERVICE_OPTIONS` reproduces (`FilterFunctions` in
+openhands/automation/filter_eval.py).
+
+`fixtures/bitbucket-data-center/pr-opened.json` keeps the shape of a pull request
+delivery recorded by a Bitbucket Data Center 9.4.19 server, with its names and
+host replaced. Its clone links spell the project key in lower case while
+`project.key` is upper case, as that server sends them.
 """
 
 import json
+from copy import deepcopy
 from pathlib import Path
 
 import jmespath
 import pytest
+from jmespath import functions
 from test_automation_setup import _context, _interpolate
 
 
 ROOT = Path(__file__).resolve().parents[1]
 CATALOG_DIR = ROOT / "automations" / "catalog"
+PR_OPENED = json.loads(
+    (ROOT / "tests" / "fixtures" / "bitbucket-data-center" / "pr-opened.json").read_text()
+)
+
+
+class _ServiceFunctions(functions.Functions):
+    @functions.signature({"types": ["string"]})
+    def _func_lower(self, subject: str) -> str:
+        return subject.lower()
+
+
+SERVICE_OPTIONS = jmespath.Options(custom_functions=_ServiceFunctions())
 
 
 def _filter(automation_id: str, form_values: dict) -> str:
@@ -84,15 +105,20 @@ def test_jira_filter_matches_each_labelling_once(payload: dict, expected: bool) 
 
 
 def _pull_request(event_key, *, draft=False, project="ENG", slug="payments"):
-    return {
-        "eventKey": event_key,
-        "pullRequest": {
-            "id": 7,
-            "draft": draft,
-            "toRef": {"repository": {"slug": slug, "project": {"key": project}}},
-            "fromRef": {"latestCommit": "0123abcd"},
-        },
-    }
+    """The recorded delivery, retargeted at another event, state or repository."""
+    payload = deepcopy(PR_OPENED)
+    payload["eventKey"] = event_key
+    pull_request = payload["pullRequest"]
+    pull_request["draft"] = draft
+    for ref in ("fromRef", "toRef"):
+        repository = pull_request[ref]["repository"]
+        repository["project"]["key"] = project
+        repository["slug"] = slug
+        repository["links"]["clone"] = [
+            {"href": f"https://bitbucket.example.com/scm/{project.lower()}/{slug}.git", "name": "http"},
+            {"href": f"ssh://git@bitbucket.example.com:7999/{project.lower()}/{slug}.git", "name": "ssh"},
+        ]
+    return payload
 
 
 def _without_draft(payload):
@@ -100,20 +126,42 @@ def _without_draft(payload):
     return payload
 
 
+# What the repository picker stores: the clone URL on the connected host, with
+# the project key as the server lists it.
+PICKED = "https://bitbucket.example.com/scm/ENG/payments.git"
+
 BITBUCKET_CASES = [
-    ("opened", _pull_request("pr:opened"), True),
-    ("new commits pushed", _pull_request("pr:from_ref_updated"), True),
-    ("a server without draft pull requests", _without_draft(_pull_request("pr:opened")), True),
-    ("a draft opened", _pull_request("pr:opened", draft=True), False),
-    ("another repository", _pull_request("pr:opened", slug="web"), False),
-    ("another project", _pull_request("pr:opened", project="OPS"), False),
-    ("a comment added", _pull_request("pr:comment:added"), False),
-    ("merged", _pull_request("pr:merged"), False),
+    ("opened", PICKED, _pull_request("pr:opened"), True),
+    ("new commits pushed", PICKED, _pull_request("pr:from_ref_updated"), True),
+    ("a server without draft pull requests", PICKED, _without_draft(_pull_request("pr:opened")), True),
+    ("the clone URL the server shows, in lower case", "https://bitbucket.example.com/scm/eng/payments.git", _pull_request("pr:opened"), True),
+    ("a clone URL without .git", "https://bitbucket.example.com/scm/ENG/payments", _pull_request("pr:opened"), True),
+    ("a server under a context path", "https://example.com/bitbucket/scm/ENG/payments.git", _pull_request("pr:opened"), True),
+    (
+        "a personal repository",
+        "https://bitbucket.example.com/scm/~developer/sandbox.git",
+        _pull_request("pr:opened", project="~DEVELOPER", slug="sandbox"),
+        True,
+    ),
+    ("a draft opened", PICKED, _pull_request("pr:opened", draft=True), False),
+    ("another repository", PICKED, _pull_request("pr:opened", slug="web"), False),
+    ("a repository whose name extends the configured one", PICKED, _pull_request("pr:opened", slug="payments-api"), False),
+    (
+        "the configured name extending the repository's",
+        "https://bitbucket.example.com/scm/ENG/payments-api.git",
+        _pull_request("pr:opened"),
+        False,
+    ),
+    ("another project", PICKED, _pull_request("pr:opened", project="OPS"), False),
+    ("a comment added", PICKED, _pull_request("pr:comment:added"), False),
+    ("merged", PICKED, _pull_request("pr:merged"), False),
 ]
 
 
-@pytest.mark.parametrize(("payload", "expected"), [c[1:] for c in BITBUCKET_CASES], ids=[c[0] for c in BITBUCKET_CASES])
-def test_bitbucket_filter_matches_new_heads_of_the_repository(payload: dict, expected: bool) -> None:
-    expression = _filter("bitbucket-data-center-pr-reviewer", {"repository": "ENG/payments"})
+@pytest.mark.parametrize(
+    ("repository", "payload", "expected"), [c[1:] for c in BITBUCKET_CASES], ids=[c[0] for c in BITBUCKET_CASES]
+)
+def test_bitbucket_filter_matches_new_heads_of_the_repository(repository: str, payload: dict, expected: bool) -> None:
+    expression = _filter("bitbucket-data-center-pr-reviewer", {"repository": repository})
 
-    assert bool(jmespath.search(expression, payload)) is expected
+    assert bool(jmespath.search(expression, payload, options=SERVICE_OPTIONS)) is expected

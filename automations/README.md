@@ -47,7 +47,7 @@ two records of the same fact from drifting apart, and it is why the file is as s
 | Local validation rules | The `required` flag and `constraints` on each field, applied to the selected trigger variant |
 | The preflight call | `POST /v1/validate` with the entry id, the create endpoint, and the rendered payload |
 | The created automation's name | A form field named `name`, or the entry's `name` plus the repository that was picked |
-| `repos` in the create request | The repo-picker field, its declared `provider`, and a non-empty field named `ref` if there is one |
+| `repos` in the create request | The repo-picker field, its declared `provider`, and a non-empty field named `ref` if there is one; sent only when the deployment's `repoProviders` capability lists that provider (`github`, `gitlab` and `bitbucket` when the service reports none) |
 | `model` and `timeout` in the create request | Same-named form fields when they have values |
 | `trigger` in the create request | The selected key under `form.triggers`, and the fields under it named after trigger properties |
 | Which input a rejected payload path belongs to | Rebuilding that body with each field standing in for its own value |
@@ -335,7 +335,9 @@ Each scenario carries whichever blocks apply: `formValues`, `selectedTrigger`, `
 `localValidation`, `preflight`, `create`, `conversation`, `expectedFieldErrors`,
 `expectedPrerequisiteOutcome`. `selectedTrigger` is required when an entry declares multiple trigger
 variants and the scenario records a create or preflight payload. `capabilities.json` holds deployment
-shapes so the unsupported paths have coverage too.
+shapes so the unsupported paths have coverage too. A bundle names the shape its scenarios run against in
+`capabilities`; a scenario whose payload depends on another shape, such as one whose runs clone more
+providers, names that shape in its own `capabilities`.
 
 Beyond the derivation checks, every request body here has been verified against the live Pydantic models in
 `OpenHands/automation`:
@@ -352,6 +354,12 @@ Two findings came out of that check and are baked into the entries:
 - **A trigger phrase containing an apostrophe breaks the event filter**, because it is interpolated into a
   JMESPath string literal. Hence `constraints.format: "safeExpressionLiteral"` on that field, and the
   `quote-in-trigger-phrase-blocked-locally` scenario.
+- **`repos[].provider` must be one the service's runs clone.** A service whose openhands-sdk predates a
+  provider rejects it with a 422, and from OpenHands/automation 1.27.0 a run fails when a listed repository
+  cannot be cloned. So a host sends a picker's `repos` only for a provider in `repoProviders`, and an entry
+  whose picker names a newer provider has its prompt clone the repository itself. The Bitbucket Data Center
+  templates do, and the `data-center-clone` scenario records the request once the service clones that
+  provider.
 
 ## Endpoints the host calls
 
