@@ -6,6 +6,7 @@ import re
 from uuid import NAMESPACE_URL, uuid5
 
 from agent_conversation import ReviewCoordination
+from review_evidence import VERIFICATION_CLAIM_AUDIT
 
 FIELDS = {"head_sha", "code_assessment", "merge_readiness", "summary", "findings", "evidence"}
 
@@ -70,6 +71,7 @@ def structured_prompt(run, pr, generation):
         "from the running application, collect it. Missing evidence means inconclusive or "
         "blocked, not an invented code defect. Keep code correctness separate from scope approval"
         " and merge readiness.\n"
+        f"{VERIFICATION_CLAIM_AUDIT}\n"
         "Your final response must be ONLY a JSON object, without fences, with exactly these fields:\n"
         + json.dumps({"head_sha": head, "code_assessment": "clean|material_findings|inconclusive",
                       "merge_readiness": "ready|blocked|unknown", "summary": "assessment and blockers",

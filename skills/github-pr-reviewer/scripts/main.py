@@ -30,6 +30,7 @@ from pathlib import Path, PurePosixPath
 
 from github_client import github_request as _github_request
 from github_client import github_paginate as _github_paginate
+from review_evidence import VERIFICATION_CLAIM_AUDIT
 
 # Configuration. Two setup paths write it, and both end up here:
 #
@@ -930,6 +931,7 @@ def _build_review_prompt(
         "capture. A UI change that does supply compliant live evidence, and any non-UI change "
         "(backend, API, CLI, script) that follows the existing requirement of the real command and "
         "its observed output, continues to step 8.\n"
+        f"{VERIFICATION_CLAIM_AUDIT}\n"
         f"8. Publish one review with `POST /repos/{repo}/pulls/{number}/reviews`, using "
         "`commit_id` equal to the Head SHA above. Use `event: APPROVE` when there are "
         "no material findings; otherwise use `event: COMMENT`. Never use "
