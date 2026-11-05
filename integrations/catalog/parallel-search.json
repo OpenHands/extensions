@@ -1,0 +1,26 @@
+{
+  "id": "parallel-search",
+  "name": "Parallel Search",
+  "description": "Search the web and fetch page content with Parallel Search MCP. Free for light use, with no API key required.",
+  "docsUrl": "https://docs.parallel.ai/integrations/mcp/search-mcp",
+  "keywords": [
+    "search",
+    "web",
+    "research",
+    "fetch",
+    "extraction"
+  ],
+  "connectionOptions": [
+    {
+      "id": "none",
+      "provider": "mcp",
+      "transport": {
+        "kind": "shttp",
+        "url": "https://search.parallel.ai/mcp"
+      },
+      "auth": {
+        "strategy": "none"
+      }
+    }
+  ]
+}
