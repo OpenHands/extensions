@@ -3,6 +3,7 @@
   "name": "Incident retrospective drafter",
   "category": "Reliability",
   "description": "Collect incident chatter and issue updates, then draft a timeline and follow-up checklist.",
+  "diagram": "flowchart TD\n  A([\"Incident or schedule\"]) --> B[\"Slack chatter and Linear tickets\"]\n  B --> C[\"Agent drafts the retrospective\"]\n  C --> D[\"Draft in Notion with timeline and actions\"]",
   "requires": {
     "integrations": {
       "slack": {

@@ -3,6 +3,7 @@
   "name": "Linear issue to GitLab MR",
   "category": "Project management",
   "description": "Watch Linear for implementation-ready issues, start an agent to make the requested code change, and open a GitLab merge request.",
+  "diagram": "flowchart TD\n  A([\"Ready Linear issue\"]) --> B[\"Agent implements and tests\"]\n  B --> C[\"GitLab merge request opened\"]\n  C --> D[\"Linked back to the ticket\"]",
   "requires": {
     "integrations": {
       "linear": {

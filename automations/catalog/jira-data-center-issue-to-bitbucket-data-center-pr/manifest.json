@@ -3,6 +3,7 @@
   "name": "Jira Data Center issue to Bitbucket Data Center PR",
   "category": "Project management",
   "description": "When an issue in a Jira Data Center project gets a configurable label, start an agent that implements the request in a Bitbucket Data Center repository and opens a pull request. Runs on the Jira Data Center and Bitbucket Data Center integrations built into OpenHands Enterprise.",
+  "diagram": "flowchart TD\n  A([\"Jira issue labelled\"]) --> B[\"Agent implements on a new branch\"]\n  B --> C[\"Tests and checks run\"]\n  C --> D[\"Bitbucket pull request opened\"]",
   "requires": {
     "integrations": {},
     "features": [

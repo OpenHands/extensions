@@ -3,7 +3,8 @@
   "version": "1.11.2",
   "name": "GitHub code review",
   "category": "Code review",
-  "description": "Review requested pull-request heads, resume an outstanding reviewer request on a schedule once its checks are green, classify all open non-draft pull requests that nobody requested and review eligible green heads, drain the backlog oldest-first under a small per-scan new-conversation bound, record exact-head decisions, stop early on out-of-scope changes, and optionally request a code-aware human maintainer after approval or a maintainer-decision scope stop only when a successfully fetched same-repository closing issue has priority:medium or priority:high.",
+  "description": "An agent reviews the open pull requests that need it and posts the review on GitHub.",
+  "diagram": "flowchart TD\n  A([\"Scheduled scan\"]) --> B[\"Find PRs to review\"]\n  B --> C{{\"Checks green?\"}}\n  C --> D[\"Agent reviews the PR\"]\n  D --> E[\"Review posted on GitHub\"]\n  C -.->|\"no, next scan\"| A",
   "requires": {
     "integrations": {},
     "features": [
@@ -121,7 +122,7 @@
         "maintainers": {
           "type": "text",
           "label": "Maintainers",
-          "help": "Optional comma-separated GitHub collaborator logins. Include at least two so a maintainer-authored PR still has an eligible reviewer. After an exact-head approval, request one based on changed-path history and current review load.",
+          "help": "Optional comma-separated GitHub collaborator logins. Include at least two so a maintainer-authored PR still has an eligible reviewer. After an exact-head approval, request one based on changed-path history and current review load. A maintainer is requested only when the pull request's same-repository closing issue is labeled priority:medium or priority:high. A review that stops early because the change is out of scope or needs a maintainer decision is handed off the same way.",
           "default": "",
           "required": false
         },

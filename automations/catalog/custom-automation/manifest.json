@@ -4,6 +4,7 @@
   "category": "Custom",
   "icon": "sparkles",
   "description": "Create a custom automation from a prompt, plugin-powered prompt, or uploaded script tarball.",
+  "diagram": "flowchart TD\n  A([\"Schedule or event\"]) --> B[\"Your prompt, plugin, or script runs\"]\n  B --> C[\"Result in the activity log\"]",
   "requires": {
     "integrations": {
       "github": {

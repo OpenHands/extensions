@@ -4,6 +4,7 @@
   "name": "GitHub issue triage",
   "category": "Project management",
   "description": "Prioritize open issues and establish acceptance criteria before marking them ready for development.",
+  "diagram": "flowchart TD\n  A([\"Scheduled scan\"]) --> B[\"New or changed issues\"]\n  B --> C[\"Agent sets priority and criteria\"]\n  C --> D{{\"Ready for development?\"}}\n  D -->|yes| E[\"Issue marked ready\"]\n  D -.->|no| F[\"Questions asked on the issue\"]",
   "requires": {
     "integrations": {},
     "features": [

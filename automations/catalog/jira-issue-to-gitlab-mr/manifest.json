@@ -3,6 +3,7 @@
   "name": "Jira issue to GitLab MR",
   "category": "Project management",
   "description": "Watch a Jira Cloud project for issues with a configurable label and automatically open a GitLab merge request for each new issue found. The target GitLab project is read from the ticket body - no repo parameter required at deploy time.",
+  "diagram": "flowchart TD\n  A([\"Scheduled poll\"]) --> B[\"Jira issues with the label\"]\n  B --> C[\"Target project read from the ticket\"]\n  C --> D[\"Agent implements the change\"]\n  D --> E[\"GitLab merge request opened\"]",
   "requires": {
     "integrations": {
       "atlassian-rovo": {

@@ -33,6 +33,12 @@
       "enum": ["layout-dashboard", "sparkles", "bot", "circle-alert", "activity", "timer"]
     },
     "description": { "type": "string", "minLength": 1 },
+    "diagram": {
+      "description": "Mermaid source for a small diagram of what the automation does, drawn by the host beside the description on the setup screen. Keep it to a handful of nodes; at most 1500 characters so it still fits an automation's 2000-character description if a host copies it there.",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1500
+    },
     "requires": { "$ref": "#/$defs/requires" },
     "popularityRank": { "type": "integer", "minimum": 0 },
     "estimatedSetupMinutes": { "type": "integer", "minimum": 1 },

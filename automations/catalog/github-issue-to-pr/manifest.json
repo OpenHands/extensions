@@ -3,6 +3,7 @@
   "name": "GitHub issue to PR",
   "category": "Software development",
   "description": "Implement ready GitHub issues, address pull request feedback, and publish tested changes for review.",
+  "diagram": "flowchart TD\n  A([\"Scheduled scan\"]) --> B{{\"Ready issue or PR feedback?\"}}\n  B -.->|\"no, next scan\"| A\n  B -->|yes| C[\"Agent implements and tests\"]\n  C --> D[\"PR opened or updated\"]",
   "requires": {
     "integrations": {},
     "features": [
