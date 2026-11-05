@@ -1,0 +1,161 @@
+{
+  "actor": {
+    "active": true,
+    "displayName": "Developer",
+    "emailAddress": "developer@example.com",
+    "id": 52,
+    "links": {
+      "self": [
+        {
+          "href": "https://bitbucket.example.com/users/developer"
+        }
+      ]
+    },
+    "name": "developer",
+    "slug": "developer",
+    "type": "NORMAL"
+  },
+  "date": "2026-11-05T01:30:00+0000",
+  "eventKey": "pr:opened",
+  "pullRequest": {
+    "author": {
+      "approved": false,
+      "role": "AUTHOR",
+      "status": "UNAPPROVED",
+      "user": {
+        "active": true,
+        "displayName": "Developer",
+        "emailAddress": "developer@example.com",
+        "id": 52,
+        "links": {
+          "self": [
+            {
+              "href": "https://bitbucket.example.com/users/developer"
+            }
+          ]
+        },
+        "name": "developer",
+        "slug": "developer",
+        "type": "NORMAL"
+      }
+    },
+    "closed": false,
+    "createdDate": 1793842200000,
+    "description": "Rounds the ledger totals before they are compared.",
+    "draft": false,
+    "fromRef": {
+      "displayId": "fix-rounding",
+      "id": "refs/heads/fix-rounding",
+      "latestCommit": "d2cf8a3fb7444f25d19946ea158200eeb39ad498",
+      "repository": {
+        "archived": false,
+        "forkable": true,
+        "hierarchyId": "b85d7782b48a694b7879",
+        "id": 22,
+        "links": {
+          "clone": [
+            {
+              "href": "https://bitbucket.example.com/scm/eng/payments.git",
+              "name": "http"
+            },
+            {
+              "href": "ssh://git@bitbucket.example.com:7999/eng/payments.git",
+              "name": "ssh"
+            }
+          ],
+          "self": [
+            {
+              "href": "https://bitbucket.example.com/projects/ENG/repos/payments/browse"
+            }
+          ]
+        },
+        "name": "payments",
+        "project": {
+          "id": 2,
+          "key": "ENG",
+          "links": {
+            "self": [
+              {
+                "href": "https://bitbucket.example.com/projects/ENG"
+              }
+            ]
+          },
+          "name": "Engineering",
+          "public": false,
+          "type": "NORMAL"
+        },
+        "public": false,
+        "scmId": "git",
+        "slug": "payments",
+        "state": "AVAILABLE",
+        "statusMessage": "Available"
+      },
+      "type": "BRANCH"
+    },
+    "id": 7,
+    "links": {
+      "self": [
+        {
+          "href": "https://bitbucket.example.com/projects/ENG/repos/payments/pull-requests/7"
+        }
+      ]
+    },
+    "locked": false,
+    "open": true,
+    "participants": [],
+    "reviewers": [],
+    "state": "OPEN",
+    "title": "Fix rounding in ledger totals",
+    "toRef": {
+      "displayId": "main",
+      "id": "refs/heads/main",
+      "latestCommit": "a50375be6b87996f6e01dd68d6311d52ab4d0423",
+      "repository": {
+        "archived": false,
+        "forkable": true,
+        "hierarchyId": "b85d7782b48a694b7879",
+        "id": 22,
+        "links": {
+          "clone": [
+            {
+              "href": "https://bitbucket.example.com/scm/eng/payments.git",
+              "name": "http"
+            },
+            {
+              "href": "ssh://git@bitbucket.example.com:7999/eng/payments.git",
+              "name": "ssh"
+            }
+          ],
+          "self": [
+            {
+              "href": "https://bitbucket.example.com/projects/ENG/repos/payments/browse"
+            }
+          ]
+        },
+        "name": "payments",
+        "project": {
+          "id": 2,
+          "key": "ENG",
+          "links": {
+            "self": [
+              {
+                "href": "https://bitbucket.example.com/projects/ENG"
+              }
+            ]
+          },
+          "name": "Engineering",
+          "public": false,
+          "type": "NORMAL"
+        },
+        "public": false,
+        "scmId": "git",
+        "slug": "payments",
+        "state": "AVAILABLE",
+        "statusMessage": "Available"
+      },
+      "type": "BRANCH"
+    },
+    "updatedDate": 1793842200000,
+    "version": 0
+  }
+}
