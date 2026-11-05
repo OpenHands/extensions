@@ -19,7 +19,7 @@
     "sprint"
   ],
   "popularityRank": 88,
-  "installHint": "Paste your Jira and/or Confluence URL and API token. The mcp-atlassian package runs via uvx - no install needed.",
+  "installHint": "Atlassian Cloud: paste your site URL, account email and API token. Server/Data Center: paste your site URL and a personal access token instead. Jira and Confluence are configured separately; omit the one you don't use. The mcp-atlassian package runs via uvx - no install needed.",
   "connectionOptions": [
     {
       "id": "oauth",
@@ -62,24 +62,32 @@
             "type": "text",
             "placeholder": "https://your-company.atlassian.net",
             "required": false,
-            "helperText": "Your Atlassian Jira base URL. Omit if using Confluence only."
+            "helperText": "Your Jira base URL (Cloud or Server/Data Center). Omit if using Confluence only."
           },
           {
             "key": "JIRA_USERNAME",
-            "label": "Jira username (email)",
+            "label": "Jira username (email) - Cloud",
             "type": "text",
             "placeholder": "your.email@company.com",
             "required": false,
-            "helperText": "Email address linked to your Atlassian account."
+            "helperText": "Atlassian Cloud only. Email address linked to your Atlassian account."
           },
           {
             "key": "JIRA_API_TOKEN",
-            "label": "Jira API token",
+            "label": "Jira API token - Cloud",
             "type": "password",
             "placeholder": "ATATT...",
             "required": false,
-            "helperText": "Atlassian API token for Jira. Required when JIRA_URL is set.",
+            "helperText": "Atlassian Cloud only. Required with the username when JIRA_URL is a Cloud site.",
             "helperLink": "https://id.atlassian.com/manage-profile/security/api-tokens"
+          },
+          {
+            "key": "JIRA_PERSONAL_TOKEN",
+            "label": "Jira personal access token - Server/Data Center",
+            "type": "password",
+            "placeholder": "Personal access token",
+            "required": false,
+            "helperText": "Server/Data Center only. Use instead of the username and API token."
           },
           {
             "key": "CONFLUENCE_URL",
@@ -87,24 +95,32 @@
             "type": "text",
             "placeholder": "https://your-company.atlassian.net/wiki",
             "required": false,
-            "helperText": "Your Atlassian Confluence base URL. Omit if using Jira only."
+            "helperText": "Your Confluence base URL (Cloud or Server/Data Center). Omit if using Jira only."
           },
           {
             "key": "CONFLUENCE_USERNAME",
-            "label": "Confluence username (email)",
+            "label": "Confluence username (email) - Cloud",
             "type": "text",
             "placeholder": "your.email@company.com",
             "required": false,
-            "helperText": "Email address linked to your Atlassian account."
+            "helperText": "Atlassian Cloud only. Email address linked to your Atlassian account."
           },
           {
             "key": "CONFLUENCE_API_TOKEN",
-            "label": "Confluence API token",
+            "label": "Confluence API token - Cloud",
             "type": "password",
             "placeholder": "ATATT...",
             "required": false,
-            "helperText": "Atlassian API token for Confluence. Required when CONFLUENCE_URL is set.",
+            "helperText": "Atlassian Cloud only. Required with the username when CONFLUENCE_URL is a Cloud site.",
             "helperLink": "https://id.atlassian.com/manage-profile/security/api-tokens"
+          },
+          {
+            "key": "CONFLUENCE_PERSONAL_TOKEN",
+            "label": "Confluence personal access token - Server/Data Center",
+            "type": "password",
+            "placeholder": "Personal access token",
+            "required": false,
+            "helperText": "Server/Data Center only. Use instead of the username and API token."
           }
         ]
       },
