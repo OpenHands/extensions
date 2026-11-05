@@ -18,11 +18,22 @@ triggers:
 
 # OpenHands Automations
 
-Create and manage automations that run inside an OpenHands agent server — triggered by cron schedules or webhook events (GitHub, custom services).
+Create and manage automations that run inside an OpenHands agent server - triggered by cron schedules or webhook events (GitHub, Jira Data Center, Bitbucket Data Center, Azure DevOps, custom services).
 Windows PowerShell equivalents for the automation API `curl` examples and shell-variable conventions are in `references/windows.md`.
+
+## Agent Canvas Setup Form
+
+When the `automation_form_update` tool is available, the conversation is an Agent Canvas automation setup session: the setup form is open next to the chat, and the user reviews the automation there before saving, testing or creating it.
+
+- Propose the automation by filling the form with `automation_form_update`. Then tell the user which fields you filled and what they should check.
+- Do not create, update, enable, dispatch or delete automations, drafts or custom webhooks through the automation API in this conversation, with `curl`, a script or any other tool, even when the user asks you to deploy. The form's buttons (Save draft, Test, Create Automation) do that after the user's review.
+- Take the event source and event key from the tool's description, which lists the sources this deployment delivers. Never invent a source name.
+
+The rest of this skill (API calls, deployment steps, custom webhook registration) applies when that tool is not available.
 
 ## Automation Creation Process
 The agent must follow these steps when creating an automation:
+* If the `automation_form_update` tool is available, follow [Agent Canvas Setup Form](#agent-canvas-setup-form) instead of these steps
 * Quickly check that you can access the correct automations backend using the auth mechanism below
 * Quickly check that you can access any necessary integrations (e.g. GitHub, Slack); if access fails, inform the user and stop
 * Ask the user for any necessary information, e.g. if you need the name of a Slack channel or GitHub repo to proceed
@@ -253,7 +264,7 @@ curl -X POST "${OPENHANDS_HOST}/api/automation/v1/preset/prompt" \
 | Field | Required | Description |
 |-------|----------|-------------|
 | `trigger.type` | Yes | `"event"` |
-| `trigger.source` | Yes | Event source: `"github"` or custom webhook source name |
+| `trigger.source` | Yes | Event source: a source this deployment lists in `eventSources` (see [Built-in Event Sources](#built-in-event-sources)) |
 | `trigger.on` | Yes | Event key pattern(s) to match (see Event Keys below) |
 | `trigger.filter` | No | JMESPath expression for payload filtering (see Filter Expressions below) |
 
@@ -420,9 +431,38 @@ When the deployment cannot receive inbound webhook traffic (see rule 4), use a c
 
 Event-triggered automations run when a webhook event occurs — like a GitHub PR being opened, an issue receiving a comment, or a custom service sending a notification.
 
-### Built-in Integrations
+### Built-in Event Sources
 
-**GitHub** is a built-in integration — no webhook registration needed. Just create automations with `"source": "github"`.
+A deployment delivers the events of the integrations it has set up, with no webhook registration:
+
+| Source | Integration | Event keys (examples) |
+|--------|-------------|-----------------------|
+| `github` | GitHub | `pull_request.opened`, `issue_comment.created`, `push` |
+| `jira_dc` | Jira Data Center | `jira:issue_created`, `jira:issue_updated`, `comment_created` |
+| `bitbucket_data_center` | Bitbucket Data Center | `pr:opened`, `pr:from_ref_updated`, `pr:comment:added` |
+| `azure_devops` | Azure DevOps | `git.pullrequest.created`, `git.pullrequest.updated`, `workitem.commented` |
+
+Not every deployment delivers all of them. Before proposing an event trigger, read the sources this deployment offers:
+
+```bash
+curl "${OPENHANDS_HOST}/api/automation/v1/capabilities" \
+  -H "Authorization: Bearer ${OPENHANDS_API_KEY}"
+```
+
+- `eventSources` lists every source the organization can use: the built-in sources this deployment delivers and the custom webhooks already registered.
+- `eventTypesBySource` lists the event keys of each source that publishes a catalog. Older services list only GitHub's, in `eventTypes`.
+
+Use a source name exactly as `eventSources` lists it. Never invent a source name, such as a shortened or hyphenated form of a built-in one, and never register a custom webhook for a service that has a built-in source: the integration delivers its events to the built-in source, so an automation on a custom source would not receive them. If the service the user asks for is not listed, tell them the deployment does not deliver its events yet and which integration an administrator needs to set up. Offer a custom webhook only for a service that has no built-in source (see [Custom Webhooks](#custom-webhooks)).
+
+GitHub event keys are described below. For the other built-in sources the event key is the event name the payload carries (`webhookEvent` for Jira Data Center, `eventKey` for Bitbucket Data Center, `eventType` for Azure DevOps), and a trailing `*` matches a family, such as `pr:*` or `jira:issue_*`. Filters use the payload's own fields:
+
+```javascript
+// Bitbucket Data Center: pull requests into one repository
+"pullRequest.toRef.repository.project.key == 'PROJ' && pullRequest.toRef.repository.slug == 'my-repo'"
+
+// Jira Data Center: issues in one project
+"issue.fields.project.key == 'PROJ'"
+```
 
 ### GitHub Event Keys
 
@@ -589,7 +629,7 @@ curl -X POST "${OPENHANDS_HOST}/api/automation/v1/preset/prompt" \
 
 ## Custom Webhooks
 
-For services other than GitHub (Linear, Stripe, Slack, etc.), register a custom webhook first.
+For a service that has no built-in source and is not in `eventSources` yet (Linear, Stripe, Slack, etc.), register a custom webhook first.
 
 > **Agent behavior:**
 > - **Always provide the curl request** to the user — do not attempt to register webhooks yourself.
