@@ -53,6 +53,28 @@
                   "workMode": "implement"
                 }
               }
+            },
+            "requirements": {
+              "integrations": [
+                {
+                  "id": "github",
+                  "alternatives": [
+                    {
+                      "transport": "shttp",
+                      "locator": "https://api.githubcopilot.com/mcp/",
+                      "authStrategy": "oauth2"
+                    },
+                    {
+                      "transport": "shttp",
+                      "locator": "https://api.githubcopilot.com/mcp/",
+                      "authStrategy": "api_key",
+                      "secretNames": [
+                        "GITHUB_PERSONAL_ACCESS_TOKEN"
+                      ]
+                    }
+                  ]
+                }
+              ]
             }
           }
         },
@@ -196,6 +218,28 @@
                   "workMode": "implement"
                 }
               }
+            },
+            "requirements": {
+              "integrations": [
+                {
+                  "id": "github",
+                  "alternatives": [
+                    {
+                      "transport": "shttp",
+                      "locator": "https://api.githubcopilot.com/mcp/",
+                      "authStrategy": "oauth2"
+                    },
+                    {
+                      "transport": "shttp",
+                      "locator": "https://api.githubcopilot.com/mcp/",
+                      "authStrategy": "api_key",
+                      "secretNames": [
+                        "GITHUB_PERSONAL_ACCESS_TOKEN"
+                      ]
+                    }
+                  ]
+                }
+              ]
             }
           }
         },
