@@ -7,8 +7,8 @@
     "Operations"
   ],
   "appUrl": "https://slack.com",
-  "docsUrl": "https://github.com/zencoderai/slack-mcp-server",
-  "notes": "The OAuth option uses Slack's official hosted MCP server (confidential OAuth user-token auth); the local option runs the open-source zencoderai stdio server with a bot token.",
+  "docsUrl": "https://docs.slack.dev/ai/mcp-server/",
+  "notes": "The OAuth option uses Slack's official hosted MCP server (requires an internal or Marketplace Slack app, workspace admin approval before users can connect, and OAuth user tokens). The local option runs the maintained open-source slack-mcp-server with app-token auth. Prefer the official hosted server; if using the self-hosted option, prefer OAuth/user-token mode over unapproved stealth/browser-token use.",
   "popularityRank": 95,
   "connectionOptions": [
     {
@@ -68,24 +68,16 @@
         "command": "npx",
         "args": [
           "-y",
-          "@zencoderai/slack-mcp-server"
+          "slack-mcp-server@1.3.0"
         ],
         "envFields": [
           {
-            "key": "SLACK_TEAM_ID",
-            "label": "Team / Workspace ID",
-            "type": "text",
-            "placeholder": "T01234567",
-            "helperText": "First get your [Slack URL](https://slack.com/help/articles/221769328-Locate-your-Slack-URL-or-ID#find-your-url). Then use that to get your [Workspace ID](https://slack.com/help/articles/221769328-Locate-your-Slack-URL-or-ID#find-your-workspace-or-org-id).",
-            "required": true
-          },
-          {
-            "key": "SLACK_BOT_TOKEN",
+            "key": "SLACK_MCP_XOXB_TOKEN",
             "label": "Bot token",
             "type": "password",
             "placeholder": "xoxb-...",
             "required": true,
-            "helperText": "You'll need to create or have access to a [Slack App](https://github.com/zencoderai/slack-mcp-server#slack-bot-setup) to get a Bot token."
+            "helperText": "Create a [Slack App](https://api.slack.com/apps) with bot token scopes channels:history, channels:read, chat:write, reactions:write, users:read, and users.profile:read. Note: Bot tokens have limited access (invited channels only, no search). For full functionality, use user tokens instead via the OAuth option above."
           }
         ]
       },
@@ -101,5 +93,5 @@
     "messaging",
     "team"
   ],
-  "installHint": "Create a Slack app with bot token scopes channels:history, channels:read, chat:write, reactions:write, users:read, and users.profile:read, then paste its bot token below."
+  "installHint": "For the official hosted server (OAuth option), create or choose a Slack app (internal or Marketplace) and obtain workspace admin approval. For the local server, create a Slack app with bot token scopes channels:history, channels:read, chat:write, reactions:write, users:read, and users.profile:read."
 }
