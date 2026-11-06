@@ -1,6 +1,6 @@
 {
   "id": "github-repo-monitor",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "name": "GitHub repository monitor",
   "category": "Developer tools",
   "description": "Watch a repository for @OpenHands mentions in issues and PR comments, start a conversation, and let the agent answer or carry out the work - by default only for users with write access.",
@@ -8,7 +8,7 @@
   "requires": {
     "integrations": {
       "github": {
-        "message": "Used to read issue and pull request comments and post replies."
+        "message": "Used to read issue and pull request comments and post replies. This card runs on the connected GitHub integration; the skill's deployed script instead requires the GITHUB_PERSONAL_ACCESS_TOKEN secret."
       }
     },
     "features": [
