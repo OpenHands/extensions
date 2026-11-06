@@ -803,6 +803,20 @@
       ]
     },
     {
+      "name": "gitlab-mr-reviewer",
+      "source": "./skills/gitlab-mr-reviewer",
+      "description": "Review labelled GitLab merge requests at the exact head and post one actionable review note per head.",
+      "category": "automations",
+      "keywords": ["gitlab", "merge-request", "code-review", "automation"]
+    },
+    {
+      "name": "gitlab-prd-refiner",
+      "source": "./skills/gitlab-prd-refiner",
+      "description": "Refine labelled GitLab issues by posting open questions, recommendations, and requirements gaps.",
+      "category": "automations",
+      "keywords": ["gitlab", "work-item", "prd", "refinement", "automation"]
+    },
+    {
       "name": "incident-retrospective",
       "source": "./skills/incident-retrospective",
       "description": "Create an automation that drafts incident retrospectives by gathering incident-channel messages from Slack, collecting linked tickets from Linear, and publishing a retrospective draft to Notion with timeline, impact summary, root-cause hypotheses, and action items.",
