@@ -265,7 +265,7 @@ def test_daily_workflow_entries_are_locally_installable():
     required_env = {
         field["key"] for field in slack["transport"]["envFields"] if field.get("required")
     }
-    assert required_env == {"SLACK_TEAM_ID", "SLACK_BOT_TOKEN"}
+    assert required_env == {"SLACK_MCP_XOXB_TOKEN"}
 
 
 def test_daily_workflow_entries_state_scopes_and_setup_paths():
