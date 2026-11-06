@@ -1,0 +1,70 @@
+{
+  "id": "dad-joke",
+  "name": "Daily dad jokes",
+  "category": "Research",
+  "icon": "sparkles",
+  "description": "Take a list of suggestions and have an agent write a few dad jokes about each one on a schedule - daily by default. Connects to nothing and needs no credentials: the suggestions are the only input, and the jokes are the agent's own.",
+  "requires": {
+    "integrations": {},
+    "features": [
+      "customTarball"
+    ]
+  },
+  "popularityRank": 70,
+  "estimatedSetupMinutes": 2,
+  "exampleImplementation": "Trigger: cron, daily by default (0 9 * * *)\nRequired secret: none. The suggestions are the owner's words and, on a local Agent Canvas, the conversation is started with an empty secret allow-list and no MCP servers. On OpenHands Cloud and Enterprise it is started from the automation's agent profile, or with the user's own settings when none is selected.\n\n1. Read the suggestion list and the schedule from setup.\n2. Start no conversation at all when no suggestions are configured. An empty configuration costs no tokens.\n3. Otherwise start a fresh OpenHands conversation with the suggestions, the per-suggestion count, and today's UTC date in the prompt - the date is a seed for variety, not a topic. The agent writes the jokes itself - it is told not to quote a comedian, a joke site, or a film - and treats the suggestions as the owner's words, not instructions.\n4. Poll the conversation until it reaches a terminal status, with a 30-minute cap so a stuck run does not hang the automation service.\n5. Read jokes.md from the working directory, falling back to the agent's final message, print the jokes into the run log, and remove the workspace.\n\nThe script is stateless: there is no cross-run document to maintain and no once-a-day claim, so a retried or duplicated run simply writes a second joke set.",
+  "impact": {
+    "basis": "completed-runs",
+    "one": "1 joke set written",
+    "other": "{{count}} joke sets written"
+  },
+  "setup": {
+    "version": "1.0",
+    "mode": "direct",
+    "form": {
+      "triggers": {
+        "cron": {
+          "schedule": {
+            "type": "cron",
+            "label": "Joke time",
+            "help": "When the jokes are written. Work is keyed by UTC date, so a schedule more frequent than daily only polls until the day is done.",
+            "default": "0 9 * * *",
+            "required": true
+          },
+          "timezone": {
+            "type": "timezone",
+            "label": "Timezone",
+            "help": "Timezone the schedule is interpreted in.",
+            "default": "UTC",
+            "required": true
+          }
+        }
+      },
+      "args": {
+        "suggestions": {
+          "type": "textarea",
+          "label": "Suggestions",
+          "help": "One suggestion per line, or separated by commas. The agent writes a few dad jokes about each one, so write the topic - `computers`, `coffee`, `Monday mornings` - rather than the punchline. A suggestion that reads like an instruction is treated as a topic to joke about, not a request to follow.",
+          "default": "computers\ncoffee\nMonday mornings",
+          "required": true,
+          "constraints": {
+            "minLength": 2,
+            "maxLength": 4000
+          }
+        }
+      }
+    },
+    "bundle": {
+      "version": "1.0.0",
+      "entrypoint": "python3 main.py",
+      "timeout": 600,
+      "files": {
+        "main.py": "skills/dad-joke/scripts/main.py"
+      },
+      "config": {
+        "suggestions": "{{form.suggestions}}"
+      }
+    },
+    "message": "This deployment cannot run the scheduled dad-joke automation directly. Set it up in this conversation instead: confirm the suggestions to joke about and the schedule, then create the automation."
+  }
+}
