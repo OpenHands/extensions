@@ -1,0 +1,18 @@
+{
+  "name": "fax-for-agents",
+  "version": "1.0.0",
+  "description": "Send and receive faxes through Fax for Agents. Use for fax preparation, price quotes, delivery checks, inbox reading, and extraction.",
+  "author": {
+    "name": "Fax for Agents",
+    "email": "hello@faxforagents.com"
+  },
+  "homepage": "https://faxforagents.com/",
+  "repository": "https://github.com/faxforagents/skills",
+  "license": "MIT-0",
+  "keywords": [
+    "fax",
+    "faxforagents",
+    "documents",
+    "communication"
+  ]
+}
