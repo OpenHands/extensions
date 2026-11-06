@@ -1,0 +1,63 @@
+{
+  "id": "looot",
+  "name": "looot",
+  "description": "Search a catalog of 2,500+ data API endpoints (work emails, phones, company and people search, web search, LinkedIn, local businesses), see the price, and run one on a prepaid balance.",
+  "categories": [
+    "Data",
+    "Search"
+  ],
+  "appUrl": "https://looot.ai",
+  "docsUrl": "https://docs.looot.ai",
+  "iconBg": "#FAF7F0",
+  "logoUrl": "https://raw.githubusercontent.com/loootai/looot-plugin/main/plugins/claude-code/looot/.claude-plugin/icon.png",
+  "keywords": [
+    "enrichment",
+    "email finder",
+    "lead generation",
+    "web search",
+    "data api"
+  ],
+  "installHint": "Sign in with your browser on first use. A failed call is not charged, and runs are paid from a prepaid balance (top up from $5, no subscription).",
+  "connectionOptions": [
+    {
+      "id": "oauth",
+      "provider": "mcp",
+      "transport": {
+        "kind": "shttp",
+        "url": "https://api.looot.ai/mcp"
+      },
+      "auth": {
+        "strategy": "oauth2",
+        "oauth": {
+          "authorizationUrl": "https://api.looot.ai/oauth/authorize",
+          "tokenUrl": "https://api.looot.ai/oauth/token",
+          "registrationUrl": "https://api.looot.ai/oauth/register",
+          "scopes": [
+            "catalog.read",
+            "runs.execute",
+            "runs.read",
+            "usage.read"
+          ],
+          "pkce": true,
+          "clientAuthentication": "none"
+        }
+      }
+    },
+    {
+      "id": "api-key",
+      "provider": "mcp",
+      "transport": {
+        "kind": "shttp",
+        "url": "https://api.looot.ai/mcp",
+        "apiKeyOptional": true
+      },
+      "auth": {
+        "strategy": "bearer",
+        "apiKeyOptional": true,
+        "credentialLabel": "looot token",
+        "credentialPlaceholder": "Paste your looot token",
+        "credentialHelp": "Optional. Create a token in the looot dashboard and it is sent as Authorization: Bearer <token>. Leave it empty to sign in with OAuth."
+      }
+    }
+  ]
+}
