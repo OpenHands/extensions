@@ -265,6 +265,18 @@ def _js_filter(mcp, oauth) -> list[str]:
     return json.loads(_js_call(expr))
 
 
+def test_azure_devops_is_discoverable_through_both_package_apis() -> None:
+    entry = openhands_extensions.get_integration_catalog_entry_model("azure-devops")
+    assert entry is not None
+    js_entry = json.loads(_js_call(
+        "import { getIntegrationCatalogEntry } from './integrations/index.js';\n"
+        "process.stdout.write(JSON.stringify(getIntegrationCatalogEntry('azure-devops')));"
+    ))
+    assert js_entry == entry.model_dump(exclude_none=True)
+    assert "azure-devops" in {e["id"] for e in _python_entries(mcp=True, oauth=True)}
+    assert "azure-devops" in _js_filter("true", "true")
+
+
 def test_filter_mcp_only() -> None:
     py_ids = {e["id"] for e in _python_entries(mcp=True)}
     js_ids = set(_js_filter("true", "undefined"))
