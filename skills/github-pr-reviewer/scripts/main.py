@@ -19,6 +19,7 @@ import json
 import os
 import re
 import shutil
+import shlex
 import sys
 import tarfile
 import time
@@ -806,6 +807,30 @@ def _load_repo_review_guide(workspace_dir: Path) -> str | None:
     return None
 
 
+def _publication_instructions(repo, number, head, token):
+    if not re.fullmatch(r"[A-Z_][A-Z0-9_]*", token):
+        raise ValueError("Invalid GitHub token secret name")
+    source = Path(__file__).with_name("publish_review.py").read_text()
+    args = " ".join(shlex.quote(str(value)) for value in (repo, number, head, "/tmp/openhands-review.json"))
+    return (
+        "\n\nGuarded publication (required for every outcome, including scope stops):\n"
+        "Write the complete request to /tmp/openhands-review.json as JSON with commit_id, event, "
+        "body and optional comments. Use a JSON serializer, not shell interpolation. Do not use "
+        "$(cat ...), gh api POST, curl POST or another publication path. The command below reads "
+        "and validates that exact file before sending it. Copy and execute it unchanged. "
+        "Do not shorten or bypass its guards. Only a definite HTTP 422 rejection allows a "
+        "corrected request and re-running this same command (move rejected inline findings into "
+        "body). A missing file or invalid content must be corrected before publication. "
+        "An accepted empty/mismatched review, timeout, unknown outcome or already-reviewed head "
+        "is NOT permission to repost or edit the accepted review. Stop and report the error for "
+        "operator reconciliation; never claim GITHUB_REVIEW_POSTED in that case. "
+        "The helper verifies the receipt and prints GITHUB_REVIEW_POSTED only on success; then "
+        "stop immediately and return that exact marker. Its local journal must not be removed.\n\n"
+        f"```sh\nGH_TOKEN=${{{token}}} python3 - {args} <<'OPENHANDS_PUBLISH_REVIEW'\n"
+        + source + "\nOPENHANDS_PUBLISH_REVIEW\n```"
+    )
+
+
 def _build_review_prompt(
     repo: str,
     pr: dict,
@@ -856,7 +881,7 @@ def _build_review_prompt(
 
     return (
         "You are an AI code reviewer. Review the GitHub pull request below and publish "
-        "the review directly to GitHub. Do not modify files, push commits, or merge "
+        "the review directly to GitHub using the guarded publisher below. Do not modify tracked files, push commits, or merge "
         "the pull request.\n\n"
         f"Repository : {repo}\n"
         f"PR #{number}: \"{title}\"\n"
@@ -900,7 +925,7 @@ def _build_review_prompt(
         "use the repository guidance above (its scope categories and ownership boundaries) to decide "
         "whether this change belongs in this repository and has the product/architecture direction "
         "it needs. If it does, continue the technical review unchanged. If it does not, or needs a "
-        "product/architecture decision, stop here and publish exactly one review with "
+        "product/architecture decision, stop here and use the guarded publisher below to submit exactly one review to "
         f"`POST /repos/{repo}/pulls/{number}/reviews`, using `commit_id` equal to the Head SHA above "
         "and `event: COMMENT`. Briefly say whether the change should move repositories, close, or "
         "receive a maintainer decision; when it belongs elsewhere, name the likely owning repository "
@@ -930,7 +955,7 @@ def _build_review_prompt(
         "capture. A UI change that does supply compliant live evidence, and any non-UI change "
         "(backend, API, CLI, script) that follows the existing requirement of the real command and "
         "its observed output, continues to step 8.\n"
-        f"8. Publish one review with `POST /repos/{repo}/pulls/{number}/reviews`, using "
+        f"8. Use the guarded publisher below to submit one review to `POST /repos/{repo}/pulls/{number}/reviews`, using "
         "`commit_id` equal to the Head SHA above. Use `event: APPROVE` when there are "
         "no material findings; otherwise use `event: COMMENT`. Never use "
         "`REQUEST_CHANGES`.\n"
@@ -942,8 +967,8 @@ def _build_review_prompt(
         "array with `path`, `line`, `side: RIGHT`, and `body`.\n"
         "   Only create inline comments for actionable findings; do not open praise or nitpick threads.\n"
         "9. If a finding cannot be attached to a changed line, put it in the review body instead. "
-        "If the API rejects the inline positions, retry with every finding in the body and no `comments` array. "
-        "If GitHub forbids the configured bot from approving its own PR, retry the clean review with "
+        "Only after a definite HTTP 422 rejection, retry through the guarded publisher with every finding in the body and no `comments` array. "
+        "For a self-authored PR, the guarded publisher uses "
         "`event: COMMENT` and keep the approved verdict.\n"
         "10. Begin the review body with this disclosure: "
         f"`_This review was posted by an AI agent (OpenHands)._`{run_marker}\n"
@@ -956,8 +981,9 @@ def _build_review_prompt(
         "disclosure and the verdict.\n"
         f"\nReview instructions:\n{tone}{extra}{guide_section}\n\n"
         "After GitHub accepts the review, output exactly `GITHUB_REVIEW_POSTED`. "
-        "If publishing still fails after the fallback in step 9, output the complete review text "
-        "so it can be posted as a comment instead."
+        "If publishing fails, report whether it was rejected or uncertain, with the review text "
+        "for operator reconciliation. Never publish another result to repair an accepted review."
+        + _publication_instructions(repo, number, head_sha, github_token_secret)
     )
 
 
