@@ -1004,6 +1004,20 @@
         "harbor",
         "swe-smith"
       ]
+    },
+    {
+      "name": "runzivo",
+      "source": "./skills/runzivo",
+      "description": "Create, connect to, check, stop, start and delete Runzivo cloud sandboxes (Linux VMs) with the rzv CLI. Use when the user wants work run in a Runzivo sandbox or asks about one.",
+      "category": "environment",
+      "keywords": [
+        "runzivo",
+        "rzv",
+        "sandbox",
+        "cloud",
+        "vm",
+        "ssh"
+      ]
     }
   ]
 }
