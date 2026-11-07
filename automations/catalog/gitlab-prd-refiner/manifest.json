@@ -1,0 +1,91 @@
+{
+  "id": "gitlab-prd-refiner",
+  "version": "1.0.0",
+  "name": "GitLab work item refiner",
+  "category": "Project management",
+  "description": "Refine labelled GitLab issues by posting open questions, recommendations, and gaps in the requirements.",
+  "requires": {
+    "integrations": {
+      "gitlab": {
+        "message": "Requires a connected GitLab account or GITLAB_TOKEN with api scope to read issues and post notes. MCP-only access is not supported."
+      }
+    },
+    "features": [
+      "customTarball"
+    ]
+  },
+  "popularityRank": 72,
+  "estimatedSetupMinutes": 4,
+  "exampleImplementation": "Poll open, labelled GitLab issue-type work items. Read the description and human discussion and post one refinement note per label application with open questions, recommendations, and gaps.",
+  "setup": {
+    "version": "1.0",
+    "mode": "direct",
+    "form": {
+      "triggers": {
+        "cron": {
+          "schedule": {
+            "type": "cron",
+            "label": "Check frequency",
+            "help": "How often to check for labelled GitLab issues.",
+            "default": "*/15 * * * *",
+            "required": true
+          },
+          "timezone": {
+            "type": "timezone",
+            "label": "Timezone",
+            "default": "UTC",
+            "required": true,
+            "help": "Timezone for the polling schedule."
+          }
+        }
+      },
+      "args": {
+        "projects": {
+          "type": "repo-picker",
+          "label": "Projects",
+          "help": "GitLab projects whose issues need refinement. Subgroups are supported.",
+          "provider": "gitlab",
+          "multiple": true,
+          "required": true
+        },
+        "triggerLabel": {
+          "type": "text",
+          "label": "Trigger label",
+          "help": "Apply this label to an open issue to request refinement.",
+          "default": "openhands-refine",
+          "required": true,
+          "constraints": {
+            "minLength": 1,
+            "maxLength": 50
+          }
+        },
+        "gitlabApiUrl": {
+          "type": "text",
+          "label": "GitLab API URL",
+          "help": "HTTPS /api/v4 root of the instance. Requires a connected GitLab account or GITLAB_TOKEN; MCP-only access is not supported.",
+          "default": "https://gitlab.com/api/v4",
+          "required": true,
+          "constraints": {
+            "minLength": 15,
+            "maxLength": 200
+          }
+        }
+      }
+    },
+    "bundle": {
+      "version": "1.0.0",
+      "entrypoint": "python3 main.py",
+      "timeout": 300,
+      "files": {
+        "main.py": "skills/gitlab-prd-refiner/scripts/main.py",
+        "common.py": "skills/gitlab-mr-reviewer/scripts/common.py"
+      },
+      "config": {
+        "projects": "{{form.projects}}",
+        "trigger_label": "{{form.triggerLabel}}",
+        "gitlab_api_url": "{{form.gitlabApiUrl}}"
+      }
+    },
+    "message": "This deployment cannot run the bundled refiner directly. Configure a scheduled poll of the selected GitLab projects and label, then create the automation."
+  }
+}

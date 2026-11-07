@@ -1,11 +1,11 @@
 ---
 name: software-factory
 description: >
-  Set up an OpenHands "software factory" on GitHub fast: ask only for the
-  repositories and where tickets live (GitHub issues, Jira or Linear), create a working issue-to-PR and PR-review pipeline from the
-  automation catalog with defaults, show what runs, then let the user stop or
-  extend it one step at a time (tune settings, AGENTS.md maintainer,
-  auto-merge, stale-CI and QA add-ons).
+  Set up an OpenHands software factory on GitHub or GitLab: choose the code host,
+  repositories or projects, and (for GitHub) ticket source; create issue-to-PR/MR,
+  review and triage/refinement stations from the automation catalog. Request a
+  missing provider token securely, then show what runs and offer optional tuning
+  and GitHub add-ons.
 triggers:
   - /software-factory
   - software factory
@@ -13,29 +13,32 @@ triggers:
 
 # Software Factory
 
-Build a GitHub software factory from unmodified automation catalog bundles
-(`automations/catalog/<id>/manifest.json`); a Jira or Linear station is created
-by its own skill. This skill adds no automation logic.
+Build a GitHub or GitLab software factory from unmodified automation catalog
+bundles (`automations/catalog/<id>/manifest.json`). A Jira or Linear ticket
+station for GitHub code lives in its own skill. This skill adds no automation logic.
 
-Two phases: **Phase 1** gets a working factory after one question. **Phase 2**
-extends it in short rounds, only as far as the user wants. After Phase 1 and
-after every round, the **Checkpoint** shows what exists and lets the user stop.
+Two phases: **Phase 1** gets a working factory after one question about the code
+host and projects. **Phase 2** extends it in short rounds, only as far as the
+user wants. After each phase, the **Checkpoint** shows what exists.
 
-Code lives on GitHub. Tickets can come from GitHub issues (default), Jira or
-Linear: only the issue to PR station changes (see "Ticket source"). GitLab and
-Bitbucket code hosts are not part of this flow.
+GitHub code can use GitHub issues (default), Jira or Linear tickets. GitLab code
+uses GitLab issues; the GitLab reviewer posts notes, not approvals, and the work
+item refiner comments on labelled issues. Bitbucket is not part of this flow.
 
 ## Stations
 
-| Station | Catalog id | Phase | Needs agent profile |
-|---|---|---|---|
-| Issue to PR | `github-issue-to-pr`, or the Jira or Linear station | 1 | yes (GitHub issues only) |
-| PR reviewer | `github-pr-reviewer` | 1 | yes |
-| Issue triage | `github-issue-triage`, or `linear-triage-assistant` | 1 | yes (GitHub issues only) |
-| AGENTS.md maintainer | `github-agents-md-maintainer` | add-on | no |
-| Auto-merge watchdog | `github-delivery-watchdog` | add-on | no |
-| Stale-CI PR closer | `github-stale-ci-pr-closer` | add-on | no |
-| QA changes | `qa-changes` | add-on | no |
+| Code host | Station | Catalog id | Phase | Needs agent profile |
+|---|---|---|---|---|
+| GitHub | Issue to PR | `github-issue-to-pr`, or the Jira or Linear station | 1 | yes (GitHub issues only) |
+| GitHub | PR reviewer | `github-pr-reviewer` | 1 | yes |
+| GitHub | Issue triage | `github-issue-triage`, or `linear-triage-assistant` | 1 | yes (GitHub issues only) |
+| GitLab | Issue to MR | `gitlab-issue-to-mr` | 1 | no |
+| GitLab | MR reviewer | `gitlab-mr-reviewer` | 1 | no |
+| GitLab | Work item refiner | `gitlab-prd-refiner` | 1 | no |
+| GitHub | AGENTS.md maintainer | `github-agents-md-maintainer` | add-on | no |
+| GitHub | Auto-merge watchdog | `github-delivery-watchdog` | add-on | no |
+| GitHub | Stale-CI PR closer | `github-stale-ci-pr-closer` | add-on | no |
+| GitHub | QA changes | `qa-changes` | add-on | no |
 
 ## Helper script
 
@@ -46,29 +49,42 @@ failure. Its usage is below: do not read its source, and do not load the
 
 Set `OPENHANDS_HOST` to the **Ingress** URL in `<RUNTIME_SERVICES>` on a local
 Agent Canvas (it serves both `/api/automation` and `/api`; the automation
-backend URL does not), or to `<HOST>` on OpenHands Cloud. Run every command as:
+backend URL does not), or to `<HOST>` on OpenHands Cloud. Run every command
+with only the selected code host's token:
 
 ```bash
+# GitHub
 GITHUB_PERSONAL_ACCESS_TOKEN="$GITHUB_PERSONAL_ACCESS_TOKEN" \
+OPENHANDS_AUTOMATION_API_KEY="$OPENHANDS_AUTOMATION_API_KEY" \
+OPENHANDS_API_KEY="$OPENHANDS_API_KEY" \
+python3 <this skill's directory>/scripts/factory.py <command> ...
+
+# GitLab (instead of the GitHub command)
+GITLAB_TOKEN="$GITLAB_TOKEN" \
 OPENHANDS_AUTOMATION_API_KEY="$OPENHANDS_AUTOMATION_API_KEY" \
 OPENHANDS_API_KEY="$OPENHANDS_API_KEY" \
 python3 <this skill's directory>/scripts/factory.py <command> ...
 ```
 
-`$F` below stands for that whole line. Keep the secret names in it: the agent
-server passes a saved secret into a command only when the command names it.
-The script reads the token and never prints it.
+`$F` below stands for the selected provider's whole command. Keep its secret
+name in it: the agent server passes a saved secret into a command only when the
+command names it. The script never prints a token. Do not put a token in
+`--set`, `--gitlab-api-url`, a repo URL or a tool argument.
+For GitLab, add `--provider gitlab --gitlab-api-url <HTTPS /api/v4 root>` to
+`preflight`, `create` and `tune` (URL defaults to `https://gitlab.com/api/v4`).
+Add only `--provider gitlab` to `reset-token`; `verify`, `status` and `tag` have
+no provider flag. GitHub needs neither flag.
 
 | Command | Does |
 |---|---|
-| `$F preflight --repos a/b,c/d` | Which stations this deployment supports, the agent profile, the GitHub login, push access per repository. |
+| `$F preflight --repos a/b,c/d [--provider gitlab --gitlab-api-url URL]` | Supported stations, provider identity and per-project access; GitHub also checks the agent profile. |
 | `$F create --repos a/b --ids ID,ID [--set FIELD=VALUE] [--set ID.FIELD=VALUE]` | Fills each station's form (answers, then derived values, then manifest defaults), uploads the bundle and creates it disabled with the `software-factory` tag. `FIELD=VALUE` applies to every listed station with that field. Stations that already exist are reported under `existing`, not recreated, and get the tag added. |
 | `$F tune --repos a/b --ids ID,ID [--set FIELD=VALUE] [--set ID.FIELD=VALUE]` | Applies new settings to an existing station by updating it in place. Use this to change a value that is fixed at creation. |
 | `$F tag ID...` | Adds the `software-factory` tag to automations created outside the script, so the Automations list can filter to the factory. Lists any it could not tag under `not_tagged`, each with its `reason`. |
 | `$F verify ID... [--no-wait ID...]` | Dispatches once, enables the ones whose run `COMPLETED` and disables the rest, reporting their `error_detail`. `--no-wait` enables without waiting. |
 | `$F status ID...` | The latest run of each. |
 | `$F prs --repos a/b [--branch-prefix P]` | Open pull requests whose branch starts with `P` (default `openhands/agents-md`, the AGENTS.md maintainer's). |
-| `$F reset-token` | Deletes the saved `GITHUB_PERSONAL_ACCESS_TOKEN` (local Agent Canvas), so `request_secret` opens its form again. |
+| `$F reset-token [--provider gitlab]` | Deletes only the selected provider's saved token (local Agent Canvas), after the user agrees to replace it. |
 
 `create` and `verify` return each automation's `url`, its page in Agent Canvas.
 Trust the script's output: do not open pages in the browser to check them, and
@@ -81,13 +97,14 @@ active one.
 
 - **Supported stations**: create only those `preflight` reports `ok`; say why
   the others are skipped.
-- **Derived values** (the script fills them; never ask): every
-  `githubTokenSecret` is `GITHUB_PERSONAL_ACCESS_TOKEN`. The watchdog's
-  `branchPrefix` must equal issue to PR's: when it was changed, pass
-  `--set github-delivery-watchdog.branchPrefix=<same value>`.
-- **Agent profile**: if `preflight` reports a profile error, skip the stations
-  that need one and point the user to the station's catalog card in Agent
-  Canvas (Automations), which has a profile picker.
+- **Derived values** (the script fills them; never ask): every GitHub
+  `githubTokenSecret` is `GITHUB_PERSONAL_ACCESS_TOKEN`. All GitLab stations
+  inherit the `--gitlab-api-url` used for preflight; a token is never written
+  into a bundle. The GitHub watchdog's `branchPrefix` must equal issue to PR's:
+  when it was changed, pass `--set github-delivery-watchdog.branchPrefix=<same value>`.
+- **Agent profile**: GitLab stations do not require one. For GitHub, if
+  `preflight` reports a profile error, skip the stations that need one and
+  point the user to the station's catalog card in Agent Canvas (Automations).
 - **Token**: never ask for its value in chat, echo it, or put it in a tool
   argument or file.
 - **Failures**: if `create` fails, its output lists the stations it already
@@ -108,67 +125,89 @@ active one.
 
 ## Phase 1 - Working factory
 
-1. Ask, in one message: "Which GitHub repositories (`owner/repo`)? Where do
-   tickets live: GitHub issues (default), Jira or Linear?" Say that everything
-   else uses defaults that can be changed afterwards. If the answer names only
-   repositories, use GitHub issues; do not ask again.
-2. Run `$F preflight --repos <repos>`. Drop repositories without `push`, and
-   say which.
-3. If `github_login` is null, act on `token_error`:
-   - `not_set`, and the `request_secret` tool is available: call it once with
-     `name: "GITHUB_PERSONAL_ACCESS_TOKEN"` and a `reason` asking for Contents,
+1. Ask in one message: "Is your code on GitHub or GitLab, and which repositories
+   or projects (`owner/repo` or `group/subgroup/project`)? For GitHub, are tickets
+   in GitHub issues (default), Jira or Linear? For GitLab, is the instance
+   gitlab.com (default), or what is its HTTPS `/api/v4` URL?" Do not re-ask
+   information already given. If the user names a self-managed GitLab instance
+   without its API URL, get that URL before proceeding. Everything else uses
+   catalog defaults and can be tuned later.
+2. Run `$F preflight --repos <repos>` with the GitLab provider and instance URL
+   flags when selected. If the selected provider's `github_login` or
+   `gitlab_login` is null, use `token_error`:
+   - `not_set` on a local backend with `request_secret` available: call it
+     once with the selected name, `GITHUB_PERSONAL_ACCESS_TOKEN` or
+     `GITLAB_TOKEN`, never the value. For GitHub, the reason asks for Contents,
      Issues, Pull requests and Workflows read and write (classic PAT: `repo`,
-     `workflow`), and saying a token can be created at
-     https://github.com/settings/personal-access-tokens. End your turn, wait
-     for the `[secret-request]` message, then rerun `preflight`.
-   - `rejected`: GitHub refuses the saved token (invalid or expired), and
-     `request_secret` cannot replace it: it answers `saved` at once for a name
-     that exists. Say so in one sentence and ask "Shall I remove it and open
-     the form for a new one?" On yes, run `$F reset-token`, then handle it as
-     `not_set`. If `reset-token` fails, tell the user to create a token at
-     https://github.com/settings/personal-access-tokens, replace it in
-     Settings -> Secrets, and say when done.
-   - `not_set` without the tool: tell the user to create a token at
-     https://github.com/settings/personal-access-tokens and add it in
-     Settings -> Secrets, then stop.
-4. `$F create --repos <repos> --ids github-pr-reviewer`, adding
+     `workflow`) and points to
+     https://github.com/settings/personal-access-tokens. For GitLab, ask for
+     a token **on that instance** with `api` scope and Developer or higher on
+     every selected project (personal, project or group access token). End
+     your turn, wait for `[secret-request]`, then rerun `preflight`.
+   - `rejected`: the saved token is invalid or expired. `request_secret`
+     cannot replace an existing secret. Ask "Shall I remove the saved token
+     and open the form for a replacement?" Only on yes, on a local backend,
+     run `$F reset-token` (add `--provider gitlab` for GitLab), then handle
+     `not_set` as above. Otherwise ask the user to replace the selected token
+     in Settings -> Secrets; never delete it without permission.
+   - `not_set` without `request_secret` (including Cloud): ask the user to
+     save the selected token in Settings -> Secrets and say when done. Stop.
+   - Any other error: report it, do not request or reset a token blindly.
+3. Drop projects without `push` from this factory and explain why. If GitLab
+   reports `role unknown` (some project/group tokens do not expose it), do not
+   claim write access: ask whether to provision issue-to-MR for the selected
+   projects provisionally, or install just the reviewer and refiner. If no
+   projects remain accessible, stop.
+4. For GitLab run `$F create --repos <projects> --provider gitlab
+   --gitlab-api-url <URL> --ids gitlab-issue-to-mr,gitlab-mr-reviewer,gitlab-prd-refiner`
+   (omit issue-to-MR if the user chose not to provision it). For GitHub run
+   `$F create --repos <repos> --ids github-pr-reviewer`, adding
    `github-issue-to-pr,github-issue-triage` for GitHub issues. For Jira or
    Linear, also set up the issue to PR station as "Ticket source" describes;
    for Linear, set up triage with the `linear-triage` skill (Jira has none).
-5. `$F verify <reviewer id> [<issue to PR id>] [<triage id>]`.
+5. `$F verify <created station ids>`; this dispatches once and enables only
+   completed runs. A successful empty poll is not proof that GitLab can publish
+   notes or push a branch: offer an explicitly authorized test issue/MR before
+   claiming end-to-end verification.
 6. Go to the Checkpoint.
 
 ## Checkpoint
 
 Write one short message, in this order:
 
-1. One plain sentence on what runs and how to use it: "Your factory is running
-   on `<repos>`. Add the `<trigger label>` label to a ticket to get a draft pull
-   request; the reviewer reviews it and you merge it." (On Jira, add that the
-   ticket body must name the `owner/repo`.)
-2. If the AGENTS.md maintainer was added, the `AGENTS.md` pull requests from
-   `$F prs --repos <repos>`, asking the user to merge them: they give the build
-   agent the repository's build, test and lint commands. One opened before
-   this setup started (`created_at`) is "still open from an earlier run", not
-   new; the maintainer works once a week per repository. If there are none
-   yet, say they are on their way.
+1. One plain sentence on what runs and how to use it. GitHub: "Your factory is
+   running on `<repos>`. Add the `<trigger label>` label to a ticket to get a
+   draft pull request; the reviewer reviews it and you merge it." (On Jira,
+   add that the ticket body must name the `owner/repo`.) GitLab: "Your factory
+   is running on `<projects>` at `<instance>`. Label an issue `openhands` for
+   a draft MR, `openhands-refine` for refinement feedback, and a non-draft MR
+   `openhands-review` for a review note; you merge it." Omit issue-to-MR if
+   it was not installed. Do not imply the MR reviewer approves or merges.
+2. GitHub only: if the AGENTS.md maintainer was added, show the `AGENTS.md`
+   pull requests from `$F prs --repos <repos>`, asking the user to merge them.
+   One opened before this setup started (`created_at`) is "still open from an
+   earlier run", not new; the maintainer works once a week per repository.
+   If there are none yet, say they are on their way.
 3. A small table of the automations, each linked to its `url`:
 
    | Automation | Schedule | Status |
    |---|---|---|
-   | [Issue to PR](<url>) | every 15 minutes | on |
+   | [Issue to PR/MR](<url>) | every 15 minutes | on |
 
    Status is `on`, or `off` with the reason in a few words. No automation ids.
 4. The settings in effect, as a short list (the Tune table's current values).
-   Mention that the reviewer also reviews any open, non-draft, green pull
-   request with no review yet (at most 2 new per scan).
+   For GitHub only, mention that the reviewer also reviews any open,
+   non-draft, green pull request with no review yet (at most 2 new per scan).
+   For GitLab, say the reviewer posts a note once per MR head, and the refiner
+   posts feedback once per issue label application.
 5. End with only a list of possible next steps, one line each, and nothing
    after it. Mark the first one not done yet as recommended:
-   - **Try it**: I open a small test issue with the `<trigger label>` label in
-     `<repo>`, only if you say so, and report the pull request.
+   - **Try it**: Only with permission, create a small test issue in a selected
+     project/repository, label it and report the resulting MR or PR. On GitLab,
+     also verify review/refinement note posting with authorized test items.
    - **Tune**: change a setting from the list above.
-   - **Add a station**: AGENTS.md maintainer, auto-merge watchdog, stale-CI closer (QA only
-     if `preflight` reports it `ok`).
+   - **Add a station** (GitHub only): AGENTS.md maintainer, auto-merge watchdog,
+     stale-CI closer (QA only if `preflight` reports it `ok`).
    - **Stop here**: the factory keeps running as it is.
 
 ## Phase 2 - Extend, one round at a time
@@ -178,30 +217,34 @@ each with its current value. Apply, then return to the Checkpoint.
 
 ### Tune
 
-| Setting | Default | `--set` |
+| Setting | Default | `--set` / option |
 |---|---|---|
-| Issue trigger label (GitHub issues) | `openhands` | `github-issue-to-pr.triggerLabel` |
-| Draft or ready pull requests | `draft` | `pullRequestMode` (issue to PR, AGENTS.md maintainer) |
-| Branch prefix (GitHub issues) | `openhands/issue` | `github-issue-to-pr.branchPrefix` (and the watchdog's, if present) |
-| Which pull requests get reviewed | label `openhands-review`, reviewer `all-hands-bot` | `github-pr-reviewer.triggerLabel`, `triggerReviewer` |
-| Review tone: concise, thorough, friendly | `concise` | `reviewTone` |
-| Human reviewers requested after agent approval (two or more logins) | none | `maintainers` |
-| Schedules and timezone | issue to PR `*/15 * * * *`, reviewer `*/5 * * * *`, triage `*/5 * * * *`, add-ons per manifest; `UTC` | `ID.schedule`, `timezone` |
-| Agent profile | active profile | `--profile NAME` |
+| Issue trigger label (GitHub or GitLab) | `openhands` | `github-issue-to-pr.triggerLabel` / `gitlab-issue-to-mr.triggerLabel` |
+| Draft or ready PR/MR | `draft` | GitHub: `pullRequestMode`; GitLab: `gitlab-issue-to-mr.mergeRequestMode` |
+| Branch prefix | `openhands/issue` | `github-issue-to-pr.branchPrefix` / `gitlab-issue-to-mr.branchPrefix` |
+| GitHub PR review | label `openhands-review`, reviewer `all-hands-bot` | `github-pr-reviewer.triggerLabel`, `triggerReviewer` |
+| GitHub review tone and human reviewers | `concise`, none | `reviewTone`, `maintainers` |
+| GitLab MR review label | `openhands-review` | `gitlab-mr-reviewer.triggerLabel` |
+| GitLab issue refinement label | `openhands-refine` | `gitlab-prd-refiner.triggerLabel` |
+| GitLab API URL | `https://gitlab.com/api/v4` | `--gitlab-api-url URL` on preflight/create/tune (use same instance) |
+| Schedules and timezone | GitHub per manifest; GitLab all `*/15 * * * *`; `UTC` | `ID.schedule`, `timezone` |
+| Agent profile (GitHub only) | active profile | `--profile NAME` |
 
 Apply:
 
 - Schedule or timezone only:
   `PATCH ${OPENHANDS_HOST}/api/automation/v1/{id}` with `{"trigger": {...}}`.
 - Jira or Linear station settings: change them as its skill describes.
-- Anything else is fixed at creation: `$F tune --repos <repos> --ids <id>` with
-  the new `--set` values (repeat every earlier non-default value), then
-  `$F verify <id>`. `tune` updates the station in place, so there is no
-  replacement to delete and no template-id collision.
+- Anything else is fixed at creation: `$F tune --repos <repos> --ids <id>`
+  (add the GitLab provider and instance URL flags when selected), with the new
+  `--set` values (repeat every earlier non-default value), then `$F verify
+  <id>`. For a new GitLab URL, rerun preflight against that host first. `tune`
+  updates the station in place, with no replacement or template-id collision.
 
-### Add a station
+### Add a station (GitHub only)
 
-Ask only the question below, then `$F create` it and `$F verify` it.
+Ask only the question below, then `$F create` it and `$F verify` it. GitLab
+has no add-on stations in this skill.
 
 - **Auto-merge watchdog** (`github-delivery-watchdog`, GitHub issues only,
   since it merges only branches with the issue to PR prefix): confirm the user

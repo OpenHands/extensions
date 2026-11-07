@@ -108,13 +108,14 @@
     {
       "name": "software-factory",
       "source": "./skills/software-factory",
-      "description": "Set up a GitHub software factory fast: ask only for the repositories and the ticket source (GitHub issues, Jira or Linear), create a working issue-to-PR and PR-review pipeline from catalog automations with defaults, then let the user stop or extend it step by step.",
+      "description": "Set up a GitHub or GitLab software factory: choose the code host and repositories, request a missing provider token securely, then install issue-to-PR/MR, review, and triage or refinement catalog automations with defaults.",
       "category": "automations",
       "defaultEnabled": true,
       "keywords": [
         "onboarding",
         "software-factory",
         "github",
+        "gitlab",
         "automation",
         "pull-request"
       ]
@@ -801,6 +802,20 @@
         "automation",
         "integration"
       ]
+    },
+    {
+      "name": "gitlab-mr-reviewer",
+      "source": "./skills/gitlab-mr-reviewer",
+      "description": "Review labelled GitLab merge requests at the exact head and post one actionable review note per head.",
+      "category": "automations",
+      "keywords": ["gitlab", "merge-request", "code-review", "automation"]
+    },
+    {
+      "name": "gitlab-prd-refiner",
+      "source": "./skills/gitlab-prd-refiner",
+      "description": "Refine labelled GitLab issues by posting open questions, recommendations, and requirements gaps.",
+      "category": "automations",
+      "keywords": ["gitlab", "work-item", "prd", "refinement", "automation"]
     },
     {
       "name": "incident-retrospective",
