@@ -1,0 +1,13 @@
+{
+  "name": "datacircle",
+  "version": "1.0.0",
+  "description": "Find the best GTM APIs. Compare and price GTM APIs: who is best for each, what 1,000 results cost, rate limits and fields returned.",
+  "author": {
+    "name": "Datacircle",
+    "email": "wayne@datacircle.dev"
+  },
+  "homepage": "https://datacircle.dev",
+  "repository": "https://github.com/waynehamadi/datacircle",
+  "license": "MIT",
+  "keywords": ["gtm", "api", "pricing", "benchmark"]
+}

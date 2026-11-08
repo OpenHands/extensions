@@ -100,7 +100,7 @@ The JS and Python versions are kept in lock-step by `release-please` and guarded
 ## Extensions Catalog
 
 <!-- BEGIN AUTO-GENERATED CATALOG -->
-This repository contains **2 marketplace(s)** with **82 extensions** (71 skills, 11 plugins).
+This repository contains **2 marketplace(s)** with **83 extensions** (72 skills, 11 plugins).
 
 ### large-codebase
 
@@ -119,7 +119,7 @@ OpenHands skills for interacting, improving, and refactoring large codebases
 
 Official skills and plugins for OpenHands — the open-source AI software engineer.
 
-**78 extensions** (69 skills, 9 plugins)
+**79 extensions** (70 skills, 9 plugins)
 
 | Name | Type | Description | Commands |
 |------|------|-------------|----------|
@@ -138,6 +138,7 @@ Official skills and plugins for OpenHands — the open-source AI software engine
 | code-simplifier | skill | Simplifies and refines code across three dimensions - code reuse, code quality, and efficiency - while preserving all... | `/simplify` |
 | comment-cleanup | skill | Remove comments that restate adjacent code, delete comments that narrate removed functionality or past PRs, and conde... | — |
 | cortex-training-rl | skill | Run reinforcement-learning post-training of a model inside the OpenHands harness on Snowflake Cortex Training for any... | `/cortex-training-rl` |
+| datacircle | skill | Find the best GTM APIs. Compare and price GTM APIs: who is best for each, what 1,000 results cost, rate limits and fi... | — |
 | datadog | skill | Query and analyze Datadog logs, metrics, APM traces, and monitors using the Datadog API. Use when debugging productio... | — |
 | deno | skill | Common project operations using Deno (tasks, run/test/lint/fmt, and dependency management). | — |
 | discord | skill | Build and automate Discord integrations (bots, webhooks, slash commands, and REST API workflows). Use when the user m... | — |
