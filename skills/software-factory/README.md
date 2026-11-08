@@ -45,9 +45,10 @@ other skills create), so the Automations list can filter to the factory.
    `GITLAB_TOKEN` with `request_secret` on a local backend. On other backends,
    direct users to Settings -> Secrets. Create the catalog stations, smoke-run
    them and enable only those that pass.
-2. **Checkpoint**: show the stations, their settings and how to use the factory.
-   The user can stop, try an authorized test issue, or tune settings. GitHub
-   offers optional add-on stations.
+2. **Checkpoint**: show each station's outcome, the label or action that
+   triggers it, its schedule and status. This gives the user a concrete test
+   path without guessing which automation will run. The user can stop, try
+   authorized test items, or tune settings. GitHub offers optional add-ons.
 3. **Phase 2**: one round per pick, then back to the Checkpoint.
 
 ## Requirements
@@ -59,10 +60,13 @@ other skills create), so the Automations list can filter to the factory.
   write on every selected repository, created at
   [GitHub settings](https://github.com/settings/personal-access-tokens), and
   an OpenHands (not ACP) agent profile that may use that token.
-- GitLab: a token issued by the chosen instance with `api` scope and at least
-  Developer on the selected projects, saved as `GITLAB_TOKEN`. Token values
-  are never placed in template config, chat, or the instance URL. The runtime
-  must reach the instance over HTTPS. GitLab stations need no agent profile.
+- GitLab: create a [personal, project or group access token](https://docs.gitlab.com/user/profile/personal_access_tokens/)
+  on the chosen instance with the `api` scope (the only required scope) and
+  Developer or higher access to every selected project. `read_api` or
+  repository-only scopes do not cover the factory's writes. Save the token as
+  `GITLAB_TOKEN` in Canvas, never in template config, chat or the instance URL.
+  The runtime must reach the instance over HTTPS. GitLab stations need no
+  agent profile.
 - Jira tickets (GitHub code): a connected Atlassian Rovo server or Jira API
   token. Linear tickets (GitHub code): a Linear connection.
 

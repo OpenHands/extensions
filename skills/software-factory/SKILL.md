@@ -133,17 +133,24 @@ active one.
    without its API URL, get that URL before proceeding. Everything else uses
    catalog defaults and can be tuned later.
 2. Run `$F preflight --repos <repos>` with the GitLab provider and instance URL
-   flags when selected. If the selected provider's `github_login` or
+   flags when selected. For **every GitLab token request or replacement**, tell
+   the user to create a personal, project or group access token **on the selected
+   GitLab instance** with the `api` scope (the single required scope; `read_api`
+   or repository-only scopes are not enough). The token's identity must have
+   Developer or higher access to each selected project. Point to
+   [GitLab's access-token instructions](https://docs.gitlab.com/user/profile/personal_access_tokens/)
+   and say to save the token as `GITLAB_TOKEN` in Canvas, not in chat. Include
+   this guidance in the `request_secret` reason as well as any manual Settings
+   -> Secrets instructions. If the selected provider's `github_login` or
    `gitlab_login` is null, use `token_error`:
    - `not_set` on a local backend with `request_secret` available: call it
      once with the selected name, `GITHUB_PERSONAL_ACCESS_TOKEN` or
      `GITLAB_TOKEN`, never the value. For GitHub, the reason asks for Contents,
      Issues, Pull requests and Workflows read and write (classic PAT: `repo`,
      `workflow`) and points to
-     https://github.com/settings/personal-access-tokens. For GitLab, ask for
-     a token **on that instance** with `api` scope and Developer or higher on
-     every selected project (personal, project or group access token). End
-     your turn, wait for `[secret-request]`, then rerun `preflight`.
+     https://github.com/settings/personal-access-tokens. For GitLab, use the
+     GitLab token requirements above in the reason. End your turn, wait for
+     `[secret-request]`, then rerun `preflight`.
    - `rejected`: the saved token is invalid or expired. `request_secret`
      cannot replace an existing secret. Ask "Shall I remove the saved token
      and open the form for a replacement?" Only on yes, on a local backend,
@@ -175,36 +182,41 @@ active one.
 
 Write one short message, in this order:
 
-1. One plain sentence on what runs and how to use it. GitHub: "Your factory is
-   running on `<repos>`. Add the `<trigger label>` label to a ticket to get a
-   draft pull request; the reviewer reviews it and you merge it." (On Jira,
-   add that the ticket body must name the `owner/repo`.) GitLab: "Your factory
-   is running on `<projects>` at `<instance>`. Label an issue `openhands` for
-   a draft MR, `openhands-refine` for refinement feedback, and a non-draft MR
-   `openhands-review` for a review note; you merge it." Omit issue-to-MR if
-   it was not installed. Do not imply the MR reviewer approves or merges.
+1. One plain sentence naming the host and selected repositories/projects, and
+   saying the enabled stations check for work on their listed schedules. Do
+   not claim an `off` station runs or that a cron scan reacts immediately.
 2. GitHub only: if the AGENTS.md maintainer was added, show the `AGENTS.md`
    pull requests from `$F prs --repos <repos>`, asking the user to merge them.
    One opened before this setup started (`created_at`) is "still open from an
    earlier run", not new; the maintainer works once a week per repository.
    If there are none yet, say they are on their way.
-3. A small table of the automations, each linked to its `url`:
+3. A compact table with **one row per configured station**, each linked to its
+   `url`. State in each row what it produces and the exact action a user can
+   take to test it, using the configured labels rather than defaults if tuned.
+   For GitLab (omit any station not installed), use this shape:
 
-   | Automation | Schedule | Status |
-   |---|---|---|
-   | [Issue to PR/MR](<url>) | every 15 minutes | on |
+   | Automation | What it does / how to trigger a test | Schedule | Status |
+   |---|---|---|---|
+   | [Issue to MR](<url>) | Label an open issue `openhands` -> draft MR | every 15 minutes | on |
+   | [MR reviewer](<url>) | Label an open, non-draft MR `openhands-review` -> review note (no approval) | every 15 minutes | on |
+   | [Work item refiner](<url>) | Label an open issue `openhands-refine` -> questions and recommendations note | every 15 minutes | on |
 
-   Status is `on`, or `off` with the reason in a few words. No automation ids.
+   To test the reviewer on the MR created by issue-to-MR, mark that draft MR
+   ready first, then label it `openhands-review`. For GitHub, similarly name
+   each installed issue/PR trigger and outcome: labelled issue -> draft PR;
+   labelled or requested non-draft PR -> review; open issue -> triage. For
+   Jira or Linear, use the ticket source skill's actual trigger. Status is
+   `on`, or `off` with the reason in a few words. No automation ids.
 4. The settings in effect, as a short list (the Tune table's current values).
    For GitHub only, mention that the reviewer also reviews any open,
    non-draft, green pull request with no review yet (at most 2 new per scan).
-   For GitLab, say the reviewer posts a note once per MR head, and the refiner
-   posts feedback once per issue label application.
+   For GitLab, the reviewer posts at most one note per MR head and the refiner
+   posts at most one note per issue label application.
 5. End with only a list of possible next steps, one line each, and nothing
    after it. Mark the first one not done yet as recommended:
    - **Try it**: Only with permission, create a small test issue in a selected
-     project/repository, label it and report the resulting MR or PR. On GitLab,
-     also verify review/refinement note posting with authorized test items.
+     project/repository and use the table's trigger. On GitLab, offer separate
+     authorized reviewer/refiner tests using the actions in the table.
    - **Tune**: change a setting from the list above.
    - **Add a station** (GitHub only): AGENTS.md maintainer, auto-merge watchdog,
      stale-CI closer (QA only if `preflight` reports it `ok`).
