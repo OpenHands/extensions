@@ -34,7 +34,8 @@ class Service(BaseHTTPRequestHandler):
         app = self.server.app
         base = "/api/v4/projects/group%2Fteam%2Fproject/"
         if path == "/api/settings":
-            return self.reply({"agent_settings": {"llm": {"model": "test-model"}}})
+            key = "test-llm-key" if self.headers.get("X-Expose-Secrets") == "plaintext" else "**********"
+            return self.reply({"agent_settings": {"llm": {"model": "test-model", "api_key": key}}})
         if path.startswith("/api/conversations/"):
             if path.endswith("/agent_final_response"):
                 return self.reply({"response": app["response"]})
@@ -133,6 +134,14 @@ class GitLabFeedbackTests(unittest.TestCase):
         self.app["events"].append({"id": 9, "action": "add", "label": {"name": "openhands-refine"}})
         self.poll("refine")
         self.assertEqual(len(self.app["prompts"]), 2)
+
+    def test_local_conversations_use_unmasked_llm_key(self):
+        self.poll("review")
+        self.poll("refine")
+        self.assertEqual(
+            [body["agent"]["llm"]["api_key"] for body in self.app["prompts"]],
+            ["test-llm-key", "test-llm-key"],
+        )
 
     def test_project_path_and_invalid_config(self):
         self.assertEqual(workflow.project_path("https://gitlab.com/group/team/project.git/-/issues/8"), self.project)

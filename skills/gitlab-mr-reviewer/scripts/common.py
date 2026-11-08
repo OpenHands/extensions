@@ -62,11 +62,11 @@ def _session_key():
     return os.environ.get("SESSION_API_KEY") or os.environ.get("OH_SESSION_API_KEYS_0", "")
 
 
-def _openhands(method, path, body=None):
+def _openhands(method, path, body=None, extra_headers=None):
     base = (os.environ["OPENHANDS_CLOUD_API_URL"] if _cloud() else os.environ["AGENT_SERVER_URL"]).rstrip("/")
     auth = ({"Authorization": f"Bearer {os.environ.get('OPENHANDS_API_KEY', '')}"} if _cloud()
             else {"X-Session-API-Key": _session_key()})
-    return _request(base + path, method, body, auth)
+    return _request(base + path, method, body, {**auth, **(extra_headers or {})})
 
 
 def _secret(name):
@@ -171,7 +171,7 @@ def _start_conversation(title, prompt):
             body["agent_profile_id"] = os.environ["AUTOMATION_AGENT_PROFILE_ID"]
         _openhands("POST", "/api/v1/app-conversations", body)
         return conversation_id
-    settings = _openhands("GET", "/api/settings")
+    settings = _openhands("GET", "/api/settings", extra_headers={"X-Expose-Secrets": "plaintext"})
     body = {"agent": {"kind": "Agent", "llm": settings["agent_settings"]["llm"],
                       "tools": [{"name": "terminal"}, {"name": "file_editor"}]},
             "workspace": {"kind": "LocalWorkspace", "working_dir": os.environ.get("WORKSPACE_BASE", "/workspace")},
