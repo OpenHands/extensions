@@ -11,7 +11,10 @@
         "message": "Optional. Used when you choose a GitHub repository to clone or trigger from GitHub events.",
         "required": false
       }
-    }
+    },
+    "features": [
+      "agentProfiles"
+    ]
   },
   "popularityRank": 99,
   "estimatedSetupMinutes": 5,
@@ -67,6 +70,12 @@
         }
       },
       "args": {
+        "agent_profile_id": {
+          "type": "agent-profile",
+          "label": "Agent profile",
+          "help": "Select the saved agent profile this automation uses. Its LLM, tools, integrations and allowed secrets apply to agent-driven runs; script-only runs record the selected profile.",
+          "required": true
+        },
         "name": {
           "type": "text",
           "label": "Automation name",
@@ -77,12 +86,6 @@
             "minLength": 1,
             "maxLength": 500
           }
-        },
-        "model": {
-          "type": "llm-profile",
-          "label": "LLM profile",
-          "help": "Optional model profile used for automation runs. Leave blank to use the active profile.",
-          "required": false
         },
         "timeout": {
           "type": "number",
@@ -99,9 +102,10 @@
     "actions": {
       "prompt": {
         "label": "Prompt",
-        "help": "Run a natural-language prompt with the default OpenHands agent.",
+        "help": "Run a natural-language prompt with the selected agent profile.",
         "features": [
-          "presetPrompt"
+          "presetPrompt",
+          "presetAgentProfiles"
         ],
         "args": {
           "prompt": {
@@ -140,7 +144,8 @@
         "label": "Plugin",
         "help": "Run a prompt with one or more OpenHands plugins loaded.",
         "features": [
-          "presetPlugin"
+          "presetPlugin",
+          "presetAgentProfiles"
         ],
         "args": {
           "plugins": {
@@ -225,6 +230,6 @@
       }
     },
     "filter": "{{form.filter}}",
-    "message": "This deployment cannot create custom automations directly. Set it up in this conversation instead: choose prompt, plugin, or uploaded tarball mode; confirm the selected trigger, model profile, timeout, and mode-specific fields; then create the automation."
+    "message": "This deployment cannot create custom automations directly. Set it up in this conversation instead: choose prompt, plugin, or uploaded tarball mode; confirm the selected trigger, agent profile, timeout, and mode-specific fields; then create the automation."
   }
 }

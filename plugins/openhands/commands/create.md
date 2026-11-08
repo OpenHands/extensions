@@ -24,8 +24,9 @@ Ask the user to describe what the automation should do. In most cases, the user'
 1. **Name**: Descriptive name for the automation (1-500 characters)
 2. **Prompt**: What the automation should do — use the user's description
 3. **Cron Schedule**: e.g., `0 9 * * 1` (Mondays at 9 AM UTC)
-4. **Timezone** (optional): IANA timezone (default: UTC)
-5. **Timeout** (optional): Max execution time in seconds
+4. **Agent profile**: Ask the user to choose a saved agent profile and record its UUID. Never use an implicit default agent or a standalone `model`.
+5. **Timezone** (optional): IANA timezone (default: UTC)
+6. **Timeout** (optional): Max execution time in seconds
 
 ### Step 3: Create the Automation
 
@@ -35,6 +36,7 @@ curl -X POST "https://app.all-hands.dev/api/automation/v1/preset/prompt" \
   -H "Content-Type: application/json" \
   -d '{
     "name": "USER_PROVIDED_NAME",
+    "agent_profile_id": "USER_SELECTED_AGENT_PROFILE_UUID",
     "prompt": "USER_PROVIDED_DESCRIPTION_OF_WHAT_TO_DO",
     "trigger": {
       "type": "cron",

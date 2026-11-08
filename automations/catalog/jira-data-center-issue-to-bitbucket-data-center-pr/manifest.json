@@ -7,7 +7,9 @@
   "requires": {
     "integrations": {},
     "features": [
-      "presetPrompt"
+      "presetPrompt",
+      "agentProfiles",
+      "presetAgentProfiles"
     ],
     "builtInIntegrations": [
       "jira_dc",
@@ -53,6 +55,12 @@
         }
       },
       "args": {
+        "agent_profile_id": {
+          "type": "agent-profile",
+          "label": "Agent profile",
+          "help": "Select the saved agent profile this automation uses. Its LLM, tools, integrations and allowed secrets apply to agent-driven runs; script-only runs record the selected profile.",
+          "required": true
+        },
         "repositoryUrl": {
           "type": "repo-picker",
           "label": "Bitbucket repository",

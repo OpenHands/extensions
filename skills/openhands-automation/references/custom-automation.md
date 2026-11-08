@@ -309,9 +309,11 @@ headers = {
 
 The built-in prompt and plugin presets use this helper. Custom scripts should do the same for every new conversation so traces, observability metadata, and automation conversation tags stay attached.
 
-### Selecting an LLM profile
+### Using the selected agent profile
 
-The automation service injects an `AUTOMATION_MODEL` environment variable holding the **LLM profile name** the automation should run with. This is the profile a user selects when editing the automation, or — when none is selected — a snapshot of the user's active profile taken when the automation was created. To honor it on every run, read `AUTOMATION_MODEL` and pass it to `workspace.get_llm(profile_name=...)`:
+New automations must be created with an explicit `agent_profile_id`. The service injects `AUTOMATION_AGENT_PROFILE_ID` for profile-backed runs. For an agent-driven custom script, start a profile-backed remote conversation rather than building a default agent with `workspace.get_llm()`; the [prompt preset runner](https://github.com/OpenHands/automation/blob/plugin-spec-profile-choice/openhands/automation/presets/prompt/sdk_main.py) shows how to use `RemoteConversation.create` and `StartConversationRequest` so the selected tools, LLM, MCP servers and secrets are applied. A deterministic script can read the profile ID for provenance without starting an LLM conversation.
+
+`AUTOMATION_MODEL` is a legacy **LLM profile name** for existing automations without an agent profile. The following pattern is for those existing automations only; it must not be used when `AUTOMATION_AGENT_PROFILE_ID` is present:
 
 ```python
 # AUTOMATION_MODEL is the selected profile name (absent when none was chosen).
@@ -327,7 +329,7 @@ except FileNotFoundError:
     llm = workspace.get_llm()
 ```
 
-Calling `workspace.get_llm()` with no `profile_name` always uses the user's default LLM. The built-in prompt and plugin presets already follow the pattern above; custom scripts should too so the selected profile is honored regardless of trigger type or execution backend.
+Calling `workspace.get_llm()` with no `profile_name` uses the user's default LLM. Only existing model-backed automations should use that fallback. Profile-backed preset runs launch the agent profile on the server instead; a deleted or inaccessible profile must fail rather than silently changing the agent.
 
 ### Conversation Persistence
 

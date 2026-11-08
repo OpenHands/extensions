@@ -57,10 +57,9 @@ PREFLIGHT_TARBALL_PATH = "oh-internal://uploads/00000000-0000-0000-0000-00000000
 # after one of them fills it; the rest are inputs to the declared filter.
 TRIGGER_PROPERTIES = {"cron": ("schedule", "timezone"), "event": ("source", "on")}
 
-# Optional top-level fields accepted by every creation path represented here. A
-# form field with one of these names fills the matching request property when it
-# has a value.
-OPTIONAL_CREATE_PROPERTIES = ("model", "timeout")
+# Top-level fields copied from the form into every creation path. The schema
+# requires agent_profile_id; timeout is optional.
+OPTIONAL_CREATE_PROPERTIES = ("agent_profile_id", "timeout")
 
 # The providers whose repositories a run clones when the deployment does not
 # report `repoProviders` (services before OpenHands/automation 1.24.0).
@@ -311,6 +310,7 @@ def _render_bundle_payload(
         body["setup_script_path"] = bundle["setupScript"]
     if "timeout" in bundle:
         body["timeout"] = bundle["timeout"]
+    _add_optional_create_properties(body, entry["setup"], form_values)
     body["template"] = {
         "id": entry["id"],
         "version": bundle["version"],
@@ -710,6 +710,32 @@ def test_catalog_entry_validates_against_schema(entry_path: Path) -> None:
 
 def test_schema_file_is_valid_draft_2020_12() -> None:
     Draft202012Validator.check_schema(_SCHEMA)
+
+
+@pytest.mark.parametrize("entry_path", list(_setup_paths()))
+def test_direct_setup_requires_an_explicit_agent_profile(entry_path: Path) -> None:
+    entry = _load(entry_path)
+    if entry["setup"]["mode"] != "direct":
+        return
+
+    profile = entry["setup"]["form"]["args"].get("agent_profile_id")
+    assert profile and profile["type"] == "agent-profile"
+    assert profile["required"] is True
+
+    missing = deepcopy(entry)
+    del missing["setup"]["form"]["args"]["agent_profile_id"]
+    assert list(VALIDATOR.iter_errors(missing)), entry_path
+
+
+@pytest.mark.parametrize(("bundle", "scenario"), list(_scenarios("create")))
+def test_direct_create_requests_include_an_explicit_profile(
+    bundle: dict, scenario: dict
+) -> None:
+    profile_id = scenario["formValues"]["agent_profile_id"]
+    assert profile_id
+    body = scenario["create"]["request"]["body"]
+    assert body["agent_profile_id"] == profile_id
+    assert "model" not in body
 
 
 def test_schema_allows_event_filter_on_script_bundle() -> None:

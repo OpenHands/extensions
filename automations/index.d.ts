@@ -87,6 +87,7 @@ export type AutomationFieldType =
   | "cron"
   | "timezone"
   | "repo-picker"
+  | "agent-profile"
   | "llm-profile"
   | "event-source"
   | "event-type"

@@ -16,10 +16,10 @@
         "prompt": "Summarize recent changes in the OpenHands/extensions repository and save a concise report in the workspace.",
         "repository": "OpenHands/extensions",
         "ref": "main",
-        "model": "fast",
         "timeout": 900,
         "schedule": "0 9 * * 1-5",
-        "timezone": "UTC"
+        "timezone": "UTC",
+        "agent_profile_id": "11111111-1111-4111-8111-111111111111"
       },
       "preflight": {
         "request": {
@@ -31,7 +31,6 @@
             "draft": {
               "name": "Daily extensions summary",
               "prompt": "Summarize recent changes in the OpenHands/extensions repository and save a concise report in the workspace.",
-              "model": "fast",
               "timeout": 900,
               "repos": [
                 {
@@ -44,7 +43,8 @@
                 "type": "cron",
                 "schedule": "0 9 * * 1-5",
                 "timezone": "UTC"
-              }
+              },
+              "agent_profile_id": "11111111-1111-4111-8111-111111111111"
             }
           }
         },
@@ -63,7 +63,6 @@
           "body": {
             "name": "Daily extensions summary",
             "prompt": "Summarize recent changes in the OpenHands/extensions repository and save a concise report in the workspace.",
-            "model": "fast",
             "timeout": 900,
             "repos": [
               {
@@ -76,14 +75,15 @@
               "type": "cron",
               "schedule": "0 9 * * 1-5",
               "timezone": "UTC"
-            }
+            },
+            "agent_profile_id": "11111111-1111-4111-8111-111111111111"
           }
         },
         "response": {
           "status": 201,
           "body": {
             "id": "1c0b7ea0-0000-4000-8000-000000000001",
-            "model": "fast",
+            "model": null,
             "name": "Daily extensions summary",
             "prompt": "Summarize recent changes in the OpenHands/extensions repository and save a concise report in the workspace.",
             "trigger": {
@@ -107,11 +107,11 @@
         "prompt": "When triggered, read the GitHub issue or pull request context and draft a helpful response for the user.",
         "repository": "OpenHands/extensions",
         "ref": "main",
-        "model": "",
         "timeout": 600,
         "source": "github",
         "on": "issue_comment.created",
-        "filter": "glob(repository.full_name, 'OpenHands/extensions') && icontains(comment.body, '@openhands')"
+        "filter": "glob(repository.full_name, 'OpenHands/extensions') && icontains(comment.body, '@openhands')",
+        "agent_profile_id": "11111111-1111-4111-8111-111111111111"
       },
       "preflight": {
         "request": {
@@ -136,7 +136,8 @@
                 "source": "github",
                 "on": "issue_comment.created",
                 "filter": "glob(repository.full_name, 'OpenHands/extensions') && icontains(comment.body, '@openhands')"
-              }
+              },
+              "agent_profile_id": "11111111-1111-4111-8111-111111111111"
             }
           }
         },
@@ -168,7 +169,8 @@
               "source": "github",
               "on": "issue_comment.created",
               "filter": "glob(repository.full_name, 'OpenHands/extensions') && icontains(comment.body, '@openhands')"
-            }
+            },
+            "agent_profile_id": "11111111-1111-4111-8111-111111111111"
           }
         },
         "response": {
@@ -207,10 +209,10 @@
         "prompt": "Use the plugin to QA recent changes and produce a concise report.",
         "repository": "OpenHands/OpenHands",
         "ref": "main",
-        "model": "balanced",
         "timeout": 1200,
         "schedule": "0 10 * * 1",
-        "timezone": "UTC"
+        "timezone": "UTC",
+        "agent_profile_id": "11111111-1111-4111-8111-111111111111"
       },
       "preflight": {
         "request": {
@@ -229,7 +231,6 @@
                   "ref": "main"
                 }
               ],
-              "model": "balanced",
               "timeout": 1200,
               "repos": [
                 {
@@ -242,7 +243,8 @@
                 "type": "cron",
                 "schedule": "0 10 * * 1",
                 "timezone": "UTC"
-              }
+              },
+              "agent_profile_id": "11111111-1111-4111-8111-111111111111"
             }
           }
         },
@@ -268,7 +270,6 @@
                 "ref": "main"
               }
             ],
-            "model": "balanced",
             "timeout": 1200,
             "repos": [
               {
@@ -281,14 +282,15 @@
               "type": "cron",
               "schedule": "0 10 * * 1",
               "timezone": "UTC"
-            }
+            },
+            "agent_profile_id": "11111111-1111-4111-8111-111111111111"
           }
         },
         "response": {
           "status": 201,
           "body": {
             "id": "1c0b7ea0-0000-4000-8000-000000000003",
-            "model": "balanced",
+            "model": null,
             "name": "Weekly plugin check",
             "prompt": "Use the plugin to QA recent changes and produce a concise report.",
             "trigger": {
@@ -312,10 +314,10 @@
         "tarball": "oh-internal://uploads/1c0b7ea0-0000-4000-8000-000000000004",
         "entrypoint": "python3 main.py",
         "setupScript": "setup.sh",
-        "model": "",
         "timeout": 300,
         "schedule": "30 2 * * *",
-        "timezone": "UTC"
+        "timezone": "UTC",
+        "agent_profile_id": "11111111-1111-4111-8111-111111111111"
       },
       "upload": {
         "request": {
@@ -348,7 +350,8 @@
               },
               "tarball_path": "oh-internal://uploads/00000000-0000-0000-0000-000000000000",
               "entrypoint": "python3 main.py",
-              "setup_script_path": "setup.sh"
+              "setup_script_path": "setup.sh",
+              "agent_profile_id": "11111111-1111-4111-8111-111111111111"
             }
           }
         },
@@ -374,7 +377,8 @@
             },
             "tarball_path": "oh-internal://uploads/1c0b7ea0-0000-4000-8000-000000000004",
             "entrypoint": "python3 main.py",
-            "setup_script_path": "setup.sh"
+            "setup_script_path": "setup.sh",
+            "agent_profile_id": "11111111-1111-4111-8111-111111111111"
           }
         },
         "response": {

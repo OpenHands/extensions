@@ -1,6 +1,6 @@
 {
   "id": "github-repo-monitor",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "name": "GitHub repository monitor",
   "category": "Developer tools",
   "description": "Watch a repository for @OpenHands mentions in issues and PR comments, start a conversation, and let the agent answer or carry out the work - by default only for users with write access.",
@@ -13,7 +13,9 @@
     },
     "features": [
       "repoClone",
-      "presetPrompt"
+      "presetPrompt",
+      "agentProfiles",
+      "presetAgentProfiles"
     ]
   },
   "popularityRank": 98,
@@ -47,6 +49,12 @@
         }
       },
       "args": {
+        "agent_profile_id": {
+          "type": "agent-profile",
+          "label": "Agent profile",
+          "help": "Select the saved agent profile this automation uses. Its LLM, tools, integrations and allowed secrets apply to agent-driven runs; script-only runs record the selected profile.",
+          "required": true
+        },
         "repository": {
           "type": "repo-picker",
           "label": "Repository",

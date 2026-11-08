@@ -28,6 +28,7 @@ When the `automation_form_update` tool is available, the conversation is an Agen
 - Propose the automation by filling the form with `automation_form_update`. Then tell the user which fields you filled and what they should check.
 - Do not create, update, enable, dispatch or delete automations, drafts or custom webhooks through the automation API in this conversation, with `curl`, a script or any other tool, even when the user asks you to deploy. The form's buttons (Save draft, Test, Create Automation) do that after the user's review.
 - Take the event source and event key from the tool's description, which lists the sources this deployment delivers. Never invent a source name.
+- Ask the user to choose a saved agent profile for every automation, including prompts, plugins and script-only runs. Put its ID in the form's `agentProfileId` field. Do not substitute a standalone model or the default agent.
 
 The rest of this skill (API calls, deployment steps, custom webhook registration) applies when that tool is not available.
 
@@ -37,6 +38,7 @@ The agent must follow these steps when creating an automation:
 * Quickly check that you can access the correct automations backend using the auth mechanism below
 * Quickly check that you can access any necessary integrations (e.g. GitHub, Slack); if access fails, inform the user and stop
 * Ask the user for any necessary information, e.g. if you need the name of a Slack channel or GitHub repo to proceed
+* Ask which saved agent profile should own the run, then pass its UUID as `agent_profile_id` for prompt, plugin, custom script and plugin-spec creation. Never silently use the default agent or send a standalone `model` alongside an agent profile. Script-only runs record the profile without making LLM calls. If the service cannot accept a profile for the chosen path, stop instead of dropping it. Existing automations with no profile continue under their stored compatibility settings, but do not create new ones that way.
 * Prefer creating a plugin-spec automation when the task can be packaged as an executable plugin. Before creating it, ask which local git repo or remote git repo should be used as the plugin source; if the user wants a local source and no repo exists yet, help them initialize and commit a local git repo first.
 * Write the code, plugin manifest, or prompt that will be sent to the automations backend _inside the current workspace_
 * Show the code to the user with the `canvas_ui` tool if available, otherwise present it in a fenced code block in your reply
@@ -216,7 +218,7 @@ Three service-managed paths simplify automation creation by handling runtime wir
 
 ### Prompt Preset
 
-Use the **preset/prompt endpoint** for simple automations. Provide a natural language prompt describing the task.
+Use the **preset/prompt endpoint** for simple automations. Provide a natural language prompt describing the task. Replace the example `agent_profile_id` UUID below with the ID of an agent profile the user explicitly selected; the placeholder UUID is not a real saved profile. Requires a service advertising `presetAgentProfiles` (OpenHands/automation#615).
 
 #### How It Works
 
@@ -232,6 +234,7 @@ curl -X POST "${OPENHANDS_HOST}/api/automation/v1/preset/prompt" \
   -H "Content-Type: application/json" \
   -d '{
     "name": "My Automation Name",
+    "agent_profile_id": "11111111-1111-4111-8111-111111111111",
     "prompt": "What the automation should do",
     "trigger": {
       "type": "cron",
@@ -246,6 +249,7 @@ curl -X POST "${OPENHANDS_HOST}/api/automation/v1/preset/prompt" \
 | Field | Required | Description |
 |-------|----------|-------------|
 | `name` | Yes | Name of the automation (1-500 characters) |
+| `agent_profile_id` | Yes for new automations | Selected saved agent profile UUID; do not combine with `model` |
 | `prompt` | Yes | Natural language instructions (1-50,000 characters) |
 | `trigger` | Yes | Trigger configuration — either `cron` or `event` (see below) |
 | `timeout` | No | Max execution time in seconds (default: system maximum) |
@@ -311,6 +315,7 @@ curl -X POST "${OPENHANDS_HOST}/api/automation/v1/preset/prompt" \
   -H "Content-Type: application/json" \
   -d '{
     "name": "Daily Report",
+    "agent_profile_id": "11111111-1111-4111-8111-111111111111",
     "prompt": "Generate a daily status report and save it to a file in the workspace",
     "trigger": {"type": "cron", "schedule": "0 9 * * 1-5", "timezone": "America/New_York"}
   }'
@@ -323,6 +328,7 @@ curl -X POST "${OPENHANDS_HOST}/api/automation/v1/preset/prompt" \
   -H "Content-Type: application/json" \
   -d '{
     "name": "Weekly Dependency Review",
+    "agent_profile_id": "11111111-1111-4111-8111-111111111111",
     "prompt": "Check the repository dependencies for new releases. Read each changelog, open one PR with the upgrades that look safe, and list any release with breaking changes in the PR description so a human can decide on it",
     "trigger": {"type": "cron", "schedule": "0 2 * * 0", "timezone": "UTC"},
     "timeout": 1800
@@ -402,6 +408,7 @@ curl -X POST "${OPENHANDS_HOST}/api/automation/v1" \
   -H "Content-Type: application/json" \
   -d "{
     \"name\": \"Hourly Health Check\",
+    \"agent_profile_id\": \"$AGENT_PROFILE_ID\",
     \"trigger\": {\"type\": \"cron\", \"schedule\": \"0 * * * *\", \"timezone\": \"UTC\"},
     \"tarball_path\": \"$TARBALL_PATH\",
     \"entrypoint\": \"python3 main.py\"
@@ -543,6 +550,7 @@ curl -X POST "${OPENHANDS_HOST}/api/automation/v1/preset/prompt" \
   -H "Content-Type: application/json" \
   -d '{
     "name": "OpenHands Mention Responder",
+    "agent_profile_id": "11111111-1111-4111-8111-111111111111",
     "prompt": "Analyze the issue or PR context and provide a helpful response to the user'\''s question. The comment body and context are available in the event payload.",
     "trigger": {
       "type": "event",
@@ -562,6 +570,7 @@ curl -X POST "${OPENHANDS_HOST}/api/automation/v1/preset/prompt" \
   -H "Content-Type: application/json" \
   -d '{
     "name": "Auto Review PRs",
+    "agent_profile_id": "11111111-1111-4111-8111-111111111111",
     "prompt": "Review this pull request for code quality, potential bugs, and best practices. Provide constructive feedback.",
     "trigger": {
       "type": "event",
@@ -580,6 +589,7 @@ curl -X POST "${OPENHANDS_HOST}/api/automation/v1/preset/prompt" \
   -H "Content-Type: application/json" \
   -d '{
     "name": "Risky Change Watch",
+    "agent_profile_id": "11111111-1111-4111-8111-111111111111",
     "prompt": "Review the diff of this push. If it touches authentication, billing, data migrations, or anything that changes behavior for existing users, open an issue that explains the risk in plain terms and mentions the code owners. Otherwise do nothing.",
     "trigger": {
       "type": "event",
@@ -598,6 +608,7 @@ curl -X POST "${OPENHANDS_HOST}/api/automation/v1/preset/prompt" \
   -H "Content-Type: application/json" \
   -d '{
     "name": "Issue Triage Bot",
+    "agent_profile_id": "11111111-1111-4111-8111-111111111111",
     "prompt": "Analyze this new issue and suggest appropriate labels. If it looks like a bug, try to identify the root cause.",
     "trigger": {
       "type": "event",
@@ -616,6 +627,7 @@ curl -X POST "${OPENHANDS_HOST}/api/automation/v1/preset/prompt" \
   -H "Content-Type: application/json" \
   -d '{
     "name": "PR Activity Bot",
+    "agent_profile_id": "11111111-1111-4111-8111-111111111111",
     "prompt": "Process the PR event and take appropriate action based on the event type.",
     "trigger": {
       "type": "event",
@@ -730,6 +742,7 @@ curl -X POST "${OPENHANDS_HOST}/api/automation/v1/preset/prompt" \
   -H "Content-Type: application/json" \
   -d '{
     "name": "Triage New Linear Issues",
+    "agent_profile_id": "11111111-1111-4111-8111-111111111111",
     "prompt": "A new issue was created in Linear. Analyze the issue title and description, suggest appropriate labels, and add a comment with initial triage notes.",
     "trigger": {
       "type": "event",
@@ -745,6 +758,7 @@ curl -X POST "${OPENHANDS_HOST}/api/automation/v1/preset/prompt" \
   -H "Content-Type: application/json" \
   -d '{
     "name": "High Priority Issue Alert",
+    "agent_profile_id": "11111111-1111-4111-8111-111111111111",
     "prompt": "A high-priority issue was updated. Review the changes and notify the team if action is needed.",
     "trigger": {
       "type": "event",
@@ -798,6 +812,7 @@ curl -X POST "${OPENHANDS_HOST}/api/automation/v1/preset/prompt" \
   -H "Content-Type: application/json" \
   -d '{
     "name": "Jira Issues Labelled create-pr",
+    "agent_profile_id": "11111111-1111-4111-8111-111111111111",
     "prompt": "A Jira issue received the create-pr label. Read the issue from the event payload and open a pull request for it.",
     "trigger": {
       "type": "event",
@@ -844,6 +859,7 @@ curl -X POST "${OPENHANDS_HOST}/api/automation/v1/preset/plugin" \
   -H "Content-Type: application/json" \
   -d '{
     "name": "My Plugin Automation",
+    "agent_profile_id": "11111111-1111-4111-8111-111111111111",
     "plugins": [
       {"source": "github:owner/repo", "ref": "v1.0.0"},
       {"source": "github:owner/another-plugin"}
@@ -863,6 +879,7 @@ curl -X POST "${OPENHANDS_HOST}/api/automation/v1/preset/plugin" \
 |-------|----------|-------------|
 | `name` | Yes | Name of the automation (1-500 characters) |
 | `plugins` | Yes | List of plugin sources (at least one required) |
+| `agent_profile_id` | Yes for new automations | Selected saved agent profile UUID; requires `presetAgentProfiles` and cannot be combined with `model` or plugin A/B `variants` |
 | `plugins[].source` | Yes | Plugin source: `github:owner/repo`, git URL, or local path |
 | `plugins[].ref` | No | Git ref: branch, tag, or commit SHA |
 | `plugins[].repo_path` | No | Subdirectory path for monorepos |
@@ -901,6 +918,7 @@ curl -X POST "${OPENHANDS_HOST}/api/automation/v1/preset/plugin" \
   -H "Content-Type: application/json" \
   -d '{
     "name": "Code Review Automation",
+    "agent_profile_id": "11111111-1111-4111-8111-111111111111",
     "plugins": [
       {"source": "github:owner/code-review-plugin", "ref": "v2.0.0"}
     ],
@@ -916,6 +934,7 @@ curl -X POST "${OPENHANDS_HOST}/api/automation/v1/preset/plugin" \
   -H "Content-Type: application/json" \
   -d '{
     "name": "Security Scan Automation",
+    "agent_profile_id": "11111111-1111-4111-8111-111111111111",
     "plugins": [
       {"source": "github:owner/security-scanner"},
       {"source": "github:owner/report-generator", "ref": "main"}
@@ -933,6 +952,7 @@ curl -X POST "${OPENHANDS_HOST}/api/automation/v1/preset/plugin" \
   -H "Content-Type: application/json" \
   -d '{
     "name": "Style Guide Enforcement",
+    "agent_profile_id": "11111111-1111-4111-8111-111111111111",
     "plugins": [
       {"source": "github:company/monorepo", "repo_path": "plugins/style-guide", "ref": "main"}
     ],
@@ -943,9 +963,9 @@ curl -X POST "${OPENHANDS_HOST}/api/automation/v1/preset/plugin" \
 
 ### Plugin Spec Automations
 
-Use the **plugin-spec endpoint** when a plugin is itself the automation product. This is the preferred path for new reusable, code-backed, or deterministic automations. The plugin owns the install-time schema, runtime profile requirements, entrypoint, secondary plugins, and optional suggested trigger. This is different from the plugin preset: the caller does not provide a free-form prompt or runtime profile overrides. For deterministic tasks, package the custom code inside the plugin and set `entrypoint.runner` to `"script"`.
+Use the **plugin-spec endpoint** when a plugin is itself the automation product. This is the preferred path for new reusable, code-backed, or deterministic automations. The plugin owns the install-time schema, runtime profile requirements, entrypoint, secondary plugins, and optional suggested trigger. Unlike a plugin preset, the caller does not supply a free-form prompt; it does supply the selected `agent_profile_id`, while the plugin's manifest constrains the allowed profiles. For deterministic tasks, package the custom code inside the plugin and set `entrypoint.runner` to `"script"`.
 
-Plugin-spec automations are the preferred contract for catalog entries that ship an executable plugin. The host can read the plugin manifest, render a setup form from `config_schema`, validate the user's config, then call `/plugin-spec`.
+Plugin-spec automations are the preferred contract for catalog entries that ship an executable plugin. The host can read the plugin manifest, render a setup form from `config_schema`, validate the user's config, ask the user to select an agent profile, then call `/plugin-spec` with its `agent_profile_id`. A manifest's `default_name` is not a substitute for an explicit user selection.
 
 #### Source Repository Prerequisite
 
@@ -1015,6 +1035,7 @@ curl -X POST "${OPENHANDS_HOST}/api/automation/v1/plugin-spec" \
   -H "Content-Type: application/json" \
   -d '{
     "name": "Ready-for-review PR automation",
+    "agent_profile_id": "11111111-1111-4111-8111-111111111111",
     "plugin": {
       "source": "github:OpenHands/extensions",
       "repo_path": "plugins/my-automation",
@@ -1031,6 +1052,7 @@ If the manifest has no `suggested_trigger` or `suggested_trigger_template`, incl
 ```json
 {
   "name": "Nightly plugin automation",
+  "agent_profile_id": "11111111-1111-4111-8111-111111111111",
   "plugin": {"source": "github:owner/repo", "repo_path": "plugins/nightly"},
   "config": {"repository": "owner/service"},
   "trigger": {"type": "cron", "schedule": "0 2 * * *", "timezone": "UTC"}
@@ -1042,6 +1064,7 @@ If the manifest has no `suggested_trigger` or `suggested_trigger_template`, incl
 | Field | Required | Description |
 |-------|----------|-------------|
 | `name` | Yes | Automation name (1-500 characters) |
+| `agent_profile_id` | Yes for new automations | Selected saved agent profile UUID; requires `pluginSpecAgentProfiles`, validated against manifest allowlists |
 | `plugin` | Yes | Primary automation plugin source object |
 | `plugin.source` | Yes | Plugin source. In cloud mode, use `github:owner/repo` or `https://github.com/owner/repo.git`. Local/file sources are allowed only in local mode. Credentials in URLs are rejected. |
 | `plugin.ref` | No | Branch, tag, or commit SHA. Resolved during preflight and used at run time. |
@@ -1104,9 +1127,9 @@ For deterministic automations, use the `script` runner. The custom code lives in
 
 - `agent_profile` and `llm_profile` support `required` (default `true`) and `default_name`.
 - `agent_profile` also supports exact allowlists: `allowed_tools`, `allowed_mcp_server_refs`, and `allowed_secret_refs`. The selected profile must enable all and only those values.
-- If `runtime.agent_profile.default_name` is present, the automation stores the resolved `agent_profile_id` and `model` is `null`.
-- If there is no agent profile, `runtime.llm_profile.default_name` is resolved to the automation `model`.
-- If a required profile has no default name, creation fails with HTTP 422. The `/plugin-spec` request does not accept `model`, `agent_profile_name`, or `agent_profile_id` overrides.
+- Pass an explicit `agent_profile_id` in the `/plugin-spec` request. The service validates it against the manifest allowlists and stores it with `model: null`. Do not rely on `runtime.agent_profile.default_name` as a silent choice for a new automation.
+- Legacy plugin-spec automations without a chosen agent profile can still resolve `runtime.llm_profile.default_name` to `model`; do not use that fallback when creating a new one.
+- A required profile with no ID or `default_name` fails with HTTP 422. The `/plugin-spec` request accepts `agent_profile_id` but not `model` or `agent_profile_name` overrides.
 
 #### Config Schema and Trigger Templates
 
@@ -1184,6 +1207,7 @@ curl -X POST "${OPENHANDS_HOST}/api/automation/v1/preset/prompt" \
   -H "Content-Type: application/json" \
   -d '{
     "name": "Analyze Codebase",
+    "agent_profile_id": "11111111-1111-4111-8111-111111111111",
     "prompt": "Analyze the openhands-cli codebase and generate a summary report",
     "trigger": {"type": "cron", "schedule": "0 9 * * 1"},
     "repos": [
