@@ -274,6 +274,8 @@ def _create_body(entry: dict, values: dict, repos: list[str]) -> dict:
         "version": bundle["version"],
         "config": _interpolate(bundle["config"], {"form": values, "automation": entry}),
     }
+    if "agent_profile_id" in values:
+        body["agent_profile_id"] = values["agent_profile_id"]
     return body
 
 
@@ -309,6 +311,8 @@ def _upload(name: str, data: bytes) -> str:
 
 
 def _profile(name: str | None) -> dict:
+    if not name:
+        raise FactoryError("--profile NAME is required; ask the user to select an agent profile")
     try:
         listing = _request("GET", f"{_host()}/api/agent-profiles", headers=_auth())
     except FactoryError as err:
@@ -319,10 +323,9 @@ def _profile(name: str | None) -> dict:
             ) from None
         raise
     profiles = listing.get("profiles", [])
-    wanted = name or listing.get("active_agent_profile_id")
-    match = next((p for p in profiles if wanted in (p.get("id"), p.get("name"))), None)
+    match = next((p for p in profiles if name in (p.get("id"), p.get("name"))), None)
     if not match:
-        raise FactoryError(f"agent profile not found: {wanted}")
+        raise FactoryError(f"agent profile not found: {name}")
     if match.get("agent_kind") == "acp":
         raise FactoryError(f"agent profile {match['name']} is an ACP profile")
     detail = _request(
@@ -391,14 +394,15 @@ def create(args) -> dict:
             bundle = entry.get("setup", {}).get("bundle")
             if not bundle:
                 raise FactoryError(f"{station} has no bundle; create it as the skill describes")
-            values = _form_values(entry, repos, overrides[station])
+            answers = overrides[station]
+            if _needs_profile(entry):
+                profile = profile or _profile(args.profile)
+                answers = {**answers, "agent_profile_id": profile["id"]}
+            values = _form_values(entry, repos, answers)
             body = _create_body(entry, values, repos)
             body["tarball_path"] = _upload(station, _tarball(root, bundle["files"], body["template"]["config"]))
             body["enabled"] = False
             body["tags"] = [FACTORY_TAG]
-            if _needs_profile(entry):
-                profile = profile or _profile(args.profile)
-                body["agent_profile_id"] = profile["id"]
             try:
                 status_code, automation = _api("POST", "", body, return_status=True)
             except FactoryError as err:
@@ -501,7 +505,11 @@ def tune(args) -> dict:
         automation = _find_existing(station)
         if automation is None:
             raise FactoryError(f"{station} is not set up yet; create it before tuning it")
-        values = _form_values(entry, repos, overrides[station])
+        answers = overrides[station]
+        if _needs_profile(entry):
+            profile = profile or _profile(args.profile)
+            answers = {**answers, "agent_profile_id": profile["id"]}
+        values = _form_values(entry, repos, answers)
         body = _create_body(entry, values, repos)
         patch = {
             "name": body["name"],

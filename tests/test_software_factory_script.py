@@ -38,14 +38,14 @@ def _entry(station: str) -> dict:
 @pytest.mark.parametrize("repos", [["acme/api"], ["acme/api", "acme/web"]])
 def test_create_body_matches_reference_renderer(factory, station, repos):
     entry = _entry(station)
-    values = factory._form_values(entry, repos, {})
+    values = factory._form_values(entry, repos, {"agent_profile_id": "p1"})
     expected = _render_payload(entry, values, "", selected_trigger="cron")
     assert factory._create_body(entry, values, repos) == expected
 
 
 @pytest.mark.parametrize("station", BUNDLE_STATIONS)
 def test_every_token_secret_is_the_factory_token(factory, station):
-    values = factory._form_values(_entry(station), ["acme/api"], {})
+    values = factory._form_values(_entry(station), ["acme/api"], {"agent_profile_id": "p1"})
     if "githubTokenSecret" in values:
         assert values["githubTokenSecret"] == "GITHUB_PERSONAL_ACCESS_TOKEN"
 
@@ -53,7 +53,8 @@ def test_every_token_secret_is_the_factory_token(factory, station):
 def test_overrides_keep_json_types(factory):
     entry = _entry("github-pr-reviewer")
     values = factory._form_values(
-        entry, ["acme/api"], {"maxNewPerRun": factory._parse_value("4"), "reviewTone": "thorough"}
+        entry, ["acme/api"],
+        {"maxNewPerRun": factory._parse_value("4"), "reviewTone": "thorough", "agent_profile_id": "p1"}
     )
     config = factory._create_body(entry, values, ["acme/api"])["template"]["config"]
     assert config["max_new_per_run"] == 4
@@ -129,11 +130,16 @@ def test_automation_backend_host_gets_a_clear_error(factory, monkeypatch):
     monkeypatch.setenv("OPENHANDS_AUTOMATION_API_KEY", "key")
     monkeypatch.setattr(factory, "_request", not_found)
     with pytest.raises(factory.FactoryError, match="Ingress URL"):
+        factory._profile("default")
+
+
+def test_factory_rejects_implicit_active_agent_profile(factory):
+    with pytest.raises(factory.FactoryError, match="--profile NAME is required"):
         factory._profile(None)
 
 
 def _create_args(ids: str, repos: str = "acme/api", sets=None):
-    return type("Args", (), {"ids": ids, "repos": repos, "set": sets, "profile": None})
+    return type("Args", (), {"ids": ids, "repos": repos, "set": sets, "profile": "default"})
 
 
 def _stub_create(factory, monkeypatch, responses):
