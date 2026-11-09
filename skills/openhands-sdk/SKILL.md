@@ -204,6 +204,9 @@ Source: [`examples/`](https://github.com/OpenHands/software-agent-sdk/tree/main/
 - [`57_prompt_hooks`](https://github.com/OpenHands/software-agent-sdk/tree/main/examples/01_standalone_sdk/57_prompt_hooks)
 - [`58_ask_oracle_tool`](https://github.com/OpenHands/software-agent-sdk/tree/main/examples/01_standalone_sdk/58_ask_oracle_tool)
 - [`59_route_task_to_model.py`](https://github.com/OpenHands/software-agent-sdk/blob/main/examples/01_standalone_sdk/59_route_task_to_model.py)
+- [`60_decision_model.py`](https://github.com/OpenHands/software-agent-sdk/blob/main/examples/01_standalone_sdk/60_decision_model.py)
+- [`61_decision_model_agent_gate.py`](https://github.com/OpenHands/software-agent-sdk/blob/main/examples/01_standalone_sdk/61_decision_model_agent_gate.py)
+- [`62_decision_model_custom_provider.py`](https://github.com/OpenHands/software-agent-sdk/blob/main/examples/01_standalone_sdk/62_decision_model_custom_provider.py)
 
 ### [`02_remote_agent_server/`](https://github.com/OpenHands/software-agent-sdk/tree/main/examples/02_remote_agent_server)
 
