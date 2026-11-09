@@ -25,12 +25,13 @@
         "linearTeam": "Reliability",
         "notionDestination": "",
         "triggerPreference": "undecided",
-        "notes": ""
+        "notes": "",
+        "agent_profile_id": "11111111-1111-4111-8111-111111111111"
       },
       "conversation": {
         "request": {
           "action": "conversation.start",
-          "message": "The user supplied these starting points. Confirm each one, ask about anything left blank, then create the automation.\n\n- Incident channel: #incidents\n- Linear team: Reliability\n- Notion destination: \n- Preferred trigger: undecided\n- Notes: \n\nStill undecided and required before creation: the incident identifier format and the approved Notion retrospective template."
+          "message": "The user supplied these starting points. Confirm each one, ask about anything left blank, then create the automation with agent_profile_id 11111111-1111-4111-8111-111111111111. Do not replace it with a default model.\n\n- Incident channel: #incidents\n- Linear team: Reliability\n- Notion destination: \n- Preferred trigger: undecided\n- Notes: \n\nStill undecided and required before creation: the incident identifier format and the approved Notion retrospective template."
         },
         "response": {
           "status": 201,
@@ -53,7 +54,8 @@
         "linearTeam": "",
         "notionDestination": "",
         "triggerPreference": "undecided",
-        "notes": ""
+        "notes": "",
+        "agent_profile_id": "11111111-1111-4111-8111-111111111111"
       },
       "localValidation": {
         "valid": true,
@@ -62,7 +64,7 @@
       "conversation": {
         "request": {
           "action": "conversation.start",
-          "message": "The user supplied these starting points. Confirm each one, ask about anything left blank, then create the automation.\n\n- Incident channel: \n- Linear team: \n- Notion destination: \n- Preferred trigger: undecided\n- Notes: \n\nStill undecided and required before creation: the incident identifier format and the approved Notion retrospective template."
+          "message": "The user supplied these starting points. Confirm each one, ask about anything left blank, then create the automation with agent_profile_id 11111111-1111-4111-8111-111111111111. Do not replace it with a default model.\n\n- Incident channel: \n- Linear team: \n- Notion destination: \n- Preferred trigger: undecided\n- Notes: \n\nStill undecided and required before creation: the incident identifier format and the approved Notion retrospective template."
         },
         "response": {
           "status": 201,

@@ -609,7 +609,7 @@ def test_a_bundle_entry_asks_for_the_capability_a_bundle_needs(manifest):
     different deployment capability from the preset path."""
     assert "bundle" in manifest["setup"]
     assert "prompt" not in manifest["setup"]
-    assert manifest["requires"]["features"] == ["customTarball"]
+    assert manifest["requires"]["features"] == ["customTarball", "agentProfiles"]
 
 
 def test_the_bundle_ships_the_script_this_skill_owns(manifest):

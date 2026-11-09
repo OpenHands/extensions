@@ -16,7 +16,8 @@
         "schedule": "*/15 * * * *",
         "timezone": "UTC",
         "authorization": "repo-write",
-        "workMode": "implement"
+        "workMode": "implement",
+        "agent_profile_id": "11111111-1111-4111-8111-111111111111"
       },
       "preflight": {
         "request": {
@@ -42,7 +43,7 @@
               },
               "template": {
                 "id": "github-repo-monitor",
-                "version": "1.1.0",
+                "version": "1.1.1",
                 "config": {
                   "repository": "OpenHands/agent-server-gui",
                   "triggerPhrase": "@openhands",
@@ -50,9 +51,11 @@
                   "schedule": "*/15 * * * *",
                   "timezone": "UTC",
                   "authorization": "repo-write",
-                  "workMode": "implement"
+                  "workMode": "implement",
+                  "agent_profile_id": "11111111-1111-4111-8111-111111111111"
                 }
-              }
+              },
+              "agent_profile_id": "11111111-1111-4111-8111-111111111111"
             }
           }
         },
@@ -85,7 +88,7 @@
             },
             "template": {
               "id": "github-repo-monitor",
-              "version": "1.1.0",
+              "version": "1.1.1",
               "config": {
                 "repository": "OpenHands/agent-server-gui",
                 "triggerPhrase": "@openhands",
@@ -93,9 +96,11 @@
                 "schedule": "*/15 * * * *",
                 "timezone": "UTC",
                 "authorization": "repo-write",
-                "workMode": "implement"
+                "workMode": "implement",
+                "agent_profile_id": "11111111-1111-4111-8111-111111111111"
               }
-            }
+            },
+            "agent_profile_id": "11111111-1111-4111-8111-111111111111"
           }
         },
         "response": {
@@ -119,7 +124,7 @@
               ],
               "template": {
                 "id": "github-repo-monitor",
-                "version": "1.1.0",
+                "version": "1.1.1",
                 "config": {
                   "repository": "OpenHands/agent-server-gui",
                   "triggerPhrase": "@openhands",
@@ -159,7 +164,8 @@
         "schedule": "*/1 * * * *",
         "timezone": "UTC",
         "authorization": "repo-write",
-        "workMode": "implement"
+        "workMode": "implement",
+        "agent_profile_id": "11111111-1111-4111-8111-111111111111"
       },
       "preflight": {
         "request": {
@@ -185,7 +191,7 @@
               },
               "template": {
                 "id": "github-repo-monitor",
-                "version": "1.1.0",
+                "version": "1.1.1",
                 "config": {
                   "repository": "OpenHands/agent-server-gui",
                   "triggerPhrase": "@openhands",
@@ -193,9 +199,11 @@
                   "schedule": "*/1 * * * *",
                   "timezone": "UTC",
                   "authorization": "repo-write",
-                  "workMode": "implement"
+                  "workMode": "implement",
+                  "agent_profile_id": "11111111-1111-4111-8111-111111111111"
                 }
-              }
+              },
+              "agent_profile_id": "11111111-1111-4111-8111-111111111111"
             }
           }
         },
@@ -227,7 +235,8 @@
         "schedule": "0 0 31 2 *",
         "timezone": "UTC",
         "authorization": "repo-write",
-        "workMode": "implement"
+        "workMode": "implement",
+        "agent_profile_id": "11111111-1111-4111-8111-111111111111"
       },
       "create": {
         "request": {
@@ -250,7 +259,7 @@
             },
             "template": {
               "id": "github-repo-monitor",
-              "version": "1.1.0",
+              "version": "1.1.1",
               "config": {
                 "repository": "OpenHands/agent-server-gui",
                 "triggerPhrase": "@openhands",
@@ -258,9 +267,11 @@
                 "schedule": "0 0 31 2 *",
                 "timezone": "UTC",
                 "authorization": "repo-write",
-                "workMode": "implement"
+                "workMode": "implement",
+                "agent_profile_id": "11111111-1111-4111-8111-111111111111"
               }
-            }
+            },
+            "agent_profile_id": "11111111-1111-4111-8111-111111111111"
           }
         },
         "response": {
@@ -295,7 +306,8 @@
         "schedule": "*/15 * * * *",
         "timezone": "UTC",
         "authorization": "repo-write",
-        "workMode": "implement"
+        "workMode": "implement",
+        "agent_profile_id": "11111111-1111-4111-8111-111111111111"
       },
       "create": {
         "request": {
@@ -316,7 +328,7 @@
             },
             "template": {
               "id": "github-repo-monitor",
-              "version": "1.1.0",
+              "version": "1.1.1",
               "config": {
                 "repository": "OpenHands/agent-server-gui",
                 "triggerPhrase": "@openhands",
@@ -324,9 +336,11 @@
                 "schedule": "*/15 * * * *",
                 "timezone": "UTC",
                 "authorization": "repo-write",
-                "workMode": "implement"
+                "workMode": "implement",
+                "agent_profile_id": "11111111-1111-4111-8111-111111111111"
               }
-            }
+            },
+            "agent_profile_id": "11111111-1111-4111-8111-111111111111"
           }
         },
         "response": {
@@ -358,7 +372,8 @@
         "schedule": "*/15 * * * *",
         "timezone": "UTC",
         "authorization": "repo-write",
-        "workMode": "implement"
+        "workMode": "implement",
+        "agent_profile_id": "11111111-1111-4111-8111-111111111111"
       },
       "conversation": {
         "request": {

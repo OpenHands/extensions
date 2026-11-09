@@ -16,7 +16,8 @@
         "triggerLabel": "openhands",
         "jiraTokenSecret": "JIRA_DC_TOKEN",
         "source": "jira_dc",
-        "on": "jira:issue_*"
+        "on": "jira:issue_*",
+        "agent_profile_id": "11111111-1111-4111-8111-111111111111"
       },
       "preflight": {
         "request": {
@@ -33,7 +34,8 @@
                 "source": "jira_dc",
                 "on": "jira:issue_*",
                 "filter": "issue.fields.project.key == 'ENG' && ((webhookEvent == 'jira:issue_created' && contains(issue.fields.labels || `[]`, 'openhands')) || (webhookEvent == 'jira:issue_updated' && length(changelog.items[?field == 'labels' && contains(join('', [' ', to_string(toString), ' ']), ' openhands ') && !contains(join('', [' ', to_string(fromString), ' ']), ' openhands ')] || `[]`) > `0`))"
-              }
+              },
+              "agent_profile_id": "11111111-1111-4111-8111-111111111111"
             }
           }
         },
@@ -57,7 +59,8 @@
               "source": "jira_dc",
               "on": "jira:issue_*",
               "filter": "issue.fields.project.key == 'ENG' && ((webhookEvent == 'jira:issue_created' && contains(issue.fields.labels || `[]`, 'openhands')) || (webhookEvent == 'jira:issue_updated' && length(changelog.items[?field == 'labels' && contains(join('', [' ', to_string(toString), ' ']), ' openhands ') && !contains(join('', [' ', to_string(fromString), ' ']), ' openhands ')] || `[]`) > `0`))"
-            }
+            },
+            "agent_profile_id": "11111111-1111-4111-8111-111111111111"
           }
         },
         "response": {

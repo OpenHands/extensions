@@ -1,6 +1,6 @@
 {
   "id": "github-stale-ci-pr-closer",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "name": "GitHub stale CI cleanup",
   "category": "Code review",
   "description": "Warn and close abandoned pull requests whose required CI remains failing.",
@@ -8,7 +8,8 @@
   "requires": {
     "integrations": {},
     "features": [
-      "customTarball"
+      "customTarball",
+      "agentProfiles"
     ]
   },
   "estimatedSetupMinutes": 3,
@@ -36,6 +37,12 @@
         }
       },
       "args": {
+        "agent_profile_id": {
+          "type": "agent-profile",
+          "label": "Agent profile",
+          "help": "Select the saved agent profile this automation uses. Its LLM, tools, integrations and allowed secrets apply to agent-driven runs; script-only runs record the selected profile.",
+          "required": true
+        },
         "repositories": {
           "type": "repo-picker",
           "provider": "github",
@@ -54,7 +61,7 @@
       }
     },
     "bundle": {
-      "version": "1.0.1",
+      "version": "1.0.2",
       "entrypoint": "python3 worker.py",
       "timeout": 300,
       "files": {

@@ -15,7 +15,8 @@
         "localChanges": "high-contrast UI theme",
         "verifyCommand": "make test",
         "schedule": "0 3 * * *",
-        "timezone": "UTC"
+        "timezone": "UTC",
+        "agent_profile_id": "11111111-1111-4111-8111-111111111111"
       },
       "preflight": {
         "request": {
@@ -37,7 +38,8 @@
                 "type": "cron",
                 "schedule": "0 3 * * *",
                 "timezone": "UTC"
-              }
+              },
+              "agent_profile_id": "11111111-1111-4111-8111-111111111111"
             }
           }
         },
@@ -66,7 +68,8 @@
               "type": "cron",
               "schedule": "0 3 * * *",
               "timezone": "UTC"
-            }
+            },
+            "agent_profile_id": "11111111-1111-4111-8111-111111111111"
           }
         },
         "response": {
@@ -105,7 +108,8 @@
         "localChanges": "high-contrast UI theme",
         "verifyCommand": "make test",
         "schedule": "*/1 * * * *",
-        "timezone": "UTC"
+        "timezone": "UTC",
+        "agent_profile_id": "11111111-1111-4111-8111-111111111111"
       },
       "preflight": {
         "request": {
@@ -127,7 +131,8 @@
                 "type": "cron",
                 "schedule": "*/1 * * * *",
                 "timezone": "UTC"
-              }
+              },
+              "agent_profile_id": "11111111-1111-4111-8111-111111111111"
             }
           }
         },
@@ -158,7 +163,8 @@
         "localChanges": "high-contrast UI theme",
         "verifyCommand": "make test",
         "schedule": "0 0 31 2 *",
-        "timezone": "UTC"
+        "timezone": "UTC",
+        "agent_profile_id": "11111111-1111-4111-8111-111111111111"
       },
       "create": {
         "request": {
@@ -177,7 +183,8 @@
               "type": "cron",
               "schedule": "0 0 31 2 *",
               "timezone": "UTC"
-            }
+            },
+            "agent_profile_id": "11111111-1111-4111-8111-111111111111"
           }
         },
         "response": {
@@ -211,7 +218,8 @@
         "localChanges": "high-contrast UI theme",
         "verifyCommand": "make test",
         "schedule": "0 3 * * *",
-        "timezone": "UTC"
+        "timezone": "UTC",
+        "agent_profile_id": "11111111-1111-4111-8111-111111111111"
       },
       "conversation": {
         "request": {

@@ -19,7 +19,8 @@
     },
     "features": [
       "mcpTools",
-      "conversationDispatch"
+      "conversationDispatch",
+      "agentProfiles"
     ]
   },
   "popularityRank": 78,
@@ -36,6 +37,12 @@
     "form": {
       "note": "These answers start the conversation. Anything left blank is something the agent will ask about.",
       "args": {
+        "agent_profile_id": {
+          "type": "agent-profile",
+          "label": "Agent profile",
+          "help": "Select the agent profile the retrospective automation will run as.",
+          "required": true
+        },
         "incidentChannel": {
           "type": "text",
           "label": "Incident channel",
@@ -100,6 +107,6 @@
         }
       }
     },
-    "message": "The user supplied these starting points. Confirm each one, ask about anything left blank, then create the automation.\n\n- Incident channel: {{form.incidentChannel}}\n- Linear team: {{form.linearTeam}}\n- Notion destination: {{form.notionDestination}}\n- Preferred trigger: {{form.triggerPreference}}\n- Notes: {{form.notes}}\n\nStill undecided and required before creation: the incident identifier format and the approved Notion retrospective template."
+    "message": "The user supplied these starting points. Confirm each one, ask about anything left blank, then create the automation with agent_profile_id {{form.agent_profile_id}}. Do not replace it with a default model.\n\n- Incident channel: {{form.incidentChannel}}\n- Linear team: {{form.linearTeam}}\n- Notion destination: {{form.notionDestination}}\n- Preferred trigger: {{form.triggerPreference}}\n- Notes: {{form.notes}}\n\nStill undecided and required before creation: the incident identifier format and the approved Notion retrospective template."
   }
 }

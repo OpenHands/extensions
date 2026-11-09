@@ -12,7 +12,8 @@
       }
     },
     "features": [
-      "customTarball"
+      "customTarball",
+      "agentProfiles"
     ]
   },
   "popularityRank": 76,
@@ -41,6 +42,12 @@
         }
       },
       "args": {
+        "agent_profile_id": {
+          "type": "agent-profile",
+          "label": "Agent profile",
+          "help": "Select the saved agent profile this automation uses. Its LLM, tools, integrations and allowed secrets apply to agent-driven runs; script-only runs record the selected profile.",
+          "required": true
+        },
         "repositories": {
           "type": "repo-picker",
           "label": "Repositories",
@@ -79,7 +86,7 @@
       }
     },
     "bundle": {
-      "version": "1.0.0",
+      "version": "1.0.1",
       "entrypoint": "python3 main.py",
       "timeout": 900,
       "files": {

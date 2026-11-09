@@ -10,8 +10,13 @@
       "status": 200,
       "body": {
         "ready": true,
-        "triggerKinds": ["cron", "event"],
-        "eventSources": ["github"],
+        "triggerKinds": [
+          "cron",
+          "event"
+        ],
+        "eventSources": [
+          "github"
+        ],
         "eventTypes": [
           "issue_comment.created",
           "pull_request.opened",
@@ -75,9 +80,15 @@
           "presetPrompt",
           "repoClone",
           "webhookDelivery",
-          "agentProfiles"
+          "agentProfiles",
+          "presetAgentProfiles"
         ],
-        "repoProviders": ["azure_devops", "bitbucket", "github", "gitlab"]
+        "repoProviders": [
+          "azure_devops",
+          "bitbucket",
+          "github",
+          "gitlab"
+        ]
       }
     },
     "dataCenterClone": {
@@ -85,8 +96,15 @@
       "status": 200,
       "body": {
         "ready": true,
-        "triggerKinds": ["cron", "event"],
-        "eventSources": ["bitbucket_data_center", "github", "jira_dc"],
+        "triggerKinds": [
+          "cron",
+          "event"
+        ],
+        "eventSources": [
+          "bitbucket_data_center",
+          "github",
+          "jira_dc"
+        ],
         "eventTypes": [
           "issue_comment.created",
           "pull_request.opened",
@@ -150,7 +168,8 @@
           "presetPrompt",
           "repoClone",
           "webhookDelivery",
-          "agentProfiles"
+          "agentProfiles",
+          "presetAgentProfiles"
         ],
         "repoProviders": [
           "azure_devops",
@@ -166,13 +185,17 @@
       "status": 200,
       "body": {
         "ready": true,
-        "triggerKinds": ["cron"],
+        "triggerKinds": [
+          "cron"
+        ],
         "eventSources": [],
         "eventTypes": [],
         "triggers": {
           "cron": {
             "minIntervalSeconds": 300,
-            "timezones": ["UTC"]
+            "timezones": [
+              "UTC"
+            ]
           }
         },
         "features": [
@@ -181,7 +204,8 @@
           "mcpTools",
           "presetPrompt",
           "repoClone",
-          "agentProfiles"
+          "agentProfiles",
+          "presetAgentProfiles"
         ]
       }
     },
@@ -190,17 +214,29 @@
       "status": 200,
       "body": {
         "ready": true,
-        "triggerKinds": ["cron", "event"],
-        "eventSources": ["github"],
-        "eventTypes": ["pull_request.labeled"],
+        "triggerKinds": [
+          "cron",
+          "event"
+        ],
+        "eventSources": [
+          "github"
+        ],
+        "eventTypes": [
+          "pull_request.labeled"
+        ],
         "triggers": {
           "cron": {
             "minIntervalSeconds": 300,
-            "timezones": ["UTC"]
+            "timezones": [
+              "UTC"
+            ]
           },
           "event": {
             "filterLanguage": "jmespath",
-            "filterFunctions": ["contains", "icontains"]
+            "filterFunctions": [
+              "contains",
+              "icontains"
+            ]
           }
         },
         "features": [
@@ -210,7 +246,8 @@
           "presetPrompt",
           "repoClone",
           "webhookDelivery",
-          "agentProfiles"
+          "agentProfiles",
+          "presetAgentProfiles"
         ]
       }
     },

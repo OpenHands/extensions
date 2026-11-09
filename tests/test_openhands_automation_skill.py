@@ -78,3 +78,11 @@ def test_readme_describes_the_setup_form_and_sources(readme_text):
     assert "`automation_form_update`" in readme_text
     for source in BUILT_IN_SOURCES:
         assert f"`{source}`" in readme_text
+
+
+def test_creation_guidance_requires_selected_agent_profile(skill_text):
+    creation = _section(skill_text, "Automation Creation Process")
+    assert "agent_profile_id" in creation
+    for heading in ("Prompt Preset", "Plugin Preset", "Plugin Spec Automations"):
+        assert '"agent_profile_id"' in _section(skill_text, heading)
+    assert "does not accept `model`, `agent_profile_name`, or `agent_profile_id`" not in skill_text

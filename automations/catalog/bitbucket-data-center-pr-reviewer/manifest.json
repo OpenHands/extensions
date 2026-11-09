@@ -7,7 +7,9 @@
   "requires": {
     "integrations": {},
     "features": [
-      "presetPrompt"
+      "presetPrompt",
+      "agentProfiles",
+      "presetAgentProfiles"
     ],
     "builtInIntegrations": [
       "bitbucket_data_center"
@@ -52,6 +54,12 @@
         }
       },
       "args": {
+        "agent_profile_id": {
+          "type": "agent-profile",
+          "label": "Agent profile",
+          "help": "Select the saved agent profile this automation uses. Its LLM, tools, integrations and allowed secrets apply to agent-driven runs; script-only runs record the selected profile.",
+          "required": true
+        },
         "repository": {
           "type": "repo-picker",
           "label": "Repository",

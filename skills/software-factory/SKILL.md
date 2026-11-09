@@ -29,13 +29,13 @@ Bitbucket code hosts are not part of this flow.
 
 | Station | Catalog id | Phase | Needs agent profile |
 |---|---|---|---|
-| Issue to PR | `github-issue-to-pr`, or the Jira or Linear station | 1 | yes (GitHub issues only) |
+| Issue to PR | `github-issue-to-pr`, or the Jira or Linear station | 1 | yes |
 | PR reviewer | `github-pr-reviewer` | 1 | yes |
-| Issue triage | `github-issue-triage`, or `linear-triage-assistant` | 1 | yes (GitHub issues only) |
-| AGENTS.md maintainer | `github-agents-md-maintainer` | add-on | no |
-| Auto-merge watchdog | `github-delivery-watchdog` | add-on | no |
-| Stale-CI PR closer | `github-stale-ci-pr-closer` | add-on | no |
-| QA changes | `qa-changes` | add-on | no |
+| Issue triage | `github-issue-triage`, or `linear-triage-assistant` | 1 | yes |
+| AGENTS.md maintainer | `github-agents-md-maintainer` | add-on | yes |
+| Auto-merge watchdog | `github-delivery-watchdog` | add-on | yes |
+| Stale-CI PR closer | `github-stale-ci-pr-closer` | add-on | yes |
+| QA changes | `qa-changes` | add-on | yes |
 
 ## Helper script
 
@@ -61,9 +61,9 @@ The script reads the token and never prints it.
 
 | Command | Does |
 |---|---|
-| `$F preflight --repos a/b,c/d` | Which stations this deployment supports, the agent profile, the GitHub login, push access per repository. |
-| `$F create --repos a/b --ids ID,ID [--set FIELD=VALUE] [--set ID.FIELD=VALUE]` | Fills each station's form (answers, then derived values, then manifest defaults), uploads the bundle and creates it disabled with the `software-factory` tag. `FIELD=VALUE` applies to every listed station with that field. Stations that already exist are reported under `existing`, not recreated, and get the tag added. |
-| `$F tune --repos a/b --ids ID,ID [--set FIELD=VALUE] [--set ID.FIELD=VALUE]` | Applies new settings to an existing station by updating it in place. Use this to change a value that is fixed at creation. |
+| `$F preflight --repos a/b,c/d --profile NAME` | Which stations this deployment supports, the selected agent profile, the GitHub login, push access per repository. |
+| `$F create --repos a/b --ids ID,ID --profile NAME [--set FIELD=VALUE] [--set ID.FIELD=VALUE]` | Fills each station's form (answers, then derived values, then manifest defaults), uploads the bundle and creates it disabled with the `software-factory` tag. `FIELD=VALUE` applies to every listed station with that field. Stations that already exist are reported under `existing`, not recreated, and get the tag added. |
+| `$F tune --repos a/b --ids ID,ID --profile NAME [--set FIELD=VALUE] [--set ID.FIELD=VALUE]` | Applies new settings to an existing station by updating it in place. Use this to change a value that is fixed at creation. |
 | `$F tag ID...` | Adds the `software-factory` tag to automations created outside the script, so the Automations list can filter to the factory. Lists any it could not tag under `not_tagged`, each with its `reason`. |
 | `$F verify ID... [--no-wait ID...]` | Dispatches once, enables the ones whose run `COMPLETED` and disables the rest, reporting their `error_detail`. `--no-wait` enables without waiting. |
 | `$F status ID...` | The latest run of each. |
@@ -74,8 +74,9 @@ The script reads the token and never prints it.
 Trust the script's output: do not open pages in the browser to check them, and
 do not use the task tracker for this flow.
 
-Add `--profile NAME` to `preflight` or `create` to use a profile other than the
-active one.
+Ask the user which saved agent profile to use before setup. Pass its name or ID
+as `--profile NAME` to `preflight`, `create`, and `tune`; never silently use the
+active profile.
 
 ## Rules
 
@@ -109,10 +110,11 @@ active one.
 ## Phase 1 - Working factory
 
 1. Ask, in one message: "Which GitHub repositories (`owner/repo`)? Where do
-   tickets live: GitHub issues (default), Jira or Linear?" Say that everything
-   else uses defaults that can be changed afterwards. If the answer names only
-   repositories, use GitHub issues; do not ask again.
-2. Run `$F preflight --repos <repos>`. Drop repositories without `push`, and
+   tickets live: GitHub issues (default), Jira or Linear? Which saved agent
+   profile should the automations run with?" Say that other settings use
+   defaults that can be changed afterwards. If the answer names only
+   repositories, use GitHub issues, but still ask them to select a profile.
+2. Run `$F preflight --repos <repos> --profile <selected profile>`. Drop repositories without `push`, and
    say which.
 3. If `github_login` is null, act on `token_error`:
    - `not_set`, and the `request_secret` tool is available: call it once with
@@ -131,7 +133,7 @@ active one.
    - `not_set` without the tool: tell the user to create a token at
      https://github.com/settings/personal-access-tokens and add it in
      Settings -> Secrets, then stop.
-4. `$F create --repos <repos> --ids github-pr-reviewer`, adding
+4. `$F create --repos <repos> --profile <selected profile> --ids github-pr-reviewer`, adding
    `github-issue-to-pr,github-issue-triage` for GitHub issues. For Jira or
    Linear, also set up the issue to PR station as "Ticket source" describes;
    for Linear, set up triage with the `linear-triage` skill (Jira has none).
@@ -187,14 +189,14 @@ each with its current value. Apply, then return to the Checkpoint.
 | Review tone: concise, thorough, friendly | `concise` | `reviewTone` |
 | Human reviewers requested after agent approval (two or more logins) | none | `maintainers` |
 | Schedules and timezone | issue to PR `*/15 * * * *`, reviewer `*/5 * * * *`, triage `*/5 * * * *`, add-ons per manifest; `UTC` | `ID.schedule`, `timezone` |
-| Agent profile | active profile | `--profile NAME` |
+| Agent profile | selected by the user | `--profile NAME` |
 
 Apply:
 
 - Schedule or timezone only:
   `PATCH ${OPENHANDS_HOST}/api/automation/v1/{id}` with `{"trigger": {...}}`.
 - Jira or Linear station settings: change them as its skill describes.
-- Anything else is fixed at creation: `$F tune --repos <repos> --ids <id>` with
+- Anything else is fixed at creation: `$F tune --repos <repos> --profile <selected profile> --ids <id>` with
   the new `--set` values (repeat every earlier non-default value), then
   `$F verify <id>`. `tune` updates the station in place, so there is no
   replacement to delete and no template-id collision.

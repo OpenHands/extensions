@@ -144,6 +144,23 @@
             "required": ["mode"]
           },
           "then": {
+            "properties": {
+              "form": {
+                "properties": {
+                  "args": {
+                    "required": ["agent_profile_id"],
+                    "properties": {
+                      "agent_profile_id": {
+                        "properties": {
+                          "type": { "const": "agent-profile" },
+                          "required": { "const": true }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
             "oneOf": [
               { "required": ["prompt"], "not": { "anyOf": [{ "required": ["bundle"] }, { "required": ["actions"] }] } },
               { "required": ["bundle"], "not": { "anyOf": [{ "required": ["prompt"] }, { "required": ["actions"] }] } },
@@ -420,10 +437,10 @@
       }
     },
     "formFields": {
-      "description": "Keyed by field name, which is what {{form.<name>}} resolves against.",
+      "description": "Keyed by field name, which is what {{form.<name>}} resolves against. agent_profile_id matches the automation API field directly.",
       "type": "object",
       "minProperties": 1,
-      "propertyNames": { "pattern": "^[a-z][A-Za-z0-9]*$" },
+      "propertyNames": { "pattern": "^([a-z][A-Za-z0-9]*|agent_profile_id)$" },
       "additionalProperties": { "$ref": "#/$defs/formField" }
     },
     "formField": {
@@ -432,7 +449,7 @@
       "required": ["type", "label", "help", "required"],
       "properties": {
         "type": {
-          "description": "Semantic field types. The host renders cron, timezone, llm-profile, event-source, and event-type fields from deployment capabilities or user settings rather than entry-owned option lists.",
+          "description": "Semantic field types. The host renders cron, timezone, agent-profile, llm-profile, event-source, and event-type fields from deployment capabilities or user settings rather than entry-owned option lists.",
           "enum": [
             "text",
             "textarea",
@@ -441,6 +458,7 @@
             "cron",
             "timezone",
             "repo-picker",
+            "agent-profile",
             "llm-profile",
             "event-source",
             "event-type",

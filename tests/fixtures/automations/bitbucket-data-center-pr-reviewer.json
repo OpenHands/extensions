@@ -14,7 +14,8 @@
         "repository": "https://bitbucket.example.com/scm/ENG/payments.git",
         "reviewTone": "concise",
         "source": "bitbucket_data_center",
-        "on": "pr:*"
+        "on": "pr:*",
+        "agent_profile_id": "11111111-1111-4111-8111-111111111111"
       },
       "preflight": {
         "request": {
@@ -31,7 +32,8 @@
                 "source": "bitbucket_data_center",
                 "on": "pr:*",
                 "filter": "(eventKey == 'pr:opened' || eventKey == 'pr:from_ref_updated') && pullRequest.draft != `true` && (ends_with(lower('https://bitbucket.example.com/scm/ENG/payments.git'), lower(join('', ['/scm/', pullRequest.toRef.repository.project.key, '/', pullRequest.toRef.repository.slug, '.git']))) || ends_with(lower('https://bitbucket.example.com/scm/ENG/payments.git'), lower(join('', ['/scm/', pullRequest.toRef.repository.project.key, '/', pullRequest.toRef.repository.slug]))))"
-              }
+              },
+              "agent_profile_id": "11111111-1111-4111-8111-111111111111"
             }
           }
         },
@@ -55,7 +57,8 @@
               "source": "bitbucket_data_center",
               "on": "pr:*",
               "filter": "(eventKey == 'pr:opened' || eventKey == 'pr:from_ref_updated') && pullRequest.draft != `true` && (ends_with(lower('https://bitbucket.example.com/scm/ENG/payments.git'), lower(join('', ['/scm/', pullRequest.toRef.repository.project.key, '/', pullRequest.toRef.repository.slug, '.git']))) || ends_with(lower('https://bitbucket.example.com/scm/ENG/payments.git'), lower(join('', ['/scm/', pullRequest.toRef.repository.project.key, '/', pullRequest.toRef.repository.slug]))))"
-            }
+            },
+            "agent_profile_id": "11111111-1111-4111-8111-111111111111"
           }
         },
         "response": {
@@ -89,7 +92,8 @@
         "repository": "https://bitbucket.example.com/scm/ENG/payments.git",
         "reviewTone": "concise",
         "source": "bitbucket_data_center",
-        "on": "pr:*"
+        "on": "pr:*",
+        "agent_profile_id": "11111111-1111-4111-8111-111111111111"
       },
       "preflight": {
         "request": {
@@ -112,7 +116,8 @@
                 "source": "bitbucket_data_center",
                 "on": "pr:*",
                 "filter": "(eventKey == 'pr:opened' || eventKey == 'pr:from_ref_updated') && pullRequest.draft != `true` && (ends_with(lower('https://bitbucket.example.com/scm/ENG/payments.git'), lower(join('', ['/scm/', pullRequest.toRef.repository.project.key, '/', pullRequest.toRef.repository.slug, '.git']))) || ends_with(lower('https://bitbucket.example.com/scm/ENG/payments.git'), lower(join('', ['/scm/', pullRequest.toRef.repository.project.key, '/', pullRequest.toRef.repository.slug]))))"
-              }
+              },
+              "agent_profile_id": "11111111-1111-4111-8111-111111111111"
             }
           }
         },
@@ -142,7 +147,8 @@
               "source": "bitbucket_data_center",
               "on": "pr:*",
               "filter": "(eventKey == 'pr:opened' || eventKey == 'pr:from_ref_updated') && pullRequest.draft != `true` && (ends_with(lower('https://bitbucket.example.com/scm/ENG/payments.git'), lower(join('', ['/scm/', pullRequest.toRef.repository.project.key, '/', pullRequest.toRef.repository.slug, '.git']))) || ends_with(lower('https://bitbucket.example.com/scm/ENG/payments.git'), lower(join('', ['/scm/', pullRequest.toRef.repository.project.key, '/', pullRequest.toRef.repository.slug]))))"
-            }
+            },
+            "agent_profile_id": "11111111-1111-4111-8111-111111111111"
           }
         },
         "response": {

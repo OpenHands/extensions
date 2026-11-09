@@ -42,6 +42,12 @@
         }
       },
       "args": {
+        "agent_profile_id": {
+          "type": "agent-profile",
+          "label": "Agent profile",
+          "help": "Select the saved agent profile this automation uses. Its LLM, tools, integrations and allowed secrets apply to agent-driven runs; script-only runs record the selected profile.",
+          "required": true
+        },
         "repositories": {
           "type": "repo-picker",
           "label": "Repositories",
@@ -99,7 +105,7 @@
       }
     },
     "bundle": {
-      "version": "1.2.4",
+      "version": "1.2.5",
       "entrypoint": "python3 worker.py",
       "timeout": 300,
       "files": {
@@ -118,5 +124,5 @@
     },
     "message": "Configure the repositories, labels, branch prefix, pull request mode, agent profile, and schedule."
   },
-  "version": "1.2.3"
+  "version": "1.2.4"
 }
