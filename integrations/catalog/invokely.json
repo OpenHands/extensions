@@ -1,0 +1,50 @@
+{
+  "id": "invokely",
+  "name": "Invokely",
+  "description": "Query official statistics through Invokely's hosted MCP server. Statistics values include publisher source details and a ready-made citation.",
+  "categories": [
+    "Analytics",
+    "Developer tools"
+  ],
+  "appUrl": "https://invokely.ai",
+  "docsUrl": "https://invokely.ai/docs",
+  "logoUrl": "https://invokely.ai/assets/images/logo.d82beb183d.png",
+  "keywords": [
+    "statistics",
+    "official data",
+    "census",
+    "labor",
+    "demographics",
+    "economics"
+  ],
+  "notes": "Both endpoints advertise the same 11 tools: six statistics query tools and five account-scoped workspace tools. The no-account trial is limited to 25 calls per day per IP. Workspace calls require account authentication; saving or updating items also requires Pro. workspace_delete is irreversible. Citations apply to statistics values, not user-supplied workspace datasets. Clients that do not apply a tool filter may expose the workspace tools.",
+  "installHint": "Both endpoints return the full tool list. The no-account trial is limited to 25 calls per day per IP; the API-key option sends an Invokely key as a Bearer token. In OpenHands Agent Canvas, after connecting, create a named OpenHands Agent Profile, choose tools, select search_indicators, resolve_place, get_value, get_series, compare, and rank_places, and leave the five workspace_* tools deselected. This selection applies only to that profile; the default/global profile does not restrict the list. Other clients may offer their own tool filters.",
+  "connectionOptions": [
+    {
+      "id": "trial",
+      "provider": "mcp",
+      "transport": {
+        "kind": "shttp",
+        "url": "https://invokely.ai/mcp/trial"
+      },
+      "auth": {
+        "strategy": "none"
+      }
+    },
+    {
+      "id": "api-key",
+      "provider": "mcp",
+      "transport": {
+        "kind": "shttp",
+        "url": "https://invokely.ai/mcp"
+      },
+      "auth": {
+        "strategy": "bearer",
+        "credentialLabel": "Invokely API key",
+        "credentialPlaceholder": "ivk_...",
+        "credentialHelp": "Create an API key in your Invokely account. It is sent as Authorization: Bearer <token>.",
+        "saveCredentialAsSecretByDefault": true
+      }
+    }
+  ]
+}
