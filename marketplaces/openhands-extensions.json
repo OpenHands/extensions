@@ -1004,6 +1004,18 @@
         "harbor",
         "swe-smith"
       ]
+    },
+    {
+      "name": "pmnote",
+      "source": "./skills/pmnote",
+      "description": "Find public PMNote resources for game project management, career development and AI tools.",
+      "category": "other",
+      "keywords": [
+        "pmnote",
+        "game project management",
+        "career",
+        "ai tools"
+      ]
     }
   ]
 }
