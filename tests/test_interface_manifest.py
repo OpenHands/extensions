@@ -53,6 +53,14 @@ def test_events_page_declares_source_management():
     assert MANIFEST["endpoints"]["webhooks"] == "/v1/webhooks"
 
 
+def test_description_is_an_optional_textarea_attribute():
+    assert MANIFEST["attributes"]["description"] == {
+        "type": "textarea",
+        "label": "Description",
+        "required": False,
+    }
+
+
 def test_featured_automations_resolve_to_catalog_entries():
     for automation_id in MANIFEST["featuredAutomationIds"]:
         manifest = AUTOMATIONS / "catalog" / automation_id / "manifest.json"
