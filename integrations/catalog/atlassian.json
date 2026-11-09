@@ -87,7 +87,8 @@
             "type": "password",
             "placeholder": "Personal access token",
             "required": false,
-            "helperText": "Server/Data Center only. Use instead of the username and API token."
+            "helperText": "Server/Data Center only. Use instead of the username and API token.",
+            "helperLink": "https://confluence.atlassian.com/enterprise/using-personal-access-tokens-1026032365.html"
           },
           {
             "key": "CONFLUENCE_URL",
@@ -120,7 +121,8 @@
             "type": "password",
             "placeholder": "Personal access token",
             "required": false,
-            "helperText": "Server/Data Center only. Use instead of the username and API token."
+            "helperText": "Server/Data Center only. Use instead of the username and API token.",
+            "helperLink": "https://confluence.atlassian.com/enterprise/using-personal-access-tokens-1026032365.html"
           }
         ]
       },
