@@ -1,6 +1,6 @@
 # GitLab work item refiner
 
-A scheduled automation that reads labelled GitLab issue-type work items and posts refinement feedback with open questions, recommendations, and requirements gaps. It posts once per label application; remove and reapply the label to request another pass. It does not modify issue fields, inspect repository code, or create merge requests.
+A scheduled automation that reads labelled GitLab issue-type work items and posts refinement feedback with open questions, recommendations, and requirements gaps. It posts once per label application; remove and reapply the label to request another pass. Failed or timed-out refinements retry once, then post a failure note on the issue; remove and reapply the label to try again. It does not modify issue fields, inspect repository code, or create merge requests.
 
 ## Setup
 

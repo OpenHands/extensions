@@ -13,6 +13,7 @@ from urllib.parse import quote, urlencode
 
 TERMINAL = {"idle", "finished", "error", "stuck"}
 MARKER = "<!-- openhands-gitlab-{mode}:{key} -->"
+MAX_ATTEMPTS = 2
 
 
 def project_path(value):
@@ -189,7 +190,7 @@ def _conversation_result(conversation_id):
             updates = _openhands("GET", f"/api/v1/conversation/{conversation_id}/events/search?kind__eq=ConversationStateUpdateEvent&sort_order=TIMESTAMP_DESC&limit=100")
             status = next((e.get("value") for e in updates.get("items", [])
                            if e.get("key") == "execution_status"), "running")
-        if status not in TERMINAL:
+        if status not in TERMINAL or status in {"error", "stuck"}:
             return status, ""
         events = _openhands("GET", f"/api/v1/conversation/{conversation_id}/events/search?sort_order=TIMESTAMP_DESC&limit=100")
         for event in events.get("items", []):
@@ -203,7 +204,7 @@ def _conversation_result(conversation_id):
         return status, ""
     data = _openhands("GET", f"/api/conversations/{conversation_id}")
     status = data.get("execution_status", "running")
-    if status not in TERMINAL:
+    if status not in TERMINAL or status in {"error", "stuck"}:
         return status, ""
     response = _openhands("GET", f"/api/conversations/{conversation_id}/agent_final_response")
     return status, response.get("response", "")
@@ -285,45 +286,58 @@ def process_project(api, project, mode, config):
             tasks[key] = {"status": "done"}
             state.write(tasks)
             continue
-        if not record:
+        if not record or record["status"] == "retry":
             if started >= 2:
                 continue
-            tasks[key] = {"status": "claimed", "created_at": time.time()}
+            attempts = record.get("attempts", 0) + 1 if record else 1
+            tasks[key] = {"status": "claimed", "created_at": time.time(), "attempts": attempts}
             state.write(tasks)
-            try:
-                prompt = _prompt(api, project, candidate, mode)
-                conversation = _start_conversation(f"GitLab {mode}: {project} #{iid}", prompt)
-                tasks[key] = {"status": "pending", "conversation_id": conversation, "created_at": time.time()}
-                state.write(tasks)
-                started += 1
-            except Exception:
-                del tasks[key]
-                state.write(tasks)
-                raise
+            prompt = _prompt(api, project, candidate, mode)
+            conversation = _start_conversation(f"GitLab {mode}: {project} #{iid}", prompt)
+            tasks[key] = {"status": "pending", "conversation_id": conversation,
+                          "created_at": time.time(), "attempts": attempts}
+            state.write(tasks)
+            started += 1
             continue
         if record["status"] == "claimed":
-            if time.time() - record.get("created_at", 0) > 900:
-                del tasks[key]
-                state.write(tasks)
-            continue
-        status, message = _conversation_result(record["conversation_id"])
-        if status not in TERMINAL:
-            if time.time() - record.get("created_at", 0) > 7200:
-                del tasks[key]
-                state.write(tasks)
-            continue
-        if status in {"error", "stuck"} or not message.strip():
-            del tasks[key]
-            state.write(tasks)
-            continue
-        if mode == "review":
-            latest = api.request("GET", api.path(project, f"merge_requests/{iid}"))
-            if latest.get("sha") != candidate["item"].get("sha"):
-                del tasks[key]
+            if time.time() - record.get("created_at", 0) <= 900:
+                continue
+            failure = "The automation could not start a conversation."
+        else:
+            status, message = _conversation_result(record["conversation_id"])
+            if status not in TERMINAL:
+                if time.time() - record.get("created_at", 0) <= 7200:
+                    continue
+                failure = "The conversation timed out."
+            elif status in {"error", "stuck"}:
+                failure = f"The conversation ended with status {status}."
+            elif not message.strip():
+                failure = "The conversation returned an empty response."
+            else:
+                if mode == "review":
+                    latest = api.request("GET", api.path(project, f"merge_requests/{iid}"))
+                    if latest.get("sha") != candidate["item"].get("sha"):
+                        del tasks[key]
+                        state.write(tasks)
+                        continue
+                api.publish(project, resource, iid, marker, message)
+                tasks[key] = {"status": "done"}
                 state.write(tasks)
                 continue
-        api.publish(project, resource, iid, marker, message)
-        tasks[key] = {"status": "done"}
+        if record.get("attempts", 1) < MAX_ATTEMPTS:
+            tasks[key] = {"status": "retry", "attempts": record.get("attempts", 1)}
+        else:
+            if mode == "review":
+                latest = api.request("GET", api.path(project, f"merge_requests/{iid}"))
+                if latest.get("sha") != candidate["item"].get("sha"):
+                    del tasks[key]
+                    state.write(tasks)
+                    continue
+            retry = "push a new MR head" if mode == "review" else "remove and reapply the label"
+            api.publish(project, resource, iid, marker,
+                        f"OpenHands {mode} could not complete after {MAX_ATTEMPTS} attempts. "
+                        f"{failure} Check the automation, then {retry} to retry.")
+            tasks[key] = {"status": "done"}
         state.write(tasks)
 
 

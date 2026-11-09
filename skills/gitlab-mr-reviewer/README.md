@@ -1,6 +1,6 @@
 # GitLab MR reviewer
 
-A scheduled automation that reviews labelled, open, non-draft GitLab merge requests and posts one actionable summary note per head commit. It never approves or merges requests. A new head can receive a new review.
+A scheduled automation that reviews labelled, open, non-draft GitLab merge requests and posts one actionable summary note per head commit. It never approves or merges requests. A new head can receive a new review. Failed or timed-out reviews retry once, then post a failure note on the merge request; push a new head to request another review.
 
 ## Setup
 

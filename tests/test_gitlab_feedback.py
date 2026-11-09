@@ -5,6 +5,7 @@ import json
 import os
 import tempfile
 import threading
+import time
 import unittest
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -36,8 +37,12 @@ class Service(BaseHTTPRequestHandler):
         if path == "/api/settings":
             key = "test-llm-key" if self.headers.get("X-Expose-Secrets") == "plaintext" else "**********"
             return self.reply({"agent_settings": {"llm": {"model": "test-model", "api_key": key}}})
+        if path == "/api/v1/app-conversations":
+            return self.reply([{"execution_status": app["status"]}])
         if path.startswith("/api/conversations/"):
             if path.endswith("/agent_final_response"):
+                if app["status"] in {"error", "stuck"}:
+                    return self.send_error(404, "No final response")
                 return self.reply({"response": app["response"]})
             return self.reply({"execution_status": app["status"]})
         if path == base + "merge_requests":
@@ -173,6 +178,77 @@ class GitLabFeedbackTests(unittest.TestCase):
         self.poll("refine")
         self.assertEqual(len(self.app["prompts"]), 2)
         self.assertEqual(len(self.app["issue_notes"]), 2)
+
+    def test_failed_conversations_publish_one_failure_after_two_attempts(self):
+        for mode, notes in (("review", "mr_notes"), ("refine", "issue_notes")):
+            with self.subTest(mode=mode):
+                initial_notes = len(self.app[notes])
+                initial_prompts = len(self.app["prompts"])
+                self.app["status"] = "error"
+                self.poll(mode)
+                self.poll(mode)
+                self.assertEqual(len(self.app["prompts"]), initial_prompts + 1)
+                self.assertEqual(len(self.app[notes]), initial_notes)
+                self.poll(mode)
+                self.app["status"] = "stuck"
+                self.poll(mode)
+                self.assertEqual(len(self.app[notes]), initial_notes + 1)
+                self.assertIn("could not complete", self.app[notes][-1]["body"])
+                self.assertIn("after 2 attempts", self.app[notes][-1]["body"])
+                self.poll(mode)
+                self.assertEqual(len(self.app[notes]), initial_notes + 1)
+                self.assertEqual(len(self.app["prompts"]), initial_prompts + 2)
+                key = "7:abc" if mode == "review" else "8:4"
+                state = workflow.State(mode, self.project)
+                self.assertEqual(state.read()[key]["status"], "done")
+                state.write({})
+                self.poll(mode)
+                self.assertEqual(len(self.app["prompts"]), initial_prompts + 2)
+
+    def test_expired_claim_and_pending_conversation_consume_attempts(self):
+        for mode, key, notes in (("review", "7:abc", "mr_notes"), ("refine", "8:4", "issue_notes")):
+            for status, age in (("claimed", 901), ("pending", 7201)):
+                with self.subTest(mode=mode, status=status):
+                    state = workflow.State(mode, self.project)
+                    record = {"status": status, "created_at": time.time() - age, "attempts": 1}
+                    if status == "pending":
+                        record["conversation_id"] = "expired-conversation"
+                    state.write({key: record})
+                    self.app["status"] = "running"
+                    self.poll(mode)
+                    self.poll(mode)
+                    self.assertEqual(state.read()[key]["attempts"], 2)
+                    self.app["status"] = "error"
+                    self.poll(mode)
+                    self.assertEqual(state.read()[key]["status"], "done")
+                    self.assertIn("could not complete", self.app[notes][-1]["body"])
+                    self.app[notes].pop()
+
+                    record["attempts"] = 2
+                    state.write({key: record})
+                    self.app["status"] = "running"
+                    self.poll(mode)
+                    self.assertEqual(state.read()[key]["status"], "done")
+                    self.assertIn("could not complete", self.app[notes][-1]["body"])
+                    self.app[notes].pop()
+
+    def test_cloud_failed_conversation_without_final_events(self):
+        os.environ.pop("AGENT_SERVER_URL")
+        os.environ["OPENHANDS_CLOUD_API_URL"] = self.url
+        for status in ("error", "stuck"):
+            self.app["status"] = status
+            self.assertEqual(workflow._conversation_result("conversation-1"), (status, ""))
+
+    def test_empty_responses_stop_after_retry(self):
+        self.app["status"] = "finished"
+        self.app["response"] = "   "
+        self.poll("review")
+        self.poll("review")
+        self.poll("review")
+        self.poll("review")
+        self.assertEqual(len(self.app["prompts"]), 2)
+        self.assertEqual(len(self.app["mr_notes"]), 1)
+        self.assertIn("could not complete", self.app["mr_notes"][0]["body"])
 
     def test_local_automation_state_is_isolated(self):
         os.environ["AUTOMATION_EVENT_PAYLOAD"] = json.dumps({"automation_id": "one"})
