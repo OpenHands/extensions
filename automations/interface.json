@@ -76,11 +76,12 @@
         },
         {
           "id": "created_by",
-          "label": "Filter by creator",
+          "label": "Filter by owner",
           "options": [
             { "value": "all", "label": "Anyone" },
             { "value": "me", "label": "Me" },
-            { "value": "others", "label": "Others" }
+            { "value": "others", "label": "Others" },
+            { "value": "service", "label": "Service accounts" }
           ]
         },
         {

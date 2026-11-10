@@ -348,7 +348,11 @@ export type AutomationStatusFilterValue =
   | "failing"
   | "disabled";
 export type AutomationTriggerFilterValue = "all" | "schedule" | "event";
-export type AutomationCreatedByFilterValue = "all" | "me" | "others";
+/**
+ * Who an automation runs as: the signed-in person (`me`), another person
+ * (`others`), or a service account (`service`).
+ */
+export type AutomationCreatedByFilterValue = "all" | "me" | "others" | "service";
 
 /**
  * A filter dropdown. Values name predicates the host implements; the manifest
