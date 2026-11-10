@@ -12,6 +12,21 @@
   "popularityRank": 38,
   "connectionOptions": [
     {
+      "id": "mcp",
+      "provider": "mcp",
+      "transport": {
+        "kind": "shttp",
+        "url": "https://mcp.supabase.com/mcp",
+        "urlEditable": true
+      },
+      "auth": {
+        "strategy": "oauth2",
+        "oauth": {
+          "clientAuthentication": "body"
+        }
+      }
+    },
+    {
       "id": "api",
       "provider": "mcp",
       "transport": {

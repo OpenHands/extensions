@@ -40,6 +40,20 @@
       }
     },
     {
+      "id": "mcp",
+      "provider": "mcp",
+      "transport": {
+        "kind": "shttp",
+        "url": "https://mcp.notion.com/mcp"
+      },
+      "auth": {
+        "strategy": "oauth2",
+        "oauth": {
+          "clientAuthentication": "none"
+        }
+      }
+    },
+    {
       "id": "api",
       "provider": "mcp",
       "transport": {
