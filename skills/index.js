@@ -152,6 +152,13 @@ export const SKILLS_CATALOG = [
     "category": "integrations"
   },
   {
+    "name": "datacircle",
+    "description": "Find the best GTM APIs. Use when comparing or pricing a GTM API (LinkedIn profiles, email finders, company data, SERP, scraping): who is best for each, what 1,000 results cost, rate limits and fields returned.",
+    "triggers": [],
+    "content": "# Datacircle\n\nFind the best GTM APIs. We benchmark all the GTM APIs and we put the results on our website, https://datacircle.dev.\n\n## Use the open API\n\nNo key, no account, at most 60 calls a minute. Its spec: https://api.datacircle.dev/v1/openapi.json\n\n```bash\ncurl -s https://api.datacircle.dev/v1/apis                      # every API on the sheet\ncurl -s \"https://api.datacircle.dev/v1/apis/<slug>/best\"        # who is best for one API\ncurl -s https://api.datacircle.dev/v1/plans                     # every plan, by API, provider or price\ncurl -s https://api.datacircle.dev/v1/providers/<slug>          # one provider's ranks\n```\n\nEach plan comes with its score out of 100, and the best come first.\n\n## Or download the sheet\n\n```bash\ncurl -fsSL --compressed -o datacircle.json https://datacircle.dev/datacircle.json\n```\n\nThe same rows as CSV: https://datacircle.dev/datacircle.csv. The full skill file, with every key explained: https://datacircle.dev/SKILL.md",
+    "category": "integrations"
+  },
+  {
     "name": "datadog",
     "description": "Query and analyze Datadog logs, metrics, APM traces, and monitors using the Datadog API. Use when debugging production issues, monitoring application performance, or investigating alerts.",
     "triggers": [
