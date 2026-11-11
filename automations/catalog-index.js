@@ -28,6 +28,7 @@ import entry22 from "./catalog/incident-retrospective-drafter/manifest.json" wit
 import entry23 from "./catalog/news-digest/manifest.json" with { type: "json" };
 import entry24 from "./catalog/github-stale-ci-pr-closer/manifest.json" with { type: "json" };
 import entry25 from "./catalog/github-comment-cleanup/manifest.json" with { type: "json" };
+import entry26 from "./catalog/dad-joke/manifest.json" with { type: "json" };
 
 export const AUTOMATION_CATALOG_ENTRIES = [
   entry0,
@@ -56,4 +57,5 @@ export const AUTOMATION_CATALOG_ENTRIES = [
   entry23,
   entry24,
   entry25,
+  entry26,
 ];
