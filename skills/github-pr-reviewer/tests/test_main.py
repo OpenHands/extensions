@@ -458,6 +458,35 @@ class TestLoadConfig(unittest.TestCase):
         with self.assertRaises(SystemExit):
             main.load_config(directory)
 
+    def test_an_int_max_new_per_run_is_returned_as_is(self):
+        directory = self._write({"max_new_per_run": 3})
+        self.assertEqual(main.load_config(directory), {"max_new_per_run": 3})
+
+    def test_a_whole_number_string_max_new_per_run_is_coerced(self):
+        # Some hosts render the numeric form field as a quoted string.
+        directory = self._write({"max_new_per_run": "3"})
+        self.assertEqual(main.load_config(directory), {"max_new_per_run": 3})
+
+    def test_a_non_numeric_string_max_new_per_run_is_rejected(self):
+        directory = self._write({"max_new_per_run": "three"})
+        with self.assertRaises(SystemExit):
+            main.load_config(directory)
+
+    def test_a_negative_string_max_new_per_run_is_rejected(self):
+        directory = self._write({"max_new_per_run": "-1"})
+        with self.assertRaises(SystemExit):
+            main.load_config(directory)
+
+    def test_a_float_max_new_per_run_is_rejected(self):
+        directory = self._write({"max_new_per_run": 2.5})
+        with self.assertRaises(SystemExit):
+            main.load_config(directory)
+
+    def test_a_bool_max_new_per_run_is_rejected(self):
+        directory = self._write({"max_new_per_run": True})
+        with self.assertRaises(SystemExit):
+            main.load_config(directory)
+
 
 class TestRepoReviewGuide(unittest.TestCase):
     """The repo-specific review guide is read from the checkout and injected
