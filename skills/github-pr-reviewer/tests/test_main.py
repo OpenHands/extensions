@@ -20,11 +20,13 @@ import time
 import unittest
 import urllib.error
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import patch
 
 # Allow importing main.py from the sibling scripts/ directory.
 sys.path.insert(0, str(Path(__file__).parent.parent / "scripts"))
 import main  # noqa: E402
+import publication  # noqa: E402
 
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
@@ -532,6 +534,35 @@ class TestRepoReviewGuide(unittest.TestCase):
         self.assertIn("supported dependency version", prompt)
         self.assertIn("custom-codereview-guide.md", prompt)
         self.assertIn("Never end with APPROVED", prompt)
+
+    def test_both_prompt_paths_require_a_verification_claim_audit(self):
+        direct = main._build_review_prompt(
+            "owner/repo", self._pr(), "head", {"id": "1", "created_at": "t"},
+        )
+        structured = publication.structured_prompt(
+            SimpleNamespace(
+                repository="owner/repo", token_name="WRITE_TOKEN",
+                config={"review_read_token_secret": "READ_TOKEN"},
+            ),
+            {"number": 1, "head": {"sha": "head"}}, "initial",
+        )
+        for prompt in (direct, structured):
+            with self.subTest(structured=prompt == structured):
+                self.assertIn("VERIFICATION CLAIM AUDIT", prompt)
+                self.assertIn("check process's exit status", prompt)
+                self.assertIn("crashed, killed, timed-out", prompt)
+                self.assertIn("exact files or suites", prompt)
+                self.assertIn("not full changed-file", prompt)
+                self.assertIn("never infer scores or cost", prompt)
+                self.assertIn("author-reported", prompt)
+                self.assertIn("completion summary", prompt)
+        self.assertLess(direct.index("VERIFICATION CLAIM AUDIT"), direct.index("8. Publish"))
+        self.assertLess(structured.index("VERIFICATION CLAIM AUDIT"), structured.index("Your final response"))
+
+    def test_structured_prompt_rejects_missing_read_credential(self):
+        run = SimpleNamespace(repository="owner/repo", token_name="WRITE_TOKEN", config={})
+        with self.assertRaisesRegex(ValueError, "separate read-only"):
+            publication.structured_prompt(run, {"number": 1, "head": {"sha": "head"}}, "initial")
 
     def test_prompt_uses_native_approval_for_a_clean_review(self):
         prompt = main._build_review_prompt(

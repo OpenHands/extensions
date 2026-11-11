@@ -382,6 +382,7 @@ to a temporary build directory:
 ```bash
 mkdir -p /tmp/pr-reviewer-build
 cp -L scripts/github_client.py /tmp/pr-reviewer-build/github_client.py
+cp scripts/review_evidence.py /tmp/pr-reviewer-build/review_evidence.py
 # write the customized main.py to /tmp/pr-reviewer-build/main.py
 ```
 

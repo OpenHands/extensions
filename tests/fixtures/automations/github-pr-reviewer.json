@@ -34,9 +34,12 @@
           "packs": [
             "config.json",
             "main.py",
+            "agent_conversation.py",
             "github_client.py",
             "maintainer_handoff.py",
-            "worker.py"
+            "worker.py",
+            "publication.py",
+            "review_evidence.py"
           ]
         },
         "response": {
@@ -68,7 +71,7 @@
               "timeout": 300,
               "template": {
                 "id": "github-pr-reviewer",
-                "version": "1.11.2",
+                "version": "1.11.3",
                 "config": {
                   "repos": [
                     "OpenHands/agent-server-gui"
@@ -108,7 +111,7 @@
             "timeout": 300,
             "template": {
               "id": "github-pr-reviewer",
-              "version": "1.11.2",
+              "version": "1.11.3",
               "config": {
                 "repos": [
                   "OpenHands/agent-server-gui"
@@ -179,9 +182,12 @@
           "packs": [
             "config.json",
             "main.py",
+            "agent_conversation.py",
             "github_client.py",
             "maintainer_handoff.py",
-            "worker.py"
+            "worker.py",
+            "publication.py",
+            "review_evidence.py"
           ]
         },
         "response": {
@@ -213,7 +219,7 @@
               "timeout": 300,
               "template": {
                 "id": "github-pr-reviewer",
-                "version": "1.11.2",
+                "version": "1.11.3",
                 "config": {
                   "repos": [
                     "OpenHands/agent-server-gui",
@@ -254,7 +260,7 @@
             "timeout": 300,
             "template": {
               "id": "github-pr-reviewer",
-              "version": "1.11.2",
+              "version": "1.11.3",
               "config": {
                 "repos": [
                   "OpenHands/agent-server-gui",
@@ -296,7 +302,7 @@
             "preset_metadata": {
               "template": {
                 "id": "github-pr-reviewer",
-                "version": "1.11.2",
+                "version": "1.11.3",
                 "config": {
                   "repos": [
                     "OpenHands/agent-server-gui",
@@ -351,7 +357,7 @@
               "timeout": 300,
               "template": {
                 "id": "github-pr-reviewer",
-                "version": "1.11.2",
+                "version": "1.11.3",
                 "config": {
                   "repos": [
                     "OpenHands/agent-server-gui"
@@ -413,9 +419,12 @@
           "packs": [
             "config.json",
             "main.py",
+            "agent_conversation.py",
             "github_client.py",
             "maintainer_handoff.py",
-            "worker.py"
+            "worker.py",
+            "publication.py",
+            "review_evidence.py"
           ]
         },
         "response": {
@@ -444,7 +453,7 @@
             "timeout": 300,
             "template": {
               "id": "github-pr-reviewer",
-              "version": "1.11.2",
+              "version": "1.11.3",
               "config": {
                 "repos": [
                   "OpenHands/agent-server-gui"
@@ -509,9 +518,12 @@
           "packs": [
             "config.json",
             "main.py",
+            "agent_conversation.py",
             "github_client.py",
             "maintainer_handoff.py",
-            "worker.py"
+            "worker.py",
+            "publication.py",
+            "review_evidence.py"
           ]
         },
         "response": {
@@ -540,7 +552,7 @@
             "timeout": 300,
             "template": {
               "id": "github-pr-reviewer",
-              "version": "1.11.2",
+              "version": "1.11.3",
               "config": {
                 "repos": [
                   "OpenHands/agent-server-gui"
@@ -616,7 +628,7 @@
               "timeout": 300,
               "template": {
                 "id": "github-pr-reviewer",
-                "version": "1.11.2",
+                "version": "1.11.3",
                 "config": {
                   "repos": [
                     "OpenHands/automation"

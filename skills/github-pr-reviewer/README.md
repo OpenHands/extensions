@@ -85,6 +85,11 @@ This skill is activated by:
   The first tuple, including an `unknown` fallback, is retained for that review.
   If KV cannot establish or validate a tuple, the edit is skipped and logged.
   The manual upload flow retries a failed lookup or edit on its next poll
+- Instructs both reviewer prompt paths to audit verification claims before publication:
+  capture the check process status, retain exact tested scope, distinguish local/CI/author
+  evidence, and require inspected sources for evaluation figures and comparisons.
+  This is an instruction-level safeguard, not deterministic validation of review prose;
+  deployed copies need the updated bundle to receive it
 - Posts acknowledgement comments with AI disclosure
 - Configurable review tone and polling schedule
 - Optional human handoff after an exact-head approval or a maintainer-decision

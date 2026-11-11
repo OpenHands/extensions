@@ -29,7 +29,7 @@ test = [
 ]
 
 [tool.pytest.ini_options]
-pythonpath = ["python", "skills/github/scripts"]
+pythonpath = ["python", "skills/github/scripts", "skills/github-pr-reviewer/scripts"]
 testpaths = ["tests"]
 
 [tool.uv]
