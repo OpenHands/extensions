@@ -160,7 +160,7 @@ def test_http_catalog_options_require_both_urls() -> None:
 
 
 def test_catalog_models_require_connectability_and_install_metadata() -> None:
-    entry = next(entry for entry in _catalog_entries() if entry["id"] == "notion")
+    entry = next(entry for entry in _catalog_entries() if entry["id"] == "slack")
 
     missing_docs = deepcopy(entry)
     missing_docs.pop("docsUrl")

@@ -260,9 +260,26 @@ def test_daily_workflow_entries_are_locally_installable():
     assert linear["transport"]["url"] == "https://mcp.linear.app/mcp"
 
     slack = _installable_option(entries["slack"])
-    assert slack["transport"]["kind"] == "shttp"
-    assert slack["transport"]["url"] == "https://mcp.slack.com/mcp"
-    assert slack["auth"]["credentialSecretName"] == "SLACK_USER_TOKEN"
+    assert slack["transport"]["kind"] == "stdio"
+    assert slack["transport"]["command"] == "npx"
+    required_env = {
+        field["key"] for field in slack["transport"]["envFields"] if field.get("required")
+    }
+    assert required_env == {"SLACK_TEAM_ID", "SLACK_BOT_TOKEN"}
+
+    # Slack's own hosted server is offered next to the local one, as a second
+    # non-OAuth option that takes a user token.
+    slack_hosted = next(
+        option
+        for option in entries["slack"]["connectionOptions"]
+        if option["id"] == "user-token"
+    )
+    assert slack_hosted["transport"] == {
+        "kind": "shttp",
+        "url": "https://mcp.slack.com/mcp",
+    }
+    assert slack_hosted["auth"]["strategy"] == "bearer"
+    assert slack_hosted["auth"]["credentialSecretName"] == "SLACK_USER_TOKEN"
 
 
 def test_daily_workflow_entries_state_scopes_and_setup_paths():
@@ -280,15 +297,13 @@ def test_daily_workflow_entries_state_scopes_and_setup_paths():
     assert "Bearer" in linear_help
     assert re.search(r"\[.+?\]\(https://linear\.app/settings[^)]*\)", linear_help)
 
-    slack_help = _installable_option(entries["slack"])["auth"]["credentialHelp"]
+    slack_hint = entries["slack"]["installHint"]
     for scope in (
         "channels:history",
         "channels:read",
         "chat:write",
         "reactions:write",
-        "search:read.public",
         "users:read",
+        "users.profile:read",
     ):
-        assert scope in slack_help, f"slack credentialHelp missing user scope {scope}"
-    assert "Bearer" in slack_help
-    assert re.search(r"\[.+?\]\(https://api\.slack\.com/apps[^)]*\)", slack_help)
+        assert scope in slack_hint, f"slack installHint missing bot scope {scope}"

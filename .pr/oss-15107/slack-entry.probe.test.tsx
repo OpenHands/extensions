@@ -28,6 +28,12 @@ const PR_ENTRY_PATH = process.env.SLACK_ENTRY_PR!;
 const load = (path: string) =>
   JSON.parse(fs.readFileSync(path, "utf8")) as MarketplaceEntry;
 
+const OLD_STDIO_CONFIG = {
+  command: "npx",
+  args: ["-y", "@zencoderai/slack-mcp-server"],
+  env: { SLACK_BOT_TOKEN: "xoxb-abc", SLACK_TEAM_ID: "T01" },
+};
+
 function renderWith(ui: React.ReactNode) {
   return render(ui, {
     wrapper: ({ children }) => (
@@ -41,6 +47,25 @@ function renderWith(ui: React.ReactNode) {
     ),
   });
 }
+
+function spies() {
+  return {
+    testSpy: vi
+      .spyOn(McpService, "testServer")
+      .mockResolvedValue({ ok: true, tools: [] }),
+    getSpy: vi
+      .spyOn(SettingsService, "getSettings")
+      .mockResolvedValue(MOCK_DEFAULT_USER_SETTINGS),
+    saveSpy: vi.spyOn(SettingsService, "saveSettings").mockResolvedValue(true),
+    secretSpy: vi.spyOn(SecretsService, "createSecret").mockResolvedValue(),
+  };
+}
+
+const savedMcpConfig = (saveSpy: ReturnType<typeof spies>["saveSpy"]) =>
+  (
+    (saveSpy.mock.calls[0][0] as Record<string, unknown>)
+      .agent_settings_diff as { mcp_config: Record<string, unknown> }
+  ).mcp_config;
 
 describe("Slack catalog entry in Agent Canvas (probe)", () => {
   beforeEach(() => {
@@ -57,12 +82,8 @@ describe("Slack catalog entry in Agent Canvas (probe)", () => {
     );
   });
 
-  it("main: the only installable option is the third-party stdio server", () => {
+  it("main: the only installable option is the local bot-token server", () => {
     const options = getInstallableMcpConnectionOptions(load(MAIN_ENTRY_PATH));
-    console.log(
-      "[probe] main installable:",
-      JSON.stringify(options.map((o) => [o.id, o.transport])),
-    );
     expect(options.map((o) => o.id)).toEqual(["api"]);
     expect(options[0].transport).toMatchObject({
       kind: "stdio",
@@ -70,65 +91,71 @@ describe("Slack catalog entry in Agent Canvas (probe)", () => {
     });
   });
 
-  it("PR: the only installable option is Slack's hosted server with a bearer token", () => {
-    const options = getInstallableMcpConnectionOptions(load(PR_ENTRY_PATH));
-    console.log(
-      "[probe] PR installable:",
-      JSON.stringify(options.map((o) => [o.id, o.transport, o.auth.strategy])),
-    );
-    expect(options.map((o) => o.id)).toEqual(["api"]);
-    expect(options[0].transport).toEqual({
+  it("PR: the default option is the same local server, and Slack's hosted server is offered second", () => {
+    const main = getInstallableMcpConnectionOptions(load(MAIN_ENTRY_PATH));
+    const pr = getInstallableMcpConnectionOptions(load(PR_ENTRY_PATH));
+    expect(pr.map((o) => o.id)).toEqual(["api", "user-token"]);
+    expect(pr[0].transport).toEqual(main[0].transport);
+    expect(pr[1].transport).toEqual({
       kind: "shttp",
       url: "https://mcp.slack.com/mcp",
     });
-    expect(options[0].auth).toMatchObject({
+    expect(pr[1].auth).toMatchObject({
       strategy: "bearer",
       credentialSecretName: "SLACK_USER_TOKEN",
-      saveCredentialAsSecretByDefault: true,
     });
   });
 
-  it("PR: the dialog asks for the user token, then tests and saves the hosted server", async () => {
-    const entry = load(PR_ENTRY_PATH);
-    const testSpy = vi
-      .spyOn(McpService, "testServer")
-      .mockResolvedValue({ ok: true, tools: [] });
-    const getSpy = vi
-      .spyOn(SettingsService, "getSettings")
-      .mockResolvedValue(MOCK_DEFAULT_USER_SETTINGS);
-    const saveSpy = vi
-      .spyOn(SettingsService, "saveSettings")
-      .mockResolvedValue(true);
-    const secretSpy = vi
-      .spyOn(SecretsService, "createSecret")
-      .mockResolvedValue();
-
+  it("PR: the dialog opens on the same fields as before and saves the same local server", async () => {
+    const { getSpy, saveSpy } = spies();
     renderWith(
       <InstallServerModal
         existingServers={[]}
-        entry={entry}
+        entry={load(PR_ENTRY_PATH)}
         onClose={vi.fn()}
       />,
     );
     await screen.findByTestId("mcp-install-modal");
     await waitFor(() => expect(getSpy).toHaveBeenCalled());
 
-    // No leftover fields from the old stdio option.
-    expect(screen.queryByTestId("mcp-install-field-SLACK_BOT_TOKEN")).toBeNull();
-    expect(screen.queryByTestId("mcp-install-field-SLACK_TEAM_ID")).toBeNull();
+    // Both connection methods are offered; the hosted token field is not
+    // shown until the user switches.
+    expect(screen.getByTestId("mcp-install-option-api")).toBeTruthy();
+    expect(screen.getByTestId("mcp-install-option-user-token")).toBeTruthy();
+    expect(screen.queryByTestId("mcp-install-field-api_key")).toBeNull();
 
-    const field = screen.getByTestId("mcp-install-field-api_key");
-    const modalText = screen.getByTestId("mcp-install-modal").textContent ?? "";
-    console.log("[probe] placeholder:", field.getAttribute("placeholder"));
-    console.log("[probe] dialog text:", modalText.replace(/\s+/g, " ").trim());
+    fireEvent.change(screen.getByTestId("mcp-install-field-SLACK_BOT_TOKEN"), {
+      target: { value: "xoxb-abc" },
+    });
+    fireEvent.change(screen.getByTestId("mcp-install-field-SLACK_TEAM_ID"), {
+      target: { value: "T01" },
+    });
+    fireEvent.click(screen.getByTestId("mcp-install-submit"));
+
+    await waitFor(() => expect(saveSpy).toHaveBeenCalledTimes(1));
+    expect(savedMcpConfig(saveSpy)).toMatchObject({ slack: OLD_STDIO_CONFIG });
+  });
+
+  it("PR: switching the connection method installs Slack's hosted server with a user token", async () => {
+    const { getSpy, saveSpy, testSpy, secretSpy } = spies();
+    renderWith(
+      <InstallServerModal
+        existingServers={[]}
+        entry={load(PR_ENTRY_PATH)}
+        onClose={vi.fn()}
+      />,
+    );
+    await screen.findByTestId("mcp-install-modal");
+    await waitFor(() => expect(getSpy).toHaveBeenCalled());
+
+    fireEvent.click(screen.getByTestId("mcp-install-option-user-token"));
+    const field = await screen.findByTestId("mcp-install-field-api_key");
+    expect(screen.queryByTestId("mcp-install-field-SLACK_BOT_TOKEN")).toBeNull();
     expect(field.getAttribute("placeholder")).toBe("xoxp-...");
-    expect(modalText).toContain("User OAuth token");
-    expect(modalText).toContain("Slack Model Context Protocol (MCP) Server");
 
     // The token is required.
     fireEvent.click(screen.getByTestId("mcp-install-submit"));
     await waitFor(() => expect(saveSpy).not.toHaveBeenCalled());
-    expect(testSpy).not.toHaveBeenCalled();
 
     fireEvent.change(field, { target: { value: "xoxp-abc" } });
     fireEvent.click(screen.getByTestId("mcp-install-submit"));
@@ -141,28 +168,21 @@ describe("Slack catalog entry in Agent Canvas (probe)", () => {
         auth: { strategy: "bearer", value: "xoxp-abc" },
       }),
     );
-    const sent = (saveSpy.mock.calls[0][0] as Record<string, unknown>)
-      .agent_settings_diff as { mcp_config: Record<string, unknown> };
-    console.log("[probe] saved mcp_config:", JSON.stringify(sent.mcp_config));
-    expect(sent.mcp_config).toMatchObject({
+    expect(savedMcpConfig(saveSpy)).toMatchObject({
       slack: {
         url: "https://mcp.slack.com/mcp",
         auth: { strategy: "bearer", value: "xoxp-abc" },
       },
     });
-
     await waitFor(() => expect(secretSpy).toHaveBeenCalled());
-    const secretCalls = JSON.stringify(secretSpy.mock.calls);
-    console.log(
-      "[probe] secret saved under:",
-      secretCalls.replace("xoxp-abc", "<token>"),
-    );
-    expect(secretCalls).toContain("SLACK_USER_TOKEN");
-    expect(secretCalls).toContain("xoxp-abc");
+    expect(JSON.stringify(secretSpy.mock.calls)).toContain("SLACK_USER_TOKEN");
   });
 
-  it("PR: an installed hosted server counts as the Slack entry; an old stdio install does not", () => {
+  it("PR: an existing local install and a hosted install both count as the Slack entry", () => {
     const entry = load(PR_ENTRY_PATH);
+    const existingLocal = findInstalledEntryMatch(entry, [
+      { id: "stdio-0", type: "stdio", name: "slack", ...OLD_STDIO_CONFIG },
+    ]);
     const hosted = findInstalledEntryMatch(entry, [
       {
         id: "shttp-0",
@@ -171,22 +191,7 @@ describe("Slack catalog entry in Agent Canvas (probe)", () => {
         url: "https://mcp.slack.com/mcp",
       },
     ]);
-    const oldStdio = findInstalledEntryMatch(entry, [
-      {
-        id: "stdio-0",
-        type: "stdio",
-        name: "slack",
-        command: "npx",
-        args: ["-y", "@zencoderai/slack-mcp-server"],
-      },
-    ]);
-    console.log(
-      "[probe] hosted install matched:",
-      hosted !== null,
-      "| old stdio install matched:",
-      oldStdio !== null,
-    );
+    expect(existingLocal).not.toBeNull();
     expect(hosted).not.toBeNull();
-    expect(oldStdio).toBeNull();
   });
 });

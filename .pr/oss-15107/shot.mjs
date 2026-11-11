@@ -1,10 +1,10 @@
 // Screenshot the Slack install dialog of a mock Agent Canvas.
-// Usage: node shot.mjs <canvas checkout> <base url> <output png>
+// Usage: node shot.mjs <canvas checkout> <base url> <output png> [connection option id]
 import { createRequire } from "node:module";
 import fs from "node:fs";
 import path from "node:path";
 
-const [canvasDir, baseUrl, outPng] = process.argv.slice(2);
+const [canvasDir, baseUrl, outPng, optionId] = process.argv.slice(2);
 const require = createRequire(path.join(canvasDir, "package.json"));
 const { chromium } = require("playwright");
 
@@ -74,6 +74,9 @@ await card.scrollIntoViewIfNeeded();
 await card.click();
 const modal = page.locator('[data-testid="mcp-install-modal"]');
 await modal.waitFor({ state: "visible", timeout: 30_000 });
+if (optionId) {
+  await modal.locator(`[data-testid="mcp-install-option-${optionId}"]`).click();
+}
 await page.waitForTimeout(800);
 await modal.screenshot({ path: outPng });
 
