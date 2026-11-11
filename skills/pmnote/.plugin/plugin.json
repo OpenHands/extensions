@@ -1,0 +1,19 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "pmnote",
+  "version": "1.5.5",
+  "description": "Find PMNote's public resources to help with game project management, career development, and AI tools.",
+  "author": {
+    "name": "Hao",
+    "url": "https://github.com/chenhao233"
+  },
+  "homepage": "https://pmnote.ai",
+  "repository": "https://github.com/chenhao233/pmnote-agent-plugin",
+  "license": "MIT",
+  "keywords": [
+    "game-development",
+    "project-management",
+    "career",
+    "ai-tools"
+  ]
+}
