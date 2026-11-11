@@ -195,6 +195,8 @@ Important notes:
 
 ## PR review plugin notes
 
+- The legacy GitHub reviewer embeds `skills/github-pr-reviewer/scripts/publish_review.py` in its prompt. Bundle that file beside `main.py` and regenerate `automations/bundle-index.js` with `npm run build:automations` after edits; its local journal is not a cross-sandbox idempotency guarantee.
+
 - The `code-review` and `codereview-roasted` skills have been merged into a single `code-review` skill. The `/codereview-roasted` trigger is kept as an alias for backward compatibility. The `review-style` action input is deprecated and ignored.
 - `plugins/pr-review` supports an optional `require-evidence` action input that tells the reviewer to require end-to-end proof in the PR description that the code works; test output alone is not sufficient evidence.
 - The corresponding `REQUIRE_EVIDENCE` env flag is consumed by `plugins/pr-review/scripts/agent_script.py` and injected into the review prompt via `plugins/pr-review/scripts/prompt.py`.
