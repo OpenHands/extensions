@@ -806,6 +806,69 @@ def _load_repo_review_guide(workspace_dir: Path) -> str | None:
     return None
 
 
+def _publication_instructions(repo, number, head_sha, github_token_secret):
+    return rf"""
+Publication safety (applies to every outcome, including scope stops):
+- Write the complete payload to `.agent_tmp/review-payload.json` using a file-writing tool
+  or a separate successful command. It must contain `commit_id`, `event`, and the actual
+  assessment text in `body`, not a filename. Create `.agent_tmp` if needed; do not modify
+  tracked files. Never use `body_file`, unchecked `$(cat ...)`, or a disclosure-only fallback.
+- Use this preflight-and-submit command. It reads once, validates, and sends those same bytes.
+  Do not submit if reading, JSON parsing, or validation fails. Repair the local payload first.
+  Keep the disclosure and verdict on their own lines, with the assessment between them.
+```sh
+GH_TOKEN=${{{github_token_secret}}} python3 - .agent_tmp/review-payload.json <<'PY'
+import json
+import re
+import subprocess
+import sys
+from pathlib import Path
+
+raw = Path(sys.argv[1]).read_bytes()
+payload = json.loads(raw)
+if not isinstance(payload, dict) or payload.get("commit_id") != {head_sha!r}:
+    raise SystemExit("Review payload must target the exact head")
+event = payload.get("event")
+if event not in ("APPROVE", "COMMENT"):
+    raise SystemExit("Review event must be APPROVE or COMMENT")
+body = payload.get("body")
+if not isinstance(body, str) or not body.strip():
+    raise SystemExit("Review body must be nonempty text")
+content = re.sub(r"<!--.*?-->", "", body.replace("\\n", "\n"), flags=re.S).strip()
+disclosure = "_This review was posted by an AI agent (OpenHands)._"
+if not content.startswith(disclosure):
+    raise SystemExit("Review disclosure is missing")
+content = content.removeprefix(disclosure).strip()
+verdicts = ("✅ APPROVED", "🔄 CHANGES REQUESTED", {MAINTAINER_DECISION_VERDICT!r})
+verdict = next((value for value in verdicts if content.endswith(value)), None)
+if verdict is None:
+    raise SystemExit("Review verdict is missing")
+if not content.removesuffix(verdict).strip():
+    raise SystemExit("Review assessment is missing")
+if event == "APPROVE" and verdict != "✅ APPROVED":
+    raise SystemExit("Approval contradicts the verdict")
+subprocess.run(
+    ["gh", "api", "--method", "POST", {f"repos/{repo}/pulls/{number}/reviews"!r},
+     "--input", "-", "--jq", "{{id, state, commit_id, body}}"],
+    input=raw, check=True,
+)
+PY
+```
+- Inspect the first submission response, not a follow-up verification command. A returned
+  review ID or accepted state means a review exists, even if its body is empty or malformed.
+  Never create a replacement review, switch events, amend, or dismiss it as recovery.
+- Retry only after a conclusive GitHub rejection that created no review (the inline-position
+  or self-approval fallback above). Rebuild and revalidate the entire payload for that retry.
+  A timeout, lost response, server error, or unparseable response is uncertain, not rejection:
+  stop and report it for operator reconciliation; do not retry the submission.
+- After acceptance, stop tool use immediately. Output `GITHUB_REVIEW_POSTED` only if the
+  response confirms the expected head, event/state and complete body. For an accepted
+  malformed review, report `GITHUB_REVIEW_PUBLISH_INCOMPLETE` and the known review ID;
+  for uncertainty, report `GITHUB_REVIEW_PUBLISH_UNCERTAIN`. Include the intended assessment
+  in the final response for operator recovery, never as another public post.
+"""
+
+
 def _build_review_prompt(
     repo: str,
     pr: dict,
@@ -954,10 +1017,11 @@ def _build_review_prompt(
         "or `🔄 CHANGES REQUESTED`.\n"
         "12. If there are no material issues, still publish a review saying so, with the "
         "disclosure and the verdict.\n"
-        f"\nReview instructions:\n{tone}{extra}{guide_section}\n\n"
-        "After GitHub accepts the review, output exactly `GITHUB_REVIEW_POSTED`. "
-        "If publishing still fails after the fallback in step 9, output the complete review text "
-        "so it can be posted as a comment instead."
+        + _publication_instructions(repo, number, head_sha, github_token_secret)
+        + f"\nReview instructions:\n{tone}{extra}{guide_section}\n\n"
+        "Follow the publication safety rules above for accepted, rejected, and uncertain "
+        "submissions. If publication fails, report the outcome and complete intended review "
+        "in your final response; do not post another result."
     )
 
 
