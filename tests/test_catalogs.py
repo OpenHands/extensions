@@ -260,12 +260,9 @@ def test_daily_workflow_entries_are_locally_installable():
     assert linear["transport"]["url"] == "https://mcp.linear.app/mcp"
 
     slack = _installable_option(entries["slack"])
-    assert slack["transport"]["kind"] == "stdio"
-    assert slack["transport"]["command"] == "npx"
-    required_env = {
-        field["key"] for field in slack["transport"]["envFields"] if field.get("required")
-    }
-    assert required_env == {"SLACK_MCP_XOXB_TOKEN"}
+    assert slack["transport"]["kind"] == "shttp"
+    assert slack["transport"]["url"] == "https://mcp.slack.com/mcp"
+    assert slack["auth"]["credentialSecretName"] == "SLACK_USER_TOKEN"
 
 
 def test_daily_workflow_entries_state_scopes_and_setup_paths():
@@ -283,13 +280,15 @@ def test_daily_workflow_entries_state_scopes_and_setup_paths():
     assert "Bearer" in linear_help
     assert re.search(r"\[.+?\]\(https://linear\.app/settings[^)]*\)", linear_help)
 
-    slack_hint = entries["slack"]["installHint"]
+    slack_help = _installable_option(entries["slack"])["auth"]["credentialHelp"]
     for scope in (
         "channels:history",
         "channels:read",
         "chat:write",
         "reactions:write",
+        "search:read.public",
         "users:read",
-        "users.profile:read",
     ):
-        assert scope in slack_hint, f"slack installHint missing bot scope {scope}"
+        assert scope in slack_help, f"slack credentialHelp missing user scope {scope}"
+    assert "Bearer" in slack_help
+    assert re.search(r"\[.+?\]\(https://api\.slack\.com/apps[^)]*\)", slack_help)

@@ -14,6 +14,7 @@ from pathlib import Path
 
 import pytest
 from jsonschema import Draft202012Validator
+from jsonschema.exceptions import best_match
 
 ROOT = Path(__file__).resolve().parents[1]
 SCHEMA_PATH = ROOT / "integrations" / "catalog.schema.json"
@@ -49,7 +50,7 @@ def test_schema_file_is_valid_draft_2020_12() -> None:
 
 
 def test_schema_requires_catalog_and_install_metadata() -> None:
-    entry = json.loads((CATALOG_DIR / "slack.json").read_text())
+    entry = json.loads((CATALOG_DIR / "notion.json").read_text())
 
     invalid_entries: list[tuple[str, dict]] = []
 
@@ -74,8 +75,8 @@ def test_schema_requires_catalog_and_install_metadata() -> None:
     invalid_entries.append(("externalPrincipalIdPath", missing_principal_mapping))
 
     for field, invalid in invalid_entries:
-        errors = list(VALIDATOR.iter_errors(invalid))
-        assert any(field in error.message for error in errors), errors
+        error = best_match(VALIDATOR.iter_errors(invalid))
+        assert error is not None and field in error.message, error
 
 
 @pytest.mark.parametrize(
