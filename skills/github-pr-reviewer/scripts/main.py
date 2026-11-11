@@ -115,7 +115,7 @@ def load_config(directory: Path | None = None) -> dict:
         # and coerce it, so a rendering quirk never takes the automation down at
         # import; anything else (a float, "two", a bool) is still a hard error.
         if key == "max_new_per_run" and isinstance(value, str):
-            if not value.isdigit():
+            if not (value.isascii() and value.isdigit()):
                 raise SystemExit(
                     f"{CONFIG_FILENAME}: max_new_per_run must be an integer, "
                     f"got {value!r}"

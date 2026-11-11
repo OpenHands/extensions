@@ -487,6 +487,37 @@ class TestLoadConfig(unittest.TestCase):
         with self.assertRaises(SystemExit):
             main.load_config(directory)
 
+    def test_a_one_max_new_per_run_is_accepted_as_int_or_string(self):
+        # "1" is the exact value the host rendered in the failing setup.
+        for raw in (1, "1"):
+            with self.subTest(raw=raw):
+                directory = self._write({"max_new_per_run": raw})
+                self.assertEqual(main.load_config(directory), {"max_new_per_run": 1})
+
+    def test_a_padded_string_max_new_per_run_is_rejected(self):
+        for raw in (" 2", "2 ", "2\n"):
+            with self.subTest(raw=raw):
+                directory = self._write({"max_new_per_run": raw})
+                with self.assertRaises(SystemExit):
+                    main.load_config(directory)
+
+    def test_a_non_digit_numeric_string_max_new_per_run_is_rejected(self):
+        directory = self._write({"max_new_per_run": "\u00bd"})
+        with self.assertRaises(SystemExit):
+            main.load_config(directory)
+
+    def test_a_superscript_digit_string_max_new_per_run_is_a_clean_exit(self):
+        # "\u00b2".isdigit() is True but int("\u00b2") raises ValueError.
+        directory = self._write({"max_new_per_run": "\u00b2"})
+        with self.assertRaises(SystemExit):
+            main.load_config(directory)
+
+    def test_a_rejected_string_max_new_per_run_exits_non_zero_with_a_message(self):
+        directory = self._write({"max_new_per_run": "three"})
+        with self.assertRaises(SystemExit) as caught:
+            main.load_config(directory)
+        self.assertIn("max_new_per_run", str(caught.exception.code))
+
 
 class TestRepoReviewGuide(unittest.TestCase):
     """The repo-specific review guide is read from the checkout and injected
