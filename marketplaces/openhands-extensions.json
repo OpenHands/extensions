@@ -453,6 +453,18 @@
       ]
     },
     {
+      "name": "fax-for-agents",
+      "source": "./skills/fax-for-agents",
+      "description": "Send and receive faxes through Fax for Agents. Use for fax preparation, price quotes, delivery checks, inbox reading, and extraction.",
+      "category": "integrations",
+      "keywords": [
+        "fax",
+        "faxforagents",
+        "documents",
+        "communication"
+      ]
+    },
+    {
       "name": "npm",
       "source": "./skills/npm",
       "description": "Handle npm package installation in non-interactive environments by piping confirmations. Use when installing Node.js packages that require user confirmation prompts.",
