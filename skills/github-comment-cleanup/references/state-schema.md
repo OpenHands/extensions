@@ -96,9 +96,10 @@ The next run finalizes it once the conversation has stopped:
 When a pull request is found it is also stored in `pull_request`, and later runs
 skip the repository until GitHub reports it closed or merged.
 
-A conversation still running after three days is abandoned without recording
-anything. On a local Agent Canvas the clone in `workspace_dir` is removed once the
-conversation has stopped.
+A conversation still running an hour after it was started is abandoned without
+recording anything, and the run that abandons it starts a new one. On a local
+Agent Canvas the clone in `workspace_dir` is removed once the conversation has
+stopped.
 
 ### `runs`
 
