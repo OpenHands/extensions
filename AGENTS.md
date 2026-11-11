@@ -146,7 +146,7 @@ When editing or adding skills in this repo, follow these rules (and add new skil
 
 ## PR-specific documents (`.pr/`)
 
-When working on a PR that requires design documents, live-test logs, development-only scripts, or other temporary artifacts that should be removed after merging to `main`, store them in a `.pr/` directory at the repository root.
+When working on a PR that requires design documents, live-test logs, development-only scripts, or other temporary artifacts that should never reach `main`, store them in a `.pr/` directory at the repository root. Link to them by commit SHA, not branch name, so the links survive their removal.
 
 ```bash
 mkdir -p .pr
@@ -160,12 +160,14 @@ mkdir -p .pr
 The lifecycle of this directory:
 
 1. **Notification**: When a PR adds or changes files under `.pr/`, the `PR Artifacts` workflow (`.github/workflows/pr-artifacts.yml`) posts a single comment to the PR conversation alerting reviewers.
-2. **Release cleanup**: After a same-repository or fork PR merges to `main`, the next release PR update removes `.pr/` from `main` in the same push as its version bump (`cleanup-pr-artifacts` in `.github/workflows/release.yml`). No separate cleanup PR is opened.
+2. **Status**: the `pr-artifacts` commit status (`.github/workflows/pr-artifacts-before-merge.yml`, shared from OpenHands/release-actions) stays pending while the PR adds `.pr/` files, so the PR cannot merge with them.
+3. **Removal at approval**: once the PR is approved, the workflow pushes one commit removing `.pr/` from the PR branch and the status turns green. Fork PRs need **Allow edits by maintainers** turned on; otherwise the status fails until the author enables it or deletes `.pr/`.
+4. **Release backstop**: if `.pr/` ever reaches `main`, the next release PR update still removes it in the same push as its version bump (`cleanup-pr-artifacts` in `.github/workflows/release.yml`). No separate cleanup PR is opened.
 
 Important notes:
 
 - Do not put anything in `.pr/` that needs to be preserved.
-- The `.pr/` check is informational during development; it posts a notice rather than blocking the PR.
+- A pending `pr-artifacts` status during review is expected; it clears after approval. Do not delete `.pr/` yourself before approval.
 - npm packaging excludes `.pr/` while it remains on `main`, so temporary review artifacts do not ship in releases.
 - Release PRs fail the required `test` check while their committed tree contains `.pr/`. Refresh the release PR by rerunning the latest `release` workflow on its target branch, then let the check rerun before merging.
 

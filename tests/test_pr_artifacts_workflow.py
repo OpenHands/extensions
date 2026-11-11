@@ -87,7 +87,7 @@ def test_own_added_modified_or_renamed_in_artifacts_post_notice() -> None:
     ):
         [comment] = _notice([_file("README.md"), artifact])
         assert comment["issue_number"] == 42
-        assert "next release PR removes them" in comment["body"]
+        assert "removed automatically once this PR is approved" in comment["body"]
 
 
 def test_removed_renamed_out_and_lookalike_paths_post_nothing() -> None:

@@ -163,8 +163,9 @@ deep change lacks it, weigh the gap by risk:
 - **LOW** risk: never block on missing design context alone.
 
 Temporary `.pr/` artifacts remain available during review and are removed from
-`main` by the next release PR after merge. Preserve any design explanation needed
-beyond that cleanup in the PR description or permanent documentation.
+the PR branch automatically after approval, so they never reach `main`. Preserve
+any design explanation needed beyond that removal in the PR description or
+permanent documentation.
 
 Design context aids review; it does not excuse correctness, security,
 architecture, or repository-ownership problems.
