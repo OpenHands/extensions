@@ -1,0 +1,48 @@
+{
+  "id": "search1api",
+  "name": "Search1API",
+  "description": "Web search, news search, page crawling, sitemap discovery, and trending topics through one hosted MCP server.",
+  "appUrl": "https://s1.dev",
+  "docsUrl": "https://s1.dev/docs/integrations/mcp",
+  "notes": "Uses Search1API's hosted Streamable HTTP MCP server. Every request, including tools/list, requires a credential: either the OAuth 2.1 browser sign-in (Dynamic Client Registration, no client ID or secret needed) or a Search1API API key sent as a bearer token. There is no anonymous mode.",
+  "connectionOptions": [
+    {
+      "id": "oauth",
+      "provider": "mcp",
+      "transport": {
+        "kind": "shttp",
+        "url": "https://mcp.search1api.com/mcp"
+      },
+      "auth": {
+        "strategy": "oauth2",
+        "oauth": {
+          "clientAuthentication": "none"
+        }
+      }
+    },
+    {
+      "id": "api-key",
+      "provider": "mcp",
+      "transport": {
+        "kind": "shttp",
+        "url": "https://mcp.search1api.com/mcp"
+      },
+      "auth": {
+        "strategy": "bearer",
+        "credentialLabel": "Search1API API key",
+        "credentialPlaceholder": "Paste your Search1API API key",
+        "credentialHelp": "Create an API key in the [Search1API dashboard](https://app.s1.dev). Sent as Authorization: Bearer <key>."
+      }
+    }
+  ],
+  "iconBg": "var(--oh-surface)",
+  "logoUrl": "https://cdn.jsdelivr.net/gh/superagents-lab/search1api-mcp/assets/logo.svg",
+  "keywords": [
+    "search",
+    "web",
+    "news",
+    "crawl",
+    "research"
+  ],
+  "installHint": "Sign in with the Search1API OAuth flow when prompted, or choose the API key option and paste a key from the Search1API dashboard. Tools: search, news, crawl, sitemap, and trending."
+}
