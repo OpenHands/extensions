@@ -7,10 +7,24 @@
     "Deployment"
   ],
   "appUrl": "https://vercel.com",
-  "docsUrl": "https://vercel.com/docs/rest-api#oauth-apps",
-  "notes": "Especially relevant to this repo's deployment model.",
+  "docsUrl": "https://vercel.com/docs/agent-resources/vercel-mcp",
+  "notes": "Especially relevant to this repo's deployment model. The MCP option uses Vercel's official hosted MCP server; OAuth is handled by the server, so no client credentials are required - sign in with your Vercel account when the authentication flow starts.",
   "popularityRank": 39,
   "connectionOptions": [
+    {
+      "id": "oauth-mcp",
+      "provider": "mcp",
+      "transport": {
+        "kind": "shttp",
+        "url": "https://mcp.vercel.com"
+      },
+      "auth": {
+        "strategy": "oauth2",
+        "oauth": {
+          "clientAuthentication": "none"
+        }
+      }
+    },
     {
       "id": "oauth",
       "provider": "http",
