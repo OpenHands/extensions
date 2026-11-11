@@ -1,0 +1,51 @@
+{
+  "id": "composio",
+  "name": "Composio",
+  "description": "Connect 500+ apps (Gmail, Slack, GitHub, Notion, Calendar and more) to your agent through one managed MCP server.",
+  "categories": [
+    "Productivity",
+    "Developer Tools"
+  ],
+  "appUrl": "https://composio.dev",
+  "docsUrl": "https://docs.composio.dev/docs/composio-connect",
+  "notes": "Uses Composio's hosted MCP server (Composio Connect). One connection exposes Composio's meta-tools for searching and executing actions across connected apps; individual apps are linked from the Composio dashboard at https://platform.composio.dev. The API key is sent in the x-consumer-api-key header.",
+  "popularityRank": 60,
+  "iconBg": "#FFFFFF",
+  "logoUrl": "https://cdn.jsdelivr.net/gh/OpenHands/extensions/integrations/icons/composio.svg",
+  "keywords": [
+    "composio",
+    "apps",
+    "integrations",
+    "actions",
+    "triggers",
+    "gmail",
+    "slack",
+    "calendar",
+    "mcp gateway"
+  ],
+  "installHint": "Paste your Composio consumer API key from https://platform.composio.dev/settings - the same key works for every app you connect in Composio.",
+  "connectionOptions": [
+    {
+      "id": "api",
+      "provider": "mcp",
+      "transport": {
+        "kind": "shttp",
+        "url": "https://connect.composio.dev/mcp",
+        "headerFields": [
+          {
+            "key": "x-consumer-api-key",
+            "label": "Composio API key",
+            "type": "password",
+            "required": true,
+            "placeholder": "Paste your Composio API key",
+            "helperText": "Created in Composio under Settings → API Keys on [platform.composio.dev](https://platform.composio.dev). Sent as the x-consumer-api-key header to authenticate the MCP connection.",
+            "helperLink": "https://platform.composio.dev/settings"
+          }
+        ]
+      },
+      "auth": {
+        "strategy": "api_key"
+      }
+    }
+  ]
+}
