@@ -167,19 +167,23 @@ def test_catalog_models_require_connectability_and_install_metadata() -> None:
     with pytest.raises(ValidationError, match="docsUrl"):
         openhands_extensions.IntegrationCatalogEntry.model_validate(missing_docs)
 
-    missing_field_type = deepcopy(entry)
-    missing_field_type["connectionOptions"][1]["transport"]["envFields"][0].pop("type")
-    with pytest.raises(ValidationError, match="type"):
-        openhands_extensions.IntegrationCatalogEntry.model_validate(missing_field_type)
-
-    missing_required_marker = deepcopy(entry)
-    missing_required_marker["connectionOptions"][1]["transport"]["envFields"][0].pop(
-        "required"
+    # The user-token option's bearer auth must carry a credentialSecretName
+    # (the env var / secret the live smoke test reads). The schema makes it
+    # optional, so assert the live value rather than a validation error.
+    live = openhands_extensions.IntegrationCatalogEntry.model_validate(entry)
+    user_token = next(
+        option for option in live.connectionOptions if option.id == "user-token"
     )
-    with pytest.raises(ValidationError, match="required"):
-        openhands_extensions.IntegrationCatalogEntry.model_validate(
-            missing_required_marker
-        )
+    assert user_token.auth.strategy == "bearer"
+    assert user_token.auth.credentialSecretName == "SLACK_USER_TOKEN"
+    assert user_token.transport.url == "https://mcp.slack.com/mcp"
+
+    # The user-token option's transport URL is required by the schema; dropping
+    # the transport's url must fail validation.
+    missing_url = deepcopy(entry)
+    missing_url["connectionOptions"][1]["transport"].pop("url")
+    with pytest.raises(ValidationError, match="url"):
+        openhands_extensions.IntegrationCatalogEntry.model_validate(missing_url)
 
     missing_principal_mapping = deepcopy(entry)
     missing_principal_mapping["connectionOptions"][0]["connectionModel"][
