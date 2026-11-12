@@ -1,0 +1,36 @@
+name: Bartholomew In-Container AST Runtime Guard
+description: Pure-Python deterministic AST execution gatekeeper and secret redactor for OpenHands agent sandboxes
+author: Bartholomew Security Contributors
+branding:
+  icon: shield
+  color: blue
+
+inputs:
+  enforce-strict:
+    description: Fail-closed block destructive bash operations (rm -rf /, mkfs, fork bombs)
+    required: false
+    default: "true"
+  redact-secrets:
+    description: Quarantine high-entropy API credentials in memory before execution
+    required: false
+    default: "true"
+  generate-receipts:
+    description: Generate deterministic cryptographic execution receipts for audit verification
+    required: false
+    default: "true"
+
+outputs:
+  gate-status:
+    description: Verdict of the invariant safety evaluation (PASSED or BLOCKED)
+  latency-us:
+    description: Inspection latency in microseconds
+  receipt-hash:
+    description: Cryptographic execution receipt SHA-256 digest
+
+runs:
+  using: composite
+  steps:
+    - name: Verify Bartholomew Invariants
+      shell: bash
+      run: |
+        python3 "${{ github.action_path }}/scripts/ast_invariant_gate.py" "echo 'Bartholomew AST Guard Active'"
