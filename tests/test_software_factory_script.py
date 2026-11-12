@@ -17,6 +17,9 @@ BUNDLE_STATIONS = [
     "github-issue-triage",
     "github-delivery-watchdog",
     "github-stale-ci-pr-closer",
+    "gitlab-issue-to-mr",
+    "gitlab-mr-reviewer",
+    "gitlab-prd-refiner",
 ]
 
 

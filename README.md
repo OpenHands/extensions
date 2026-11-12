@@ -100,7 +100,7 @@ The JS and Python versions are kept in lock-step by `release-please` and guarded
 ## Extensions Catalog
 
 <!-- BEGIN AUTO-GENERATED CATALOG -->
-This repository contains **2 marketplace(s)** with **82 extensions** (71 skills, 11 plugins).
+This repository contains **2 marketplace(s)** with **84 extensions** (73 skills, 11 plugins).
 
 ### large-codebase
 
@@ -119,7 +119,7 @@ OpenHands skills for interacting, improving, and refactoring large codebases
 
 Official skills and plugins for OpenHands — the open-source AI software engineer.
 
-**78 extensions** (69 skills, 9 plugins)
+**80 extensions** (71 skills, 9 plugins)
 
 | Name | Type | Description | Commands |
 |------|------|-------------|----------|
@@ -158,6 +158,8 @@ Official skills and plugins for OpenHands — the open-source AI software engine
 | github-stale-ci-pr-closer | skill | Warn and close abandoned pull requests whose required CI remains failing. | `/github-stale-ci-pr-closer` |
 | gitlab | skill | Interact with GitLab repositories, merge requests, and APIs using the GITLAB_TOKEN environment variable. Use when wor... | — |
 | gitlab-issue-to-mr | skill | Create an automation that implements GitLab issues when a configurable trigger label is applied. Polls the projects d... | `/issue-to-mr:setup` |
+| gitlab-mr-reviewer | skill | Review labelled GitLab merge requests at the exact head and post one actionable review note per head. | `/gitlab-mr-reviewer:setup` |
+| gitlab-prd-refiner | skill | Refine labelled GitLab issues by posting open questions, recommendations, and requirements gaps. | `/gitlab-prd-refiner:setup` |
 | incident-retrospective | skill | Create an automation that drafts incident retrospectives by gathering incident-channel messages from Slack, collectin... | `/incident-retro:setup` |
 | iterate | skill | Iterate on a GitHub pull request — drive it through CI, code review, and QA until merge-ready. Monitors state, fixes ... | `/iterate`, `/verify`, `/babysit` |
 | jira-issue-to-pr | skill | Deploy a cron-based OpenHands automation that opens a GitHub pull request, a GitLab merge request or a Bitbucket pull... | — |
@@ -190,7 +192,7 @@ Official skills and plugins for OpenHands — the open-source AI software engine
 | skill-creator | skill | Guide for creating effective skills. This skill should be used when users want to create a new skill (or update an ex... | — |
 | slack-channel-monitor | skill | Create a cron automation that polls up to 10 Slack channels every minute and starts an OpenHands conversation when a ... | `/slack-monitor:poll` |
 | slack-standup-digest | skill | Create an automation that generates an async standup digest from Slack. Searches selected channels for messages since... | `/standup-digest:setup` |
-| software-factory | skill | Set up a GitHub software factory fast: ask only for the repositories and the ticket source (GitHub issues, Jira or Li... | `/software-factory` |
+| software-factory | skill | Set up a GitHub or GitLab software factory: choose the code host and repositories, request a missing provider token s... | `/software-factory` |
 | ssh | skill | Establish and manage SSH connections to remote machines, including key generation, configuration, and file transfers.... | — |
 | swift-linux | skill | Install and configure Swift programming language on Debian Linux for server-side development. Use when building Swift... | — |
 | technical-writing | skill | Write and revise technical explanations in flowing, direct, conversational prose that stays concise without becoming ... | — |
