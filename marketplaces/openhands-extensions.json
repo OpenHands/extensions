@@ -871,6 +871,19 @@
       ]
     },
     {
+      "name": "readable-text",
+      "source": "./skills/readable-text",
+      "description": "Generate scannable titles, notifications, and summaries with consistent structure, distinctive openings, and faithful wording.",
+      "category": "writing",
+      "keywords": [
+        "readability",
+        "titles",
+        "notifications",
+        "summaries",
+        "writing"
+      ]
+    },
+    {
       "name": "show-me",
       "source": "./skills/show-me",
       "description": "Help the user understand the current topic visually with concise diagrams, code-shape sketches, and focused HTML artifacts.",
