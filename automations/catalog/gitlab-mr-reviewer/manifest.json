@@ -1,9 +1,9 @@
 {
   "id": "gitlab-mr-reviewer",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "name": "GitLab merge request review",
   "category": "Code review",
-  "description": "Review labelled GitLab merge requests at their current head and post a concise, non-approving review note with actionable findings.",
+  "description": "Review labelled GitLab merge requests at their current head after a scheduled scan or signed webhook event, and post a concise, non-approving review note with actionable findings.",
   "requires": {
     "integrations": {
       "gitlab": {
@@ -16,7 +16,7 @@
   },
   "popularityRank": 78,
   "estimatedSetupMinutes": 4,
-  "exampleImplementation": "Poll open, non-draft labelled merge requests. Review the bounded diff at each exact head in a separate conversation, then publish one GitLab note per head. Do not approve or merge.",
+  "exampleImplementation": "Choose cron to scan labelled open merge requests or event to respond to signed merge_request webhooks from a pre-registered custom GitLab source. Verify the project, label, state and exact head against GitLab's API; the event run waits for its review to finish before publishing one note per head. Do not approve or merge.",
   "setup": {
     "version": "1.0",
     "mode": "direct",
@@ -36,6 +36,25 @@
             "default": "UTC",
             "required": true,
             "help": "Timezone for the polling schedule."
+          }
+        },
+        "event": {
+          "source": {
+            "type": "event-source",
+            "label": "Signed GitLab webhook source",
+            "help": "First register a custom webhook with standard_webhooks signature verification, then select its source here. Configure GitLab 19.0+ to deliver merge request events using the same signing token. See this reviewer's README for setup steps.",
+            "default": "gitlab",
+            "required": true
+          },
+          "on": {
+            "type": "select",
+            "label": "GitLab events",
+            "help": "React to merge request open, update and reopen events. The worker checks the live project, label and MR state before reviewing.",
+            "default": "merge_request",
+            "required": true,
+            "options": [
+              {"value": "merge_request", "label": "Merge request opened or updated"}
+            ]
           }
         }
       },
@@ -73,9 +92,9 @@
       }
     },
     "bundle": {
-      "version": "1.0.0",
+      "version": "1.1.0",
       "entrypoint": "python3 main.py",
-      "timeout": 300,
+      "timeout": 1800,
       "files": {
         "main.py": "skills/gitlab-mr-reviewer/scripts/main.py",
         "common.py": "skills/gitlab-mr-reviewer/scripts/common.py"
@@ -86,6 +105,7 @@
         "gitlab_api_url": "{{form.gitlabApiUrl}}"
       }
     },
-    "message": "This deployment cannot run the bundled reviewer directly. Configure a scheduled poll of the selected GitLab projects and label, then create the automation."
+    "filter": "object_kind == 'merge_request' && (object_attributes.action == 'open' || object_attributes.action == 'update' || object_attributes.action == 'reopen')",
+    "message": "This deployment cannot run the bundled reviewer directly. Offer a scheduled poll, or ask the user to register a signed GitLab custom webhook source named gitlab and configure its merge request webhook before setting up an event-triggered review."
   }
 }

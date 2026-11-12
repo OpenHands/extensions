@@ -39,17 +39,35 @@ other skills create), so the Automations list can filter to the factory.
 ## Flow
 
 1. **Phase 1**: ask which code host and repositories/projects; for GitLab ask
-   for the instance's HTTPS `/api/v4` root (default gitlab.com). For GitHub,
-   ask whether tickets live in GitHub issues, Jira or Linear. Preflight the
-   selected provider and request a missing `GITHUB_PERSONAL_ACCESS_TOKEN` or
-   `GITLAB_TOKEN` with `request_secret` on a local backend. On other backends,
-   direct users to Settings -> Secrets. Create the catalog stations, smoke-run
-   them and enable only those that pass.
+   for the instance's HTTPS `/api/v4` root (default gitlab.com) and whether
+   GitLab can reach OpenHands at a public HTTPS webhook URL or OpenHands is
+   local/private-only. For GitHub, ask whether tickets live in GitHub issues,
+   Jira or Linear. Preflight the selected provider and request a missing
+   `GITHUB_PERSONAL_ACCESS_TOKEN` or `GITLAB_TOKEN` with `request_secret` on a
+   local backend. On other backends, direct users to Settings -> Secrets.
+   Recommend polling for local/private GitLab deployments; when signed
+   webhooks are supported and reachable, offer polling or events and let the
+   user choose. For events, guide them through GitLab's signing-token webhook
+   and the custom event source in Canvas **Automations → Events** before
+   creating stations. Polling stations get a smoke run; event stations wait
+   for a real signed delivery instead of an empty test dispatch.
 2. **Checkpoint**: show each station's outcome, the label or action that
-   triggers it, its schedule and status. This gives the user a concrete test
-   path without guessing which automation will run. The user can stop, try
-   authorized test items, or tune settings. GitHub offers optional add-ons.
+   triggers it, its actual schedule or webhook trigger, and status. This gives
+   the user a concrete test path without guessing which automation will run.
+   The user can stop, try authorized test items, or tune settings. GitHub
+   offers optional add-ons.
 3. **Phase 2**: one round per pick, then back to the Checkpoint.
+
+For event mode, create a GitLab signing-token webhook (GitLab 19.0+), selecting
+issue and merge request events, and register the same signing token as a custom
+source in **Automations → Events** (`/automations/events`): event key expression
+`object_kind`, signature header `webhook-signature`, scheme
+`standard_webhooks`, and optional delivery ID header `webhook-id`. Copy the
+source's URL into GitLab. The current Events page may not expose a signature
+scheme field; **do not use its default HMAC-hex scheme for GitLab**. The skill
+provides a secure API-based fallback and asks for confirmation before choosing
+event mode. Never share signing tokens or API tokens in chat.
+
 
 ## Requirements
 

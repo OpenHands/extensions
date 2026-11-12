@@ -4,8 +4,8 @@
 Each command prints one JSON document on stdout and exits non-zero on failure.
 
   factory.py preflight --repos owner/a,owner/b [--provider github|gitlab] [--gitlab-api-url URL] [--profile NAME]
-  factory.py create --repos owner/a --ids ID[,ID...] [--provider github|gitlab] [--gitlab-api-url URL] [--set [ID.]FIELD=VALUE ...] [--profile NAME]
-  factory.py tune --repos owner/a --ids ID[,ID...] [--provider github|gitlab] [--gitlab-api-url URL] [--set [ID.]FIELD=VALUE ...] [--profile NAME]
+  factory.py create --repos owner/a --ids ID[,ID...] [--provider github|gitlab] [--gitlab-api-url URL] [--trigger event --event-source SOURCE] [--set [ID.]FIELD=VALUE ...] [--profile NAME]
+  factory.py tune --repos owner/a --ids ID[,ID...] [--provider github|gitlab] [--gitlab-api-url URL] [--trigger cron|event --event-source SOURCE] [--set [ID.]FIELD=VALUE ...] [--profile NAME]
   factory.py tag ID [ID ...]
   factory.py verify ID [ID ...] [--no-wait ID ...] [--timeout SECONDS]
   factory.py status ID [ID ...]
@@ -257,16 +257,15 @@ def _parse_value(text: str):
         return text
 
 
-def _fields(entry: dict) -> dict:
+def _fields(entry: dict, trigger: str = "cron") -> dict:
     form = entry["setup"]["form"]
-    # Only the cron trigger group carries form fields; an entry whose only
-    # trigger is an event declares no cron fields, so this must not index it.
-    return {**form.get("args", {}), **form.get("triggers", {}).get("cron", {})}
+    return {**form.get("args", {}), **form.get("triggers", {}).get(trigger, {})}
 
 
-def _form_values(entry: dict, repos: list[str], overrides: dict, gitlab_api_url: str | None = None) -> dict:
+def _form_values(entry: dict, repos: list[str], overrides: dict, gitlab_api_url: str | None = None,
+                 trigger: str = "cron", event_source: str | None = None) -> dict:
     """Answers, else derived values, else manifest defaults."""
-    fields = _fields(entry)
+    fields = _fields(entry, trigger)
     values = {name: spec["default"] for name, spec in fields.items() if "default" in spec}
     for name, spec in fields.items():
         if spec.get("type") == "repo-picker":
@@ -275,6 +274,8 @@ def _form_values(entry: dict, repos: list[str], overrides: dict, gitlab_api_url:
         values["githubTokenSecret"] = TOKEN_SECRET
     if gitlab_api_url and "gitlabApiUrl" in fields:
         values["gitlabApiUrl"] = _gitlab_api_url(gitlab_api_url)
+    if trigger == "event":
+        values["source"] = event_source
     for name, value in overrides.items():
         if name not in fields:
             raise FactoryError(f"{entry['id']} has no field {name}")
@@ -287,13 +288,19 @@ def _form_values(entry: dict, repos: list[str], overrides: dict, gitlab_api_url:
     return values
 
 
-def _create_body(entry: dict, values: dict, repos: list[str]) -> dict:
+def _create_body(entry: dict, values: dict, repos: list[str], selected_trigger: str = "cron") -> dict:
     """The create request, as Agent Canvas builds it for a catalog bundle."""
     bundle = entry["setup"]["bundle"]
     name = entry["name"] + (f" - {repos[0]}" if len(repos) == 1 else f" - {len(repos)} repositories")
+    if selected_trigger == "event":
+        trigger = {"type": "event", "source": values["source"], "on": values["on"]}
+        if entry["setup"].get("filter"):
+            trigger["filter"] = entry["setup"]["filter"]
+    else:
+        trigger = {"type": "cron", "schedule": values["schedule"], "timezone": values["timezone"]}
     body = {
         "name": name,
-        "trigger": {"type": "cron", "schedule": values["schedule"], "timezone": values["timezone"]},
+        "trigger": trigger,
         "tarball_path": "",
         "entrypoint": bundle["entrypoint"],
     }
@@ -374,8 +381,12 @@ def _profile(name: str | None) -> dict:
 def preflight(args) -> dict:
     provider = getattr(args, "provider", "github")
     api_url = _gitlab_api_url(args.gitlab_api_url) if provider == "gitlab" else None
-    features = set(_api("GET", "/capabilities").get("features", []))
+    capabilities = _api("GET", "/capabilities")
+    features = set(capabilities.get("features", []))
     out: dict = {"stations": {}}
+    if provider == "gitlab":
+        out["event_supported"] = "event" in capabilities.get("triggerKinds", [])
+        out["event_sources"] = capabilities.get("eventSources", [])
     for station in STATIONS[provider]:
         entry = _manifest(station)
         missing = sorted(set(entry.get("requires", {}).get("features", [])) - features)
@@ -452,9 +463,32 @@ def _selection(args) -> tuple[list[str], list[str], str | None]:
     return repos, stations, api_url
 
 
+def _trigger_choice(args, entries: dict, current: dict | None = None) -> tuple[str, str | None]:
+    requested = getattr(args, "trigger", None)
+    selected = requested or (current or {}).get("type", "cron")
+    source = getattr(args, "event_source", None) or ((current or {}).get("source") if requested != "cron" else None)
+    if selected == "cron":
+        if source:
+            raise FactoryError("--event-source requires --trigger event")
+        return selected, None
+    if selected != "event" or getattr(args, "provider", "github") != "gitlab":
+        raise FactoryError("event triggers are supported only for GitLab factory stations")
+    if any("event" not in entry["setup"]["form"]["triggers"] for entry in entries.values()):
+        raise FactoryError("not all selected stations offer event triggers")
+    capabilities = _api("GET", "/capabilities")
+    if "event" not in capabilities.get("triggerKinds", []):
+        raise FactoryError("this deployment does not support event triggers; use a polling schedule")
+    if not source:
+        raise FactoryError("select a registered --event-source from Canvas /automations/events")
+    if source not in capabilities.get("eventSources", []):
+        raise FactoryError(f"event source {source!r} is not registered; check Canvas /automations/events")
+    return selected, source
+
+
 def create(args) -> dict:
     repos, stations, api_url = _selection(args)
     entries = {station: _manifest(station) for station in stations}
+    selected, event_source = _trigger_choice(args, entries)
     overrides = _overrides(entries, args.set or [], stations)
     root = _extensions()
     profile = None
@@ -467,8 +501,8 @@ def create(args) -> dict:
             bundle = entry.get("setup", {}).get("bundle")
             if not bundle:
                 raise FactoryError(f"{station} has no bundle; create it as the skill describes")
-            values = _form_values(entry, repos, overrides[station], api_url)
-            body = _create_body(entry, values, repos)
+            values = _form_values(entry, repos, overrides[station], api_url, selected, event_source)
+            body = _create_body(entry, values, repos, selected)
             body["tarball_path"] = _upload(station, _tarball(root, bundle["files"], body["template"]["config"]))
             body["enabled"] = False
             body["tags"] = [FACTORY_TAG]
@@ -485,6 +519,8 @@ def create(args) -> dict:
                 status_code, automation = _api("POST", "", body, return_status=True)
             summary = _summary(station, body["name"], body["trigger"], automation)
             if status_code == 200:
+                summary = _summary(station, automation.get("name", body["name"]),
+                                   automation.get("trigger", body["trigger"]), automation)
                 # The service returns the org's existing automation for the same
                 # template id (see find_existing_template_automation). Report it
                 # as pre-existing so a repeat run does not claim it created it.
@@ -576,8 +612,10 @@ def tune(args) -> dict:
         automation = _find_existing(station)
         if automation is None:
             raise FactoryError(f"{station} is not set up yet; create it before tuning it")
-        values = _form_values(entry, repos, overrides[station], api_url)
-        body = _create_body(entry, values, repos)
+        current = _api("GET", f"/{automation['id']}")
+        selected, event_source = _trigger_choice(args, {station: entry}, current.get("trigger"))
+        values = _form_values(entry, repos, overrides[station], api_url, selected, event_source)
+        body = _create_body(entry, values, repos, selected)
         patch = {
             "name": body["name"],
             "trigger": body["trigger"],
@@ -656,6 +694,12 @@ def verify(args) -> dict:
     results = {}
     waiting = {}
     for automation_id in args.ids + (args.no_wait or []):
+        automation = _api("GET", f"/{automation_id}")
+        if (automation.get("trigger") or {}).get("type") == "event":
+            _api("PATCH", f"/{automation_id}", {"enabled": True})
+            results[automation_id] = {"status": "AWAITING_EVENT", "enabled": True,
+                                      "url": _automation_url(automation_id)}
+            continue
         run = _api("POST", f"/{automation_id}/dispatch")
         if automation_id in (args.no_wait or []):
             _api("PATCH", f"/{automation_id}", {"enabled": True})
@@ -750,6 +794,8 @@ def main() -> int:
     p.add_argument("--repos", required=True)
     p.add_argument("--ids", required=True)
     _provider_options(p)
+    p.add_argument("--trigger", choices=("cron", "event"))
+    p.add_argument("--event-source")
     p.add_argument("--set", action="append", metavar="[ID.]FIELD=VALUE")
     p.add_argument("--profile")
     p.set_defaults(func=create)
@@ -757,6 +803,8 @@ def main() -> int:
     p.add_argument("--repos", required=True)
     p.add_argument("--ids", required=True)
     _provider_options(p)
+    p.add_argument("--trigger", choices=("cron", "event"))
+    p.add_argument("--event-source")
     p.add_argument("--set", action="append", metavar="[ID.]FIELD=VALUE")
     p.add_argument("--profile")
     p.set_defaults(func=tune)

@@ -3,9 +3,9 @@ name: software-factory
 description: >
   Set up an OpenHands software factory on GitHub or GitLab: choose the code host,
   repositories or projects, and (for GitHub) ticket source; create issue-to-PR/MR,
-  review and triage/refinement stations from the automation catalog. Request a
-  missing provider token securely, then show what runs and offer optional tuning
-  and GitHub add-ons.
+  review and triage/refinement stations from the automation catalog. Ask whether
+  GitLab can reach the deployment before choosing polling or signed webhooks,
+  guide event-source setup, and request missing tokens securely.
 triggers:
   - /software-factory
   - software factory
@@ -17,9 +17,10 @@ Build a GitHub or GitLab software factory from unmodified automation catalog
 bundles (`automations/catalog/<id>/manifest.json`). A Jira or Linear ticket
 station for GitHub code lives in its own skill. This skill adds no automation logic.
 
-Two phases: **Phase 1** gets a working factory after one question about the code
-host and projects. **Phase 2** extends it in short rounds, only as far as the
-user wants. After each phase, the **Checkpoint** shows what exists.
+Two phases: **Phase 1** gets a working factory after asking about the code
+host, projects and, for GitLab, webhook reachability. **Phase 2** extends it
+in short rounds, only as far as the user wants. After each phase, the
+**Checkpoint** shows what exists.
 
 GitHub code can use GitHub issues (default), Jira or Linear tickets. GitLab code
 uses GitLab issues; the GitLab reviewer posts notes, not approvals, and the work
@@ -77,11 +78,11 @@ no provider flag. GitHub needs neither flag.
 
 | Command | Does |
 |---|---|
-| `$F preflight --repos a/b,c/d [--provider gitlab --gitlab-api-url URL]` | Supported stations, provider identity and per-project access; GitHub also checks the agent profile. |
-| `$F create --repos a/b --ids ID,ID [--set FIELD=VALUE] [--set ID.FIELD=VALUE]` | Fills each station's form (answers, then derived values, then manifest defaults), uploads the bundle and creates it disabled with the `software-factory` tag. `FIELD=VALUE` applies to every listed station with that field. Stations that already exist are reported under `existing`, not recreated, and get the tag added. |
-| `$F tune --repos a/b --ids ID,ID [--set FIELD=VALUE] [--set ID.FIELD=VALUE]` | Applies new settings to an existing station by updating it in place. Use this to change a value that is fixed at creation. |
+| `$F preflight --repos a/b,c/d [--provider gitlab --gitlab-api-url URL]` | Supported stations, provider identity and per-project access; GitLab also reports `event_supported` and registered `event_sources`. GitHub checks the agent profile. |
+| `$F create --repos a/b --ids ID,ID [--trigger event --event-source SOURCE] [--set FIELD=VALUE] [--set ID.FIELD=VALUE]` | Fills each station's form, uploads the bundle and creates it disabled with the `software-factory` tag. GitLab uses cron unless `--trigger event` and a registered source are explicitly supplied; GitHub remains cron. `FIELD=VALUE` applies to every listed station with that field. Stations that already exist are reported under `existing`, not recreated, and get the tag added. |
+| `$F tune --repos a/b --ids ID,ID [--trigger cron\|event --event-source SOURCE] [--set FIELD=VALUE] [--set ID.FIELD=VALUE]` | Applies settings in place, retaining the existing trigger unless explicitly changed. Use this to change a value that is fixed at creation. |
 | `$F tag ID...` | Adds the `software-factory` tag to automations created outside the script, so the Automations list can filter to the factory. Lists any it could not tag under `not_tagged`, each with its `reason`. |
-| `$F verify ID... [--no-wait ID...]` | Dispatches once, enables the ones whose run `COMPLETED` and disables the rest, reporting their `error_detail`. `--no-wait` enables without waiting. |
+| `$F verify ID... [--no-wait ID...]` | Polling stations dispatch once and enable only after `COMPLETED`; event stations are enabled without a synthetic dispatch and return `AWAITING_EVENT`. An event station is not end-to-end verified until a real signed delivery completes. `--no-wait` skips the wait for cron stations. |
 | `$F status ID...` | The latest run of each. |
 | `$F prs --repos a/b [--branch-prefix P]` | Open pull requests whose branch starts with `P` (default `openhands/agents-md`, the AGENTS.md maintainer's). |
 | `$F reset-token [--provider gitlab]` | Deletes only the selected provider's saved token (local Agent Canvas), after the user agrees to replace it. |
@@ -123,15 +124,85 @@ active one.
   automation service predates tags; tell the user, and run `$F tag <id>` for
   those stations once it is upgraded.
 
+## GitLab event-source setup (only when the user chooses events)
+
+Recommend **polling** (`*/15 * * * *`, catalog default) when OpenHands is
+local/private, GitLab cannot reach its HTTPS webhook URL, the backend lacks
+`event` in `triggerKinds`, or GitLab lacks signing tokens. Polling scans the
+backlog and retries unfinished tasks; event mode responds to the delivered
+issue/MR promptly but requires a reachable deployment and a signed source.
+Never claim an event automation will work just because the GitLab instance is
+reachable *from* OpenHands: delivery must work in the opposite direction.
+
+For a public deployment whose preflight advertises event triggers, offer the
+user polling or event mode and let them choose. **Before** creating an event
+station, guide the user through these steps; do not ask them to send a signing
+token in chat, and do not register a webhook on their behalf:
+
+1. In the selected GitLab project, go to **Settings → Webhooks** (or create one
+   group webhook for all selected projects). Generate a **signing token**
+   (GitLab 19.0+, stable in 19.1). Choose **Issue events** for issue-to-MR and
+   work-item refinement, and **Merge request events** for the reviewer; choose
+   both for all three stations. A GitLab *secret token* (`X-Gitlab-Token`) is
+   not a signed webhook and cannot be used instead. Use one shared signing
+   token for a group source. Independent project tokens need separate sources
+   and per-project automations (which this one-source factory helper cannot
+   create together); choose polling or a group webhook instead.
+2. Point them to **Automations → Events** (`<Canvas origin>/automations/events`)
+   to add a custom source and copy its generated `webhook_url`. Enter a unique
+   lowercase source id such as `gitlab-factory`, event key expression
+   `object_kind`, signature header `webhook-signature`, signature scheme
+   `standard_webhooks`, optional delivery ID header `webhook-id`, and the
+   **same GitLab signing token** as the webhook secret. Do not accept the
+   default hex-HMAC scheme or an unsigned source. **Current Canvas Events
+   pages that lack a Signature Scheme selector cannot register a GitLab
+   signing-token source there.** In that case, tell the user about the UI
+   limitation and offer the API request below (or the automation template
+   setup's custom-source form if it offers Standard Webhooks); then return to
+   the Events page to copy the URL. Do not save an incompatible source first.
+3. Paste `webhook_url` into GitLab's webhook URL field, select the event types,
+   save, and ask the user to confirm the GitLab webhook is enabled. On a
+   self-managed instance ensure it permits delivery to that HTTPS host. Use
+   the **same** custom source for both issue and MR stations when they share a
+   signing token; their catalog filters select the appropriate kind. Run
+   `preflight` again and use the exact registered name from `event_sources`
+   with `--trigger event --event-source <source>` on `$F create`. If the user
+   cannot complete registration, offer polling instead; do not silently set
+   up a non-working event station.
+
+If the Events form has no scheme selector, **show the user** this alternative
+request to run locally with their own token, using their existing
+`OPENHANDS_HOST` and auth header. Never execute it with their signing secret:
+
+```bash
+read -rsp 'GitLab signing token: ' GITLAB_SIGNING_TOKEN; echo
+export GITLAB_SIGNING_TOKEN
+jq -n '{name:"GitLab factory events",source:"gitlab-factory",event_key_expr:"object_kind",signature_header:"webhook-signature",signature_scheme:"standard_webhooks",event_id_header:"webhook-id",webhook_secret:env.GITLAB_SIGNING_TOKEN}' |
+  curl -X POST "$OPENHANDS_HOST/api/automation/v1/webhooks" \
+    -H "Authorization: Bearer $OPENHANDS_API_KEY" \
+    -H 'Content-Type: application/json' --data-binary @-
+unset GITLAB_SIGNING_TOKEN
+```
+
+On local Canvas, replace the Authorization header with
+`X-Session-API-Key: $OPENHANDS_AUTOMATION_API_KEY` and use a **publicly
+reachable ingress URL** for `OPENHANDS_HOST`. If no public ingress exists,
+choose polling instead. The signing token is not `GITLAB_TOKEN` (which is an
+API credential for the worker); never put either value in a chat or URL.
+
+
 ## Phase 1 - Working factory
 
 1. Ask in one message: "Is your code on GitHub or GitLab, and which repositories
    or projects (`owner/repo` or `group/subgroup/project`)? For GitHub, are tickets
    in GitHub issues (default), Jira or Linear? For GitLab, is the instance
-   gitlab.com (default), or what is its HTTPS `/api/v4` URL?" Do not re-ask
-   information already given. If the user names a self-managed GitLab instance
-   without its API URL, get that URL before proceeding. Everything else uses
-   catalog defaults and can be tuned later.
+   gitlab.com (default), or what is its HTTPS `/api/v4` URL? Can your GitLab
+   instance reach your OpenHands deployment at a public HTTPS webhook URL, or
+   is OpenHands local/private-only?" Do not re-ask information already given;
+   if reachability is unknown, ask rather than assume that GitLab can deliver
+   webhooks. If the user names a self-managed GitLab instance without its API
+   URL, get that URL before proceeding. Everything else uses catalog defaults
+   and can be tuned later.
 2. Run `$F preflight --repos <repos>` with the GitLab provider and instance URL
    flags when selected. For **every GitLab token request or replacement**, tell
    the user to create a personal, project or group access token **on the selected
@@ -164,18 +235,30 @@ active one.
    reports `role unknown` (some project/group tokens do not expose it), do not
    claim write access: ask whether to provision issue-to-MR for the selected
    projects provisionally, or install just the reviewer and refiner. If no
-   projects remain accessible, stop.
+   projects remain accessible, stop. For GitLab, use the reachability answer
+   and `preflight`'s `event_supported` to recommend polling or signed events
+   as described in **GitLab event-source setup**. Ask the user to choose if
+   events are feasible; polling is the default if they prefer it. Before
+   continuing with events, wait for their confirmation that a correctly signed
+   source is registered and GitLab is configured to deliver to its URL.
 4. For GitLab run `$F create --repos <projects> --provider gitlab
    --gitlab-api-url <URL> --ids gitlab-issue-to-mr,gitlab-mr-reviewer,gitlab-prd-refiner`
-   (omit issue-to-MR if the user chose not to provision it). For GitHub run
+   (omit issue-to-MR if the user chose not to provision it). Add `--trigger event
+   --event-source <registered-source>` only after the source appears in
+   `preflight`'s `event_sources` and the user selected events; otherwise keep
+   the default polling schedule. If `create` reports `existing`, do not claim
+   to have changed its trigger; offer `$F tune` if the user wants it changed.
+   For GitHub run
    `$F create --repos <repos> --ids github-pr-reviewer`, adding
    `github-issue-to-pr,github-issue-triage` for GitHub issues. For Jira or
    Linear, also set up the issue to PR station as "Ticket source" describes;
    for Linear, set up triage with the `linear-triage` skill (Jira has none).
-5. `$F verify <created station ids>`; this dispatches once and enables only
-   completed runs. A successful empty poll is not proof that GitLab can publish
-   notes or push a branch: offer an explicitly authorized test issue/MR before
-   claiming end-to-end verification.
+5. `$F verify <created station ids>`; cron stations dispatch once and are
+   enabled only if completed. Event stations enable without dispatch (result
+   `AWAITING_EVENT`); a real, signed GitLab delivery is needed to test them.
+   Neither an empty poll nor merely enabling an event station proves that
+   GitLab can publish notes or push a branch: offer an explicitly authorized
+   test issue/MR before claiming end-to-end verification.
 6. Go to the Checkpoint.
 
 ## Checkpoint
@@ -183,8 +266,9 @@ active one.
 Write one short message, in this order:
 
 1. One plain sentence naming the host and selected repositories/projects, and
-   saying the enabled stations check for work on their listed schedules. Do
-   not claim an `off` station runs or that a cron scan reacts immediately.
+   saying whether enabled GitLab stations scan on a schedule or react to signed
+   issue/MR webhooks. Do not claim an `off` station runs, a cron scan reacts
+   immediately, or a webhook is verified before a real delivery succeeds.
 2. GitHub only: if the AGENTS.md maintainer was added, show the `AGENTS.md`
    pull requests from `$F prs --repos <repos>`, asking the user to merge them.
    One opened before this setup started (`created_at`) is "still open from an
@@ -195,12 +279,16 @@ Write one short message, in this order:
    take to test it, using the configured labels rather than defaults if tuned.
    For GitLab (omit any station not installed), use this shape:
 
-   | Automation | What it does / how to trigger a test | Schedule | Status |
+   | Automation | What it does / how to trigger a test | Trigger | Status |
    |---|---|---|---|
    | [Issue to MR](<url>) | Label an open issue `openhands` -> draft MR | every 15 minutes | on |
    | [MR reviewer](<url>) | Label an open, non-draft MR `openhands-review` -> review note (no approval) | every 15 minutes | on |
    | [Work item refiner](<url>) | Label an open issue `openhands-refine` -> questions and recommendations note | every 15 minutes | on |
 
+   Replace each example trigger with the actual station's `trigger`: show
+   `signed issue/MR webhook` only when that station uses event mode, never
+   both options in one row. For event stations, say `AWAITING_EVENT` means
+   enabled but not yet tested with a real delivery, not a successful dry run.
    To test the reviewer on the MR created by issue-to-MR, mark that draft MR
    ready first, then label it `openhands-review`. For GitHub, similarly name
    each installed issue/PR trigger and outcome: labelled issue -> draft PR;
@@ -239,19 +327,23 @@ each with its current value. Apply, then return to the Checkpoint.
 | GitLab MR review label | `openhands-review` | `gitlab-mr-reviewer.triggerLabel` |
 | GitLab issue refinement label | `openhands-refine` | `gitlab-prd-refiner.triggerLabel` |
 | GitLab API URL | `https://gitlab.com/api/v4` | `--gitlab-api-url URL` on preflight/create/tune (use same instance) |
-| Schedules and timezone | GitHub per manifest; GitLab all `*/15 * * * *`; `UTC` | `ID.schedule`, `timezone` |
+| Schedules and timezone | GitHub per manifest; GitLab polling `*/15 * * * *`; `UTC` | `ID.schedule`, `timezone` on cron stations only |
+| GitLab trigger | polling by default | `$F tune --trigger event --event-source <registered-source>` or `--trigger cron` |
 | Agent profile (GitHub only) | active profile | `--profile NAME` |
 
 Apply:
 
-- Schedule or timezone only:
+- Schedule or timezone only, on a cron station:
   `PATCH ${OPENHANDS_HOST}/api/automation/v1/{id}` with `{"trigger": {...}}`.
 - Jira or Linear station settings: change them as its skill describes.
-- Anything else is fixed at creation: `$F tune --repos <repos> --ids <id>`
-  (add the GitLab provider and instance URL flags when selected), with the new
-  `--set` values (repeat every earlier non-default value), then `$F verify
-  <id>`. For a new GitLab URL, rerun preflight against that host first. `tune`
-  updates the station in place, with no replacement or template-id collision.
+- Trigger mode or any setting fixed at creation: `$F tune --repos <repos>
+  --ids <id>` (add the GitLab provider and instance URL flags when selected),
+  with the new `--set` values (repeat every earlier non-default value), and
+  `--trigger event --event-source <source>` only after completing the GitLab
+  event-source setup above, or `--trigger cron` to return to polling. Then
+  `$F verify <id>`. `tune` otherwise retains the station's existing trigger.
+  For a new GitLab URL, rerun preflight against that host first. `tune` updates
+  the station in place, with no replacement or template-id collision.
 
 ### Add a station (GitHub only)
 

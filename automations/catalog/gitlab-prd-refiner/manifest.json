@@ -1,9 +1,9 @@
 {
   "id": "gitlab-prd-refiner",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "name": "GitLab work item refiner",
   "category": "Project management",
-  "description": "Refine labelled GitLab issues by posting open questions, recommendations, and gaps in the requirements.",
+  "description": "Refine labelled GitLab issues after scheduled scans or signed webhook events by posting open questions, recommendations, and requirements gaps.",
   "requires": {
     "integrations": {
       "gitlab": {
@@ -16,7 +16,7 @@
   },
   "popularityRank": 72,
   "estimatedSetupMinutes": 4,
-  "exampleImplementation": "Poll open, labelled GitLab issue-type work items. Read the description and human discussion and post one refinement note per label application with open questions, recommendations, and gaps.",
+  "exampleImplementation": "Scan open, labelled GitLab issue-type work items on a schedule, or respond to signed issue webhooks by rechecking the live issue and label event. Read the description and human discussion and post one refinement note per label application with open questions, recommendations, and gaps.",
   "setup": {
     "version": "1.0",
     "mode": "direct",
@@ -36,6 +36,25 @@
             "default": "UTC",
             "required": true,
             "help": "Timezone for the polling schedule."
+          }
+        },
+        "event": {
+          "source": {
+            "type": "event-source",
+            "label": "Signed GitLab webhook source",
+            "help": "Register a custom GitLab webhook source with standard_webhooks signing first, then select it here. Configure GitLab 19.0+ issue events with its signing token; see the skill README.",
+            "default": "gitlab",
+            "required": true
+          },
+          "on": {
+            "type": "select",
+            "label": "GitLab events",
+            "help": "Respond to issue open, reopen and label-change updates; live state and label event ID are checked before refining.",
+            "default": "issue",
+            "required": true,
+            "options": [
+              {"value": "issue", "label": "Issue opened or updated"}
+            ]
           }
         }
       },
@@ -73,9 +92,9 @@
       }
     },
     "bundle": {
-      "version": "1.0.0",
+      "version": "1.1.0",
       "entrypoint": "python3 main.py",
-      "timeout": 300,
+      "timeout": 1800,
       "files": {
         "main.py": "skills/gitlab-prd-refiner/scripts/main.py",
         "common.py": "skills/gitlab-mr-reviewer/scripts/common.py"
@@ -86,6 +105,7 @@
         "gitlab_api_url": "{{form.gitlabApiUrl}}"
       }
     },
-    "message": "This deployment cannot run the bundled refiner directly. Configure a scheduled poll of the selected GitLab projects and label, then create the automation."
+    "filter": "object_kind == 'issue' && (object_attributes.action == 'open' || object_attributes.action == 'reopen' || (object_attributes.action == 'update' && changes.labels != `null`))",
+    "message": "This deployment cannot run the bundled refiner directly. Configure scheduled polling, or first ask the user to register a signed GitLab custom webhook and its issue events before selecting an event trigger."
   }
 }

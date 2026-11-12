@@ -2,7 +2,7 @@
 name: gitlab-issue-to-mr
 description: >
   Create an automation that implements GitLab issues when a configurable
-  trigger label is applied. Polls one or more projects deterministically,
+  trigger label is applied. Scans projects or handles a signed GitLab issue webhook,
   clones the default branch, starts one OpenHands conversation per label event,
   then commits, pushes, and opens the merge request itself.
 triggers:
@@ -11,10 +11,18 @@ triggers:
 
 # GitLab Issue to MR Automation
 
-Create a cron automation that watches one or more GitLab projects for issues
-with a trigger label, starts an OpenHands conversation once per label event with
-the project's default branch already checked out, and opens a merge request with
-whatever the agent produced.
+Create an automation that scans one or more GitLab projects on a schedule or
+handles one issue from a signed webhook event. It watches for a trigger label,
+starts an OpenHands conversation once per label event with the project's default
+branch already checked out, and opens a merge request with the agent's work.
+The catalog event option needs a GitLab 19.0+ signing token and a pre-registered
+custom webhook source (`event_key_expr: object_kind`,
+`signature_header: webhook-signature`, `signature_scheme: standard_webhooks`,
+`event_id_header: webhook-id`). Ask the user to configure **Issue events** and
+register the source, following
+[README.md](README.md#signed-webhook-event-trigger-gitlab-190); never register a
+webhook on their behalf or ask for a token in chat. If the endpoint is not
+publicly reachable or GitLab lacks signing tokens, use a schedule.
 
 The automation script is deterministic: issue discovery, label-event tracking,
 state persistence, the clone, the branch, the commit, the push, the merge

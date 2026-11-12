@@ -1,8 +1,8 @@
 """
 GitLab Issue to MR - OpenHands Automation Script
 
-Cron-polls one or more GitLab projects for open issues carrying the configured
-trigger label. Work is queued only when the latest matching GitLab label
+Scans GitLab projects on a schedule or processes one issue from a signed
+webhook event. Work is queued only when the latest matching GitLab label
 resource event has not already been processed by this automation.
 
 Each project is polled independently and keeps its own state document, so issue
@@ -322,6 +322,7 @@ def _kv_get(key: str) -> dict | None:
             return json.loads(r.read())["value"]
     except urllib.error.HTTPError as exc:
         if exc.code == 404:
+            exc.close()
             return None
         raise
 
@@ -1824,6 +1825,8 @@ def _process_project(
     agent_url: str,
     api_key: str,
     openhands_url: str,
+    issue_iid: int | None = None,
+    label_event_id: int | str | None = None,
 ) -> str | None:
     """Poll one project end to end. Its state is loaded and saved here, so a
     failure in another project cannot discard this one's progress."""
@@ -1842,7 +1845,17 @@ def _process_project(
         state["updated_at"] = time.time()
         save_state(project, state)
 
-    issues = _list_labeled_issues(gitlab_token, project)
+    if issue_iid is None:
+        issues = _list_labeled_issues(gitlab_token, project)
+    else:
+        try:
+            issue = _get_issue(gitlab_token, project, issue_iid)
+        except urllib.error.HTTPError as exc:
+            if exc.code != 404:
+                raise
+            exc.close()
+            issue = None
+        issues = [issue] if issue and issue.get("state") == "opened" else []
     print(f"  Found {len(issues)} open issue(s) labelled `{TRIGGER_LABEL}`")
 
     last_conversation_id = None
@@ -1858,13 +1871,15 @@ def _process_project(
 
         # Refetch so a label removed since the listing does not start work.
         fresh_issue = _get_issue(gitlab_token, project, iid)
-        if not _has_trigger_label(fresh_issue):
-            print(f"  Issue #{iid} lost `{TRIGGER_LABEL}` during the poll; skipping")
+        if fresh_issue.get("state") != "opened" or not _has_trigger_label(fresh_issue):
+            print(f"  Issue #{iid} closed or lost `{TRIGGER_LABEL}` during the poll; skipping")
             continue
 
         label_event = _latest_trigger_label_event(gitlab_token, project, iid)
         if not label_event:
             print(f"  Issue #{iid} has `{TRIGGER_LABEL}` but no matching label event; skipping")
+            continue
+        if label_event_id is not None and label_event["id"] != label_event_id:
             continue
 
         key = _task_key(iid, label_event["id"])
@@ -1881,6 +1896,8 @@ def _process_project(
             started += 1
 
     for task_key, rec in list(tasks.items()):
+        if issue_iid is not None and task_key != _task_key(issue_iid, label_event_id):
+            continue
         if rec.get("status") == "starting":
             # A claim this poll made has already moved to "active" or been
             # dropped, so one still sitting here belongs to a poll that died
@@ -1901,6 +1918,50 @@ def _process_project(
 
     persist()
     return last_conversation_id
+
+
+def _event_target(envelope: dict | None = None) -> tuple[str, int] | None:
+    if envelope is None:
+        envelope = json.loads(os.environ.get("AUTOMATION_EVENT_PAYLOAD", "{}"))
+    payload = (envelope.get("event") or {}).get("payload") or {}
+    attrs = payload.get("object_attributes") or {}
+    project = (payload.get("project") or {}).get("path_with_namespace")
+    iid = attrs.get("iid")
+    if (payload.get("object_kind") != "issue" or attrs.get("action") not in {"open", "update", "reopen"}
+            or (attrs.get("action") == "update" and "labels" not in (payload.get("changes") or {}))
+            or type(iid) is not int or iid < 1
+            or project not in {normalize_project(value) for value in PROJECTS}):
+        return None
+    return project, iid
+
+
+def _process_event_target(
+    project: str, iid: int, gitlab_token: str, agent_url: str, api_key: str, openhands_url: str,
+) -> str | None:
+    try:
+        issue = _get_issue(gitlab_token, project, iid)
+    except urllib.error.HTTPError as exc:
+        if exc.code != 404:
+            raise
+        exc.close()
+        return None
+    if issue.get("state") != "opened" or not _has_trigger_label(issue):
+        return None
+    label_event = _latest_trigger_label_event(gitlab_token, project, iid)
+    if not label_event:
+        return None
+    key = _task_key(iid, label_event["id"])
+    deadline = time.monotonic() + 1600
+    while True:
+        conversation_id = _process_project(
+            project, gitlab_token, agent_url, api_key, openhands_url, iid, label_event["id"]
+        )
+        record = load_state(project)["tasks"].get(key)
+        if record and record.get("status") not in {"starting", "active"}:
+            return conversation_id or record.get("conversation_id")
+        if time.monotonic() >= deadline:
+            raise TimeoutError(f"GitLab issue implementation for {project} #{iid} has not finished")
+        time.sleep(5)
 
 
 def main() -> str | None:
@@ -1926,6 +1987,13 @@ def main() -> str | None:
             openhands_url = get_secret("OPENHANDS_URL").rstrip("/") or DEFAULT_OPENHANDS_URL
         except Exception:
             openhands_url = DEFAULT_OPENHANDS_URL
+
+    envelope = json.loads(os.environ.get("AUTOMATION_EVENT_PAYLOAD", "{}"))
+    if "event" in envelope:
+        target = _event_target(envelope)
+        if target is None:
+            return None
+        return _process_event_target(*target, gitlab_token, agent_url, api_key, openhands_url)
 
     last_conversation_id = None
     failures = []

@@ -35,7 +35,9 @@ class Service(BaseHTTPRequestHandler):
         path = urlsplit(self.path).path
         data = self.server.data
         if path == "/api/automation/v1/capabilities":
-            return self.reply({"features": ["customTarball"]})
+            return self.reply({"features": ["customTarball"],
+                               "triggerKinds": data.get("trigger_kinds", ["cron"]),
+                               "eventSources": data.get("event_sources", [])})
         if path == "/api/v4/user":
             data["received_token"] = self.headers.get("PRIVATE-TOKEN")
             if data.get("user_status"):
@@ -52,6 +54,9 @@ class Service(BaseHTTPRequestHandler):
                 {"id": f"automation-{index}", "preset_metadata": {"template": body["template"]}}
                 for index, body in enumerate(data["created"], 1)
             ]})
+        if path.startswith("/api/automation/v1/automation-"):
+            index = int(path.rsplit("-", 1)[-1]) - 1
+            return self.reply({"id": f"automation-{index + 1}", "trigger": data["created"][index]["trigger"]})
         return self.reply({"error": path}, 404)
 
     def do_POST(self):
@@ -156,6 +161,73 @@ class GitLabFactoryTests(unittest.TestCase):
             with tarfile.open(fileobj=io.BytesIO(archive), mode="r:gz") as tar:
                 self.assertEqual(json.load(tar.extractfile("config.json")), body["template"]["config"])
         self.assertNotIn("GITHUB_PERSONAL_ACCESS_TOKEN", json.dumps(self.data["created"]))
+
+    def test_preflight_reports_webhook_availability_before_token_setup(self):
+        self.data.update(trigger_kinds=["cron", "event"], event_sources=["gitlab-signed"])
+        result = factory.preflight(self.args)
+        self.assertTrue(result["event_supported"])
+        self.assertEqual(result["event_sources"], ["gitlab-signed"])
+
+    def test_create_gitlab_event_stations_from_registered_source(self):
+        self.data.update(trigger_kinds=["cron", "event"], event_sources=["gitlab-signed"])
+        args = SimpleNamespace(**vars(self.args), ids="gitlab-issue-to-mr,gitlab-mr-reviewer,gitlab-prd-refiner",
+                               set=None, trigger="event", event_source="gitlab-signed")
+        result = factory.create(args)
+        self.assertEqual(len(result["created"]), 3)
+        for body in self.data["created"]:
+            station = body["template"]["id"]
+            self.assertEqual(body["trigger"], {"type": "event", "source": "gitlab-signed",
+                                               "on": "merge_request" if station == "gitlab-mr-reviewer" else "issue",
+                                               "filter": json.loads((ROOT / "automations/catalog" / station / "manifest.json")
+                                                                    .read_text())["setup"]["filter"]})
+            self.assertFalse(body["enabled"])
+            self.assertNotIn("webhook_secret", json.dumps(body))
+
+    def test_verify_enables_webhook_station_without_empty_dispatch(self):
+        self.data.update(trigger_kinds=["cron", "event"], event_sources=["gitlab-signed"])
+        args = SimpleNamespace(**vars(self.args), ids="gitlab-mr-reviewer", set=None,
+                               trigger="event", event_source="gitlab-signed")
+        factory.create(args)
+        result = factory.verify(SimpleNamespace(ids=["automation-1"], no_wait=[], timeout=10))
+        self.assertEqual(result["automation-1"]["status"], "AWAITING_EVENT")
+        self.assertTrue(result["automation-1"]["enabled"])
+        self.assertEqual(self.data["patched"], [{"enabled": True}])
+
+    def test_tune_event_keeps_source_and_can_switch_back_to_polling(self):
+        self.data.update(trigger_kinds=["cron", "event"], event_sources=["gitlab-signed"])
+        args = SimpleNamespace(**vars(self.args), ids="gitlab-mr-reviewer", set=None,
+                               trigger="event", event_source="gitlab-signed")
+        factory.create(args)
+        args.trigger = None
+        args.event_source = None
+        args.set = ["triggerLabel=review-now"]
+        factory.tune(args)
+        self.assertEqual(self.data["patched"][-1]["trigger"]["source"], "gitlab-signed")
+        self.assertEqual(self.data["patched"][-1]["trigger"]["on"], "merge_request")
+        args.trigger = "cron"
+        factory.tune(args)
+        self.assertEqual(self.data["patched"][-1]["trigger"]["type"], "cron")
+
+    def test_event_mode_does_not_claim_github_support(self):
+        args = SimpleNamespace(provider="github", repos="acme/api", ids="github-pr-reviewer",
+                               set=None, trigger="event", event_source="gitlab-signed")
+        with self.assertRaisesRegex(factory.FactoryError, "only for GitLab"):
+            factory.create(args)
+        self.assertEqual(self.data["uploads"], [])
+
+    def test_event_requires_advertised_trigger_and_registered_source(self):
+        args = SimpleNamespace(**vars(self.args), ids="gitlab-mr-reviewer", set=None,
+                               trigger="event", event_source="gitlab-signed")
+        with self.assertRaisesRegex(factory.FactoryError, "event triggers"):
+            factory.create(args)
+        self.data["trigger_kinds"] = ["cron", "event"]
+        with self.assertRaisesRegex(factory.FactoryError, "automations/events"):
+            factory.create(args)
+        self.data["event_sources"] = ["gitlab-signed"]
+        args.event_source = None
+        with self.assertRaisesRegex(factory.FactoryError, "event-source"):
+            factory.create(args)
+        self.assertEqual(self.data["uploads"], [])
 
     def test_tune_keeps_same_host_and_updates_existing_station(self):
         args = SimpleNamespace(**vars(self.args), ids="gitlab-mr-reviewer", set=None)
