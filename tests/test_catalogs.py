@@ -243,7 +243,7 @@ def test_daily_workflow_entries_are_locally_installable():
     with the connectivity details its Test-connection probe relies on."""
     entries = {e["id"]: e for e in load_catalog_entries("integrations/catalog")}
 
-    for entry_id, option_id in (("github", "api"), ("linear", "api-key"), ("slack", "api")):
+    for entry_id, option_id in (("github", "api"), ("linear", "api-key"), ("slack", "user-token")):
         entry = entries[entry_id]
         assert entry["docsUrl"].startswith("https://")
         option = _installable_option(entry)
@@ -260,12 +260,10 @@ def test_daily_workflow_entries_are_locally_installable():
     assert linear["transport"]["url"] == "https://mcp.linear.app/mcp"
 
     slack = _installable_option(entries["slack"])
-    assert slack["transport"]["kind"] == "stdio"
-    assert slack["transport"]["command"] == "npx"
-    required_env = {
-        field["key"] for field in slack["transport"]["envFields"] if field.get("required")
-    }
-    assert required_env == {"SLACK_TEAM_ID", "SLACK_BOT_TOKEN"}
+    assert slack["transport"]["kind"] == "shttp"
+    assert slack["transport"]["url"] == "https://mcp.slack.com/mcp"
+    assert slack["auth"]["strategy"] == "bearer"
+    assert slack["auth"]["credentialSecretName"] == "SLACK_USER_TOKEN"
 
 
 def test_daily_workflow_entries_state_scopes_and_setup_paths():
@@ -289,7 +287,8 @@ def test_daily_workflow_entries_state_scopes_and_setup_paths():
         "channels:read",
         "chat:write",
         "reactions:write",
+        "search:read.public",
         "users:read",
-        "users.profile:read",
     ):
-        assert scope in slack_hint, f"slack installHint missing bot scope {scope}"
+        assert scope in slack_hint, f"slack installHint missing user-token scope {scope}"
+    assert "https://docs.slack.dev/ai/slack-mcp-server/" in slack_hint
