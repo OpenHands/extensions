@@ -239,6 +239,19 @@
       ]
     },
     {
+      "name": "ponder",
+      "source": "./skills/ponder",
+      "description": "Multi-pass, coverage-gated deliberation loop and code review for AI coding agents. Refuses to stop until 100% of files/symbols are graded and two consecutive passes produce zero ledger deltas.",
+      "category": "code-quality",
+      "keywords": [
+        "ponder",
+        "code-review",
+        "deliberation",
+        "coverage",
+        "audit"
+      ]
+    },
+    {
       "name": "datadog",
       "source": "./skills/datadog",
       "description": "Query and analyze Datadog logs, metrics, APM traces, and monitors using the Datadog API. Use when debugging production issues, monitoring application performance, or investigating alerts.",
