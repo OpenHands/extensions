@@ -1,0 +1,52 @@
+{
+  "id": "quantum-metric",
+  "name": "Quantum Metric",
+  "description": "Analyze funnels, errors, friction and session replays in Quantum Metric to find and fix digital experience issues.",
+  "categories": [
+    "Analytics",
+    "Observability",
+    "Product"
+  ],
+  "appUrl": "https://www.quantummetric.com",
+  "docsUrl": "https://www.quantummetric.com/platform/mcp",
+  "notes": "Quantum Metric's official hosted MCP server. Sign in with your Quantum Metric account; every call runs with that user's role and permissions.",
+  "iconBg": "#FFFFFF",
+  "logoUrl": "https://raw.githubusercontent.com/quantummetric/qm-plugin-claude/main/logo.png",
+  "keywords": [
+    "analytics",
+    "session replay",
+    "funnels",
+    "errors",
+    "friction",
+    "digital experience",
+    "conversion",
+    "mcp"
+  ],
+  "installHint": "Quantum Metric's hosted MCP server uses OAuth 2.1 with dynamic client registration; no client credentials are needed. Sign in with your Quantum Metric account and choose your subscription when prompted. It works with a subscription that already collects data.",
+  "connectionOptions": [
+    {
+      "id": "oauth",
+      "provider": "mcp",
+      "transport": {
+        "kind": "shttp",
+        "url": "https://api.quantummetric.com/mcp"
+      },
+      "auth": {
+        "strategy": "oauth2",
+        "oauth": {
+          "authorizationUrl": "https://api.quantummetric.com/mcp/authorize",
+          "tokenUrl": "https://api.quantummetric.com/mcp/token",
+          "registrationUrl": "https://api.quantummetric.com/mcp/register",
+          "pkce": true,
+          "clientAuthentication": "none",
+          "additionalAuthorizationParams": {
+            "resource": "https://api.quantummetric.com/mcp"
+          },
+          "additionalTokenParams": {
+            "resource": "https://api.quantummetric.com/mcp"
+          }
+        }
+      }
+    }
+  ]
+}
