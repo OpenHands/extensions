@@ -59,7 +59,9 @@ def test_completed_response_includes_llm_provenance(monkeypatch):
     monkeypatch.setattr(helpers["time"], "time", lambda: 100.0)
     monkeypatch.setitem(helpers, "conversation_status", lambda *_: "finished")
     monkeypatch.setitem(
-        helpers, "conversation_final_response", lambda *_: "Completed the request."
+        helpers,
+        "conversation_final_response",
+        lambda *_: ("evt-1", "Completed the request."),
     )
     posted: list[str] = []
     monkeypatch.setitem(
@@ -208,3 +210,120 @@ def test_a_cloud_conversation_without_a_profile_leaves_the_choice_to_openhands(m
     # Assert
     [body] = calls
     assert "agent_profile_id" not in body
+
+
+def _stored_events(*events: tuple[str, str, str, str]) -> dict:
+    """Events-search page, newest first: (id, kind, source, text)."""
+    items = []
+    for event_id, kind, source, text in events:
+        event = {"id": event_id, "kind": kind, "source": source}
+        if kind == "ActionEvent":
+            event.update(tool_name="finish", action={"message": text})
+        else:
+            event["llm_message"] = {"content": [{"type": "text", "text": text}]}
+        items.append(event)
+    return {"items": items}
+
+
+def test_cloud_final_response_waits_for_the_reply_to_the_latest_message(monkeypatch):
+    # Arrange: the follow-up is stored, the agent's answer to it is not yet.
+    helpers = load_slack_monitor_helpers()
+    page = _stored_events(
+        ("user-2", "MessageEvent", "user", "@punk one more"),
+        ("finish-1", "ActionEvent", "agent", "First joke"),
+        ("user-1", "MessageEvent", "user", "@punk tell me a joke"),
+    )
+    monkeypatch.setitem(helpers, "_cloud_request", lambda *_args, **_kw: page)
+
+    # Act
+    reply = helpers["_cloud_conversation_final_response"]("conv-1")
+
+    # Assert
+    assert reply is None
+
+
+def test_cloud_final_response_returns_the_newest_answer_with_its_event_id(monkeypatch):
+    # Arrange
+    helpers = load_slack_monitor_helpers()
+    page = _stored_events(
+        ("finish-2", "ActionEvent", "agent", "Second joke"),
+        ("user-2", "MessageEvent", "user", "@punk one more"),
+        ("finish-1", "ActionEvent", "agent", "First joke"),
+    )
+    monkeypatch.setitem(helpers, "_cloud_request", lambda *_args, **_kw: page)
+
+    # Act
+    reply = helpers["_cloud_conversation_final_response"]("conv-1")
+
+    # Assert
+    assert reply == ("finish-2", "Second joke")
+
+
+def _completion_harness(monkeypatch, replies: list, clock: list[float]):
+    helpers = load_slack_monitor_helpers()
+    monkeypatch.setattr(helpers["time"], "time", lambda: clock[0])
+    monkeypatch.setitem(helpers, "conversation_status", lambda *_: "finished")
+    monkeypatch.setitem(
+        helpers, "conversation_final_response", lambda *_: replies.pop(0)
+    )
+    posted: list[str] = []
+    monkeypatch.setitem(
+        helpers,
+        "post_message",
+        lambda _token, _channel, text, thread_ts=None: posted.append(text) or "2.0",
+    )
+    rec = {
+        "conversation_id": "conv-1",
+        "channel_id": "C123",
+        "thread_ts": "1.0",
+        "last_activity": 0.0,
+        "llm_profile": "default",
+        "llm_model": "test-model",
+        "posted_response_event_id": "finish-1",
+    }
+
+    def check():
+        helpers["_check_conversation_completion"](
+            "C123:1.0", rec, "http://agent", "key", "xoxb-test", []
+        )
+
+    return check, posted, rec
+
+
+def test_a_followup_does_not_repost_the_previous_answer(monkeypatch):
+    # Arrange: the conversation reports finished before the new answer is
+    # stored, so the newest stored answer is still the one already posted.
+    clock = [100.0]
+    check, posted, rec = _completion_harness(
+        monkeypatch,
+        [("finish-1", "First joke"), ("finish-2", "Second joke")],
+        clock,
+    )
+
+    # Act
+    check()
+    clock[0] = 115.0
+    check()
+
+    # Assert
+    assert len(posted) == 1
+    assert posted[0].startswith("Second joke")
+    assert rec["posted_response_event_id"] == "finish-2"
+    assert "final_response_wait_started" not in rec
+
+
+def test_a_reply_that_never_reaches_the_stored_events_is_not_waited_on_forever(
+    monkeypatch,
+):
+    # Arrange
+    clock = [100.0]
+    check, posted, _rec = _completion_harness(monkeypatch, [None, None], clock)
+
+    # Act
+    check()
+    clock[0] = 100.0 + 121.0
+    check()
+
+    # Assert
+    assert len(posted) == 1
+    assert posted[0].startswith("Success (no message available).")
