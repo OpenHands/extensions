@@ -17,11 +17,13 @@ The optional folder is persisted in browser storage and forwarded as the editor 
 ## Draft migration dependencies
 
 This code-server migration depends on OpenHands/software-agent-sdk#6792 for
-macOS platform support through `additional_artifacts`. It is not merge-ready:
+macOS platform support through `additional_artifacts`. The same SDK PR adds
+general Windows x64 App backend support. This migration is not merge-ready:
 the pinned upstream archives require the contained-file-link extraction
 support in that SDK PR. End-to-end installation against its final revision
-must pass before release. Windows is not advertised
-until managed-backend process ownership is implemented and tested there.
+must pass before release. The editor remains Linux/macOS-only because
+[code-server does not publish Windows releases](https://coder.com/docs/code-server/install#windows).
+General Windows App support does not supply a Windows editor artifact.
 
 The editor starts without a default folder to avoid an initial redirect that
 the authenticated app bridge rejects. Workspace selection also requires a
