@@ -18,7 +18,8 @@ export interface RecommendedAutomation {
     | "bot"
     | "circle-alert"
     | "activity"
-    | "timer";
+    | "timer"
+    | "shield-check";
   description: string;
   /**
    * Mermaid source for a small diagram of what the automation does. The host
@@ -296,7 +297,8 @@ export type AutomationIconSlug =
   | "bot"
   | "circle-alert"
   | "activity"
-  | "timer";
+  | "timer"
+  | "shield-check";
 
 /** The pages a sub-page navigation item may point at. */
 export type AutomationSubPageId = "list" | "events" | "templates";
