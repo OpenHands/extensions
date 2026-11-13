@@ -68,7 +68,12 @@ line_three = "here"
 ```'
 ```
 
-**Important**: The suggestion must have the same number of lines as the range (e.g., lines 10-12 = 3 lines).
+**Important**: A fenced `suggestion` block replaces the targeted content. With
+only `line`, it replaces that single line. With both `start_line` and `line`, it
+replaces the inclusive `start_line..line` range. The block may contain any
+number of lines; an empty block deletes the targeted line or range. Verify the
+resulting code, rather than trying to match the number of replacement lines to
+the size of the range.
 
 ## Priority Labels
 
