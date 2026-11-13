@@ -1,0 +1,47 @@
+name: VS Code backend smoke
+
+on:
+  pull_request:
+    paths:
+      - apps/vscode/**
+      - .github/workflows/vscode-backend-smoke.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    name: Official code-server (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      # Cross-repository dependency: software-agent-sdk#6792. Replace this
+      # immutable revision with the containing release once it is published.
+      - uses: actions/checkout@v7
+        with:
+          repository: OpenHands/software-agent-sdk
+          ref: c806fa85bcef7003cc5d30986dd5f6a60c52dc97
+          path: .sdk
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          python-version: "3.13"
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+      - name: Build installable App package
+        run: node apps/vscode/scripts/package.mjs
+      - name: Install locked Agent Server dependency
+        working-directory: .sdk
+        run: uv sync --frozen --group dev
+      - name: Download, prepare, serve and restart official editor
+        working-directory: .sdk
+        run: uv run --frozen python ../apps/vscode/scripts/smoke_backend.py ../dist/apps/vscode

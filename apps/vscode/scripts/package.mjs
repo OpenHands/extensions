@@ -9,7 +9,7 @@ const manifest = JSON.parse(
   await readFile(path.join(appRoot, "canvas-extension.json"), "utf8"),
 );
 
-for (const [platform, artifact] of Object.entries(manifest.backend.artifacts)) {
+for (const [platform, artifact] of Object.entries({ ...manifest.backend.artifacts, ...manifest.backend.additional_artifacts })) {
   const url = new URL(artifact.url);
   if (url.protocol !== "https:" || !url.pathname.endsWith(".tar.gz")) {
     throw new Error(`${platform}: invalid HTTPS artifact URL`);
