@@ -1004,6 +1004,18 @@
         "harbor",
         "swe-smith"
       ]
+    },
+    {
+      "name": "datacircle",
+      "source": "./skills/datacircle",
+      "description": "Every plan of every GTM API on datacircle.dev, as one file you download and query. Use it to compare or price a GTM API.",
+      "category": "integrations",
+      "keywords": [
+        "gtm",
+        "api",
+        "pricing",
+        "benchmark"
+      ]
     }
   ]
 }
