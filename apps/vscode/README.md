@@ -18,9 +18,9 @@ The optional folder is persisted in browser storage and forwarded as the editor 
 
 This code-server migration depends on OpenHands/software-agent-sdk#6792 for
 macOS platform support through `additional_artifacts`. It is not merge-ready:
-the upstream archives contain symbolic links rejected by the current Agent
-Server extractor. A verified artifact packaging or safe extraction solution
-is required before these URLs can be used directly. Windows is not advertised
+the pinned upstream archives require the contained-file-link extraction
+support in that SDK PR. End-to-end installation against its final revision
+must pass before release. Windows is not advertised
 until managed-backend process ownership is implemented and tested there.
 
 The editor starts without a default folder to avoid an initial redirect that
