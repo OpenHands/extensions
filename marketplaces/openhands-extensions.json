@@ -120,6 +120,20 @@
       ]
     },
     {
+      "name": "cve-remediation-factory",
+      "source": "./skills/cve-remediation-factory",
+      "description": "Set up a private CVE remediation factory on GitHub: inventory and scan the container images you ship, then open small upgrade pull requests for fixable CRITICAL and HIGH vulnerabilities.",
+      "category": "automations",
+      "defaultEnabled": true,
+      "keywords": [
+        "security",
+        "cve",
+        "trivy",
+        "vulnerability",
+        "automation"
+      ]
+    },
+    {
       "name": "agent-canvas-environment",
       "source": "./skills/agent-canvas-environment",
       "description": "Work effectively inside a local Agent Canvas environment, including local agent-server auth, safe workspace hygiene, and local conversation delegation.",

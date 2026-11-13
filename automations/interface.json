@@ -172,6 +172,7 @@
     "webhooks": "/v1/webhooks"
   },
   "featuredAutomationIds": [
+    "cve-remediation-factory",
     "github-pr-reviewer",
     "github-agents-md-maintainer",
     "news-digest",
