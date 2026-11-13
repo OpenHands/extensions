@@ -53,6 +53,12 @@ interface CanvasExtensionBackend {
     sha256: string;
     strip_components?: number;
   }>>;
+  additional_artifacts?: Record<string, {
+    path?: string;
+    url?: string;
+    sha256: string;
+    strip_components?: number;
+  }>;
   argv: string[];
   health?: {
     path?: string;
@@ -81,7 +87,9 @@ All references in this bundle to "the minimum host version documented in `v1-con
 
 For a managed backend:
 
-- Key `artifacts` only by `linux-amd64` or `linux-arm64`; one matching entry is sufficient.
+- Keep `artifacts` keyed by `linux-amd64` or `linux-arm64` for response compatibility.
+- [software-agent-sdk PR #6792](https://github.com/OpenHands/software-agent-sdk/pull/6792) adds optional `additional_artifacts` for `darwin-amd64` and `darwin-arm64`. Unknown platforms are ignored, and `artifacts` takes precedence on duplicate keys. This is an unreleased dependency; older servers ignore the new field and do not support macOS backends.
+- That PR also materializes contained symbolic links to regular files during archive extraction. Absolute, escaping, unresolved and cyclic links remain rejected; no filesystem symlinks are created. Official code-server archives require this behavior. Validate against the dependency's head until a containing release is available; do not claim released-server support before then.
 - Declare exactly one artifact source: either a package-relative, contained `.tar.gz` `path`, or a credential-free HTTPS `.tar.gz` `url`.
 - For remote archives, optionally set `strip_components` to an integer from 0 through 16; it defaults to 0 and is invalid for local paths.
 - Set `sha256` to exactly 64 lowercase hexadecimal characters. Remote downloads are accepted only when this digest matches.
