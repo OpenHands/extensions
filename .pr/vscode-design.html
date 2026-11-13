@@ -1,0 +1,226 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>One editor backend: code-server</title><style>body{font:16px/1.6 system-ui;color:#222;background:#fdfdfb;margin:0}main{max-width:960px;margin:auto;padding:40px}nav{padding:16px;background:#f3f1ec}a{color:#294eaa}h1{font-size:36px}h2{margin-top:42px}pre{overflow:auto;padding:18px;background:#f3f1ec;font:13px/1.5 monospace}.callout{border-left:4px solid #b25b0e;padding:16px;background:#fff2e5}svg{width:100%;height:auto}text{font:15px system-ui;fill:#222}rect{fill:#f7f6f1;stroke:#aaa}.changed{fill:#fff2e5;stroke:#b25b0e}table{border-collapse:collapse;width:100%}td,th{padding:10px;text-align:left;border-bottom:1px solid #ddd}section{border-top:1px solid #ddd;margin-top:24px}summary{cursor:pointer}</style><main><h1>One editor backend: code-server</h1><p>The VS Code App uses official code-server archives on Linux and macOS, verified against pinned SHA-256 digests. Agent Server owns download, extraction, isolated data directories and process cleanup.</p><p class="callout">Depends on software-agent-sdk#6792. The smoke workflow pins that PR revision; it is pre-release integration evidence, not released-server compatibility. Windows and Canvas folder-query/ingress integration are outside this diff.</p><nav><a href="#s0">Official code-server replaces OpenVSCode</a> · <a href="#s1">Packaging validates both artifact maps</a> · <a href="#s2">The test starts the downloaded editor</a> · <a href="#s3">Linux and Mac run the same smoke path</a> · <a href="#s4">Document the cross-repository contract</a></nav><h2>Manifest before → after</h2><pre>Before: OpenVSCode 1.109.5, Linux amd64/arm64
+After:  code-server 4.145.2, Linux amd64/arm64 + Darwin amd64/arm64
+Host contract: optional additional_artifacts; no new Canvas browser API.</pre><section id="s0"><h2>Official code-server replaces OpenVSCode</h2><p>Keep Linux artifacts in the canonical map and macOS artifacts in additional_artifacts. Bind loopback with bridge-owned authentication; disable telemetry, update checks and port proxy. No positional folder avoids an initial redirect rejected by the bridge.</p><svg viewBox="0 0 900 130" role="img" aria-label="Before and after"><text x="15" y="25">Before</text><text x="475" y="25">After</text><rect x="10" y="40" width="410" height="70" rx="5"/><rect class="changed" x="470" y="40" width="420" height="70" rx="5"/><path d="M425 75h35m-8-7 8 7-8 7" fill="none" stroke="#b25b0e"/><text x="25" y="80">OpenVSCode Linux artifacts and flags</text><text x="485" y="80">code-server Linux + macOS artifacts</text></svg><p>Before: <a href="https://github.com/OpenHands/extensions/blob/b98ac0671a51cc91bab3609bf4d334c7c832dd98/apps/vscode/canvas-extension.json#L9">apps/vscode/canvas-extension.json:9</a><br>After: <a href="https://github.com/OpenHands/extensions/blob/0b58039956ad64daec5cee2fa5f25af47350c265/apps/vscode/canvas-extension.json#L17">apps/vscode/canvas-extension.json:17</a></p><details><summary>Inspect diff</summary><pre>diff --git a/apps/vscode/canvas-extension.json b/apps/vscode/canvas-extension.json
+index c1f8c30..f2ddd96 100644
+--- a/apps/vscode/canvas-extension.json
++++ b/apps/vscode/canvas-extension.json
+@@ -3,25 +3,68 @@
+   &quot;name&quot;: &quot;vscode&quot;,
+   &quot;display_name&quot;: &quot;VS Code&quot;,
+   &quot;version&quot;: &quot;0.1.0&quot;,
+-  &quot;description&quot;: &quot;A managed OpenVSCode editor for the selected Agent Canvas workspace.&quot;,
++  &quot;description&quot;: &quot;A managed code-server editor for Agent Canvas.&quot;,
+   &quot;entrypoint&quot;: &quot;extension.js&quot;,
+-  &quot;contributes&quot;: {&quot;pages&quot;: [{&quot;id&quot;: &quot;editor&quot;, &quot;title&quot;: &quot;VS Code&quot;, &quot;path&quot;: &quot;/editor&quot;}]},
++  &quot;contributes&quot;: {
++    &quot;pages&quot;: [
++      {
++        &quot;id&quot;: &quot;editor&quot;,
++        &quot;title&quot;: &quot;VS Code&quot;,
++        &quot;path&quot;: &quot;/editor&quot;
++      }
++    ]
++  },
+   &quot;backend&quot;: {
+     &quot;schema_version&quot;: 1,
+     &quot;artifacts&quot;: {
+       &quot;linux-amd64&quot;: {
+-        &quot;url&quot;: &quot;https://github.com/gitpod-io/openvscode-server/releases/download/openvscode-server-v1.109.5/openvscode-server-v1.109.5-linux-x64.tar.gz&quot;,
+-        &quot;sha256&quot;: &quot;b433bf4f0227321a7014d8460d10a8f958adc0f45aa79bd889e84e65e8f88363&quot;,
++        &quot;url&quot;: &quot;https://github.com/coder/code-server/releases/download/v4.145.2/code-server-4.145.2-linux-amd64.tar.gz&quot;,
++        &quot;sha256&quot;: &quot;2f6db6c3e8b733dd6b3aeee83532e148b2bae2e392353ba85452d03572348962&quot;,
+         &quot;strip_components&quot;: 1
+       },
+       &quot;linux-arm64&quot;: {
+-        &quot;url&quot;: &quot;https://github.com/gitpod-io/openvscode-server/releases/download/openvscode-server-v1.109.5/openvscode-server-v1.109.5-linux-arm64.tar.gz&quot;,
+-        &quot;sha256&quot;: &quot;36d9c14036489b63de84ebace837fcacf7e60e669a0dc715802c5443684ea4dc&quot;,
++        &quot;url&quot;: &quot;https://github.com/coder/code-server/releases/download/v4.145.2/code-server-4.145.2-linux-arm64.tar.gz&quot;,
++        &quot;sha256&quot;: &quot;e867a34416e2da4a83496b09580001893e7a4e5bb58a0624c4fcd22819e7d53d&quot;,
+         &quot;strip_components&quot;: 1
+       }
+     },
+-    &quot;argv&quot;: [&quot;{artifact_dir}/bin/openvscode-server&quot;, &quot;--host&quot;, &quot;127.0.0.1&quot;, &quot;--port&quot;, &quot;{port}&quot;, &quot;--without-connection-token&quot;, &quot;--accept-server-license-terms&quot;, &quot;--telemetry-level&quot;, &quot;off&quot;, &quot;--user-data-dir&quot;, &quot;{data_dir}/user&quot;, &quot;--extensions-dir&quot;, &quot;{data_dir}/extensions&quot;, &quot;--server-base-path&quot;, &quot;/app-backends/vscode&quot;, &quot;{data_dir}&quot;],
+-    &quot;health&quot;: {&quot;path&quot;: &quot;/&quot;, &quot;timeout_seconds&quot;: 90, &quot;interval_seconds&quot;: 0.5},
+-    &quot;inherit_environment&quot;: [&quot;PATH&quot;, &quot;LANG&quot;, &quot;LC_ALL&quot;, &quot;TMPDIR&quot;]
++    &quot;argv&quot;: [
++      &quot;{artifact_dir}/bin/code-server&quot;,
++      &quot;--bind-addr&quot;,
++      &quot;127.0.0.1:{port}&quot;,
++      &quot;--auth&quot;,
++      &quot;none&quot;,
++      &quot;--disable-telemetry&quot;,
++      &quot;--disable-update-check&quot;,
++      &quot;--disable-proxy&quot;,
++      &quot;--ignore-last-opened&quot;,
++      &quot;--user-data-dir&quot;,
++      &quot;{data_dir}/user&quot;,
++      &quot;--extensions-dir&quot;,
++      &quot;{data_dir}/extensions&quot;
++    ],
++    &quot;health&quot;: {
++      &quot;path&quot;: &quot;/&quot;,
++      &quot;timeout_seconds&quot;: 90,
++      &quot;interval_seconds&quot;: 0.5
++    },
++    &quot;inherit_environment&quot;: [
++      &quot;PATH&quot;,
++      &quot;LANG&quot;,
++      &quot;LC_ALL&quot;,
++      &quot;TMPDIR&quot;
++    ],
++    &quot;additional_artifacts&quot;: {
++      &quot;darwin-amd64&quot;: {
++        &quot;url&quot;: &quot;https://github.com/coder/code-server/releases/download/v4.145.2/code-server-4.145.2-macos-amd64.tar.gz&quot;,
++        &quot;sha256&quot;: &quot;5fb7ac2bd60538400244d942f649559e0ff4fb3d8792979287f504780f357af6&quot;,
++        &quot;strip_components&quot;: 1
++      },
++      &quot;darwin-arm64&quot;: {
++        &quot;url&quot;: &quot;https://github.com/coder/code-server/releases/download/v4.145.2/code-server-4.145.2-macos-arm64.tar.gz&quot;,
++        &quot;sha256&quot;: &quot;d6699692f1e59d918517c81f9d2a4ef335132128cd45725b22236d5fe09636d4&quot;,
++        &quot;strip_components&quot;: 1
++      }
++    }
+   }
+ }</pre></details></section><section id="s1"><h2>Packaging validates both artifact maps</h2><p>The installable package remains small: official binaries download only when the user prepares the backend. Validate remote artifact metadata in both maps.</p><svg viewBox="0 0 900 130" role="img" aria-label="Before and after"><text x="15" y="25">Before</text><text x="475" y="25">After</text><rect x="10" y="40" width="410" height="70" rx="5"/><rect class="changed" x="470" y="40" width="420" height="70" rx="5"/><path d="M425 75h35m-8-7 8 7-8 7" fill="none" stroke="#b25b0e"/><text x="25" y="80">Validate Linux artifact map</text><text x="485" y="80">Validate Linux and additional map</text></svg><p>Before: <a href="https://github.com/OpenHands/extensions/blob/b98ac0671a51cc91bab3609bf4d334c7c832dd98/apps/vscode/scripts/package.mjs#L12">apps/vscode/scripts/package.mjs:12</a><br>After: <a href="https://github.com/OpenHands/extensions/blob/0b58039956ad64daec5cee2fa5f25af47350c265/apps/vscode/scripts/package.mjs#L12">apps/vscode/scripts/package.mjs:12</a></p><details><summary>Inspect diff</summary><pre>diff --git a/apps/vscode/scripts/package.mjs b/apps/vscode/scripts/package.mjs
+index cbf4279..60b23cf 100644
+--- a/apps/vscode/scripts/package.mjs
++++ b/apps/vscode/scripts/package.mjs
+@@ -9,7 +9,7 @@ const manifest = JSON.parse(
+   await readFile(path.join(appRoot, &quot;canvas-extension.json&quot;), &quot;utf8&quot;),
+ );
+ 
+-for (const [platform, artifact] of Object.entries(manifest.backend.artifacts)) {
++for (const [platform, artifact] of Object.entries({ ...manifest.backend.artifacts, ...manifest.backend.additional_artifacts })) {
+   const url = new URL(artifact.url);
+   if (url.protocol !== &quot;https:&quot; || !url.pathname.endsWith(&quot;.tar.gz&quot;)) {
+     throw new Error(`${platform}: invalid HTTPS artifact URL`);</pre></details></section><section id="s2"><h2>The test starts the downloaded editor</h2><p>Install the built App package with Agent Server, verify preparation, GET actual workbench HTML, stop, restart and preserve data. Shutdown always runs. This is backend integration coverage, not a browser edit/save test.</p><svg viewBox="0 0 900 130" role="img" aria-label="Before and after"><text x="15" y="25">Before</text><text x="475" y="25">After</text><rect x="10" y="40" width="410" height="70" rx="5"/><rect class="changed" x="470" y="40" width="420" height="70" rx="5"/><path d="M425 75h35m-8-7 8 7-8 7" fill="none" stroke="#b25b0e"/><text x="25" y="80">No upstream installation test</text><text x="485" y="80">Prepare → HTTP workbench → restart</text></svg><p>Before: <a href="https://github.com/OpenHands/extensions/blob/b98ac0671a51cc91bab3609bf4d334c7c832dd98/apps/vscode/scripts/smoke_backend.py#L1">apps/vscode/scripts/smoke_backend.py:1</a><br>After: <a href="https://github.com/OpenHands/extensions/blob/0b58039956ad64daec5cee2fa5f25af47350c265/apps/vscode/scripts/smoke_backend.py#L14">apps/vscode/scripts/smoke_backend.py:14</a></p><details><summary>Inspect diff</summary><pre>diff --git a/apps/vscode/scripts/smoke_backend.py b/apps/vscode/scripts/smoke_backend.py
+new file mode 100644
+index 0000000..741ccc4
+--- /dev/null
++++ b/apps/vscode/scripts/smoke_backend.py
+@@ -0,0 +1,46 @@
++&quot;&quot;&quot;Install the packaged app and start its checksum-pinned official backend.&quot;&quot;&quot;
++
++import asyncio
++import sys
++from pathlib import Path
++from tempfile import TemporaryDirectory
++
++import httpx
++
++from openhands.agent_server.canvas_extensions.backend import CanvasExtensionBackendManager
++from openhands.agent_server.canvas_extensions.installed import install_canvas_extension
++
++
++async def main(source: Path) -&gt; None:
++    with TemporaryDirectory(prefix=&quot;vscode-app-smoke-&quot;) as temporary:
++        root = Path(temporary)
++        installed = root / &quot;installed&quot;
++        install_canvas_extension(str(source.resolve()), installed_dir=installed)
++        manager = CanvasExtensionBackendManager(installed, root / &quot;state&quot;)
++        try:
++            revision = manager.revision(&quot;vscode&quot;)
++            assert revision is not None
++            prepared = await manager.prepare(&quot;vscode&quot;, revision)
++            assert prepared.prepared_revision == revision, prepared
++            started = await manager.start(&quot;vscode&quot;, revision)
++            logs = await manager.logs(&quot;vscode&quot;, 8192)
++            assert started.state == &quot;ready&quot;, (started, logs.logs)
++            assert manager.ready_endpoint(&quot;vscode&quot;) == (&quot;127.0.0.1&quot;, started.port)
++            async with httpx.AsyncClient(trust_env=False) as client:
++                response = await client.get(f&quot;http://127.0.0.1:{started.port}/&quot;)
++                assert response.status_code == 200, response.text[:500]
++                assert &quot;workbench&quot; in response.text.lower(), response.text[:500]
++            marker = manager.data_dir / &quot;vscode&quot; / &quot;persistence-check&quot;
++            marker.write_text(&quot;survives restart&quot;)
++            assert (await manager.stop(&quot;vscode&quot;)).state == &quot;stopped&quot;
++            assert manager.ready_endpoint(&quot;vscode&quot;) is None
++            restarted = await manager.start(&quot;vscode&quot;, revision)
++            assert restarted.state == &quot;ready&quot;, restarted
++            assert marker.read_text() == &quot;survives restart&quot;
++            print(f&quot;Official {manager.current_platform()} artifact: prepare, HTTP editor, stop, restart passed&quot;)
++        finally:
++            await manager.shutdown()
++
++
++if __name__ == &quot;__main__&quot;:
++    asyncio.run(main(Path(sys.argv[1])))</pre></details></section><section id="s3"><h2>Linux and Mac run the same smoke path</h2><p>Use read-only checkout credentials and a frozen SDK dependency lock. Native ubuntu-latest and macos-latest execute the installed backend; replace the SDK commit pin with its containing release before shipment.</p><svg viewBox="0 0 900 130" role="img" aria-label="Before and after"><text x="15" y="25">Before</text><text x="475" y="25">After</text><rect x="10" y="40" width="410" height="70" rx="5"/><rect class="changed" x="470" y="40" width="420" height="70" rx="5"/><path d="M425 75h35m-8-7 8 7-8 7" fill="none" stroke="#b25b0e"/><text x="25" y="80">Structure checks only</text><text x="485" y="80">Native Linux + Mac official artifact smoke</text></svg><p>Before: <a href="https://github.com/OpenHands/extensions/blob/b98ac0671a51cc91bab3609bf4d334c7c832dd98/.github/workflows/vscode-backend-smoke.yml#L1">.github/workflows/vscode-backend-smoke.yml:1</a><br>After: <a href="https://github.com/OpenHands/extensions/blob/0b58039956ad64daec5cee2fa5f25af47350c265/.github/workflows/vscode-backend-smoke.yml#L13">.github/workflows/vscode-backend-smoke.yml:13</a></p><details><summary>Inspect diff</summary><pre>diff --git a/.github/workflows/vscode-backend-smoke.yml b/.github/workflows/vscode-backend-smoke.yml
+new file mode 100644
+index 0000000..b899134
+--- /dev/null
++++ b/.github/workflows/vscode-backend-smoke.yml
+@@ -0,0 +1,47 @@
++name: VS Code backend smoke
++
++on:
++  pull_request:
++    paths:
++      - apps/vscode/**
++      - .github/workflows/vscode-backend-smoke.yml
++  workflow_dispatch:
++
++permissions:
++  contents: read
++
++jobs:
++  backend:
++    name: Official code-server (${{ matrix.os }})
++    runs-on: ${{ matrix.os }}
++    timeout-minutes: 15
++    strategy:
++      fail-fast: false
++      matrix:
++        os: [ubuntu-latest, macos-latest]
++    steps:
++      - uses: actions/checkout@v7
++        with:
++          persist-credentials: false
++      # Cross-repository dependency: software-agent-sdk#6792. Replace this
++      # immutable revision with the containing release once it is published.
++      - uses: actions/checkout@v7
++        with:
++          repository: OpenHands/software-agent-sdk
++          ref: 733773b3d9c89b56d1aef47bda476e3e160e2b16
++          path: .sdk
++          persist-credentials: false
++      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
++        with:
++          python-version: &quot;3.13&quot;
++      - uses: actions/setup-node@v7
++        with:
++          node-version: &quot;24&quot;
++      - name: Build installable App package
++        run: node apps/vscode/scripts/package.mjs
++      - name: Install locked Agent Server dependency
++        working-directory: .sdk
++        run: uv sync --frozen --group dev
++      - name: Download, prepare, serve and restart official editor
++        working-directory: .sdk
++        run: uv run --frozen python ../apps/vscode/scripts/smoke_backend.py ../dist/apps/vscode</pre></details></section><section id="s4"><h2>Document the cross-repository contract</h2><p>Document optional additional_artifacts and safe contained-file-link extraction, explicitly identifying the unreleased SDK prerequisite.</p><svg viewBox="0 0 900 130" role="img" aria-label="Before and after"><text x="15" y="25">Before</text><text x="475" y="25">After</text><rect x="10" y="40" width="410" height="70" rx="5"/><rect class="changed" x="470" y="40" width="420" height="70" rx="5"/><path d="M425 75h35m-8-7 8 7-8 7" fill="none" stroke="#b25b0e"/><text x="25" y="80">Linux artifacts API</text><text x="485" y="80">Additive map and extraction requirement</text></svg><p>Before: <a href="https://github.com/OpenHands/extensions/blob/b98ac0671a51cc91bab3609bf4d334c7c832dd98/skills/canvas-extension-api/references/v1-contract.md#L48">skills/canvas-extension-api/references/v1-contract.md:48</a><br>After: <a href="https://github.com/OpenHands/extensions/blob/0b58039956ad64daec5cee2fa5f25af47350c265/skills/canvas-extension-api/references/v1-contract.md#L48">skills/canvas-extension-api/references/v1-contract.md:48</a></p><details><summary>Inspect diff</summary><pre>diff --git a/skills/canvas-extension-api/references/v1-contract.md b/skills/canvas-extension-api/references/v1-contract.md
+index 5eee133..6e232c9 100644
+--- a/skills/canvas-extension-api/references/v1-contract.md
++++ b/skills/canvas-extension-api/references/v1-contract.md
+@@ -53,6 +53,12 @@ interface CanvasExtensionBackend {
+     sha256: string;
+     strip_components?: number;
+   }&gt;&gt;;
++  additional_artifacts?: Record&lt;string, {
++    path?: string;
++    url?: string;
++    sha256: string;
++    strip_components?: number;
++  }&gt;;
+   argv: string[];
+   health?: {
+     path?: string;
+@@ -81,7 +87,9 @@ All references in this bundle to &quot;the minimum host version documented in `v1-con
+ 
+ For a managed backend:
+ 
+-- Key `artifacts` only by `linux-amd64` or `linux-arm64`; one matching entry is sufficient.
++- Keep `artifacts` keyed by `linux-amd64` or `linux-arm64` for response compatibility.
++- [software-agent-sdk PR #6792](https://github.com/OpenHands/software-agent-sdk/pull/6792) adds optional `additional_artifacts` for `darwin-amd64` and `darwin-arm64`. Unknown platforms are ignored, and `artifacts` takes precedence on duplicate keys. This is an unreleased dependency; older servers ignore the new field and do not support macOS backends.
++- That PR also materializes contained symbolic links to regular files during archive extraction. Absolute, escaping, unresolved and cyclic links remain rejected; no filesystem symlinks are created. Official code-server archives require this behavior. Validate against the dependency&#x27;s head until a containing release is available; do not claim released-server support before then.
+ - Declare exactly one artifact source: either a package-relative, contained `.tar.gz` `path`, or a credential-free HTTPS `.tar.gz` `url`.
+ - For remote archives, optionally set `strip_components` to an integer from 0 through 16; it defaults to 0 and is invalid for local paths.
+ - Set `sha256` to exactly 64 lowercase hexadecimal characters. Remote downloads are accepted only when this digest matches.</pre></details></section><h2>Supporting files</h2><table><tr><th>File</th><th>Change</th></tr><tr><td><a href="https://github.com/OpenHands/extensions/blob/0b58039956ad64daec5cee2fa5f25af47350c265/.github/workflows/vscode-backend-smoke.yml">.github/workflows/vscode-backend-smoke.yml</a></td><td>+47 / −0</td></tr><tr><td><a href="https://github.com/OpenHands/extensions/blob/0b58039956ad64daec5cee2fa5f25af47350c265/apps/catalog.json">apps/catalog.json</a></td><td>+1 / −1</td></tr><tr><td><a href="https://github.com/OpenHands/extensions/blob/0b58039956ad64daec5cee2fa5f25af47350c265/apps/vscode/README.md">apps/vscode/README.md</a></td><td>+15 / −2</td></tr><tr><td><a href="https://github.com/OpenHands/extensions/blob/0b58039956ad64daec5cee2fa5f25af47350c265/apps/vscode/canvas-extension.json">apps/vscode/canvas-extension.json</a></td><td>+52 / −9</td></tr><tr><td><a href="https://github.com/OpenHands/extensions/blob/0b58039956ad64daec5cee2fa5f25af47350c265/apps/vscode/scripts/package.mjs">apps/vscode/scripts/package.mjs</a></td><td>+1 / −1</td></tr><tr><td><a href="https://github.com/OpenHands/extensions/blob/0b58039956ad64daec5cee2fa5f25af47350c265/apps/vscode/scripts/smoke_backend.py">apps/vscode/scripts/smoke_backend.py</a></td><td>+46 / −0</td></tr><tr><td><a href="https://github.com/OpenHands/extensions/blob/0b58039956ad64daec5cee2fa5f25af47350c265/skills/canvas-extension-api/references/v1-contract.md">skills/canvas-extension-api/references/v1-contract.md</a></td><td>+9 / −1</td></tr><tr><td><a href="https://github.com/OpenHands/extensions/blob/0b58039956ad64daec5cee2fa5f25af47350c265/tests/test_vscode_app.py">tests/test_vscode_app.py</a></td><td>+3 / −3</td></tr></table><p>Temporary PR review aid. The repository release workflow removes root .pr artifacts after merge.</p></main></html>
