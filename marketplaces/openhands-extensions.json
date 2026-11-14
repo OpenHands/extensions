@@ -890,6 +890,19 @@
       "source": "./skills/github-delivery-watchdog",
       "description": "Periodically check pull requests and merge only current heads with independent review, tests, and passing CI.",
       "category": "automations"
+    },
+    {
+      "name": "pkgdiet",
+      "source": "./skills/pkgdiet",
+      "description": "Evaluates npm packages with the PkgDiet MCP server and surfaces ALLOW/WARN/BLOCK policy verdicts before installation.",
+      "category": "code-quality",
+      "keywords": [
+        "npm",
+        "dependencies",
+        "guardrail",
+        "package",
+        "mcp"
+      ]
     }
   ]
 }

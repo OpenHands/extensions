@@ -1,0 +1,36 @@
+{
+  "id": "pkgdiet",
+  "name": "PkgDiet",
+  "description": "Evaluate npm package safety, supply-chain health, and dependency policies before installing dependencies.",
+  "categories": [
+    "Security",
+    "Engineering"
+  ],
+  "docsUrl": "https://github.com/om-tajne/pkgdiet",
+  "connectionOptions": [
+    {
+      "id": "stdio",
+      "provider": "mcp",
+      "transport": {
+        "kind": "stdio",
+        "serverName": "pkgdiet",
+        "command": "npx",
+        "args": [
+          "-y",
+          "pkgdiet@2.0.0",
+          "mcp"
+        ]
+      },
+      "auth": {
+        "strategy": "none"
+      }
+    }
+  ],
+  "keywords": [
+    "npm",
+    "dependencies",
+    "guardrails",
+    "packages",
+    "security"
+  ]
+}
