@@ -57,11 +57,21 @@ gh api -X POST repos/{owner}/{repo}/pulls/{pr_number}/reviews --input /tmp/revie
 | Parameter | Description |
 |-----------|-------------|
 | `commit_id` | Commit SHA to comment on (use `git rev-parse HEAD`) |
-| `event` | `COMMENT`, `APPROVE`, or `REQUEST_CHANGES` |
+| `event` | `APPROVE`, `COMMENT`, or `REQUEST_CHANGES` (see below) |
 | `path` | File path as shown in the diff |
 | `line` | Line number in the NEW version (right side of diff) |
 | `side` | `RIGHT` for new/added lines, `LEFT` for deleted lines |
 | `body` | Comment text with priority label |
+
+### Choosing the `event` Value
+
+| Event | When to use |
+|-------|-------------|
+| `APPROVE` | No issues found, or only 🟡 suggestions that are non-blocking |
+| `COMMENT` | You have 🟠 Important feedback but it's not a hard blocker |
+| `REQUEST_CHANGES` | There are 🔴 Critical issues that **must** be fixed before merge |
+
+**Default to `APPROVE`** when the code is correct and merge-ready. Use `COMMENT` or `REQUEST_CHANGES` only when there are actionable issues that warrant it.
 
 ### Multi-Line Comments
 
@@ -184,4 +194,4 @@ curl -X POST \
 5. Do NOT post comments for code that is acceptable — only comment when action is needed
 6. Use suggestion syntax for concrete code changes, but only after verifying the resulting code matches your description (see "How Suggestions Actually Work")
 7. Keep the review body brief (details go in inline comments)
-8. If no issues: post a short approval message with no inline comments
+8. If no issues: use `"event": "APPROVE"` with a short approval message and no inline comments

@@ -167,17 +167,24 @@ python3 -m py_compile /tmp/agents-md-build/main.py && echo "Syntax OK"
 
 ### Step 8 - Package and upload
 
-Determine the Automation backend URL and auth from the `<RUNTIME_SERVICES>`
-block in your system context:
-- **OPENHANDS_HOST**: the Automation backend `url_from_agent`
-- **Auth**: `X-Session-API-Key: $OPENHANDS_AUTOMATION_API_KEY`
+Set `OPENHANDS_HOST` and `AUTH_HEADER` for the commands below:
+- **OpenHands Cloud or Enterprise** - a `<HOST>` value is in your system prompt:
+  use it as `OPENHANDS_HOST`, with `AUTH_HEADER="Authorization: Bearer $OPENHANDS_API_KEY"`
+- **Local Agent Canvas** - an **Automation backend** is listed in the
+  `<RUNTIME_SERVICES>` block of your system context: use its `url_from_agent` as
+  `OPENHANDS_HOST`, with `AUTH_HEADER="X-Session-API-Key: $OPENHANDS_AUTOMATION_API_KEY"`
+
+On OpenHands Cloud or Enterprise each run starts in a fresh sandbox, so the
+automation keeps its state in the KV store: check that `kvStore` is listed under
+`features` in `GET ${OPENHANDS_HOST}/api/automation/v1/capabilities` before
+deploying.
 
 ```bash
 tar -czf /tmp/agents-md.tar.gz -C /tmp/agents-md-build .
 
 TARBALL_PATH=$(curl -s -X POST \
   "${OPENHANDS_HOST}/api/automation/v1/uploads?name=github-agents-md-maintainer" \
-  -H "X-Session-API-Key: $OPENHANDS_AUTOMATION_API_KEY" \
+  -H "$AUTH_HEADER" \
   -H "Content-Type: application/gzip" \
   --data-binary @/tmp/agents-md.tar.gz \
   | python3 -c "import json,sys; print(json.load(sys.stdin)['tarball_path'])")
@@ -189,7 +196,7 @@ echo "Uploaded: $TARBALL_PATH"
 
 ```bash
 curl -s -X POST "${OPENHANDS_HOST}/api/automation/v1" \
-  -H "X-Session-API-Key: $OPENHANDS_AUTOMATION_API_KEY" \
+  -H "$AUTH_HEADER" \
   -H "Content-Type: application/json" \
   -d "{
     \"name\": \"AGENTS.md Maintainer: {repo_summary}\",

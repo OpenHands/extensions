@@ -5,6 +5,8 @@ triggers:
 - bitbucket
 ---
 
+Use authenticated Bitbucket MCP tools first when they are available in the agent's environment. Detect this by tool availability, without depending on a particular MCP server name. Still identify Cloud versus Data Center and load the matching detailed skill. Use the token and direct API instructions only when Bitbucket MCP tools are unavailable or when raw API or `curl` access is explicitly needed.
+
 You are working with **Bitbucket**, which ships as two distinct products that behave
 differently:
 
@@ -19,7 +21,7 @@ detailed skill for full instructions.
 
 ## Step 1 — Detect which Bitbucket you are on
 
-Check which token environment variable is present. Environment variable names are
+First use the repository host or available Bitbucket MCP tool context to identify the product. For the token fallback, check which token environment variable is present. Environment variable names are
 case-sensitive, so look for it case-insensitively:
 
 ```bash

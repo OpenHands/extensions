@@ -33,14 +33,37 @@
           "event": {
             "filterLanguage": "jmespath",
             "filterFunctions": [
+              "abs",
+              "avg",
+              "ceil",
               "contains",
               "ends_with",
+              "floor",
               "glob",
               "icontains",
+              "join",
+              "keys",
+              "length",
               "lower",
+              "map",
+              "max",
+              "max_by",
+              "merge",
+              "min",
+              "min_by",
+              "not_null",
               "regex",
+              "reverse",
+              "sort",
+              "sort_by",
               "starts_with",
-              "upper"
+              "sum",
+              "to_array",
+              "to_number",
+              "to_string",
+              "type",
+              "upper",
+              "values"
             ]
           }
         },
@@ -53,6 +76,88 @@
           "repoClone",
           "webhookDelivery",
           "agentProfiles"
+        ],
+        "repoProviders": ["azure_devops", "bitbucket", "github", "gitlab"]
+      }
+    },
+    "dataCenterClone": {
+      "description": "An OpenHands Enterprise deployment like supported whose runs also clone Bitbucket Data Center repositories with the automation owner's connection: its openhands-sdk names bitbucket_data_center as a repository provider (OpenHands/software-agent-sdk#6281). Earlier services reject that provider in repos, so a host sends a Data Center picker's repos only here.",
+      "status": 200,
+      "body": {
+        "ready": true,
+        "triggerKinds": ["cron", "event"],
+        "eventSources": ["bitbucket_data_center", "github", "jira_dc"],
+        "eventTypes": [
+          "issue_comment.created",
+          "pull_request.opened",
+          "pull_request.labeled",
+          "pull_request_review_comment.created",
+          "push"
+        ],
+        "triggers": {
+          "cron": {
+            "minIntervalSeconds": 300,
+            "timezones": [
+              "UTC",
+              "America/Los_Angeles",
+              "America/New_York",
+              "Asia/Tokyo",
+              "Europe/London"
+            ]
+          },
+          "event": {
+            "filterLanguage": "jmespath",
+            "filterFunctions": [
+              "abs",
+              "avg",
+              "ceil",
+              "contains",
+              "ends_with",
+              "floor",
+              "glob",
+              "icontains",
+              "join",
+              "keys",
+              "length",
+              "lower",
+              "map",
+              "max",
+              "max_by",
+              "merge",
+              "min",
+              "min_by",
+              "not_null",
+              "regex",
+              "reverse",
+              "sort",
+              "sort_by",
+              "starts_with",
+              "sum",
+              "to_array",
+              "to_number",
+              "to_string",
+              "type",
+              "upper",
+              "values"
+            ]
+          }
+        },
+        "features": [
+          "conversationDispatch",
+          "customTarball",
+          "mcpTools",
+          "presetPlugin",
+          "presetPrompt",
+          "repoClone",
+          "webhookDelivery",
+          "agentProfiles"
+        ],
+        "repoProviders": [
+          "azure_devops",
+          "bitbucket",
+          "bitbucket_data_center",
+          "github",
+          "gitlab"
         ]
       }
     },

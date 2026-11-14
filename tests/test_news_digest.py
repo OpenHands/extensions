@@ -644,3 +644,41 @@ def test_the_form_offers_the_same_default_topics_the_script_carries(main, manife
     form_default = manifest["setup"]["form"]["args"]["topics"]["default"]
 
     assert [topic.strip() for topic in form_default.split(",")] == main.TOPICS
+
+
+# ── The conversation runs from the automation's agent profile ─────────────────
+
+
+def test_a_cloud_conversation_starts_from_the_automation_s_agent_profile(main, monkeypatch):
+    # Arrange
+    monkeypatch.setenv("AUTOMATION_AGENT_PROFILE_ID", "0f2b5c2e-6d3a-4e7b-9c1d-2a4b6c8d0e1f")
+    calls = []
+    monkeypatch.setattr(
+        main, "_cloud_request", lambda method, path, body=None: calls.append((method, path, body)) or {}
+    )
+
+    # Act
+    main._create_cloud_conversation("Write today's summary.", "Summary 2026-10-27")
+
+    # Assert
+    [(method, path, body)] = calls
+    assert (method, path) == ("POST", "/api/v1/app-conversations")
+    assert body["agent_profile_id"] == "0f2b5c2e-6d3a-4e7b-9c1d-2a4b6c8d0e1f"
+
+
+@pytest.mark.parametrize("value", [None, ""])
+def test_a_cloud_conversation_without_a_profile_leaves_the_choice_to_openhands(main, monkeypatch, value):
+    # Arrange
+    if value is None:
+        monkeypatch.delenv("AUTOMATION_AGENT_PROFILE_ID", raising=False)
+    else:
+        monkeypatch.setenv("AUTOMATION_AGENT_PROFILE_ID", value)
+    calls = []
+    monkeypatch.setattr(main, "_cloud_request", lambda method, path, body=None: calls.append(body) or {})
+
+    # Act
+    main._create_cloud_conversation("Write today's summary.", "Summary 2026-10-27")
+
+    # Assert
+    [body] = calls
+    assert "agent_profile_id" not in body

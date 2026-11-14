@@ -14,5 +14,7 @@ The skill guides the agent through four phases:
 
 1. **Understand** — Classify changes and identify entry points
 2. **Setup** — Install dependencies, build, check CI status
-3. **Exercise** — Run the actual code as a user would (browser, CLI, API requests)
+3. **Exercise** — Run the actual code as a user would (browser, CLI, API requests).
+   For frontend changes, capture screenshots of each affected state and a GIF of
+   the key interaction (before/after where behavior changes)
 4. **Report** — Post a structured QA report with evidence and a verdict

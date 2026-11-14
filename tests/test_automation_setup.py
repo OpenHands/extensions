@@ -62,6 +62,10 @@ TRIGGER_PROPERTIES = {"cron": ("schedule", "timezone"), "event": ("source", "on"
 # has a value.
 OPTIONAL_CREATE_PROPERTIES = ("model", "timeout")
 
+# The providers whose repositories a run clones when the deployment does not
+# report `repoProviders` (services before OpenHands/automation 1.24.0).
+DEFAULT_REPO_PROVIDERS = ("github", "gitlab", "bitbucket")
+
 _SCHEMA = json.loads(SCHEMA_PATH.read_text())
 VALIDATOR = Draft202012Validator(_SCHEMA)
 
@@ -324,11 +328,24 @@ def _add_optional_create_properties(
 
 
 def _add_repo_property(
-    body: dict, setup: dict, form_values: dict, selected_action: str | None = None
+    body: dict,
+    setup: dict,
+    form_values: dict,
+    selected_action: str | None = None,
+    repo_providers: tuple[str, ...] | None = None,
 ) -> None:
+    """`repos` from the repo-picker, for a provider the deployment's runs clone.
+
+    The service rejects a `repos[].provider` its runs cannot clone, so for any
+    other provider `repos` is left out and the entry's prompt clones the
+    repository itself. `repo_providers=None` sends it for every provider, which
+    is what the error map needs.
+    """
     _, repo_field = _repo_picker(setup, selected_action)
     repos = _repo_values(setup, form_values, selected_action)
     if not repos:
+        return
+    if repo_providers is not None and repo_field["provider"] not in repo_providers:
         return
     ref = form_values.get("ref")
     body["repos"] = [
@@ -373,6 +390,7 @@ def _render_payload(
     tarball_path: str = "",
     selected_trigger: str | None = None,
     selected_action: str | None = None,
+    repo_providers: tuple[str, ...] | None = None,
 ) -> dict:
     """The create request body these form values produce."""
     selected_action_kind = _selected_action_kind(entry, selected_action)
@@ -396,7 +414,7 @@ def _render_payload(
         body["plugins"] = _interpolate(action["plugins"], context)
 
     _add_optional_create_properties(body, setup, form_values, selected_action)
-    _add_repo_property(body, setup, form_values, selected_action)
+    _add_repo_property(body, setup, form_values, selected_action, repo_providers)
     body["trigger"] = _derive_trigger(entry, form_values, selected_trigger)
 
     if "version" in entry:
@@ -413,6 +431,7 @@ def _derive_preflight_body(
     form_values: dict,
     selected_trigger: str | None = None,
     selected_action: str | None = None,
+    repo_providers: tuple[str, ...] | None = None,
 ) -> dict:
     """The preflight body the host sends. The same shape for every automation,
     so no entry declares it."""
@@ -420,7 +439,12 @@ def _derive_preflight_body(
         "automationId": entry["id"],
         "endpoint": _create_path(entry, selected_action),
         "draft": _render_payload(
-            entry, form_values, PREFLIGHT_TARBALL_PATH, selected_trigger, selected_action
+            entry,
+            form_values,
+            PREFLIGHT_TARBALL_PATH,
+            selected_trigger,
+            selected_action,
+            repo_providers,
         ),
     }
 
@@ -553,7 +577,9 @@ def _loc_to_payload_path(loc: list, payload) -> str:
     return _join_loc(parts)
 
 
-def _reported_fields(entry: dict, scenario: dict) -> dict[str, str]:
+def _reported_fields(
+    entry: dict, scenario: dict, repo_providers: tuple[str, ...] | None = None
+) -> dict[str, str]:
     """Apply the derived error map to whatever rejected this scenario."""
     setup = entry["setup"]
     selected_trigger = scenario.get("selectedTrigger")
@@ -566,6 +592,7 @@ def _reported_fields(entry: dict, scenario: dict) -> dict[str, str]:
             _uploaded_path(scenario),
             selected_trigger,
             selected_action,
+            repo_providers,
         )
         if ("prompt" in setup or _is_bundle(entry) or _actions(entry))
         and "formValues" in scenario
@@ -591,6 +618,18 @@ def _reported_fields(entry: dict, scenario: dict) -> dict[str, str]:
                 reported[name] = detail["msg"]
 
     return reported
+
+
+def _repo_providers(bundle: dict, scenario: dict) -> tuple[str, ...]:
+    """The providers the scenario's deployment clones from.
+
+    A scenario names its deployment shape in `capabilities` when it differs from
+    the bundle's; a shape without `repoProviders` is a service that predates the
+    field.
+    """
+    shape = scenario.get("capabilities", bundle["capabilities"])
+    body = _load(CAPABILITIES_PATH)["responses"][shape]["body"]
+    return tuple(body.get("repoProviders", DEFAULT_REPO_PROVIDERS))
 
 
 def _capabilities_satisfied(entry: dict, deployment: dict) -> bool:
@@ -623,6 +662,25 @@ def _iter_strings(node):
             yield from _iter_strings(item)
     elif isinstance(node, str):
         yield node
+
+
+def _scenario_template_versions(bundle: dict) -> set[str]:
+    """Every template version a fixture pins, wherever it appears."""
+    versions = set()
+
+    def walk(node) -> None:
+        if isinstance(node, dict):
+            template = node.get("template")
+            if isinstance(template, dict) and "version" in template:
+                versions.add(template["version"])
+            for value in node.values():
+                walk(value)
+        elif isinstance(node, list):
+            for item in node:
+                walk(item)
+
+    walk(bundle["scenarios"])
+    return versions
 
 
 def _scenarios(kind: str):
@@ -667,6 +725,26 @@ def test_schema_allows_event_filter_on_script_bundle() -> None:
     entry["setup"]["filter"] = "repository.full_name == 'owner/repo'"
 
     assert list(VALIDATOR.iter_errors(entry)) == []
+
+
+@pytest.mark.parametrize(
+    "provider", ["github", "gitlab", "bitbucket", "bitbucket_data_center"]
+)
+def test_schema_allows_a_repo_picker_for_every_git_provider(provider: str) -> None:
+    """A repository picker names the provider whose repositories it lists; a
+    self-hosted Bitbucket Data Center instance is one of them."""
+    entry = deepcopy(_load(CATALOG_DIR / "github-pr-reviewer" / "manifest.json"))
+    entry["setup"]["form"]["args"]["repositories"]["provider"] = provider
+
+    assert list(VALIDATOR.iter_errors(entry)) == []
+
+
+def test_schema_rejects_an_unknown_repo_picker_provider() -> None:
+    entry = deepcopy(_load(CATALOG_DIR / "github-pr-reviewer" / "manifest.json"))
+    entry["setup"]["form"]["args"]["repositories"]["provider"] = "sourcehut"
+
+    errors = list(VALIDATOR.iter_errors(entry))
+    assert any("sourcehut" in error.message for error in errors), errors
 
 
 def test_schema_rejects_content_a_setup_block_must_never_carry() -> None:
@@ -787,6 +865,31 @@ def test_multi_action_fixture_scenarios_name_the_selected_variant(
         assert scenario.get("selectedAction") in actions, scenario["id"]
 
 
+@pytest.mark.parametrize("fixture_path", list(_fixture_bundles()))
+def test_fixture_template_versions_match_the_entry_to_pin_the_bump(
+    fixture_path: Path,
+) -> None:
+    """A fixture pins the template version the host will send, so it moves with
+    the entry. Pinning a stale version passes until the version is bumped, and
+    then every scenario in the fixture fails at once - the bump, not the
+    behavior, is what changed."""
+    bundle = _load(fixture_path)
+    entry = _entry_for(bundle)
+
+    expected = set()
+    if "version" in entry:
+        expected.add(entry["version"])
+    if "version" in entry.get("setup", {}).get("bundle", {}):
+        expected.add(entry["setup"]["bundle"]["version"])
+
+    pinned = _scenario_template_versions(bundle)
+
+    assert pinned <= expected, (
+        f"{fixture_path.stem}: fixture pins template version(s) {sorted(pinned)} "
+        f"but {entry['id']} declares {sorted(expected)}"
+    )
+
+
 @pytest.mark.parametrize("entry_path", list(_setup_paths()))
 def test_the_declared_features_match_the_archetype(entry_path: Path) -> None:
     """A bundle needs a deployment that runs a client-supplied tarball; a prompt
@@ -852,6 +955,7 @@ def test_derived_body_reproduces_the_create_request(
         _uploaded_path(scenario),
         scenario.get("selectedTrigger"),
         scenario.get("selectedAction"),
+        _repo_providers(bundle, scenario),
     )
 
     assert derived == scenario["create"]["request"]["body"]
@@ -873,6 +977,7 @@ def test_derived_preflight_body_reproduces_the_preflight_request(
         scenario["formValues"],
         scenario.get("selectedTrigger"),
         scenario.get("selectedAction"),
+        _repo_providers(bundle, scenario),
     )
 
     assert derived == scenario["preflight"]["request"]["body"]
@@ -901,7 +1006,7 @@ def test_derived_error_map_turns_rejections_into_highlighted_inputs(
     mapping is derived from the payload, so it cannot drift from it."""
     entry = _entry_for(bundle)
 
-    reported = _reported_fields(entry, scenario)
+    reported = _reported_fields(entry, scenario, _repo_providers(bundle, scenario))
 
     assert set(reported) <= _field_names(entry["setup"])
     assert reported == scenario["expectedFieldErrors"]

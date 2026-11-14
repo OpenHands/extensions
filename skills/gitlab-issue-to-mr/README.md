@@ -53,6 +53,21 @@ conversation never loses the work. `origin` carries no credential, so each GitLa
 command has to name `GITLAB_TOKEN`, which the SDK injects only into a command
 that mentions it and masks in the output.
 
+On OpenHands Cloud and Enterprise the conversation is started through the
+OpenHands API in a sandbox of its own, which changes three things:
+
+- The agent clones the project itself; the script keeps no clone.
+- The conversation runs with the user's own settings, so the secret allow-list
+  above does not apply: it holds the user's secrets and MCP servers.
+- A conversation that ends without a merge request is reported on the issue. The
+  script cannot finish the work, because it has no copy of it.
+
+A GitLab token is used whenever there is one: a `GITLAB_TOKEN` secret, or else the
+token of the user's GitLab sign-in or connected integration. Without a token, a
+connected GitLab MCP server is used directly, by the script and by the
+conversation. Calling GitLab MCP directly needs GitLab 19.4 or later, because the
+tools it uses arrived in 19.3 and 19.4, while a token works with any GitLab.
+
 ## Two setup paths
 
 The `/issue-to-mr:setup` conversation substitutes the constants at the top of
@@ -64,7 +79,11 @@ tarball the automation service runs on a cron, not a prompt handed to an agent.
 
 ## Prerequisites
 
-Set `GITLAB_TOKEN` in OpenHands Settings -> Secrets. It needs the `api` scope and
+On OpenHands Cloud and Enterprise, connect GitLab under Settings - its MCP server
+or the built-in integration, which signing in with GitLab connects - and no secret
+is needed. Calling GitLab MCP directly needs GitLab 19.4 or later, so on an older
+GitLab use the integration. Otherwise set
+`GITLAB_TOKEN` in OpenHands Settings -> Secrets. It needs the `api` scope and
 at least the **Developer** role on every watched project - Developer is the
 lowest role that can push a branch and open a merge request. Leave the configured
 branch prefix out of any protected-branch rule, or the push is rejected.

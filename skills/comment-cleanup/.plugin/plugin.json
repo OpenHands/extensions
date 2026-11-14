@@ -1,0 +1,19 @@
+{
+  "name": "comment-cleanup",
+  "version": "1.0.0",
+  "description": "Remove comments that restate adjacent code, delete comments that narrate removed functionality or past PRs, and condense verbose comments and README prose, leaving code and docstrings untouched.",
+  "author": {
+    "name": "OpenHands",
+    "email": "contact@all-hands.dev"
+  },
+  "homepage": "https://github.com/OpenHands/extensions",
+  "repository": "https://github.com/OpenHands/extensions",
+  "license": "MIT",
+  "keywords": [
+    "comments",
+    "cleanup",
+    "readme",
+    "code-quality",
+    "documentation"
+  ]
+}

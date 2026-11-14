@@ -1,0 +1,19 @@
+{
+  "name": "github-comment-cleanup",
+  "version": "1.0.0",
+  "description": "Create an automation that runs the comment-cleanup skill on GitHub repositories on a schedule and opens one pull request per repository, re-reading only files changed since they were last examined.",
+  "author": {
+    "name": "OpenHands",
+    "email": "contact@all-hands.dev"
+  },
+  "homepage": "https://github.com/OpenHands/extensions",
+  "repository": "https://github.com/OpenHands/extensions",
+  "license": "MIT",
+  "keywords": [
+    "github",
+    "comments",
+    "cleanup",
+    "code-quality",
+    "automation"
+  ]
+}

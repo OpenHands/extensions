@@ -3,7 +3,7 @@ name: Tests
 # NOTE: pull_request (not pull_request_target) so checks run against the PR head.
 on:
   pull_request:
-    branches: ["*"]
+    branches: ["**"]
   push:
     branches: ["main", "master"]
 
@@ -14,8 +14,21 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v7
 
+      - name: Reject temporary artifacts in release PRs
+        if: >-
+          github.event_name == 'pull_request' &&
+          startsWith(github.head_ref, 'release-please--')
+        run: |
+          set -euo pipefail
+          artifacts="$(git ls-tree -r --name-only HEAD -- .pr)"
+          if [ -n "$artifacts" ]; then
+            echo "::error::Release PR contains temporary .pr artifacts. Refresh the release PR (rerun the latest release workflow on its target branch) so release-please removes them, then let this check rerun before merging."
+            printf '%s\n' "$artifacts"
+            exit 1
+          fi
+
       - name: Install uv
-        uses: astral-sh/setup-uv@v7
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         with:
           enable-cache: true
           python-version: "3.12"
@@ -23,9 +36,35 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v7
         with:
-          node-version: "20"
+          node-version: "24"
 
       - name: Run tests
         run: uv run --group test pytest tests/
         env:
           PYTHONPATH: ${{ github.workspace }}
+
+      # Plugins under plugins/<name>/tests are self-contained (stdlib-only unit
+      # tests that import the plugin's own scripts via importlib). Run them in
+      # a separate step so a plugin failure is attributed to the plugin, not
+      # the root suite. shopt -s nullglob leaves the array empty when no
+      # plugin ships tests, so this step is a no-op in that case.
+      #
+      # PYTHONDONTWRITEBYTECODE=1 keeps __pycache__/*.pyc from being written
+      # next to the plugin's scripts/ directory, which would otherwise leak
+      # into the agent-visible SkillResources manifest the next time the
+      # plugin is loaded via openhands.sdk.skills. See
+      # scripts/check_plugin_resources.py for the matching CI guard.
+      - name: Run plugin tests
+        shell: bash
+        env:
+          PYTHONDONTWRITEBYTECODE: "1"
+        run: |
+          shopt -s nullglob
+          plugin_tests=(plugins/*/tests)
+          if [ ${#plugin_tests[@]} -eq 0 ]; then
+            echo "No plugin tests found; skipping."
+            exit 0
+          fi
+          echo "Discovered plugin test dirs:"
+          printf '  %s\n' "${plugin_tests[@]}"
+          uv run --group test pytest "${plugin_tests[@]}"

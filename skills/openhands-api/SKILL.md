@@ -177,7 +177,7 @@ When you start a delegated Cloud conversation:
 3. Start the new conversation with `POST /api/v1/app-conversations`.
 4. Poll the start-task until `status` is `READY` and you have an `app_conversation_id`.
 5. Monitor the delegated conversation via `GET /api/v1/app-conversations?ids=...`.
-6. Share or store the Cloud URL: `https://app.all-hands.dev/conversations/<app_conversation_id>`.
+6. Share or store the conversation's `conversation_ui_url` from that response. It opens the conversation in Agent Canvas. If the server does not return it, use `<base_url>/canvas/conversations/<app_conversation_id>`, where `<base_url>` is the server you called the API on. Never share `conversation_url`; it is the sandbox's agent-server API, not a page users can open.
 
 ### Minimal cURL flow
 
@@ -200,7 +200,7 @@ curl -s "https://app.all-hands.dev/api/v1/app-conversations/start-tasks?ids=${ST
   -H "Authorization: Bearer ${OPENHANDS_CLOUD_API_KEY}"
 ```
 
-Then check execution status:
+Then check execution status and get the link to share (`conversation_ui_url`):
 
 ```bash
 curl -s "https://app.all-hands.dev/api/v1/app-conversations?ids=${APP_CONVERSATION_ID}" \
@@ -229,7 +229,7 @@ if not ready.get("app_conversation_id"):
     ready = api.poll_start_task_until_ready(start["id"])
 
 conversation_id = ready["app_conversation_id"]
-print(f"Delegated conversation: {api.base_url}/conversations/{conversation_id}")
+print(f"Delegated conversation: {api.app_conversation_ui_url(conversation_id)}")
 
 status = api.app_conversation_get(conversation_id)
 print(status.get("sandbox_status"), status.get("execution_status"))

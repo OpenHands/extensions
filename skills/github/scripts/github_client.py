@@ -12,24 +12,62 @@ from urllib.parse import parse_qsl, urlencode, urlsplit
 from urllib.request import Request, urlopen
 
 
+# The secret name of the GitHub token an OpenHands Cloud or Enterprise user's
+# connected GitHub integration provides: how this run's sandbox serves it, and
+# how a conversation sees it in its environment.
+CLOUD_GITHUB_TOKEN_SECRET = "github_token"
+CLOUD_GITHUB_TOKEN_ENV = "GITHUB_TOKEN"
+
+
+def is_cloud_run() -> bool:
+    """Whether this run is on OpenHands Cloud or Enterprise.
+
+    The automation service hands a run the Agent Server URL only on a local
+    Agent Canvas; elsewhere the run talks to the OpenHands API instead.
+    """
+    return bool(os.environ.get("OPENHANDS_CLOUD_API_URL")) and not os.environ.get(
+        "AGENT_SERVER_URL"
+    )
+
+
+def _load_cloud_secret(name: str) -> str | None:
+    """Read one named secret of this run's sandbox from the OpenHands API."""
+    api = os.environ["OPENHANDS_CLOUD_API_URL"].rstrip("/")
+    request = Request(
+        f"{api}/api/v1/sandboxes/{os.environ['SANDBOX_ID']}/settings/secrets/{name}",
+        headers={"X-Session-API-Key": os.environ["SESSION_API_KEY"]},
+    )
+    try:
+        with urlopen(request, timeout=90) as response:
+            return response.read().decode().strip()
+    except HTTPError as exc:
+        if exc.code == 404:
+            return None
+        raise
+
+
 def _load_secret(name: str) -> str:
-    """Read one named secret from the environment or configured Agent Server."""
+    """Read one named secret from the environment, or from the configured Agent
+    Server on a local run and the OpenHands API on a cloud one."""
     value = os.environ.get(name)
     if value:
         return value
 
-    from openhands.sdk.workspace import RemoteWorkspace
+    if is_cloud_run():
+        value = _load_cloud_secret(name)
+    else:
+        from openhands.sdk.workspace import RemoteWorkspace
 
-    workspace = RemoteWorkspace(
-        host=os.environ["AGENT_SERVER_URL"],
-        api_key=os.environ["SESSION_API_KEY"],
-        working_dir=os.environ.get("WORKSPACE_BASE", "/workspace"),
-    )
-    try:
-        secret = workspace.get_secrets([name]).get(name)
-        value = secret.get_value() if secret else None
-    finally:
-        workspace.reset_client()
+        workspace = RemoteWorkspace(
+            host=os.environ["AGENT_SERVER_URL"],
+            api_key=os.environ["SESSION_API_KEY"],
+            working_dir=os.environ.get("WORKSPACE_BASE", "/workspace"),
+        )
+        try:
+            secret = workspace.get_secrets([name]).get(name)
+            value = secret.get_value() if secret else None
+        finally:
+            workspace.reset_client()
     if not value:
         raise ValueError(f"The GitHub credential {name} is unavailable")
     return value
@@ -95,11 +133,22 @@ class GitHubRepository:
                 "Expected the environment variable containing the GitHub token"
             )
         self.token_name = github_token_secret
-        self.token = _load_secret(github_token_secret)
+        try:
+            self.token = _load_secret(github_token_secret)
+        except ValueError:
+            if not is_cloud_run():
+                raise
+            # No secret is saved under that name, so use the user's connected
+            # GitHub integration, under the name a conversation sees it by.
+            self.token = _load_cloud_secret(CLOUD_GITHUB_TOKEN_SECRET)
+            if not self.token:
+                raise
+            self.token_name = CLOUD_GITHUB_TOKEN_ENV
         self.conversation = conversation
         self.conversation_id = str(conversation.id) if conversation else None
         self.dispatcher = dispatcher
-        self.workspace = Path(os.environ["WORKSPACE_BASE"])
+        # A cloud run is not given a workspace base; its sandbox has /workspace.
+        self.workspace = Path(os.environ.get("WORKSPACE_BASE", "/workspace"))
         self.project = self.workspace
         self.evidence = self.workspace / "evidence"
         self.evidence.mkdir(exist_ok=True)
@@ -111,10 +160,13 @@ class GitHubRepository:
 
     @property
     def github_instructions(self):
+        # A cloud conversation runs in a sandbox of its own, so this run's
+        # workspace path means nothing to it.
+        where = "your working directory" if is_cloud_run() else self.project
         return (
             f"Use `GH_TOKEN=${self.token_name} gh api` for GitHub requests. "
             "Never print the credential value. "
-            f"Only {self.repository} is in scope. Work in {self.project}. "
+            f"Only {self.repository} is in scope. Work in {where}. "
             "Do not modify the automation bundle or its configuration."
         )
 
@@ -164,6 +216,122 @@ class GitHubRepository:
         for item in self.gh_pages(f"/commits/{sha}/statuses"):
             result.setdefault(item["context"], item["state"])
         return result
+
+    def check_runs(self, sha):
+        """Return every check run GitHub reported for one commit SHA.
+
+        Reading check runs needs no branch-protection or ruleset access, so this
+        is the head-eligibility signal the automation's own token can always
+        see. The endpoint answers with an object rather than a list, so it
+        paginates through ``gh`` instead of ``gh_pages``.
+        """
+        runs = []
+        for page in range(1, 101):
+            data = self.gh(
+                "GET", f"/commits/{sha}/check-runs?per_page=100&page={page}"
+            )
+            batch = data.get("check_runs") or []
+            runs.extend(batch)
+            if len(runs) >= int(data.get("total_count") or 0) or not batch:
+                return runs
+        raise RuntimeError("GitHub check-run pagination exceeded limit")
+
+    def required_check_contexts(self, number):
+        """Return the status contexts GitHub marks required on one pull request.
+
+        `isRequired` is the merge-policy source of truth and is PR-scoped, so it
+        is correct for a stacked PR whose symbolic base branch carries no branch
+        rules of its own. It is a field on each context in the head's status
+        check rollup and takes the pull request number, so a single GraphQL query
+        answers with the required check runs and any required commit statuses,
+        each already attributed to the exact head. Only contexts GitHub itself
+        reports as required are returned, so an optional workflow that fails
+        before creating any check run is not present.
+        """
+        owner, name = self.repository.split("/", 1)
+        query = (
+            "query($owner:String!,$name:String!,$number:Int!){"
+            "repository(owner:$owner,name:$name){"
+            "pullRequest(number:$number){"
+            "commits(last:1){"
+            "nodes{"
+            "commit{"
+            "statusCheckRollup{"
+            "contexts(first:100){"
+            "pageInfo{hasNextPage}"
+            "nodes{"
+            "__typename"
+            " ... on CheckRun{name isRequired(pullRequestNumber:$number)}"
+            " ... on StatusContext{context isRequired(pullRequestNumber:$number)}"
+            "}"
+            "}"
+            "}"
+            "}"
+            "}"
+            "}"
+            "}"
+            "}"
+            "}"
+        )
+        data = self.api(
+            "POST",
+            "/graphql",
+            body={
+                "query": query,
+                "variables": {"owner": owner, "name": name, "number": number},
+            },
+        )
+        if data.get("errors"):
+            raise RuntimeError(
+                f"GitHub required-check query failed: {data['errors'][0].get('message')}"
+            )
+        nodes = (
+            (((data.get("data") or {}).get("repository") or {}).get("pullRequest") or {})
+            .get("commits", {})
+            .get("nodes")
+        ) or []
+        contexts = (
+            ((nodes[0].get("commit") or {}).get("statusCheckRollup") or {}).get(
+                "contexts", {}
+            )
+            if nodes
+            else {}
+        )
+        if (contexts.get("pageInfo") or {}).get("hasNextPage"):
+            raise RuntimeError(
+                "GitHub required-check rollup exceeds one page; the required "
+                "set may be incomplete"
+            )
+        return [
+            {
+                "name": node.get("name") or node.get("context"),
+                "kind": node.get("__typename"),
+            }
+            for node in (contexts.get("nodes") or [])
+            if node.get("isRequired") and (node.get("name") or node.get("context"))
+        ]
+
+    def workflow_runs(self, sha):
+        """Return every Actions workflow run GitHub reported for one commit SHA.
+
+        A workflow that fails before any job starts - a workflow-level error, or
+        a `pull_request` run whose jobs never materialize - still records a
+        failed check suite, but it contributes no check runs, so the commit's
+        check-run rollup and `gh pr checks` both report success. Reading the
+        workflow runs directly is the only way the gate can see that failure.
+        Like the check-run endpoint this answers with an object, so it paginates
+        manually.
+        """
+        runs = []
+        for page in range(1, 101):
+            data = self.gh(
+                "GET", f"/actions/runs?head_sha={sha}&per_page=100&page={page}"
+            )
+            batch = data.get("workflow_runs") or []
+            runs.extend(batch)
+            if len(runs) >= int(data.get("total_count") or 0) or not batch:
+                return runs
+        raise RuntimeError("GitHub workflow-run pagination exceeded limit")
 
     def completed_dependency(self, number):
         if number in self._completed_dependencies:

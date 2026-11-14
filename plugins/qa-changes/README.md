@@ -121,6 +121,10 @@ The agent posts a PR comment with this structure:
 ### Functional Verification
 [Commands run, outputs observed, screenshots, behavior verified]
 
+### Visual Evidence (frontend PRs only)
+[Screenshots of each affected state and a GIF of the key interaction, embedded
+inline or saved to the run's `openhands-qa-changes-logs` artifact]
+
 ### Unable to Verify (if applicable)
 [What could not be verified, what was attempted, suggested AGENTS.md guidance]
 

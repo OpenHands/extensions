@@ -44,3 +44,5 @@ export type {
 } from "./automations/index.js";
 export { SKILLS_CATALOG, DEFAULT_ENABLED_SKILL_NAMES } from "./skills/index.js";
 export type { SkillCatalogEntry } from "./skills/index.js";
+export { APPS_CATALOG } from "./apps/index.js";
+export type { AppCatalogEntry } from "./apps/index.js";

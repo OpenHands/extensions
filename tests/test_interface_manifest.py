@@ -30,12 +30,36 @@ def _with(mutation):
     return document
 
 
+def _filter(document, filter_id):
+    return next(
+        f for f in document["pages"]["list"]["filters"] if f["id"] == filter_id
+    )
+
+
 def test_schema_is_a_valid_draft_2020_12_schema():
     jsonschema.Draft202012Validator.check_schema(SCHEMA)
 
 
 def test_manifest_validates_against_its_schema():
     _validate(MANIFEST)
+
+
+def test_events_page_declares_source_management():
+    assert MANIFEST["routes"]["events"] == "/automations/events"
+    assert [item["page"] for item in MANIFEST["navigation"]["subPages"]] == [
+        "list", "events", "templates"
+    ]
+    assert MANIFEST["pages"]["events"]["title"] == "Event sources"
+    assert MANIFEST["endpoints"]["webhooks"] == "/v1/webhooks"
+
+
+def test_owner_filter_offers_people_and_service_accounts():
+    """The created_by filter splits by run-as identity: the signed-in person,
+    other people, and service accounts."""
+    owner = _filter(MANIFEST, "created_by")
+
+    assert owner["label"] == "Filter by owner"
+    assert [o["value"] for o in owner["options"]] == ["all", "me", "others", "service"]
 
 
 def test_featured_automations_resolve_to_catalog_entries():
@@ -94,7 +118,33 @@ def test_featured_automations_resolve_to_catalog_entries():
         ),
         (
             "a status filter without the all option",
-            lambda doc: doc["pages"]["list"]["filters"][0]["options"].pop(0),
+            lambda doc: _filter(doc, "status")["options"].pop(0),
+        ),
+        (
+            "a creator filter without the all option",
+            lambda doc: _filter(doc, "created_by")["options"].pop(0),
+        ),
+        (
+            "a creator filter value the host does not implement",
+            lambda doc: _filter(doc, "created_by")["options"].append(
+                {"value": "team", "label": "My team"}
+            ),
+        ),
+        (
+            "a tag filter declaring options, whose values come from the service",
+            lambda doc: _filter(doc, "tag").update(
+                options=[{"value": "all", "label": "All tags"}]
+            ),
+        ),
+        (
+            "a tag filter without the default option's label",
+            lambda doc: _filter(doc, "tag").pop("allLabel"),
+        ),
+        (
+            "more filters than the host renders",
+            lambda doc: doc["pages"]["list"]["filters"].append(
+                {**doc["pages"]["list"]["filters"][0], "label": "Filter again"}
+            ),
         ),
     ],
 )

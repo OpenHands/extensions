@@ -20,6 +20,11 @@ export interface RecommendedAutomation {
     | "activity"
     | "timer";
   description: string;
+  /**
+   * Mermaid source for a small diagram of what the automation does. The host
+   * draws it beside `description` on the setup screen.
+   */
+  diagram?: string;
   requires: AutomationPrerequisites;
   popularityRank: number;
   estimatedSetupMinutes: number;
@@ -42,6 +47,14 @@ export interface RecommendedAutomation {
   impact?: AutomationImpact;
   /** Present when this automation ships an extension-owned setup experience. */
   setup?: AutomationSetup;
+  /**
+   * How the automation runs once created, for an entry without a setup form:
+   * `cron` for a schedule, `event` for an event-driven trigger, or both. An
+   * entry whose `setup.form.triggers` declares the variants states it there
+   * instead. Informational: the host renders it as the card's trigger badge
+   * and filter.
+   */
+  triggers?: AutomationTriggerKind[];
 }
 
 export interface AutomationImpact {
@@ -79,7 +92,11 @@ export type AutomationFieldType =
   | "event-type"
   | "plugin-sources"
   | "tarball-upload";
-export type AutomationGitProvider = "github" | "gitlab" | "bitbucket";
+export type AutomationGitProvider =
+  | "github"
+  | "gitlab"
+  | "bitbucket"
+  | "bitbucket_data_center";
 export type AutomationTriggerKind = "cron" | "event";
 
 export interface AutomationFieldOption {
@@ -128,7 +145,27 @@ export interface AutomationPrerequisites {
   integrations: Record<string, AutomationIntegrationRequirement>;
   /** Deployment capabilities this automation cannot run without. */
   features?: string[];
+  /**
+   * Integrations built into an OpenHands Cloud or Enterprise instance
+   * (Settings > Integrations) that this automation cannot run without. A user
+   * cannot connect one from the card, so a host that knows the instance's
+   * built-in integrations can rank the entry below the others, or hide it,
+   * where one is missing, and a host without built-in integrations never
+   * offers it.
+   */
+  builtInIntegrations?: AutomationBuiltInIntegration[];
 }
+
+export type AutomationBuiltInIntegration =
+  | "github"
+  | "gitlab"
+  | "bitbucket"
+  | "bitbucket_data_center"
+  | "azure_devops"
+  | "jira"
+  | "jira_dc"
+  | "linear"
+  | "slack";
 
 /** The inputs that decide when the automation runs, keyed by trigger kind. */
 export type AutomationTriggerForm = Partial<
@@ -248,6 +285,8 @@ export interface AutomationInterfaceRoutes {
   detail: string;
   /** The templates sub-page. Static: there is no parameter to substitute. */
   templates: string;
+  /** The event sources sub-page. */
+  events?: string;
 }
 
 /** An icon name from the host's closed icon map. */
@@ -260,7 +299,7 @@ export type AutomationIconSlug =
   | "timer";
 
 /** The pages a sub-page navigation item may point at. */
-export type AutomationSubPageId = "list" | "templates";
+export type AutomationSubPageId = "list" | "events" | "templates";
 
 export interface AutomationSubPageNavItem {
   /** The `pages` entry this item navigates to; its route comes from `routes`. */
@@ -309,6 +348,11 @@ export type AutomationStatusFilterValue =
   | "failing"
   | "disabled";
 export type AutomationTriggerFilterValue = "all" | "schedule" | "event";
+/**
+ * Who an automation runs as: the signed-in person (`me`), another person
+ * (`others`), or a service account (`service`).
+ */
+export type AutomationCreatedByFilterValue = "all" | "me" | "others" | "service";
 
 /**
  * A filter dropdown. Values name predicates the host implements; the manifest
@@ -327,9 +371,28 @@ export interface AutomationTriggerFilter {
   options: { value: AutomationTriggerFilterValue; label: string }[];
 }
 
+export interface AutomationCreatedByFilter {
+  id: "created_by";
+  label: string;
+  options: { value: AutomationCreatedByFilterValue; label: string }[];
+}
+
+/**
+ * The tag filter. Its values are the tags the automation service reports for
+ * the org, so the manifest supplies only the copy; `allLabel` names the host's
+ * default option, which matches every automation.
+ */
+export interface AutomationTagFilter {
+  id: "tag";
+  label: string;
+  allLabel: string;
+}
+
 export type AutomationDashboardFilter =
   | AutomationStatusFilter
-  | AutomationTriggerFilter;
+  | AutomationTriggerFilter
+  | AutomationCreatedByFilter
+  | AutomationTagFilter;
 
 /** A comparator the host implements, named from a closed set. */
 export type AutomationSortValue = "last-run" | "runs" | "name";
@@ -382,6 +445,7 @@ export interface AutomationInterfacePages {
   detail: { backLabel: string };
   edit: { title: string };
   templates: AutomationTemplatesPage;
+  events?: { title: string; description: string };
 }
 
 export type AutomationAttributeType =
@@ -457,6 +521,10 @@ export interface AutomationInterfaceEndpoints {
   createBundle: string;
   /** Where a bundle's tarball is uploaded before that create call. */
   uploads: string;
+  /** The org's automation tags with counts, which fill the tag filter. */
+  tags?: string;
+  /** The custom webhook source collection. */
+  webhooks?: string;
 }
 
 export interface AutomationInterfaceManifest {

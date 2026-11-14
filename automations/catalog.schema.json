@@ -33,6 +33,12 @@
       "enum": ["layout-dashboard", "sparkles", "bot", "circle-alert", "activity", "timer"]
     },
     "description": { "type": "string", "minLength": 1 },
+    "diagram": {
+      "description": "Mermaid source for a small diagram of what the automation does, drawn by the host beside the description on the setup screen. Keep it to a handful of nodes; at most 1500 characters so it still fits an automation's 2000-character description if a host copies it there.",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1500
+    },
     "requires": { "$ref": "#/$defs/requires" },
     "popularityRank": { "type": "integer", "minimum": 0 },
     "estimatedSetupMinutes": { "type": "integer", "minimum": 1 },
@@ -64,8 +70,25 @@
         }
       }
     },
-    "setup": { "$ref": "#/$defs/setup" }
+    "setup": { "$ref": "#/$defs/setup" },
+    "triggers": {
+      "description": "How the automation runs once created, for an entry without a setup form: `cron` for a schedule, `event` for an event-driven trigger, or both. An entry whose `setup.form.triggers` declares the variants states it there instead, so the two never coexist. Informational: Agent Canvas renders it as the card's trigger badge and filter.",
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "enum": ["cron", "event"] }
+    }
   },
+  "if": {
+    "required": ["setup"],
+    "properties": {
+      "setup": {
+        "required": ["form"],
+        "properties": { "form": { "required": ["triggers"] } }
+      }
+    }
+  },
+  "then": { "not": { "required": ["triggers"] } },
   "$defs": {
     "impactCopy": {
       "description": "One value-statement phrase. Markup-free, and the only placeholder it may open is {{count}}, which the host substitutes with the formatted run count.",
@@ -269,11 +292,11 @@
       }
     },
     "bundleSource": {
-      "description": "A file in this repository, as a repository-relative path under skills/ or automations/. No absolute path, no traversal, and no scheme, so a bundle cannot name anything outside the published package.",
+      "description": "A file in this repository, as a repository-relative path under skills/, plugins/, or automations/. No absolute path, no traversal, and no scheme, so a bundle cannot name anything outside the published package.",
       "type": "string",
       "minLength": 1,
       "maxLength": 255,
-      "pattern": "^(skills|automations)/[A-Za-z0-9._-]+(/[A-Za-z0-9._-]+)*$",
+      "pattern": "^(skills|plugins|automations)/[A-Za-z0-9._-]+(/[A-Za-z0-9._-]+)*$",
       "not": { "pattern": "(^|/)\\.\\.?(/|$)" }
     },
     "bundleConfig": {
@@ -351,6 +374,25 @@
           "minItems": 1,
           "uniqueItems": true,
           "items": { "type": "string", "minLength": 1 }
+        },
+        "builtInIntegrations": {
+          "description": "Integrations built into an OpenHands Cloud or Enterprise instance (Settings > Integrations) that this automation cannot run without, such as a self-hosted Data Center provider no MCP server reaches. Unlike `integrations`, a user cannot connect one from the card: the instance has it enabled or it does not, so a host that knows the instance's built-in integrations can rank the entry below the others, or hide it, where one is missing, and a host without built-in integrations, such as a local backend, never offers it.",
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "github",
+              "gitlab",
+              "bitbucket",
+              "bitbucket_data_center",
+              "azure_devops",
+              "jira",
+              "jira_dc",
+              "linear",
+              "slack"
+            ]
+          }
         }
       }
     },
@@ -414,7 +456,7 @@
           "type": ["string", "number", "boolean", "null"]
         },
         "required": { "type": "boolean" },
-        "provider": { "enum": ["github", "gitlab", "bitbucket"] },
+        "provider": { "enum": ["github", "gitlab", "bitbucket", "bitbucket_data_center"] },
         "multiple": {
           "description": "repo-picker only. The field collects several repositories rather than one, and its value is a list. A whole-value placeholder resolves to that list, so a payload can state `\"repos\": \"{{form.repositories}}\"` and get an array.",
           "const": true

@@ -4,6 +4,7 @@
     "list": "/automations",
     "setup": "/automations/new/:automationId",
     "detail": "/automations/:automationId",
+    "events": "/automations/events",
     "templates": "/automations/templates"
   },
   "navigation": {
@@ -15,6 +16,7 @@
     },
     "subPages": [
       { "page": "list", "label": "Dashboard", "icon": "layout-dashboard" },
+      { "page": "events", "label": "Events", "icon": "activity" },
       { "page": "templates", "label": "Templates", "icon": "sparkles" }
     ]
   },
@@ -71,6 +73,21 @@
             { "value": "schedule", "label": "Scheduled" },
             { "value": "event", "label": "Event-driven" }
           ]
+        },
+        {
+          "id": "created_by",
+          "label": "Filter by owner",
+          "options": [
+            { "value": "all", "label": "Anyone" },
+            { "value": "me", "label": "Me" },
+            { "value": "others", "label": "Others" },
+            { "value": "service", "label": "Service accounts" }
+          ]
+        },
+        {
+          "id": "tag",
+          "label": "Filter by tag",
+          "allLabel": "All tags"
         }
       ],
       "sort": {
@@ -101,9 +118,13 @@
     },
     "detail": { "backLabel": "Back to Automations" },
     "edit": { "title": "Edit automation" },
+    "events": {
+      "title": "Event sources",
+      "description": "Manage custom webhook event sources."
+    },
     "templates": {
       "title": "Templates",
-      "description": "Browse proven automations and beta ideas, then launch one into a conversation to tailor it to your work."
+      "description": "Browse templates and launch one into a conversation to tailor it to your work."
     }
   },
   "docsUrl": "https://docs.openhands.dev/openhands/usage/automations/overview",
@@ -146,7 +167,9 @@
     "createPrompt": "/v1/preset/prompt",
     "createPlugin": "/v1/preset/plugin",
     "createBundle": "/v1",
-    "uploads": "/v1/uploads"
+    "uploads": "/v1/uploads",
+    "tags": "/v1/tags",
+    "webhooks": "/v1/webhooks"
   },
   "featuredAutomationIds": [
     "github-pr-reviewer",

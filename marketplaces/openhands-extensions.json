@@ -79,6 +79,19 @@
       ]
     },
     {
+      "name": "comment-cleanup",
+      "source": "./skills/comment-cleanup",
+      "description": "Remove comments that restate adjacent code, delete comments that narrate removed functionality or past PRs, and condense verbose comments and README prose, leaving code and docstrings untouched.",
+      "category": "code-quality",
+      "keywords": [
+        "comments",
+        "cleanup",
+        "readme",
+        "code-quality",
+        "documentation"
+      ]
+    },
+    {
       "name": "openhands-automation",
       "source": "./skills/openhands-automation",
       "description": "Create and manage OpenHands automations - scheduled tasks that run in sandboxes. Use the prompt preset to create automations from natural language, or manage existing automations.",
@@ -90,6 +103,20 @@
         "scheduled-task",
         "sandbox",
         "openhands"
+      ]
+    },
+    {
+      "name": "software-factory",
+      "source": "./skills/software-factory",
+      "description": "Set up a GitHub software factory fast: ask only for the repositories and the ticket source (GitHub issues, Jira or Linear), create a working issue-to-PR and PR-review pipeline from catalog automations with defaults, then let the user stop or extend it step by step.",
+      "category": "automations",
+      "defaultEnabled": true,
+      "keywords": [
+        "onboarding",
+        "software-factory",
+        "github",
+        "automation",
+        "pull-request"
       ]
     },
     {
@@ -542,6 +569,20 @@
       ]
     },
     {
+      "name": "runtime-api-configs",
+      "source": "./plugins/runtime-api-configs",
+      "description": "Manage warm sandbox pools on OpenHands Enterprise from a Python CLI: list, template, save, and delete warm runtime configurations against the runtime-api, and bootstrap credentials from Kubernetes secrets. Standard-library only, runs anywhere python3 is available.",
+      "category": "environment",
+      "keywords": [
+        "openhands-enterprise",
+        "runtime-api",
+        "warm-runtime-config",
+        "warm-pool",
+        "custom-sandbox-image",
+        "admin"
+      ]
+    },
+    {
       "name": "security",
       "source": "./skills/security",
       "description": "Security best practices for secure coding, authentication, authorization, and data protection. Use when developing features that handle sensitive data, user authentication, or require security review.",
@@ -709,6 +750,19 @@
       ]
     },
     {
+      "name": "github-comment-cleanup",
+      "source": "./skills/github-comment-cleanup",
+      "description": "Create an automation that runs the comment-cleanup skill on GitHub repositories on a schedule and opens one pull request per repository, re-reading only files changed since they were last examined.",
+      "category": "automations",
+      "keywords": [
+        "github",
+        "comments",
+        "cleanup",
+        "code-quality",
+        "automation"
+      ]
+    },
+    {
       "name": "github-issue-to-pr",
       "source": "./skills/github-issue-to-pr",
       "description": "Create an automation that implements GitHub issues when a configurable trigger label is applied. Clones the default branch for the agent, then commits, pushes, and opens the pull request itself - the agent is handed no GitHub credential.",
@@ -738,7 +792,7 @@
     {
       "name": "gitlab-issue-to-mr",
       "source": "./skills/gitlab-issue-to-mr",
-      "description": "Create an automation that implements GitLab issues when a configurable trigger label is applied. Clones the default branch for the agent, then commits, pushes, and opens the merge request itself - the agent is handed no push credential.",
+      "description": "Create an automation that implements GitLab issues when a configurable trigger label is applied. Polls the projects deterministically and starts one conversation per label event; on OpenHands Cloud and Enterprise it reaches GitLab through the connected MCP server or integration, with no token to set up.",
       "category": "automations",
       "keywords": [
         "gitlab",
@@ -817,6 +871,29 @@
       ]
     },
     {
+      "name": "show-me",
+      "source": "./skills/show-me",
+      "description": "Help the user understand the current topic visually with concise diagrams, code-shape sketches, and focused HTML artifacts.",
+      "category": "design",
+      "defaultEnabled": true,
+      "keywords": [
+        "visualization",
+        "diagrams",
+        "code",
+        "html",
+        "explanation"
+      ]
+    },
+    {
+      "name": "simplified-technical-english",
+      "source": "./skills/simplified-technical-english",
+      "description": "Write explanations and chat in the style of ASD-STE100 Simplified Technical English: short active sentences, one idea each, plain consistent words. Applies to prose only, never to code.",
+      "category": "writing",
+      "keywords": [
+        "simplified-technical-english"
+      ]
+    },
+    {
       "name": "plain-english-content",
       "source": "./skills/plain-english-content",
       "description": "Write and edit clear, accessible prose in a plain English content style: active voice, front-loaded content, sentence case, and accessible formatting.",
@@ -828,11 +905,14 @@
     {
       "name": "jira-issue-to-pr",
       "source": "./skills/jira-issue-to-pr",
-      "description": "Deploy a cron-based OpenHands automation that watches a Jira Cloud project for issues labeled with a configurable label (default: create-pr) and spawns an agent conversation to create a GitHub pull request for each new issue found. The target GitHub repo is read from the ticket body - no repo parameter required at deploy time.",
+      "description": "Deploy a cron-based OpenHands automation that opens a GitHub pull request, a GitLab merge request or a Bitbucket pull request for each Jira issue carrying a configurable label (default: create-pr). The target repository is read from the ticket body - no repo parameter required at deploy time.",
       "category": "automations",
       "keywords": [
         "jira",
-        "atlassian"
+        "atlassian",
+        "github",
+        "gitlab",
+        "bitbucket"
       ]
     },
     {
@@ -850,10 +930,9 @@
     {
       "name": "ticket-to-code-change",
       "source": "./skills/ticket-to-code-change",
-      "description": "Set up Jira or Linear ticket-to-code-change automations for GitHub, GitLab, and Bitbucket.",
+      "description": "Set up Linear ticket-to-code-change automations for GitHub, GitLab, and Bitbucket.",
       "category": "automations",
       "keywords": [
-        "jira",
         "linear",
         "github",
         "gitlab",
@@ -890,6 +969,41 @@
       "source": "./skills/github-delivery-watchdog",
       "description": "Periodically check pull requests and merge only current heads with independent review, tests, and passing CI.",
       "category": "automations"
+    },
+    {
+      "name": "github-stale-ci-pr-closer",
+      "source": "./skills/github-stale-ci-pr-closer",
+      "description": "Warn and close abandoned pull requests whose required CI remains failing.",
+      "category": "automations"
+    },
+    {
+      "name": "use-jev",
+      "source": "./skills/use-jev",
+      "description": "Use Jev, a general classifier, for typed choices, scores, and yes/no probabilities in software.",
+      "category": "integrations",
+      "keywords": [
+        "jev",
+        "classification"
+      ]
+    },
+    {
+      "name": "cortex-training-rl",
+      "source": "./skills/cortex-training-rl",
+      "description": "Run reinforcement-learning post-training of a model inside the OpenHands harness on Snowflake Cortex Training for any Harbor training and eval task directories or SWE-smith code localization, and generate the reward convergence graph.",
+      "category": "integrations",
+      "keywords": [
+        "cortex-training",
+        "snowflake",
+        "reinforcement-learning",
+        "post-training",
+        "grpo",
+        "gspo",
+        "skyrl",
+        "arctic-platform",
+        "codescout",
+        "harbor",
+        "swe-smith"
+      ]
     },
     {
       "name": "pkgdiet",

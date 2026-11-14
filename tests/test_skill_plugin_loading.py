@@ -1,8 +1,10 @@
 """Test that skills listed in marketplaces can be loaded as Codex/Claude plugins.
 
 Every marketplace entry that references a ``skills/`` directory needs a
-``.plugin/plugin.json`` manifest and vendor symlinks (``.codex-plugin``,
+``.plugin/plugin.json`` manifest and vendor manifests (``.codex-plugin``,
 ``.claude-plugin``) so that Codex and Claude Code can discover and load them.
+A vendor manifest is either a symlink to ``.plugin/`` or a real directory
+mirroring ``plugin.json`` (Codex install drops symlinked dirs; see issue #257).
 
 Regression test for: https://github.com/OpenHands/extensions/issues/201
 """
@@ -61,18 +63,17 @@ class TestAllMarketplaceSkillsHaveManifests:
             f"{', '.join(missing)}"
         )
 
-    def test_all_marketplace_skills_have_vendor_symlinks(self):
-        """Every marketplace skill with a manifest must have vendor symlinks."""
+    def test_all_marketplace_skills_have_vendor_manifests(self):
+        """Every marketplace skill with a manifest must have vendor manifests."""
         problems = []
         for name, path in _marketplace_skill_entries():
             if not (path / ".plugin" / "plugin.json").exists():
                 continue
             for vendor in VENDOR_SYMLINKS:
-                link = path / vendor
-                if not link.is_symlink():
+                if not _vendor_manifest_ok(path, vendor):
                     problems.append(f"{name}/{vendor}")
         assert not problems, (
-            f"Missing vendor symlinks: {', '.join(problems)}"
+            f"Missing vendor manifests: {', '.join(problems)}"
         )
 
     def test_all_manifests_have_required_fields(self):
@@ -127,8 +128,20 @@ class TestIteratePluginLoading:
         assert "verify" in command_names
 
 
+def _vendor_manifest_ok(directory: Path, vendor: str) -> bool:
+    """A vendor manifest is a symlink to .plugin/ or a real dir mirror."""
+    link = directory / vendor
+    if link.is_symlink():
+        return link.resolve() == (directory / ".plugin").resolve()
+    if link.is_dir():
+        src = directory / ".plugin" / "plugin.json"
+        dst = link / "plugin.json"
+        return src.is_file() and dst.is_file() and src.read_bytes() == dst.read_bytes()
+    return False
+
+
 class TestVendorSymlinksForManifests:
-    """Every directory with .plugin/ must have vendor symlinks."""
+    """Every directory with .plugin/ must have vendor manifests."""
 
     @pytest.fixture(
         params=list(_all_dirs_with_plugin_manifest()),
@@ -137,13 +150,10 @@ class TestVendorSymlinksForManifests:
     def dir_with_manifest(self, request):
         return request.param
 
-    def test_has_vendor_symlinks(self, dir_with_manifest):
-        """Directories with .plugin/ must have .claude-plugin and .codex-plugin symlinks."""
+    def test_has_vendor_manifests(self, dir_with_manifest):
+        """Directories with .plugin/ must have .claude-plugin and .codex-plugin manifests."""
         for vendor in VENDOR_SYMLINKS:
-            link = dir_with_manifest / vendor
-            assert link.is_symlink(), (
-                f"{link.relative_to(REPO_ROOT)} must be a symlink to .plugin"
-            )
-            assert link.resolve() == (dir_with_manifest / ".plugin").resolve(), (
-                f"{link.relative_to(REPO_ROOT)} must point to .plugin"
+            assert _vendor_manifest_ok(dir_with_manifest, vendor), (
+                f"{dir_with_manifest / vendor} must be a symlink to .plugin "
+                "or a real directory mirroring plugin.json"
             )

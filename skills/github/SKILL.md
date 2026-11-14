@@ -5,6 +5,10 @@ triggers:
 - github
 ---
 
+## Connection selection
+
+Use authenticated GitHub MCP tools first when they are available in the agent's environment. Detect this by tool availability, without depending on a particular MCP server name. Use the token and direct API instructions below only when GitHub MCP tools are unavailable or when raw API or `curl` access is explicitly needed.
+
 You have access to an environment variable, `GITHUB_TOKEN`, which allows you to interact with
 the GitHub API.
 
@@ -36,6 +40,48 @@ Here are some instructions for pushing, but ONLY do this if the user asks you to
 git remote -v && git branch # to find the current org, repo and branch
 git checkout -b create-widget && git add . && git commit -m "Create widget" && git push -u origin create-widget
 ```
+
+## Writing Pull Request Descriptions
+
+Use the `show-me` skill when writing or updating a PR description. If it is not
+available: pick the smallest visual that makes the change clear instead of requiring
+the user to reconstruct it from prose or the raw diff.
+
+- Follow the repository's PR template and contribution rules.
+- Give the PR a plain language title. Focus on what the user needs to see.
+- Lead with what changed and why. Show the important before/after with a focused
+  diff, call tree, component/file tree, pseudocode, or Mermaid diagram, as fits
+  the change. Keep the visual next to the short explanation it supports.
+- Ground examples in the actual base and head revisions. Name the relevant files
+  or symbols and link to source when helpful.
+- Keep simple changes brief; do not force a diagram onto a typo or dependency
+  bump. For a dense UI or design comparison, link a focused HTML artifact
+  when it helps and the host supports it.
+- Visual explanations supplement required tests and screenshots; they do not replace
+  evidence that the changed behavior works.
+
+## Merging Pull Requests (async merge API)
+
+IMPORTANT:
+Only merge if the user asks you to, without ambiguity.
+
+GitHub released an async merge API in October 2026; it is now the
+recommended way to merge PRs programmatically, and the only merge API that supports stacked PRs. It can also add a PR to a merge queue.
+Prefer it over `PUT .../pulls/{n}/merge` and the GraphQL `mergePullRequest` mutation.
+A GitHub MCP merge tool may still use the older synchronous endpoint; for stacked PRs or merge queues, use the calls below.
+Docs: https://docs.github.com/en/rest/pulls/pulls#merge-a-pull-request-asynchronously
+
+1. Request the merge (`merge_action`: `default` uses the merge queue if the branch has one, else merges directly; or `direct_merge` / `merge_queue`). `merge_method`, `commit_title` and `commit_message` apply only to direct merges:
+```bash
+gh api -X PUT repos/<OWNER>/<REPO>/pulls/<PR_NUMBER>/merge-async -f merge_method=squash -f sha=<HEAD_SHA>
+```
+2. A `202` returns `details.uuid`; poll it every few seconds until `status` is no longer `pending`:
+```bash
+gh api repos/<OWNER>/<REPO>/pulls/<PR_NUMBER>/merge-async/<UUID>
+```
+
+Final `status` is `merged`, `enqueued` (added to the merge queue, NOT merged yet), or `failed` (see `details.message`).
+A `200` on the PUT means the PR is already merged or queued; a `409` means a merge request is already pending (its UUID is returned).
 
 ## Handling Review Comments
 
