@@ -49,6 +49,20 @@
       ]
     },
     {
+      "name": "refactoring-advisor",
+      "source": "./skills/refactoring-advisor",
+      "description": "Analyze codebases for structural problems and produce concrete, prioritized refactoring plans without implementing changes.",
+      "category": "code-quality",
+      "keywords": [
+        "refactoring",
+        "architecture",
+        "code-smells",
+        "technical-debt",
+        "dependency-injection",
+        "testability"
+      ]
+    },
+    {
       "name": "spark-version-upgrade",
       "source": "./skills/spark-version-upgrade",
       "description": "Upgrade Apache Spark applications between major versions (2.x→3.x, 3.x→4.x). Covers build files, deprecated APIs, configuration changes, SQL/DataFrame updates, and test validation.",
