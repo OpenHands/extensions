@@ -1,0 +1,19 @@
+{
+  "name": "specstream",
+  "version": "1.0.0",
+  "description": "Search the live web, read pages or documents as text, and build structured tables with source URLs via SpecStream.",
+  "author": {
+    "name": "SpecStream",
+    "email": "support@specstream.ai"
+  },
+  "homepage": "https://specstream.ai",
+  "repository": "https://github.com/OpenHands/extensions",
+  "license": "MIT",
+  "keywords": [
+    "specstream",
+    "web-search",
+    "extract",
+    "deep-search",
+    "research"
+  ]
+}
