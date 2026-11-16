@@ -309,7 +309,8 @@
         "bot",
         "circle-alert",
         "activity",
-        "timer"
+        "timer",
+        "shield-check"
       ]
     },
     "subPageNavItem": {
