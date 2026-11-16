@@ -1,6 +1,6 @@
 {
   "id": "github-pr-reviewer",
-  "version": "1.11.2",
+  "version": "1.11.3",
   "name": "GitHub code review",
   "category": "Code review",
   "description": "An agent reviews the open pull requests that need it and posts the review on GitHub.",
@@ -136,7 +136,7 @@
       }
     },
     "bundle": {
-      "version": "1.11.2",
+      "version": "1.11.3",
       "entrypoint": "python3 worker.py",
       "timeout": 300,
       "files": {

@@ -70,6 +70,13 @@ CONFIG_FILENAME = "config.json"
 # Config keys, paired with the type each must have. A wrong type is a hard
 # error at import: the alternative is polling the string "owner/repo" one
 # character at a time, or matching a label that is silently a list.
+#
+# max_new_per_run is a special case: hosts are expected to render it as a
+# JSON number inside config.json, but some setups have shipped it as a quoted
+# string ("1"), which is indistinguishable from the schema-generated form for
+# a text input. The worker coerces a whole-number string at load (see
+# load_config) so a host rendering quirk never takes an automation down at
+# import time.
 _CONFIG_TYPES: dict[str, type] = {
     "repos": list,
     "trigger_label": str,
@@ -103,6 +110,17 @@ def load_config(directory: Path | None = None) -> dict:
         if key not in raw:
             continue
         value = raw[key]
+        # Hosts have shipped max_new_per_run as a quoted string ("2" instead of
+        # 2) even though the form field is numeric. Accept a whole-number string
+        # and coerce it, so a rendering quirk never takes the automation down at
+        # import; anything else (a float, "two", a bool) is still a hard error.
+        if key == "max_new_per_run" and isinstance(value, str):
+            if not (value.isascii() and value.isdigit()):
+                raise SystemExit(
+                    f"{CONFIG_FILENAME}: max_new_per_run must be an integer, "
+                    f"got {value!r}"
+                )
+            value = int(value)
         # bool is an int in Python, so an unguarded int check would accept
         # `"max_new_per_run": true` and then start `True` conversations.
         if not isinstance(value, expected) or (

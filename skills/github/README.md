@@ -53,3 +53,12 @@ take precedence, and visuals do not replace testing or required screenshots.
 HTML artifacts are optional and follow the repository's sharing rules.
 
 When asked to merge a pull request, the skill uses GitHub's async merge API (`PUT /repos/{owner}/{repo}/pulls/{pull_number}/merge-async`, then poll the returned UUID). It supports stacked PRs and merge queues. Docs: https://docs.github.com/en/rest/pulls/pulls#merge-a-pull-request-asynchronously
+
+## Requesting reviews
+
+Trigger a review once, through a single path: a reviewer request via MCP tools,
+`gh pr edit <number> --repo <owner/repo> --add-reviewer <login>`, or the REST
+endpoint. Do not combine paths - adding the `review-this` label or posting an
+`@reviewer` comment on top of a reviewer request can start independent agents
+and produce duplicate reviews. Inspect pending requests and submitted reviews
+before retrying. See `SKILL.md` for details.

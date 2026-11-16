@@ -2678,12 +2678,36 @@ def test_the_rendered_config_reads_a_positive_max_new_per_run(tmp_path, monkeypa
     assert config["max_new_per_run"] == 3
 
 
-@pytest.mark.parametrize("bad", [0, -1, True, "2"])
+def test_the_rendered_config_coerces_a_whole_number_string_max_new_per_run(
+    tmp_path, monkeypatch
+):
+    """Some hosts render the numeric form field as a quoted string, which must
+    not take the worker down: a whole-number string is read as its int value."""
+    module = worker("github-pr-reviewer", tmp_path, monkeypatch)
+    (tmp_path / "github-pr-reviewer" / "config.json").write_text(
+        json.dumps(
+            {
+                "repos": ["owner/one"],
+                "max_new_per_run": "2",
+                "github_token_secret": "GITHUB_TOKEN",
+            }
+        )
+    )
+
+    config = module.workflow.load_config(tmp_path / "github-pr-reviewer")
+
+    assert config["max_new_per_run"] == 2
+    assert isinstance(config["max_new_per_run"], int)
+
+
+@pytest.mark.parametrize("bad", [0, -1, True, 2.5, "three"])
 def test_the_rendered_config_rejects_a_misbehaving_max_new_per_run(
     tmp_path, monkeypatch, bad
 ):
-    """A non-positive or non-integer bound is a hard error, not a coercion: the
-    alternative is a scan that either never starts or starts `True` conversations."""
+    """A non-positive, non-whole-number, or boolean bound is a hard error, not a
+    coercion: the alternative is a scan that either never starts or starts
+    `True` conversations. A whole-number string such as "2" is accepted and
+    coerced (see main.load_config)."""
     module = worker("github-pr-reviewer", tmp_path, monkeypatch)
     (tmp_path / "github-pr-reviewer" / "config.json").write_text(
         json.dumps({"repos": ["owner/one"], "max_new_per_run": bad})

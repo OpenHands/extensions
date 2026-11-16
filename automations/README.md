@@ -288,8 +288,9 @@ falling back to its built-in defaults when the manifest is absent or fails admis
   captions it: `overview.tiles[].metric` names a host-computed value (`automations`, `needs-attention`,
   `total-runs`, `average-duration`), filter option values name host predicates (`status`: enabled /
   latest-run-failed / disabled; `trigger`: `event` matches event-triggered automations, `schedule`
-  everything else; `created_by`: `me` matches automations the signed-in user created, `others` everything
-  else, and the host decides where it is shown; `tag` declares no options, because its values are the
+  everything else; `created_by`: who an automation runs as - `me` matches automations that run as the
+  signed-in person, `others` those that run as another person, `service` those that run as a service
+  account - and the host decides where it is shown; `tag` declares no options, because its values are the
   tags the automation service reports for the org, and the host hides it when there are none), `sort`
   values name host comparators, and `insights`
   captions the host's run-health states and per-automation stats. The health precedence, the run
