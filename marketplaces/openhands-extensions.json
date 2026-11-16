@@ -1004,6 +1004,18 @@
         "harbor",
         "swe-smith"
       ]
+    },
+    {
+      "name": "specstream",
+      "source": "./skills/specstream",
+      "description": "Search the live web, read pages or documents as text, and build structured tables with source URLs via SpecStream.",
+      "category": "integrations",
+      "keywords": [
+        "specstream",
+        "web-search",
+        "extract",
+        "deep-search"
+      ]
     }
   ]
 }
