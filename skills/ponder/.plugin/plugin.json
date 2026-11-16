@@ -1,0 +1,19 @@
+{
+  "name": "ponder",
+  "version": "1.0.0",
+  "description": "Multi-pass, coverage-gated deliberation loop and code review for AI coding agents. Refuses to stop until 100% of files/symbols are graded and two consecutive passes produce zero ledger deltas.",
+  "author": {
+    "name": "Quinn O'Donnell",
+    "email": "90010678+Quinnod345@users.noreply.github.com"
+  },
+  "homepage": "https://github.com/Quinnod345/ponder",
+  "repository": "https://github.com/Quinnod345/ponder",
+  "license": "MIT",
+  "keywords": [
+    "code-review",
+    "deliberation",
+    "coverage",
+    "audit",
+    "multi-pass"
+  ]
+}
