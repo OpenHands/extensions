@@ -25,10 +25,12 @@ import entry19 from "./catalog/github-agents-md-maintainer/manifest.json" with {
 import entry20 from "./catalog/github-delivery-watchdog/manifest.json" with { type: "json" };
 import entry21 from "./catalog/github-issue-triage/manifest.json" with { type: "json" };
 import entry22 from "./catalog/upstream-fork-sync/manifest.json" with { type: "json" };
-import entry23 from "./catalog/incident-retrospective-drafter/manifest.json" with { type: "json" };
-import entry24 from "./catalog/news-digest/manifest.json" with { type: "json" };
-import entry25 from "./catalog/github-stale-ci-pr-closer/manifest.json" with { type: "json" };
-import entry26 from "./catalog/github-comment-cleanup/manifest.json" with { type: "json" };
+import entry23 from "./catalog/gitlab-mr-reviewer/manifest.json" with { type: "json" };
+import entry24 from "./catalog/incident-retrospective-drafter/manifest.json" with { type: "json" };
+import entry25 from "./catalog/news-digest/manifest.json" with { type: "json" };
+import entry26 from "./catalog/github-stale-ci-pr-closer/manifest.json" with { type: "json" };
+import entry27 from "./catalog/github-comment-cleanup/manifest.json" with { type: "json" };
+import entry28 from "./catalog/gitlab-prd-refiner/manifest.json" with { type: "json" };
 
 export const AUTOMATION_CATALOG_ENTRIES = [
   entry0,
@@ -58,4 +60,6 @@ export const AUTOMATION_CATALOG_ENTRIES = [
   entry24,
   entry25,
   entry26,
+  entry27,
+  entry28,
 ];
