@@ -1,0 +1,11 @@
+{
+  "name": "Teams demo",
+  "source": "teams-demo",
+  "signature_scheme": "teams_hmac_sha256",
+  "signature_header": "Authorization",
+  "webhook_secret": "<TEAMS_ISSUED_BASE64_TOKEN>",
+  "acknowledgement": "teams_message",
+  "event_key_expr": "type",
+  "event_id_expr": "join('/', [conversation.id, id])",
+  "admission_expr": "channelData.tenant.id == '<TENANT_ID>' && channelData.team.id == '<TEAM_ID>' && channelData.channel.id == '<CHANNEL_ID>' && \"from\".aadObjectId == '<REQUESTER_OBJECT_ID>'"
+}

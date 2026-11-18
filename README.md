@@ -40,6 +40,10 @@ Browse available plugins in [`plugins/`](plugins/).
 
 Apps are installable interfaces that bring dashboards, internal tools, and workflows directly into Agent Canvas without requiring a fork. They are powered by the beta Canvas Extensions API. Browse [`apps/`](apps/) and read its package conventions before contributing. Enabling an App executes trusted JavaScript in the Agent Canvas browser context and permits authenticated requests to the active Agent Server, so review its source and resolved revision first. Apps are distinct from skills and plugins: they provide Canvas interfaces rather than agent instructions or capabilities.
 
+### Examples
+
+Runnable integration examples live under [`examples/`](examples/). The [Teams webhook example](examples/teams-webhook/README.md) connects a Teams command to an Agent Canvas event automation and sends a completion card back. Its setup README and tests are kept alongside the Python source.
+
 ### NPM Package
 
 This repository also publishes catalog data through the `@openhands/extensions` package. It requires Node.js 18.20.0 or newer because the catalog entry points import JSON modules with import attributes.
