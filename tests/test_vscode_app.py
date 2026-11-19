@@ -10,15 +10,15 @@ def test_vscode_app_manifest_has_pinned_remote_dual_arch_artifacts():
     manifest = json.loads((APP / "canvas-extension.json").read_text())
     backend = manifest["backend"]
     assert set(backend["artifacts"]) == {"linux-amd64", "linux-arm64"}
-    for artifact in backend["artifacts"].values():
+    for artifact in {**backend["artifacts"], **backend["additional_artifacts"]}.values():
         assert artifact["url"].startswith(
-            "https://github.com/gitpod-io/openvscode-server/releases/download/"
+            "https://github.com/coder/code-server/releases/download/"
         )
         assert artifact["url"].endswith(".tar.gz")
         assert len(artifact["sha256"]) == 64
         assert artifact["strip_components"] == 1
         assert "path" not in artifact
-    assert backend["argv"][0] == "{artifact_dir}/bin/openvscode-server"
+    assert backend["argv"][0] == "{artifact_dir}/bin/code-server"
     assert "HOME" not in backend["inherit_environment"]
     assert manifest["entrypoint"] == "extension.js"
 

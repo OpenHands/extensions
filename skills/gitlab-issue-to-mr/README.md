@@ -74,8 +74,32 @@ The `/issue-to-mr:setup` conversation substitutes the constants at the top of
 `scripts/main.py` and uploads the result. The catalog entry
 (`automations/catalog/gitlab-issue-to-mr/`) ships the same script unmodified as
 a **bundle** and renders a `config.json` beside it from the setup form, which the
-script loads over those constants. Both paths produce the same automation: a
-tarball the automation service runs on a cron, not a prompt handed to an agent.
+script loads over those constants. Both paths produce an automation tarball,
+not a prompt handed to an agent. The catalog offers a schedule or a signed
+webhook event; the conversation setup path uses a schedule.
+
+### Signed webhook event trigger (GitLab 19.0+)
+
+In Automations > Templates, choose **Event** to start from a GitLab issue open,
+reopen or label-change update instead of periodically scanning for labelled issues.
+The worker authenticates to GitLab to confirm the exact project, open state,
+trigger label and latest label-application ID, then starts only that issue.
+The run waits up to 1600 seconds for the conversation to finish and the merge
+request (or completion note) to be verified and posted; it fails if the issue
+has not finished by then. A schedule is useful for backlog or for work that
+outlasts an event run. Removing and reapplying the label requests another pass.
+
+Before selecting Event, ask the user to register a signed custom webhook source
+and configure GitLab **Issue events** on the project or parent group with the
+returned URL and the same signing token. Follow the [signed custom webhook
+instructions](../gitlab-mr-reviewer/README.md#event-trigger-prerequisite-gitlab-190),
+selecting **Issue events** instead of **Merge request events** in GitLab while
+keeping `event_key_expr: object_kind`. The same source can serve the reviewer
+and refiner if one webhook sends both issue and MR events. Different project
+webhooks with different signing tokens need separate sources and automations.
+Use a schedule if GitLab does not provide signing tokens (pre-19.0) or the
+OpenHands webhook endpoint is not publicly reachable; the older plain-text
+`X-Gitlab-Token` is not a substitute. Do not share signing tokens in chat.
 
 ## Prerequisites
 
