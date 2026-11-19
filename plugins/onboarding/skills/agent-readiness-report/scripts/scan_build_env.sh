@@ -16,11 +16,16 @@ for f in package-lock.json yarn.lock pnpm-lock.yaml bun.lockb \
 done
 
 echo ""
+justfiles=()
+for f in [Jj][Uu][Ss][Tt][Ff][Ii][Ll][Ee] .[Jj][Uu][Ss][Tt][Ff][Ii][Ll][Ee]; do
+  [ -f "$f" ] && justfiles+=("$f")
+done
+
 echo "-- Build commands --"
 # Check for documented build commands in common files
-for f in README.md AGENTS.md CONTRIBUTING.md Makefile Justfile; do
+for f in README.md AGENTS.md CONTRIBUTING.md Makefile "${justfiles[@]}"; do
   if [ -f "$f" ]; then
-    build_refs=$(grep -ci 'make build\|npm run build\|cargo build\|go build\|gradle build\|mvn.*package\|bundle exec' "$f" 2>/dev/null)
+    build_refs=$(grep -ci 'make build\|npm run build\|cargo build\|go build\|gradle build\|mvn.*package\|bundle exec\|just [A-Za-z0-9_-]*build' "$f" 2>/dev/null)
     [ "$build_refs" -gt 0 ] && echo "  $build_refs build command references in $f"
   fi
 done
@@ -28,7 +33,7 @@ done
 echo ""
 echo "-- Setup scripts --"
 for f in bin/setup script/setup scripts/setup.sh scripts/bootstrap.sh \
-         script/bootstrap Makefile Justfile; do
+         script/bootstrap Makefile "${justfiles[@]}"; do
   [ -f "$f" ] && echo "./$f"
 done
 
