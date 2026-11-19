@@ -477,6 +477,9 @@ Events use the format `{event_type}.{action}` or just `{event_type}` (for events
 | `release` | `release.published`, `release.created`, `release.released`, `release.prereleased` | Release activity |
 | `pull_request_review` | `pull_request_review.submitted`, `pull_request_review.edited`, `pull_request_review.dismissed` | PR review activity |
 | `workflow_run` | `workflow_run.requested`, `workflow_run.in_progress`, `workflow_run.completed` | GitHub Actions workflow run lifecycle; filter on `workflow_run.conclusion` (e.g. `'failure'`) |
+| `check_suite` | `check_suite.completed` | A suite of checks on a commit finished; filter on `check_suite.conclusion` (e.g. `'failure'`) and `check_suite.app.slug` (e.g. `'github-actions'`) |
+| `check_run` | `check_run.created`, `check_run.completed` | A single check on a commit; filter on `check_run.conclusion` and `check_run.name` |
+| `status` | `status` | Commit status changed; filter on `state` (`'pending'`, `'success'`, `'failure'`, `'error'`) and `context` |
 
 **Wildcards:** Use `*` to match any action — e.g., `pull_request.*` matches all PR events.
 
