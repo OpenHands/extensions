@@ -112,12 +112,13 @@ def get_secret(name):
     )) as r:
         return r.read().decode().strip()
 
-def fire_callback(status="COMPLETED", error=None):
+def fire_callback(status="COMPLETED", error=None, conversation_id=None):
     """Signal run completion. MUST be called on every exit path — success AND error."""
     url = os.environ.get("AUTOMATION_CALLBACK_URL", "")
     if not url: return
     body = {"status": status, "run_id": os.environ.get("AUTOMATION_RUN_ID", "")}
     if error: body["error"] = error
+    if conversation_id: body["conversation_id"] = conversation_id
     try:
         urllib.request.urlopen(urllib.request.Request(url, data=json.dumps(body).encode(), headers={
             "Content-Type": "application/json",
@@ -127,6 +128,8 @@ def fire_callback(status="COMPLETED", error=None):
 ```
 
 Entrypoint must be `python3 main.py` (no `setup.sh` needed). Wrap your main logic in `try/except` and call `fire_callback("FAILED", str(e))` in the except block.
+
+**If the script starts a conversation, pass its ID to the callback** (`fire_callback("COMPLETED", conversation_id=cid)`). The callback is the only way a script run reports a conversation to the automation service; the preset runners do it for you, a script does not. Without it the run's `conversation_id` stays `null`, so nobody can find the conversation from the run, and the service cannot attach the conversation's final response to the run. Saving the ID in KV state or logging it does not set it. A run can record one conversation: if the script starts several, report the first and log the rest. This also applies to a `script` runner in a plugin-spec automation.
 
 **State persistence between runs** — polling automations that track a "last processed" timestamp or active conversation IDs must use the built-in KV store rather than local files. Local files are lost when a run ends on a cloud pod. The KV store is available when `AUTOMATION_KV_TOKEN` is injected into the run environment. See `references/custom-automation.md#state-persistence-kv-store` for ready-to-copy `kv_get` / `kv_set` / `load_state` / `save_state` helpers.
 
@@ -356,11 +359,12 @@ def get_secret(name):
     with urllib.request.urlopen(req) as r:
         return r.read().decode().strip()
 
-def fire_callback(status="COMPLETED", error=None):
+def fire_callback(status="COMPLETED", error=None, conversation_id=None):
     url = os.environ.get("AUTOMATION_CALLBACK_URL", "")
     if not url: return
     body = {"status": status, "run_id": os.environ.get("AUTOMATION_RUN_ID", "")}
     if error: body["error"] = error
+    if conversation_id: body["conversation_id"] = conversation_id
     req = urllib.request.Request(url, data=json.dumps(body).encode(), headers={
         "Content-Type": "application/json",
         "Authorization": f"Bearer {os.environ.get('AUTOMATION_CALLBACK_API_KEY', '')}",
@@ -1243,7 +1247,7 @@ Run status values: `PENDING` (waiting for dispatch), `RUNNING` (in progress), `C
 
 ## Run Lifecycle
 
-When a run completes, the automation service receives a callback and marks the run done. Any conversations started during the run remain accessible in the OpenHands UI — users can view the history and continue interacting. The agent server persists until it times out or is manually deleted.
+When a run completes, the automation service receives a callback and marks the run done. Any conversations started during the run remain accessible in the OpenHands UI — users can view the history and continue interacting. A run only links to a conversation if the callback carried its `conversation_id`; the preset runners send it, a custom or `script`-runner script must send it itself (see *No-LLM Script Helpers*). The agent server persists until it times out or is manually deleted.
 
 The automation script itself controls when the callback fires (signalling completion). For simple synchronous scripts this happens naturally on exit. For scripts that start asynchronous conversations, the callback should be deferred until the conversation reaches an idle state (see `references/custom-automation.md` for patterns).
 

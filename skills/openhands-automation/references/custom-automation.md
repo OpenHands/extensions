@@ -511,13 +511,15 @@ def get_secret(name: str) -> str:
 ```python
 import json, os, urllib.request
 
-def fire_callback(status: str = "COMPLETED", error: str | None = None) -> None:
+def fire_callback(status: str = "COMPLETED", error: str | None = None, conversation_id: str | None = None) -> None:
     url = os.environ.get("AUTOMATION_CALLBACK_URL", "")
     if not url:
         return
     body = {"status": status, "run_id": os.environ.get("AUTOMATION_RUN_ID", "")}
     if error:
         body["error"] = error
+    if conversation_id:
+        body["conversation_id"] = conversation_id
     req = urllib.request.Request(url, data=json.dumps(body).encode(), headers={
         "Content-Type": "application/json",
         "Authorization": f"Bearer {os.environ.get('AUTOMATION_CALLBACK_API_KEY', '')}",
@@ -527,6 +529,8 @@ def fire_callback(status: str = "COMPLETED", error: str | None = None) -> None:
     except Exception as e:
         print(f"Callback error (non-fatal): {e}")
 ```
+
+If the script starts a conversation, pass its ID: `fire_callback("COMPLETED", conversation_id=cid)`. This is the only way the run record gets a `conversation_id`. It is not set by saving the ID in KV state or printing it. A run records one ID; when the script starts several, send the first and log the rest. If the conversation outlives the run (the script does not wait for it), still send its ID in the callback of the run that started it.
 
 ---
 
@@ -754,11 +758,12 @@ def get_secret(name):
     with urllib.request.urlopen(req) as r:
         return r.read().decode().strip()
 
-def fire_callback(status="COMPLETED", error=None):
+def fire_callback(status="COMPLETED", error=None, conversation_id=None):
     url = os.environ.get("AUTOMATION_CALLBACK_URL", "")
     if not url: return
     body = {"status": status, "run_id": os.environ.get("AUTOMATION_RUN_ID", "")}
     if error: body["error"] = error
+    if conversation_id: body["conversation_id"] = conversation_id
     req = urllib.request.Request(url, data=json.dumps(body).encode(), headers={
         "Content-Type": "application/json",
         "Authorization": f"Bearer {os.environ.get('AUTOMATION_CALLBACK_API_KEY', '')}",
@@ -908,6 +913,9 @@ The script sent `fire_callback("FAILED")` immediately — before doing meaningfu
 - An import error in the entrypoint
 
 Add `"error": str(exc)` to your `fire_callback("FAILED", ...)` call so `error_detail` is populated.
+
+### Runs complete but `conversation_id` is `null`
+The script starts a conversation but does not put its ID in the completion callback. Pass `conversation_id=` to `fire_callback()`. Runs that already finished cannot be updated.
 
 ### Run stays `RUNNING` indefinitely, then fails
 The completion callback was never fired. Every code path in your script must call `fire_callback()` — including exception handlers.
