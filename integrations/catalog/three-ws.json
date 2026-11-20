@@ -1,0 +1,34 @@
+{
+  "id": "three-ws",
+  "name": "three.ws 3D Studio",
+  "description": "Generate textured GLB models and rigged avatars from text, auto-rig a GLB, render a model so the agent can check it, and search a catalog of ready-made 3D props, characters, and motion clips. No account needed.",
+  "categories": [
+    "Engineering",
+    "Design"
+  ],
+  "docsUrl": "https://three.ws/docs/mcp-studio",
+  "logoUrl": "https://three.ws/favicon.svg",
+  "iconBg": "var(--oh-color-base)",
+  "keywords": [
+    "3d",
+    "glb",
+    "text-to-3d",
+    "avatar",
+    "rigging",
+    "assets",
+    "three.js"
+  ],
+  "connectionOptions": [
+    {
+      "id": "none",
+      "provider": "mcp",
+      "transport": {
+        "kind": "shttp",
+        "url": "https://three.ws/api/mcp-studio"
+      },
+      "auth": {
+        "strategy": "none"
+      }
+    }
+  ]
+}
