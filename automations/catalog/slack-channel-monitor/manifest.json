@@ -7,7 +7,7 @@
   "requires": {
     "integrations": {
       "slack": {
-        "message": "Reads channel messages and posts replies back to the thread."
+        "message": "Connecting Slack alone does not run this automation: the polling script needs a SLACK_BOT_TOKEN or SLACK_USER_TOKEN secret in Settings > Secrets. The connection is passed only to the conversations it starts."
       }
     }
   },
