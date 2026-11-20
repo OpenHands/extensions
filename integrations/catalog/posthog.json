@@ -57,6 +57,21 @@
       }
     },
     {
+      "id": "mcp",
+      "provider": "mcp",
+      "transport": {
+        "kind": "shttp",
+        "url": "https://mcp.posthog.com/mcp?readonly=true",
+        "urlEditable": true
+      },
+      "auth": {
+        "strategy": "oauth2",
+        "oauth": {
+          "clientAuthentication": "none"
+        }
+      }
+    },
+    {
       "id": "api-key",
       "provider": "mcp",
       "transport": {
