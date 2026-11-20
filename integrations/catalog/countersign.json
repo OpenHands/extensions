@@ -1,0 +1,31 @@
+{
+  "id": "countersign",
+  "name": "Countersign",
+  "description": "Verify an agent's \"done\" against the live outcome (URL, PR state, DNS, TLS) with deterministic checks and a public receipt. Opt-in; keyless to connect.",
+  "docsUrl": "https://countersign.signalry.ai/start/listings/openhands/llms-install.md",
+  "appUrl": "https://countersign.signalry.ai/?ref=openhands",
+  "logoUrl": "https://countersign.signalry.ai/icon-400.png",
+  "iconBg": "#1f883d",
+  "keywords": [
+    "verification",
+    "receipts",
+    "deploy",
+    "pull-request",
+    "dns",
+    "audit"
+  ],
+  "installHint": "No key needed to connect. The start tool issues a key and a verified first claim in one call when you want one.",
+  "connectionOptions": [
+    {
+      "id": "none",
+      "provider": "mcp",
+      "transport": {
+        "kind": "shttp",
+        "url": "https://countersign.signalry.ai/mcp?ref=openhands"
+      },
+      "auth": {
+        "strategy": "none"
+      }
+    }
+  ]
+}
