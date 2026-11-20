@@ -1,0 +1,70 @@
+{
+  "id": "kling-ai-plugin",
+  "name": "Kling AI Plugin",
+  "description": "Generate and edit AI images and videos through Kling's official hosted MCP service.",
+  "categories": [
+    "Creative",
+    "Video generation"
+  ],
+  "appUrl": "https://kling.ai/",
+  "docsUrl": "https://kling.ai/app/mcp/guide",
+  "notes": "Official remote MCP service with separate Global and China endpoints. OAuth uses dynamic client registration and PKCE S256. Image and video generation consumes Kling credits.",
+  "installHint": "Choose the endpoint for your Kling account region, then connect with OAuth. Generation uses Kling credits.",
+  "connectionOptions": [
+    {
+      "id": "global-plugin",
+      "provider": "mcp",
+      "auth": {
+        "strategy": "oauth2",
+        "oauth": {
+          "authorizationUrl": "https://kling.ai/auth/authorize",
+          "tokenUrl": "https://kling.ai/auth/token",
+          "scopes": [
+            "generation.create",
+            "generation.read",
+            "account.credit.read"
+          ],
+          "pkce": true,
+          "clientAuthentication": "none",
+          "registrationUrl": "https://kling.ai/auth/register"
+        }
+      },
+      "transport": {
+        "kind": "shttp",
+        "url": "https://kling.ai/mcp/plugin"
+      }
+    },
+    {
+      "id": "china-plugin",
+      "provider": "mcp",
+      "auth": {
+        "strategy": "oauth2",
+        "oauth": {
+          "authorizationUrl": "https://klingai.com/auth/authorize",
+          "tokenUrl": "https://klingai.com/auth/token",
+          "scopes": [
+            "generation.create",
+            "generation.read",
+            "account.credit.read"
+          ],
+          "pkce": true,
+          "clientAuthentication": "none",
+          "registrationUrl": "https://klingai.com/auth/register"
+        }
+      },
+      "transport": {
+        "kind": "shttp",
+        "url": "https://klingai.com/mcp/plugin"
+      }
+    }
+  ],
+  "iconBg": "#ffffff",
+  "logoUrl": "https://kling.ai/favicon.ico",
+  "keywords": [
+    "image generation",
+    "video generation",
+    "MCP",
+    "OAuth",
+    "Kling 4.0"
+  ]
+}
