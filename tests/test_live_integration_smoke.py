@@ -11,16 +11,16 @@ live:
 
     GITHUB_PERSONAL_ACCESS_TOKEN=... \
     LINEAR_API_KEY=... \
-    SLACK_BOT_TOKEN=... SLACK_TEAM_ID=... \
+    SLACK_USER_TOKEN=... \
     uv run --group test pytest tests/test_live_integration_smoke.py -rA -s
 
 Preconditions:
 - The GitHub token needs the scopes stated in the catalog entry (classic:
   ``repo`` and ``read:user``).
 - The Linear API key needs at least read access.
-- The Slack bot must be a member of at least one channel with message history
-  (``/invite @your-bot``), and its token needs the scopes stated in the
-  catalog entry.
+- The Slack user token must come from a Slack app with the Slack MCP server
+  feature enabled and the scopes stated in the catalog entry, and its user
+  must be a member of at least one public channel with message history.
 
 Evidence lines are printed as ``[OSS-5193] ...`` and contain only tool names,
 counts, and provider error codes — never credentials or message content.
@@ -28,8 +28,10 @@ counts, and provider error codes — never credentials or message content.
 
 import json
 import os
+import re
 from contextlib import contextmanager
 
+import mcp.shared.exceptions
 import mcp.types
 import pytest
 from openhands.sdk.mcp import MCPError, MCPServer, MCPTimeoutError, create_mcp_tools
@@ -39,20 +41,14 @@ from openhands_extensions import get_integration_catalog_entry_model
 
 GITHUB_TOKEN_ENV = "GITHUB_PERSONAL_ACCESS_TOKEN"
 LINEAR_TOKEN_ENV = "LINEAR_API_KEY"
-SLACK_ENV_KEYS = ("SLACK_TEAM_ID", "SLACK_BOT_TOKEN")
+SLACK_USER_TOKEN_ENV = "SLACK_USER_TOKEN"
 
 HTTP_TIMEOUT = 30.0
-STDIO_TIMEOUT = 90.0  # a cold `npx -y` run downloads the Slack server first
 
-# Auth failure codes the Agent Canvas interpreter reclassifies as credential
-# failures (agent-canvas src/utils/mcp-credential-validation.ts).
-SLACK_AUTH_FAILURES = {
-    "invalid_auth",
-    "not_authed",
-    "account_inactive",
-    "token_revoked",
-    "token_expired",
-}
+# Channel IDs and message timestamps as Slack's hosted MCP server prints them
+# in tool output.
+SLACK_CHANNEL_ID_RE = re.compile(r"(?<![A-Z0-9])[CG][A-Z0-9]{8,}(?![A-Za-z0-9])")
+SLACK_MESSAGE_TS_RE = re.compile(r"Message TS: (\d+\.\d+)")
 
 requires_github = pytest.mark.skipif(
     not os.environ.get(GITHUB_TOKEN_ENV),
@@ -63,8 +59,8 @@ requires_linear = pytest.mark.skipif(
     reason=f"set {LINEAR_TOKEN_ENV} to run the live Linear MCP smoke test",
 )
 requires_slack = pytest.mark.skipif(
-    not all(os.environ.get(key) for key in SLACK_ENV_KEYS),
-    reason=f"set {' and '.join(SLACK_ENV_KEYS)} to run the live Slack MCP smoke test",
+    not os.environ.get(SLACK_USER_TOKEN_ENV),
+    reason=f"set {SLACK_USER_TOKEN_ENV} to run the live hosted Slack MCP smoke test",
 )
 
 
@@ -275,92 +271,81 @@ def test_linear_invalid_token_yields_structured_failure():
 
 
 @requires_slack
-def test_slack_channel_and_thread_read():
+def test_slack_hosted_channel_and_thread_read():
     option = _installable_option("slack")
-    env_keys = [field.key for field in option.transport.envFields or []]
-    assert set(env_keys) == set(SLACK_ENV_KEYS)
-    server = _stdio_server(option, {key: os.environ[key] for key in env_keys})
+    # The env var doubles as the catalog's secret name; fail loudly on drift.
+    assert option.auth.credentialSecretName == SLACK_USER_TOKEN_ENV
+    assert option.transport.url == "https://mcp.slack.com/mcp"
+    server = _remote_server(option, os.environ[SLACK_USER_TOKEN_ENV])
 
-    with _connect("slack", server, STDIO_TIMEOUT) as (tool_names, call):
+    with _connect("slack-hosted", server, HTTP_TIMEOUT) as (tool_names, call):
         for required in (
-            "slack_list_channels",
-            "slack_get_channel_history",
-            "slack_get_thread_replies",
+            "slack_list_user_channels",
+            "slack_read_channel",
+            "slack_read_thread",
         ):
             assert required in tool_names, (
                 f"{required} not advertised; server offers: {sorted(tool_names)}"
             )
 
-        is_error, text = call("slack_list_channels", {"limit": 5})
-        assert not is_error, f"slack_list_channels failed: {text}"
-        payload = json.loads(text)
-        assert payload.get("ok") is True, (
-            f"slack_list_channels not ok: {payload.get('error')}"
+        is_error, text = call(
+            "slack_list_user_channels",
+            {"types": "public_channel", "format": "ids_only", "limit": 5},
         )
-        channels = payload.get("channels") or []
-        assert channels, "no channels visible to the bot"
+        assert not is_error, f"slack_list_user_channels failed: {text}"
+        channel_ids = SLACK_CHANNEL_ID_RE.findall(text)
+        assert channel_ids, "the user is not a member of any public channel"
         _evidence(
-            f"slack: {len(tool_names)} tools; list_channels ok "
-            f"({len(channels)} channel(s))"
+            f"slack hosted: {len(tool_names)} tools; list_user_channels ok "
+            f"({len(channel_ids)} channel(s))"
         )
 
-        for channel in channels:
+        for channel_id in channel_ids:
             is_error, text = call(
-                "slack_get_channel_history",
-                {"channel_id": channel["id"], "limit": 10},
+                "slack_read_channel", {"channel_id": channel_id, "limit": 10}
             )
             if is_error:
                 continue
-            history = json.loads(text)
-            if history.get("ok") is not True:
-                continue  # e.g. not_in_channel — try the next channel
-            for message in history.get("messages") or []:
-                ts = message.get("thread_ts") or message.get("ts")
-                if not ts:
-                    continue
-                is_error, text = call(
-                    "slack_get_thread_replies",
-                    {"channel_id": channel["id"], "thread_ts": ts},
-                )
-                assert not is_error, f"slack_get_thread_replies failed: {text}"
-                replies = json.loads(text)
-                assert replies.get("ok") is True, (
-                    f"slack_get_thread_replies not ok: {replies.get('error')}"
-                )
-                _evidence(
-                    "slack: channel history + thread read ok "
-                    f"({len(replies.get('messages') or [])} message(s) in thread)"
-                )
-                return
+            message_ts = SLACK_MESSAGE_TS_RE.search(text)
+            if message_ts is None:
+                continue  # no messages - try the next channel
+            is_error, text = call(
+                "slack_read_thread",
+                {"channel_id": channel_id, "message_ts": message_ts.group(1)},
+            )
+            assert not is_error, f"slack_read_thread failed: {text}"
+            assert text.strip()
+            _evidence("slack hosted: channel history + thread read ok")
+            return
         pytest.fail(
-            "no channel with readable message history: invite the bot to a "
-            "public channel that has messages (/invite @your-bot) and rerun"
+            "no channel with readable message history: join a public channel "
+            "that has messages and rerun"
         )
 
 
 @requires_slack
-def test_slack_invalid_token_yields_in_band_error():
+def test_slack_hosted_invalid_token_yields_structured_failure():
     option = _installable_option("slack")
-    bogus = "xoxb-invalid-oss5193"
-    server = _stdio_server(
-        option,
-        {"SLACK_TEAM_ID": os.environ["SLACK_TEAM_ID"], "SLACK_BOT_TOKEN": bogus},
-    )
+    bogus = "xoxp-invalid-oss5193"
+    server = _remote_server(option, bogus)
 
-    with _connect("slack-invalid", server, STDIO_TIMEOUT) as (tool_names, call):
-        # The stdio server starts and lists tools with any token — the exact
-        # reason Agent Canvas interprets the in-band payload of a read-only
-        # tool call instead of trusting tools/list.
-        assert "slack_list_channels" in tool_names
-        is_error, text = call("slack_list_channels", {"limit": 1})
-        assert bogus not in text, "failure text must not echo the credential"
-        payload = json.loads(text)
-        assert payload.get("ok") is False
-        assert payload.get("error") in SLACK_AUTH_FAILURES, (
-            f"unexpected error code {payload.get('error')!r}; Canvas reclassifies "
-            f"only {sorted(SLACK_AUTH_FAILURES)} as credential failures"
-        )
-        _evidence(
-            f"slack: invalid token -> in-band ok=false error={payload.get('error')} "
-            f"(is_error={is_error})"
-        )
+    try:
+        with _connect("slack-hosted-invalid", server, HTTP_TIMEOUT) as (
+            tool_names,
+            call,
+        ):
+            if "slack_list_user_channels" in tool_names:
+                is_error, text = call("slack_list_user_channels", {"limit": 1})
+            else:
+                is_error, text = True, "slack_list_user_channels not advertised"
+            assert is_error, "expected an auth failure with an invalid token"
+            assert bogus not in text, "failure text must not echo the credential"
+            _evidence("slack hosted: invalid token -> tool-level error (is_error=true)")
+    except MCPTimeoutError:
+        pytest.fail("invalid Slack token should fail fast, not time out")
+    except (MCPError, mcp.shared.exceptions.MCPError) as exc:
+        # Slack answers initialize with HTTP 401 and a JSON-RPC error, which
+        # the SDK re-raises as the MCP library's own error.
+        detail = str(exc.__cause__ or exc.__context__ or exc)
+        assert bogus not in detail, "failure text must not echo the credential"
+        _evidence("slack hosted: invalid token -> connection-stage failure")

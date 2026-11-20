@@ -7,8 +7,8 @@
     "Operations"
   ],
   "appUrl": "https://slack.com",
-  "docsUrl": "https://github.com/zencoderai/slack-mcp-server",
-  "notes": "The OAuth option uses Slack's official hosted MCP server (confidential OAuth user-token auth); the local option runs the open-source zencoderai stdio server with a bot token.",
+  "docsUrl": "https://docs.slack.dev/ai/slack-mcp-server/",
+  "notes": "Slack's official hosted MCP server (https://mcp.slack.com/mcp) acts as the authorizing user and serves only internal or Slack Marketplace apps that have the MCP server feature enabled; workspace admins can approve and manage them. The OAuth option reaches it with confidential OAuth (the app's client ID and secret; Slack has no dynamic client registration), and the user-token option sends a user token from your own Slack app. No third-party stdio server is shipped.",
   "popularityRank": 95,
   "connectionOptions": [
     {
@@ -60,37 +60,19 @@
       }
     },
     {
-      "id": "api",
+      "id": "user-token",
       "provider": "mcp",
       "transport": {
-        "kind": "stdio",
-        "serverName": "slack",
-        "command": "npx",
-        "args": [
-          "-y",
-          "@zencoderai/slack-mcp-server"
-        ],
-        "envFields": [
-          {
-            "key": "SLACK_TEAM_ID",
-            "label": "Team / Workspace ID",
-            "type": "text",
-            "placeholder": "T01234567",
-            "helperText": "First get your [Slack URL](https://slack.com/help/articles/221769328-Locate-your-Slack-URL-or-ID#find-your-url). Then use that to get your [Workspace ID](https://slack.com/help/articles/221769328-Locate-your-Slack-URL-or-ID#find-your-workspace-or-org-id).",
-            "required": true
-          },
-          {
-            "key": "SLACK_BOT_TOKEN",
-            "label": "Bot token",
-            "type": "password",
-            "placeholder": "xoxb-...",
-            "required": true,
-            "helperText": "You'll need to create or have access to a [Slack App](https://github.com/zencoderai/slack-mcp-server#slack-bot-setup) to get a Bot token."
-          }
-        ]
+        "kind": "shttp",
+        "url": "https://mcp.slack.com/mcp"
       },
       "auth": {
-        "strategy": "api_key"
+        "strategy": "bearer",
+        "credentialLabel": "User OAuth token",
+        "credentialPlaceholder": "xoxp-...",
+        "credentialHelp": "In your [Slack app](https://api.slack.com/apps), turn on Slack Model Context Protocol (MCP) Server under Agents and add user token scopes such as channels:history, channels:read, chat:write, reactions:write, search:read.public, and users:read ([scopes per tool](https://docs.slack.dev/ai/slack-mcp-server/#oauth-scopes)). Install the app (a workspace admin may need to approve it) and copy the User OAuth Token from OAuth & Permissions. Sent as Authorization: Bearer <token>.",
+        "credentialSecretName": "SLACK_USER_TOKEN",
+        "saveCredentialAsSecretByDefault": true
       }
     }
   ],
@@ -101,5 +83,5 @@
     "messaging",
     "team"
   ],
-  "installHint": "Create a Slack app with bot token scopes channels:history, channels:read, chat:write, reactions:write, users:read, and users.profile:read, then paste its bot token below."
+  "installHint": "Use Slack's official hosted MCP server. Create or choose a Slack app (internal or Marketplace-listed) with the Slack MCP server feature enabled, add user token scopes such as channels:history, channels:read, chat:write, reactions:write, search:read.public, and users:read, install it (a workspace admin may need to approve it), then paste the User OAuth Token below. See https://docs.slack.dev/ai/slack-mcp-server/."
 }
