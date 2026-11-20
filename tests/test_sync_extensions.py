@@ -19,6 +19,7 @@ from sync_extensions import (
     parse_frontmatter,
     slash_triggers,
     sync_commands,
+    sync_plugin_skills,
     sync_symlinks,
 )
 
@@ -406,3 +407,59 @@ class TestMarketplaceSourcePaths:
                     f"{mp_file.name}: {plugin.get('name', '?')} source "
                     f"'{src}' does not exist at {resolved}"
                 )
+
+
+# ── plugin skill copies ──────────────────────────────────────────────
+
+def _make_shared_skill(root: Path, plugin: str = "demo-plugin", name: str = "demo") -> tuple[Path, Path]:
+    """Create skills/<name> and an empty plugins/<plugin>/skills/ dir."""
+    src = root / "skills" / name
+    (src / ".plugin").mkdir(parents=True)
+    (src / "SKILL.md").write_text("---\nname: demo\ndescription: d\n---\nbody\n")
+    (src / ".plugin" / "plugin.json").write_text('{"name": "demo"}\n')
+    (src / ".codex-plugin").symlink_to(".plugin", target_is_directory=True)
+    skills_sub = root / "plugins" / plugin / "skills"
+    skills_sub.mkdir(parents=True)
+    return src, skills_sub / name
+
+
+class TestPluginSkillCopies:
+    def test_repo_plugin_skills_are_real_copies(self):
+        """Every shared plugin skill in the repo is a real, up-to-date copy."""
+        assert sync_plugin_skills(check=True) == []
+
+    def test_symlinked_plugin_skill_is_flagged_and_fixed(self, tmp_path, monkeypatch):
+        monkeypatch.setattr("sync_extensions.REPO_ROOT", tmp_path)
+        src, dst = _make_shared_skill(tmp_path)
+        dst.symlink_to(Path("../../../skills") / src.name, target_is_directory=True)
+
+        problems = sync_plugin_skills(check=True)
+        assert any("symlinked plugin skill" in p for p in problems)
+        assert dst.is_symlink()
+
+        sync_plugin_skills(check=False)
+        assert not dst.is_symlink() and dst.is_dir()
+        assert (dst / "SKILL.md").read_bytes() == (src / "SKILL.md").read_bytes()
+        # in-skill vendor symlinks are preserved (they stay inside the plugin)
+        assert (dst / ".codex-plugin").is_symlink()
+        assert sync_plugin_skills(check=True) == []
+
+    def test_stale_copy_is_flagged_and_fixed(self, tmp_path, monkeypatch):
+        monkeypatch.setattr("sync_extensions.REPO_ROOT", tmp_path)
+        src, dst = _make_shared_skill(tmp_path)
+        shutil.copytree(src, dst, symlinks=True)
+        (src / "SKILL.md").write_text("---\nname: demo\ndescription: d\n---\nnew body\n")
+
+        assert any("stale plugin skill copy" in p for p in sync_plugin_skills(check=True))
+        sync_plugin_skills(check=False)
+        assert (dst / "SKILL.md").read_text().endswith("new body\n")
+
+    def test_plugin_local_skill_is_left_alone(self, tmp_path, monkeypatch):
+        monkeypatch.setattr("sync_extensions.REPO_ROOT", tmp_path)
+        local = tmp_path / "plugins" / "demo-plugin" / "skills" / "local-only"
+        local.mkdir(parents=True)
+        (local / "SKILL.md").write_text("local\n")
+        (tmp_path / "skills").mkdir()
+
+        assert sync_plugin_skills(check=True) == []
+        assert (local / "SKILL.md").read_text() == "local\n"

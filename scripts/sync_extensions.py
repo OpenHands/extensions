@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Keep the OpenHands extensions registry in sync.
 
-Four sync tasks, runnable individually or all at once:
+Five sync tasks, runnable individually or all at once:
 
   1. **commands**  — generate Claude Code ``commands/<trigger>.md`` files from
      SKILL.md slash-triggers.
@@ -11,6 +11,9 @@ Four sync tasks, runnable individually or all at once:
   4. **symlinks**  — enforce ``.plugin/`` as the canonical manifest directory
      with vendor manifests (``.claude-plugin``, ``.codex-plugin``), each
      either a symlink or a real directory mirroring ``plugin.json``.
+  5. **plugin-skills** — keep ``plugins/<plugin>/skills/<name>`` as a real
+     directory copy of ``skills/<name>``. The SDK only loads plugin files that
+     resolve inside the plugin root, so symlinks into ``skills/`` are skipped.
 
 Usage:
     python scripts/sync_extensions.py                   # run all, write changes
@@ -19,6 +22,7 @@ Usage:
     python scripts/sync_extensions.py catalog            # only regenerate README catalog
     python scripts/sync_extensions.py coverage           # only check marketplace coverage
     python scripts/sync_extensions.py symlinks           # only check/fix vendor symlinks
+    python scripts/sync_extensions.py plugin-skills      # only check/fix plugin skill copies
     python scripts/sync_extensions.py commands catalog   # combine sub-commands
 """
 
@@ -26,7 +30,9 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
+import shutil
 import sys
 from dataclasses import dataclass
 from pathlib import Path
@@ -341,23 +347,11 @@ def sync_coverage(*, check: bool) -> list[str]:
         for p in mp.get("plugins", []):
             all_sources.add(p.get("source", ""))
 
-    # Collect skill dirs that are symlink targets inside a plugin's skills/
-    # subdirectory — these are covered by the parent plugin entry.
-    symlink_targets: set[str] = set()
-    plugins_dir = REPO_ROOT / "plugins"
-    if plugins_dir.is_dir():
-        for plugin_dir in plugins_dir.iterdir():
-            skills_sub = plugin_dir / "skills"
-            if not skills_sub.is_dir():
-                continue
-            for entry in skills_sub.iterdir():
-                if entry.is_symlink():
-                    resolved = entry.resolve()
-                    try:
-                        rel = f"./{resolved.relative_to(REPO_ROOT)}"
-                        symlink_targets.add(rel)
-                    except ValueError:
-                        pass
+    # Skill dirs copied into a plugin's skills/ subdirectory are covered by
+    # the parent plugin entry.
+    symlink_targets: set[str] = {
+        f"./skills/{dst.name}" for _, dst in _plugin_skill_copies()
+    }
 
     problems: list[str] = []
 
@@ -449,6 +443,75 @@ def sync_symlinks(*, check: bool) -> list[str]:
     return problems
 
 
+# ── 5. Plugin skill copies ──────────────────────────────────────────
+
+
+def _plugin_skill_copies() -> list[tuple[Path, Path]]:
+    """(skills/<name>, plugins/<plugin>/skills/<name>) pairs for shared skills."""
+    pairs: list[tuple[Path, Path]] = []
+    plugins_dir = REPO_ROOT / "plugins"
+    if not plugins_dir.is_dir():
+        return pairs
+    for plugin_dir in sorted(plugins_dir.iterdir()):
+        skills_sub = plugin_dir / "skills"
+        if not skills_sub.is_dir():
+            continue
+        for dst in sorted(skills_sub.iterdir()):
+            src = REPO_ROOT / "skills" / dst.name
+            if src.is_dir() and not src.is_symlink():
+                pairs.append((src, dst))
+    return pairs
+
+
+# Build/test artifacts that are never committed and must not affect the check.
+_COPY_IGNORE = ("__pycache__", "*.pyc")
+
+
+def _tree_snapshot(directory: Path) -> dict[str, bytes]:
+    """Relative path -> file bytes (or ``symlink:<target>``) for a directory."""
+    snapshot: dict[str, bytes] = {}
+    for current, dirs, files in os.walk(directory):
+        dirs[:] = [d for d in dirs if d != "__pycache__"]
+        files = [f for f in files if not f.endswith(".pyc")]
+        base = Path(current)
+        for name in sorted(dirs + files):
+            path = base / name
+            rel = path.relative_to(directory).as_posix()
+            if path.is_symlink():
+                snapshot[rel] = f"symlink:{os.readlink(path)}".encode()
+            elif path.is_file():
+                snapshot[rel] = path.read_bytes()
+    return snapshot
+
+
+def sync_plugin_skills(*, check: bool) -> list[str]:
+    """Keep shared skills inside plugins as real copies of ``skills/<name>``.
+
+    Plugin loaders only accept files that resolve inside the plugin root, so a
+    symlink from ``plugins/<plugin>/skills/<name>`` into ``skills/`` loads no
+    skill at all. Each shared skill is therefore shipped as a real directory
+    that must match its canonical source byte for byte.
+    """
+    problems: list[str] = []
+    for src, dst in _plugin_skill_copies():
+        rel = dst.relative_to(REPO_ROOT)
+        if dst.is_symlink():
+            problems.append(f"symlinked plugin skill (not loadable): {rel}")
+        elif _tree_snapshot(src) != _tree_snapshot(dst):
+            problems.append(f"stale plugin skill copy: {rel}")
+        else:
+            continue
+        if not check:
+            if dst.is_symlink():
+                dst.unlink()
+            else:
+                shutil.rmtree(dst)
+            shutil.copytree(
+                src, dst, symlinks=True, ignore=shutil.ignore_patterns(*_COPY_IGNORE)
+            )
+    return problems
+
+
 # ── Main ─────────────────────────────────────────────────────────────
 
 ALL_SYNCS = {
@@ -456,6 +519,7 @@ ALL_SYNCS = {
     "catalog": sync_catalog,
     "coverage": sync_coverage,
     "symlinks": sync_symlinks,
+    "plugin-skills": sync_plugin_skills,
 }
 
 

@@ -3,6 +3,7 @@
 from pathlib import Path
 
 import pytest
+from openhands.sdk.plugin import Plugin
 from openhands.sdk.skills import Skill
 from openhands.sdk.marketplace import Marketplace, MarketplacePluginEntry
 
@@ -148,3 +149,25 @@ class TestSkillsLoadWithSDK:
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
+
+
+class TestPluginsLoadWithSDK:
+    """Plugins must load every skill they ship under ``skills/``.
+
+    The SDK skips plugin files that resolve outside the plugin root, so a
+    symlink from ``plugins/<plugin>/skills/<name>`` into the top-level
+    ``skills/`` directory silently loads nothing.
+    """
+
+    def test_all_plugin_skills_load_with_sdk(self):
+        plugins_dir = Path(__file__).parent.parent / "plugins"
+        missing = {}
+        for plugin_dir in sorted(plugins_dir.iterdir()):
+            skills_sub = plugin_dir / "skills"
+            if not skills_sub.is_dir():
+                continue
+            expected = {d.name for d in skills_sub.iterdir() if (d / "SKILL.md").is_file()}
+            loaded = {s.name for s in Plugin.load(plugin_dir).skills}
+            if expected - loaded:
+                missing[plugin_dir.name] = sorted(expected - loaded)
+        assert not missing, f"Plugin skills not loaded by the SDK: {missing}"

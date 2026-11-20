@@ -974,16 +974,16 @@ class TestPluginStructure:
         )
         assert prompt.is_file()
 
-    def test_skills_symlink_exists(self):
-        """Test that the skills symlink exists."""
-        symlink = (
+    def test_plugin_skill_exists(self):
+        """Test that the plugin ships the release-notes skill."""
+        skill = (
             Path(__file__).parent.parent
             / "plugins"
             / "release-notes"
             / "skills"
             / "release-notes"
         )
-        assert symlink.exists()
+        assert (skill / "SKILL.md").is_file()
 
 
 if __name__ == "__main__":
