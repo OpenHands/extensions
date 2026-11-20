@@ -43,6 +43,14 @@ $query = @'
 gh api graphql -f query="$query"
 ```
 
+## Rate-limit Fallbacks
+
+In Windows PowerShell 5.1, `curl` is an alias for `Invoke-WebRequest`. Call `curl.exe` and read the token from `$env:GITHUB_TOKEN`:
+
+```powershell
+curl.exe -fsSL -H "Authorization: token $env:GITHUB_TOKEN" https://raw.githubusercontent.com/OWNER/REPO/main/path/to/file
+```
+
 ## Redirects
 
 Replace POSIX redirects such as `2>/dev/null` with PowerShell redirects such as `2>$null`.

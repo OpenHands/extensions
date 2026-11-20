@@ -43,6 +43,18 @@ git remote -v && git branch # to find the current org, repo and branch
 git checkout -b create-widget && git add . && git commit -m "Create widget" && git push -u origin create-widget
 ```
 
+## Rate limits
+
+When a GitHub call fails with a rate-limit error, the skill tells the agent to
+check `gh api rate_limit` first, which uses no quota. It waits only for a
+secondary limit or a reset that is less than 5 minutes away. Otherwise it
+continues at once on a path that does not use REST quota: GraphQL (`gh pr view`,
+`gh pr list`, `gh pr checks`, `gh issue list`, or a `gh api graphql` tree/blob
+query), raw.githubusercontent.com for a known file, or a sparse git clone for
+many files or a pull request diff. It does not switch to another token of the
+same user, because that token shares the same quota. See `SKILL.md` for the
+commands.
+
 ## PR descriptions
 
 The skill uses `show-me` to explain the important before/after with the smallest
