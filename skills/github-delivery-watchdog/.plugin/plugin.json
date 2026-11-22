@@ -1,0 +1,9 @@
+{
+  "name": "github-delivery-watchdog",
+  "version": "1.0.0",
+  "description": "Periodically check pull requests and merge only current heads with independent review, tests, and passing CI.",
+  "author": {
+    "name": "OpenHands"
+  },
+  "license": "MIT"
+}

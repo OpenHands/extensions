@@ -1,0 +1,13 @@
+{
+  "name": "iterate",
+  "version": "1.0.0",
+  "description": "Iterate on a GitHub pull request — drive it through CI, code review, and QA until it is merge-ready.",
+  "author": {
+    "name": "OpenHands",
+    "email": "contact@all-hands.dev"
+  },
+  "homepage": "https://github.com/OpenHands/extensions",
+  "repository": "https://github.com/OpenHands/extensions",
+  "license": "MIT",
+  "keywords": ["github", "ci", "review", "qa", "pull-request", "iterate"]
+}

@@ -1,0 +1,160 @@
+#!/usr/bin/env node
+import { readdir, readFile, realpath, stat } from "node:fs/promises";
+import path from "node:path";
+
+const name = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+const semver = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/;
+const imports = /(?:^|[;}\n])\s*import\s+(?:[^"'()]*?\s+from\s+)?["']([^"']+)["']|(?:^|[;}\n])\s*export\s+[^"']*?\s+from\s+["']([^"']+)["']/gm;
+const forbidden = [
+  [/(?:^|[;}\n])\s*import\s*\(/m, "runtime dynamic import"],
+  [/\bexport\s+[^;]*?\sfrom\s*["']/m, "re-exported dependency"],
+  [/\bnew\s+URL\(\s*["']\.?\.?\//m, "relative URL asset"],
+  [/\b(?:require\s*\(|module\.exports)/, "CommonJS dependency"],
+  [/sourceMappingURL=/, "source-map reference"],
+];
+
+const [target, ...options] = process.argv.slice(2);
+if (!target || target === "--help" || target === "-h") {
+  console.log("Usage: validate-extension.mjs <app-directory> [--dist] [--marker <text>]");
+  process.exit(target ? 0 : 2);
+}
+const checkDist = options.includes("--dist");
+const markers = [];
+for (let i = 0; i < options.length; i += 1) {
+  if (options[i] === "--marker" && options[i + 1]) markers.push(options[++i]);
+  else if (options[i] !== "--dist") throw new Error(`Unknown option: ${options[i]}`);
+}
+const root = path.resolve(target);
+const errors = [];
+const fail = (message) => errors.push(message);
+const within = (parent, child) => {
+  const relative = path.relative(parent, child);
+  return relative !== "" && relative !== ".." && !relative.startsWith(`..${path.sep}`) && !path.isAbsolute(relative);
+};
+
+let manifest;
+try {
+  if (!(await stat(root)).isDirectory()) throw new Error("not a directory");
+  manifest = JSON.parse(await readFile(path.join(root, "canvas-extension.json"), "utf8"));
+} catch (error) {
+  console.error(`ERROR: Cannot read App package: ${error.message}`);
+  process.exit(1);
+}
+if (!manifest || typeof manifest !== "object" || Array.isArray(manifest)) fail("Manifest root must be an object.");
+if (manifest.schema_version !== 1) fail("Manifest schema_version must equal 1.");
+for (const field of ["name", "version", "entrypoint"]) {
+  if (typeof manifest[field] !== "string" || !manifest[field].trim()) fail(`Manifest ${field} must be a non-empty string.`);
+}
+if (typeof manifest.name === "string" && !name.test(manifest.name)) fail("Manifest name must use lowercase kebab-case.");
+if (typeof manifest.version === "string" && !semver.test(manifest.version)) fail("Manifest version must use semantic versioning.");
+
+if (manifest.backend !== undefined && manifest.backend !== null) {
+  const backend = manifest.backend;
+  if (typeof backend !== "object" || Array.isArray(backend)) {
+    fail("Manifest backend must be an object.");
+  } else {
+    if (backend.schema_version !== 1) fail("Manifest backend.schema_version must equal 1.");
+    const artifacts = backend.artifacts;
+    if (!artifacts || typeof artifacts !== "object" || Array.isArray(artifacts) || Object.keys(artifacts).length === 0) {
+      fail("Manifest backend.artifacts must be a non-empty platform map.");
+    } else {
+      for (const [platform, artifact] of Object.entries(artifacts)) {
+        const label = `backend.artifacts[${platform}]`;
+        if (!new Set(["linux-amd64", "linux-arm64"]).has(platform)) fail(`${label} uses an unsupported platform.`);
+        if (!artifact || typeof artifact !== "object" || Array.isArray(artifact)) { fail(`${label} must be an object.`); continue; }
+        const hasPath = typeof artifact.path === "string" && artifact.path.length > 0;
+        const hasUrl = typeof artifact.url === "string" && artifact.url.length > 0;
+        if (hasPath === hasUrl) {
+          fail(`${label} must declare exactly one of path or url.`);
+        } else if (hasPath && (artifact.path.startsWith("/") || artifact.path.split(/[\\/]/).includes("..") || !artifact.path.endsWith(".tar.gz"))) {
+          fail(`${label}.path must be a contained relative .tar.gz path.`);
+        } else if (hasUrl) {
+          let url;
+          try { url = new URL(artifact.url); } catch { url = null; }
+          if (!url || url.protocol !== "https:" || url.username || url.password || url.hash || !url.pathname.endsWith(".tar.gz")) {
+            fail(`${label}.url must be a credential-free HTTPS .tar.gz URL.`);
+          }
+          if (artifact.strip_components !== undefined && (!Number.isInteger(artifact.strip_components) || artifact.strip_components < 0 || artifact.strip_components > 16)) {
+            fail(`${label}.strip_components must be an integer from 0 through 16.`);
+          }
+        }
+        if (hasPath && artifact.strip_components !== undefined && artifact.strip_components !== 0) fail(`${label}.strip_components is supported only for remote artifacts.`);
+        if (typeof artifact.sha256 !== "string" || !/^[0-9a-f]{64}$/.test(artifact.sha256)) fail(`${label}.sha256 must be a lowercase SHA-256 checksum.`);
+      }
+    }
+    if (!Array.isArray(backend.argv) || backend.argv.length === 0 || backend.argv.some((argument) => typeof argument !== "string" || !argument || argument.includes("\0"))) {
+      fail("Manifest backend.argv must be a non-empty array of strings.");
+    } else {
+      if (!backend.argv[0].startsWith("{artifact_dir}/")) {
+        fail("Manifest backend.argv[0] must execute from {artifact_dir}.");
+      } else if (backend.argv[0].slice("{artifact_dir}/".length).split(/[\\/]/).includes("..")) {
+        fail("Manifest backend.argv[0] must resolve inside {artifact_dir}.");
+      }
+      const allowed = new Set(["{port}", "{data_dir}", "{artifact_dir}"]);
+      for (const argument of backend.argv) {
+        for (const placeholder of argument.match(/\{[^{}]+\}/g) ?? []) {
+          if (!allowed.has(placeholder)) fail(`Manifest backend.argv contains unsupported placeholder ${placeholder}.`);
+        }
+      }
+    }
+    if (backend.health !== undefined) {
+      const health = backend.health;
+      if (!health || typeof health !== "object" || Array.isArray(health)) {
+        fail("Manifest backend.health must be an object.");
+      } else {
+        if (health.path !== undefined && (typeof health.path !== "string" || !/^\/[A-Za-z0-9._~!$&'()*+,;=:@%/-]*$/.test(health.path))) fail("Manifest backend.health.path must be a root-relative HTTP path.");
+        for (const [field, maximum] of [["timeout_seconds", 300], ["interval_seconds", 10]]) {
+          if (health[field] !== undefined && (typeof health[field] !== "number" || health[field] <= 0 || health[field] > maximum)) fail(`Manifest backend.health.${field} must be greater than 0 and at most ${maximum}.`);
+        }
+      }
+    }
+    if (backend.inherit_environment !== undefined) {
+      const environment = backend.inherit_environment;
+      const allowed = new Set(["LANG", "LC_ALL", "LC_CTYPE", "PATH", "TMPDIR", "TZ"]);
+      if (!Array.isArray(environment) || environment.some((variable) => typeof variable !== "string" || !allowed.has(variable)) || new Set(environment).size !== environment.length) fail("Manifest backend.inherit_environment must contain unique names from the supported non-credential allowlist.");
+    }
+  }
+}
+
+const ids = new Set();
+const paths = new Set();
+const pages = manifest.contributes?.pages;
+if (!Array.isArray(pages) || pages.length === 0) fail("Manifest must declare at least one routed page.");
+for (const [index, page] of (pages ?? []).entries()) {
+  const label = `contributes.pages[${index}]`;
+  if (!page || typeof page !== "object" || Array.isArray(page)) { fail(`${label} must be an object.`); continue; }
+  if (typeof page.id !== "string" || !name.test(page.id)) fail(`${label}.id must use lowercase kebab-case.`);
+  if (typeof page.title !== "string" || !page.title.trim()) fail(`${label}.title must be a non-empty string.`);
+  if (typeof page.path !== "string" || !/^\/(?:[a-z0-9]+(?:-[a-z0-9]+)*)(?:\/[a-z0-9]+(?:-[a-z0-9]+)*)*$/.test(page.path)) fail(`${label}.path must be an absolute kebab-case route.`);
+  if (ids.has(page.id)) fail(`Page id ${page.id} is declared more than once.`); ids.add(page.id);
+  if (paths.has(page.path)) fail(`Page path ${page.path} is declared more than once.`); paths.add(page.path);
+}
+
+const entrypoint = checkDist
+  ? path.resolve(root, "dist", manifest.entrypoint ?? "")
+  : path.resolve(root, manifest.entrypoint ?? "");
+try {
+  const [realRoot, realEntrypoint] = await Promise.all([realpath(root), realpath(entrypoint)]);
+  if (!within(realRoot, realEntrypoint)) fail("Entrypoint escapes the App package root.");
+  const source = await readFile(realEntrypoint, "utf8");
+  if (!source.trim()) fail("Entrypoint is empty.");
+  if (!/\bexport\s*(?:\{[^}]*\bactivate\b[^}]*\}|(?:async\s+)?function\s+activate\b)/m.test(source)) fail("Entrypoint must export activate.");
+  for (const match of source.matchAll(imports)) {
+    const specifier = match[1] ?? match[2];
+    if (specifier && !specifier.startsWith("data:") && !specifier.startsWith("blob:")) fail(`Entrypoint contains unresolved module specifier: ${specifier}`);
+  }
+  for (const [pattern, description] of forbidden) if (pattern.test(source)) fail(`Entrypoint contains ${description}.`);
+  for (const marker of markers) if (!source.includes(marker)) fail(`Entrypoint is missing required marker: ${marker}`);
+  const registered = new Set([...source.matchAll(/\.registerPage\s*\(\s*["']([^"']+)["']/g)].map((match) => match[1]));
+  for (const id of registered) if (!ids.has(id)) fail(`Entrypoint registers undeclared page id ${id}.`);
+} catch (error) { fail(`Cannot read entrypoint: ${error.message}`); }
+
+if (checkDist) {
+  try {
+    const files = await readdir(path.join(root, "dist"), { recursive: true });
+    const expected = manifest.entrypoint;
+    if (files.length !== 1 || files[0] !== expected) fail(`Expected exactly dist/${expected}; found ${files.join(", ") || "nothing"}.`);
+  } catch (error) { fail(`Cannot inspect dist output: ${error.message}`); }
+}
+if (errors.length) { for (const error of errors) console.error(`ERROR: ${error}`); process.exit(1); }
+console.log(`Canvas App validation passed: ${root}${checkDist ? " (dist)" : ""}`);

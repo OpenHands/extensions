@@ -7,18 +7,24 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def load_catalog_entries(relative_path: str):
+def load_catalog_entries(relative_path: str, pattern: str = "*.json"):
+    """Integrations are `<id>.json`; automations are `<id>/manifest.json`."""
     entries = []
-    for entry_path in sorted((ROOT / relative_path).glob("*.json")):
+    for entry_path in sorted((ROOT / relative_path).glob(pattern)):
         entry = json.loads(entry_path.read_text())
-        assert entry["id"] == entry_path.stem
+        expected_id = (
+            entry_path.parent.name
+            if entry_path.name == "manifest.json"
+            else entry_path.stem
+        )
+        assert entry["id"] == expected_id
         entries.append(entry)
     return entries
 
 
-def test_catalog_ids_are_unique_and_automations_reference_existing_integrations():
+def test_catalog_ids_are_unique_and_automations_reference_things_that_exist():
     integrations = load_catalog_entries("integrations/catalog")
-    automations = load_catalog_entries("automations/catalog")
+    automations = load_catalog_entries("automations/catalog", "*/manifest.json")
 
     integration_ids = [entry["id"] for entry in integrations]
     automation_ids = [entry["id"] for entry in automations]
@@ -28,11 +34,18 @@ def test_catalog_ids_are_unique_and_automations_reference_existing_integrations(
 
     known_integration_ids = set(integration_ids)
     for automation in automations:
-        assert automation["requiredIntegrationIds"]
-        missing_ids = (
-            set(automation["requiredIntegrationIds"]) - known_integration_ids
+        # May be empty: an automation that needs nothing connected says so with
+        # an empty object rather than by leaving the key out. What it may not do
+        # is name an integration that does not exist.
+        required = automation["requires"]["integrations"]
+        assert set(required) - known_integration_ids == set()
+
+        # The launch command is looked up from this skill rather than stored on
+        # the entry, so a broken link is a card that launches nothing.
+        skill = automation.get("skill", automation["id"])
+        assert (ROOT / "skills" / skill / "SKILL.md").is_file(), (
+            f"{automation['id']}: skill '{skill}' has no SKILL.md"
         )
-        assert missing_ids == set()
 
 
 def test_catalog_entries_have_required_fields():
@@ -63,10 +76,9 @@ def test_catalog_entries_have_required_fields():
                 else:
                     assert option["transport"]["url"].startswith("https://")
 
-    for entry in load_catalog_entries("automations/catalog"):
+    for entry in load_catalog_entries("automations/catalog", "*/manifest.json"):
         assert entry["id"]
         assert entry["name"]
-        assert entry["prompt"]
         assert entry["exampleImplementation"]
         assert isinstance(entry["popularityRank"], int)
         assert isinstance(entry["estimatedSetupMinutes"], int)
@@ -81,7 +93,7 @@ def test_remote_no_auth_mcp_entries_are_intentionally_public():
             transport = option.get("transport", {})
             # An option with `headerFields` still requires the user to supply
             # credentials (just via named headers, e.g. Datadog's
-            # DD_API_KEY/DD_APPLICATION_KEY), so it is NOT "public/no-auth".
+            # DD-API-KEY/DD-APPLICATION-KEY), so it is NOT "public/no-auth".
             has_header_credentials = bool(transport.get("headerFields"))
             if (
                 option["provider"] == "mcp"
@@ -107,7 +119,7 @@ def test_datadog_mcp_uses_documented_api_key_headers():
 
     assert [
         field["key"] for field in api_option["transport"]["headerFields"]
-    ] == ["DD_API_KEY", "DD_APPLICATION_KEY"]
+    ] == ["DD-API-KEY", "DD-APPLICATION-KEY"]
 
 
 def test_credential_fields_have_helper_text_and_link():
@@ -134,6 +146,49 @@ def test_credential_fields_have_helper_text_and_link():
                             f"{entry['id']}: password field '{field_key}' must have a helperLink "
                             f"or a markdown link in helperText"
                         )
+
+
+def test_posthog_catalog_prefers_oauth_with_safe_mcp_defaults():
+    posthog = next(
+        entry for entry in load_catalog_entries("integrations/catalog")
+        if entry["id"] == "posthog"
+    )
+
+    assert [option["id"] for option in posthog["connectionOptions"]] == [
+        "oauth",
+        "api-key",
+    ]
+
+    oauth = posthog["connectionOptions"][0]
+    assert oauth["provider"] == "mcp"
+    assert oauth["transport"] == {
+        "kind": "shttp",
+        "url": "https://mcp.posthog.com/mcp?readonly=true",
+        "urlEditable": True,
+    }
+    oauth_config = oauth["auth"]["oauth"]
+    assert oauth_config["authorizationUrl"] == (
+        "https://oauth.posthog.com/oauth/authorize/"
+    )
+    assert oauth_config["tokenUrl"] == "https://oauth.posthog.com/oauth/token/"
+    assert oauth_config["registrationUrl"] == (
+        "https://oauth.posthog.com/oauth/register/"
+    )
+    assert oauth_config["pkce"] is True
+    assert oauth_config["clientAuthentication"] == "none"
+    assert oauth_config["additionalAuthorizationParams"] == {
+        "resource": "https://mcp.posthog.com/mcp"
+    }
+    assert oauth_config["additionalTokenParams"] == {
+        "resource": "https://mcp.posthog.com/mcp"
+    }
+    assert "query:read" in oauth_config["scopes"]
+    assert all(not scope.endswith(":write") for scope in oauth_config["scopes"])
+
+    api_key = posthog["connectionOptions"][1]
+    assert api_key["auth"]["strategy"] == "bearer"
+    assert api_key["auth"]["credentialSecretName"] == "POSTHOG_PERSONAL_API_KEY"
+    assert api_key["auth"]["saveCredentialAsSecretByDefault"] is True
 
 
 def test_node_package_exports_catalogs():

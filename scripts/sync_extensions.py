@@ -9,7 +9,8 @@ Four sync tasks, runnable individually or all at once:
   3. **coverage**  — warn when a skill/plugin directory is not listed in any
      marketplace, or a marketplace entry points to a missing directory.
   4. **symlinks**  — enforce ``.plugin/`` as the canonical manifest directory
-     with vendor symlinks (``.claude-plugin``, ``.codex-plugin``).
+     with vendor manifests (``.claude-plugin``, ``.codex-plugin``), each
+     either a symlink or a real directory mirroring ``plugin.json``.
 
 Usage:
     python scripts/sync_extensions.py                   # run all, write changes
@@ -375,13 +376,30 @@ def sync_coverage(*, check: bool) -> list[str]:
     return problems
 
 
-# ── 4. Vendor symlinks ────────────────────────────────────────────────
+# ── 4. Vendor manifests ─────────────────────────────────────────────────
 
 VENDOR_SYMLINKS = [".claude-plugin", ".codex-plugin"]  # add new vendors here
 
 
+def _vendor_manifest_matches(directory: Path, vendor: str) -> bool:
+    """True when a real vendor directory mirrors the canonical manifest."""
+    src = directory / ".plugin" / "plugin.json"
+    dst = directory / vendor / "plugin.json"
+    return (
+        src.is_file()
+        and dst.is_file()
+        and src.read_bytes() == dst.read_bytes()
+    )
+
+
 def _check_vendor_symlinks(directory: Path, check: bool) -> list[str]:
-    """Check/fix vendor symlinks for a single directory with .plugin/."""
+    """Check/fix vendor manifests for a single directory with .plugin/.
+
+    A vendor path is either a symlink to ``.plugin/`` or a real directory
+    whose ``plugin.json`` mirrors the canonical one. Real directories exist
+    because some installers (e.g. Codex ``plugin add``) drop symlinked
+    directories instead of copying them; see skills/iterate.
+    """
     problems: list[str] = []
     canon = directory / ".plugin"
     if not canon.is_dir():
@@ -393,6 +411,15 @@ def _check_vendor_symlinks(directory: Path, check: bool) -> list[str]:
             if target == canon.resolve():
                 continue
             problems.append(f"wrong target: {link.relative_to(REPO_ROOT)} → {link.readlink()}")
+        elif link.is_dir():
+            if _vendor_manifest_matches(directory, vendor):
+                continue
+            problems.append(f"stale manifest copy: {link.relative_to(REPO_ROOT)}")
+            if not check:
+                (link / "plugin.json").write_bytes(
+                    (canon / "plugin.json").read_bytes()
+                )
+            continue
         elif link.exists():
             problems.append(f"not a symlink: {link.relative_to(REPO_ROOT)}")
             continue
@@ -405,11 +432,11 @@ def _check_vendor_symlinks(directory: Path, check: bool) -> list[str]:
 
 
 def sync_symlinks(*, check: bool) -> list[str]:
-    """Ensure every directory with .plugin/ also has vendor symlinks.
+    """Ensure every directory with .plugin/ has discoverable vendor manifests.
 
     Scans both plugins/ and skills/ directories.  Skills that ship a
     ``.plugin/`` manifest (e.g. those with ``commands/``) need vendor
-    symlinks so that Codex and Claude Code can discover them.
+    manifests so that Codex and Claude Code can discover them.
     """
     problems: list[str] = []
     for base in SKILL_DIRS:

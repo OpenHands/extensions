@@ -22,7 +22,7 @@ The Python client prefers `OPENHANDS_CLOUD_API_KEY` and falls back to `OPENHANDS
 
 ## Delegating work with new Cloud conversations
 
-Use `POST /api/v1/app-conversations` to create a separate OpenHands Cloud conversation for a self-contained task, then poll `GET /api/v1/app-conversations/start-tasks?ids=...` until you have an `app_conversation_id`.
+Use `POST /api/v1/app-conversations` to create a separate OpenHands Cloud conversation for a self-contained task, then poll `GET /api/v1/app-conversations/start-tasks?ids=...` until you have an `app_conversation_id`. Share the Agent Canvas link from `OpenHandsAPI.app_conversation_ui_url(app_conversation_id)` (the conversation's `conversation_ui_url`, falling back to `<base_url>/canvas/conversations/<id>`).
 
 Keep delegated prompts self-contained: include the repository, branch, relevant files, constraints, and expected output. Prefer five or fewer concurrently running delegated conversations.
 

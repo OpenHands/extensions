@@ -8,6 +8,8 @@
   ],
   "appUrl": "https://www.atlassian.com/software/jira",
   "docsUrl": "https://developer.atlassian.com/cloud/jira/platform/oauth-2-3lo-apps/",
+  "iconBg": "#0052CC",
+  "logoUrl": "https://cdn.simpleicons.org/jira/FFFFFF",
   "notes": "Very common MCP target for software teams and ticket automation.",
   "popularityRank": 10,
   "connectionOptions": [

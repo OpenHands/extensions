@@ -1,0 +1,398 @@
+{
+  "automationId": "custom-automation",
+  "description": "Direct generic setup. One catalog entry can create prompt, plugin, or uploaded-tarball automations; selectedAction and selectedTrigger record the host UI variants chosen for each scenario.",
+  "capabilities": "supported",
+  "blockedBy": [
+    "notReady"
+  ],
+  "scenarios": [
+    {
+      "id": "scheduled-prompt",
+      "description": "A custom prompt automation that runs on a weekday schedule and clones one repository.",
+      "selectedAction": "prompt",
+      "selectedTrigger": "cron",
+      "formValues": {
+        "name": "Daily extensions summary",
+        "prompt": "Summarize recent changes in the OpenHands/extensions repository and save a concise report in the workspace.",
+        "repository": "OpenHands/extensions",
+        "ref": "main",
+        "model": "fast",
+        "timeout": 900,
+        "schedule": "0 9 * * 1-5",
+        "timezone": "UTC"
+      },
+      "preflight": {
+        "request": {
+          "method": "POST",
+          "path": "/v1/validate",
+          "body": {
+            "automationId": "custom-automation",
+            "endpoint": "/v1/preset/prompt",
+            "draft": {
+              "name": "Daily extensions summary",
+              "prompt": "Summarize recent changes in the OpenHands/extensions repository and save a concise report in the workspace.",
+              "model": "fast",
+              "timeout": 900,
+              "repos": [
+                {
+                  "url": "OpenHands/extensions",
+                  "provider": "github",
+                  "ref": "main"
+                }
+              ],
+              "trigger": {
+                "type": "cron",
+                "schedule": "0 9 * * 1-5",
+                "timezone": "UTC"
+              }
+            }
+          }
+        },
+        "response": {
+          "status": 200,
+          "body": {
+            "valid": true,
+            "errors": []
+          }
+        }
+      },
+      "create": {
+        "request": {
+          "method": "POST",
+          "path": "/v1/preset/prompt",
+          "body": {
+            "name": "Daily extensions summary",
+            "prompt": "Summarize recent changes in the OpenHands/extensions repository and save a concise report in the workspace.",
+            "model": "fast",
+            "timeout": 900,
+            "repos": [
+              {
+                "url": "OpenHands/extensions",
+                "provider": "github",
+                "ref": "main"
+              }
+            ],
+            "trigger": {
+              "type": "cron",
+              "schedule": "0 9 * * 1-5",
+              "timezone": "UTC"
+            }
+          }
+        },
+        "response": {
+          "status": 201,
+          "body": {
+            "id": "1c0b7ea0-0000-4000-8000-000000000001",
+            "model": "fast",
+            "name": "Daily extensions summary",
+            "prompt": "Summarize recent changes in the OpenHands/extensions repository and save a concise report in the workspace.",
+            "trigger": {
+              "type": "cron",
+              "schedule": "0 9 * * 1-5",
+              "timezone": "UTC"
+            },
+            "timeout": 900,
+            "enabled": true
+          }
+        }
+      }
+    },
+    {
+      "id": "event-prompt",
+      "description": "A custom prompt automation that runs on a GitHub comment event.",
+      "selectedAction": "prompt",
+      "selectedTrigger": "event",
+      "formValues": {
+        "name": "OpenHands mention responder",
+        "prompt": "When triggered, read the GitHub issue or pull request context and draft a helpful response for the user.",
+        "repository": "OpenHands/extensions",
+        "ref": "main",
+        "model": "",
+        "timeout": 600,
+        "source": "github",
+        "on": "issue_comment.created",
+        "filter": "glob(repository.full_name, 'OpenHands/extensions') && icontains(comment.body, '@openhands')"
+      },
+      "preflight": {
+        "request": {
+          "method": "POST",
+          "path": "/v1/validate",
+          "body": {
+            "automationId": "custom-automation",
+            "endpoint": "/v1/preset/prompt",
+            "draft": {
+              "name": "OpenHands mention responder",
+              "prompt": "When triggered, read the GitHub issue or pull request context and draft a helpful response for the user.",
+              "timeout": 600,
+              "repos": [
+                {
+                  "url": "OpenHands/extensions",
+                  "provider": "github",
+                  "ref": "main"
+                }
+              ],
+              "trigger": {
+                "type": "event",
+                "source": "github",
+                "on": "issue_comment.created",
+                "filter": "glob(repository.full_name, 'OpenHands/extensions') && icontains(comment.body, '@openhands')"
+              }
+            }
+          }
+        },
+        "response": {
+          "status": 200,
+          "body": {
+            "valid": true,
+            "errors": []
+          }
+        }
+      },
+      "create": {
+        "request": {
+          "method": "POST",
+          "path": "/v1/preset/prompt",
+          "body": {
+            "name": "OpenHands mention responder",
+            "prompt": "When triggered, read the GitHub issue or pull request context and draft a helpful response for the user.",
+            "timeout": 600,
+            "repos": [
+              {
+                "url": "OpenHands/extensions",
+                "provider": "github",
+                "ref": "main"
+              }
+            ],
+            "trigger": {
+              "type": "event",
+              "source": "github",
+              "on": "issue_comment.created",
+              "filter": "glob(repository.full_name, 'OpenHands/extensions') && icontains(comment.body, '@openhands')"
+            }
+          }
+        },
+        "response": {
+          "status": 201,
+          "body": {
+            "id": "1c0b7ea0-0000-4000-8000-000000000002",
+            "model": null,
+            "name": "OpenHands mention responder",
+            "prompt": "When triggered, read the GitHub issue or pull request context and draft a helpful response for the user.",
+            "trigger": {
+              "type": "event",
+              "source": "github",
+              "on": "issue_comment.created",
+              "filter": "glob(repository.full_name, 'OpenHands/extensions') && icontains(comment.body, '@openhands')"
+            },
+            "timeout": 600,
+            "enabled": true
+          }
+        }
+      }
+    },
+    {
+      "id": "scheduled-plugin",
+      "description": "A custom plugin automation that loads an OpenHands plugin and runs a prompt.",
+      "selectedAction": "plugin",
+      "selectedTrigger": "cron",
+      "formValues": {
+        "name": "Weekly plugin check",
+        "plugins": [
+          {
+            "source": "github:OpenHands/extensions",
+            "repo_path": "plugins/qa-changes",
+            "ref": "main"
+          }
+        ],
+        "prompt": "Use the plugin to QA recent changes and produce a concise report.",
+        "repository": "OpenHands/OpenHands",
+        "ref": "main",
+        "model": "balanced",
+        "timeout": 1200,
+        "schedule": "0 10 * * 1",
+        "timezone": "UTC"
+      },
+      "preflight": {
+        "request": {
+          "method": "POST",
+          "path": "/v1/validate",
+          "body": {
+            "automationId": "custom-automation",
+            "endpoint": "/v1/preset/plugin",
+            "draft": {
+              "name": "Weekly plugin check",
+              "prompt": "Use the plugin to QA recent changes and produce a concise report.",
+              "plugins": [
+                {
+                  "source": "github:OpenHands/extensions",
+                  "repo_path": "plugins/qa-changes",
+                  "ref": "main"
+                }
+              ],
+              "model": "balanced",
+              "timeout": 1200,
+              "repos": [
+                {
+                  "url": "OpenHands/OpenHands",
+                  "provider": "github",
+                  "ref": "main"
+                }
+              ],
+              "trigger": {
+                "type": "cron",
+                "schedule": "0 10 * * 1",
+                "timezone": "UTC"
+              }
+            }
+          }
+        },
+        "response": {
+          "status": 200,
+          "body": {
+            "valid": true,
+            "errors": []
+          }
+        }
+      },
+      "create": {
+        "request": {
+          "method": "POST",
+          "path": "/v1/preset/plugin",
+          "body": {
+            "name": "Weekly plugin check",
+            "prompt": "Use the plugin to QA recent changes and produce a concise report.",
+            "plugins": [
+              {
+                "source": "github:OpenHands/extensions",
+                "repo_path": "plugins/qa-changes",
+                "ref": "main"
+              }
+            ],
+            "model": "balanced",
+            "timeout": 1200,
+            "repos": [
+              {
+                "url": "OpenHands/OpenHands",
+                "provider": "github",
+                "ref": "main"
+              }
+            ],
+            "trigger": {
+              "type": "cron",
+              "schedule": "0 10 * * 1",
+              "timezone": "UTC"
+            }
+          }
+        },
+        "response": {
+          "status": 201,
+          "body": {
+            "id": "1c0b7ea0-0000-4000-8000-000000000003",
+            "model": "balanced",
+            "name": "Weekly plugin check",
+            "prompt": "Use the plugin to QA recent changes and produce a concise report.",
+            "trigger": {
+              "type": "cron",
+              "schedule": "0 10 * * 1",
+              "timezone": "UTC"
+            },
+            "timeout": 1200,
+            "enabled": true
+          }
+        }
+      }
+    },
+    {
+      "id": "scheduled-upload",
+      "description": "A custom upload automation that uploads a tarball and creates through the raw endpoint.",
+      "selectedAction": "upload",
+      "selectedTrigger": "cron",
+      "formValues": {
+        "name": "Uploaded maintenance script",
+        "tarball": "oh-internal://uploads/1c0b7ea0-0000-4000-8000-000000000004",
+        "entrypoint": "python3 main.py",
+        "setupScript": "setup.sh",
+        "model": "",
+        "timeout": 300,
+        "schedule": "30 2 * * *",
+        "timezone": "UTC"
+      },
+      "upload": {
+        "request": {
+          "method": "POST",
+          "path": "/v1/uploads?name=Uploaded%20maintenance%20script"
+        },
+        "response": {
+          "status": 201,
+          "body": {
+            "id": "1c0b7ea0-0000-4000-8000-000000000004",
+            "status": "COMPLETED",
+            "tarball_path": "oh-internal://uploads/1c0b7ea0-0000-4000-8000-000000000004"
+          }
+        }
+      },
+      "preflight": {
+        "request": {
+          "method": "POST",
+          "path": "/v1/validate",
+          "body": {
+            "automationId": "custom-automation",
+            "endpoint": "/v1",
+            "draft": {
+              "name": "Uploaded maintenance script",
+              "timeout": 300,
+              "trigger": {
+                "type": "cron",
+                "schedule": "30 2 * * *",
+                "timezone": "UTC"
+              },
+              "tarball_path": "oh-internal://uploads/00000000-0000-0000-0000-000000000000",
+              "entrypoint": "python3 main.py",
+              "setup_script_path": "setup.sh"
+            }
+          }
+        },
+        "response": {
+          "status": 200,
+          "body": {
+            "valid": true,
+            "errors": []
+          }
+        }
+      },
+      "create": {
+        "request": {
+          "method": "POST",
+          "path": "/v1",
+          "body": {
+            "name": "Uploaded maintenance script",
+            "timeout": 300,
+            "trigger": {
+              "type": "cron",
+              "schedule": "30 2 * * *",
+              "timezone": "UTC"
+            },
+            "tarball_path": "oh-internal://uploads/1c0b7ea0-0000-4000-8000-000000000004",
+            "entrypoint": "python3 main.py",
+            "setup_script_path": "setup.sh"
+          }
+        },
+        "response": {
+          "status": 201,
+          "body": {
+            "id": "1c0b7ea0-0000-4000-8000-000000000004",
+            "model": null,
+            "name": "Uploaded maintenance script",
+            "trigger": {
+              "type": "cron",
+              "schedule": "30 2 * * *",
+              "timezone": "UTC"
+            },
+            "timeout": 300,
+            "enabled": true
+          }
+        }
+      }
+    }
+  ]
+}

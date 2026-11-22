@@ -11,5 +11,7 @@ it detects a Bitbucket Cloud environment (i.e. `BITBUCKET_TOKEN` is set).
 
 ## Details
 
+Use authenticated Bitbucket Cloud MCP tools first when they are available, detected by tool availability rather than a particular server name. Fall back to the documented `BITBUCKET_TOKEN` and direct REST API flow when those tools are unavailable or raw API or `curl` access is explicitly needed.
+
 See [`SKILL.md`](SKILL.md) for the full content, including authenticated git remote
 construction and pull request instructions.

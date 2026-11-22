@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "name": "whiteboard",
+  "display_name": "Whiteboard",
+  "version": "0.2.0",
+  "description": "An Excalidraw whiteboard whose boards are saved on the Agent Server.",
+  "entrypoint": "extension.js",
+  "contributes": {
+    "pages": [
+      {
+        "id": "board",
+        "title": "Whiteboard",
+        "path": "/boards",
+        "nav_label": "Whiteboard",
+        "description": "Sketch diagrams with Excalidraw."
+      }
+    ]
+  }
+}

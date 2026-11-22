@@ -150,3 +150,40 @@ def test_legacy_alias_still_exists(monkeypatch):
 
     api = mod.OpenHandsV1API(api_key="k")
     assert isinstance(api, mod.OpenHandsAPI)
+
+
+def _api_with_conversations(monkeypatch, conversations, base_url="https://example.com"):
+    """Client whose app server answers GET /app-conversations with `conversations`."""
+    mod = _load_openhands_api_module()
+    real_client = mod.httpx.Client
+
+    def handler(request):
+        assert request.url.path == "/api/v1/app-conversations"
+        return mod.httpx.Response(200, json=conversations)
+
+    monkeypatch.setattr(
+        mod.httpx,
+        "Client",
+        lambda **kwargs: real_client(transport=mod.httpx.MockTransport(handler), **kwargs),
+    )
+    return mod.OpenHandsAPI(api_key="k", base_url=base_url)
+
+
+def test_app_conversation_ui_url_uses_server_provided_link(monkeypatch):
+    server_link = "https://app.example.com/canvas/conversations/conv-1"
+    api = _api_with_conversations(
+        monkeypatch, [{"id": "conv-1", "conversation_ui_url": server_link}]
+    )
+
+    assert api.app_conversation_ui_url("conv-1") == server_link
+
+
+def test_app_conversation_ui_url_falls_back_to_agent_canvas_route(monkeypatch):
+    # Servers that predate `conversation_ui_url` only return the agent-server API URL.
+    api = _api_with_conversations(
+        monkeypatch,
+        [{"id": "conv-1", "conversation_url": "https://runtime.example.com/api/conversations/conv-1"}],
+        base_url="https://example.com/",
+    )
+
+    assert api.app_conversation_ui_url("conv-1") == "https://example.com/canvas/conversations/conv-1"
