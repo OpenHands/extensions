@@ -1,7 +1,7 @@
 {
   "id": "treg",
   "name": "Treg",
-  "description": "Find and call tools for web search, SEO, company enrichment, and media generation. Inspect each tool's inputs and price before running it.",
+  "description": "Search and scrape the web, enrich company data, generate media, and call APIs your team has connected to Treg.",
   "categories": [
     "Search",
     "Developer tools"
@@ -9,12 +9,18 @@
   "appUrl": "https://treg.to",
   "docsUrl": "https://treg.to/llms.txt",
   "logoUrl": "https://treg.to/media/brand/logo.png",
+  "notes": "Search the catalog by task, then compare inputs, pricing, and measured reliability across providers. Use my_tools to discover the team's registered connections. Treg supplies the provider credential on the server when OpenHands calls an API.",
   "keywords": [
     "web search",
+    "web scraping",
     "keyword research",
     "company enrichment",
     "social data",
-    "media generation"
+    "ad research",
+    "image generation",
+    "video generation",
+    "text to speech",
+    "team APIs"
   ],
   "installHint": "Sign in to Treg and choose a team during OAuth, or connect with a team API key. To try the connection, use catalog_get with endpoint_id set to treg.web.search. Looking up a tool is free. Paid calls using Treg's provider credentials draw from the selected team's prepaid balance.",
   "connectionOptions": [
