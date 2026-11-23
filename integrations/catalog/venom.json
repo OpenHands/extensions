@@ -1,0 +1,41 @@
+{
+  "id": "venom",
+  "name": "Venom",
+  "description": "Share projects, tasks, decisions and skills across your team's coding agents, so any agent or teammate can pick up where another left off.",
+  "categories": [
+    "Project management",
+    "Engineering"
+  ],
+  "appUrl": "https://venomlabs.dev",
+  "docsUrl": "https://docs.venomlabs.dev/agents/all-agents",
+  "notes": "Uses Venom's hosted MCP server. OAuth is handled by the server via browser sign-in with Dynamic Client Registration and PKCE, so no client ID, client secret or API key is required. The user picks their Venom organization during sign-in.",
+  "connectionOptions": [
+    {
+      "id": "oauth",
+      "provider": "mcp",
+      "transport": {
+        "kind": "shttp",
+        "url": "https://mcp.venomlabs.dev/"
+      },
+      "auth": {
+        "strategy": "oauth2",
+        "oauth": {
+          "clientAuthentication": "none"
+        }
+      }
+    }
+  ],
+  "iconBg": "#F9F6F1",
+  "logoUrl": "https://venomlabs.dev/venom-icon.png",
+  "keywords": [
+    "team",
+    "collaboration",
+    "multiplayer",
+    "projects",
+    "tasks",
+    "decisions",
+    "handoff",
+    "skills"
+  ],
+  "installHint": "Sign in to Venom through the browser OAuth flow when prompted and pick your organization; no client credentials or API key are needed."
+}
