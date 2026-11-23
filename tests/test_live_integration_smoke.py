@@ -11,7 +11,7 @@ live:
 
     GITHUB_PERSONAL_ACCESS_TOKEN=... \
     LINEAR_API_KEY=... \
-    SLACK_USER_TOKEN=... \
+    SLACK_MCP_USER_TOKEN=... \
     uv run --group test pytest tests/test_live_integration_smoke.py -rA -s
 
 Preconditions:
@@ -41,7 +41,7 @@ from openhands_extensions import get_integration_catalog_entry_model
 
 GITHUB_TOKEN_ENV = "GITHUB_PERSONAL_ACCESS_TOKEN"
 LINEAR_TOKEN_ENV = "LINEAR_API_KEY"
-SLACK_USER_TOKEN_ENV = "SLACK_USER_TOKEN"
+SLACK_USER_TOKEN_ENV = "SLACK_MCP_USER_TOKEN"
 
 HTTP_TIMEOUT = 30.0
 
@@ -85,17 +85,6 @@ def _remote_server(option, token):
             "url": option.transport.url,
             "transport": "http",
             "auth": {"strategy": option.auth.strategy, "value": token},
-        }
-    )
-
-
-def _stdio_server(option, env):
-    return MCPServer.model_validate(
-        {
-            "transport": "stdio",
-            "command": option.transport.command,
-            "args": list(option.transport.args),
-            "env": env,
         }
     )
 
@@ -300,11 +289,13 @@ def test_slack_hosted_channel_and_thread_read():
             f"({len(channel_ids)} channel(s))"
         )
 
+        last_error = ""
         for channel_id in channel_ids:
             is_error, text = call(
                 "slack_read_channel", {"channel_id": channel_id, "limit": 10}
             )
             if is_error:
+                last_error = text
                 continue
             message_ts = SLACK_MESSAGE_TS_RE.search(text)
             if message_ts is None:
@@ -320,6 +311,7 @@ def test_slack_hosted_channel_and_thread_read():
         pytest.fail(
             "no channel with readable message history: join a public channel "
             "that has messages and rerun"
+            + (f"; last slack_read_channel error: {last_error}" if last_error else "")
         )
 
 

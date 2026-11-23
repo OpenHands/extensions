@@ -175,7 +175,7 @@ def test_catalog_models_require_connectability_and_install_metadata() -> None:
         option for option in live.connectionOptions if option.id == "user-token"
     )
     assert user_token.auth.strategy == "bearer"
-    assert user_token.auth.credentialSecretName == "SLACK_USER_TOKEN"
+    assert user_token.auth.credentialSecretName == "SLACK_MCP_USER_TOKEN"
     assert user_token.transport.url == "https://mcp.slack.com/mcp"
 
     # The user-token option's transport URL is required by the schema; dropping
@@ -184,6 +184,29 @@ def test_catalog_models_require_connectability_and_install_metadata() -> None:
     missing_url["connectionOptions"][1]["transport"].pop("url")
     with pytest.raises(ValidationError, match="url"):
         openhands_extensions.IntegrationCatalogEntry.model_validate(missing_url)
+
+    # A stdio envFields entry must carry `type` and `required`. Slack no longer
+    # ships an envFields-bearing option, so the negative cases are anchored on
+    # brave-search.json (whose `api` option has one envField).
+    brave = json.loads((CATALOG_DIR / "brave-search.json").read_text())
+    brave_entry = openhands_extensions.IntegrationCatalogEntry.model_validate(brave)
+    brave_env = brave_entry.connectionOptions[0].transport.envFields[0]
+    assert brave_env.type is not None
+    assert brave_env.required is not None
+
+    missing_field_type = deepcopy(brave)
+    missing_field_type["connectionOptions"][0]["transport"]["envFields"][0].pop("type")
+    with pytest.raises(ValidationError, match="type"):
+        openhands_extensions.IntegrationCatalogEntry.model_validate(missing_field_type)
+
+    missing_required_marker = deepcopy(brave)
+    missing_required_marker["connectionOptions"][0]["transport"]["envFields"][0].pop(
+        "required"
+    )
+    with pytest.raises(ValidationError, match="required"):
+        openhands_extensions.IntegrationCatalogEntry.model_validate(
+            missing_required_marker
+        )
 
     missing_principal_mapping = deepcopy(entry)
     missing_principal_mapping["connectionOptions"][0]["connectionModel"][

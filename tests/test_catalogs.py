@@ -263,7 +263,7 @@ def test_daily_workflow_entries_are_locally_installable():
     assert slack["transport"]["kind"] == "shttp"
     assert slack["transport"]["url"] == "https://mcp.slack.com/mcp"
     assert slack["auth"]["strategy"] == "bearer"
-    assert slack["auth"]["credentialSecretName"] == "SLACK_USER_TOKEN"
+    assert slack["auth"]["credentialSecretName"] == "SLACK_MCP_USER_TOKEN"
 
 
 def test_daily_workflow_entries_state_scopes_and_setup_paths():

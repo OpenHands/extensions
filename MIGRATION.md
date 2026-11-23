@@ -1,5 +1,22 @@
 # Migration Guide
 
+## Slack catalog entry switched to Slack's hosted MCP server only
+
+The Slack integration's third-party `@zencoderai/slack-mcp-server` stdio option
+was removed; the entry now points only at Slack's official hosted MCP server
+(`https://mcp.slack.com/mcp`), via the existing OAuth option and a new
+user-token bearer option whose credential is saved as `SLACK_MCP_USER_TOKEN`
+(named to avoid colliding with the `slack-channel-monitor` skill's
+`SLACK_USER_TOKEN` / `SLACK_BOT_TOKEN` secret resolution).
+
+If you previously installed Slack through the old `api` stdio option, your
+installed server keeps working but Agent Canvas no longer matches it to the
+catalog entry (Canvas [matches installed servers by
+transport](https://github.com/OpenHands/OpenHands/blob/c5e47c4b4dab1d14724e74675c06254957ccbf47/src/utils/mcp-marketplace-utils.ts#L217-L245)),
+so it shows as a plain custom server instead of the Slack integration. To get
+the catalog match back, remove the old install and reconnect Slack from the
+integration card, which now uses the hosted server.
+
 ## Python raw-dict catalog accessors removed in 0.12.0
 
 `openhands_extensions.list_integration_catalog` and

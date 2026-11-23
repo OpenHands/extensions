@@ -42,11 +42,16 @@
             "search:read.users",
             "chat:write",
             "channels:history",
+            "channels:read",
             "groups:history",
+            "groups:read",
             "mpim:history",
+            "mpim:read",
             "im:history",
+            "im:read",
             "canvases:read",
             "canvases:write",
+            "reactions:write",
             "users:read",
             "users:read.email"
           ],
@@ -71,7 +76,7 @@
         "credentialLabel": "User OAuth token",
         "credentialPlaceholder": "xoxp-...",
         "credentialHelp": "In your [Slack app](https://api.slack.com/apps), turn on Slack Model Context Protocol (MCP) Server under Agents and add user token scopes such as channels:history, channels:read, chat:write, reactions:write, search:read.public, and users:read ([scopes per tool](https://docs.slack.dev/ai/slack-mcp-server/#oauth-scopes)). Install the app (a workspace admin may need to approve it) and copy the User OAuth Token from OAuth & Permissions. Sent as Authorization: Bearer <token>.",
-        "credentialSecretName": "SLACK_USER_TOKEN",
+        "credentialSecretName": "SLACK_MCP_USER_TOKEN",
         "saveCredentialAsSecretByDefault": true
       }
     }
