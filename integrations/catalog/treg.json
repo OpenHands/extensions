@@ -22,7 +22,7 @@
     "text to speech",
     "team APIs"
   ],
-  "installHint": "Sign in to Treg and choose a team during OAuth, or connect with a team API key. To try the connection, use catalog_get with endpoint_id set to treg.web.search. Looking up a tool is free. Paid calls using Treg's provider credentials draw from the selected team's prepaid balance.",
+  "installHint": "In local Agent Canvas, connect with a Treg team API key. In clients that offer browser OAuth, choose your team at sign-in. Try catalog_get with endpoint_id set to treg.web.search for a free lookup. Paid calls using Treg's provider credentials draw from that team's prepaid balance.",
   "connectionOptions": [
     {
       "id": "oauth",
