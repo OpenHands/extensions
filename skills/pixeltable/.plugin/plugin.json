@@ -1,6 +1,6 @@
 {
   "name": "pixeltable",
-  "version": "1.0.0",
+  "version": "2.14.2",
   "description": "Use when the project already uses Pixeltable. Covers TableModel application files, computed columns, embedding indexes, FastAPIRouter routes, UDFs (pxt.udf), and the pxt CLI (pxt schema, pxt service).",
   "author": {
     "name": "OpenHands",
