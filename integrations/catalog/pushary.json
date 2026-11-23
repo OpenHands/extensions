@@ -1,0 +1,47 @@
+{
+  "id": "pushary",
+  "name": "Pushary",
+  "description": "Ask the user a question on their phone, wait for the answer, and send a push when a long task finishes.",
+  "categories": [
+    "Communication",
+    "Developer tools"
+  ],
+  "appUrl": "https://pushary.com",
+  "docsUrl": "https://pushary.com/docs/agents/guides/openhands",
+  "notes": "Uses Pushary's hosted MCP server. The key is a Pushary API key (pk_...), scoped to one Pushary workspace: questions and pushes go to the phones and Mac apps signed in to that workspace. Its tools include ask_user, wait_for_answer, cancel_question, send_notification, schedule_reminder and propose_scope. Approving each terminal command or file edit before it runs is a separate part of Pushary that uses OpenHands hooks, not this MCP server; the docs page covers both. Needs a paid Pushary plan.",
+  "iconBg": "#FFFFFF",
+  "logoUrl": "https://raw.githubusercontent.com/Pushary/openhands-plugin/main/assets/logo.png",
+  "keywords": [
+    "human in the loop",
+    "approvals",
+    "push notifications",
+    "phone",
+    "questions"
+  ],
+  "installHint": "Create a Pushary API key, or run `npx -y pushary@latest setup --agents none` to sign in and save one to ~/.pushary/config.json, then paste the pk_... key. If Decision cards are on and Pushary is your only MCP server, OpenHands sees two ask_user tools; add a second MCP server or turn Decision cards off.",
+  "connectionOptions": [
+    {
+      "id": "api-key",
+      "provider": "mcp",
+      "transport": {
+        "kind": "shttp",
+        "url": "https://pushary.com/api/mcp/mcp"
+      },
+      "auth": {
+        "strategy": "bearer",
+        "credentialLabel": "Pushary API key",
+        "credentialPlaceholder": "pk_...",
+        "credentialHelp": "Create a key in the Pushary dashboard under Settings, API keys, or see [Pushary API keys](https://pushary.com/docs/agents/api-key). Sent as Authorization: Bearer <key>. The key reaches one Pushary workspace.",
+        "credentialSecretName": "PUSHARY_API_KEY",
+        "saveCredentialAsSecretByDefault": true
+      },
+      "connectionModel": {
+        "principalType": "service_account",
+        "credentialScope": "resource",
+        "resourceType": "workspace",
+        "resourceCardinality": "one",
+        "selectionMode": "automatic"
+      }
+    }
+  ]
+}
