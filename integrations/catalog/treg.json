@@ -63,6 +63,7 @@
       "auth": {
         "strategy": "bearer",
         "credentialLabel": "Treg team API key",
+        "credentialPlaceholder": "Paste your Treg team API key",
         "credentialHelp": "Open Team in the [Treg dashboard](https://treg.to/app) and copy a key from the API Keys tab.",
         "credentialSecretName": "TREG_TOKEN"
       }
