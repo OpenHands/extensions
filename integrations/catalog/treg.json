@@ -8,7 +8,8 @@
   ],
   "appUrl": "https://treg.to",
   "docsUrl": "https://treg.to/llms.txt",
-  "logoUrl": "https://treg.to/media/brand/logo.png",
+  "iconBg": "#000000",
+  "logoUrl": "https://raw.githubusercontent.com/superdesigndev/treg/4b4d16db49f4138552022771994600f4daf21a2b/src/treg/web/media/brand/logo-400.png",
   "notes": "Search the catalog by task, then compare inputs, pricing, and measured reliability across providers. Use my_tools to discover the team's registered connections. Treg supplies the provider credential on the server when OpenHands calls an API.",
   "keywords": [
     "web search",
