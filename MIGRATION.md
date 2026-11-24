@@ -9,13 +9,49 @@ user-token bearer option whose credential is saved as `SLACK_MCP_USER_TOKEN`
 (named to avoid colliding with the `slack-channel-monitor` skill's
 `SLACK_USER_TOKEN` / `SLACK_BOT_TOKEN` secret resolution).
 
+### Previously installed Slack servers
+
 If you previously installed Slack through the old `api` stdio option, your
 installed server keeps working but Agent Canvas no longer matches it to the
-catalog entry (Canvas [matches installed servers by
-transport](https://github.com/OpenHands/OpenHands/blob/c5e47c4b4dab1d14724e74675c06254957ccbf47/src/utils/mcp-marketplace-utils.ts#L217-L245)),
-so it shows as a plain custom server instead of the Slack integration. To get
-the catalog match back, remove the old install and reconnect Slack from the
-integration card, which now uses the hosted server.
+catalog entry. Canvas [matches installed servers by
+transport](https://github.com/OpenHands/OpenHands/blob/c5e47c4b4dab1d14724e74675c06254957ccbf47/src/utils/mcp-marketplace-utils.ts#L217-L245),
+so the server shows as a plain custom server instead of the Slack integration.
+
+That same match is also what Canvas uses to decide [whether Slack is connected
+for a
+template](https://github.com/OpenHands/OpenHands/blob/d5dcd45d1c3f798fce782833029476a2b371e051/src/hooks/query/use-manifest-prerequisites.ts#L57-L71),
+so an install made from the old card counts as missing until you reconnect.
+Until then, the **Continue** button stays disabled for these automations:
+
+- `slack-channel-monitor`
+- `slack-standup-digest`
+- `incident-retrospective-drafter`
+
+To get the catalog match and template prerequisites back, remove the old
+install and reconnect Slack from the integration card, which now uses the
+hosted server.
+
+### Slack channel monitor no longer gets a token from the card
+
+`slack-channel-monitor` reads `SLACK_USER_TOKEN` then `SLACK_BOT_TOKEN`
+([`skills/slack-channel-monitor/scripts/main.py`](skills/slack-channel-monitor/scripts/main.py)),
+and the renamed `SLACK_MCP_USER_TOKEN` is intentionally *not* in that list: on
+a user token the monitor ignores the token owner's own messages and replies as
+them, so feeding it the MCP token by default would change its behavior without
+notice. As a result, connecting Slack from the integration card no longer
+gives the monitor a token — its template prerequisite ("Slack connected") is
+met, but the cron run stops with "No Slack token found."
+
+If you use `slack-channel-monitor`, set one of the following in **OpenHands
+Settings → Secrets** after connecting Slack MCP:
+
+| Secret | Token type |
+|--------|-----------|
+| `SLACK_BOT_TOKEN` | Bot (`xoxb-`) |
+| `SLACK_USER_TOKEN` | User (`xoxp-`) |
+
+The proper long-term fix is for the monitor's template to declare the secret
+it reads (tracked in #985).
 
 ## Python raw-dict catalog accessors removed in 0.12.0
 
