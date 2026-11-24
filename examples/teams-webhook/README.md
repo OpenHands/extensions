@@ -8,8 +8,8 @@ For an overview and the UI setup, see the [Teams integration guide](https://docs
 
 - A Teams work/school account permitted to create Workflows and Outgoing Webhooks, and an isolated standard test channel.
 - An OpenHands account permitted to manage event sources, automations, and runtime secrets.
-- An Automation service with direct Teams support ([PR #715](https://github.com/OpenHands/automation/pull/715)) and the callback URL preview (`webhook_url_template` in the `GET /webhooks` response). Direct Teams support is merged but not in release 1.33.0; the callback-preview change is still pending. Check that the webhook schema has `teams_hmac_sha256`, `event_id_expr`, `admission_expr`, and `acknowledgement`, and that `GET /webhooks` returns `webhook_url_template`.
-- For UI setup only: an Agent Canvas build whose **Add event source** form has the **Microsoft Teams outgoing webhook** source type. This is also unreleased.
+- An Automation service with direct Teams support ([PR #715](https://github.com/OpenHands/automation/pull/715)), available in `automation` 1.34.0 or later. Check that the webhook schema accepts `teams_hmac_sha256`, `event_id_expr`, `admission_expr`, and `acknowledgement`. The `POST /webhooks` create response already returns the new source's full `webhook_url` directly, so the API path (Option B below) needs no separate preview step.
+- For UI setup only: an Agent Canvas build whose **Add event source** form has the **Microsoft Teams outgoing webhook** source type. This form is not yet available in upstream Canvas; use Option B until it ships.
 - A runtime with the named-secret API used by the script and persistent worker storage for its file receipts. Distributed or ephemeral workers require shared durable idempotency storage.
 - A public HTTPS event callback. Its proxy must preserve the raw body and Teams' Authorization header. For a local test, expose only the callback through a temporary tunnel and keep management APIs private.
 
@@ -81,37 +81,41 @@ Obtain verified team and channel IDs from an existing signed Teams activity or a
 3. In Teams, open **Manage team → Apps → Create an outgoing webhook**. Name it **OpenHands Demo**, paste the callback, and save the Teams-issued security token privately.
 4. Enter the **Teams security token** and the four IDs, then select **Add event source**.
 
-Canvas sends the same protocol settings as `source.example.json`, and writes each ID into `admission_expr` as an exact-match JSON literal. If the form says to update the automation service, the service lacks the callback preview. Canvas doesn't guess the URL or fall back to a generic source.
+These steps describe the planned form, which is not yet available in upstream Canvas. It must submit the same protocol settings as `source.example.json` and write each ID into `admission_expr` as an exact-match JSON literal. Use Option B for current releases.
 
 ### Option B: register with the API
 
 Set `AUTOMATION_BASE` to your service's external API prefix, for example `https://openhands.example.com/api/automation/v1`.
 
-Choose a source such as `teams-demo`, and read the organization's callback template before registering it. Don't build the callback from a host or org ID.
+Choose a source such as `teams-demo`. Creating a Teams webhook requires a valid base64 `webhook_secret` up front, but Teams only issues its real token after it has a callback URL to send to - so create the source with a temporary secret, then update it with the Teams-issued token. Do not create or enable the automation until the real token is saved.
 
-```sh
-curl --silent --show-error --fail-with-body \
-  "$AUTOMATION_BASE/webhooks?limit=1" \
-  --header "Authorization: Bearer $OPENHANDS_API_KEY" | jq -r .webhook_url_template
-```
+Copy [source.example.json](source.example.json) to a private `source.json` and restrict its file permissions. Set `webhook_secret` to a fresh random base64 value generated with `openssl rand -base64 32`. This temporary secret is replaced below. Replace the tenant, team, channel, and requester placeholders in `admission_expr`.
 
-Replace the literal `{source}` with your source ID. If `webhook_url_template` is missing, the service doesn't support this setup yet.
+- Preserve the file's JMESPath string quoting and JSON escaping when replacing the ID placeholders. Never replace the admission policy with `` `true` `` or omit an identity check.
+- **What the file sets:** Teams signature verification, a conversation-scoped delivery ID, and the fixed Teams acknowledgement.
 
-In Teams, open **Manage team → Apps → Create an outgoing webhook**. Name it **OpenHands Demo**, enter that callback, and save the Teams-issued security token privately.
-
-Copy [source.example.json](source.example.json) to a private `source.json` and restrict its file permissions. Set `webhook_secret` to the Teams-issued token, and replace the tenant, team, channel, and requester placeholders in `admission_expr`.
-
-- Preserve the template's JMESPath string quoting and JSON escaping when replacing the ID placeholders. Never replace the admission policy with `` `true` `` or omit an identity check.
-- **What the template sets:** Teams signature verification, a conversation-scoped delivery ID, and the fixed Teams acknowledgement.
-
-Register it using your deployment's management API authentication.
+Set a private file-creation mask with `umask 077` before saving the source, update file, or response. Register it using your deployment's management API authentication, and keep the response: it contains both the `id` and the `webhook_url` you need next.
 
 ```sh
 curl --silent --show-error --fail-with-body \
   "$AUTOMATION_BASE/webhooks" \
   --header "Authorization: Bearer $OPENHANDS_API_KEY" \
   --header 'Content-Type: application/json' \
-  --data-binary @/PRIVATE/source.json
+  --data-binary @/PRIVATE/source.json > /PRIVATE/source-created.json
+jq -r .webhook_url /PRIVATE/source-created.json
+```
+
+In Teams, open **Manage team → Apps → Create an outgoing webhook**. Name it **OpenHands Demo**, paste that `webhook_url`, and save. Teams shows its own security token once.
+
+Save the real Teams token in a private `token-update.json` file containing only `{"webhook_secret": "<TEAMS_ISSUED_BASE64_TOKEN>"}`. Use that file to update the source, keeping the token out of shell history:
+
+```sh
+curl --silent --show-error --fail-with-body \
+  --request PATCH \
+  "$AUTOMATION_BASE/webhooks/$(jq -r .id /PRIVATE/source-created.json)" \
+  --header "Authorization: Bearer $OPENHANDS_API_KEY" \
+  --header 'Content-Type: application/json' \
+  --data-binary @/PRIVATE/token-update.json
 ```
 
 For local Canvas session authentication, use `X-Session-API-Key: $OPENHANDS_SESSION_API_KEY` for management calls. Teams itself sends its HMAC signature in the Authorization header.
@@ -211,7 +215,7 @@ The automation runtime must reach its authenticated completion callback, which i
 
 | Symptom | Check |
 | --- | --- |
-| Teams source type asks to update the automation service | The service lacks `webhook_url_template`; see Requirements |
+| **Microsoft Teams outgoing webhook** is missing from **Add event source** | Canvas doesn't ship this source type yet; use Option B instead |
 | Teams cannot create the webhook | Account, tenant app policy, and the browser's create-request error |
 | Source registration returns 422 | Server capabilities, Teams token, expressions, and protocol pair |
 | Local callback is unreachable | Tunnel connection status and network egress. Cloudflare Tunnel requires outbound port 7844 over UDP (QUIC) or TCP (HTTP/2). See [Cloudflare firewall requirements](https://developers.cloudflare.com/cloudflare-one/networks/connectors/cloudflare-tunnel/configure-tunnels/tunnel-with-firewall/). |
