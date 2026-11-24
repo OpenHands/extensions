@@ -33,6 +33,18 @@ variable (field `automation_id`).
 
 ---
 
+## Size Budget
+
+`save_state` keeps the serialized state under `STATE_BUDGET_BYTES` (48 KiB),
+below the KV store's per-value limit (64 KiB by default). When the state is
+larger, it drops the oldest `processed_comment_ids` and `own_comment_ids` entries down to
+`MIN_KEPT_IDS` (500) each, then the least recently active closed conversations,
+then more of the oldest entries. Active conversations are never dropped. If the
+service still answers 413 (a deployment with a lower limit), `save_state`
+trims to three quarters of the limit the service reports and saves once more.
+
+---
+
 ## Top-Level Schema
 
 ```jsonc

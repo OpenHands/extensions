@@ -694,7 +694,7 @@ def save_state(state: dict) -> None:
     print(f"State saved to {path}")
 ```
 
-> **Why a single document?** The KV store uses a single-document model under the hood (all keys for an automation share one encrypted row). Storing your entire state under a single key like `"state"` is the most efficient pattern — it avoids multiple round-trips and ensures atomic reads and writes.
+> **Keep each value bounded.** Storing the whole state under one key like `"state"` reads and writes it in one round-trip, but each key is stored separately and each value is limited to **64 KiB** of UTF-8 JSON by default (`AUTOMATION_KV_MAX_VALUE_SIZE` on the service). A `PUT` over the limit returns `413` with `detail.size` and `detail.limit` and leaves the stored value unchanged, so sending the same value again fails the same way. Cap every list or map in the state by its size in bytes, not only by its length, and trim the oldest entries before saving, or store a growing collection under separate keys (for example one key per item).
 
 ---
 
