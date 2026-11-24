@@ -31,13 +31,17 @@ Select-String -Path $main -Pattern 'def create_conversation'
 
 ## Package and Upload
 
+Set `$env:OPENHANDS_HOST` and `$env:AUTH_HEADER` as SKILL.md Step 4 describes:
+`"Authorization: Bearer $env:OPENHANDS_API_KEY"` on OpenHands Cloud or Enterprise,
+`"X-Session-API-Key: $env:OPENHANDS_AUTOMATION_API_KEY"` on a local Agent Canvas.
+
 ```powershell
 $tarball = Join-Path $env:TEMP "slack-monitor.tar.gz"
 tar.exe -czf $tarball -C $buildDir .
 
 $upload = curl.exe -s -X POST `
   "$env:OPENHANDS_HOST/api/automation/v1/uploads?name=slack-channel-monitor" `
-  -H "X-Session-API-Key: $env:OPENHANDS_AUTOMATION_API_KEY" `
+  -H $env:AUTH_HEADER `
   -H "Content-Type: application/gzip" `
   --data-binary "@$tarball" | ConvertFrom-Json
 
@@ -58,7 +62,7 @@ $body = @"
 "@
 
 curl.exe -s -X POST "$env:OPENHANDS_HOST/api/automation/v1" `
-  -H "X-Session-API-Key: $env:OPENHANDS_AUTOMATION_API_KEY" `
+  -H $env:AUTH_HEADER `
   -H "Content-Type: application/json" `
   -d $body
 ```

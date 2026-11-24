@@ -5,7 +5,7 @@ import re
 
 import main as workflow
 from agent_conversation import AgentConversationDispatcher
-from github_client import GitHubRepository, run_repositories
+from github_client import GitHubRepository, is_cloud_run, run_repositories
 
 
 class IssueToPR(GitHubRepository):
@@ -18,6 +18,15 @@ class IssueToPR(GitHubRepository):
         else:
             checkout = (
                 f"create and check out `{branch}` from the repository's base branch"
+            )
+        if is_cloud_run():
+            # OpenHands initializes a Git repository in a conversation's working
+            # directory, so the repository cannot be cloned into it.
+            return (
+                "Clone the repository into a new directory with "
+                f"`GH_TOKEN=${{{token}}} gh repo clone {self.repository} repo` and "
+                f"work inside it, then {checkout}. "
+                "Keep the remote free of embedded credentials."
             )
         return (
             "The workspace starts empty. Clone the repository into it with "

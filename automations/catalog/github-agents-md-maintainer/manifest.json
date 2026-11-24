@@ -4,6 +4,7 @@
   "category": "Documentation",
   "icon": "bot",
   "description": "Keep AGENTS.md current in your repositories. On a schedule, an agent reads the repository, creates or updates AGENTS.md, and opens a pull request - and stays quiet while one of its pull requests is still open.",
+  "diagram": "flowchart TD\n  A([\"Weekly scan\"]) --> B{{\"Own PR still open?\"}}\n  B -.->|\"yes, skip\"| A\n  B -->|no| C[\"Agent checks AGENTS.md\"]\n  C --> D[\"PR only if it is out of date\"]",
   "requires": {
     "integrations": {
       "github": {
@@ -84,7 +85,7 @@
       }
     },
     "bundle": {
-      "version": "1.0.0",
+      "version": "1.1.0",
       "entrypoint": "python3 main.py",
       "timeout": 900,
       "files": {

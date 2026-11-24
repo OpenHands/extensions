@@ -1,0 +1,25 @@
+{
+  "name": "cortex-training-rl",
+  "version": "1.0.0",
+  "description": "Run reinforcement-learning post-training of a model inside the OpenHands harness on Snowflake Cortex Training for any Harbor training and eval task directories or SWE-smith code localization, and generate the reward convergence graph.",
+  "author": {
+    "name": "OpenHands",
+    "email": "contact@all-hands.dev"
+  },
+  "homepage": "https://github.com/OpenHands/extensions",
+  "repository": "https://github.com/OpenHands/extensions",
+  "license": "MIT",
+  "keywords": [
+    "cortex-training",
+    "snowflake",
+    "reinforcement-learning",
+    "post-training",
+    "grpo",
+    "gspo",
+    "skyrl",
+    "arctic-platform",
+    "codescout",
+    "harbor",
+    "swe-smith"
+  ]
+}

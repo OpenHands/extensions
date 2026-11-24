@@ -2,16 +2,26 @@
 Jira issue-to-PR poller — reads all configuration from config.json in the same directory.
 
 config.json fields:
-  jira_base_url          e.g. "https://yourcompany.atlassian.net"
-  jira_email             Atlassian account email used for Basic auth
+  jira_mcp_server        Settings name of the connected Atlassian Rovo MCP server. When set,
+                         Jira is reached through it (OpenHands Cloud and Enterprise only)
+                         and no Jira credential is configured here
+  jira_cloud_id          Atlassian cloud id of the Jira site; required with jira_mcp_server
+  jira_base_url          e.g. "https://yourcompany.atlassian.net"; without jira_mcp_server
+  jira_email             Atlassian account email used for Basic auth; without jira_mcp_server
   jira_token_secret      Name of the OpenHands secret holding the Jira API token
   jira_label             Label to watch for (default: "create-pr")
   max_new_per_run        Max conversations dispatched per run (default: 5)
+  git_provider           Where the ticket's repository lives: "github" (default), "gitlab"
+                         or "bitbucket". It only changes what the conversation is asked
 
-The target GitHub repository is NOT configured here. Each Jira ticket body must include
-the repo in "owner/repo" format; the spawned agent extracts it from the ticket text.
+The target repository is NOT configured here. Each Jira ticket body must name it
+(owner/repo on GitHub, group/project or a URL on GitLab, workspace/repo on Bitbucket);
+the spawned agent extracts it from the ticket text.
+
+Runs against a local agent server (AGENT_SERVER_URL is injected) or on OpenHands Cloud
+(OPENHANDS_CLOUD_API_URL / OPENHANDS_API_KEY / SANDBOX_ID are injected instead).
 """
-import base64, json, os, re, sys, tempfile, urllib.error, urllib.request
+import base64, json, os, re, sys, tempfile, urllib.error, urllib.parse, urllib.request, uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -20,11 +30,72 @@ _HERE = Path(__file__).parent
 with open(_HERE / "config.json") as _f:
     _cfg = json.load(_f)
 
-JIRA_BASE_URL      = _cfg["jira_base_url"].rstrip("/")
-JIRA_EMAIL         = _cfg["jira_email"]
+# Jira is reached through this connected MCP server when it is named, and through
+# Jira's REST API with an API token otherwise.
+JIRA_MCP_SERVER    = _cfg.get("jira_mcp_server")
+JIRA_CLOUD_ID      = _cfg["jira_cloud_id"] if JIRA_MCP_SERVER else None
+JIRA_BASE_URL      = None if JIRA_MCP_SERVER else _cfg["jira_base_url"].rstrip("/")
+JIRA_EMAIL         = None if JIRA_MCP_SERVER else _cfg["jira_email"]
 JIRA_TOKEN_SECRET  = _cfg.get("jira_token_secret", "JIRA_CLOUD_KEY")
 JIRA_LABEL         = _cfg.get("jira_label", "create-pr")
+# Atlassian renamed the comment tool in v2 of its MCP server and moves v1 connections
+# to the v2 tools on its own schedule, so a deployment can meet either name.
+JIRA_COMMENT_TOOLS = ("addOrEditJiraIssueComment", "addCommentToJiraIssue")
 MAX_NEW_PER_RUN    = int(_cfg.get("max_new_per_run", 5))
+GIT_PROVIDER       = _cfg.get("git_provider", "github")
+# What the conversation is told about the provider the ticket names its repository on.
+# Only the prompt differs: the conversation pushes with the user's connected integration,
+# and without one it delivers through the tools of the connected MCP server instead.
+GIT_PROVIDERS = {
+    "github": {
+        "name":      "GitHub",
+        "request":   "Pull Request",
+        "short":     "PR",
+        "reference": '"owner/repo" format (e.g. "acme-org/backend") or a full GitHub URL\n'
+                     '   (e.g. "https://github.com/acme-org/backend")',
+        "clone":     "https://github.com/<owner>/<repo>",
+        "delivery":  "",
+    },
+    "gitlab": {
+        "name":      "GitLab",
+        "request":   "Merge Request",
+        "short":     "MR",
+        "reference": '"group/project" format, subgroups included (e.g. "acme-org/platform/backend"),\n'
+                     '   or a full GitLab URL, which may be on a self-managed host\n'
+                     '   (e.g. "https://gitlab.example.com/acme-org/platform/backend")',
+        "clone":     "https://gitlab.com/<group>/<project>, or the host the ticket's URL names",
+        "delivery":  """
+Delivering through GitLab:
+- If GitLab tools from a connected MCP server are available to you, prefer them for reading
+  the issue and for opening the merge request.
+- Without a `GITLAB_TOKEN` you cannot push with git: create the branch with `add_branch`,
+  commit your changes with `add_commit` (one call, a file action per changed file), and open
+  the merge request with `save_merge_request`. A private project cannot be cloned without a
+  credential; read it with `list_repository_tree` and `get_repository_file` instead.
+""",
+    },
+    "bitbucket": {
+        "name":      "Bitbucket",
+        "request":   "Pull Request",
+        "short":     "PR",
+        "reference": '"workspace/repo" format (e.g. "acme-org/backend") or a full Bitbucket URL\n'
+                     '   (e.g. "https://bitbucket.org/acme-org/backend")',
+        "clone":     "https://bitbucket.org/<workspace>/<repo>",
+        "delivery":  """
+Delivering through Bitbucket:
+- Without a `BITBUCKET_TOKEN`, use the Bitbucket tools of the connected Atlassian Rovo MCP
+  server: read the repository with `getBitbucketRepoFileContent`, create the branch with
+  `createBitbucketRepoBranch`, commit your changes with `createBitbucketRepoCommit`, and open
+  the pull request with `createBitbucketRepoPullRequest`. Tools the server does not list
+  directly are reached through `discover` and `executeRead` / `executeWrite`.
+""",
+    },
+}
+# How often a conversation that OpenHands Cloud failed to start is started again.
+MAX_START_ATTEMPTS = 3
+
+# Only a local run is handed the agent server's URL.
+IS_LOCAL = bool(os.environ.get("AGENT_SERVER_URL"))
 
 # ── KV store helpers ──────────────────────────────────────────────────────────
 _KV_TOKEN  = os.environ.get("AUTOMATION_KV_TOKEN", "")
@@ -105,10 +176,16 @@ def save_state(state):
 
 # ── Required stdlib helpers ───────────────────────────────────────────────────
 def get_secret(name):
-    url = os.environ.get("AGENT_SERVER_URL", "").rstrip("/")
     key = os.environ.get("SESSION_API_KEY") or os.environ.get("OH_SESSION_API_KEYS_0", "")
+    if IS_LOCAL:
+        url = f"{os.environ['AGENT_SERVER_URL'].rstrip('/')}/api/settings/secrets/{name}"
+    else:
+        # Cloud: the OpenHands Cloud API serves the secrets of this run's sandbox.
+        cloud_url = os.environ.get("OPENHANDS_CLOUD_API_URL", "").rstrip("/")
+        sandbox_id = os.environ.get("SANDBOX_ID", "")
+        url = f"{cloud_url}/api/v1/sandboxes/{sandbox_id}/settings/secrets/{name}"
     with urllib.request.urlopen(urllib.request.Request(
-        f"{url}/api/settings/secrets/{name}", headers={"X-Session-API-Key": key}
+        url, headers={"X-Session-API-Key": key}
     )) as r:
         return r.read().decode().strip()
 
@@ -120,12 +197,15 @@ def fire_callback(status="COMPLETED", error=None):
     body = {"status": status, "run_id": os.environ.get("AUTOMATION_RUN_ID", "")}
     if error:
         body["error"] = error
+    # Cloud runs are not given a callback key; they authenticate with their API key.
+    api_key = (os.environ.get("AUTOMATION_CALLBACK_API_KEY")
+               or os.environ.get("OPENHANDS_API_KEY", ""))
     try:
         urllib.request.urlopen(urllib.request.Request(
             url, data=json.dumps(body).encode(),
             headers={
                 "Content-Type": "application/json",
-                "Authorization": f"Bearer {os.environ.get('AUTOMATION_CALLBACK_API_KEY', '')}",
+                "Authorization": f"Bearer {api_key}",
             }
         ))
     except Exception as e:
@@ -146,14 +226,39 @@ def extract_adf_text(adf):
     return " ".join(p for p in parts if p).strip()
 
 
+def call_mcp_tool(name, arguments):
+    """Call a tool on the connected MCP server and return its text output.
+
+    OpenHands makes the call with the credentials the user stored when connecting
+    the server, so this run holds no Jira credential of its own.
+    """
+    server = urllib.parse.quote(JIRA_MCP_SERVER, safe="")
+    result = _cloud_request("POST", f"/api/v1/mcp/servers/{server}/call-tool", {
+        "name": name, "arguments": arguments,
+    })
+    if result.get("is_error"):
+        raise RuntimeError(f"{name} failed: {str(result.get('text'))[:500]}")
+    return result.get("text") or ""
+
+
 def fetch_labeled_issues(auth_header):
-    """Return open Jira issues with JIRA_LABEL using the current v3 search endpoint."""
-    url  = f"{JIRA_BASE_URL}/rest/api/3/search/jql"
-    body = json.dumps({
+    """Return open Jira issues with JIRA_LABEL.
+
+    Uses the connected MCP server's JQL search, or the current v3 search endpoint.
+    """
+    search = {
         "jql":        f'labels = "{JIRA_LABEL}" AND statusCategory != Done',
         "fields":     ["key", "summary", "description", "status", "updated"],
         "maxResults": 50,
-    }).encode()
+    }
+    if JIRA_MCP_SERVER:
+        text = call_mcp_tool("searchJiraIssuesUsingJql", {"cloudId": JIRA_CLOUD_ID, **search})
+        try:
+            return json.loads(text).get("issues", [])
+        except (ValueError, AttributeError) as exc:
+            raise RuntimeError(f"Unexpected Jira search result: {text[:500]}") from exc
+    url  = f"{JIRA_BASE_URL}/rest/api/3/search/jql"
+    body = json.dumps(search).encode()
     req = urllib.request.Request(
         url, data=body,
         headers={
@@ -171,7 +276,19 @@ def fetch_labeled_issues(auth_header):
 
 
 def post_jira_comment(issue_key, auth_header, text):
-    """Post a plain-text comment on a Jira issue using ADF."""
+    """Post a plain-text comment on a Jira issue."""
+    if JIRA_MCP_SERVER:
+        errors = []
+        for tool in JIRA_COMMENT_TOOLS:
+            try:
+                call_mcp_tool(tool, {
+                    "cloudId": JIRA_CLOUD_ID, "issueIdOrKey": issue_key, "commentBody": text,
+                })
+                return
+            except RuntimeError as exc:
+                errors.append(str(exc))
+        print(f"Warning: failed to post Jira comment on {issue_key}: {'; '.join(errors)}")
+        return
     url  = f"{JIRA_BASE_URL}/rest/api/3/issue/{issue_key}/comment"
     body = json.dumps({
         "body": {
@@ -199,6 +316,102 @@ def post_jira_comment(issue_key, auth_header, text):
         print(f"Warning: failed to post Jira comment on {issue_key} ({exc.code}): {body_text[:200]}")
 
 
+def _cloud_request(method, path, body=None):
+    """Call the OpenHands Cloud API with the API key this run was given."""
+    cloud_url = os.environ.get("OPENHANDS_CLOUD_API_URL", "").rstrip("/")
+    req = urllib.request.Request(
+        f"{cloud_url}{path}",
+        data=json.dumps(body).encode() if body is not None else None,
+        headers={
+            "Authorization": f"Bearer {os.environ.get('OPENHANDS_API_KEY', '')}",
+            "Content-Type":  "application/json",
+        },
+        method=method,
+    )
+    try:
+        with urllib.request.urlopen(req) as r:
+            raw = r.read()
+    except urllib.error.HTTPError as exc:
+        body_text = exc.read().decode(errors="replace")
+        raise RuntimeError(f"OpenHands API {method} {path} failed {exc.code}: {body_text[:500]}") from exc
+    return json.loads(raw) if raw.strip() else {}
+
+
+def start_cloud_conversation(title, prompt):
+    """Ask the OpenHands Cloud API to start a conversation.
+
+    OpenHands Cloud runs it in its own sandbox with the user's LLM, MCP servers,
+    secrets and connected git provider (e.g. the native GitHub integration).
+
+    The API answers with the task that starts the conversation, not with a
+    started conversation, so this returns the conversation's URL and that task's
+    id for a later run to confirm (settle_cloud_starts).
+    """
+    cloud_url       = os.environ.get("OPENHANDS_CLOUD_API_URL", "").rstrip("/")
+    conversation_id = uuid.uuid4().hex
+    body = {
+        "conversation_id": conversation_id,
+        "title":           title,
+        "initial_message": {"content": [{"type": "text", "text": prompt}]},
+    }
+    # The automation service sets the variable only when the automation names
+    # an agent profile; without one the API launches the member's active profile.
+    profile_id = os.environ.get("AUTOMATION_AGENT_PROFILE_ID")
+    if profile_id:
+        body["agent_profile_id"] = profile_id
+    task = _cloud_request("POST", "/api/v1/app-conversations", body)
+    if task.get("status") == "ERROR":
+        raise RuntimeError(f"Starting a conversation failed: {task.get('detail') or 'no detail'}")
+    return f"{cloud_url}/canvas/conversations/{conversation_id}", task.get("id")
+
+
+def settle_cloud_starts(state, processed_keys, auth_header):
+    """Confirm the conversations earlier runs asked OpenHands Cloud to start.
+
+    A start can still fail after the API accepted it, for instance when its
+    sandbox does not come up. Such an issue is released so the next poll starts
+    it again, MAX_START_ATTEMPTS times in all; after that the failure is posted
+    on the issue instead, so it is neither lost silently nor retried forever.
+    """
+    pending = state.get("pending_starts") or {}
+    if not pending:
+        return
+    query = "&".join(f"ids={entry['task_id']}" for entry in pending.values())
+    try:
+        tasks = _cloud_request("GET", f"/api/v1/app-conversations/start-tasks?{query}")
+    except RuntimeError as exc:
+        # Confirming earlier starts must not keep this run from polling Jira.
+        print(f"Warning: could not confirm earlier conversation starts: {exc}")
+        return
+    if not isinstance(tasks, list):
+        return  # not the answer expected; leave them for the next run
+    by_id = {task["id"]: task for task in tasks if task}
+
+    for key, entry in list(pending.items()):
+        task = by_id.get(entry["task_id"])
+        # A task OpenHands no longer has says nothing about a failure, so it is
+        # settled like a started one rather than risk a second conversation.
+        status = task["status"] if task else "READY"
+        if status not in ("READY", "ERROR"):
+            continue  # still starting
+        del pending[key]
+        if status == "READY":
+            continue
+        detail = task.get("detail") or "no detail given"
+        if entry.get("attempts", 1) < MAX_START_ATTEMPTS:
+            print(f"Conversation for {key} did not start ({detail}); it will be started again")
+            processed_keys.discard(key)
+            state.setdefault("start_attempts", {})[key] = entry.get("attempts", 1)
+        else:
+            print(f"Conversation for {key} did not start ({detail}); giving up")
+            post_jira_comment(
+                key, auth_header,
+                f"OpenHands could not start a conversation for this issue: {detail}",
+            )
+    state["pending_starts"]  = pending
+    state["processed_keys"] = list(processed_keys)
+
+
 # ── Timestamp helpers ─────────────────────────────────────────────────────────
 def _parse_ts(ts):
     """Parse an ISO-8601 timestamp, normalising +HHMM → +HH:MM for Python < 3.11."""
@@ -208,10 +421,27 @@ def _parse_ts(ts):
 
 # ── Main ──────────────────────────────────────────────────────────────────────
 try:
-    jira_token  = get_secret(JIRA_TOKEN_SECRET)
-    auth_header = "Basic " + base64.b64encode(
-        f"{JIRA_EMAIL}:{jira_token}".encode()
-    ).decode()
+    # A cloud run starts in a fresh sandbox, so without the KV store the processed
+    # issues (and the first-run baseline) would be forgotten after every run.
+    if not IS_LOCAL and not kv_available():
+        raise RuntimeError("The automation KV store is required on OpenHands Cloud, "
+                           "but AUTOMATION_KV_TOKEN is not set for this run.")
+
+    if GIT_PROVIDER not in GIT_PROVIDERS:
+        raise RuntimeError(f"Unknown git_provider {GIT_PROVIDER!r}; "
+                           f"expected one of: {', '.join(GIT_PROVIDERS)}")
+    git = GIT_PROVIDERS[GIT_PROVIDER]
+
+    auth_header = None
+    if not JIRA_MCP_SERVER:
+        jira_token  = get_secret(JIRA_TOKEN_SECRET)
+        auth_header = "Basic " + base64.b64encode(
+            f"{JIRA_EMAIL}:{jira_token}".encode()
+        ).decode()
+    elif IS_LOCAL:
+        # Only OpenHands Cloud and Enterprise call a connected MCP server for a run.
+        raise RuntimeError("jira_mcp_server needs OpenHands Cloud or Enterprise; "
+                           "a local run reaches Jira with jira_token_secret.")
 
     state          = load_state()
     processed_keys = set(state.get("processed_keys", []))
@@ -227,7 +457,10 @@ try:
 
     first_run_at = _parse_ts(state["first_run_at"])
 
-    print(f"Polling {JIRA_BASE_URL} for issues labeled '{JIRA_LABEL}'…")
+    if not IS_LOCAL:
+        settle_cloud_starts(state, processed_keys, auth_header)
+
+    print(f"Polling {JIRA_BASE_URL or JIRA_MCP_SERVER} for issues labeled '{JIRA_LABEL}'…")
     issues = fetch_labeled_issues(auth_header)
     print(f"Total matching issues : {len(issues)}")
 
@@ -248,26 +481,28 @@ try:
         fire_callback("COMPLETED")
         sys.exit(0)
 
-    # Start one agent conversation per new issue via the agent server HTTP API.
-    agent_url   = os.environ.get("AGENT_SERVER_URL", "").rstrip("/")
-    session_key = os.environ.get("SESSION_API_KEY") or os.environ.get("OH_SESSION_API_KEYS_0", "")
+    # Start one agent conversation per new issue: via the agent server HTTP API on a
+    # local run, via the OpenHands Cloud API (start_cloud_conversation) on a cloud run.
+    if IS_LOCAL:
+        agent_url   = os.environ.get("AGENT_SERVER_URL", "").rstrip("/")
+        session_key = os.environ.get("SESSION_API_KEY") or os.environ.get("OH_SESSION_API_KEYS_0", "")
 
-    # Fetch settings with encrypted secrets so llm.api_key is a Fernet token
-    # (starts with gAAAAA) rather than the masked "**********" placeholder.
-    # The conversation payload must include secrets_encrypted: True so the
-    # agent-server decrypts it server-side; we never handle the plaintext key.
-    with urllib.request.urlopen(urllib.request.Request(
-        f"{agent_url}/api/settings",
-        headers={"X-Session-API-Key": session_key, "X-Expose-Secrets": "encrypted"},
-    )) as r:
-        settings = json.loads(r.read())
+        # Fetch settings with encrypted secrets so llm.api_key is a Fernet token
+        # (starts with gAAAAA) rather than the masked "**********" placeholder.
+        # The conversation payload must include secrets_encrypted: True so the
+        # agent-server decrypts it server-side; we never handle the plaintext key.
+        with urllib.request.urlopen(urllib.request.Request(
+            f"{agent_url}/api/settings",
+            headers={"X-Session-API-Key": session_key, "X-Expose-Secrets": "encrypted"},
+        )) as r:
+            settings = json.loads(r.read())
 
-    agent_settings = settings.get("agent_settings", {})
-    agent_settings.pop("schema_version", None)
-    mcp_config = agent_settings.pop("mcp_config", None)
-    ctx = agent_settings.setdefault("agent_context", {})
-    ctx.update({"load_public_skills": True, "load_user_skills": True, "load_project_skills": True})
-    max_iterations = (settings.get("conversation_settings") or {}).get("max_iterations") or 1000
+        agent_settings = settings.get("agent_settings", {})
+        agent_settings.pop("schema_version", None)
+        mcp_config = agent_settings.pop("mcp_config", None)
+        ctx = agent_settings.setdefault("agent_context", {})
+        ctx.update({"load_public_skills": True, "load_user_skills": True, "load_project_skills": True})
+        max_iterations = (settings.get("conversation_settings") or {}).get("max_iterations") or 1000
 
     for issue in new_issues:
         key         = issue["key"]
@@ -275,58 +510,66 @@ try:
         description = extract_adf_text(issue["fields"].get("description"))
         branch      = f"jira/{key.lower()}"
 
-        prompt = f"""Create a GitHub Pull Request for the following Jira issue.
+        prompt = f"""Create a {git['name']} {git['request']} for the following Jira issue.
 
 Jira Issue : {key}
 Summary    : {summary}
 Description: {description or "No description provided."}
 
 Steps:
-1. Find the target GitHub repository in the Description above. Look for a reference in
-   "owner/repo" format (e.g. "acme-org/backend") or a full GitHub URL
-   (e.g. "https://github.com/acme-org/backend"). Use that repository.
+1. Find the target {git['name']} repository in the Description above. Look for a reference in
+   {git['reference']}. Use that repository.
    If no repository is mentioned, create a file `jira/{key}/notes.md` with the issue
-   details and print a message explaining that no GitHub repo was found in the ticket.
-2. Clone the repository (e.g. https://github.com/<owner>/<repo>).
+   details and print a message explaining that no {git['name']} repo was found in the ticket.
+2. Clone the repository (e.g. {git['clone']}).
 3. Create branch `{branch}` from the default branch.
 4. Implement the changes described in the issue.
    If the description is vague or missing, create `jira/{key}/notes.md`
    with the issue key, summary, and description as a placeholder.
-5. Commit, push the branch, and open a Pull Request:
+5. Commit, push the branch, and open a {git['request']}:
    - Title : [{key}] {summary}
    - Body  : Reference the Jira issue key and describe the changes made.
-6. Print the PR URL when done.
-"""
-        workdir = tempfile.mkdtemp(prefix=f"jira-{key.lower()}-")
-        payload = {
-            "secrets_encrypted":   True,
-            "agent_settings":      agent_settings,
-            "workspace":           {"kind": "LocalWorkspace", "working_dir": workdir},
-            "confirmation_policy": {"kind": "NeverConfirm"},
-            "max_iterations":      max_iterations,
-            "stuck_detection":     True,
-            "autotitle":           True,
-            "worktree":            False,
-            "initial_message": {
-                "role":    "user",
-                "content": [{"type": "text", "text": prompt}],
-                "run":     True,
-            },
-        }
-        if mcp_config:
-            payload["mcp_config"] = mcp_config
+6. Print the {git['short']} URL when done.
+{git['delivery']}"""
+        if IS_LOCAL:
+            workdir = tempfile.mkdtemp(prefix=f"jira-{key.lower()}-")
+            payload = {
+                "secrets_encrypted":   True,
+                "agent_settings":      agent_settings,
+                "workspace":           {"kind": "LocalWorkspace", "working_dir": workdir},
+                "confirmation_policy": {"kind": "NeverConfirm"},
+                "max_iterations":      max_iterations,
+                "stuck_detection":     True,
+                "autotitle":           True,
+                "worktree":            False,
+                "initial_message": {
+                    "role":    "user",
+                    "content": [{"type": "text", "text": prompt}],
+                    "run":     True,
+                },
+            }
+            if mcp_config:
+                payload["mcp_config"] = mcp_config
 
-        conv_req = urllib.request.Request(
-            f"{agent_url}/api/conversations",
-            data=json.dumps(payload).encode(),
-            headers={"Content-Type": "application/json", "X-Session-API-Key": session_key},
-        )
-        with urllib.request.urlopen(conv_req) as r:
-            conv = json.loads(r.read())
+            conv_req = urllib.request.Request(
+                f"{agent_url}/api/conversations",
+                data=json.dumps(payload).encode(),
+                headers={"Content-Type": "application/json", "X-Session-API-Key": session_key},
+            )
+            with urllib.request.urlopen(conv_req) as r:
+                conv = json.loads(r.read())
 
-        conv_id  = conv.get("id")
-        conv_url = f"{agent_url}/conversations/{conv_id}"
-        print(f"✓ Conversation started for {key}: id={conv_id}")
+            conv_id  = conv.get("id")
+            conv_url = f"{agent_url}/conversations/{conv_id}"
+            print(f"✓ Conversation started for {key}: id={conv_id}")
+        else:
+            conv_url, start_task_id = start_cloud_conversation(f"[{key}] {summary}", prompt)
+            if start_task_id:
+                attempts = state.setdefault("start_attempts", {}).pop(key, 0) + 1
+                state.setdefault("pending_starts", {})[key] = {
+                    "task_id": start_task_id, "attempts": attempts,
+                }
+            print(f"✓ Conversation requested for {key}: {conv_url}")
 
         post_jira_comment(key, auth_header, f"I'm on it: {conv_url}")
 

@@ -6,7 +6,7 @@ It contains **shareable skills and plugins** that can be loaded by OpenHands (CL
 
 ## Cross-Repository Boundaries
 
-This repository owns the public registry of reusable OpenHands skills, plugins, automations, and integrations. These extensions are consumed by OpenHands applications and SDK-based clients.
+This repository owns the public registry of reusable OpenHands skills, plugins, Agent Canvas Apps, automations, and integrations. These extensions are consumed by OpenHands applications and SDK-based clients.
 
 Related repositories have distinct responsibilities:
 
@@ -41,14 +41,20 @@ Before opening a PR:
 
 - `skills/` — a catalog of skills, **one directory per skill**.
   - `skills/<skill-name>/SKILL.md` — the skill definition (AgentSkills-style progressive disclosure)
-  - `skills/<skill-name>/README.md` — optional extra docs/examples for humans
+  - `skills/<skill-name>/README.md` — required human-facing docs/examples; `tests/test_skills_have_readme.py` fails if any skill directory lacks a non-empty `README.md`
 
 - `plugins/` — a catalog of plugins with executable code components.
-  - `plugins/<plugin-name>/SKILL.md` — the plugin definition
+  - `plugins/<plugin-name>/.plugin/plugin.json` — the plugin manifest (the canonical location; `.claude-plugin` and `.codex-plugin` are vendor symlinks to `.plugin`)
+  - `plugins/<plugin-name>/SKILL.md` — the plugin definition (optional; present only on plugins that are also loadable as a skill)
   - `plugins/<plugin-name>/hooks/` — lifecycle hooks (optional)
   - `plugins/<plugin-name>/scripts/` — utility scripts (optional)
 
-There is no application code here; the primary artifacts are Markdown skill definitions and plugin configurations, which can contain `scripts/`, `hooks/` sub-directories.
+- `apps/` — a catalog of Agent Canvas Apps (beta), **one directory per app**.
+  - `apps/<app-name>/canvas-extension.json` — the App manifest (Canvas Extensions API v1)
+  - `apps/<app-name>/extension.js` — the browser ESM entrypoint exporting `activate(host)`
+  - `apps/catalog.json` — the registry catalog, exposed as `APPS_CATALOG` from `@openhands/extensions/apps`
+
+Most content is Markdown skill definitions and plugin configurations; the executable parts are plugin `scripts/` and `hooks/` plus the browser ESM App packages under `apps/`, each of which may ship its own `scripts/` and build sub-directories.
 
 ## How client code uses this repo
 
@@ -123,15 +129,15 @@ When editing or adding skills in this repo, follow these rules (and add new skil
 - **Punctuation style**: Use plain hyphens (`-`) instead of em dashes (`—` / `\u2014`) in skill descriptions, SKILL.md content, and marketplace JSON entries.
 - **`defaultEnabled` on marketplace skill entries**: a skill entry may carry `"defaultEnabled": true`, which means the skill is enabled for every **new** workspace. Omit the field for everything else - absence already means off, so `"defaultEnabled": false` is not written. Keep the set small and provider-agnostic; anything language-, vendor- or workflow-specific should start off and be opted into from the catalog UI. `npm run build:skills` joins the flag into `skills/index.js` and exports `DEFAULT_ENABLED_SKILL_NAMES` for hosts to seed a workspace from. Seeding is all it does: the contract hosts implement is that a workspace which already saved a selection keeps it, so adding the flag to a skill later will not retroactively enable it for existing users.
 - Keep formatting consistent across skills.
-- If you change a skill’s behavior or scope, update its `README.md` (if present) accordingly.
+- If you change a skill’s behavior or scope, update its `README.md` accordingly.
 - If you change top-level documentation, ensure links still resolve.
 - `integrations/catalog/*.json` is the single hand-authored source of truth consumed by `@openhands/extensions`; adding or editing an integration should require changing exactly one JSON file in that directory. Do not reintroduce `integrations/integration-catalog.json`, separate provider files, per-language catalog duplicates, or provider-specific runtime code. Run `npm run build:integrations` after catalog edits to regenerate `integrations/catalog-index.js`, which statically imports each individual JSON file for the JS package. The Python package includes the same individual JSON files via wheel data and reads them directly. Agent-canvas and integrations-hub import this package directly, so integration marketplace fixes belong here rather than in app-local constants. When upstream MCP projects move repos, verify both `docsUrl` and the connection option (`transport`, `command`/`args`, or URL), not just links. JS exposes `listIntegrationCatalog({ mcp, oauth })` / `getIntegrationCatalogEntry`; Python mirrors with `list_integration_catalog_models(mcp=, oauth=)` / `get_integration_catalog_entry_model`, which return validated Pydantic models (the raw-dict accessors were deprecated in 0.10.0 and removed in 0.12.0). The legacy provider-catalog compatibility layer and `managedConnectorMigration` / `legacyScopeBundles` / `canonicalServerUrl` / `errorHints` mechanisms were removed intentionally; providers declare only standard OAuth config as integration data.
-- `automations/catalog/<id>/` follows the same rule, as a directory per automation so an automation can ship the scripts it uploads to the automations service alongside its metadata. `manifest.json` is the single hand-authored file, carrying both the card metadata and an optional nested `setup` block (the extension-owned configuration experience). Every entry is validated against `automations/catalog.schema.json`. Run `npm run build:automations` after catalog edits to regenerate `automations/catalog-index.js`. JS exposes `listAutomationCatalog()` / `getAutomationCatalogEntry(id)` alongside `AUTOMATION_CATALOG`. The governing rule is that a manifest states only what varies between automations, and states it once; anything derivable is absent and the host generates it. Derived, so never written in a manifest: the command that launches the card (read from the `triggers:` frontmatter of the skill named by `skill`, which defaults to `id` and is stated only where the two differ - editing an automation must never require editing a skill), the setup route (`/automations/new/<id>`), the trigger variants a deployment can offer (the keys of `setup.form.triggers`; multiple keys mean any supported selected variant can run), schedule limits, timezone lists, event choices, and model profiles (the `cron`, `timezone`, `event-source`, `event-type`, and `llm-profile` field types), the preflight call, the create request's `name`/`repos`/`model`/`timeout`/`trigger` (rebuilt from same-named form fields when present, the repo-picker field, and the selected key and fields under `setup.form.triggers`, where a field is named after the property it fills), the mapping from a rejected payload path back to the input at fault, the review screen, the create endpoint, the post-success navigation, and the analytics stages. `requires.integrations` is keyed by integration id and lives on the entry, not in `setup`, because a card lists its integrations whether or not it ships a setup flow; there is no key anywhere for a credential, because the credential comes with the connection. `setup.form` splits inputs into `triggers` (keyed by trigger kind - what decides when the automation runs) and `args` (everything else), both keyed by field name. `setup` declares a `prompt` (plus a `filter` for an event trigger) when `mode` is `direct`, and a `message` when it is `assisted`. Contract fixtures are test vectors, not catalog data: they live in `tests/fixtures/automations/`, are optional per automation, and are reachable only through the `@openhands/extensions/testing/automations/*.json` subpath - never from the runtime entry point.
+- `automations/catalog/<id>/` follows the same rule, as a directory per automation so an automation can ship the scripts it uploads to the automations service alongside its metadata. `manifest.json` is the single hand-authored file, carrying both the card metadata and an optional nested `setup` block (the extension-owned configuration experience). Every entry is validated against `automations/catalog.schema.json`. Run `npm run build:automations` after catalog edits to regenerate `automations/catalog-index.js`. JS exposes `listAutomationCatalog()` / `getAutomationCatalogEntry(id)` alongside `AUTOMATION_CATALOG`. The governing rule is that a manifest states only what varies between automations, and states it once; anything derivable is absent and the host generates it. Derived, so never written in a manifest: the command that launches the card (read from the `triggers:` frontmatter of the skill named by `skill`, which defaults to `id` and is stated only where the two differ - editing an automation must never require editing a skill), the setup route (`/automations/new/<id>`), the trigger variants a deployment can offer (the keys of `setup.form.triggers`; multiple keys mean any supported selected variant can run), schedule limits, timezone lists, event choices, and model profiles (the `cron`, `timezone`, `event-source`, `event-type`, and `llm-profile` field types), the preflight call, the create request's `name`/`repos`/`model`/`timeout`/`trigger` (rebuilt from same-named form fields when present, the repo-picker field - `repos` only for a provider the deployment's `repoProviders` capability lists - and the selected key and fields under `setup.form.triggers`, where a field is named after the property it fills), the mapping from a rejected payload path back to the input at fault, the review screen, the create endpoint, the post-success navigation, and the analytics stages. `requires.integrations` is keyed by integration id and lives on the entry, not in `setup`, because a card lists its integrations whether or not it ships a setup flow; there is no key anywhere for a credential, because the credential comes with the connection. `setup.form` splits inputs into `triggers` (keyed by trigger kind - what decides when the automation runs) and `args` (everything else), both keyed by field name. `setup` declares a `prompt` (plus a `filter` for an event trigger) when `mode` is `direct`, and a `message` when it is `assisted`. Contract fixtures are test vectors, not catalog data: they live in `tests/fixtures/automations/`, are optional per automation, and are reachable only through the `@openhands/extensions/testing/automations/*.json` subpath - never from the runtime entry point.
 - For Python test runs, prefer `uv sync --group test` followed by `uv run pytest -q`; the full suite depends on `openhands-sdk`, which is not available in the base environment.
 - Agent-driven plugins (for example `plugins/pr-review` and `plugins/release-notes`) use `uv run --with openhands-sdk --with openhands-tools ...` and require an `LLM_API_KEY` in addition to `GITHUB_TOKEN`.
 - For OpenHands Cloud API guidance, automations, and CLI integration, use `plugins/openhands`. It is the canonical unified OpenHands plugin covering the V1 Cloud API, Automations API, and CLI. The individual skills (`skills/openhands-api`, `skills/openhands-automation`) are also available standalone.
 - When reviewing or editing `skills/openhands-sdk`, validate copy-paste imports against the released packages with `uv run --with openhands-tools --with openhands-workspace --with openhands-agent-server python ...`. In the current released workspace package, the exported remote workspace classes are `APIRemoteWorkspace` / `OpenHandsCloudWorkspace`; `RemoteAPIWorkspace` is not available.
-- For agent-driven plugin scripts, prefer `from openhands.sdk.plugin import PluginSource` and pass `plugins=[PluginSource(source=...)]` into `Conversation`. The current released SDK (`openhands-sdk` 1.49.x) exports both `PluginSource` and `Plugin` from `openhands.sdk.plugin`, so `Plugin.load(...)` imports also work (used by `tests/test_skill_plugin_loading.py`).
+- For agent-driven plugin scripts, prefer `from openhands.sdk.plugin import PluginSource` and pass `plugins=[PluginSource(source=...)]` into `Conversation`. `tests/test_skill_plugin_loading.py` also exercises `Plugin.load(...)` from `openhands.sdk.plugin`.
 - `plugins/qa-changes/action.yml` now has a preflight guard for fork PRs in `pull_request` context: if the PR comes from a fork and `LLM_API_KEY` is unavailable (normal for forks), the action exits successfully with a clear skip notice instead of failing.
 - `skills/bitbucket` should not tell agents to rewrite remotes proactively. In OpenHands, `BITBUCKET_TOKEN` is commonly kept in unencoded `user:token` form for API calls like `curl --user "$BITBUCKET_TOKEN" ...`; only split and URL-encode it when constructing a non-interactive HTTPS Git remote URL.
 
@@ -140,7 +146,7 @@ When editing or adding skills in this repo, follow these rules (and add new skil
 
 ## PR-specific documents (`.pr/`)
 
-When working on a PR that requires design documents, live-test logs, development-only scripts, or other temporary artifacts that should **not** be merged to `main`, store them in a `.pr/` directory at the repository root.
+When working on a PR that requires design documents, live-test logs, development-only scripts, or other temporary artifacts that should be removed after merging to `main`, store them in a `.pr/` directory at the repository root.
 
 ```bash
 mkdir -p .pr
@@ -151,22 +157,22 @@ mkdir -p .pr
 └── notes.md        # Any other PR-specific content
 ```
 
-The `PR Artifacts` workflow (`.github/workflows/pr-artifacts.yml`) owns the lifecycle of this directory:
+The lifecycle of this directory:
 
-1. **Notification**: When a PR contains `.pr/`, a single comment is posted to the PR conversation alerting reviewers.
-2. **Auto-cleanup on approval**: For same-repository PRs, the directory is automatically removed by a follow-up commit when the PR is approved.
-3. **Post-merge cleanup**: If artifacts reach `main`, including through a fork PR, the workflow opens or updates a cleanup PR against `main`.
+1. **Notification**: When a PR adds or changes files under `.pr/`, the `PR Artifacts` workflow (`.github/workflows/pr-artifacts.yml`) posts a single comment to the PR conversation alerting reviewers.
+2. **Release cleanup**: After a same-repository or fork PR merges to `main`, the next release PR update removes `.pr/` from `main` in the same push as its version bump (`cleanup-pr-artifacts` in `.github/workflows/release.yml`). No separate cleanup PR is opened.
 
 Important notes:
 
 - Do not put anything in `.pr/` that needs to be preserved.
 - The `.pr/` check is informational during development; it posts a notice rather than blocking the PR.
-- Cleanup PRs follow the normal review and required-check protections for `main`.
+- npm packaging excludes `.pr/` while it remains on `main`, so temporary review artifacts do not ship in releases.
+- Release PRs fail the required `test` check while their committed tree contains `.pr/`. Refresh the release PR by rerunning the latest `release` workflow on its target branch, then let the check rerun before merging.
 
 ## CI / validation gotchas
 
-- The test suite expects **every directory under `skills/`** to be listed in a marketplace. If you add a new skill (or rebase onto a main branch that added skills), update the appropriate marketplace file or CI will fail with `Skills missing from marketplace: [...]`.
-- `scripts/sync_extensions.py` keeps generated artifacts in sync: Claude Code command files, README catalog section, coverage checks, and vendor symlinks. Run `python scripts/sync_extensions.py --check` (or just push — CI runs it) to verify everything is consistent. Run without `--check` to auto-fix. The "Quick Start" section in `README.md` (OpenHands SDK, Claude Code, and Codex setup instructions) is **manually maintained** above the auto-generated catalog markers and is intentionally not generated by the sync script.
+- The test suite expects **every directory under `skills/`** to be listed in a marketplace. If you add a new skill (or rebase onto a main branch that added skills), update the appropriate marketplace file or CI will fail with `Skills not in any marketplace: [...]` (`test_marketplace_includes_all_skills` in `tests/test_sdk_loading.py`). The `coverage` task in `scripts/sync_extensions.py` checks the same mapping for both `skills/` and `plugins/`, but reports gaps as a non-blocking warning instead of failing.
+- `scripts/sync_extensions.py` keeps generated artifacts in sync: Claude Code command files, README catalog section, coverage checks, and vendor symlinks. Run `python scripts/sync_extensions.py --check` (or just push — CI runs it) to verify everything is consistent. Run without `--check` to auto-fix. Only the region between the `<!-- BEGIN AUTO-GENERATED CATALOG -->` and `<!-- END AUTO-GENERATED CATALOG -->` markers in `README.md` is generated; every hand-authored section above and below those markers (Repository boundaries, Repository Layout, NPM/Python package notes, Contributing) is **manually maintained** and intentionally left untouched by the sync script.
 - The sync script uses PyYAML to parse SKILL.md frontmatter. If you add a skill with a slash trigger (e.g., `triggers: ["/mycommand"]`), the script auto-generates `commands/mycommand.md`. **Note:** Slash triggers in SKILL.md frontmatter are deprecated — prefer adding a `commands/command-name.md` file to the plugin's `commands/` directory instead. Keyword triggers (non-slash) remain the recommended way to activate skills by topic.
 
 - The GitHub issue-triage automation and repository writers may grant
@@ -192,13 +198,48 @@ Important notes:
 - The `code-review` and `codereview-roasted` skills have been merged into a single `code-review` skill. The `/codereview-roasted` trigger is kept as an alias for backward compatibility. The `review-style` action input is deprecated and ignored.
 - `plugins/pr-review` supports an optional `require-evidence` action input that tells the reviewer to require end-to-end proof in the PR description that the code works; test output alone is not sufficient evidence.
 - The corresponding `REQUIRE_EVIDENCE` env flag is consumed by `plugins/pr-review/scripts/agent_script.py` and injected into the review prompt via `plugins/pr-review/scripts/prompt.py`.
+- `plugins/pr-review` supports an optional `require-pinned-actions` input (default `'false'`) that tells the reviewer to require commit-SHA pins on third-party actions in workflow and `action.yml` changes. The reviewed repository's owner is exempt; the `REQUIRE_PINNED_ACTIONS` env flag follows the same path as `REQUIRE_EVIDENCE`.
 - `plugins/pr-review` exposes an `enable-uv-cache` input (default `'false'`) that toggles `setup-uv`'s GitHub Actions cache. Default stays off because a prompt-injected reviewer could poison a shared cache that higher-privilege workflows later consume; opt in only on single-tenant self-hosted runners. The README's "Caching and Security" section documents the threat model and recommends a host-level uv cache volume as the preferred alternative for self-hosted setups.
 - GitHub review suggestions that only delete lines can look empty in `PullRequestReviewComment.body`; the rendered content is available via `bodyText`/`bodyHTML`, so review-context formatting should fall back there before treating a suggestion as empty.
 - Prompt coverage for this behavior lives in `tests/test_pr_review_prompt.py`.
 - `plugins/pr-review`'s `collect-feedback` input should append a short thumbs up/down footer to the main GitHub review body via `agent_script.py` / `prompt.py`, rather than posting a separate PR comment. `evaluate_review.py` should read feedback from review-body reactions while still tolerating legacy issue-comment markers.
+- In `plugins/pr-review/scripts/prompt.py`, PR-derived text (title, head branch, description, review context, files manifest, and patches) goes through the private `_fence_untrusted()` helper, with one nonce per `format_prompt()` call. Keep new PR-derived prompt fields inside these regions; containment tests live in `tests/test_pr_review_prompt_injection.py`.
 
 
 ## When uncertain
 
 - Prefer the official OpenHands docs on skills: https://docs.openhands.dev/overview/skills
 - Prefer the SDK skill guide: https://docs.openhands.dev/sdk/guides/skill
+
+## Dependency release-age policy
+
+- Wait at least seven days after publication before adding or updating a
+  third-party npm or PyPI version, including transitive lockfile changes.
+  A weekly update schedule alone does not enforce this minimum age.
+- Keep Dependabot `cooldown.default-days: 7` for npm and Python version
+  updates, and preserve `tool.uv.exclude-newer = "7 days"` where configured.
+  Existing named first-party exceptions do not exempt their third-party
+  dependencies. Do not add broad exemptions or disable the cutoff to make a
+  resolver succeed.
+- Verify the exact version's publication/upload time from npm or PyPI metadata
+  (or artifact `upload-time` in `uv.lock`), not the package's creation date.
+  If age cannot be established, report the missing evidence rather than guess.
+- Security updates can bypass Dependabot cooldown. An urgent exception needs
+  explicit maintainer approval recorded in the PR with the package, version,
+  advisory/reason, and publication time. Agents must not grant themselves an
+  exception. Keep overrides narrow and remove temporary exceptions afterward.
+- Use the committed lock for reproducible installs; review newly resolved
+  artifacts before committing a lock update.
+
+For manual npm dependency resolution, use npm >= 11.10 with
+`npm install --min-release-age=7` (days), or verify registry timestamps before
+committing the result. Older npm versions do not enforce this option. `npm ci`
+replays the lock and is not proof that newly locked versions meet the age rule.
+
+Use uv >= 0.9.25 for this policy. Older versions cannot parse the boolean
+first-party exemptions and can discard the entire `[tool.uv]` table, including
+`required-version`. Check `uv --version` before running `uv sync`, `uv lock`,
+or `uv run`; this repository does not commit a lockfile to reject old parsers.
+The named exemptions cover the released SDK, tools, workspace, and agent-server
+packages used by the documented import checks; their third-party dependencies
+still have the seven-day cutoff.

@@ -1,6 +1,6 @@
 # Automation Skill
 
-Create and manage OpenHands automations — tasks that run in sandboxes on a cron schedule or triggered by webhook events (GitHub, custom services).
+Create and manage OpenHands automations - tasks that run in sandboxes on a cron schedule or triggered by webhook events (GitHub, Jira Data Center, Bitbucket Data Center, Azure DevOps, custom services).
 
 ## Triggers
 
@@ -16,19 +16,24 @@ This skill is activated by keywords:
 
 ## Features
 
-- **Prompt-based creation**: Create automations from a natural language prompt (recommended)
-- **Event-triggered automations**: Trigger on GitHub events (PR opened, issue commented, push, etc.)
-- **Custom webhooks**: Register webhooks for any service (Stripe, Slack, Linear, etc.)
+- **Plugin-spec automations (preferred for reusable/code-backed and deterministic work)**: Create automations from a plugin in a chosen local or remote git repo, with a manifest that declares its config schema, runtime profiles, entrypoint, and suggested trigger. For deterministic custom code, use `entrypoint.runner: "script"` so the code is packaged as part of the plugin
+- **Prompt-based creation**: Create one-off automations from a natural language prompt, for tasks that benefit from agent reasoning
+- **Plugin preset automations**: Use plugin presets for prompt-driven plugin runs when no executable plugin-spec contract exists yet
+- **Custom scripts**: Use raw tarball uploads only when the user needs full packaging or SDK lifecycle control outside the preferred plugin-spec path (see [references/custom-automation.md](references/custom-automation.md))
+- **Agent Canvas setup form**: When the `automation_form_update` tool is available (an Agent Canvas automation setup session), the agent fills the setup form instead of creating automations through the API, and the user saves, tests or creates the automation from the form
+- **Event-triggered automations**: Trigger on events from the built-in sources a deployment delivers (`github`, `jira_dc`, `bitbucket_data_center`, `azure_devops`), as listed by `/api/automation/v1/capabilities`
+- **Custom webhooks**: Register webhooks for services without a built-in source (Stripe, Slack, Linear, etc.)
 - **JMESPath filters**: Match events based on payload content (labels, mentions, repos)
 - **Automation management**: List, update, enable/disable, and delete automations
 - **Manual dispatch**: Trigger automation runs on-demand
-- **Custom automations**: For advanced users who need full control (see [references/custom-automation.md](references/custom-automation.md))
 
 ## API Base URL
 
 Use an explicitly provided host first. When a local Agent Canvas automation server is running and no host is provided, use `http://localhost:8001/api/automation/v1`. Otherwise use the cloud default: `https://app.all-hands.dev/api/automation/v1`.
 
 ## Quick Start
+
+Prefer plugin-spec automations for reusable, code-backed, or deterministic work. Before creating one, ask which local git repo or remote git repo should be used as the plugin source; if the user wants a local source and no repo exists yet, help initialize and commit one first. For a deterministic task that needs no LLM, package the custom code in the plugin and set `entrypoint.runner` to `"script"`. The examples below use the prompt preset, which still suits one-off tasks that need reasoning or judgment.
 
 ### Cron-Triggered Automation
 
@@ -81,9 +86,9 @@ curl -X POST "https://app.all-hands.dev/api/automation/v1/preset/prompt" \
   }'
 ```
 
-The service handles SDK code generation, tarball packaging, upload, and automation creation automatically.
+For preset and plugin-spec automations, the service handles SDK/runtime wiring, tarball packaging, upload, and automation creation automatically.
 
 ## See Also
 
 - [SKILL.md](SKILL.md) — Full API reference, agent behavior rules, event keys, filters, and examples
-- [references/custom-automation.md](references/custom-automation.md) — Reference for custom automations with user-provided SDK scripts
+- [references/custom-automation.md](references/custom-automation.md) — Reference for raw custom automations with user-provided scripts when plugin spec is not the right packaging path

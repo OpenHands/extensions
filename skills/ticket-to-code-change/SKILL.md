@@ -1,8 +1,9 @@
 ---
 name: ticket-to-code-change
 description: >
-  Set up a ticket-to-code-change automation using Jira or Linear as the issue
-  tracker and GitHub, GitLab, or Bitbucket as the source-control provider.
+  Set up a ticket-to-code-change automation using Linear as the issue tracker
+  and GitHub, GitLab, or Bitbucket as the source-control provider. The Jira
+  templates are served by the jira-issue-to-pr skill instead.
   Watches for implementation-ready tickets, starts an OpenHands conversation
   to implement and test the request, opens a pull or merge request, and links
   the result back to the ticket.
@@ -19,7 +20,8 @@ requests or merge requests.
 
 Ask the user for:
 
-1. The issue tracker: Jira Cloud or Linear.
+1. The issue tracker: Linear. Jira automations are set up with the
+   `jira-issue-to-pr` skill instead, which ships a poller.
 2. The source-control provider: GitHub, GitLab, or Bitbucket Cloud.
 3. The project or team to watch and the label or workflow state that means
    "implementation ready".
@@ -40,9 +42,12 @@ Ask the user for:
    dependency status, repository, base branch, and provider-specific request
    terminology. Require the agent to run the repository's tests before opening
    the pull request or merge request.
-5. Create the automation through the Automation backend described in
-   `<RUNTIME_SERVICES>`. Use its prompt-preset endpoint and authenticate with
-   the runtime-provided automation API key.
+5. Create the automation through the Automation backend's prompt-preset
+   endpoint. On OpenHands Cloud or Enterprise the backend is the `<HOST>` value
+   in your system prompt, authenticated with
+   `Authorization: Bearer $OPENHANDS_API_KEY`. On a local Agent Canvas it is the
+   Automation backend described in `<RUNTIME_SERVICES>`, authenticated with the
+   runtime-provided automation API key.
 6. Configure the automation to post the OpenHands conversation URL immediately
    and the resulting pull-request or merge-request URL back to the ticket.
 

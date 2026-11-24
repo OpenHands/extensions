@@ -9,6 +9,10 @@ triggers:
 
 # Linear
 
+## Connection selection
+
+Use authenticated Linear MCP tools first when they are available in the agent's environment. Detect this by tool availability, without depending on a particular MCP server name. Use the API key and direct GraphQL instructions below only when Linear MCP tools are unavailable or when raw API or `curl` access is explicitly needed.
+
 Windows PowerShell equivalents for the repeated Linear GraphQL `curl` and environment-variable snippets are in `references/windows.md`.
 
 You can interact with Linear using one of the following methods, in order of preference:

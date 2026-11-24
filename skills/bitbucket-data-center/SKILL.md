@@ -11,8 +11,10 @@ preference:
    the environment, use them for Bitbucket Data Center operations. MCP tools handle
    authentication via the configured OAuth integration, so no token is needed.
 2. **Secret Token**: If a `BITBUCKET_DATA_CENTER_TOKEN` environment variable is set, use it
-   with the Bitbucket Data Center API. The token is a basic auth token in the format
-   `username:your-token`, as described below.
+   with the Bitbucket Data Center API. The credential comes in one of two forms, as
+   described below:
+   - An access or OAuth token: the value has no colon, or starts with `x-token-auth:`.
+   - A `username:token` pair.
 3. **No authentication**: If neither is available, ask the user to either:
    - Connect a Bitbucket OAuth MCP server in Canvas, OR
    - Provide a `BITBUCKET_DATA_CENTER_TOKEN` as a Secret
@@ -31,19 +33,34 @@ The `BITBUCKET_DATA_CENTER_TOKEN` path uses these specifics:
 - REST API base URL: `https://{domain}/rest/api/1.0`
 - Repository identifier format: `PROJECT/repo_slug` (project key, slash, repo slug)
 
-You can use this token to interact with the Bitbucket Data Center REST API:
-```bash
-curl -u "${BITBUCKET_DATA_CENTER_TOKEN}" https://{domain}/rest/api/1.0/...
-```
+Use it with the Bitbucket Data Center REST API as follows:
+
+- An access or OAuth token goes in a Bearer header, without any `x-token-auth:` prefix:
+  ```bash
+  curl -H "Authorization: Bearer ${BITBUCKET_DATA_CENTER_TOKEN#x-token-auth:}" https://{domain}/rest/api/1.0/...
+  ```
+- A `username:token` pair uses HTTP Basic auth:
+  ```bash
+  curl -u "${BITBUCKET_DATA_CENTER_TOKEN}" https://{domain}/rest/api/1.0/...
+  ```
 
 <IMPORTANT>
 ALWAYS use the Bitbucket Data Center API for operations instead of a web browser.
 ALWAYS use the `create_bitbucket_data_center_pr` tool to open a pull request
 </IMPORTANT>
 
-If you encounter authentication issues when pushing to Bitbucket Data Center (such as password prompts or permission errors), the old token may have expired. In such case, update the remote URL to include the current token: `git remote set-url origin https://${BITBUCKET_DATA_CENTER_TOKEN}@{domain}/scm/{project_lower}/{repo}.git`
+If you encounter authentication issues when pushing to Bitbucket Data Center (such as password prompts or permission errors), the token in the remote URL may have expired. Update the remote URL to include the current token:
 
-The token is a `username:token` pair, so if the username or token contains characters that are reserved in URLs (such as `@`), split on the first `:` and URL-encode each part before embedding it in a remote:
+- For a `username:token` pair: `git remote set-url origin https://${BITBUCKET_DATA_CENTER_TOKEN}@{domain}/scm/{project_lower}/{repo}.git`
+- For an access or OAuth token, keep the username that is already in the remote URL and replace only the token. The git username these tokens need depends on the server, so don't choose one yourself. If the remote URL has no username, tell the user instead.
+  ```bash
+  GIT_USER=$(git remote get-url origin | sed -nE 's#^https://([^:@/]+):[^@]*@.*#\1#p') && \
+  [ -n "$GIT_USER" ] && \
+  NEW_TOKEN=$(python3 -c 'import sys, urllib.parse; print(urllib.parse.quote(sys.argv[1], safe=""))' "${BITBUCKET_DATA_CENTER_TOKEN#x-token-auth:}") && \
+  git remote set-url origin "https://${GIT_USER}:${NEW_TOKEN}@{domain}/scm/{project_lower}/{repo}.git"
+  ```
+
+If the username or token contains characters that are reserved in URLs (such as `@`), split the pair on the first `:` and URL-encode each part before embedding it in a remote:
 
 ```bash
 BB_USER="${BITBUCKET_DATA_CENTER_TOKEN%%:*}" && \

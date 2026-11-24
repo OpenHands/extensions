@@ -1,0 +1,91 @@
+/* Styles for the parts that exist only in the extension build: the API-setup
+   screen (the standalone SPA is served by the API, so it never has to ask
+   where it is) and the manager start/stop control (the SPA's automation is
+   created by app.py). Appended after the scoped SPA stylesheet, same tokens.
+
+   These selectors are written pre-scoped: build.mjs runs the SPA stylesheet
+   through the prefixer, then concatenates this file, so everything here must
+   already be under .vibe-ext. */
+
+.vibe-ext #api-setup {
+  display: grid;
+  place-items: center;
+  min-height: 68vh;
+  padding: var(--s6) var(--s5);
+}
+.vibe-ext #api-setup[hidden] { display: none; }
+
+.vibe-ext .api-setup-form {
+  display: flex;
+  gap: var(--s2);
+  margin-top: var(--s5);
+  flex-wrap: wrap;
+}
+
+.vibe-ext .api-setup-form input {
+  flex: 1 1 22rem;
+  min-width: 0;
+  background: var(--field);
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  padding: var(--s2) var(--s3);
+  font-family: var(--mono);
+  font-size: 0.8125rem;
+}
+
+.vibe-ext .api-setup-form button {
+  background: var(--btn-bg);
+  color: var(--btn-text);
+  border: 0;
+  border-radius: var(--r-md);
+  padding: var(--s2) var(--s4);
+  font-family: var(--display);
+  font-weight: 600;
+  font-stretch: 112%;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  font-size: 0.75rem;
+  cursor: pointer;
+}
+
+.vibe-ext .api-setup-form button:hover { background: var(--btn-bg-hover); }
+
+.vibe-ext .api-setup-error {
+  margin: var(--s3) 0 0;
+  color: var(--danger);
+  font-size: 0.8125rem;
+  max-width: 34rem;
+}
+.vibe-ext .api-setup-error[hidden] { display: none; }
+
+/* The manager control. Orange (--flare, the board's one attention colour)
+   means "no manager is running here" — the automation does not exist yet, or
+   it was stopped — and the badge becomes the button that starts it. The tint
+   goes on the group, which carries the pill's border. */
+.vibe-ext .mgr-badge.start {
+  color: var(--flare);
+  background: rgba(255, 122, 69, .12);
+}
+.vibe-ext .mgr-group:has(.mgr-badge.start) { border-color: var(--flare-ring); }
+.vibe-ext .mgr-group:has(.mgr-badge.start):hover { border-color: var(--flare); }
+.vibe-ext .mgr-badge.start .pulse { animation: none; }
+
+/* Second segment of the manager group: a divider instead of a border of its
+   own, so status and stop stay one control. */
+.vibe-ext .mgr-stop {
+  border: 0;
+  border-left: 1px solid var(--line);
+  border-radius: 0;
+  background: transparent;
+  color: var(--text-dim);
+  font-family: var(--sans);
+  font-size: 0.75rem;
+  padding: 0 13px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color .12s, background .12s;
+}
+.vibe-ext .mgr-stop:hover { color: var(--danger); background: var(--ghost-bg-hover); }
+.vibe-ext .mgr-stop[hidden] { display: none; }
+.vibe-ext .mgr-stop.working { opacity: .55; pointer-events: none; }

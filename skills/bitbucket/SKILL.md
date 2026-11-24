@@ -5,6 +5,8 @@ triggers:
 - bitbucket
 ---
 
+Use authenticated Bitbucket MCP tools first when they are available in the agent's environment. Detect this by tool availability, without depending on a particular MCP server name. Still identify Cloud versus Data Center and load the matching detailed skill. Use the token and direct API instructions only when Bitbucket MCP tools are unavailable or when raw API or `curl` access is explicitly needed.
+
 You are working with **Bitbucket**, which ships as two distinct products that behave
 differently:
 

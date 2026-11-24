@@ -1,9 +1,10 @@
 {
   "id": "github-issue-triage",
-  "version": "1.3.0",
+  "version": "1.3.4",
   "name": "GitHub issue triage",
   "category": "Project management",
   "description": "Prioritize open issues and establish acceptance criteria before marking them ready for development.",
+  "diagram": "flowchart TD\n  A([\"Scheduled scan\"]) --> B[\"New or changed issues\"]\n  B --> C[\"Agent sets priority and criteria\"]\n  C --> D{{\"Ready for development?\"}}\n  D -->|yes| E[\"Issue marked ready\"]\n  D -.->|no| F[\"Questions asked on the issue\"]",
   "requires": {
     "integrations": {},
     "features": [
@@ -54,13 +55,14 @@
       }
     },
     "bundle": {
-      "version": "1.3.0",
+      "version": "1.4.2",
       "entrypoint": "python3 worker.py",
       "timeout": 300,
       "files": {
         "worker.py": "skills/github-issue-triage/scripts/worker.py",
         "agent_conversation.py": "skills/github/scripts/agent_conversation.py",
-        "github_client.py": "skills/github/scripts/github_client.py"
+        "github_client.py": "skills/github/scripts/github_client.py",
+        "triage_publication.py": "skills/github-issue-triage/scripts/triage_publication.py"
       },
       "config": {
         "repos": "{{form.repositories}}",

@@ -54,6 +54,38 @@ def test_post_message_sends_markdown_text(monkeypatch):
     assert "mrkdwn" not in posted["body"]
 
 
+def test_completed_response_includes_llm_provenance(monkeypatch):
+    helpers = load_slack_monitor_helpers()
+    monkeypatch.setattr(helpers["time"], "time", lambda: 100.0)
+    monkeypatch.setitem(helpers, "conversation_status", lambda *_: "finished")
+    monkeypatch.setitem(
+        helpers, "conversation_final_response", lambda *_: "Completed the request."
+    )
+    posted: list[str] = []
+    monkeypatch.setitem(
+        helpers,
+        "post_message",
+        lambda _token, _channel, text, thread_ts=None: posted.append(text) or "2.0",
+    )
+    rec = {
+        "conversation_id": "conv-1",
+        "channel_id": "C123",
+        "thread_ts": "1.0",
+        "last_activity": 0.0,
+        "llm_profile": "slack-profile",
+        "llm_model": "anthropic/claude-sonnet-4-6",
+    }
+
+    helpers["_check_conversation_completion"](
+        "C123:1.0", rec, "http://agent", "key", "xoxb-test", []
+    )
+
+    assert posted == [
+        "Completed the request.\n\n"
+        "LLM profile: `slack-profile` · Model: `anthropic/claude-sonnet-4-6`"
+    ]
+
+
 def test_followup_quiet_poll_is_capped_at_watch_expiry(monkeypatch):
     helpers = load_slack_monitor_helpers()
     monkeypatch.setattr(helpers["time"], "time", lambda: 950.0)
@@ -140,3 +172,39 @@ def test_expired_followup_watch_polls_once_before_closing(monkeypatch):
     assert rec["next_reply_poll_at"] == 1006.0
     assert rec["watch_until"] == 1301.0
 
+
+def test_a_cloud_conversation_starts_from_the_automation_s_agent_profile(monkeypatch):
+    # Arrange
+    monkeypatch.setenv("AUTOMATION_AGENT_PROFILE_ID", "0f2b5c2e-6d3a-4e7b-9c1d-2a4b6c8d0e1f")
+    helpers = load_slack_monitor_helpers()
+    calls = []
+    monkeypatch.setitem(
+        helpers,
+        "_cloud_request",
+        lambda method, path, body=None: calls.append((method, path, body)) or {"id": "task-1", "status": "WORKING"},
+    )
+
+    # Act
+    helpers["_create_cloud_conversation"]("Summarize this thread.", "Slack: #general")
+
+    # Assert
+    [(method, path, body)] = calls
+    assert (method, path) == ("POST", "/api/v1/app-conversations")
+    assert body["agent_profile_id"] == "0f2b5c2e-6d3a-4e7b-9c1d-2a4b6c8d0e1f"
+
+
+def test_a_cloud_conversation_without_a_profile_leaves_the_choice_to_openhands(monkeypatch):
+    # Arrange
+    monkeypatch.delenv("AUTOMATION_AGENT_PROFILE_ID", raising=False)
+    helpers = load_slack_monitor_helpers()
+    calls = []
+    monkeypatch.setitem(
+        helpers, "_cloud_request", lambda method, path, body=None: calls.append(body) or {"id": "task-1", "status": "WORKING"}
+    )
+
+    # Act
+    helpers["_create_cloud_conversation"]("Summarize this thread.", "Slack: #general")
+
+    # Assert
+    [body] = calls
+    assert "agent_profile_id" not in body

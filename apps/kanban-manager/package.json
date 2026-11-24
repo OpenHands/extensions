@@ -1,0 +1,17 @@
+{
+  "name": "kanban-manager-canvas-extension",
+  "version": "0.2.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node build.mjs",
+    "test": "node --test test/extension.test.js test/manager.test.mjs",
+    "check": "npm run build && npm test"
+  },
+  "devDependencies": {
+    "esbuild": "0.25.12",
+    "linkedom": "0.18.13",
+    "postcss": "8.5.30",
+    "postcss-prefix-selector": "2.2.1"
+  }
+}

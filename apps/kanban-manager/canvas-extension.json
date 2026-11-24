@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "name": "kanban-manager",
+  "display_name": "Kanban Manager",
+  "version": "0.2.0",
+  "description": "Agent dispatch board: queue work, watch agents pick it up, review what lands.",
+  "entrypoint": "extension.js",
+  "contributes": {
+    "pages": [
+      {
+        "id": "board",
+        "title": "Kanban Manager",
+        "path": "/board",
+        "nav_label": "Kanban Manager",
+        "description": "Kanban board of agent work across your workspaces."
+      }
+    ]
+  }
+}

@@ -16,7 +16,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v7
         with:
-          node-version: "20"
+          node-version: "24"
 
       - name: Install Claude Code CLI
         run: npm install -g @anthropic-ai/claude-code
@@ -56,6 +56,9 @@ jobs:
 
       - name: Check extensions are in sync
         run: python scripts/sync_extensions.py --check
+
+      - name: Check plugin resource dirs are clean
+        run: python scripts/check_plugin_resources.py
 
   sync-sdk-skill:
     permissions:
