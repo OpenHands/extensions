@@ -1,0 +1,18 @@
+config_version=5
+
+[application]
+config/name="Periapsis — Signal Relay"
+run/main_scene="res://relay.tscn"
+config/features=PackedStringArray("4.4", "GL Compatibility")
+boot_splash/show_image=false
+
+[display]
+window/size/viewport_width=720
+window/size/viewport_height=450
+window/stretch/mode="canvas_items"
+window/stretch/aspect="keep"
+
+[rendering]
+renderer/rendering_method="gl_compatibility"
+renderer/rendering_method.mobile="gl_compatibility"
+environment/defaults/default_clear_color=Color(0.035,0.063,0.102,1)

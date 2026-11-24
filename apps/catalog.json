@@ -1,5 +1,13 @@
 [
   {
+    "id": "godot-player",
+    "name": "Godot Player",
+    "description": "Play a Godot game pack locally in an isolated web player.",
+    "source": "./apps/godot-player",
+    "manifest": "./apps/godot-player/canvas-extension.json",
+    "beta": true
+  },
+  {
     "id": "kanban-manager",
     "name": "Kanban Manager",
     "description": "A beta board for agent work: queue requests, track progress, and review completed tickets.",
