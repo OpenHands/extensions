@@ -100,7 +100,7 @@ The JS and Python versions are kept in lock-step by `release-please` and guarded
 ## Extensions Catalog
 
 <!-- BEGIN AUTO-GENERATED CATALOG -->
-This repository contains **2 marketplace(s)** with **85 extensions** (74 skills, 11 plugins).
+This repository contains **2 marketplace(s)** with **86 extensions** (74 skills, 12 plugins).
 
 ### large-codebase
 
@@ -119,7 +119,7 @@ OpenHands skills for interacting, improving, and refactoring large codebases
 
 Official skills and plugins for OpenHands — the open-source AI software engineer.
 
-**81 extensions** (72 skills, 9 plugins)
+**82 extensions** (72 skills, 10 plugins)
 
 | Name | Type | Description | Commands |
 |------|------|-------------|----------|
@@ -173,6 +173,7 @@ Official skills and plugins for OpenHands — the open-source AI software engine
 | news-digest | skill | Create an automation that reads public RSS and Atom feeds on a schedule, keeps what is new and matches the configured... | `/news-digest:setup` |
 | notion | skill | Create, search, and update Notion pages/databases using the Notion API. Use for documenting work, generating runbooks... | — |
 | npm | skill | Handle npm package installation in non-interactive environments by piping confirmations. Use when installing Node.js ... | — |
+| nti-guard | plugin | Verify a delegation attestation before a task runs: check the Merkle root, required capabilities, and validity window... | `/nti-guard` |
 | onboarding | plugin | Assess repository agent-readiness across five pillars, propose high-impact fixes, and generate repo-specific AGENTS.m... | — |
 | openhands | plugin | Unified OpenHands plugin — bundles Cloud CLI, REST API (openhands-api), and Automations (openhands-automation) into a... | `/openhands-cloud` |
 | openhands-api | skill | Use the OpenHands Cloud REST API (V1) and agent-server APIs to create and manage Cloud or local backend conversations... | — |

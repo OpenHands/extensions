@@ -1033,6 +1033,21 @@
         "harbor",
         "swe-smith"
       ]
+    },
+    {
+      "name": "nti-guard",
+      "source": "./plugins/nti-guard",
+      "description": "Verify a delegation attestation before a task runs: check the Merkle root, required capabilities, and validity windows. Integrity and freshness check, not issuer authentication.",
+      "category": "security",
+      "keywords": [
+        "nti",
+        "attestation",
+        "merkle",
+        "rfc6962",
+        "delegation",
+        "capability",
+        "guardrail"
+      ]
     }
   ]
 }

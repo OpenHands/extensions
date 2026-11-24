@@ -1,0 +1,23 @@
+{
+  "name": "nti-guard",
+  "version": "0.1.0",
+  "description": "Verify a Neutral Trust Infrastructure delegation attestation before an agent task runs: Merkle root, required capabilities, and validity windows.",
+  "author": {
+    "name": "Abisheak P",
+    "email": "abisheakp197@gmail.com",
+    "url": "https://github.com/abisheakp197"
+  },
+  "homepage": "https://github.com/abisheakp197/Neutral-Trust-Infrastructure",
+  "repository": "https://github.com/abisheakp197/Neutral-Trust-Infrastructure",
+  "license": "Apache-2.0",
+  "keywords": [
+    "nti",
+    "attestation",
+    "merkle",
+    "rfc6962",
+    "delegation",
+    "capability",
+    "security",
+    "guardrail"
+  ]
+}
