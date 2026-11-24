@@ -2,18 +2,17 @@
 
 Use two webhook connections to receive a Teams channel command in OpenHands Automation and post a result through a Teams Workflow. This example accepts only `verify TEAMS-INBOUND-001` and sends a fixed synthetic card. It makes no LLM calls or repository changes.
 
-For an overview and the UI setup, see the [Teams integration guide](https://docs.openhands.dev/openhands/usage/automations/microsoft-teams).
+For an overview and UI prototype, see the [Teams integration guide](https://docs.openhands.dev/openhands/usage/automations/microsoft-teams). Use the API setup below with released versions.
 
 ## Requirements
 
 - A Teams work/school account permitted to create Workflows and Outgoing Webhooks, and an isolated standard test channel.
 - An OpenHands account permitted to manage event sources, automations, and runtime secrets.
-- An Automation service with direct Teams support ([PR #715](https://github.com/OpenHands/automation/pull/715)), available in `automation` 1.34.0 or later. Check that the webhook schema accepts `teams_hmac_sha256`, `event_id_expr`, `admission_expr`, and `acknowledgement`. The `POST /webhooks` create response already returns the new source's full `webhook_url` directly, so the API path (Option B below) needs no separate preview step.
-- For UI setup only: an Agent Canvas build whose **Add event source** form has the **Microsoft Teams outgoing webhook** source type. This form is not yet available in upstream Canvas; use Option B until it ships.
+- An Automation service with direct Teams support ([PR #715](https://github.com/OpenHands/automation/pull/715)), available in `automation` 1.34.0 or later. Check that the webhook schema accepts `teams_hmac_sha256`, `event_id_expr`, `admission_expr`, and `acknowledgement`. The `POST /webhooks` create response already returns the new source's full `webhook_url` directly, so the API path below needs no separate preview step.
 - A runtime with the named-secret API used by the script and persistent worker storage for its file receipts. Distributed or ephemeral workers require shared durable idempotency storage.
 - A public HTTPS event callback. Its proxy must preserve the raw body and Teams' Authorization header. For a local test, expose only the callback through a temporary tunnel and keep management APIs private.
 
-You can register the Teams source in Canvas (**Automate → Events → Add event source → Microsoft Teams outgoing webhook**) or with the Automation API below. Both create the same direct Teams source. On a Generic signed webhook source, setting the header to Authorization still produces a generic HMAC source, so use the Teams source type. In Canvas, **Automate → Events** shows registered sources, and run history shows execution.
+After registering the source through the API, use **Automate → Events** in Canvas to view it and run history to check execution.
 
 ## Source Files
 
@@ -74,16 +73,7 @@ The source admits a delivery only when four IDs match exactly. Display names nev
 
 Obtain verified team and channel IDs from an existing signed Teams activity or a private diagnostic capture in an isolated, sole-owner demo team. Pin the intended identity explicitly.
 
-### Option A: register in Canvas
-
-1. Open **Automate → Events → Add event source** and set **Source type** to **Microsoft Teams outgoing webhook**.
-2. Enter a name and a **Webhook source ID** such as `teams-demo`, then copy the **Teams callback URL** shown.
-3. In Teams, open **Manage team → Apps → Create an outgoing webhook**. Name it **OpenHands Demo**, paste the callback, and save the Teams-issued security token privately.
-4. Enter the **Teams security token** and the four IDs, then select **Add event source**.
-
-These steps describe the planned form, which is not yet available in upstream Canvas. It must submit the same protocol settings as `source.example.json` and write each ID into `admission_expr` as an exact-match JSON literal. Use Option B for current releases.
-
-### Option B: register with the API
+### Register the source with the API
 
 Set `AUTOMATION_BASE` to your service's external API prefix, for example `https://openhands.example.com/api/automation/v1`.
 
@@ -215,7 +205,7 @@ The automation runtime must reach its authenticated completion callback, which i
 
 | Symptom | Check |
 | --- | --- |
-| **Microsoft Teams outgoing webhook** is missing from **Add event source** | Canvas doesn't ship this source type yet; use Option B instead |
+| **Microsoft Teams outgoing webhook** is missing from **Add event source** | Canvas's form doesn't offer this source type; register the source with the API above instead |
 | Teams cannot create the webhook | Account, tenant app policy, and the browser's create-request error |
 | Source registration returns 422 | Server capabilities, Teams token, expressions, and protocol pair |
 | Local callback is unreachable | Tunnel connection status and network egress. Cloudflare Tunnel requires outbound port 7844 over UDP (QUIC) or TCP (HTTP/2). See [Cloudflare firewall requirements](https://developers.cloudflare.com/cloudflare-one/networks/connectors/cloudflare-tunnel/configure-tunnels/tunnel-with-firewall/). |
