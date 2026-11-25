@@ -3,18 +3,32 @@ name: bitbucket-data-center
 description: Bitbucket Data Center (self-hosted Bitbucket Server) specifics — authenticate with BITBUCKET_DATA_CENTER_TOKEN, use the REST API 1.0, PROJECT/repo_slug repositories, scm/ git remotes, and the create_bitbucket_data_center_pr tool. Loaded on demand by the bitbucket skill once a Data Center environment is detected.
 ---
 
-Use authenticated Bitbucket Data Center MCP tools first when they are available in the agent's environment. Detect this by tool availability, without depending on a particular MCP server name. Use the token and direct REST API instructions below only when those tools are unavailable or when raw API or `curl` access is explicitly needed.
+You are working with **Bitbucket Data Center** (self-hosted Bitbucket Server). You can
+interact with Bitbucket Data Center using one of the following methods, in order of
+preference:
 
-You are working with **Bitbucket Data Center** (self-hosted Bitbucket Server). You have
-access to an environment variable, `BITBUCKET_DATA_CENTER_TOKEN`, which holds your Bitbucket
-Data Center credential in one of two forms:
+1. **OAuth MCP Server** (preferred): If authenticated Bitbucket MCP tools are available in
+   the environment, use them for Bitbucket Data Center operations. MCP tools handle
+   authentication via the configured OAuth integration, so no token is needed.
+2. **Secret Token**: If a `BITBUCKET_DATA_CENTER_TOKEN` environment variable is set, use it
+   with the Bitbucket Data Center API. The credential comes in one of two forms, as
+   described below:
+   - An access or OAuth token: the value has no colon, or starts with `x-token-auth:`.
+   - A `username:token` pair.
+3. **No authentication**: If neither is available, ask the user to either:
+   - Connect a Bitbucket OAuth MCP server in Canvas, OR
+   - Provide a `BITBUCKET_DATA_CENTER_TOKEN` as a Secret
 
-- An access or OAuth token: the value has no colon, or starts with `x-token-auth:`.
-- A `username:token` pair.
+Detection is based on the availability of authenticated Bitbucket MCP tools - no specific
+MCP server name or tool name is required. When MCP tools are available, prefer them; the
+token/direct-API flows below remain the correct path when MCP is unavailable or when you
+explicitly need raw API/curl access.
 
 > Environment variable names are case-sensitive. If `BITBUCKET_DATA_CENTER_TOKEN` is not
 > present, use whichever case variant actually exists (for example
 > `bitbucket_data_center_token`). Run `env | grep -i 'bitbucket_data_center'` to find it.
+
+The `BITBUCKET_DATA_CENTER_TOKEN` path uses these specifics:
 
 - REST API base URL: `https://{domain}/rest/api/1.0`
 - Repository identifier format: `PROJECT/repo_slug` (project key, slash, repo slug)
