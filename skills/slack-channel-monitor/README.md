@@ -48,6 +48,14 @@ This skill is activated by keywords:
 
 ## Prerequisites
 
+> **Connecting Slack from the integration card is not enough.** The Slack
+> integration now saves its user token as `SLACK_MCP_USER_TOKEN`, which this
+> monitor does not read (on a user token it would ignore the token owner's own
+> messages and reply as them). After connecting Slack MCP, you must still set
+> `SLACK_BOT_TOKEN` or `SLACK_USER_TOKEN` under **OpenHands Settings →
+> Secrets**. Without one of these, the cron run stops with "No Slack token
+> found" even though Canvas shows the Slack prerequisite as met.
+
 The footer reports `default` and the concrete model from the server settings
 already used to start the conversation. Follow-up replies keep those recorded
 values because they reuse the same conversation.

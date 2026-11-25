@@ -57,15 +57,20 @@ def test_schema_requires_catalog_and_install_metadata() -> None:
     missing_docs.pop("docsUrl")
     invalid_entries.append(("docsUrl", missing_docs))
 
-    missing_field_type = deepcopy(entry)
-    missing_field_type["connectionOptions"][1]["transport"]["envFields"][0].pop("type")
-    invalid_entries.append(("type", missing_field_type))
+    missing_transport_url = deepcopy(entry)
+    missing_transport_url["connectionOptions"][1]["transport"].pop("url")
+    # The transport becomes {"kind": "shttp"}, which matches none of the
+    # transport oneOf branches (each requires a url); the schema reports this
+    # as "not valid under any of the given schemas".
+    invalid_entries.append(("valid", missing_transport_url))
 
-    missing_required_marker = deepcopy(entry)
-    missing_required_marker["connectionOptions"][1]["transport"]["envFields"][0].pop(
-        "required"
+    missing_credential_secret_name = deepcopy(entry)
+    # The schema permits a bearer option without credentialSecretName, so this
+    # is not an invalid-entry case; instead assert the live entry carries it.
+    live_secret = missing_credential_secret_name["connectionOptions"][1]["auth"].get(
+        "credentialSecretName"
     )
-    invalid_entries.append(("required", missing_required_marker))
+    assert live_secret == "SLACK_MCP_USER_TOKEN"
 
     missing_principal_mapping = deepcopy(entry)
     missing_principal_mapping["connectionOptions"][0]["connectionModel"][
@@ -76,6 +81,30 @@ def test_schema_requires_catalog_and_install_metadata() -> None:
     for field, invalid in invalid_entries:
         errors = list(VALIDATOR.iter_errors(invalid))
         assert any(field in error.message for error in errors), errors
+
+
+def test_schema_requires_marketplace_field_type_and_required() -> None:
+    """A stdio envFields entry must carry `type` and `required`.
+
+    Slack no longer ships an envFields-bearing option, so the negative cases
+    are anchored on brave-search.json (whose `api` option has one envField).
+    """
+    entry = json.loads((CATALOG_DIR / "brave-search.json").read_text())
+    env_field = entry["connectionOptions"][0]["transport"]["envFields"][0]
+
+    missing_field_type = deepcopy(entry)
+    missing_field_type["connectionOptions"][0]["transport"]["envFields"][0].pop("type")
+    errors = list(VALIDATOR.iter_errors(missing_field_type))
+    assert errors, errors
+
+    missing_required_marker = deepcopy(entry)
+    missing_required_marker["connectionOptions"][0]["transport"]["envFields"][0].pop(
+        "required"
+    )
+    errors = list(VALIDATOR.iter_errors(missing_required_marker))
+    assert errors, errors
+
+    assert {"type", "required"} <= set(env_field)
 
 
 @pytest.mark.parametrize(
