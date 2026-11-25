@@ -45,6 +45,9 @@
                 "schedule": "0 9 * * 1-5",
                 "timezone": "UTC"
               }
+            },
+            "requirements": {
+              "integrations": []
             }
           }
         },
@@ -137,6 +140,9 @@
                 "on": "issue_comment.created",
                 "filter": "glob(repository.full_name, 'OpenHands/extensions') && icontains(comment.body, '@openhands')"
               }
+            },
+            "requirements": {
+              "integrations": []
             }
           }
         },
@@ -243,6 +249,9 @@
                 "schedule": "0 10 * * 1",
                 "timezone": "UTC"
               }
+            },
+            "requirements": {
+              "integrations": []
             }
           }
         },
@@ -349,6 +358,9 @@
               "tarball_path": "oh-internal://uploads/00000000-0000-0000-0000-000000000000",
               "entrypoint": "python3 main.py",
               "setup_script_path": "setup.sh"
+            },
+            "requirements": {
+              "integrations": []
             }
           }
         },
