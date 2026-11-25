@@ -1,0 +1,3 @@
+syntax = "proto3";
+option java_package = "example";
+message Hello { string name = 1; }
