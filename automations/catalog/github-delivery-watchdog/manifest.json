@@ -6,7 +6,11 @@
   "description": "Periodically check pull requests and merge only current heads with independent review, tests, and passing CI.",
   "diagram": "flowchart TD\n  A([\"Scheduled check\"]) --> B[\"PRs on the delivery branches\"]\n  B --> C{{\"Reviewed, tested, CI green?\"}}\n  C -->|yes| D[\"Merge the current head\"]\n  C -.->|\"no, next check\"| A",
   "requires": {
-    "integrations": {},
+    "integrations": {
+      "github": {
+        "message": "Reads pull requests, reviews, and CI status, and merges the ones that are ready. The scheduled worker uses a saved GitHub token secret, or your GitHub sign-in on OpenHands Cloud and Enterprise; a GitHub MCP connection alone is not enough."
+      }
+    },
     "features": [
       "customTarball"
     ]

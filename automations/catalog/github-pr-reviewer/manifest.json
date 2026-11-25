@@ -6,7 +6,11 @@
   "description": "An agent reviews the open pull requests that need it and posts the review on GitHub.",
   "diagram": "flowchart TD\n  A([\"Scheduled scan\"]) --> B[\"Find PRs to review\"]\n  B --> C{{\"Checks green?\"}}\n  C --> D[\"Agent reviews the PR\"]\n  D --> E[\"Review posted on GitHub\"]\n  C -.->|\"no, next scan\"| A",
   "requires": {
-    "integrations": {},
+    "integrations": {
+      "github": {
+        "message": "Reads the pull requests that need review and posts the review. The scheduled worker uses a saved GitHub token secret, or your GitHub sign-in on OpenHands Cloud and Enterprise; a GitHub MCP connection alone is not enough."
+      }
+    },
     "features": [
       "customTarball",
       "agentProfiles"

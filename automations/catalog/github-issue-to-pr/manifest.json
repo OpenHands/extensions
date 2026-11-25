@@ -5,7 +5,11 @@
   "description": "Implement ready GitHub issues, address pull request feedback, and publish tested changes for review.",
   "diagram": "flowchart TD\n  A([\"Scheduled scan\"]) --> B{{\"Ready issue or PR feedback?\"}}\n  B -.->|\"no, next scan\"| A\n  B -->|yes| C[\"Agent implements and tests\"]\n  C --> D[\"PR opened or updated\"]",
   "requires": {
-    "integrations": {},
+    "integrations": {
+      "github": {
+        "message": "Reads ready issues, pushes the branch, and opens the pull request. The scheduled worker uses a saved GitHub token secret, or your GitHub sign-in on OpenHands Cloud and Enterprise; a GitHub MCP connection alone is not enough."
+      }
+    },
     "features": [
       "customTarball",
       "agentProfiles"
