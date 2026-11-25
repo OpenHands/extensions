@@ -100,7 +100,7 @@ The JS and Python versions are kept in lock-step by `release-please` and guarded
 ## Extensions Catalog
 
 <!-- BEGIN AUTO-GENERATED CATALOG -->
-This repository contains **2 marketplace(s)** with **85 extensions** (74 skills, 11 plugins).
+This repository contains **2 marketplace(s)** with **86 extensions** (75 skills, 11 plugins).
 
 ### large-codebase
 
@@ -119,7 +119,7 @@ OpenHands skills for interacting, improving, and refactoring large codebases
 
 Official skills and plugins for OpenHands — the open-source AI software engineer.
 
-**81 extensions** (72 skills, 9 plugins)
+**82 extensions** (73 skills, 9 plugins)
 
 | Name | Type | Description | Commands |
 |------|------|-------------|----------|
@@ -185,6 +185,7 @@ Official skills and plugins for OpenHands — the open-source AI software engine
 | prd | skill | Generate a Product Requirements Document (PRD) for a new feature through an interactive clarifying-question workflow.... | `/prd` |
 | qa-changes | plugin | Validate pull request changes by actually running the code — setting up the environment, exercising changed behavior,... | — |
 | release-notes | plugin | Generate consistent, well-structured release notes from git history. Produces categorized changelog with breaking cha... | `/release-notes` |
+| remote-browser-cli-auth | skill | This skill should be used when a CLI on the sandbox needs interactive browser-based OAuth and the sandbox has no brow... | — |
 | research-brief | skill | Create a recurring automation that researches a topic using Tavily web search and publishes a structured brief to Not... | `/research-brief:setup` |
 | runtime-api-configs | plugin | Manage warm sandbox pools on OpenHands Enterprise from a Python CLI: list, template, save, and delete warm runtime co... | — |
 | security | skill | Security best practices for secure coding, authentication, authorization, and data protection. Use when developing fe... | — |
