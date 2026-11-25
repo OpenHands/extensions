@@ -156,10 +156,12 @@ def test_posthog_catalog_prefers_oauth_with_safe_mcp_defaults():
 
     assert [option["id"] for option in posthog["connectionOptions"]] == [
         "oauth",
+        "mcp",
         "api-key",
     ]
+    options = {option["id"]: option for option in posthog["connectionOptions"]}
 
-    oauth = posthog["connectionOptions"][0]
+    oauth = options["oauth"]
     assert oauth["provider"] == "mcp"
     assert oauth["transport"] == {
         "kind": "shttp",
@@ -185,7 +187,15 @@ def test_posthog_catalog_prefers_oauth_with_safe_mcp_defaults():
     assert "query:read" in oauth_config["scopes"]
     assert all(not scope.endswith(":write") for scope in oauth_config["scopes"])
 
-    api_key = posthog["connectionOptions"][1]
+    # The option the install dialog runs through the server's own OAuth
+    # discovery keeps the read-only endpoint.
+    assert options["mcp"]["transport"] == oauth["transport"]
+    assert options["mcp"]["auth"] == {
+        "strategy": "oauth2",
+        "oauth": {"clientAuthentication": "none"},
+    }
+
+    api_key = options["api-key"]
     assert api_key["auth"]["strategy"] == "bearer"
     assert api_key["auth"]["credentialSecretName"] == "POSTHOG_PERSONAL_API_KEY"
     assert api_key["auth"]["saveCredentialAsSecretByDefault"] is True

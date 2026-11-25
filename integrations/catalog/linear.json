@@ -40,6 +40,20 @@
       }
     },
     {
+      "id": "mcp",
+      "provider": "mcp",
+      "transport": {
+        "kind": "shttp",
+        "url": "https://mcp.linear.app/mcp"
+      },
+      "auth": {
+        "strategy": "oauth2",
+        "oauth": {
+          "clientAuthentication": "none"
+        }
+      }
+    },
+    {
       "id": "api-key",
       "provider": "mcp",
       "transport": {
