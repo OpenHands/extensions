@@ -649,6 +649,22 @@
       ]
     },
     {
+      "name": "remote-browser-cli-auth",
+      "source": "./skills/remote-browser-cli-auth",
+      "description": "This skill should be used when a CLI on the sandbox needs interactive browser-based OAuth and the sandbox has no browser, e.g. when the user says \"log in to gcloud from here\", \"authenticate az/gh/aws from this sandbox\", \"complete the OAuth challenge in my own browser\", \"no-browser login\", \"remote-bootstrap login\", \"headless OAuth\", or \"device-code login\". Captures the FIFO-backed pattern that keeps the CLI process alive across multiple agent turns while the user completes consent on their own machine.",
+      "category": "environment",
+      "keywords": [
+        "oauth",
+        "authentication",
+        "headless",
+        "device-code",
+        "gcloud",
+        "azure",
+        "aws",
+        "cli"
+      ]
+    },
+    {
       "name": "swift-linux",
       "source": "./skills/swift-linux",
       "description": "Install and configure Swift programming language on Debian Linux for server-side development. Use when building Swift applications on Linux or setting up a Swift development environment.",
