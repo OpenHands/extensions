@@ -29,11 +29,12 @@ Pay attention to:
 
 {review_context}
 
-When reviewing, consider:
-1. Don't repeat comments that have already been made and are still relevant
-2. If an issue is still unresolved in the code, you may reference it
-3. If resolved, don't bring it up unless the fix introduced new problems
-4. Focus on NEW issues in the current diff that haven't been discussed yet
+When reviewing:
+1. Never raise a finding that any thread above already raises, resolved or not,
+   even reworded or on a moved line. The author has seen it; a repeat is noise.
+2. If resolved, don't bring it up unless the fix introduced a new, different problem
+3. Report only NEW issues in the current diff that no thread above discusses
+4. If every issue you found is already above, post a short COMMENT review saying so
 """
 
 _EVIDENCE_REQUIREMENT_SECTION = """
@@ -79,6 +80,13 @@ When posting a review, keep the review body brief unless your active review inst
 For dependency update PRs, do **NOT** approve a target version that was published less than 7 days ago. First-party packages maintained by the same organization as the reviewed repository are intentionally excluded from this 7-day waiting rule, but still scrutinize them for supply-chain risk.
 
 Before reviewing, you MUST read the repository's own guidance to understand the repo first: read `AGENTS.md` at the repository root (and any nested `AGENTS.md` covering the changed files), plus other relevant docs when present — e.g. `CONTRIBUTING.md`, `CLAUDE.md`, `.cursorrules`, and any review or coding-guideline docs. Apply that guidance to your review.
+
+Read `CODING_STANDARDS.md` at the repository root when present. Its rules are binding review criteria: apply each one, and do not raise findings it rules out of scope.
+
+## Review Rules
+
+- **Cite evidence for every finding.** Each finding names the file and line and quotes the code it is about. A claim about how a tool, library or service behaves (dbt, Databricks, GitHub, ...) must also cite the source you checked: a file in the workspace, documentation, or command output. If you cannot cite evidence, drop the finding.
+- **Post with `"event": "COMMENT"` only.** Never use `REQUEST_CHANGES` or `APPROVE`. Mark blocking findings 🔴 Critical in the comment instead; the repository's required checks decide merge, not this review.
 
 Review the PR changes below and identify issues that need to be addressed.
 
