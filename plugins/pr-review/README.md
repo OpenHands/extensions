@@ -219,6 +219,8 @@ PR reviews are automatically triggered when:
 | `acp-command` | Yes for `acp` mode | `''` | Command used to start the ACP server. The command must already be available in the runner environment or be runnable through a package manager. Examples: `npx -y @zed-industries/codex-acp@0.12.0`, `codex-acp`, `claude-agent-acp`, `npx -y @agentclientprotocol/claude-agent-acp`. |
 | `acp-prompt-timeout` | No | `'1800'` | Timeout in seconds for one ACP prompt turn |
 | `llm-base-url` | No | `''` | Custom LLM endpoint URL |
+| `llm-extra-body` | No | `''` | JSON object of extra request-body fields forwarded to the LLM provider, e.g. `{"enable_thinking": false}` to turn off default thinking on Qwen models. Ignored in ACP mode. |
+| `max-iterations` | No | `''` | Cap on agent iterations (model call + tool action) per review run. Bounds runaway exploration; empty uses the SDK default. Ignored in ACP mode. |
 | `review-style` | No | `roasted` | **[DEPRECATED]** Previously chose between `standard` and `roasted` review styles. Now ignored — the styles have been merged into a single unified skill. |
 | `require-evidence` | No | `'false'` | Require the reviewer to enforce an `Evidence` section in the PR description with end-to-end proof: screenshots/videos for frontend work, commands and runtime output for backend or scripts, and an agent conversation link when applicable. Test output alone does not qualify. |
 | `require-pinned-actions` | No | `'false'` | Require third-party actions added or changed in workflow files and `action.yml` files to be pinned to full commit SHAs. Actions owned by `actions`, `github`, or the reviewed repository's owner, and local `./` actions, are exempt. |
