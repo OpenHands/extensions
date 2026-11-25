@@ -43,6 +43,9 @@ jobs:
         env:
           PYTHONPATH: ${{ github.workspace }}
 
+      - name: Run Teams webhook example tests
+        run: uv run --group test python -B -m unittest discover -s examples/teams-webhook -p "test_*.py"
+
       # Plugins under plugins/<name>/tests are self-contained (stdlib-only unit
       # tests that import the plugin's own scripts via importlib). Run them in
       # a separate step so a plugin failure is attributed to the plugin, not

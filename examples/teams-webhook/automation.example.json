@@ -1,0 +1,15 @@
+{
+  "name": "Teams webhook verification",
+  "description": "Process one synthetic Teams command and post a fixed Workflow card.",
+  "trigger": {
+    "type": "event",
+    "source": "teams-demo",
+    "on": "message",
+    "destination": "dispatch_run",
+    "filter": "contains(text, 'TEAMS-INBOUND-001')"
+  },
+  "tarball_path": "<RETURNED_TARBALL_PATH>",
+  "entrypoint": "python3 main.py",
+  "timeout": 60,
+  "enabled": true
+}
