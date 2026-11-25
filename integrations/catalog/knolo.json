@@ -1,0 +1,31 @@
+{
+  "id": "knolo",
+  "name": "Knolo",
+  "description": "Read-only search over a pinned local Knolo Knowledge Image.",
+  "docsUrl": "https://github.com/HiveForensics-AI/knolo-core/blob/main/docs/integrations/openhands.md",
+  "keywords": ["knowledge", "search", "stdio"],
+  "installHint": "The config path must be readable inside the sandbox. A missing config fails closed. There is no remote URL.",
+  "connectionOptions": [
+    {
+      "id": "stdio",
+      "provider": "mcp",
+      "transport": {
+        "kind": "stdio",
+        "serverName": "knolo",
+        "command": "npx",
+        "args": ["-y", "@knolo/mcp@0.2.4", "--config"],
+        "argFields": [
+          {
+            "key": "config",
+            "label": "Knolo MCP config",
+            "type": "text",
+            "placeholder": "/absolute/knolo-mcp.json",
+            "required": true,
+            "helperText": "Absolute path of knolo-mcp.json. One path, no spaces."
+          }
+        ]
+      },
+      "auth": { "strategy": "none" }
+    }
+  ]
+}
