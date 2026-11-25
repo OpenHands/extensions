@@ -1174,11 +1174,21 @@ def get_thread_openers(pr_number: str) -> list[dict[str, Any]]:
 def delete_repeated_comments(pr_number: str, prior: list[dict[str, Any]]) -> None:
     """Delete the inline comments this run posted that repeat an earlier thread or each other."""
     prior_ids = {c["id"] for c in prior}
-    new = [c for c in get_thread_openers(pr_number) if c["id"] not in prior_ids]
+    # Only this run's own comments: a human may open a thread while the review runs.
+    new = [
+        c
+        for c in get_thread_openers(pr_number)
+        if c["id"] not in prior_ids and (c.get("user") or {}).get("type") == "Bot"
+    ]
     repo = _get_required_env("REPO_NAME")
     for comment_id in repeated_comment_ids(prior, new):
         logger.info(f"Deleting repeated review comment {comment_id}")
-        _call_github_api(f"/repos/{repo}/pulls/comments/{comment_id}", method="DELETE")
+        try:
+            _call_github_api(
+                f"/repos/{repo}/pulls/comments/{comment_id}", method="DELETE"
+            )
+        except RuntimeError as e:  # the review is posted; a failed cleanup must not fail it
+            logger.warning(f"Could not delete review comment {comment_id}: {e}")
 
 
 def run_review(
