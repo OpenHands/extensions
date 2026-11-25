@@ -1,0 +1,69 @@
+{
+  "id": "aimlapi",
+  "name": "AI/ML API",
+  "description": "Find and compare AI models, run chat, embeddings, image, video and audio generation, and call Agent Tools such as web search and page extraction.",
+  "categories": [
+    "AI",
+    "Developer tools"
+  ],
+  "appUrl": "https://aimlapi.com",
+  "docsUrl": "https://docs.aimlapi.com/quickstart/mcp",
+  "connectionOptions": [
+    {
+      "id": "oauth",
+      "provider": "mcp",
+      "auth": {
+        "strategy": "oauth2",
+        "oauth": {
+          "authorizationUrl": "https://auth.aimlapi.com/mcp-oauth/auth",
+          "tokenUrl": "https://auth.aimlapi.com/mcp-oauth/token",
+          "registrationUrl": "https://auth.aimlapi.com/mcp-oauth/register",
+          "scopes": [
+            "openid",
+            "email",
+            "offline_access",
+            "mcp:invoke"
+          ],
+          "pkce": true,
+          "clientAuthentication": "none",
+          "additionalAuthorizationParams": {
+            "resource": "https://mcp.aimlapi.com/mcp"
+          },
+          "additionalTokenParams": {
+            "resource": "https://mcp.aimlapi.com/mcp"
+          }
+        }
+      },
+      "transport": {
+        "kind": "shttp",
+        "url": "https://mcp.aimlapi.com/mcp"
+      }
+    },
+    {
+      "id": "api-key",
+      "provider": "mcp",
+      "transport": {
+        "kind": "shttp",
+        "url": "https://mcp.aimlapi.com/mcp"
+      },
+      "auth": {
+        "strategy": "bearer",
+        "credentialLabel": "AI/ML API key",
+        "credentialPlaceholder": "Paste your AI/ML API key",
+        "credentialHelp": "Create a key at https://aimlapi.com/app/keys. Sent as Authorization: Bearer <key>."
+      }
+    }
+  ],
+  "iconBg": "#FFFFFF",
+  "keywords": [
+    "ai",
+    "llm",
+    "models",
+    "embeddings",
+    "image generation",
+    "video generation",
+    "speech",
+    "web search"
+  ],
+  "installHint": "Prefer the OAuth MCP connection. The hosted server at mcp.aimlapi.com supports OAuth 2.1 with PKCE and dynamic client registration through auth.aimlapi.com; a bearer API-key option is available as a fallback."
+}
