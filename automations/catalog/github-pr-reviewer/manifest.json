@@ -6,7 +6,11 @@
   "description": "An agent reviews the open pull requests that need it and posts the review on GitHub.",
   "diagram": "flowchart TD\n  A([\"Scheduled scan\"]) --> B[\"Find PRs to review\"]\n  B --> C{{\"Checks green?\"}}\n  C --> D[\"Agent reviews the PR\"]\n  D --> E[\"Review posted on GitHub\"]\n  C -.->|\"no, next scan\"| A",
   "requires": {
-    "integrations": {},
+    "integrations": {
+      "github": {
+        "message": "Reads the pull requests that need review and posts the review. The scheduled worker reads your GitHub token from a saved secret, GITHUB_PERSONAL_ACCESS_TOKEN by default."
+      }
+    },
     "features": [
       "customTarball",
       "agentProfiles"

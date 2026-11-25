@@ -5,7 +5,11 @@
   "description": "Implement ready GitHub issues, address pull request feedback, and publish tested changes for review.",
   "diagram": "flowchart TD\n  A([\"Scheduled scan\"]) --> B{{\"Ready issue or PR feedback?\"}}\n  B -.->|\"no, next scan\"| A\n  B -->|yes| C[\"Agent implements and tests\"]\n  C --> D[\"PR opened or updated\"]",
   "requires": {
-    "integrations": {},
+    "integrations": {
+      "github": {
+        "message": "Reads ready issues, pushes the branch, and opens the pull request. The scheduled worker reads your GitHub token from a saved secret, GITHUB_PERSONAL_ACCESS_TOKEN by default."
+      }
+    },
     "features": [
       "customTarball",
       "agentProfiles"
