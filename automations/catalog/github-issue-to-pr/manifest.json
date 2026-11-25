@@ -92,7 +92,7 @@
         "githubTokenSecret": {
           "type": "text",
           "label": "GitHub token secret",
-          "help": "Name of a saved Agent Server secret. Include it in the selected profile so the delegated agent can use GitHub.",
+          "help": "Name of a saved Agent Server secret. Include it in the selected profile so the delegated agent can use GitHub. On OpenHands Cloud and Enterprise, leave the default when GitHub is connected: if this secret is not set, the token from your GitHub sign-in or Settings > Integrations is used. On a local Agent Canvas this secret is required.",
           "default": "GITHUB_PERSONAL_ACCESS_TOKEN",
           "required": true
         }
@@ -118,5 +118,5 @@
     },
     "message": "Configure the repositories, labels, branch prefix, pull request mode, agent profile, and schedule."
   },
-  "version": "1.2.3"
+  "version": "1.2.4"
 }

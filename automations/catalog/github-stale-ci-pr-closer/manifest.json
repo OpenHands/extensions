@@ -1,6 +1,6 @@
 {
   "id": "github-stale-ci-pr-closer",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "name": "GitHub stale CI cleanup",
   "category": "Code review",
   "description": "Warn and close abandoned pull requests whose required CI remains failing.",
@@ -47,7 +47,7 @@
         "githubTokenSecret": {
           "type": "text",
           "label": "GitHub token secret",
-          "help": "Name of a saved GitHub token with rules and CI read access plus issue and pull-request write access.",
+          "help": "Name of a saved GitHub token with rules and CI read access plus issue and pull-request write access. On OpenHands Cloud and Enterprise, leave the default when GitHub is connected: if this secret is not set, the token from your GitHub sign-in or Settings > Integrations is used. On a local Agent Canvas this secret is required.",
           "default": "GITHUB_TOKEN_REVIEW",
           "required": true
         }
