@@ -1,0 +1,33 @@
+{
+  "id": "splunk",
+  "name": "Splunk",
+  "description": "Search logs and events, run SPL queries, and inspect indexes on your Splunk platform deployment.",
+  "categories": [
+    "Observability",
+    "Security"
+  ],
+  "appUrl": "https://www.splunk.com",
+  "docsUrl": "https://help.splunk.com/en/splunk-enterprise/mcp-server-for-splunk-platform",
+  "logoUrl": "https://cdn.simpleicons.org/splunk/FFFFFF",
+  "iconBg": "#000000",
+  "notes": "Uses Splunk's official MCP Server app, which must be installed on the Splunk deployment. Each deployment has its own MCP URL, so the install dialog asks for it. Splunk's OAuth for this server needs a client registered by a Splunk admin and does not support dynamic client registration, so only the token option is offered.",
+  "installHint": "Replace the example URL with your deployment's MCP endpoint, shown in the Splunk MCP Server app. For Splunk Enterprise this is usually https://<your-splunk-host>:8089/services/mcp. The server's TLS certificate must be trusted; self-signed certificates fail to connect.",
+  "popularityRank": 41,
+  "connectionOptions": [
+    {
+      "id": "api",
+      "provider": "mcp",
+      "transport": {
+        "kind": "shttp",
+        "url": "https://splunk.example.com:8089/services/mcp",
+        "urlEditable": true
+      },
+      "auth": {
+        "strategy": "bearer",
+        "credentialLabel": "Splunk MCP token",
+        "credentialPlaceholder": "Paste the token from the Splunk MCP Server app",
+        "credentialHelp": "Generate the token in the Splunk MCP Server app so its audience is mcp; an ordinary Splunk token is rejected with \"invalid token audience\". Sent as Authorization: Bearer <token>."
+      }
+    }
+  ]
+}
