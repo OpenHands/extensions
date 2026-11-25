@@ -1,0 +1,9 @@
+{
+  "name": "remote-browser-cli-auth",
+  "version": "0.1.0",
+  "description": "This skill should be used when a CLI on the sandbox needs interactive browser-based OAuth and the sandbox has no browser, e.g. when the user says \"log in to gcloud from here\", \"authenticate az/gh/aws from this sandbox\", \"complete the OAuth challenge in my own browser\", \"no-browser login\", \"remote-bootstrap login\", \"headless OAuth\", or \"device-code login\". Captures the FIFO-backed pattern that keeps the CLI process alive across multiple agent turns while the user completes consent on their own machine.",
+  "author": {
+    "name": "OpenHands",
+    "email": "contact@all-hands.dev"
+  }
+}
