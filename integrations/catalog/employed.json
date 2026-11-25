@@ -1,0 +1,42 @@
+{
+  "id": "employed",
+  "name": "Employed by Guaq AI",
+  "description": "Search live job postings read from about 5,000 employers' own applicant-tracking systems, research an employer's hiring, and brief a hiring market.",
+  "categories": [
+    "Jobs",
+    "Research"
+  ],
+  "appUrl": "https://jobs.guaqai.me",
+  "docsUrl": "https://jobs.guaqai.me/connectors",
+  "notes": "OAuth 2.1 with dynamic client registration is handled by the hosted Employed MCP server; no client credentials are needed. Search tools are read-only; account tools change only the signed-in user's own profile, application tracker and alerts, and never apply to jobs or contact employers.",
+  "installHint": "Sign in with an Employed account when the authentication flow starts; a free account is enough to start.",
+  "iconBg": "#CCFF33",
+  "iconColor": "#14110F",
+  "logoUrl": "https://jobs.guaqai.me/assets/brand/icon-512.png",
+  "keywords": [
+    "jobs",
+    "job-search",
+    "hiring",
+    "careers",
+    "internships",
+    "ats",
+    "recruiting",
+    "mcp"
+  ],
+  "connectionOptions": [
+    {
+      "id": "oauth",
+      "provider": "mcp",
+      "transport": {
+        "kind": "shttp",
+        "url": "https://jobs.guaqai.me/mcp"
+      },
+      "auth": {
+        "strategy": "oauth2",
+        "oauth": {
+          "clientAuthentication": "none"
+        }
+      }
+    }
+  ]
+}
