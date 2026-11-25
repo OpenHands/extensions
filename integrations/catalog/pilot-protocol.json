@@ -1,0 +1,33 @@
+{
+  "id": "pilot-protocol",
+  "name": "Pilot Protocol",
+  "description": "Discover specialist agents and exchange messages with trusted peers.",
+  "appUrl": "https://pilotprotocol.network",
+  "docsUrl": "https://github.com/pilot-protocol/pilot-mcp",
+  "iconBg": "#111827",
+  "keywords": [
+    "agents",
+    "agent-to-agent",
+    "peer-to-peer",
+    "discovery"
+  ],
+  "installHint": "Run `npx -y pilotprotocol-mcp setup` once before first use: it fetches and starts the Pilot daemon (`pilotctl`) and writes this server's MCP config into the agent tools it detects, OpenHands included. The `npx -y pilotprotocol-mcp` command this entry runs starts the stdio server and expects that daemon to be present already; without it, it exits with `pilotctl binary not found`. The local transport runs entirely on your machine, and the hosted control plane earlier releases used has been retired, so no third party is in the path.",
+  "connectionOptions": [
+    {
+      "id": "local",
+      "provider": "mcp",
+      "transport": {
+        "kind": "stdio",
+        "serverName": "pilot",
+        "command": "npx",
+        "args": [
+          "-y",
+          "pilotprotocol-mcp"
+        ]
+      },
+      "auth": {
+        "strategy": "none"
+      }
+    }
+  ]
+}
