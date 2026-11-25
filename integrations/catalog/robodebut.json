@@ -1,0 +1,19 @@
+{
+  "id": "robodebut",
+  "name": "RoboDebut",
+  "description": "Submit a website to the RoboDebut directory for manual review and check its status with a private receipt.",
+  "docsUrl": "https://robodebut.com/submit-with-a-coding-agent",
+  "connectionOptions": [
+    {
+      "id": "none",
+      "provider": "mcp",
+      "transport": {
+        "kind": "shttp",
+        "url": "https://robodebut.com/api/mcp"
+      },
+      "auth": {
+        "strategy": "none"
+      }
+    }
+  ]
+}
