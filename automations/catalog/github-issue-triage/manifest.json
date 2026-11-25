@@ -8,7 +8,7 @@
   "requires": {
     "integrations": {
       "github": {
-        "message": "Reads open issues and publishes the triage results on them. The scheduled worker uses a saved GitHub token secret, or your GitHub sign-in on OpenHands Cloud and Enterprise; a GitHub MCP connection alone is not enough."
+        "message": "Reads open issues and publishes the triage results on them. The scheduled worker reads your GitHub token from a saved secret, GITHUB_PERSONAL_ACCESS_TOKEN by default."
       }
     },
     "features": [
