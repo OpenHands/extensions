@@ -1,0 +1,40 @@
+{
+  "id": "testmu-ai",
+  "name": "TestMu AI",
+  "description": "Run, debug, and triage tests on TestMu AI: HyperExecute orchestration, automation failure logs, SmartUI visual diffs, accessibility audits, and Test Manager.",
+  "categories": [
+    "Engineering",
+    "Developer tools"
+  ],
+  "appUrl": "https://www.testmuai.com/mcp",
+  "docsUrl": "https://www.testmuai.com/support/docs/testmu-mcp-server/",
+  "notes": "Uses TestMu AI's hosted MCP server, so there is nothing to self-host. OAuth is handled by the server itself via browser sign-in with Dynamic Client Registration, so no client ID or client secret is required, and there is no documented API key path for MCP. One endpoint covers five tool groups: HyperExecute test orchestration, Automation failure triage with command, network and console logs, SmartUI pixel, layout, DOM and perceptual diff summaries, accessibility audits on hosted URLs or local React apps, and Test Manager. TestMu AI was formerly LambdaTest, which is why the endpoint is still served from lambdatest.com.",
+  "connectionOptions": [
+    {
+      "id": "oauth",
+      "provider": "mcp",
+      "transport": {
+        "kind": "shttp",
+        "url": "https://mcp.lambdatest.com/mcp"
+      },
+      "auth": {
+        "strategy": "oauth2",
+        "oauth": {
+          "clientAuthentication": "none"
+        }
+      }
+    }
+  ],
+  "iconBg": "#121212",
+  "logoUrl": "https://www.testmuai.com/favicon_white.svg",
+  "keywords": [
+    "testing",
+    "test automation",
+    "qa",
+    "accessibility",
+    "visual testing",
+    "test orchestration",
+    "lambdatest"
+  ],
+  "installHint": "Sign in to TestMu AI through the browser OAuth flow when prompted; no client credentials or API key are needed. The tools act on runs in your own TestMu AI account, so start or locate a run there first when a tool asks for a job or test ID."
+}
