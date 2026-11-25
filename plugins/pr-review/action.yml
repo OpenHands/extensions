@@ -41,6 +41,13 @@ inputs:
         description: LLM base URL (optional, for custom LLM endpoints)
         required: false
         default: ''
+    llm-reasoning-effort:
+        description: >
+            Reasoning effort for the OpenHands backend (for example, low,
+            medium, or high). Leave empty to use the provider or proxy default.
+            Ignored in ACP mode.
+        required: false
+        default: ''
     review-style:
         description: "[DEPRECATED] Previously chose between 'standard' and 'roasted' review styles. These have been merged into a single code-review skill. The input is kept for backward compatibility but no longer changes behavior. Will be removed in a future version."
         required: false
@@ -261,6 +268,7 @@ runs:
               ACP_COMMAND: ${{ inputs.acp-command }}
               ACP_PROMPT_TIMEOUT: ${{ inputs.acp-prompt-timeout }}
               LLM_MODEL: ${{ steps.select-model.outputs.selected_model }}
+              LLM_REASONING_EFFORT: ${{ inputs.llm-reasoning-effort }}
               LLM_BASE_URL: ${{ inputs.llm-base-url }}
               REVIEW_STYLE: ${{ inputs.review-style }}
               REQUIRE_EVIDENCE: ${{ inputs.require-evidence }}
