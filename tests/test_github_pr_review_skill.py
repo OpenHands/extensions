@@ -16,6 +16,7 @@ import pytest
 SKILL_PATH = (
     Path(__file__).parent.parent / "skills" / "github-pr-review" / "SKILL.md"
 )
+README_PATH = SKILL_PATH.with_name("README.md")
 
 
 @pytest.fixture(scope="module")
@@ -23,8 +24,14 @@ def skill_text() -> str:
     return SKILL_PATH.read_text(encoding="utf-8")
 
 
+@pytest.fixture(scope="module")
+def readme_text() -> str:
+    return README_PATH.read_text(encoding="utf-8")
+
+
 def test_skill_file_exists():
     assert SKILL_PATH.is_file(), f"missing skill file: {SKILL_PATH}"
+    assert README_PATH.is_file(), f"missing README file: {README_PATH}"
 
 
 def test_skill_does_not_claim_suggestion_must_match_range_length(skill_text: str):
@@ -45,6 +52,24 @@ def test_skill_does_not_claim_suggestion_must_match_range_length(skill_text: str
             f"SKILL.md still contains the misleading rule {phrase!r}; "
             "GitHub suggestions replace the range with any number of lines."
         )
+
+
+def test_readme_does_not_claim_suggestion_must_match_range_length(
+    readme_text: str,
+):
+    """Keep the user-facing README consistent with the corrected skill."""
+    forbidden_phrases = [
+        "suggestion must have the same number of lines as the range",
+        "must have the same number of lines as the range",
+    ]
+    lowered = readme_text.lower()
+    for phrase in forbidden_phrases:
+        assert phrase not in lowered, (
+            f"README.md still contains the misleading rule {phrase!r}; "
+            "GitHub suggestions replace the range with any number of lines."
+        )
+    assert "replaces the inclusive" in lowered
+    assert "empty block deletes" in lowered
 
 
 def test_skill_explains_replace_semantics(skill_text: str):
