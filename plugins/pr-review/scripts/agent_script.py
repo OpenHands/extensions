@@ -91,6 +91,8 @@ from openhands.tools.task import TaskToolSet
 script_dir = Path(__file__).parent
 sys.path.insert(0, str(script_dir))
 
+from dedupe import repeated_comment_ids  # noqa: E402
+from verdict import review_event  # noqa: E402
 from prompt import FILE_REVIEWER_SKILL, format_prompt  # noqa: E402
 
 logger = get_logger(__name__)
@@ -222,6 +224,8 @@ def _call_github_api(
     try:
         with urllib.request.urlopen(request, timeout=60) as response:
             raw_data = response.read()
+            if not raw_data:  # e.g. 204 No Content from a DELETE
+                return None
             if "diff" in accept:
                 return raw_data.decode("utf-8", errors="replace")
             return json.loads(raw_data.decode("utf-8"))
@@ -1150,6 +1154,106 @@ def create_conversation(
     return Conversation(**conversation_kwargs)
 
 
+def get_thread_openers(pr_number: str) -> list[dict[str, Any]]:
+    """The opening inline comment of every review thread on the PR, oldest first."""
+    repo = _get_required_env("REPO_NAME")
+    comments: list[dict[str, Any]] = []
+    page = 1
+    while True:
+        batch = _call_github_api(
+            f"/repos/{repo}/pulls/{pr_number}/comments?per_page=100&page={page}"
+        )
+        comments += batch
+        if len(batch) < 100:
+            break
+        page += 1
+    return sorted(
+        (c for c in comments if not c.get("in_reply_to_id")), key=lambda c: c["id"]
+    )
+
+
+def delete_repeated_comments(pr_number: str, prior: list[dict[str, Any]]) -> None:
+    """Delete the inline comments this run posted that repeat an earlier thread or each other."""
+    prior_ids = {c["id"] for c in prior}
+    # Only this run's own comments: a human may open a thread while the review runs.
+    new = [
+        c
+        for c in get_thread_openers(pr_number)
+        if c["id"] not in prior_ids and (c.get("user") or {}).get("type") == "Bot"
+    ]
+    repo = _get_required_env("REPO_NAME")
+    for comment_id in repeated_comment_ids(prior, new):
+        logger.info(f"Deleting repeated review comment {comment_id}")
+        try:
+            _call_github_api(
+                f"/repos/{repo}/pulls/comments/{comment_id}", method="DELETE"
+            )
+        except RuntimeError as e:  # the review is posted; a failed cleanup must not fail it
+            logger.warning(f"Could not delete review comment {comment_id}: {e}")
+
+
+def get_bot_reviews(pr_number: str) -> list[dict[str, Any]]:
+    """The PR's reviews by a bot account, oldest first."""
+    repo = _get_required_env("REPO_NAME")
+    reviews: list[dict[str, Any]] = []
+    page = 1
+    while True:
+        batch = _call_github_api(
+            f"/repos/{repo}/pulls/{pr_number}/reviews?per_page=100&page={page}"
+        )
+        reviews += batch
+        if len(batch) < 100:
+            break
+        page += 1
+    return [r for r in reviews if (r.get("user") or {}).get("type") == "Bot"]
+
+
+def submit_verdict(
+    pr_number: str,
+    commit_id: str,
+    prior_review_ids: set[int],
+    prior_comment_ids: set[int],
+) -> str:
+    """Approve the PR when this run's posted findings hold no Critical one; else keep the COMMENT review.
+
+    Raises when the run posted no review, so a review that never happened fails the job.
+    """
+    repo = _get_required_env("REPO_NAME")
+    new_reviews = [
+        r for r in get_bot_reviews(pr_number) if r["id"] not in prior_review_ids
+    ]
+    if not new_reviews:
+        raise RuntimeError("the review run posted no review")
+    for review in new_reviews:  # a "changes requested" review must never block merge
+        if review.get("state") == "CHANGES_REQUESTED":
+            _call_github_api(
+                f"/repos/{repo}/pulls/{pr_number}/reviews/{review['id']}/dismissals",
+                method="PUT",
+                data={"message": "The AI reviewer never requests changes."},
+            )
+    new_comments = [
+        c
+        for c in get_thread_openers(pr_number)
+        if c["id"] not in prior_comment_ids
+        and (c.get("user") or {}).get("type") == "Bot"
+    ]
+    event = review_event(
+        [r.get("body") for r in new_reviews] + [c.get("body") for c in new_comments]
+    )
+    logger.info(f"Review verdict: {event}")
+    if event == "APPROVE":
+        _call_github_api(
+            f"/repos/{repo}/pulls/{pr_number}/reviews",
+            method="POST",
+            data={
+                "commit_id": commit_id,
+                "event": "APPROVE",
+                "body": "No 🔴 Critical finding: approved.",
+            },
+        )
+    return event
+
+
 def run_review(
     conversation: Conversation,
     prompt: str,
@@ -1297,8 +1401,17 @@ def main():
         if config["github_token"]:
             secrets["GITHUB_TOKEN"] = config["github_token"]
 
+        prior_comments = get_thread_openers(pr_info["number"])
+        prior_review_ids = {r["id"] for r in get_bot_reviews(pr_info["number"])}
         conversation = create_conversation(config, secrets)
         conversation = run_review(conversation, prompt)
+        delete_repeated_comments(pr_info["number"], prior_comments)
+        submit_verdict(
+            pr_info["number"],
+            commit_id,
+            prior_review_ids,
+            {c["id"] for c in prior_comments},
+        )
 
         log_cost_summary(conversation)
         save_trace_context(pr_info, commit_id, config["model"])

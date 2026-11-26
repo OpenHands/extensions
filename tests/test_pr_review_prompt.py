@@ -160,3 +160,32 @@ def test_use_sub_agents_defaults_to_false():
         f"use-sub-agents default should be 'false' (got {default!r}). "
         "See https://github.com/OpenHands/extensions/issues/208"
     )
+
+
+def test_prompt_makes_coding_standards_binding():
+    prompt = _format_prompt(require_evidence=False)
+    assert "Read `CODING_STANDARDS.md`" in prompt
+    assert "binding review criteria" in prompt
+
+
+def test_prompt_requires_cited_evidence_for_every_finding():
+    prompt = _format_prompt(require_evidence=False)
+    assert "Cite evidence for every finding." in prompt
+    assert "If you cannot cite evidence, drop the finding." in prompt
+
+
+def test_prompt_posts_comment_reviews_only():
+    prompt = _format_prompt(require_evidence=False)
+    assert 'Post with `"event": "COMMENT"` only.' in prompt
+    assert "Never use `REQUEST_CHANGES`" in prompt
+
+
+def test_review_context_forbids_repeating_existing_findings():
+    module = _load_prompt_module()
+    prompt = module.format_prompt(
+        skill_trigger="/codereview", title="t", body="b", repo_name="o/r",
+        base_branch="main", head_branch="f", pr_number="1", commit_id="abc",
+        diff="d", review_context="thread: drop path uses startswith",
+    )
+    assert "thread: drop path uses startswith" in prompt
+    assert "Never raise a finding that any thread above already raises" in prompt
