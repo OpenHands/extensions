@@ -41,6 +41,33 @@ git remote -v && git branch # to find the current org, repo and branch
 git checkout -b create-widget && git add . && git commit -m "Create widget" && git push -u origin create-widget
 ```
 
+## Rate limits
+
+If a GitHub call fails with `API rate limit exceeded` or `secondary rate limit` (HTTP 403 or 429), do not repeat the same call. Do these steps in order:
+
+1. Check the quotas. This call does not use quota. `reset` is a Unix time in seconds.
+```bash
+gh api rate_limit --jq '.resources | {core, graphql}'
+```
+2. For a `secondary rate limit`: stop parallel calls, wait for the `retry-after` seconds (`gh api -i` shows the header) or 60 seconds if there is none, then retry once.
+3. If `core.remaining` is `0` and `core.reset` is less than 5 minutes away: wait for the reset, then retry.
+4. Otherwise, do not wait. Use a path that does not use REST quota. They all use the same token. Replace `main` if the default branch has a different name:
+   - `gh pr view`, `gh pr list`, `gh pr checks`, and `gh issue list` use GraphQL, which has a separate quota, and continue to work. `gh pr diff` and `gh api repos/...` use REST and fail.
+   - List a directory with GraphQL. To read a text file, set `expr` to the file path and replace `... on Tree{entries{path type}}` with `... on Blob{text}` and `entries[].path` with `text`:
+```bash
+gh api graphql -f owner=OWNER -f name=REPO -f expr=main:path/to/dir -f query='query($owner:String!,$name:String!,$expr:String!){repository(owner:$owner,name:$name){object(expression:$expr){... on Tree{entries{path type}}}}}' --jq '.data.repository.object.entries[].path'
+```
+   - Read one file at a known path:
+```bash
+curl -fsSL -H "Authorization: token $GITHUB_TOKEN" https://raw.githubusercontent.com/OWNER/REPO/main/path/to/file
+```
+   - Get many files, or a pull request diff, with git. Git over HTTPS does not use API quota:
+```bash
+git clone -q --depth 1 --filter=blob:none --sparse https://github.com/OWNER/REPO.git /tmp/REPO && git -C /tmp/REPO sparse-checkout set path/to/dir
+git clone -q --filter=blob:none --no-checkout https://github.com/OWNER/REPO.git /tmp/REPO-pr && git -C /tmp/REPO-pr fetch -q origin pull/NUMBER/head:pr && git -C /tmp/REPO-pr diff origin/main...pr
+```
+5. Do not change to a different token of the same GitHub user. The quota is per user, so that token has no quota left either. A token of a different user or of a GitHub App has its own quota. Use one only if the user gives it to you.
+
 ## Writing Pull Request Descriptions
 
 Use the `show-me` skill when writing or updating a PR description. If it is not
