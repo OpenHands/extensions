@@ -99,6 +99,9 @@ CONTEXT_LOOKBACK_SECONDS = 3600  # 1 hour of recent messages for context
 # due thread. Start hot immediately after each bot reply, then back off
 # on quiet threads.
 THREAD_FOLLOWUP_WATCH_SECONDS = 300
+# How long to wait for the agent's reply to reach the stored events once the
+# conversation reports it is done, before posting without it.
+FINAL_RESPONSE_WAIT_SECONDS = 120
 THREAD_REPLY_INITIAL_BACKOFF_SECONDS = 5
 THREAD_REPLY_MAX_BACKOFF_SECONDS = 300
 THREAD_REPLY_BACKOFF_MULTIPLIER = 2
@@ -669,21 +672,28 @@ def _cloud_conversation_status(conv_id: str) -> str:
     return "unknown"
 
 
-def _cloud_conversation_final_response(conv_id: str) -> str:
-    """The agent's closing message, read from the conversation's stored events."""
+def _cloud_conversation_final_response(conv_id: str) -> tuple[str, str] | None:
+    """The agent's closing message and its event id, read from the stored events.
+
+    Returns None while the agent's reply to the latest user message is not
+    stored yet: the stored events can lag behind the live execution status.
+    """
     events = _cloud_request(
         "GET",
         f"/api/v1/conversation/{conv_id}/events/search?sort_order=TIMESTAMP_DESC&limit=100",
     )
     for event in events.get("items", []):
+        if event.get("source") == "user" and event.get("kind") == "MessageEvent":
+            return None
         if event.get("source") != "agent":
             continue
+        event_id = event.get("id") or ""
         if event.get("kind") == "ActionEvent" and event.get("tool_name") == "finish":
-            return (event.get("action") or {}).get("message") or ""
+            return event_id, (event.get("action") or {}).get("message") or ""
         if event.get("kind") == "MessageEvent":
             content = (event.get("llm_message") or {}).get("content") or []
-            return "".join(part.get("text", "") for part in content)
-    return ""
+            return event_id, "".join(part.get("text", "") for part in content)
+    return "", ""
 
 
 def create_conversation(
@@ -763,13 +773,16 @@ def conversation_status(agent_url: str, api_key: str, conv_id: str) -> str:
     return result.get("execution_status", "unknown")
 
 
-def conversation_final_response(agent_url: str, api_key: str, conv_id: str) -> str:
+def conversation_final_response(
+    agent_url: str, api_key: str, conv_id: str
+) -> tuple[str, str] | None:
+    """The agent's closing message as (event id, text), or None if not stored yet."""
     if IS_CLOUD:
         return _cloud_conversation_final_response(conv_id)
     result = _oh_request(
         agent_url, api_key, "GET", f"/api/conversations/{conv_id}/agent_final_response"
     )
-    return result.get("response", "")
+    return "", result.get("response", "")
 
 
 def _llm_provenance(profile: str, model: str) -> str:
@@ -1147,9 +1160,20 @@ def _check_conversation_completion(
 
     if status in ("idle", "finished", "error", "stuck"):
         try:
-            final = conversation_final_response(agent_url, api_key, conv_id)
+            reply = conversation_final_response(agent_url, api_key, conv_id)
         except Exception:
-            final = ""
+            reply = ("", "")
+        if reply and reply[0] and reply[0] == rec.get("posted_response_event_id"):
+            reply = None
+
+        now = time.time()
+        if reply is None and status in ("idle", "finished"):
+            wait_started = rec.setdefault("final_response_wait_started", now)
+            if now - wait_started < FINAL_RESPONSE_WAIT_SECONDS:
+                print(f"  {conv_key}: reply to the latest message is not stored yet")
+                return
+        rec.pop("final_response_wait_started", None)
+        final = reply[1] if reply else ""
 
         if status in ("error", "stuck"):
             summary = (
@@ -1178,6 +1202,8 @@ def _check_conversation_completion(
         ts_back = post_message(slack_token, channel_id, summary, thread_ts=thread_ts)
         if ts_back:
             bot_message_ts.append(ts_back)
+        if reply and reply[0]:
+            rec["posted_response_event_id"] = reply[0]
 
         now = time.time()
         rec["status"] = "watching"
