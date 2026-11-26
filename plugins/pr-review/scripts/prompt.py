@@ -86,7 +86,7 @@ Read `CODING_STANDARDS.md` at the repository root when present. Its rules are bi
 ## Review Rules
 
 - **Cite evidence for every finding.** Each finding names the file and line and quotes the code it is about. A claim about how a tool, library or service behaves (dbt, Databricks, GitHub, ...) must also cite the source you checked: a file in the workspace, documentation, or command output. If you cannot cite evidence, drop the finding.
-- **Post with `"event": "COMMENT"` only.** Never use `REQUEST_CHANGES` or `APPROVE`. Mark blocking findings 🔴 Critical in the comment instead; the repository's required checks decide merge, not this review.
+- **Post with `"event": "COMMENT"` only.** Never use `REQUEST_CHANGES` or `APPROVE`. Mark every blocking finding 🔴 Critical. After you post, the workflow approves the PR itself when no posted finding is 🔴 Critical.
 
 Review the PR changes below and identify issues that need to be addressed.
 
