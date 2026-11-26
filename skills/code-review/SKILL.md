@@ -36,7 +36,8 @@ or hosting workflow explicitly requires it.
 
 - Verify the repository, PR number, current head SHA, base, title, description,
   changed-file manifest, and diff.
-- Read the linked issue and acceptance criteria.
+- Read the linked issue and acceptance criteria, and any plan or design doc it
+  links. Check the PR's approach against them, not only the PR's own summary.
 - Read root and applicable nested `AGENTS.md` files, the repository-specific
   review guide, and relevant contribution or architecture docs.
 - Read top-level PR discussion, prior reviews, and resolved and unresolved review
@@ -87,9 +88,12 @@ Prioritize these areas when they apply:
 - **Security**: authorization is checked at the mutating boundary; untrusted input
   is validated for its actual sink; secrets are minimally scoped and do not enter
   logs, errors, prompts, commands, or plaintext persistence.
-- **Simplicity**: reuse the repository's existing mechanism. Flag added machinery
-  only when you can show redundant ownership, contradictory behavior, or a real
-  maintenance failure; line count or personal design preference is not enough.
+- **Simplicity**: reuse the repository's existing mechanism or a feature of a
+  dependency it already uses. Flag added machinery only when you can show
+  redundant ownership, contradictory behavior, or a real maintenance failure;
+  line count or personal design preference is not enough. Machinery that
+  re-implements a dependency's documented feature, or an unannounced departure
+  from the linked plan, is redundant ownership: cite the doc or the plan line.
 
 ### 4. Verify tests and evidence
 
