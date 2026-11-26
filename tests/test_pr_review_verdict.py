@@ -27,3 +27,11 @@ def test_a_critical_inline_comment_comments_without_approving():
 
 def test_a_critical_in_the_review_body_comments_without_approving():
     assert review_event(["🔴 Critical: the drop matches PR 12."]) == "COMMENT"
+
+
+def test_a_critical_listed_in_the_review_body_comments_without_approving():
+    assert review_event(["Findings:\n- **🔴 Critical:** the drop matches PR 12."]) == "COMMENT"
+
+
+def test_a_critical_mentioned_mid_sentence_still_approves():
+    assert review_event(["Good. The earlier 🔴 Critical no longer applies on this head."]) == "APPROVE"
