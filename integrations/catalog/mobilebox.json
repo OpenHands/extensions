@@ -1,0 +1,35 @@
+{
+  "id": "mobilebox",
+  "name": "Mobilebox",
+  "description": "Cloud Android phones and iOS simulators for the agent: install a build, read the screen, tap and type, and read the app's crash logs.",
+  "categories": [
+    "Developer tools",
+    "Engineering"
+  ],
+  "appUrl": "https://mobilebox.dev",
+  "docsUrl": "https://mobilebox.dev/integrations/openhands",
+  "logoUrl": "https://mobilebox.dev/favicon.svg",
+  "keywords": [
+    "android",
+    "ios",
+    "mobile",
+    "testing",
+    "emulator"
+  ],
+  "connectionOptions": [
+    {
+      "id": "api-key",
+      "provider": "mcp",
+      "transport": {
+        "kind": "shttp",
+        "url": "https://mobilebox.dev/mcp"
+      },
+      "auth": {
+        "strategy": "bearer",
+        "credentialLabel": "Mobilebox API key",
+        "credentialPlaceholder": "Paste your Mobilebox API key",
+        "credentialHelp": "Create a key in the [Mobilebox dashboard](https://mobilebox.dev/dashboard). Sent as Authorization: Bearer <key>."
+      }
+    }
+  ]
+}
