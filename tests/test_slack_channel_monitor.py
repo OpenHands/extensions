@@ -1,5 +1,9 @@
+import json
 import os
 from pathlib import Path
+
+import pytest
+from automation_kv_fake import serve_kv
 
 
 SCRIPT_PATH = (
@@ -208,3 +212,86 @@ def test_a_cloud_conversation_without_a_profile_leaves_the_choice_to_openhands(m
     # Assert
     [body] = calls
     assert "agent_profile_id" not in body
+
+
+# ── State size and the KV store's per-value limit ─────────────────────────────
+
+
+@pytest.fixture
+def kv_server():
+    with serve_kv() as handler:
+        yield handler
+
+
+def _load_with_kv(kv_server) -> dict:
+    helpers = load_slack_monitor_helpers()
+    helpers["_KV_TOKEN"] = "kv-token"
+    helpers["_KV_BASE"] = kv_server.base
+    return helpers
+
+
+def _state_size(state: dict) -> int:
+    return len(json.dumps(state, ensure_ascii=False).encode())
+
+
+def _conversation(number: int, status: str) -> dict:
+    return {
+        "conversation_id": f"{number:08d}-0000-4000-8000-000000000000",
+        "channel_id": "CHANNEL01",
+        "thread_ts": f"{1_716_000_000 + number}.000100",
+        "status": status,
+        "llm_profile": "default",
+        "llm_model": "openai/gpt-5.5",
+        "last_activity": 1_716_000_000.0 + number,
+        "last_seen_reply_ts": f"{1_716_000_000 + number}.000200",
+        "reply_poll_backoff_seconds": 30,
+        "next_reply_poll_at": 1_716_000_030.0 + number,
+        "watch_until": 1_716_086_400.0 + number,
+    }
+
+
+def _state_at_the_caps(helpers: dict) -> dict:
+    """Both timestamp lists at their caps, as a busy channel leaves them, plus
+    closed conversations that are never pruned and a few open ones."""
+    ts = [f"{1_716_000_000 + i}.{i:06d}" for i in range(helpers["MAX_PROCESSED_TS"])]
+    conversations = {f"CHANNEL01:{n}": _conversation(n, "closed") for n in range(1, 60)}
+    conversations["CHANNEL01:active"] = _conversation(100, "active")
+    conversations["CHANNEL01:watching"] = _conversation(101, "watching")
+    return {
+        "version": 1,
+        "bot_user_id": "UBOT",
+        "last_poll": {"CHANNEL01": "1716002000.000000"},
+        "conversations": conversations,
+        "bot_message_ts": ts[-helpers["MAX_BOT_TS"]:],
+        "processed_ts": ts,
+    }
+
+
+def test_state_at_the_caps_is_saved_under_the_kv_limit(kv_server):
+    helpers = _load_with_kv(kv_server)
+    state = _state_at_the_caps(helpers)
+    newest = state["processed_ts"][-1]
+    assert _state_size(state) > kv_server.limit
+
+    helpers["save_state"](state)
+
+    saved = kv_server.store["state"]
+    assert _state_size(saved) <= helpers["STATE_BUDGET_BYTES"]
+    assert saved["processed_ts"][-1] == newest
+    assert saved["bot_message_ts"][-1] == newest
+    assert saved["conversations"]["CHANNEL01:active"]["status"] == "active"
+    assert saved["conversations"]["CHANNEL01:watching"]["status"] == "watching"
+    assert helpers["load_state"]() == saved
+
+
+def test_state_is_trimmed_to_the_limit_a_deployment_reports(kv_server):
+    kv_server.limit = 16 * 1024
+    helpers = _load_with_kv(kv_server)
+    state = _state_at_the_caps(helpers)
+
+    helpers["save_state"](state)
+
+    first, second = kv_server.puts
+    assert kv_server.limit < first <= helpers["STATE_BUDGET_BYTES"]
+    assert second <= kv_server.limit * 3 // 4
+    assert "CHANNEL01:active" in kv_server.store["state"]["conversations"]

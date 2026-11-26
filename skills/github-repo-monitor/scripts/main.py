@@ -163,6 +163,28 @@ def _kv_get(key: str) -> dict | None:
         raise
 
 
+# The automation service rejects a KV value over its per-value limit (64 KiB by
+# default, configurable per deployment) with 413, so the state is kept under a
+# smaller budget. Oldest data goes first; see _fit_state.
+STATE_BUDGET_BYTES = 48 * 1024
+# Processed/own comment IDs kept before closed conversations are dropped.
+MIN_KEPT_IDS = 500
+
+
+class KVValueTooLarge(RuntimeError):
+    """The KV store refused a value over its per-value limit (HTTP 413)."""
+
+    def __init__(self, key: str, size: int, limit: int | None):
+        self.key, self.size, self.limit = key, size, limit
+        limit_text = f"the {limit} byte limit" if limit else "the KV value limit"
+        super().__init__(f"KV value for key '{key}' is {size} bytes, over {limit_text}")
+
+
+def _json_size(value) -> int:
+    """Bytes the KV store counts for `value`: its UTF-8 JSON encoding."""
+    return len(json.dumps(value, ensure_ascii=False).encode("utf-8"))
+
+
 def _kv_set(key: str, value: dict) -> None:
     req = urllib.request.Request(
         f"{_KV_BASE}/v1/kv/{key}",
@@ -173,8 +195,51 @@ def _kv_set(key: str, value: dict) -> None:
         },
         method="PUT",
     )
-    with urllib.request.urlopen(req) as r:
-        r.read()
+    try:
+        with urllib.request.urlopen(req) as r:
+            r.read()
+    except urllib.error.HTTPError as exc:
+        if exc.code != 413:
+            raise
+        try:
+            detail = json.loads(exc.read())["detail"]
+            size, limit = int(detail["size"]), int(detail["limit"])
+        except Exception:
+            size, limit = _json_size(value), None
+        raise KVValueTooLarge(key, size, limit) from None
+
+
+def _fit_state(state: dict, budget: int) -> None:
+    """Trim `state` in place until its JSON fits in `budget` bytes.
+
+    Drops, in order: the oldest processed/own comment IDs down to
+    MIN_KEPT_IDS each (a poll only ever sees recent comments), the least
+    recently active closed conversations, then the remaining oldest IDs.
+    Active conversations are never dropped.
+    """
+    id_lists = [
+        state.setdefault("processed_comment_ids", []),
+        state.setdefault("own_comment_ids", []),
+    ]
+    conversations = state.setdefault("conversations", {})
+    closed = sorted(
+        (key for key, rec in conversations.items() if rec.get("status") != "active"),
+        key=lambda key: conversations[key].get("last_activity") or 0,
+        reverse=True,
+    )
+    while _json_size(state) > budget:
+        longest = max(id_lists, key=len)
+        if len(longest) > MIN_KEPT_IDS:
+            del longest[: max(1, min(len(longest) - MIN_KEPT_IDS, len(longest) // 10))]
+        elif closed:
+            del conversations[closed.pop()]
+        elif longest:
+            del longest[: max(1, len(longest) // 10)]
+        else:
+            raise RuntimeError(
+                f"State is {_json_size(state)} bytes with only active conversations "
+                f"left; it cannot fit in {budget} bytes"
+            )
 
 
 def _state_file_path() -> str:
@@ -228,8 +293,17 @@ def load_state() -> dict:
 
 
 def save_state(state: dict) -> None:
+    _fit_state(state, STATE_BUDGET_BYTES)
     if _kv_available():
-        _kv_set(_STATE_KEY, state)
+        try:
+            _kv_set(_STATE_KEY, state)
+        except KVValueTooLarge as exc:
+            # The deployment's limit is below the default budget: fit under it
+            # and send a smaller value once, never the same one again.
+            budget = (exc.limit or exc.size // 2) * 3 // 4
+            print(f"Warning: {exc}; trimming state to {budget} bytes")
+            _fit_state(state, budget)
+            _kv_set(_STATE_KEY, state)
         print("State saved to KV store")
         return
     path = _state_file_path()
