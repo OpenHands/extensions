@@ -1,0 +1,9 @@
+{
+  "schema_version": 1,
+  "name": "godot-player",
+  "display_name": "Godot Player",
+  "version": "0.1.0",
+  "description": "Play a Godot game pack locally in an isolated web player.",
+  "entrypoint": "extension.js",
+  "contributes": {"pages": [{"id": "player", "path": "/play", "title": "Godot Player", "nav_label": "Godot Player"}]}
+}

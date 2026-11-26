@@ -129,6 +129,7 @@ print("All done!")
 - [Plugins](https://docs.openhands.dev/sdk/guides/plugins.md): Plugins bundle skills, hooks, MCP servers, agents, and commands into reusable packages that extend agent capabilities.
 - [PR Review](https://docs.openhands.dev/sdk/guides/github-workflows/pr-review.md): Use OpenHands Agent to generate meaningful pull request review
 - [Reasoning](https://docs.openhands.dev/sdk/guides/llm-reasoning.md): Access model reasoning traces from Anthropic extended thinking and OpenAI responses API.
+- [Sail Sandbox](https://docs.openhands.dev/sdk/guides/agent-server/sail-sandbox.md): Run the agent server in a hosted Sail Research sandbox and connect to it from the SDK.
 - [Secret Registry](https://docs.openhands.dev/sdk/guides/secrets.md): Provide environment variables and secrets to agent workspace securely.
 - [Security & Action Confirmation](https://docs.openhands.dev/sdk/guides/security.md): Control agent action execution through confirmation policy and security analyzer.
 - [Send Message While Running](https://docs.openhands.dev/sdk/guides/convo-send-message-while-running.md): Interrupt running agents to provide additional context or corrections.
@@ -227,6 +228,8 @@ Source: [`examples/`](https://github.com/OpenHands/software-agent-sdk/tree/main/
 - [`15_openai_compatible_gateway.py`](https://github.com/OpenHands/software-agent-sdk/blob/main/examples/02_remote_agent_server/15_openai_compatible_gateway.py)
 - [`16_deferred_init.py`](https://github.com/OpenHands/software-agent-sdk/blob/main/examples/02_remote_agent_server/16_deferred_init.py)
 - [`17_convo_with_agent_sandbox_server.py`](https://github.com/OpenHands/software-agent-sdk/blob/main/examples/02_remote_agent_server/17_convo_with_agent_sandbox_server.py)
+- [`18_convo_with_sail_sandboxed_server.py`](https://github.com/OpenHands/software-agent-sdk/blob/main/examples/02_remote_agent_server/18_convo_with_sail_sandboxed_server.py)
+- [`19_acp_agent_with_sail_sandbox.py`](https://github.com/OpenHands/software-agent-sdk/blob/main/examples/02_remote_agent_server/19_acp_agent_with_sail_sandbox.py)
 - [`agent_sandbox_deploy`](https://github.com/OpenHands/software-agent-sdk/tree/main/examples/02_remote_agent_server/agent_sandbox_deploy)
 - [`hook_scripts`](https://github.com/OpenHands/software-agent-sdk/tree/main/examples/02_remote_agent_server/hook_scripts)
 - [`scripts`](https://github.com/OpenHands/software-agent-sdk/tree/main/examples/02_remote_agent_server/scripts)
