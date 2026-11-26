@@ -20,4 +20,6 @@ The five pillars are:
 - **Policy & Governance** — does the agent know the rules?
 - **Build & Dev Environment** — can the agent build and run the project?
 
+The build-environment scanner recognizes root `Justfile`, `justfile`, and `.justfile` variants, including mixed capitalization, and documented `just build` commands.
+
 Once you have a report, use `improve-agent-readiness` to turn the gaps into concrete fixes.
