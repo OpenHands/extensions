@@ -190,9 +190,15 @@ Time-limited locks (leases) coordinate work for each repository/PR/reviewer.
 The head, latest request and label events, and latest non-bot clarification
 identify a work version (generation) across triggers.
 
-Intent is recorded before POST. Lost responses/receipts trigger a search by
-exact marker, account, and head. **An empty search never
-permits retrying an uncertain POST.** Completed/rejected generations stay recorded.
+Intent is recorded before POST. Completion requires both the receipt and a GET
+readback to match the saved body exactly, including disclosure and verdict, plus
+head, reviewer account, event-derived state, and review ID. Lost responses trigger
+a marker search; exactly one match must pass the same checks against the saved
+payload. Missing, ambiguous, or mismatched results stay quarantined without handoff
+or a new generation. **An empty search never permits retrying an uncertain POST.**
+Older published receipts without verification are re-verified before handoff;
+records lacking a verifiable saved payload require operator reconciliation.
+Completed/rejected generations stay recorded.
 Missing/failed starts are held for inspection, including records left in
 `starting` after a crash. Inspect the recorded conversation ID and server status
 before repairing the record; do not blindly restart a possibly running agent.

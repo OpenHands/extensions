@@ -10,6 +10,21 @@ from agent_conversation import ReviewCoordination
 FIELDS = {"head_sha", "code_assessment", "merge_readiness", "summary", "findings", "evidence"}
 
 
+def _review_matches(review, payload, login):
+    if not isinstance(review, dict) or not isinstance(payload, dict):
+        return False
+    body, user = review.get("body"), review.get("user")
+    expected_state = {"APPROVE": "APPROVED", "COMMENT": "COMMENTED"}.get(payload.get("event"))
+    return (
+        type(review.get("id")) is int and review["id"] > 0
+        and isinstance(body, str) and bool(body.strip()) and body == payload.get("body")
+        and bool(payload.get("commit_id")) and review.get("commit_id") == payload["commit_id"]
+        and expected_state is not None and review.get("state") == expected_state
+        and isinstance(user, dict) and isinstance(user.get("login"), str)
+        and user["login"].lower() == login.lower()
+    )
+
+
 def review_payload(raw, head, self_author, marker):
     artifact = json.loads(raw)
     if not isinstance(artifact, dict) or set(artifact) != FIELDS:
@@ -104,20 +119,22 @@ class StructuredReviews:
         head = pr["head"]["sha"]
         work = hashlib.sha256(f"{subject}:{head}:{generation}".encode()).hexdigest()
         current, status = record.get("work"), record.get("status")
-        completed = record.get("completed", [])
         cid = record.get("conversation_id", "")
         result = {"disposition": "in_progress", "conversation_id": cid}
         if status in {"posting", "published"}:
-            if status == "posting":
-                matches = [review for review in run.gh_pages(f"/pulls/{pr['number']}/reviews")
-                           if record["marker"] in (review.get("body") or "")
-                           and review.get("commit_id") == record["head"]
-                           and (review.get("user") or {}).get("login", "").lower() == run.github_login.lower()
-                           and review.get("state") in {"APPROVED", "COMMENTED"}]
-                if len(matches) != 1:
-                    # Empty eventually-consistent reads do not prove POST failed.
+            if status == "posting" or (record.get("receipt") or {}).get("verified") is not True:
+                marker = record.get("marker")
+                if not marker:
                     return result
-                lease.save(status="published", completed=list(dict.fromkeys([*completed, current])), receipt={"id": matches[0]["id"], "url": matches[0].get("html_url")})
+                matches = [review for review in run.gh_pages(f"/pulls/{pr['number']}/reviews")
+                           if isinstance(review, dict) and isinstance(review.get("body"), str)
+                           and marker in review["body"]]
+                # Do not hide an ambiguous marker match by filtering invalid content.
+                if len(matches) != 1:
+                    lease.save(verification_error="Expected exactly one marked review; operator reconciliation may be required")
+                    return result
+                if not self._confirm(lease, pr, matches[0]):
+                    return result
             self._complete(lease, pr)
             if current == work or not start:
                 return {**result, "disposition": "deduplicated"}
@@ -156,9 +173,8 @@ class StructuredReviews:
             # Intent precedes the only POST; failures require reconciliation.
             lease.save(status="posting", marker=marker, payload=payload)
             review = run.gh("POST", f"/pulls/{pr['number']}/reviews", payload)
-            if not review.get("id"):
-                raise RuntimeError("GitHub returned no receipt; reconcile next scan")
-            lease.save(status="published", completed=list(dict.fromkeys([*completed, current])), receipt={"id": review["id"], "url": review.get("html_url")})
+            if not self._confirm(lease, pr, review):
+                return result
             self._complete(lease, pr)
             return {**result, "disposition": "published"}
         elif status not in {None, "stale", "invalid"}:
@@ -172,10 +188,30 @@ class StructuredReviews:
         prompt = structured_prompt(run, pr, generation)
         cid = str(uuid5(NAMESPACE_URL, "structured-review:" + work))
         lease.save(work=work, head=head, generation=generation, status="starting", conversation_id=cid,
-                   marker=None, receipt=None, payload=None, explicit=explicit, label=label, trigger=trigger, completion="pending")
+                   marker=None, receipt=None, payload=None, verification_error=None,
+                   explicit=explicit, label=label, trigger=trigger, completion="pending")
         run.dispatcher.start_review_work(cid, subject, prompt)
         lease.save(status="active")
         return {"disposition": "created", "conversation_id": cid}
+
+    def _confirm(self, lease, pr, review):
+        record = lease.value
+        payload = record.get("payload")
+        receipt = record.get("receipt") or {}
+        if (not isinstance(payload, dict) or payload.get("commit_id") != record.get("head")
+                or not _review_matches(review, payload, self.run.github_login)
+                or (receipt.get("id") is not None and receipt["id"] != review["id"])):
+            lease.save(verification_error="Review receipt does not match saved publication intent")
+            return False
+        readback = self.run.gh("GET", f"/pulls/{pr['number']}/reviews/{review['id']}")
+        if (not _review_matches(readback, payload, self.run.github_login)
+                or readback["id"] != review["id"]):
+            lease.save(verification_error="Review readback does not match saved publication intent")
+            return False
+        lease.save(status="published", verification_error=None,
+                   completed=list(dict.fromkeys([*record.get("completed", []), record["work"]])),
+                   receipt={"id": readback["id"], "url": readback.get("html_url"), "verified": True})
+        return True
 
     def _complete(self, lease, pr):
         record = lease.value
