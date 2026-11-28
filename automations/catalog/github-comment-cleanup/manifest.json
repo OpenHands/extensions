@@ -4,6 +4,7 @@
   "category": "Developer tools",
   "icon": "sparkles",
   "description": "Strip comments that restate the code, narrate old changes, or ramble. Weekly, an agent cleans only the files that changed since they were last examined and opens one pull request per repository - code and docstrings stay untouched.",
+  "diagram": "flowchart TD\n  A([\"Weekly scan\"]) --> B[\"Files changed since last check\"]\n  B --> C[\"Agent removes noisy comments\"]\n  C --> D[\"One PR per repository\"]",
   "requires": {
     "integrations": {
       "github": {

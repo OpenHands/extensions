@@ -18,8 +18,14 @@ export interface RecommendedAutomation {
     | "bot"
     | "circle-alert"
     | "activity"
-    | "timer";
+    | "timer"
+    | "shield-check";
   description: string;
+  /**
+   * Mermaid source for a small diagram of what the automation does. The host
+   * draws it beside `description` on the setup screen.
+   */
+  diagram?: string;
   requires: AutomationPrerequisites;
   popularityRank: number;
   estimatedSetupMinutes: number;
@@ -87,7 +93,11 @@ export type AutomationFieldType =
   | "event-type"
   | "plugin-sources"
   | "tarball-upload";
-export type AutomationGitProvider = "github" | "gitlab" | "bitbucket";
+export type AutomationGitProvider =
+  | "github"
+  | "gitlab"
+  | "bitbucket"
+  | "bitbucket_data_center";
 export type AutomationTriggerKind = "cron" | "event";
 
 export interface AutomationFieldOption {
@@ -136,7 +146,27 @@ export interface AutomationPrerequisites {
   integrations: Record<string, AutomationIntegrationRequirement>;
   /** Deployment capabilities this automation cannot run without. */
   features?: string[];
+  /**
+   * Integrations built into an OpenHands Cloud or Enterprise instance
+   * (Settings > Integrations) that this automation cannot run without. A user
+   * cannot connect one from the card, so a host that knows the instance's
+   * built-in integrations can rank the entry below the others, or hide it,
+   * where one is missing, and a host without built-in integrations never
+   * offers it.
+   */
+  builtInIntegrations?: AutomationBuiltInIntegration[];
 }
+
+export type AutomationBuiltInIntegration =
+  | "github"
+  | "gitlab"
+  | "bitbucket"
+  | "bitbucket_data_center"
+  | "azure_devops"
+  | "jira"
+  | "jira_dc"
+  | "linear"
+  | "slack";
 
 /** The inputs that decide when the automation runs, keyed by trigger kind. */
 export type AutomationTriggerForm = Partial<
@@ -267,7 +297,8 @@ export type AutomationIconSlug =
   | "bot"
   | "circle-alert"
   | "activity"
-  | "timer";
+  | "timer"
+  | "shield-check";
 
 /** The pages a sub-page navigation item may point at. */
 export type AutomationSubPageId = "list" | "events" | "templates";
@@ -319,7 +350,11 @@ export type AutomationStatusFilterValue =
   | "failing"
   | "disabled";
 export type AutomationTriggerFilterValue = "all" | "schedule" | "event";
-export type AutomationCreatedByFilterValue = "all" | "me" | "others";
+/**
+ * Who an automation runs as: the signed-in person (`me`), another person
+ * (`others`), or a service account (`service`).
+ */
+export type AutomationCreatedByFilterValue = "all" | "me" | "others" | "service";
 
 /**
  * A filter dropdown. Values name predicates the host implements; the manifest

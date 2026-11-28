@@ -76,11 +76,12 @@
         },
         {
           "id": "created_by",
-          "label": "Filter by creator",
+          "label": "Filter by owner",
           "options": [
             { "value": "all", "label": "Anyone" },
             { "value": "me", "label": "Me" },
-            { "value": "others", "label": "Others" }
+            { "value": "others", "label": "Others" },
+            { "value": "service", "label": "Service accounts" }
           ]
         },
         {
@@ -123,7 +124,7 @@
     },
     "templates": {
       "title": "Templates",
-      "description": "Browse proven automations and beta ideas, then launch one into a conversation to tailor it to your work."
+      "description": "Browse templates and launch one into a conversation to tailor it to your work."
     }
   },
   "docsUrl": "https://docs.openhands.dev/openhands/usage/automations/overview",
@@ -171,6 +172,7 @@
     "webhooks": "/v1/webhooks"
   },
   "featuredAutomationIds": [
+    "cve-remediation-factory",
     "github-pr-reviewer",
     "github-agents-md-maintainer",
     "news-digest",

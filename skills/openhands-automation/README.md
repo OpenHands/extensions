@@ -1,6 +1,6 @@
 # Automation Skill
 
-Create and manage OpenHands automations — tasks that run in sandboxes on a cron schedule or triggered by webhook events (GitHub, custom services).
+Create and manage OpenHands automations - tasks that run in sandboxes on a cron schedule or triggered by webhook events (GitHub, Jira Data Center, Bitbucket Data Center, Azure DevOps, custom services).
 
 ## Triggers
 
@@ -20,8 +20,9 @@ This skill is activated by keywords:
 - **Prompt-based creation**: Create one-off automations from a natural language prompt, for tasks that benefit from agent reasoning
 - **Plugin preset automations**: Use plugin presets for prompt-driven plugin runs when no executable plugin-spec contract exists yet
 - **Custom scripts**: Use raw tarball uploads only when the user needs full packaging or SDK lifecycle control outside the preferred plugin-spec path (see [references/custom-automation.md](references/custom-automation.md))
-- **Event-triggered automations**: Trigger on GitHub events (PR opened, issue commented, push, etc.)
-- **Custom webhooks**: Register webhooks for any service (Stripe, Slack, Linear, etc.)
+- **Agent Canvas setup form**: When the `automation_form_update` tool is available (an Agent Canvas automation setup session), the agent fills the setup form instead of creating automations through the API, and the user saves, tests or creates the automation from the form
+- **Event-triggered automations**: Trigger on events from the built-in sources a deployment delivers (`github`, `jira_dc`, `bitbucket_data_center`, `azure_devops`), as listed by `/api/automation/v1/capabilities`
+- **Custom webhooks**: Register webhooks for services without a built-in source (Stripe, Slack, Linear, etc.)
 - **JMESPath filters**: Match events based on payload content (labels, mentions, repos)
 - **Automation management**: List, update, enable/disable, and delete automations
 - **Manual dispatch**: Trigger automation runs on-demand

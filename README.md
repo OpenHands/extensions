@@ -40,6 +40,10 @@ Browse available plugins in [`plugins/`](plugins/).
 
 Apps are installable interfaces that bring dashboards, internal tools, and workflows directly into Agent Canvas without requiring a fork. They are powered by the beta Canvas Extensions API. Browse [`apps/`](apps/) and read its package conventions before contributing. Enabling an App executes trusted JavaScript in the Agent Canvas browser context and permits authenticated requests to the active Agent Server, so review its source and resolved revision first. Apps are distinct from skills and plugins: they provide Canvas interfaces rather than agent instructions or capabilities.
 
+### Examples
+
+Runnable integration examples live under [`examples/`](examples/). The [Teams webhook example](examples/teams-webhook/README.md) connects a Teams command to an Agent Canvas event automation and sends a completion card back. Its setup README and tests are kept alongside the Python source.
+
 ### NPM Package
 
 This repository also publishes catalog data through the `@openhands/extensions` package. It requires Node.js 18.20.0 or newer because the catalog entry points import JSON modules with import attributes.
@@ -100,7 +104,7 @@ The JS and Python versions are kept in lock-step by `release-please` and guarded
 ## Extensions Catalog
 
 <!-- BEGIN AUTO-GENERATED CATALOG -->
-This repository contains **2 marketplace(s)** with **83 extensions** (72 skills, 11 plugins).
+This repository contains **2 marketplace(s)** with **86 extensions** (75 skills, 11 plugins).
 
 ### large-codebase
 
@@ -119,7 +123,7 @@ OpenHands skills for interacting, improving, and refactoring large codebases
 
 Official skills and plugins for OpenHands — the open-source AI software engineer.
 
-**79 extensions** (70 skills, 9 plugins)
+**82 extensions** (73 skills, 9 plugins)
 
 | Name | Type | Description | Commands |
 |------|------|-------------|----------|
@@ -138,6 +142,7 @@ Official skills and plugins for OpenHands — the open-source AI software engine
 | code-simplifier | skill | Simplifies and refines code across three dimensions - code reuse, code quality, and efficiency - while preserving all... | `/simplify` |
 | comment-cleanup | skill | Remove comments that restate adjacent code, delete comments that narrate removed functionality or past PRs, and conde... | — |
 | cortex-training-rl | skill | Run reinforcement-learning post-training of a model inside the OpenHands harness on Snowflake Cortex Training for any... | `/cortex-training-rl` |
+| cve-remediation-factory | skill | Set up a private CVE remediation factory on GitHub: inventory and scan the container images you ship, then open small... | `/cve-remediation-factory` |
 | datadog | skill | Query and analyze Datadog logs, metrics, APM traces, and monitors using the Datadog API. Use when debugging productio... | — |
 | deno | skill | Common project operations using Deno (tasks, run/test/lint/fmt, and dependency management). | — |
 | discord | skill | Build and automate Discord integrations (bots, webhooks, slash commands, and REST API workflows). Use when the user m... | — |
@@ -158,6 +163,8 @@ Official skills and plugins for OpenHands — the open-source AI software engine
 | github-stale-ci-pr-closer | skill | Warn and close abandoned pull requests whose required CI remains failing. | `/github-stale-ci-pr-closer` |
 | gitlab | skill | Interact with GitLab repositories, merge requests, and APIs using the GITLAB_TOKEN environment variable. Use when wor... | — |
 | gitlab-issue-to-mr | skill | Create an automation that implements GitLab issues when a configurable trigger label is applied. Polls the projects d... | `/issue-to-mr:setup` |
+| gitlab-mr-reviewer | skill | Review labelled GitLab merge requests at the exact head and post one actionable review note per head. | `/gitlab-mr-reviewer:setup` |
+| gitlab-prd-refiner | skill | Refine labelled GitLab issues by posting open questions, recommendations, and requirements gaps. | `/gitlab-prd-refiner:setup` |
 | incident-retrospective | skill | Create an automation that drafts incident retrospectives by gathering incident-channel messages from Slack, collectin... | `/incident-retro:setup` |
 | iterate | skill | Iterate on a GitHub pull request — drive it through CI, code review, and QA until merge-ready. Monitors state, fixes ... | `/iterate`, `/verify`, `/babysit` |
 | jira-issue-to-pr | skill | Deploy a cron-based OpenHands automation that opens a GitHub pull request, a GitLab merge request or a Bitbucket pull... | — |
@@ -191,7 +198,7 @@ Official skills and plugins for OpenHands — the open-source AI software engine
 | skill-creator | skill | Guide for creating effective skills. This skill should be used when users want to create a new skill (or update an ex... | — |
 | slack-channel-monitor | skill | Create a cron automation that polls up to 10 Slack channels every minute and starts an OpenHands conversation when a ... | `/slack-monitor:poll` |
 | slack-standup-digest | skill | Create an automation that generates an async standup digest from Slack. Searches selected channels for messages since... | `/standup-digest:setup` |
-| software-factory | skill | Set up a GitHub software factory fast: ask only for the repositories and the ticket source (GitHub issues, Jira or Li... | `/software-factory` |
+| software-factory | skill | Set up a GitHub or GitLab software factory: choose the code host and repositories, request a missing provider token s... | `/software-factory` |
 | ssh | skill | Establish and manage SSH connections to remote machines, including key generation, configuration, and file transfers.... | — |
 | swift-linux | skill | Install and configure Swift programming language on Debian Linux for server-side development. Use when building Swift... | — |
 | technical-writing | skill | Write and revise technical explanations in flowing, direct, conversational prose that stays concise without becoming ... | — |

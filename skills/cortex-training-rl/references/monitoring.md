@@ -4,13 +4,15 @@ All paths assume the `RUN_NAME` and `CKPT_DIR` you launched with.
 
 ## Job state
 
+Jobs are identified by the `ARCTIC_CORTEX_JOB_COMMENT` you launched with:
+
 ```bash
-cortex-training get "$(cat "$CKPT_DIR/cortex_job_id")"
+cortex-training list | jq -r --arg c "$ARCTIC_CORTEX_JOB_COMMENT" \
+  '.jobs[] | select(.comment == $c) | "\(.job_id) \(.status) \(.reason // "")"'
 ```
 
-States are `pending` and `placing` (waiting for GPUs), `initializing`
-(loading the model), `running`, and the terminal states `cancelled`,
-`terminated`, and `failed`. A `failed` job carries a `reason`.
+`cortex-training get <job_id>` shows one job in full. A job that ended is
+`CANCELLED`, `TERMINATED`, or `FAILED`, and the last two carry a `reason`.
 
 ## Per-step reward
 
@@ -26,24 +28,32 @@ sed 's/\x1b\[[0-9;]*m//g' "$CKPT_DIR/$RUN_NAME.log" \
 
 Use 10-step means. Single steps are noisy because each batch holds only 8
 prompts. The reference run without Harbor gave 10-step means of 0.39, 1.39,
-2.28, 2.39, 2.42, 2.51, 2.46, 2.29, 2.34, and 2.28; the Harbor run gave 0.35
-for steps 1-10, 1.46 for steps 11-20, and reached 2.13 at step 21 and 2.10 at
-step 24.
+2.28, 2.39, 2.42, 2.51, 2.46, 2.29, 2.34, and 2.28. The 25-step Harbor run on
+Snowflake sandboxes gave 0.59 for steps 1-10, 1.81 for steps 11-20, and 2.39
+for steps 21-25, with a best step of 2.54.
 
 The same dictionary carries `'policy/grad_norm'` (should stay under 1-2) and
 `'timing/generate'` (seconds spent running rollouts in that step). If
 `timing/generate` drops to a few seconds while the reward drops to 0, the
 rollouts are failing before the model is called.
 
+## Evaluation scores
+
+A run launched with `trainer.eval_before_train=true trainer.eval_interval=N`
+prints one `'eval/all/avg_score'` before the first step, one every `N` steps,
+and one after the last step. Each evaluation's rollouts are saved under
+`$CKPT_DIR/trajectories/step_<N>/eval/`.
+
+```bash
+sed 's/\x1b\[[0-9;]*m//g' "$CKPT_DIR/$RUN_NAME.log" | grep -oE "'eval/all/avg_score': '[0-9.]+'"
+```
+
 ## Recreate the reward graph (with and without Harbor)
 
-Run this self-contained Python snippet to parse one or more training logs (e.g.,
-without Harbor `recipes/rl/openhands/code_localization` and with Harbor
-`recipes/rl/harbor`), print the 10-step summary table, and write a standalone
-SVG/HTML reward graph (`$CKPT_DIR/reward_graph.svg` and
-`$CKPT_DIR/reward_graph.html`) showing the per-step trace, 5-step rolling mean,
-and the CodeScout reference bars (`0.758` on steps 1-10, `2.30` on steps 21-30,
-`2.342` on steps 91-100):
+This snippet parses a training log from either recipe, prints 10-step means,
+and writes `$CKPT_DIR/reward_graph.svg` with the per-step reward, its 5-step
+rolling mean, and the CodeScout reference bars (`0.758` on steps 1-10 and
+`2.30` on steps 21-30):
 
 ```bash
 python3 - "$CKPT_DIR/$RUN_NAME.log" "$CKPT_DIR/reward_graph.svg" <<'PY'

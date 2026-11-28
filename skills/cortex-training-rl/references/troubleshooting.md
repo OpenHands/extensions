@@ -24,6 +24,63 @@ cat /proc/sys/kernel/pty/nr /proc/sys/kernel/pty/max
 Check that no driver processes from the old run survived
 (`pgrep -af 'skyrl.train|openhands_localization'`), then relaunch.
 
+## The Harbor launcher exits with `ERROR: task <name> failed on SnowflakeSandboxEnvironment`
+
+The launcher ran the first training task in a sandbox before provisioning GPUs,
+and it failed. No Cortex job was created. The lines after the error name the
+cause:
+- `GitHub egress is not configured for this sandbox`: the task clones from
+  GitHub, and `egress_eai` is missing or doesn't allow `github.com`. Ask your
+  account administrator for an external access integration that does.
+- `Dockerfile RUN failed` on `apt-get`: `sandbox-base` is Chainguard Linux,
+  which has `apk` and no `apt-get`. Make the step work there, for example by
+  skipping packages the image already has (Python 3.11, pip, git).
+- `... is not supported` (for example `COPY --from (multi-stage) is not supported`):
+  replay handles one `FROM` stage. It refuses `RUN` flags, `COPY --from`, `ADD`
+  from a URL or of an archive, and `SHELL`.
+- `ImageMirrorError` (often `HTTP 444: source IP address not allowed`): with
+  `image_repo`, the registry rejected a push from this machine's network. Use
+  `base_image`, or run the driver from a network the registry accepts.
+
+## Every Harbor rollout of a step errors in the middle of a run
+
+Each rollout leaves a `.error` file instead of a `.json` under
+`$CKPT_DIR/trajectories/step_N/train/`. After three reruns spread over 7
+minutes, the run stops with `Every train rollout at step N errored in 4 attempts`.
+
+**Cause:** the sandboxes failed for longer than the reruns cover, for example
+during a sandbox service outage. The first error in the message says why.
+
+**Fix:** relaunch once the cause is gone. The launcher's first-task check
+tells you within a minute whether sandboxes work again.
+
+## Snowflake rollouts fail with `SandboxRateLimitError` or `Your session has expired`
+
+A growing share of each step's rollouts are `.error` files showing
+`SandboxRateLimitError: rate-limited after 4 retries`, or
+`create returned no container id: {'code': '390112', 'message': 'Your session has expired. ...'}`
+starting about an hour into the run.
+
+**Cause:** Snowflake allows 100 live sandboxes per owner, and suspended ones
+count. Sandboxes left behind by a killed run, or by other work on the same
+connection, use up that quota. Arctic Platform revisions before the session
+renewal fix also let the shared session expire after about an hour, and leaked a
+sandbox whenever a create failed partway.
+
+**Fix:** update Arctic Platform. Then, when no other run uses the connection,
+terminate what earlier runs left behind:
+
+```bash
+uv run --extra harbor python -c "
+from snowflake.sandbox import Sandbox
+for s in Sandbox.list(connection='MY_CONN'):
+    if s.status in ('ready', 'pending') and (s.name or '').startswith('harbor-rl-'):
+        s.terminate()"
+```
+
+Sandboxes from older revisions have generated names. Find them by their
+`harbor_session` tag or creation time in `Sandbox.list()` before terminating.
+
 ## `fatal: fetch-pack: invalid index-pack output` or `fatal: error writing to <workspace>/...`
 
 Most rollouts in a step fail while cloning, and `df` shows the
@@ -73,8 +130,9 @@ cancelled.
 **Fix:**
 
 ```bash
-cortex-training get "$(cat "$CKPT_DIR/cortex_job_id")"     # confirm the comment is yours
-cortex-training cancel "$(cat "$CKPT_DIR/cortex_job_id")"
+cortex-training list | jq -r --arg c "$ARCTIC_CORTEX_JOB_COMMENT" \
+  '.jobs[] | select(.comment == $c) | "\(.job_id) \(.status)"'
+cortex-training cancel <job_id>   # only a job whose comment is yours
 ```
 
 Always stop a run with Ctrl-C or `SIGTERM`, never `kill -9`. To stop a run
@@ -84,14 +142,12 @@ group.
 ## Launching a second run broke the first
 
 **Cause:** two runs on one machine share the tmux server, the pty pool, and the
-workspace disk. Two runs with the same `RUN_NAME` also share
-`$CKPT_DIR/cortex_job_id`, so the first job's id is overwritten and its
-release path is lost.
+workspace disk. Two runs with the same `RUN_NAME` also write to the same
+`$CKPT_DIR`.
 
-**Fix:** run one job per driver machine, give every run a unique `RUN_NAME`,
-and run `cortex-training list --status running` before each launch. If the
-first job's id file was overwritten, find the job by its `comment` in that
-listing.
+**Fix:** run one job per driver machine, give every run a unique `RUN_NAME`
+and `ARCTIC_CORTEX_JOB_COMMENT`, and run `cortex-training list --status running`
+before each launch.
 
 ## The job stays `pending` or `placing`, and the launcher exits with a startup timeout
 
@@ -99,7 +155,7 @@ listing.
 The launcher waits `STARTUP_TIMEOUT` seconds (default 3600) and then
 cancels its own job.
 
-**Fix:** run `cortex-training capacity --hardware H200`. Then wait for capacity
+**Fix:** run `cortex-training capacity` and compare `available_gpus` with 8. Then wait for capacity
 or raise `STARTUP_TIMEOUT`. Do not cancel other people's jobs to make room.
 
 ## The launcher refuses to start
@@ -108,7 +164,9 @@ The script checks its inputs before creating a job and prints the fix:
 - `uv` is missing.
 - `SKYRL_HOME` is unset or lacks `integrations/arctic_rl`.
 - A parquet file is missing.
-- There is no Cortex login.
+- `ARCTIC_CORTEX_HOST`, `_DATABASE`, `_SCHEMA`, or `_PAT` is not exported. `cortex-training login` alone is not enough.
+- `HARBOR_ENV=snowflake` has no `base_image` (or `image_repo`, or sandbox-path `prebuilt_image`).
+- The first training task fails in its sandbox (see `ERROR: task <name> failed on SnowflakeSandboxEnvironment` above).
 - The batch would exceed the 128 MiB response cap.
 - A cached wheel shadows the checkout.
 

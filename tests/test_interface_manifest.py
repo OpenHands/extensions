@@ -53,6 +53,15 @@ def test_events_page_declares_source_management():
     assert MANIFEST["endpoints"]["webhooks"] == "/v1/webhooks"
 
 
+def test_owner_filter_offers_people_and_service_accounts():
+    """The created_by filter splits by run-as identity: the signed-in person,
+    other people, and service accounts."""
+    owner = _filter(MANIFEST, "created_by")
+
+    assert owner["label"] == "Filter by owner"
+    assert [o["value"] for o in owner["options"]] == ["all", "me", "others", "service"]
+
+
 def test_featured_automations_resolve_to_catalog_entries():
     for automation_id in MANIFEST["featuredAutomationIds"]:
         manifest = AUTOMATIONS / "catalog" / automation_id / "manifest.json"

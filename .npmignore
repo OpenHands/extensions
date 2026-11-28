@@ -32,5 +32,5 @@ uv.lock
 # npm pack artifacts (also keeps stray tarballs out of the published package)
 *.tgz
 
-# Temporary review artifacts may reach main before the cleanup PR merges.
+# Temporary review artifacts stay on main until the next release PR removes them.
 /.pr/

@@ -3,9 +3,9 @@
 
 Each command prints one JSON document on stdout and exits non-zero on failure.
 
-  factory.py preflight --repos owner/a,owner/b [--profile NAME]
-  factory.py create --repos owner/a --ids ID[,ID...] [--set [ID.]FIELD=VALUE ...] [--profile NAME]
-  factory.py tune --repos owner/a --ids ID[,ID...] [--set [ID.]FIELD=VALUE ...] [--profile NAME]
+  factory.py preflight --repos owner/a,owner/b [--provider github|gitlab] [--gitlab-api-url URL] [--profile NAME]
+  factory.py create --repos owner/a --ids ID[,ID...] [--provider github|gitlab] [--gitlab-api-url URL] [--trigger event --event-source SOURCE] [--set [ID.]FIELD=VALUE ...] [--profile NAME]
+  factory.py tune --repos owner/a --ids ID[,ID...] [--provider github|gitlab] [--gitlab-api-url URL] [--trigger cron|event --event-source SOURCE] [--set [ID.]FIELD=VALUE ...] [--profile NAME]
   factory.py tag ID [ID ...]
   factory.py verify ID [ID ...] [--no-wait ID ...] [--timeout SECONDS]
   factory.py status ID [ID ...]
@@ -17,6 +17,7 @@ Environment:
   OPENHANDS_API_KEY               Bearer auth (OpenHands Cloud)
   OPENHANDS_AUTOMATION_API_KEY    X-Session-API-Key auth (local Agent Canvas; SESSION_API_KEY also works)
   GITHUB_PERSONAL_ACCESS_TOKEN    GitHub token; read, never printed
+  GITLAB_TOKEN                    GitLab token; read, never printed
   FACTORY_EXTENSIONS              catalog checkout; defaults to the package this script ships in
 """
 
@@ -36,18 +37,23 @@ import urllib.parse
 import urllib.request
 from pathlib import Path
 
-TOKEN_SECRET = "GITHUB_PERSONAL_ACCESS_TOKEN"
+TOKEN_SECRETS = {"github": "GITHUB_PERSONAL_ACCESS_TOKEN", "gitlab": "GITLAB_TOKEN"}
+TOKEN_SECRET = TOKEN_SECRETS["github"]
+GITLAB_API_URL = "https://gitlab.com/api/v4"
 EXTENSIONS_URL = "https://github.com/OpenHands/extensions"
 PLACEHOLDER_RE = re.compile(r"\{\{([a-z]+)\.([A-Za-z0-9_.]+)\}\}")
-STATIONS = (
-    "github-issue-to-pr",
-    "github-pr-reviewer",
-    "github-agents-md-maintainer",
-    "github-issue-triage",
-    "github-delivery-watchdog",
-    "github-stale-ci-pr-closer",
-    "qa-changes",
-)
+STATIONS = {
+    "github": (
+        "github-issue-to-pr",
+        "github-pr-reviewer",
+        "github-agents-md-maintainer",
+        "github-issue-triage",
+        "github-delivery-watchdog",
+        "github-stale-ci-pr-closer",
+        "qa-changes",
+    ),
+    "gitlab": ("gitlab-issue-to-mr", "gitlab-mr-reviewer", "gitlab-prd-refiner"),
+}
 TERMINAL = {"COMPLETED", "FAILED", "CANCELLED", "SKIPPED"}
 # Every station carries this tag, so the Automations list can filter to the factory.
 FACTORY_TAG = "software-factory"
@@ -107,7 +113,8 @@ def _request(
             status_code = resp.status
             text = resp.read().decode()
     except urllib.error.HTTPError as err:
-        detail = err.read().decode()[:2000]
+        with err:
+            detail = err.read().decode()[:2000]
         raise FactoryError(f"{method} {url} -> {err.code}: {detail}", status=err.code, detail=detail) from None
     except urllib.error.URLError as err:
         raise FactoryError(f"{method} {url} -> {err.reason}") from None
@@ -148,6 +155,27 @@ def _github(path: str):
             "User-Agent": "openhands-software-factory",
         },
     )
+
+
+def _gitlab_api_url(value: str) -> str:
+    parsed = urllib.parse.urlsplit(value)
+    if (parsed.scheme != "https" or not parsed.hostname or parsed.username or parsed.password
+            or parsed.query or parsed.fragment or parsed.path.rstrip("/") != "/api/v4"):
+        raise FactoryError("GitLab API URL must be an HTTPS /api/v4 root without credentials")
+    return value.rstrip("/")
+
+
+def _gitlab(path: str, api_url: str):
+    token = os.environ.get(TOKEN_SECRETS["gitlab"])
+    if not token:
+        raise FactoryError("GITLAB_TOKEN is not set")
+    return _request("GET", api_url + path, headers={"PRIVATE-TOKEN": token})
+
+
+def _gitlab_project(repo: str) -> str:
+    if not re.fullmatch(r"[A-Za-z0-9._-]+(?:/[A-Za-z0-9._-]+)+", repo):
+        raise FactoryError(f"invalid GitLab project: {repo!r}; use group/subgroup/project")
+    return urllib.parse.quote(repo, safe="")
 
 
 # --- Catalog ----------------------------------------------------------------
@@ -229,39 +257,50 @@ def _parse_value(text: str):
         return text
 
 
-def _fields(entry: dict) -> dict:
+def _fields(entry: dict, trigger: str = "cron") -> dict:
     form = entry["setup"]["form"]
-    # Only the cron trigger group carries form fields; an entry whose only
-    # trigger is an event declares no cron fields, so this must not index it.
-    return {**form.get("args", {}), **form.get("triggers", {}).get("cron", {})}
+    return {**form.get("args", {}), **form.get("triggers", {}).get(trigger, {})}
 
 
-def _form_values(entry: dict, repos: list[str], overrides: dict) -> dict:
+def _form_values(entry: dict, repos: list[str], overrides: dict, gitlab_api_url: str | None = None,
+                 trigger: str = "cron", event_source: str | None = None) -> dict:
     """Answers, else derived values, else manifest defaults."""
-    fields = _fields(entry)
+    fields = _fields(entry, trigger)
     values = {name: spec["default"] for name, spec in fields.items() if "default" in spec}
     for name, spec in fields.items():
         if spec.get("type") == "repo-picker":
             values[name] = repos if spec.get("multiple") else repos[0]
     if "githubTokenSecret" in fields:
         values["githubTokenSecret"] = TOKEN_SECRET
+    if gitlab_api_url and "gitlabApiUrl" in fields:
+        values["gitlabApiUrl"] = _gitlab_api_url(gitlab_api_url)
+    if trigger == "event":
+        values["source"] = event_source
     for name, value in overrides.items():
         if name not in fields:
             raise FactoryError(f"{entry['id']} has no field {name}")
         values[name] = value
+    if gitlab_api_url and "gitlabApiUrl" in fields and values["gitlabApiUrl"] != gitlab_api_url:
+        raise FactoryError(f"{entry['id']} must use --gitlab-api-url for this instance")
     missing = [n for n, s in fields.items() if s.get("required") and values.get(n) in (None, "", [])]
     if missing:
         raise FactoryError(f"{entry['id']} is missing required fields: {missing}")
     return values
 
 
-def _create_body(entry: dict, values: dict, repos: list[str]) -> dict:
+def _create_body(entry: dict, values: dict, repos: list[str], selected_trigger: str = "cron") -> dict:
     """The create request, as Agent Canvas builds it for a catalog bundle."""
     bundle = entry["setup"]["bundle"]
     name = entry["name"] + (f" - {repos[0]}" if len(repos) == 1 else f" - {len(repos)} repositories")
+    if selected_trigger == "event":
+        trigger = {"type": "event", "source": values["source"], "on": values["on"]}
+        if entry["setup"].get("filter"):
+            trigger["filter"] = entry["setup"]["filter"]
+    else:
+        trigger = {"type": "cron", "schedule": values["schedule"], "timezone": values["timezone"]}
     body = {
         "name": name,
-        "trigger": {"type": "cron", "schedule": values["schedule"], "timezone": values["timezone"]},
+        "trigger": trigger,
         "tarball_path": "",
         "entrypoint": bundle["entrypoint"],
     }
@@ -340,13 +379,47 @@ def _profile(name: str | None) -> dict:
 
 
 def preflight(args) -> dict:
-    out: dict = {}
-    features = set(_api("GET", "/capabilities").get("features", []))
-    out["stations"] = {}
-    for station in STATIONS:
+    provider = getattr(args, "provider", "github")
+    api_url = _gitlab_api_url(args.gitlab_api_url) if provider == "gitlab" else None
+    capabilities = _api("GET", "/capabilities")
+    features = set(capabilities.get("features", []))
+    out: dict = {"stations": {}}
+    if provider == "gitlab":
+        out["event_supported"] = "event" in capabilities.get("triggerKinds", [])
+        out["event_sources"] = capabilities.get("eventSources", [])
+    for station in STATIONS[provider]:
         entry = _manifest(station)
         missing = sorted(set(entry.get("requires", {}).get("features", [])) - features)
         out["stations"][station] = "ok" if not missing else f"missing {missing}"
+    if provider == "gitlab":
+        out["gitlab_api_url"] = api_url
+        out["gitlab_login"] = None
+        if not os.environ.get(TOKEN_SECRETS["gitlab"]):
+            out["token_error"] = "not_set: name GITLAB_TOKEN in the command so the saved secret is passed in"
+            return out
+        try:
+            out["gitlab_login"] = _gitlab("/user", api_url)["username"]
+        except (FactoryError, KeyError) as err:
+            rejected = " -> 401" in str(err) or " -> 403" in str(err)
+            out["token_error"] = ("rejected: " if rejected else "") + str(err)[:300]
+            return out
+        out["repos"] = {}
+        for repo in _split(args.repos):
+            try:
+                project = _gitlab(f"/projects/{_gitlab_project(repo)}", api_url)
+                permissions = project.get("permissions") or {}
+                levels = [(permissions.get(key) or {}).get("access_level")
+                          for key in ("project_access", "group_access")]
+                levels = [level for level in levels if isinstance(level, int)]
+                if not project.get("default_branch"):
+                    out["repos"][repo] = "no default branch"
+                elif not levels:
+                    out["repos"][repo] = "role unknown"
+                else:
+                    out["repos"][repo] = "push" if max(levels) >= 30 else "no push"
+            except (FactoryError, KeyError):
+                out["repos"][repo] = "not found or no access"
+        return out
     try:
         out["profile"] = _profile(args.profile)
     except FactoryError as err:
@@ -375,10 +448,47 @@ def preflight(args) -> dict:
     return out
 
 
-def create(args) -> dict:
+def _selection(args) -> tuple[list[str], list[str], str | None]:
+    provider = getattr(args, "provider", "github")
     repos = _split(args.repos)
     stations = _split(args.ids)
+    if not repos or not stations:
+        raise FactoryError("at least one repository and station are required")
+    if not set(stations).issubset(STATIONS[provider]):
+        raise FactoryError(f"station ids must belong to the selected {provider} provider")
+    api_url = _gitlab_api_url(getattr(args, "gitlab_api_url", GITLAB_API_URL)) if provider == "gitlab" else None
+    if api_url:
+        for repo in repos:
+            _gitlab_project(repo)
+    return repos, stations, api_url
+
+
+def _trigger_choice(args, entries: dict, current: dict | None = None) -> tuple[str, str | None]:
+    requested = getattr(args, "trigger", None)
+    selected = requested or (current or {}).get("type", "cron")
+    source = getattr(args, "event_source", None) or ((current or {}).get("source") if requested != "cron" else None)
+    if selected == "cron":
+        if source:
+            raise FactoryError("--event-source requires --trigger event")
+        return selected, None
+    if selected != "event" or getattr(args, "provider", "github") != "gitlab":
+        raise FactoryError("event triggers are supported only for GitLab factory stations")
+    if any("event" not in entry["setup"]["form"]["triggers"] for entry in entries.values()):
+        raise FactoryError("not all selected stations offer event triggers")
+    capabilities = _api("GET", "/capabilities")
+    if "event" not in capabilities.get("triggerKinds", []):
+        raise FactoryError("this deployment does not support event triggers; use a polling schedule")
+    if not source:
+        raise FactoryError("select a registered --event-source from Canvas /automations/events")
+    if source not in capabilities.get("eventSources", []):
+        raise FactoryError(f"event source {source!r} is not registered; check Canvas /automations/events")
+    return selected, source
+
+
+def create(args) -> dict:
+    repos, stations, api_url = _selection(args)
     entries = {station: _manifest(station) for station in stations}
+    selected, event_source = _trigger_choice(args, entries)
     overrides = _overrides(entries, args.set or [], stations)
     root = _extensions()
     profile = None
@@ -391,8 +501,8 @@ def create(args) -> dict:
             bundle = entry.get("setup", {}).get("bundle")
             if not bundle:
                 raise FactoryError(f"{station} has no bundle; create it as the skill describes")
-            values = _form_values(entry, repos, overrides[station])
-            body = _create_body(entry, values, repos)
+            values = _form_values(entry, repos, overrides[station], api_url, selected, event_source)
+            body = _create_body(entry, values, repos, selected)
             body["tarball_path"] = _upload(station, _tarball(root, bundle["files"], body["template"]["config"]))
             body["enabled"] = False
             body["tags"] = [FACTORY_TAG]
@@ -409,6 +519,8 @@ def create(args) -> dict:
                 status_code, automation = _api("POST", "", body, return_status=True)
             summary = _summary(station, body["name"], body["trigger"], automation)
             if status_code == 200:
+                summary = _summary(station, automation.get("name", body["name"]),
+                                   automation.get("trigger", body["trigger"]), automation)
                 # The service returns the org's existing automation for the same
                 # template id (see find_existing_template_automation). Report it
                 # as pre-existing so a repeat run does not claim it created it.
@@ -486,8 +598,7 @@ def tune(args) -> dict:
     bundle is re-uploaded, and the automation is PATCHed, so the new values take
     effect without a delete and without a template-id collision.
     """
-    repos = _split(args.repos)
-    stations = _split(args.ids)
+    repos, stations, api_url = _selection(args)
     entries = {station: _manifest(station) for station in stations}
     overrides = _overrides(entries, args.set or [], stations)
     root = _extensions()
@@ -501,8 +612,10 @@ def tune(args) -> dict:
         automation = _find_existing(station)
         if automation is None:
             raise FactoryError(f"{station} is not set up yet; create it before tuning it")
-        values = _form_values(entry, repos, overrides[station])
-        body = _create_body(entry, values, repos)
+        current = _api("GET", f"/{automation['id']}")
+        selected, event_source = _trigger_choice(args, {station: entry}, current.get("trigger"))
+        values = _form_values(entry, repos, overrides[station], api_url, selected, event_source)
+        body = _create_body(entry, values, repos, selected)
         patch = {
             "name": body["name"],
             "trigger": body["trigger"],
@@ -581,6 +694,12 @@ def verify(args) -> dict:
     results = {}
     waiting = {}
     for automation_id in args.ids + (args.no_wait or []):
+        automation = _api("GET", f"/{automation_id}")
+        if (automation.get("trigger") or {}).get("type") == "event":
+            _api("PATCH", f"/{automation_id}", {"enabled": True})
+            results[automation_id] = {"status": "AWAITING_EVENT", "enabled": True,
+                                      "url": _automation_url(automation_id)}
+            continue
         run = _api("POST", f"/{automation_id}/dispatch")
         if automation_id in (args.no_wait or []):
             _api("PATCH", f"/{automation_id}", {"enabled": True})
@@ -645,16 +764,22 @@ def prs(args) -> dict:
 
 
 def reset_token(args) -> dict:
-    """Delete the saved token so request_secret opens its form (local Agent Canvas)."""
+    """Delete the selected provider's saved token (local Agent Canvas only)."""
+    secret = TOKEN_SECRETS[getattr(args, "provider", "github")]
     try:
-        _request("DELETE", f"{_host()}/api/settings/secrets/{TOKEN_SECRET}", headers=_auth())
+        _request("DELETE", f"{_host()}/api/settings/secrets/{secret}", headers=_auth())
     except FactoryError as err:
-        raise FactoryError(f"could not delete {TOKEN_SECRET}; replace it in Settings -> Secrets: {err}") from None
-    return {"deleted": TOKEN_SECRET}
+        raise FactoryError(f"could not delete {secret}; replace it in Settings -> Secrets: {err}") from None
+    return {"deleted": secret}
 
 
 def _split(text: str) -> list[str]:
     return [part.strip() for part in text.split(",") if part.strip()]
+
+
+def _provider_options(parser):
+    parser.add_argument("--provider", choices=tuple(STATIONS), default="github")
+    parser.add_argument("--gitlab-api-url", default=GITLAB_API_URL)
 
 
 def main() -> int:
@@ -662,17 +787,24 @@ def main() -> int:
     sub = parser.add_subparsers(dest="command", required=True)
     p = sub.add_parser("preflight")
     p.add_argument("--repos", required=True)
+    _provider_options(p)
     p.add_argument("--profile")
     p.set_defaults(func=preflight)
     p = sub.add_parser("create")
     p.add_argument("--repos", required=True)
     p.add_argument("--ids", required=True)
+    _provider_options(p)
+    p.add_argument("--trigger", choices=("cron", "event"))
+    p.add_argument("--event-source")
     p.add_argument("--set", action="append", metavar="[ID.]FIELD=VALUE")
     p.add_argument("--profile")
     p.set_defaults(func=create)
     p = sub.add_parser("tune")
     p.add_argument("--repos", required=True)
     p.add_argument("--ids", required=True)
+    _provider_options(p)
+    p.add_argument("--trigger", choices=("cron", "event"))
+    p.add_argument("--event-source")
     p.add_argument("--set", action="append", metavar="[ID.]FIELD=VALUE")
     p.add_argument("--profile")
     p.set_defaults(func=tune)
@@ -692,6 +824,7 @@ def main() -> int:
     p.add_argument("--branch-prefix", default="openhands/agents-md")
     p.set_defaults(func=prs)
     p = sub.add_parser("reset-token")
+    p.add_argument("--provider", choices=tuple(STATIONS), default="github")
     p.set_defaults(func=reset_token)
     args = parser.parse_args()
     try:
