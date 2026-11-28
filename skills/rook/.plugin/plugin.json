@@ -1,0 +1,19 @@
+{
+  "name": "rook",
+  "version": "1.0.0",
+  "description": "Use Rook CLI by TestMu AI to test, evaluate, red-team or regression-check an AI agent the user owns, or to interpret saved Rook results. Does not apply to ordinary unit tests, browser automation or web UI checks without an AI agent under test.",
+  "author": {
+    "name": "TestMu AI",
+    "url": "https://www.testmuai.com"
+  },
+  "homepage": "https://www.testmuai.com/rook-cli/",
+  "repository": "https://github.com/OpenHands/extensions",
+  "license": "Apache-2.0",
+  "keywords": [
+    "rook",
+    "agent-testing",
+    "red-teaming",
+    "evaluation",
+    "agent-assurance"
+  ]
+}
