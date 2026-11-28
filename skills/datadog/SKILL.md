@@ -87,6 +87,66 @@ curl -s -G "https://api.${DD_SITE}/api/v1/monitor" \
   -H "DD-APPLICATION-KEY: ${DD_APP_KEY}" | jq .
 ```
 
+## Retrieve an Event from a Datadog Event Explorer URL
+
+Users often paste a Datadog Event Explorer URL like
+`https://us5.datadoghq.com/event/explorer?...&event=AwAAAaIgUPAo...&from_ts=...&to_ts=...&live=true`.
+The `event=` query parameter is a **base64-encoded, opaque stream key**. It does **not** contain
+the API-retrievable event ID, and there is no reliable way to derive the API event ID from the URL
+alone. Do not waste time base64-decoding the `event=` parameter looking for it.
+
+What the URL actually contains (none of these are API fields):
+
+- A **stream UUID** — an internal Datadog DB key, not returned by the Events API.
+- A **stream uid** — a binary internal identifier, also not returned by the API.
+- `from_ts` / `to_ts` — when `live=true` and `refresh_mode=sliding` (the common case for a copied
+  link), these are the **window the user was looking at when they copied the link**, not the event's
+  trigger time. They slide to "now" on every page load and cannot be used to locate the event.
+
+### The reliable path: ask for `evt.id`
+
+The API-retrievable identifier is the event's numeric `evt.id`. It is visible in the Datadog UI on
+the event detail page under **Event Attributes → `evt` → `id`**. Ask the user to share that number,
+then fetch the event directly:
+
+```bash
+curl -s "https://api.${DD_SITE}/api/v1/events/${EVT_ID}" \
+  -H "DD-API-KEY: ${DD_API_KEY}" \
+  -H "DD-APPLICATION-KEY: ${DD_APP_KEY}" | jq .
+```
+
+For monitor-alert events, the v1 endpoint works reliably. The v2 endpoint
+(`GET /api/v2/events/{id}`) frequently returns `404 "No event matches that event_id."` for monitor
+alerts and containerd-type events, even with the correct ID family — prefer v1 for a single-event
+lookup by numeric ID.
+
+### Fallback: search by time + title (unreliable)
+
+If the user cannot provide `evt.id`, the only fallback is to search the v2 Events API around the
+event's **actual trigger time** (which the user must tell you — it is not in the URL) and match by
+title:
+
+```bash
+curl -s -G "https://api.${DD_SITE}/api/v2/events" \
+  -H "DD-API-KEY: ${DD_API_KEY}" \
+  -H "DD-APPLICATION-KEY: ${DD_APP_KEY}" \
+  --data-urlencode "filter[from]=<trigger_time_ms>" \
+  --data-urlencode "filter[to]=<trigger_time_ms_plus_buffer>" \
+  --data-urlencode "filter[query]=source:monitor_alert" \
+  --data-urlencode "page[limit]=100" | jq '.data[] | select(.attributes.title | contains("<title fragment>"))'
+```
+
+This is brittle: it requires the trigger time, the title may not match exactly, and high-volume orgs
+can return hundreds of events in a short window. Always prefer the `evt.id` path.
+
+### Quick reference: URL fields vs API fields
+
+| In the Event Explorer URL | API-retrievable? |
+|---|---|
+| `event=` (base64 stream key → UUID + uid) | No — internal stream ID, not indexed by the API |
+| `from_ts` / `to_ts` (with `live=true`) | No — sliding view window, not the event trigger time |
+| `evt.id` (from UI Event Attributes, **not** in URL) | Yes — `GET /api/v1/events/{evt.id}` |
+
 ## Documentation
 
 - [Logs API](https://docs.datadoghq.com/api/latest/logs/)
