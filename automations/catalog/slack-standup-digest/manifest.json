@@ -3,6 +3,7 @@
   "name": "Slack standup digest",
   "category": "Team updates",
   "description": "Summarize yesterday’s Slack activity into an async standup note with blockers, decisions, and owners.",
+  "diagram": "flowchart TD\n  A([\"Weekday morning\"]) --> B[\"Read channel updates since yesterday\"]\n  B --> C[\"Agent groups updates by project\"]\n  C --> D[\"Digest posted with blockers and owners\"]",
   "requires": {
     "integrations": {
       "slack": {

@@ -3,7 +3,7 @@ name: Tests
 # NOTE: pull_request (not pull_request_target) so checks run against the PR head.
 on:
   pull_request:
-    branches: ["*"]
+    branches: ["**"]
   push:
     branches: ["main", "master"]
 
@@ -22,13 +22,13 @@ jobs:
           set -euo pipefail
           artifacts="$(git ls-tree -r --name-only HEAD -- .pr)"
           if [ -n "$artifacts" ]; then
-            echo "::error::Release PR contains temporary .pr artifacts. Merge the cleanup PR and let release-please update this PR before merging."
+            echo "::error::Release PR contains temporary .pr artifacts. Refresh the release PR (rerun the latest release workflow on its target branch) so release-please removes them, then let this check rerun before merging."
             printf '%s\n' "$artifacts"
             exit 1
           fi
 
       - name: Install uv
-        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7.6.0
+        uses: astral-sh/setup-uv@1db35dd8eee11c5894872e0b383ae6c406cf738d # v10.4.0
         with:
           enable-cache: true
           python-version: "3.12"
@@ -42,6 +42,9 @@ jobs:
         run: uv run --group test pytest tests/
         env:
           PYTHONPATH: ${{ github.workspace }}
+
+      - name: Run Teams webhook example tests
+        run: uv run --group test python -B -m unittest discover -s examples/teams-webhook -p "test_*.py"
 
       # Plugins under plugins/<name>/tests are self-contained (stdlib-only unit
       # tests that import the plugin's own scripts via importlib). Run them in

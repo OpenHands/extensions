@@ -309,7 +309,8 @@
         "bot",
         "circle-alert",
         "activity",
-        "timer"
+        "timer",
+        "shield-check"
       ]
     },
     "subPageNavItem": {
@@ -467,7 +468,7 @@
             "additionalProperties": false,
             "required": ["value", "label"],
             "properties": {
-              "value": { "enum": ["all", "me", "others"] },
+              "value": { "enum": ["all", "me", "others", "service"] },
               "label": { "$ref": "#/$defs/copy" }
             }
           },

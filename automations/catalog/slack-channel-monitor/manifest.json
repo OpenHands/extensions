@@ -3,6 +3,7 @@
   "name": "Slack channel monitor",
   "category": "Team communication",
   "description": "Watch Slack channels for @openhands mentions, open a conversation with the message context, reply when the agent finishes, and continue the same conversation from triggered Slack thread follow-ups.",
+  "diagram": "flowchart TD\n  A([\"Poll every minute\"]) --> B[\"Messages mentioning @openhands\"]\n  B --> C[\"Conversation with the context\"]\n  C --> D[\"Agent replies in the thread\"]\n  D -.->|\"thread follow-up\"| C",
   "requires": {
     "integrations": {
       "slack": {

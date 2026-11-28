@@ -4,6 +4,7 @@
   "name": "GitHub repository monitor",
   "category": "Developer tools",
   "description": "Watch a repository for @OpenHands mentions in issues and PR comments, start a conversation, and let the agent answer or carry out the work - by default only for users with write access.",
+  "diagram": "flowchart TD\n  A([\"Scheduled poll\"]) --> B[\"Comments mentioning OpenHands\"]\n  B --> C{{\"Author allowed?\"}}\n  C -.->|no| D[\"Reply: not allowed\"]\n  C -->|yes| E[\"Agent answers or works\"]\n  E --> F[\"Reply on the thread\"]",
   "requires": {
     "integrations": {
       "github": {

@@ -4,6 +4,7 @@
   "category": "Research",
   "icon": "activity",
   "description": "Read a list of public RSS and Atom feeds on a schedule, hand an agent everything new, and have it pick out what matters for your topics and write a short digest. Connects to nothing and needs no credentials.",
+  "diagram": "flowchart TD\n  A([\"Daily\"]) --> B[\"Read the RSS and Atom feeds\"]\n  B --> C[\"Keep new, on-topic items\"]\n  C --> D[\"Agent writes a short digest\"]",
   "requires": {
     "integrations": {},
     "features": [

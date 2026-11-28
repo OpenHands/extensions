@@ -3,6 +3,7 @@
   "name": "Linear issue triage assistant",
   "category": "Project management",
   "description": "Classify new Linear issues, suggest labels, find duplicates, and ask clarifying questions.",
+  "diagram": "flowchart TD\n  A([\"New Linear issue\"]) --> B[\"Agent reads it and related issues\"]\n  B --> C[\"Labels, priority, owner suggested\"]\n  C --> D[\"Duplicates and questions commented\"]",
   "requires": {
     "integrations": {
       "linear": {

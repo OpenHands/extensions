@@ -47,7 +47,7 @@ two records of the same fact from drifting apart, and it is why the file is as s
 | Local validation rules | The `required` flag and `constraints` on each field, applied to the selected trigger variant |
 | The preflight call | `POST /v1/validate` with the entry id, the create endpoint, and the rendered payload |
 | The created automation's name | A form field named `name`, or the entry's `name` plus the repository that was picked |
-| `repos` in the create request | The repo-picker field, its declared `provider`, and a non-empty field named `ref` if there is one |
+| `repos` in the create request | The repo-picker field, its declared `provider`, and a non-empty field named `ref` if there is one; sent only when the deployment's `repoProviders` capability lists that provider (`github`, `gitlab` and `bitbucket` when the service reports none) |
 | `model` and `timeout` in the create request | Same-named form fields when they have values |
 | `trigger` in the create request | The selected key under `form.triggers`, and the fields under it named after trigger properties |
 | Which input a rejected payload path belongs to | Rebuilding that body with each field standing in for its own value |
@@ -93,10 +93,21 @@ not it ships a setup flow. Integrations are keyed by id, and each id must match 
 never listed with nothing attached. `required` defaults to true; state `false` only for an integration
 setup can proceed without.
 
+`requires.builtInIntegrations` lists the integrations built into an OpenHands Cloud or Enterprise instance
+(Settings > Integrations) that the automation cannot run without, by provider name (`bitbucket_data_center`,
+`jira_dc`, ...). State it only for an integration no MCP server can stand in for, such as a self-hosted Data
+Center product: a user cannot connect one from the card, so a host that knows the instance's built-in
+integrations can rank the entry below the others, or hide it, where one is missing, and a host without
+built-in integrations, such as a local backend, never offers it.
+
 `skill` names the `skills/` directory that builds this automation today, and defaults to `id`, so only the
 three entries whose names differ from their skill state it. The command that launches that skill is **not**
 repeated here: it lives once, in the skill's own `triggers:` frontmatter, and the skills catalog exposes it.
 That way a skill can rename its trigger without leaving a stale copy behind in this catalog.
+
+`diagram` is optional Mermaid source for a small picture of what the automation does, which the host draws
+beside `description` on the setup screen. Keep it to a handful of nodes in a top-down `flowchart TD`, since
+the setup screen is narrow; the schema caps it at 1500 characters.
 
 `setup` is optional. Entries that carry one never repeat `id`, `name`, `category`, or `description`.
 `setup.version` selects how the block is interpreted; a future format ships a new constant.
@@ -277,8 +288,9 @@ falling back to its built-in defaults when the manifest is absent or fails admis
   captions it: `overview.tiles[].metric` names a host-computed value (`automations`, `needs-attention`,
   `total-runs`, `average-duration`), filter option values name host predicates (`status`: enabled /
   latest-run-failed / disabled; `trigger`: `event` matches event-triggered automations, `schedule`
-  everything else; `created_by`: `me` matches automations the signed-in user created, `others` everything
-  else, and the host decides where it is shown; `tag` declares no options, because its values are the
+  everything else; `created_by`: who an automation runs as - `me` matches automations that run as the
+  signed-in person, `others` those that run as another person, `service` those that run as a service
+  account - and the host decides where it is shown; `tag` declares no options, because its values are the
   tags the automation service reports for the org, and the host hides it when there are none), `sort`
   values name host comparators, and `insights`
   captions the host's run-health states and per-automation stats. The health precedence, the run
@@ -328,7 +340,9 @@ Each scenario carries whichever blocks apply: `formValues`, `selectedTrigger`, `
 `localValidation`, `preflight`, `create`, `conversation`, `expectedFieldErrors`,
 `expectedPrerequisiteOutcome`. `selectedTrigger` is required when an entry declares multiple trigger
 variants and the scenario records a create or preflight payload. `capabilities.json` holds deployment
-shapes so the unsupported paths have coverage too.
+shapes so the unsupported paths have coverage too. A bundle names the shape its scenarios run against in
+`capabilities`; a scenario whose payload depends on another shape, such as one whose runs clone more
+providers, names that shape in its own `capabilities`.
 
 Beyond the derivation checks, every request body here has been verified against the live Pydantic models in
 `OpenHands/automation`:
@@ -345,6 +359,12 @@ Two findings came out of that check and are baked into the entries:
 - **A trigger phrase containing an apostrophe breaks the event filter**, because it is interpolated into a
   JMESPath string literal. Hence `constraints.format: "safeExpressionLiteral"` on that field, and the
   `quote-in-trigger-phrase-blocked-locally` scenario.
+- **`repos[].provider` must be one the service's runs clone.** A service whose openhands-sdk predates a
+  provider rejects it with a 422, and from OpenHands/automation 1.27.0 a run fails when a listed repository
+  cannot be cloned. So a host sends a picker's `repos` only for a provider in `repoProviders`, and an entry
+  whose picker names a newer provider has its prompt clone the repository itself. The Bitbucket Data Center
+  templates do, and the `data-center-clone` scenario records the request once the service clones that
+  provider.
 
 ## Endpoints the host calls
 
