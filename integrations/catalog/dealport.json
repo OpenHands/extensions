@@ -1,0 +1,102 @@
+{
+  "id": "dealport",
+  "name": "Dealport",
+  "description": "Cited US private company, commercial building, 50-state parcel, and verified owner intelligence for agents.",
+  "categories": [
+    "Research",
+    "Analytics",
+    "Real Estate"
+  ],
+  "appUrl": "https://app.dealport.com",
+  "docsUrl": "https://app.dealport.com/llms.txt",
+  "notes": "Uses Dealport's official hosted Streamable HTTP MCP server (com.dealport/dealport on the Official MCP Registry, 47 tools across 28M+ cited US private company Records, commercial buildings, 50-state parcels, LLC officer unmasking, public filings, Projects, Playbooks, and double-opt-in introductions through Avery, Dealport's AI outreach specialist who always discloses she is an AI). Supports OAuth 2.1 PKCE, optional Bearer API key (keyless preview_companies costs $0.00; API Pro accounts start with a $5.00 free balance on pay-as-you-go), and a local npx dealport mcp serve stdio fallback.",
+  "iconBg": "#0F172A",
+  "keywords": [
+    "companies",
+    "smb",
+    "real estate",
+    "public filings",
+    "origination",
+    "research"
+  ],
+  "installHint": "Prefer OAuth or the hosted Streamable HTTP API-key option. Leave the API key blank to test $0.00 preview_companies market sizing, or create a dp_live_... workspace key at https://app.dealport.com/connect?tab=keys ($5.00 free starting balance, pay as you go).",
+  "connectionOptions": [
+    {
+      "id": "oauth",
+      "provider": "mcp",
+      "auth": {
+        "strategy": "oauth2",
+        "oauth": {
+          "authorizationUrl": "https://gifted-quartz-09.authkit.app/oauth2/authorize",
+          "tokenUrl": "https://gifted-quartz-09.authkit.app/oauth2/token",
+          "registrationUrl": "https://gifted-quartz-09.authkit.app/oauth2/register",
+          "scopes": [
+            "openid",
+            "profile",
+            "email",
+            "offline_access"
+          ],
+          "pkce": true,
+          "clientAuthentication": "none",
+          "additionalAuthorizationParams": {
+            "resource": "https://app.dealport.com/api/mcp"
+          },
+          "additionalTokenParams": {
+            "resource": "https://app.dealport.com/api/mcp"
+          }
+        }
+      },
+      "transport": {
+        "kind": "shttp",
+        "url": "https://app.dealport.com/api/mcp"
+      }
+    },
+    {
+      "id": "api-key",
+      "provider": "mcp",
+      "transport": {
+        "kind": "shttp",
+        "url": "https://app.dealport.com/api/mcp",
+        "apiKeyOptional": true
+      },
+      "auth": {
+        "strategy": "bearer",
+        "apiKeyOptional": true,
+        "credentialLabel": "Dealport API key",
+        "credentialPlaceholder": "dp_live_...",
+        "credentialHelp": "Create a workspace API key (`dp_live_...`) under [Dealport Connect > API Keys](https://app.dealport.com/connect?tab=keys) ($5.00 free starting balance, pay as you go), or leave blank for keyless $0.00 preview_companies calls. Sent as Authorization: Bearer <token>.",
+        "credentialSecretName": "DEALPORT_API_KEY",
+        "saveCredentialAsSecretByDefault": true
+      }
+    },
+    {
+      "id": "stdio",
+      "provider": "mcp",
+      "transport": {
+        "kind": "stdio",
+        "serverName": "dealport",
+        "command": "npx",
+        "args": [
+          "-y",
+          "dealport",
+          "mcp",
+          "serve"
+        ],
+        "envFields": [
+          {
+            "key": "DP_API_KEY",
+            "label": "Dealport API key",
+            "type": "password",
+            "placeholder": "dp_live_...",
+            "required": true,
+            "helperText": "Workspace API key (`dp_live_...`) from your Dealport account ($5.00 free starting balance, pay as you go).",
+            "helperLink": "https://app.dealport.com/connect?tab=keys"
+          }
+        ]
+      },
+      "auth": {
+        "strategy": "api_key"
+      }
+    }
+  ]
+}
